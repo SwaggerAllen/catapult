@@ -397,6 +397,12 @@ the platform primitive that makes the deploy model safe:
   Not a full substitute (schema changes and deploy-time behavior still
   hit prod raw) but covers review-before-users-see-it, which is most
   of what staging was for.
+- **Delivery-model update (§7.5, §7.8):** deploys are per-feature
+  (feature PR squash-merges to main), so "partial feature on prod"
+  mostly evaporates; flags earn their keep as staged rollout,
+  kill-switch, the author's flagged-in prod validation, and the
+  milestone flip — a milestone "ships" by aggregating and flipping
+  its features' flag set at the boundary.
 - Scope discipline: release flags only, plus ops kill-switches owned
   by the component wrapping an external dependency. No percentage
   rollouts/experimentation — machinery without a customer at this
@@ -489,6 +495,12 @@ boundary export has a test; bare `@tag :skip`; migration safety; docs
 folder and admin surface present; pubapi fragment ↔ boundary exports
 drift; UI-collection files containing backend calls (§5.4); OpenAPI
 diff vs prior release for undeclared breaking changes (§4.4).
+
+Delivery-side promotion (§7.5): a ticket's diff touching files
+outside its Boundary-derived file map is an **automatic bounce** —
+plane-authored marker comment naming the paths, `Ready for rework`,
+no human involved. Orchestration's mutex audit promoted from
+CI-blocking finding to auto-routing.
 
 ---
 
@@ -822,12 +834,15 @@ convention set is less developed and needs its own pass.
   gains a process inventory; impl's `<tests>` block becomes normative
   (§2.8); journey and screen grammars per §4.2/§4.3.
 - **Nav edges:** cyclic-legal, never readiness-bearing (§4.3).
-- **A delivery section** — states, owners, transitions, invariants,
-  escalations (roughly orchestration's protocol tables + config as a
-  declaration), sharing the node vocabulary with the design graph.
-  Join points declared: which tier's approval mints tickets, which doc
-  diffs constitute a sketch, which scopes derive mutex labels.
-  **Shape deliberately unspecified pending §7.**
+- **A delivery section** — ships from the platform layer, sharing the
+  node vocabulary with the design graph. Now specifiable per §7: the
+  shared status vocabulary and the two lifecycles (feature + child)
+  with the type-invariance sharing test; per-flow entry-tier mappings
+  and which gates each entry skips; the plan-tier → child-spawn-list
+  join point; mutex-label derivation from scopes; the branch/PR
+  topology (child PR → feature branch, feature PR → main); gate → CI
+  label mappings. Exact declaration syntax still to be drafted
+  (§7.9.4).
 
 Design-stance note carried over from v4 and reaffirmed: closed
 vocabularies everywhere (scope expressions, predicate operators,
@@ -836,86 +851,245 @@ into Turing-completeness.
 
 ---
 
-## 7. THE OPEN SEAM: delivery and the ticket model
+## 7. The delivery model
 
-Deliberately unresolved. The next conversation; likely to reshape
-parts of §6's delivery section and possibly the impl tiers' grain.
-What follows records the direction and its tensions, not decisions.
+Settled. Supersedes the earlier "open seam" framing of this section.
+The target lifecycle, per unit of work: (1) the author writes a
+feature they want → (2) UI design if applicable → (3) architecture →
+(4) code → (5) validate → (6) ship — with each instance of (1) a
+ticket, and the machinery below mapping those steps onto both the
+siege chain and the orchestration loop.
 
-### 7.1 The target lifecycle
+### 7.1 Linear is stupid; the plane is smart
 
-The end goal, per feature: (1) author writes a feature they want →
-(2) UI design for the feature, if applicable → (3) architecture for
-the feature → (4) code → (5) validate → (6) ship. **The instinct: each
-instance of (1) is a ticket**, and those six steps map onto both the
-orchestration flow (design pass → dev → reconcile → deploy) and the
-siege flow (feature expansion → propagation through tiers). The open
-question is how much of the siege document machinery gets *baked into
-Linear state* versus remaining Catapult-side with tickets as the
-delivery projection.
+Orchestration made Linear the state machine out of necessity — GitHub
+Actions had no persistence, so the tracker was the only store, and
+its rules (state-transition-as-claim, detect-and-revert, pickup
+assertions) exist to make a store with no transaction hooks behave
+like one. Catapult has Commanded and an event log, so the roles
+invert: **the doc graph + event log is the state of record; ticket
+state is a coarse projection for human legibility; human actions in
+Linear (and comments in Linear and GitHub) are signals — commands the
+control plane validates**, accepting them into the event log or
+reverting with a comment. Dispatch is driven by `ready_scopes`, never
+by tracker state.
 
-### 7.2 Ticket grain — direction under discussion
+This is what makes conflating tiers with ticket states legal.
+Orchestration's state-admission test ("each state answers *who has
+the ball* differently") was load-bearing because states drove
+dispatch; here it relaxes to: machine states may be pipeline phases,
+but **every state where the author must act is unmistakable**, and
+there are few of them. Orchestration's naming discipline is retained:
+no two states (or a state and a label) one hyphen apart in meaning.
 
-- **Scaffold (initial implementation): roughly a ticket per
-  subcomponent**, ordered by the dependency graph. Possibly feature-
-  tickets with subcomponent subtasks for better parallelization.
-- **Thereafter: a ticket per feature request** — the feature flows
-  through docs (staleness cascade) and lands as one delivery unit.
-- **Bias toward larger tickets.** Common wisdom on ticket sizing
-  assumes human time; AI does in hours what humans do in days-to-
-  weeks, so a ticket can be a whole deliverable. (Note the alignment:
-  orchestration's reconciliation verifies a diff against an
-  *argument* — a coherent deliverable-sized argument is exactly what
-  it's built to check. Many tiny tickets dilute the argument;
-  one-feature-one-argument concentrates it.)
-- **Parallelism:** original SiegeEngine assumed one propagation pass
-  at a time. The mutex machinery may permit much more: the doc graph
-  gives delivery *better* collision data than orchestration's native
-  config — mutex labels derived from component scopes, plus declared
-  edges (`renders`, `calls`, `uses_shapes`, consistency annotations)
-  giving the re-evaluation machinery real adjacency instead of
-  hand-reconstructed guesses.
+### 7.2 The ticket tree is a projection of the doc DAG's fanout
 
-### 7.3 Questions the next conversation must answer
+Linear sub-issues nest (a sub-issue is a full issue with a parent
+link, multi-level), and blocking relations are native — no subtask
+hacks needed. The tree: **feature ticket → component children →
+subcomponent grandchildren**, spawned exactly where the doc graph
+fans out, each child blocking its parent and carrying its scope's
+mutex labels.
 
-1. How much siege machinery moves into Linear state? (Options range
-   from "tickets are a projection of doc-graph state, Linear is dumb"
-   to "Linear states carry the doc lifecycle and Catapult reacts to
-   tracker transitions, orchestration-style." Orchestration's hard-won
-   rules — states answer *who has the ball*, descriptions immutable,
-   newest-comment-is-scope, detect-and-revert enforcement — should
-   survive whatever the split is.)
-2. Ticket grain at scaffold: per-subcomponent tickets vs. per-feature
-   tickets with subtasks; how phase plan and dependency order
-   translate into milestone/queue structure.
-3. Do feature tickets carry their doc-regeneration (steps 2–3) as
-   ticket-internal stages, or do docs regenerate Catapult-side first
-   with the ticket minted only for step 4+? (This is the crux of
-   "ticket per instance of (1)": if the ticket IS the feature, design
-   and architecture become ticket states, which merges siege's
-   document state machine into the tracker far more deeply than
-   orchestration's single design-pass state.)
-4. Where the initial-scaffold ticket enters orchestration's state
-   machine (pre-designed tickets arguably enter at `Ready for dev`
-   with sketch attached — bending the every-ticket-gets-a-design-pass
-   rule).
-5. How many dev agents / how much parallel in-flight work the mutex +
-   adjacency data actually supports, and what the single-dispatcher
-   control plane needs to guarantee it.
-6. Whether validation (step 5) is reconciliation as-is, or grows
-   (post-deploy checks against affordances/states, `mix catapult.audit`
-   as the reconcile harness, flag-gated author validation at the
-   milestone boundary).
+**Grain rule: spawn a level down only when the plan document at that
+level proves independent parallel work exists.** Default stays coarse
+(large tickets — ticket-sizing wisdom assumes human time; a whole
+deliverable per ticket suits AI time, and a deliverable-sized
+argument is exactly what reconciliation is built to check). Depth is
+earned by demonstrated parallelism, never reflexive.
 
-### 7.4 What seems stable regardless
+Siege's per-tier plan documents (v4's flow planning tiers, previously
+untested) get their concrete job here: the plan at a fanout node
+determines what changes at that tier *and which children are
+impacted* — **the plan node's output is the child-ticket spawn list
+plus its label set.**
 
-Recorded so the next conversation doesn't relitigate: mutex labels
-derive from doc-graph scopes (§2.1, §5.4); the sketch is a diff
-against architecture bodies; the audit is the shared enforcement organ
+Ticket content: the ticket carries the *argument* (human-readable,
+for the author); the agent's context bundle — dependency pubapis,
+resp/feat slice, related screens, the impl doc — is fetched from the
+control plane at claim time. The ticket points; the plane serves.
+Context reduction is the point: each thread sees its dependencies'
+APIs and its up-graph slice, nothing more.
+
+### 7.3 Entry points
+
+**Entry tier is a property of the ticket, not different machinery.**
+The cascade starts at the declared entry tier; gates upstream of
+entry are skipped — nothing to review is orchestration's decisionless
+pass generalized; everything downstream is standard. The taxonomy:
+
+- **Feature** — enters at the product tier (journeys/screens). The
+  default.
+- **Capability-only** (responsibilities, no UI) — enters at
+  requirements; the first author gate is architecture review.
+- **Tech debt / refactor** — enters at architecture (sysarch/comparch
+  deltas, no product change). Orchestration's alternating debt
+  milestones and gating-debt rules survive unchanged; debt tickets
+  are this entry with the `tech-debt` label.
+- **Bug, fixed in-flow** — enters wherever the plan tier localizes
+  the defect. "Which artifact was wrong — impl, comparch, screen
+  definition?" is itself the first planning question; the cascade
+  runs downward from there.
+- **Bug, fixed out-of-band** — the author's hotfix lands on main
+  outside the pipeline (legal, per orchestration §2.5). The base
+  check detects the ground moved; because file→scope mapping is
+  Boundary-derived, the plane mechanically maps the diff to impacted
+  scopes and opens an **absorption ticket** running the upward flow:
+  docs absorb reality, walking upward only as far as the change
+  argues.
+- **Urgent / stop-the-world** — orchestration's rules port verbatim:
+  `Urgent` preempts at pickup, never interrupts in-flight work, never
+  steals an in-flight mutex, overrides the milestone pause. A true
+  security patch bypasses the pipeline onto main — and its afterlife
+  *is* the absorption path above. One mechanism, two doors.
+
+### 7.4 Feedback surfaces
+
+Four surfaces, each at its own altitude; the feedback-hose problem
+(one ticket aggregating feedback for dozens of artifacts) is
+dissolved by giving every feedback type a home:
+
+1. **Linear** — the author's inbox and state lever. See tickets
+   waiting on you, action them, kick work back to the machine.
+2. **GitHub PRs** — diffs and artifact feedback. At the review gates
+   the artifact set *is* a doc diff on the feature PR, so artifact
+   feedback is line-anchored PR review comments. **Harvesting rule:**
+   on a gate decline (state moved back), the plane collects review
+   comments since the last gate, buckets them by the artifact file
+   span they anchor to, and threads each bucket into that scope's
+   regeneration as `feedback`. Machine comments carry fixed markers
+   (orchestration's programmatic-comment rule); anything unmarked in
+   the diff span is human feedback.
+3. **Preview URLs / storybook exports** — visual review, per branch.
+4. **The docs site** — human browsing of settled architecture.
+
+**Comments at the wrong altitude are routed, not honored:** a
+parent-ticket comment about a component's internals becomes feedback
+on the child (or the artifact), moved by the plane with a note.
+Scope rules only protect you if scope stays where it belongs.
+
+**The Catapult LiveView UI is a debugging surface, not a working
+surface.** Lesson from siege: the DAG is for machine comprehension
+(humans got a tree view because the graph was unnavigable), and
+Linear+GitHub already unify comments, states, and diffs. The
+debugging surface is load-bearing and genuinely hard — event-log
+inspection, replay-to-sequence, ready_scopes explain-why ("what is
+blocking this scope" as a first-class query), staleness provenance,
+dispatch history, agent-run transcripts. When a pipeline this deep
+stalls, "why is nothing happening" must be answerable in minutes.
+Budgeted as a real engineering line item, not a leftover dashboard.
+
+### 7.5 Branches, merges, reconciliation
+
+- **One feature branch with one PR to main; each child ticket gets
+  its own PR merging into the feature branch.** Child scoping is
+  strict (Boundary-derived file maps), so merges are near-always
+  textually safe. **Scope violation is an automatic bounce:** an
+  agent touching files outside its ticket's file map gets a
+  plane-authored marker comment naming the paths and `Ready for
+  rework` — no human involved.
+- **Never rebase. Merge main forward.** The plane auto-merges main
+  into open feature branches when main moves, and feature branches
+  into their children — drift absorbed continuously in small bites.
+  A conflict on the auto-merge is a real signal (two features
+  semantically adjacent despite disjoint mutexes) and routes to the
+  ticket as rework. A failed merge means pull and retry; GitHub
+  arbitrates races.
+- **The parent's doc diff merges to the feature branch through the
+  same PR flow; children branch from the feature branch** and see
+  current architecture. Child merges are ordinary merge commits (the
+  branch dies anyway); **the feature PR squash-merges to main** —
+  main stays one-commit-per-feature, keeping deploy detection, SHA
+  ancestry, and retro notes trivially readable.
+- **Reconciliation grain mirrors ticket grain.** Child reconcile
+  reads the child PR against the child's argument, merges to the
+  feature branch. Feature reconcile reads the feature PR — the
+  composed diff, which pre-exists as the reconciliation vehicle —
+  against the feature's argument, merges to main. The composition
+  check orchestration's pre-merge placement "genuinely lost" comes
+  back at the feature level.
+- **Deploys are per-feature.** Features merge dark behind their flag
+  (§2.10); post-deploy validation runs against the feature's
+  affordances/states; the author's flagged-in validation happens on
+  prod.
+- **Watch item:** in-flight is now feature-scoped, so mutex hold
+  windows lengthen. Counterargument accepted for now: a feature
+  touching many things is itself more parallelizable, so up to some
+  critical mass related to the project's branching factor, parallel
+  threads stay saturated regardless of feature count. Measurable
+  rather than debatable: mutex-wait time per label is a Prometheus
+  metric once the plane runs; "one label serializing unrelated
+  features" (orchestration §14, coarser grain) is the panel to watch.
+
+### 7.6 States
+
+**One shared status vocabulary across ticket types**, type carried by
+labels (`type:feature` / `type:component` / `type:subcomponent`), the
+plane keying routing off state × type (leaving `Reconciling` merges
+to the feature branch for a child, to main + deploy-watch for a
+feature). The sharing test: **a status may be shared iff its
+definition doesn't mention ticket type.** Not every type visits every
+state.
+
+- Feature lifecycle: `Todo → Product design → Product review (author)
+  → Architecting → Architecture review (author — the sketch review) →
+  Building (children in flight; progress = sub-issue roll-up) →
+  Reconciling → Merged → Validating → Shipped/Done`, `Blocked`
+  anywhere. Two author gates, per orchestration's touchpoint budget;
+  entry tier (§7.3) determines which early states are skipped.
+- Child lifecycle: orchestration's states nearly verbatim — `Ready
+  for dev → In progress → Checks → Reconciling → Merged → Done`, plus
+  `Ready for rework / Reworking`, design states gone: children are
+  born past design (their design is the parent's approved docs),
+  entering at `Ready for dev` by construction — which is how
+  every-ticket-gets-a-design-pass is satisfied at the parent.
+
+### 7.7 CI
+
+`on: pull_request` with **no branch filter** (child PRs target
+feature branches, so branch-filtered triggers would never fire), with
+jobs conditioned on **PR labels the plane applies**: `ci:docs` on
+docs-only PRs (review-gate phases — grammar validation + audit, no
+compile suite), `ci:code` for the full gate set (§2.13). Selection
+logic stays in the plane; the plane consumes check results keyed to
+head SHA regardless of base branch.
+
+### 7.8 Milestones
+
+Unchanged from orchestration: a milestone is a collection of
+features; the boundary ticket, author's pass, archive/debt-scan/
+grooming machinery all port as-is. "Shipping" a milestone aggregates
+the flag set from its included features and flips it at the boundary
+after the author's pass — features merge dark as they complete; the
+milestone lights up together.
+
+### 7.9 Still open within the delivery model
+
+1. **Scaffold** — how the initial build-out maps onto the ticket
+   model when "the feature" is the whole system. Likely: the phase
+   plan partitions the scaffold into milestone-sized feature tickets
+   per phase, children per component as usual — but this is
+   presumption, not decision.
+2. Agent-run substrate for children (Actions vs owned runners) and
+   how many concurrent agent sessions the plane dispatches.
+3. Linear API/webhook limits under many child tickets — verify plan
+   limits before the plane assumes them (orchestration §14's warning,
+   inherited).
+4. The exact delivery-DSL declaration shape (§6) — states, gates,
+   entry-tier mappings, spawn rules as bundle-layer content.
+
+### 7.10 Load-bearing constants
+
+Recorded so nothing relitigates them: mutex labels derive from
+doc-graph scopes (§2.1, §5.4); the sketch is a diff against
+architecture bodies; the audit is the shared enforcement organ
 between design and delivery; orchestration's Go pipeline delivers
-Catapult itself while Catapult's Elixir control plane re-expresses the
-protocol for generated projects; the Go core's snapshot→actions purity
-is the porting model (near-1:1 to a Commanded process manager).
+Catapult itself while the Elixir plane re-expresses the protocol for
+generated projects; the Go core's snapshot→actions purity is the
+porting model (near-1:1 to a Commanded process manager); descriptions
+immutable and newest-comment-is-scope survive at the child grain;
+detect-and-revert survives as validate-or-revert with the event log
+as authority.
 
 ---
 
@@ -937,3 +1111,14 @@ is the porting model (near-1:1 to a Commanded process manager).
 - `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
   reviewed against §1.1's multi-document intake; reconcile before the
   input-role design freezes.
+- Scaffold → ticket-model mapping (§7.9.1) — likely phase-plan-
+  partitioned feature tickets, undecided.
+- Agent-run substrate for child tickets (§7.9.2).
+- Linear plan/API limits under many sub-issues (§7.9.3).
+- Delivery-DSL declaration syntax (§7.9.4) — semantics settled in §7,
+  syntax undrafted.
+- Debugging surface scope (§7.4) — budgeted as real engineering;
+  undesigned.
+- Mutex hold-window saturation (§7.5 watch item) — measure via
+  per-label mutex-wait metrics; act only if a label serializes
+  unrelated features.
