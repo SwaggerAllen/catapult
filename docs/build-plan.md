@@ -81,6 +81,12 @@ tickets — orchestration's rule is that issues are created only on
 the author's ask, so populating the backlog is an attended pass
 (author + assistant), not machinery.
 
+- **Tickets are exclusively work orchestration will deliver.**
+  Pre-pipeline setup (Phase 2) cannot be tickets — the pipeline
+  doesn't run until it's done — so it lives in `SETUP.md` as a
+  runbook. The backlog starts at Phase 3 (plus debt items and the
+  Phase 2 verification ticket, which the pipeline itself works).
+
 - **Grain: whole-deliverable tickets** (v5 §7.2's large-ticket rule,
   applied to our own backlog): one ticket per coherent system slice
   — "the DSL loader," "the reducer + projections," "the authoring
@@ -106,23 +112,30 @@ the author's ask, so populating the backlog is an attended pass
   learnings will invalidate); each milestone gets fully ticketed as
   it approaches, at the boundary's grooming pass.
 
-Exit: the backlog exists in Linear, milestoned and ordered; the
-Phase 2 milestone is fully ticketed and pulled to Todo.
+Exit: the backlog exists in Linear, milestoned and ordered; Phase 3
+is fully ticketed; the Phase 2 verification ticket is ready to file
+once SETUP.md completes.
 
-## Phase 2 — Orchestration hookup
+## Phase 2 — Orchestration hookup (attended, per SETUP.md)
 
-Pipeline config, Linear project, stub workflows, storybook + preview
-for dashboard screens, deploy detection. Orchestration-side work
-items (its build is not finished): remaining milestones, plus a
-**generic health-endpoint deploy adapter** (reads §2.13's contract;
-provider-independent, covers any target) in preference to a
-provider-specific one, plus a **boundary live-suite step**: at
-milestone boundary, after the boundary ticket is created and before
-the author's pass, run the project's `:live`-tagged suite (real
-network, real providers) and post results on the boundary ticket —
-failures file as blockers against the milestone through the existing
-blocking rule. The flag flip sits strictly downstream of a green
-live run.
+A runbook, not tickets: `SETUP.md` at the repo root. Already in
+place: the Linear team/project with states and labels (shared with
+orchestration's test project), and the Cloudflare Worker metronome
+(Cloudflare side — our side is a config value and one action run).
+Remaining attended work: the App Platform deploy artifacts and app,
+`pipeline.config.json`, stub workflows + secrets + branch
+protection, and the agent-facing CLAUDE.md **copied from
+orchestration's template** — maintained there, because orchestration
+runs the agents; this repo hosts the copy.
+
+Orchestration-side items (its build is not finished): the
+`preview`-optional config decision (a backend-only project is a
+legitimate config; Catapult has no storybook until Phase 4), the
+**generic health-endpoint deploy adapter** (now off Catapult's
+critical path — the App Platform adapter covers the reference
+instance; still wanted for DOKS-target projects), remaining PLAN
+milestones. The **boundary live-suite step** is done (shipped with
+the live-suite change).
 
 Exit: a trivial ticket flows through design → dev → reconcile →
 deploy on the Catapult repo. From here, phases 3+ are
