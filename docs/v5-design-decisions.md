@@ -699,6 +699,11 @@ shipping.
   the swap verification — the real implementation must pass it
   unchanged, plus its property-specific tests.
 
+Deliberately **not ported to orchestration's Go protocol**: it has no
+implementation contracts to hold a stub's shape against, and the
+stubs in Catapult's own build are small and short-lived. Catapult
+delivery machinery only.
+
 ---
 
 ## 3. Shared components and the registry
@@ -1438,10 +1443,22 @@ configured from the same declarations production reads.
 Agent prompts, plane logic, and shared vocabulary are written against
 the protocol; a project with bespoke states forks all three
 (orchestration §1: two copies of a shared vocabulary drift silently).
-Projects get a bindings file — tracker team/project ids, the
-state-name mapping into Linear's workflow, actor role→user-ids,
-deploy endpoint, preview target, `tunable`-marked thresholds —
-nothing structural.
+Projects get **bindings** — tracker team/project ids, the state-name
+mapping into Linear's workflow, actor role→user-ids, the `reviewers:`
+map, deploy endpoint, preview target, `tunable`-marked thresholds —
+nothing structural. **Bindings are plane entities, not a repo file**
+(differs from orchestration, which had no store): edited through a
+settings/onboarding flow that *queries* Linear and GitHub through the
+plane's adapters so the user picks from what exists instead of
+pasting ids, with one-click provisioning of the status vocabulary
+into a fresh tracker team (orchestration's `setup`, UI-ified). Three
+free consequences: binding changes are event-sourced (config history
+is a real audit answer), the UI renders exactly the tunable surface
+so protocol-fixedness is visually enforced, and the sim/test ring
+configures from the same entities. The split that survives: **repo
+holds content** (bundle, `catapult.yaml`) — versioned with the
+design; **plane holds bindings** — queried, picked, stored. Not
+urgent to build (§8); cheap and high-value when it lands.
 
 **The join to the design graph extends the existing syntax rather
 than paralleling it.** Forced, not aesthetic: projects can add tiers
@@ -1564,7 +1581,10 @@ degenerates correctly: "My Issues" is exactly the cross-project list
 of tickets needing the author — the inbox property, with no
 filtering. (Deliberately rejected: assigning everything to the
 author — if every ticket is yours, the attention signal dies; the
-full inventory already exists as project views.)
+full inventory already exists as project views.) Catapult-plane
+feature only: for Catapult's own build the author runs a simple
+external assign-when-needed rule; nothing is ported into the Go
+pipeline.
 
 ### 7.11 Validation and the repair loop
 
@@ -1696,6 +1716,9 @@ states.
 - Shared-component build order — identity, observability, LLM
   adapters, generation runtime, `platform-client-ts`, storage: the
   roster is set, the sequencing isn't.
+- Bindings settings/onboarding UI (§7.10) — query-and-pick over
+  Linear/GitHub, one-click tracker provisioning. Designed, not
+  urgent; big team QoL for cheap.
 
 ---
 

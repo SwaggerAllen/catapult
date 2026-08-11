@@ -23,11 +23,17 @@ conventions §13).
 
 ## Standing decisions
 
-- **Debugging surface, permanently.** When a workflow need appears,
-  the question is "which existing surface (Linear, PR, docs site)
-  should carry this," and only then "should the dashboard." A
-  pipeline this deep will generate constant temptation to grow a
-  working UI here; this line exists to be pointed at.
+- **Debugging surface for the work loop, permanently.** When a
+  workflow need appears, the question is "which existing surface
+  (Linear, PR, docs site) should carry this," and only then "should
+  the dashboard." A pipeline this deep will generate constant
+  temptation to grow a working UI here; this line exists to be
+  pointed at. **Carve-out, explicit so this line isn't cited against
+  it:** settings and onboarding (v5 §7.10's bindings UI —
+  query-and-pick project wiring, tracker provisioning, tunables) are
+  ops, not the work loop, and belong here. The non-goal forbids
+  artifact review and ticket action migrating in; it does not forbid
+  configuration.
 - **"Why is nothing happening" must be answerable in minutes** — the
   design bar for every view. Explain-why over dashboards-of-numbers.
 - **LiveView + daisyUI, stateless presentational components** —
