@@ -65,6 +65,21 @@ feature-sized delivery (private-side entropy inside clean contracts)
 is exactly what boundary-level testing, the debt scan, and the
 refactor flow exist for.
 
+**The negative-space doctrine (from the Haven and Polyphony gap
+passes):** the graph records what is deliberately *not* built and
+*not yet* decided, with its argument, and every generator and planner
+reads it. Two mechanisms carry it: (a) a **`non_goals` input role** —
+orchestration §4's confirmed-non-asks document promoted to a standard
+intake role, read by product-tier and plan-tier prompts, checked by
+reconciliation (the cautionary tale: a regeneration that can't see
+the non-asks rebuilds the exact feature a standing decision ruled
+out); (b) **argued deferrals** — "total architecture" means every
+*contract* complete (seams, pubapis, entity models), not every
+implementation detail pre-decided; a deferred internal behind a
+fully-specified stub seam is legitimate **when the deferral is itself
+a named standing decision with its argument recorded**. An unargued
+deferral is a §2.8-class violation.
+
 ### 1.2 The inversion of v4 commitment #2
 
 v4 committed to "the server is pure state; CC drives; Catapult never
@@ -125,13 +140,24 @@ Consequence: Catapult's own repo follows orchestration's conventions
 
 ### 1.4 Target opinionation
 
-- **Backends: Elixir only**, with an escape hatch for non-Elixir
-  components (shape TBD — likely a component whose delivery skips the
-  Elixir conventions and whose contract is an API surface).
-- **Frontends: Phoenix LiveView + daisyUI, or React. Exactly one per
-  project** — the product tier (§4) doesn't know which frontend exists;
-  the fork appears only at the frontend-architecture tiers (§5) and in
-  delivery conventions.
+- **Backends: Elixir only**, with the non-Elixir escape hatch now
+  defined in two grains (§2.15): in-repo foreign-language
+  subcomponents (Rust crates as NIFs/WASM) and out-of-envelope
+  services.
+- **Frontends: Phoenix LiveView + daisyUI, or React. One product
+  tier; one frontend stack per *target*; V1 targets exactly one.**
+  The product tier (§4) doesn't know which frontend exists; the fork
+  appears at the frontend-architecture tiers (§5) and in delivery
+  conventions. The blessed React shape is **React hosted by Phoenix**
+  (live_react-style: SSR for public content, hydrate + client-locus
+  components for the authed app) — every project already runs a
+  Phoenix app, and a separate SPA host is a second deployment
+  envelope for no benefit. Recorded leaning for the multi-target
+  future (React Native at a project's V2): extend to multi-target
+  rather than a second project — a second project would split the
+  product tier and fight staleness propagation; shared client-locus
+  components already hold what a native target needs shared. Decide
+  when a V2 arrives.
 - The domain/presentational component distinction and the fanin
   synthesis tier from SiegeEngine are **removed** (§4, §5). Their jobs
   are absorbed by the product tier, the frontend tiers' ordinary
@@ -240,6 +266,26 @@ export module, and drift between them is checkable.
 - Migrations live per-store (composed migration paths); a migration-
   safety linter is a required gate because merges auto-deploy with no
   human in the loop.
+- **Event-sourced persistence is a platform store family** (from the
+  gap passes: Haven's signed-log mailboxes and Polyphony's Commanded
+  domain are one family, two grades). Shared core, regardless of
+  grade: append-only insert path, deterministic projection functions,
+  replay-safe consumers, an **`events/0` registry** (event types
+  declared by the owning component, collision-checked, sketch-
+  nameable — §2.2's "a new name is a decision" applied to the one
+  vocabulary ES apps contract on), and the **purity-floor audit** (no
+  clocks, randomness, or generated ids in fold/projection code;
+  call-graph checked — a property of replay itself, not of any one
+  project, so it ships with the family). The grades: **bare log
+  store** (the log is domain content written by external actors —
+  Haven's signed client messages) and **Commanded aggregate store**
+  (the app validates commands — **Commanded is the blessed
+  event-sourcing machinery for target apps**; the control plane
+  already runs it, so patterns and expertise are house knowledge).
+  The event store itself is infrastructure persistence (reserved
+  schema; app code reaches it only through its API). Test convention:
+  env-switched adapter — in-memory for dev/test so the domain runs
+  offline, persistent in prod, identical aggregates either way.
 
 ### 2.5 Distribution by default
 
@@ -266,11 +312,25 @@ GenServer) on day one instead of at the first scale event.
   week-to-month rewrite this exists to preempt; dev-mode ergonomics
   (single-node topology, identical behavior) get deliberate attention
   in the skeleton.
-- Consequence for deploys: DO App Platform can't cluster BEAM nodes
-  (no inter-instance networking for distribution). The blessed deploy
-  target must support it (DOKS / droplets / Fly-shaped). Decision to
-  pin one target is **open**; the health-endpoint contract (§2.13)
-  keeps delivery's deploy detection provider-independent either way.
+- **§2.5 splits into discipline and runtime** (the Polyphony pass's
+  over-fit finding, adopted): the *discipline* — `processes/0`
+  registry, placement categories, processes-never-state-of-record,
+  the subcomparch process inventory — is **mandatory**; the *runtime*
+  is a declared project option, `topology: single | clustered`. The
+  discipline is what makes a later flip mechanical, which is the
+  actual insurance; the runtime tax is only worth charging where
+  scale exists. Commanded's and Oban's own process registration gets
+  the infra exemption, like their tables.
+- **Blessed deploy target: DOKS.** Settled. Rationale: k8s manifests
+  are portable across providers in a way platform-specific specs
+  never are, and clustering becomes a replica-count question rather
+  than a capability question — both topologies are legal on one
+  target. Accepted cost: real ops overhead at a one-person budget
+  (node upgrades, ingress, cert-manager); mitigation: the platform
+  ships the manifests/Helm skeleton as a convention deliverable, so
+  projects inherit ops posture the way they inherit everything else.
+  The health-endpoint contract (§2.13) keeps deploy detection
+  provider-independent regardless.
 
 ### 2.6 Cross-component writes
 
@@ -391,6 +451,31 @@ seeded randomness.
   hook that raises on unscoped access to tenant-owned tables) —
   promoting the worst auth bug class from review-hope to runtime
   guarantee + audit check. Default-on vs opt-in: **open**.
+- **Consolidated identity design (from both gap passes + author
+  additions):**
+  - **Consumption is optional; the principal is pluggable.** Shared
+    components are dependencies a project declares, not obligations.
+    `@requires_permission` and role rows bind to a principal
+    *behaviour* the identity component implements by default and a
+    project may substitute (Haven: member identity is client-held
+    keypairs, a Haven domain component; the platform component serves
+    the ops/admin plane only).
+  - **Option vocabulary grows:** `passwords: on | off` (passwordless
+    magic-link-only is a legitimate resolve), `registration: open |
+    invite_gated | invite_only`, and **versioned consent** in the
+    identity core (signup gating needs it; a future compliance
+    component consumes rather than owns it; version bump →
+    re-consent). The §3.3 UI contract's required-screen list varies
+    with resolved options — no password screens in a passwordless
+    resolve.
+  - **Invite links are first-class**: single-use or reusable,
+    revocable, and **role-carrying** (an admin mints a link that
+    grants a named role on redemption). This is the dependency-free
+    staff-onboarding floor — no SSO, no email-domain rules, a link
+    with a role on it — with OIDC as the tier above.
+  - **Bootstrap pattern absorbed into the core:** first account is
+    superadmin, pinned by partial unique index (a race cannot mint a
+    second), un-demotable, never assignable by promotion.
 
 ### 2.10 Feature flags
 
@@ -451,6 +536,12 @@ providers anyway.
   collector's job outside the envelope. Reference stack prefers Loki
   over ELK (pairs with the required Prometheus/Grafana, label-indexed,
   far lighter); ELK is just another provider adapter.
+- **Content-log channel split** (Polyphony pass): the logging
+  convention supports a declared split between operational logs and
+  content-bearing logs (user data, transcripts), the latter on its
+  own channel with a declared retention window and a project-supplied
+  redaction policy. Boundary auto-instrumentation must never route
+  content through the operational channel by default.
 - **Thread trace context now, export later:** platform enqueue/
   broadcast wrappers carry trace ids through Oban jobs and PubSub
   invisibly; the OTLP exporter is a later provider subcomponent.
@@ -519,6 +610,35 @@ outside its Boundary-derived file map is an **automatic bounce** —
 plane-authored marker comment naming the paths, `Ready for rework`,
 no human involved. Orchestration's mutex audit promoted from
 CI-blocking finding to auto-routing.
+
+Additions from the gap passes: the ES family's purity-floor
+call-graph check and `events/0` collision check (§2.4); foreign-
+language subcomponent gates (`cargo test`/`clippy`, §2.15); the
+client-side audit (declared-slot checks, no-backend-calls-in-UI-
+collections, §5.6); OpenAPI *and* channel-contract diffs vs prior
+release for undeclared breaking changes.
+
+### 2.15 Non-Elixir components (the escape hatch, defined)
+
+Two grains, replacing §1.4's "shape TBD":
+
+- **Foreign-language subcomponent** (library grain): the crate lives
+  *inside* a component's file map; the component's Elixir wrapper
+  module is its Boundary export and pubapi; the slug spine derives
+  the crate name; the audit runs the foreign toolchain's checks. The
+  same crate's WASM build is consumed by client-locus components
+  (§5.6) as an external node — one source, two build targets (Haven's
+  Rust crypto: NIF server-side, WASM client-side).
+- **Service grain**: lives outside the deployment envelope entirely,
+  wrapped in-app per §2.12's adapter convention — the observability
+  pattern (§2.11) generalized (Haven's Go transparency log, if not
+  descoped).
+
+Vetted third-party crypto ships as **external nodes** (§3.2), which
+makes "AI wraps, never implements" structural: the dev agent cannot
+edit what is outside the repo tree and the file maps. Review-pending
+*compositions* (project-owned crypto-adjacent code) use the
+`enforcement:` mechanism (§6): `codegen: restricted` on the scope.
 
 ---
 
@@ -720,6 +840,24 @@ system; no second path, no full-API-component tier.
   The UX/IA tier stays purely human surfaces.
 - CLI distribution: same behaviour pattern, escript composer, built
   later.
+- **The realtime section (unified across both gap passes — one
+  mechanism, two very different consumers as its proof):**
+  `api_surface/0` grows declared **topic families** parameterized by
+  `(resource, lens)`, each with: a **per-family authz predicate and a
+  server-side filter hook** the project plugs a pure predicate into
+  (Polyphony plugs per-character visibility; Haven plugs partition-key
+  membership over opaque blobs — the platform enforces *by shape*
+  that the transport can never deliver more than the declared
+  projection); **message classes with declared cursor participation**
+  (content events carry the catch-up cursor; framing/progress do
+  not); a **filtered catch-up RPC** for reconnect (replay runs
+  server-side through the filter hook — the client is never the
+  filter); and **retraction** as a first-class message class ("the
+  server says forget X"). Channels compose into the root socket the
+  way routes compose into the root router (§2.7), emitting a typed
+  client the frontend tiers consume alongside the OpenAPI client;
+  contract diffs vs prior release feed the same breaking-change
+  detection as REST.
 
 ---
 
@@ -823,7 +961,52 @@ conventions apply (phoenix_storybook vs Storybook JS; tokens in theme
 file vs Tailwind config). The product tier doesn't know which frontend
 exists. Whether React is a first-class peer or tolerated variant:
 effectively answered as *peer with shared spine*, but the React
-convention set is less developed and needs its own pass.
+convention set is less developed and needs its own pass. The blessed
+shape for that pass is settled (§1.4): React hosted by Phoenix, SSR
+for public content, hydrate for the authed app; Node workers under
+the supervision tree, inside the observability and health
+conventions. Carry-in from the Polyphony pass: the single-source
+design-kit-with-drift-test stance.
+
+### 5.6 Client-locus components and the client corpus
+
+**`locus: server | client`** is a platform attribute on the
+backend-component family. Client-locus components are domain
+components that deploy into the client bundle: they own client-side
+state, persistence, protocol machinery, and sync; screen collections'
+`calls` edges target their pubapis; **the UI tiers stay thin** and
+never learn what sits behind the pubapi (crypto, caches, cursors).
+The thickest code in a client gets the full architecture treatment —
+comparch, pubapi fragments, store subcomponent, boundary-level tests
+against fakes.
+
+**`platform-client-ts` is a platform-layer deliverable** (author
+call), seeded by Haven (the stress case) and Polyphony (the median
+case). Its slots, consolidated from both passes — and the governing
+rule, forced by Polyphony's no-client-held-unsaved-work standing
+decision: **slots are declared capabilities, not mandates; the audit
+checks what a project declares**:
+
+- **Persistence convention** (client store; must support
+  **retraction** — "forget X" — as a first-class store operation,
+  not just append/update).
+- **Persisted outbox** (optional; offline/optimistic sends).
+- **Import-boundary lint** — the Boundary analog; enforces
+  shapes-vs-calls (§5.4) in TS: UI collections import types only,
+  screen collections own calls to the generated clients.
+- **Composed client root + lifecycle contract** — every client-locus
+  component declares init/restore/flush hooks; remount must restore
+  everything (mobile OS tab-kill is the design case; Haven's
+  key-restore and Polyphony's remount-resync are the same hook).
+  Includes **URL-as-view-state**: Back works, a link names a place.
+- **Typed realtime client** — the client half of §4.4's realtime
+  section: topic families, cursor classes, catch-up, retraction.
+- **Client-side audit** — declared-slot checks, storybook
+  render-test-per-declared-state, no-backend-calls-in-UI-collections.
+- **SSR/hydration boundary guidance** — which slots apply on the
+  public (server-rendered, no channel client) vs authed side.
+- **WASM externals** — vetted foreign-language builds (§2.15)
+  consumed as external nodes; the client twin of the NIF rule.
 
 ---
 
@@ -850,7 +1033,18 @@ convention set is less developed and needs its own pass.
   declared in the shared component's manifest.
 - **Grammar growth:** comparch gains `<permissions>`; subcomparch
   gains a process inventory; impl's `<tests>` block becomes normative
-  (§2.8); journey and screen grammars per §4.2/§4.3.
+  (§2.8); journey and screen grammars per §4.2/§4.3; comparch gains a
+  per-scope **`enforcement:` block** naming platform-defined
+  enforcement profiles — `codegen: restricted` (human gate at child
+  reconcile + auto-bounce without an override label), `purity:
+  replay_floor` (call-graph audit), and whatever comes next: one
+  grammar slot instead of accreting one-off markers. The
+  backend-component family gains **`locus: server | client`** (§5.6)
+  and the ES store family declares its grade (§2.4).
+- **The core/extension mechanism (§9)** — the DSL has a frozen core
+  and platform-registered extensions; the delivery annotations, flow
+  ticket faces, enforcement profiles, `ticket.findings` context
+  source, and the generation-runtime profile are all instances of it.
 - **Nav edges:** cyclic-legal, never readiness-bearing (§4.3).
 - **A delivery section** — ships from the platform layer, sharing the
   node vocabulary with the design graph. Now specifiable per §7: the
@@ -1250,6 +1444,20 @@ a type: pure precedence (preempts at pickup, overrides the milestone
 pause, never steals an in-flight mutex), preserving orchestration's
 treatment.
 
+**Restricted scopes carry a third touchpoint, and the budget
+principle bends knowingly.** A scope marked `codegen: restricted`
+(§6, §2.15 — review-pending crypto compositions being the founding
+case) auto-bounces any diff in its file map unless the ticket carries
+an explicit override label, and its child reconcile inserts a
+per-scope human review. Rationale: the two-gate budget was calibrated
+for ordinary code; unattended merge of unreviewed cryptographic
+composition is indefensible, and the external-node path can't cover
+it (these are project-owned constructions with no vetted upstream).
+The marker is rare, shrinks as constructions clear external review
+(clearing it is itself a reviewed doc change), and restates the
+budget principle as: **touchpoints are budgeted per ticket class, not
+globally denied.**
+
 ### 7.11 Validation and the repair loop
 
 Validation is per-ticket and bottom-up over the ticket tree, and its
@@ -1332,22 +1540,33 @@ states.
 
 ## 8. Parked / open items
 
-- Blessed deploy target supporting BEAM clustering (§2.5) — pick one.
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,
-  build later.
+  build later. The registry is now multi-kind: packages, extracted
+  handles, handle diffs, whole-app operator releases, harness
+  baselines — name new kinds as entries, not debates.
+- Release distribution to third-party operators (Haven pass) —
+  "validated on the reference instance" vs "released to operators"
+  as a versioned whole-app artifact through the registry; flags
+  default-off in releases, operator flips are ops acts. Shaped, not
+  designed; Phase-2-of-Haven timing.
 - SAML (§2.9) — deferred behind OIDC.
 - CLI surface composer (§4.4) — spec'd, build later.
-- Non-Elixir component escape hatch (§1.4) — shape undefined.
-- React convention set (§5.5) — needs its own pass.
+- React convention pass (§5.5) — shape blessed (Phoenix-hosted),
+  contents still need the pass; folds in the client corpus (§5.6)
+  and the kit-with-drift-test stance.
+- Multi-target frontend vs second project — decided at a project's
+  V2 (React Native); leaning recorded in §1.4.
 - Storage (S3-compatible) shared component (§2.12) — likely, not
-  designed.
+  designed; §2.12's adapter convention covers projects today.
 - Machine-audience journeys for partner API flows (§4.4) — optional
   modeling, revisit with real use.
 - `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
   reviewed against §1.1's multi-document intake; reconcile before the
-  input-role design freezes.
+  input-role design freezes (the intake role list has since grown:
+  behavior docs, invariants, capability inventories, forward
+  strategies, `non_goals`).
 - Agent-run substrate for child tickets (§7.12.1).
 - Linear plan/API limits under many sub-issues (§7.12.2).
 - Validation check inventory (§7.12.3) — routing settled in §7.11,
@@ -1359,3 +1578,137 @@ states.
 - Mutex hold-window saturation (§7.5 watch item) — measure via
   per-label mutex-wait metrics; act only if a label serializes
   unrelated features.
+- Generation-runtime DSL-profile boundary (§10) — which core
+  primitives are in, which defaults differ; shaped, still mulling.
+- Prompt-harness app-facing mode (§10) — ships with the runtime's v1
+  or follows it.
+- Shared-component build order — identity, observability, LLM
+  adapters, generation runtime, `platform-client-ts`, storage: the
+  roster is set, the sequencing isn't.
+
+---
+
+## 9. One DSL: core and extensions
+
+**The commitment: a single DSL with a frozen core and codified
+extensions — no dialect forks.** Every new use case will need new
+vocabulary tied into the DSL; if extension isn't codified from the
+start, each need becomes a fork and the dialects drift apart
+(orchestration §1's two-copies argument, at the language level).
+
+- **The core**, frozen and small: tiers, scopes, edges, fragments,
+  handles, context walks, grammars, readiness, generators, the
+  predicate language, bundle layout + `extends:` layering.
+- **An extension** is *platform-shipped* code that registers with the
+  loader: new annotation namespaces on existing declaration kinds
+  (the `delivery:` block, the `enforcement:` block), new declaration
+  kinds and files (the flow ticket face; `states.yaml`), new
+  generator types (`external`, `template`), new context-source kinds
+  (`ticket.findings`), and new audit/enforcement profiles. Each
+  extension carries its own validation schema; the loader validates
+  the union; type-level checks run over the union. **Never
+  bundle-side code** — bundles declare instances against whatever
+  vocabulary the installed extensions provide, so the
+  closed-vocabulary doctrine survives per-installation.
+- **A dialect is core + extension set + defaults.** Two registered
+  dialects so far: **design** (core + delivery + review lifecycle +
+  git bodies — Catapult proper) and **runtime** (core + execution
+  semantics, no review lifecycle, no git bodies — the embedded
+  generation runtime, §10). Same vocabulary, different profiles.
+- **Extensions compose the language; `extends:` composes content.**
+  Two orthogonal mechanisms, both codified. The elixir-target layer
+  is content layering; the delivery DSL is a language extension; they
+  are not the same kind of thing and the spec keeps them apart.
+
+Retroactive tidiness note: the delivery DSL (§7.10), the enforcement
+block, and the runtime profile were each invented as one-off moves;
+this section names the mechanism they were all instances of.
+
+---
+
+## 10. Generation runtime and prompt harness
+
+### 10.1 The generation runtime
+
+**The insight (integration pass over both gap reports): the
+LLM-Oban-Commanded component apps need is Catapult's own engine,
+extracted.** The plane's doc generation (Oban worker → Liquid render
+over projections → provider call → grammar validation → event →
+reducer → scheduler finds next ready scope) and Polyphony's beat loop
+(Oban job → context from filtered projections → provider call →
+schema validation → command → aggregate → projectors →
+enqueue-on-completion) are the same machine. Every abstraction in
+"tie jobs to prompts to events, with chaining and prompt
+configuration" already exists in the DSL: a generation node is a
+tier; its inputs are a context walk over read models; its output
+contract is a grammar; its chaining is readiness; its effect is the
+event the reducer applies.
+
+The stack, three layers, each a shared component:
+
+1. **LLM adapters** — provider behaviour with real/deterministic-fake
+   implementations (the precondition for no-network CI in any LLM
+   app), model-tier routing, metering/cost ledger with caps and
+   circuit breaker, the three-way failure taxonomy (refusal →
+   editable; transport → retryable; schema-invalid → cancel),
+   generation-failures-as-domain-read-models (never crash reporting).
+   Absorbs the serial-pipeline pattern: enqueue-on-completion chains
+   with log-derived progress (pausable, resumable, identical inline
+   in tests).
+2. **Generation runtime** — the embedded engine loading the DSL's
+   **runtime dialect** (§9): declared generation nodes, scopes,
+   context queries, grammars, readiness; on-success commands/events
+   via the ES store family (§2.4). Building an LLM app becomes "build
+   the programmatic side, write configuration." **Not mandatory; not
+   hand-rolled** — a declared dependency, like auth. Caution recorded:
+   the profiles have different envelopes (doc generation is
+   long-form, low-frequency, review-gated; app generation is
+   latency-sensitive, high-frequency, cost-capped) — the runtime is a
+   subset with different defaults, not the platform engine linked
+   wholesale.
+3. **Prompt harness** — see §10.2.
+
+**Dogfooding is the design's proof:** the plane's own doc-tier
+generation runs on layers 1–2, so the taxonomy, metering, fakes, and
+runtime get exercised harder by Catapult itself than by any app.
+
+### 10.2 The prompt harness
+
+Catapult needs a prompt-iteration harness for its own default-bundle
+prompts; and because the harness is a **function of the
+generation-runtime abstractions** (anything with declared nodes,
+scopes, grammars, and reviewers can be harnessed), building the
+runtime makes the harness portable to every app on it — the nearby
+win, confirmed.
+
+**Not greenfield: SiegeEngine already built it.** The cohort
+machinery — stratified sampling with the upstream-only-axes rule,
+fresh-vs-review iteration modes, score histograms and per-round
+deltas, worst-N views, full-corpus sweeps, batch tagging — is a
+working prompt harness that re-platforms onto the v5 engine. Shape:
+sample scopes into a cohort; regenerate under a prompt variant; score
+via the declared review grammar plus structural metrics (grammar
+parse rate, cardinality violations); compare against a baseline
+pinned in the registry (a registry artifact kind). The LLM
+component's metering caps bound a harness run's budget; its
+deterministic fakes give the harness an offline mode for testing the
+harness itself.
+
+Open (also in §8): the exact runtime-dialect boundary, and whether
+the app-facing harness mode ships with runtime v1 or follows.
+
+---
+
+## Provenance
+
+Sections marked "gap passes" derive from three inputs: the Haven
+fitness report and the Polyphony fitness report (each run blind to
+the other, against this document as rubric), and the integration
+pass that unified their findings (the realtime section, the ES
+store family, the enforcement-profile mechanism, the client-corpus
+slot model, the identity option portfolio, the negative-space
+doctrine, and §§9–10). Where a convention was independently invented
+by a subject app before the platform named it — the adapter pattern,
+state-names-as-storybook-variations, audit-as-tests, journey-scoped
+state — that convergence is the strongest evidence this corpus
+codifies practice rather than theory.
