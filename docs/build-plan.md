@@ -209,6 +209,16 @@ documentation**, delivered by Catapult, running on DOKS.
   ported prompts meet the Polyphony seed).
 - Orchestration finish-line inventory (Phase 2) — enumerate against
   its PLAN.md when hookup starts.
-- Where Catapult's reference instance deploys during Phases 1–6
-  (anything with the health endpoint works; DOKS manifests are a
-  Phase 7-adjacent deliverable with identity/registry).
+- ~~Where Catapult's reference instance deploys~~ **Settled: DO App
+  Platform.** DOKS was blessed for *generated projects* (v5 §2.5);
+  Catapult is not a Catapult project — its plane is IO-bound
+  coordination (agent compute lives on runners), needs no
+  clustering, and App Platform is near-zero ops with orchestration's
+  deploy adapter already built, making Phase 2's hookup the shortest
+  path. Known cost, accepted: ephemeral disk means the git clone
+  cache rebuilds per deploy — it is a cache, refetchable; it is also
+  the canary. **Revisit when the DOKS manifests skeleton ships
+  (Phase 7)**: migrating then is cheap (OTP release + env + Postgres;
+  the health contract keeps deploy detection indifferent) and buys
+  dogfooding of the deliverable — decide with data on whether the
+  App Platform pain points materialized.
