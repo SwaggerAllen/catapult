@@ -31,6 +31,13 @@ loader tickets carry `system:core-dsl`.
   downstream reader and pushes against category-speak; if a tier's
   output is vague, fix that tier's prompt, don't pass more context
   downstream.
+- **Stubbing is the instructed pattern for externally-gated scopes**
+  (v5 §2.16): the arch and impl prompt material tells the generator —
+  design the contract fully, type it opaquely, stub the
+  implementation, declare `implementation: stubbed` with its exit
+  plan. An agent improvising a stub without the declaration is a
+  prompt bug, not an agent judgment call: undeclared stubs are
+  exactly the silent half-implementation the doctrine forbids.
 
 ## Initial vs target
 

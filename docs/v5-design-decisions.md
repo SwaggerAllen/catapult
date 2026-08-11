@@ -629,7 +629,10 @@ call-graph check and `events/0` collision check (§2.4); foreign-
 language subcomponent gates (`cargo test`/`clippy`, §2.15); the
 client-side audit (declared-slot checks, no-backend-calls-in-UI-
 collections, §5.6); OpenAPI *and* channel-contract diffs vs prior
-release for undeclared breaking changes.
+release for undeclared breaking changes; the stub inventory and its
+ticket-sync check — every `implementation: stubbed` scope has exactly
+one open `Stubbed` swap ticket, and a swapped or deleted scope's
+ticket closes with a comment (§2.16, §7.10).
 
 ### 2.15 Non-Elixir components (the escape hatch, defined)
 
@@ -652,6 +655,49 @@ makes "AI wraps, never implements" structural: the dev agent cannot
 edit what is outside the repo tree and the file maps. Review-pending
 *compositions* (project-owned crypto-adjacent code) use the
 `enforcement:` mechanism (§6): `codegen: restricted` on the scope.
+
+### 2.16 Stub grade: gates gate the swap, not the pipeline
+
+A scope may declare **`implementation: stubbed`** (comparch grammar,
+§6): the real, reviewed pubapi over a deliberately hollow
+implementation — identity-function crypto, map-backed credentials.
+Founding case: scopes whose real implementation waits on an external
+human timeline (professional cryptographic review); the pattern is
+general (legal sign-off, compliance, absent partner credentials).
+Rationale for existing at all: the human gates run on a different
+clock than the pipeline, and shipping-with-declared-stubs beats not
+shipping.
+
+- **A stub contains no restricted content, so `codegen: restricted`
+  does not apply to it.** The stub runs the ordinary pipeline; the
+  gate rides the *swap ticket* (§7.10). The pipeline never stalls on
+  a human timeline; the only work that waits is the work that
+  genuinely needs the human. (This is Haven's federation-readiness
+  doctrine — architect totally, stub the deferred arms — applied to
+  the crypto core, and §1.1's argued-deferral rule with teeth.)
+- **The stub implements the reviewed contract verbatim, types
+  included**: opaque newtypes from day one (`Ciphertext` that happens
+  to wrap plaintext, `Credential` that happens to wrap a map), so
+  every call site is already shaped for the real thing and the swap
+  is implementation-only. Convenience leaks are the drift disease;
+  the pubapi-drift audit checks the signatures for free.
+- **The lie must be loud.** `implementation: stubbed` flows into the
+  handle, per-component readiness (§2.13), the admin surface, and —
+  for security properties — the UI contract, so honest state is
+  renderable. The audit maintains a stub inventory in every release.
+  Consent is product-side but mandatory in spirit: nobody discovers
+  a stub by being burned by it.
+- **The exit plan is declared at stub time**, in the deferral's
+  argument: `swap: transparent | migration | reset`. For stubbed
+  E2EE the caveat is epistemic, not mechanical: data created under
+  the stub was server-readable, and no later migration retroactively
+  unsees it — the guarantees hold only *forward* from the swap. The
+  exit plan must say what happens to stub-era data (wipe, or
+  grandfather with permanent disclosure).
+- **The stub is the fake.** The runtime stub and the port's test fake
+  are the same module; the contract suite written against the stub is
+  the swap verification — the real implementation must pass it
+  unchanged, plus its property-specific tests.
 
 ---
 
@@ -1053,7 +1099,10 @@ checks what a project declares**:
   replay_floor` (call-graph audit), and whatever comes next: one
   grammar slot instead of accreting one-off markers. The
   backend-component family gains **`locus: server | client`** (§5.6)
-  and the ES store family declares its grade (§2.4).
+  and the ES store family declares its grade (§2.4). Scopes also
+  declare **`implementation: stubbed | real`** with a `swap:` exit
+  plan (§2.16) — the stub grade that decouples externally-gated work
+  from the pipeline's clock.
 - **The core/extension mechanism (§9)** — the DSL has a frozen core
   and platform-registered extensions; the delivery annotations, flow
   ticket faces, enforcement profiles, `ticket.findings` context
@@ -1289,6 +1338,15 @@ state.
   born past design (their design is the parent's approved docs),
   entering at `Ready for dev` by construction — which is how
   every-ticket-gets-a-design-pass is satisfied at the parent.
+- **`Stubbed`** — machinery-filed swap tickets only (§2.16):
+  committed work deliberately waiting on an external timeline. Passes
+  the admission test with a distinct who-has-the-ball answer — the
+  world's calendar, not the queue and not the author-now (Backlog
+  means not committed; Todo means starting when the queue reaches
+  it; Stubbed means starting when the world permits). Exempt from
+  staleness and escalation checks (nothing is stale about waiting
+  deliberately); carries no milestone until scheduled, so it can
+  never block a boundary.
 
 ### 7.7 CI
 
@@ -1473,7 +1531,40 @@ it (these are project-owned constructions with no vetted upstream).
 The marker is rare, shrinks as constructions clear external review
 (clearing it is itself a reviewed doc change), and restates the
 budget principle as: **touchpoints are budgeted per ticket class, not
-globally denied.**
+globally denied.** With stub grade (§2.16), restricted in-repo code
+exists only while its review window is actually open — the stub runs
+ungated, and the gate rides the swap ticket — so the third touchpoint
+gets rarer still.
+
+**Stubbed scopes project into the working surface as swap tickets.**
+When a stub declaration is approved, the plane files the swap ticket
+(machinery-filed, like the boundary ticket and maintenance) in the
+**`Stubbed`** status (§7.6), carrying the scope's mutex labels, the
+deferral argument, the exit plan, and the gate it will run when
+scheduled. **No milestone** — the point is an open timeline, and a
+milestone-bound Stubbed ticket would block that boundary forever.
+Scheduling is the author's act: assign a milestone, move it into the
+flow, ordinary (gated) ticket from there. The audit keeps tickets and
+inventory in lockstep (§2.14). Rationale: the stub inventory is the
+mechanical truth; the Stubbed column is that truth standing
+permanently in the author's field of view — a live, visible list of
+what is deliberately half-built.
+
+**Assignment is derived, never authority.** The plane writes tracker
+assignees as a projection of who-has-the-ball: author-owned states
+and `Blocked` assign to the step's **default reviewer** (project
+bindings: a `reviewers:` map, step → user, everything defaulting to
+the author); machine-owned states assign to the step's
+**pseudo-user** (tracker app/agent users), so the ball-holder is
+readable from the assignee column. The plane never *reads* assignees
+— states answer who-has-the-ball; assignees render it. A human
+reassignment within an author-owned state is delegation and is
+respected until the next state entry re-derives. At one human this
+degenerates correctly: "My Issues" is exactly the cross-project list
+of tickets needing the author — the inbox property, with no
+filtering. (Deliberately rejected: assigning everything to the
+author — if every ticket is yours, the attention signal dies; the
+full inventory already exists as project views.)
 
 ### 7.11 Validation and the repair loop
 
@@ -1537,6 +1628,9 @@ normative, composed-journey checks) is specced in pieces across
    inherited).
 3. The validation check inventory (§7.11) — routing settled, content
    scattered.
+4. Pseudo-user assignability and seat economics on Linear's plan
+   (§7.10's assignment projection) — verify before relying on
+   per-step pseudo-users; the reviewer-map half works regardless.
 
 ### 7.13 Load-bearing constants
 
