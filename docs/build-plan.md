@@ -74,6 +74,41 @@ loop.
 Exit: an empty-but-enforced application — every convention that can
 be checked is checked, on a repo that does nothing yet.
 
+## Phase 1.5 — Ticket the work (attended)
+
+Before orchestration can deliver anything, the work must exist as
+tickets — orchestration's rule is that issues are created only on
+the author's ask, so populating the backlog is an attended pass
+(author + assistant), not machinery.
+
+- **Grain: whole-deliverable tickets** (v5 §7.2's large-ticket rule,
+  applied to our own backlog): one ticket per coherent system slice
+  — "the DSL loader," "the reducer + projections," "the authoring
+  loop's tracker port" — not per-function shards. Rationale as
+  recorded: reconciliation verifies a diff against an argument, and
+  a deliverable-sized argument is what it's built to check; AI time
+  makes the deliverable the natural unit.
+- **Format: orchestration's issue shape** (its DESIGN §4): imperative
+  title; description carrying the argument (what's wrong with the
+  current state, why the change is worth making), what it touches,
+  and open questions stated rather than smoothed over. Descriptions
+  are immutable once work starts — write them as the measuring stick
+  reconciliation will use.
+- **Milestones map to build-plan phases** (Phase 3 = the engine,
+  Phase 4 = the authoring loop, …), ordered by the dependency
+  structure above; blocking relations carry the intra-phase
+  ordering. Orchestration's debt/product alternation applies from
+  the start — early debt milestones will be thin or empty, which its
+  protocol explicitly prefers to padding ("an honest empty beats a
+  padded one").
+- Tickets for phases far out stay coarse (a Phase 7 epic-shaped
+  placeholder beats twenty speculative shards that Phase 4's
+  learnings will invalidate); each milestone gets fully ticketed as
+  it approaches, at the boundary's grooming pass.
+
+Exit: the backlog exists in Linear, milestoned and ordered; the
+Phase 3 milestone is fully ticketed and pulled to Todo.
+
 ## Phase 2 — Orchestration hookup
 
 Pipeline config, Linear project, stub workflows, storybook + preview
