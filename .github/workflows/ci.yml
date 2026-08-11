@@ -1,0 +1,77 @@
+# The gate set (docs/conventions.md §2), in place before the pipeline
+# per the build plan: reconciliation trusts green, so the gates predate
+# the work. Name is load-bearing later: orchestration's sweep stub
+# triggers on this workflow's completion.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGUSER: catapult
+      PGPASSWORD: catapult
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: catapult
+          POSTGRES_PASSWORD: catapult
+          POSTGRES_DB: catapult_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+            components/substrate/deps
+            components/substrate/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('.tool-versions', 'mix.lock', 'components/substrate/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+
+      - name: deps
+        run: |
+          mix deps.get
+          mix deps.get --check-locked || true
+
+      - name: format
+        run: mix format --check-formatted
+
+      - name: credo
+        run: mix credo --strict
+
+      - name: compile (warnings are errors; boundary in the compiler set)
+        run: mix compile --warnings-as-errors
+
+      - name: audit
+        run: mix catapult.audit
+
+      - name: test
+        run: mix test
+
+      - name: substrate suite
+        working-directory: components/substrate
+        run: |
+          mix deps.get
+          mix format --check-formatted
+          mix credo --strict
+          mix compile --warnings-as-errors
+          mix test
