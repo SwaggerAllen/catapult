@@ -47,6 +47,24 @@ coupling) within weeks even without automation; with automation it
 arrives faster. Every convention in §2 is chosen to convert a class of
 erosion from "hope review catches it" into structure.
 
+**The tech-debt theory (load-bearing for the whole shape):** debt
+happens *because* systems ship feature by feature — interfaces get
+renegotiated per feature, abstractions leak, and nobody re-reviews the
+whole. Properly located, the mechanism is **contract renegotiation**,
+which pins where the cure lives: architect the *total* end state once,
+upfront (architecture through subcomparch, unphased, every pubapi
+complete), and protect the contracts *structurally* — Boundary
+enforcement, frozen total pubapis, the pubapi-drift audit,
+single-owner tables, declared coupling, reconciliation against the
+sketch. Delivery batching is not the defense; structure is. Honest
+limit: this buys a debt-free starting position for the initial feature
+list, not immunity — post-launch drift pressure is met by the standing
+machinery (staleness cascades, upward absorption, re-evaluation, the
+audit, alternating debt milestones), and the residual risk of
+feature-sized delivery (private-side entropy inside clean contracts)
+is exactly what boundary-level testing, the debt scan, and the
+refactor flow exist for.
+
 ### 1.2 The inversion of v4 commitment #2
 
 v4 committed to "the server is pure state; CC drives; Catapult never
@@ -379,19 +397,19 @@ seeded randomness.
 Rationale first: main is production, merges are unattended, there is
 no staging — so any feature spanning multiple tickets has partial
 state on prod mid-milestone. Orchestration never addresses this;
-Catapult minting whole phases of tickets makes it untenable. Flags are
-the platform primitive that makes the deploy model safe:
+Catapult minting whole batches of tickets makes it untenable. Flags
+are the platform primitive that makes the deploy model safe:
 
 - FunWithFlags (Ecto-backed, actor/group targeting, admin UI slots
   into the admin-surface convention).
 - Flags registered via `feature_flags/0`, spine-named, collision-
   checked; a new flag is a §2.8 named decision.
-- **Lifecycle from existing machinery:** features pin to phases (the
-  phase plan); a phase's tickets land behind the feature's flag; the
-  milestone boundary (the author's manual pass — already the only
-  manual-testing point) is the natural flip point; flag *removal* is
-  gating debt — the boundary agent's debt scan gets a bounded input
-  "flags fully-on for > N milestones" and files cleanup proposals.
+- **Lifecycle from existing machinery:** a feature's tickets land
+  behind the feature's flag; the milestone boundary (the author's
+  manual pass — already the only manual-testing point) is the natural
+  flip point; flag *removal* is gating debt — the boundary agent's
+  debt scan gets a bounded input "flags fully-on for > N milestones"
+  and files cleanup proposals.
 - **Flags partially substitute for staging:** the author's pass
   exercises flagged-off features on production via actor targeting.
   Not a full substitute (schema changes and deploy-time behavior still
@@ -842,7 +860,18 @@ convention set is less developed and needs its own pass.
   join point; mutex-label derivation from scopes; the branch/PR
   topology (child PR → feature branch, feature PR → main); gate → CI
   label mappings. Exact declaration syntax still to be drafted
-  (§7.9.4).
+  (§7.10.3).
+
+**Dropped from v4:** the phase machinery — `phased:` tiers, the
+`phase_plan` projection and plan rule, cross-phase delta context, the
+plan-change flow, `/run_phase` (v4 §A.7 and §B.5 in their entirety).
+Rationale in §7.9: phases were a batching scheme plus a slicing
+methodology; the slicing job is already done by the feature flow's
+plan tiers, and the batching job doesn't earn a subsystem. The impl
+tier is **unphased** — one impl doc per subcomponent describing the
+total end state — with per-ticket deltas scoped by feature plan docs.
+The only remnant: the MVP-closure computation (§7.9), a one-time
+dependency-closure over `mvp: true` feature pins.
 
 Design-stance note carried over from v4 and reaffirmed: closed
 vocabularies everywhere (scope expressions, predicate operators,
@@ -1063,22 +1092,67 @@ the flag set from its included features and flips it at the boundary
 after the author's pass — features merge dark as they complete; the
 milestone lights up together.
 
-### 7.9 Still open within the delivery model
+### 7.9 The scaffold
 
-1. **Scaffold** — how the initial build-out maps onto the ticket
-   model when "the feature" is the whole system. Likely: the phase
-   plan partitions the scaffold into milestone-sized feature tickets
-   per phase, children per component as usual — but this is
-   presumption, not decision.
-2. Agent-run substrate for children (Actions vs owned runners) and
+**No phases.** The initial build-out is: total architecture pass →
+**one delivery-only scaffold ticket covering the MVP closure** →
+feature-by-feature for the rest of the initial list, re-prioritized
+by real usage → the standard flow forever.
+
+The reasoning, recorded because phases were seriously considered and
+the arguments shouldn't be re-derived:
+
+- Once the architecture is total and approved, **a phase ticket and a
+  delivery-only feature ticket are the same object** — both enter at
+  implementation (§7.3), skipping the empty gates. Phases were never
+  a third traversal mode; they were a batching scheme plus a slicing
+  methodology.
+- The slicing methodology (which part of a shared subcomponent does
+  this increment build?) is a second delta-scoping mechanism; the
+  feature flow's plan tiers (§7.2) already answer that question and
+  are needed post-launch regardless. One mechanism, not two.
+- **Phases commit build order at plan time; feature-by-feature
+  re-decides continuously.** The initial feature list will be
+  partially wrong once usage arrives (the premise of stopping the
+  scaffold early at all); under phases the invalidated features get
+  built, under MVP-then-features they exist only as docs. Docs are
+  cheap; code is expensive.
+- Per-feature validation is finer than per-phase; the MVP is the
+  architectural-error checkpoint (core journeys + foundation validate
+  the spine before the long tail builds); deploys were already
+  per-feature. Every incrementality argument phases served is served
+  as well or better.
+- Debt is not the counterargument: per §1's theory, debt is contract
+  renegotiation, and contracts are protected structurally, not by
+  delivery batching.
+
+Mechanics: MVP selection pins features `mvp: true`; the plane
+computes the dependency closure (foundation auto-included). The first
+buildable unit is inherently a batch — you can't feature-slice from
+zero — hence one scaffold ticket, with component children as usual.
+
+The one cost accepted knowingly: feature-sized delivery of the
+initial list maximizes repeat visits and mutex contention on hot
+shared components, where a phase would have coalesced each
+component's work into one child visit. Mitigation without machinery:
+nothing prevents putting several approved features into one delivery
+ticket when contention bites — ad-hoc batching is a prioritization
+act in the tracker. If that ever feels strained (e.g. a regulated
+product that must ship as a coherent whole), phases can return as
+*pure batching* without the slicing machinery, which was always their
+expensive half. Watch metric: per-label mutex-wait (§7.5).
+
+### 7.10 Still open within the delivery model
+
+1. Agent-run substrate for children (Actions vs owned runners) and
    how many concurrent agent sessions the plane dispatches.
-3. Linear API/webhook limits under many child tickets — verify plan
+2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
-4. The exact delivery-DSL declaration shape (§6) — states, gates,
+3. The exact delivery-DSL declaration shape (§6) — states, gates,
    entry-tier mappings, spawn rules as bundle-layer content.
 
-### 7.10 Load-bearing constants
+### 7.11 Load-bearing constants
 
 Recorded so nothing relitigates them: mutex labels derive from
 doc-graph scopes (§2.1, §5.4); the sketch is a diff against
@@ -1111,12 +1185,12 @@ as authority.
 - `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
   reviewed against §1.1's multi-document intake; reconcile before the
   input-role design freezes.
-- Scaffold → ticket-model mapping (§7.9.1) — likely phase-plan-
-  partitioned feature tickets, undecided.
-- Agent-run substrate for child tickets (§7.9.2).
-- Linear plan/API limits under many sub-issues (§7.9.3).
-- Delivery-DSL declaration syntax (§7.9.4) — semantics settled in §7,
+- Agent-run substrate for child tickets (§7.10.1).
+- Linear plan/API limits under many sub-issues (§7.10.2).
+- Delivery-DSL declaration syntax (§7.10.3) — semantics settled in §7,
   syntax undrafted.
+- Phases-as-pure-batching fallback (§7.9) — only if ad-hoc batching
+  ever strains; not designed.
 - Debugging surface scope (§7.4) — budgeted as real engineering;
   undesigned.
 - Mutex hold-window saturation (§7.5 watch item) — measure via
