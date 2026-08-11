@@ -1,0 +1,275 @@
+# Catapult — coding conventions and standards
+
+The rules for code in this repository, each with its reason. This
+document is written for every session — human or agent — that touches
+the codebase; a rule without its rationale is a rule the next session
+will violate reasonably (orchestration's style requirement, adopted
+repo-wide). Design rationale at the system level lives in
+`docs/v5-design-decisions.md` (*v5 §n*) and `systems/*.md`; this
+document is the code-facing projection.
+
+Catapult honors the v5 convention corpus on itself wherever the
+convention doesn't presuppose the doc chain — because Catapult is
+exactly the kind of app the corpus protects: an Elixir system
+delivered by an unattended pipeline. Where a rule below restates v5
+§2, that is deliberate: this file is what a working session reads.
+
+---
+
+## 1. Toolchain and dependencies
+
+- **Elixir 1.17+ / OTP 27. Phoenix 1.8+, LiveView 1.2+.** Pin exact
+  versions in `.tool-versions`; CI uses the same file. Rationale: one
+  toolchain source of truth; drift between dev and CI is a class of
+  flake we refuse to debug.
+- **Adopted, blessed libraries** — use these, don't substitute
+  without a systems-doc decision: **Commanded** (event sourcing),
+  **Oban** (jobs), **Vapor** (config), **Boundary** (isolation),
+  **libgraph** (graph checks), **Solid** (Liquid templates), **Req**
+  (HTTP), **PromEx** (metrics), **FunWithFlags** (flags, when
+  needed), **ex_machina** (factories). Rationale: every additional
+  way to do the same thing is a review burden and a drift surface;
+  the blessed list is small on purpose.
+- **A new dependency is a decision, not a port** (v5 §2.8's rule).
+  Name it in the ticket/sketch with its reason. `mix.lock` churn from
+  transitive updates is accepted; new direct deps are not silent.
+- Dialyzer: **not in the gate set** for now (open item, v5 §8). Don't
+  add `@spec`s you don't maintain; do add typespecs on boundary
+  exports, where they are documentation.
+
+## 2. Formatting, linting, compilation
+
+All of these are CI gates from day one, because reconciliation trusts
+green (v5 §2.13):
+
+- `mix format --check-formatted` — no exceptions, no `# noqa`-style
+  escape.
+- `mix credo --strict` — disagreements with a check are resolved by
+  config change in a reviewed commit, never by inline disable
+  accumulation.
+- `mix compile --warnings-as-errors` — a warning is a future bug
+  report with the timestamp removed.
+- `mix boundary` (via compiler) — see §4.
+- Migration lint (safety checks) — see §6.
+- `mix catapult.audit` — grows over time; whatever checks exist, run.
+
+## 3. The naming spine
+
+A component's slug mechanically derives every name it claims
+(v5 §2.1). For a component slugged `engine`:
+
+| Surface | Derivation |
+|---|---|
+| Namespace | `Catapult.Engine` |
+| Boundary | `Catapult.Engine` (the module *is* the boundary) |
+| Store | `Catapult.Engine.Store` |
+| Tables | `engine_*` |
+| Env vars | `ENGINE_*` (via the component's Vapor provider) |
+| PubSub topics | `engine:*` via `Catapult.Engine.Topics` functions |
+| Oban queues | `:engine_*` |
+| Telemetry | `[:catapult, :engine, ...]` |
+| Events (ES) | declared in `Catapult.Engine.Events`, registered |
+| Docs | `docs/` folder inside the component directory |
+| Mutex label | `system:engine` (delivery-side, derived) |
+
+Rationale: hand-maintained mappings drift; derivations can't. Never
+invent a name off-spine — if a name doesn't fit the table, the
+component decomposition is wrong, not the table.
+
+## 4. Boundaries and component structure
+
+- **Every component and subcomponent is a Boundary** with an explicit
+  export list. Single OTP app + Boundary; no umbrella. Nested
+  boundaries for subcomponents; component-level exports are the only
+  cross-component surface. Rationale: compiler-enforced isolation is
+  what makes the mutex partition, the pubapi contract, and AI-driven
+  refactoring safe (v5 §2.3).
+- **Standard component skeleton:** public interface module (the
+  boundary export), `Config` (Vapor provider), `Supervisor`
+  (children composed into the root via the behaviour), `Store`
+  subcomponent (see §6), `TestSupport` (boundary-exported, test env
+  only — factories and fakes), `docs/`.
+- **Cross-component calls go through exports. No cross-boundary
+  schema access, no cross-boundary Repo queries.** Read models that
+  genuinely span components are their own component with declared
+  dependencies.
+- **The component behaviour** (`use Catapult.Component`, substrate
+  Phase 1) declares the registries: `config/0`, `pubsub_topics/0`,
+  `oban_queues/0`, `telemetry_events/0`, `events/0` (ES components),
+  `processes/0`, `seeds/0`. The root composer collision-checks at
+  compile time. A new registered name is a decision; it shows in the
+  diff.
+- **Root artifacts are composed, never edited** (v5 §2.7): router,
+  root supervisor, API/admin routes compose from component
+  declarations. If a ticket edits root glue by hand, the composition
+  mechanism is missing a feature — fix that instead.
+
+## 5. Processes and state
+
+- **Every named process is registered via `processes/0`** with a
+  placement category: `:local`, `:singleton`, `:sharded`. No bare
+  `name: __MODULE__` outside the registry — the audit greps for it.
+  Rationale: the innocently-named GenServer is the classic
+  single-node landmine; registration makes placement a reviewed
+  decision (v5 §2.5).
+- **Processes are never the state of record.** State of record lives
+  in Postgres; every process must be killable and rebuildable from
+  persistent state; ETS caches declare a rebuild path and an
+  invalidation topic. Catapult runs `topology: single` today — the
+  discipline is what makes a later flip mechanical, so it is not
+  optional at n=1.
+- Commanded's and Oban's internal processes and tables are
+  infrastructure — exempt from the registries, reached only through
+  their APIs (v5 §2.4).
+
+## 6. Persistence
+
+- **One Repo** (`Catapult.Repo`), owned by the foundation component.
+  Stores own schemas, queries, and migrations — never connections.
+- **Store exports are function-shaped** (`Store.get_project/1`,
+  `Store.insert_claim/2`), never generic CRUD. The store is the
+  named seam between domain logic and Ecto, not a DAO ceremony.
+- **Every table has exactly one owner** — a component's store, or a
+  registered infrastructure library under its reserved prefix
+  (`oban_*`, `eventstore.*`, `fun_with_flags_*`). The audit
+  enumerates tables and fails on orphans. Table names carry the
+  component prefix.
+- **Migrations live per-store** (composed `ecto_migrations` paths)
+  and pass the migration-safety lint. Rationale: merges deploy
+  unattended; an unsafe migration is an outage nobody approved.
+- **Seeds are idempotent by construction** (upserts, stable natural
+  keys), declared via `seeds/0`, composed by a release task. There
+  is no fresh-database moment; seeds run against live state.
+- **Event-sourced components follow the ES store family** (v5 §2.4):
+  append-only insert paths; deterministic projection functions;
+  `events/0` registry; the **purity floor** — no clocks, randomness,
+  or generated ids inside aggregate/fold/projection code (inject
+  them at the command edge); env-switched event-store adapter
+  (in-memory dev/test, persistent prod, identical aggregates).
+  Catapult's own engine is the family's first consumer; the reducer's
+  rebuild-from-zero property is a standing test, not a hope.
+
+## 7. Cross-component effects
+
+- **Default: eventual, via Oban in the same transaction** — insert
+  the job through the target's exported enqueue function inside the
+  local transaction (the outbox for free; v5 §2.6).
+- **Every worker is replay-safe**: idempotent effects, unique-job
+  keys on the spine. A worker that can't survive a duplicate run is
+  a bug even if Oban never duplicates it.
+- **Same-transaction coupling across components requires a declared
+  edge**: boundary-exported `Ecto.Multi`-fragment functions, and the
+  coupling named in the owning system doc. An undeclared
+  cross-boundary Multi is an audit finding.
+- **Serial pipelines are enqueue-on-completion chains with
+  log-derived progress** — no stored cursors, no process-held
+  sequence state; a resumed pipeline re-derives its position from
+  what's recorded (v5 §10.1, from Polyphony).
+
+## 8. Errors and failure surfaces
+
+- Expected failures return tagged tuples with typed reasons
+  (`{:error, %Engine.Error{kind: :grammar_invalid, ...}}` or a
+  documented atom vocabulary per export); exceptions are for bugs.
+  Rationale: callers pattern-match on failures; prose reasons can't
+  be matched and become logs nobody reads.
+- **LLM/generation failures follow the three-way taxonomy** (v5
+  §10.1): refusal → editable; transport → retryable; schema-invalid
+  → cancel. Generation failures are **domain read models with
+  affordances, never crash reports** — a failed generation is a
+  fact about the work, not a fault in the system.
+- Every boundary export's failure modes are part of its contract:
+  documented at the export, tested at the boundary.
+
+## 9. Testing
+
+Test determinism is a protocol requirement, not a virtue: the
+pipeline escalates two CI reds to a human, so a flaky suite
+mechanically defeats the automation (v5 §2.8).
+
+- **No network in tests. Ever.** Every external system sits behind a
+  port/behaviour with two implementations: real, and an in-memory
+  fake (Tracker, Host, Deploy, LLM Provider — orchestration's own
+  pattern, which this codebase re-expresses in Elixir). Tests use
+  fakes; the fake ships with the port, not with the test file.
+- **Ecto sandbox, async by default.** A test that can't run async
+  documents why in a comment.
+- **Injected clock** (`Catapult.Clock` behaviour; `DateTime.utc_now`
+  is banned in domain code by grep-audit), **seeded randomness**,
+  no reliance on generated-id ordering.
+- **Test at the boundary.** Default: exercise the export module;
+  internal tests are exceptional and justified. Rationale: internal
+  tests churn on refactors even when behavior holds — exactly what
+  makes automated refactoring expensive.
+- **Structural coverage, not line coverage:** every boundary export
+  has at least one test referencing it (audit-checked). No coverage
+  percentage gates — they're gameable, especially by an LLM.
+- `@tag :skip` requires an annotation with a ticket key; CI rejects
+  bare skips.
+- **Factories in `TestSupport`**, boundary-exported for test env
+  only. Cross-component test data goes through that door, not
+  through direct schema access.
+- LiveView/screens: storybook variations are render tests; every
+  declared state has a variation (state names *are* variation
+  names — v5 §4.3, enforced by the storybook export build).
+
+## 10. Observability
+
+- **Structured JSON logs to stdout**, standard metadata (component,
+  event sequence, trace id). Content-bearing data never enters the
+  operational log channel (v5 §2.11); Catapult's plane logs contain
+  project/scope identifiers, not artifact bodies.
+- **Instrument the boundary:** the export macro auto-emits telemetry
+  spans (start/stop/exception) per exported function — latency,
+  throughput, error rate at every public surface, for free. Custom
+  events are registered via `telemetry_events/0`, spine-named; the
+  audit checks declared↔emitted both directions.
+- **Trace context threads through the async seams** — the platform's
+  enqueue/broadcast wrappers carry it through Oban jobs and PubSub
+  invisibly. Never hand-thread it; never drop it.
+- The health endpoint (`/health`) reports git SHA + per-component
+  readiness derived from the registries. Deploy detection and ops
+  read the same facts.
+
+## 11. LLM usage (the plane's own generation)
+
+- **All model calls go through the provider behaviour** (LLM adapter
+  component). No direct API calls anywhere else — not in scripts,
+  not in tests, not "just this once." Rationale: the adapter carries
+  the fakes (no-network CI), the metering (cost caps), the routing
+  (model tiers), and the failure taxonomy; a bypassed call has none
+  of them.
+- **Deterministic fakes for all test paths**; live-provider tests are
+  a separately tagged, budget-capped suite that CI does not require.
+- Prompts are bundle content (Liquid), never inline strings in code.
+  Prompt changes are reviewed diffs like any artifact.
+
+## 12. Git, commits, and docs upkeep
+
+Pre-pipeline (Phases 0–2) this is discipline; post-hookup,
+orchestration enforces its own protocol and this section defers to it.
+
+- Small, single-intent commits; imperative first line; body says why.
+- **`systems/*.md` carry standing decisions and file maps — no code
+  inventory, no state sections** (orchestration's rule: the code is
+  the inventory; docs that mirror code drift silently). Amend the
+  owning system doc in the same change that moves a boundary.
+- A convention change is a change to *this file*, in a reviewed
+  commit, with its rationale — never a silent divergence that a
+  later session codifies by imitation.
+
+## 13. What Catapult deliberately does not honor on itself
+
+Recorded so nobody "fixes" it (see also `docs/non-goals.md`):
+
+- **No self-bootstrap; no doc chain over Catapult's own repo** (v5
+  §1.3). `systems/*.md` are hand-maintained under orchestration's
+  protocol.
+- **No product tier for the dashboard** — dashboard screens go
+  through orchestration's screen machinery (screens/*.md, stateless
+  components, storybook).
+- **Per-component admin surfaces are subsumed by the dashboard**;
+  the docs-site composition is deferred until the platform docs need
+  it.
+- Feature flags arrive when the delivery loop lands multi-ticket
+  features on the reference deployment, not before.
