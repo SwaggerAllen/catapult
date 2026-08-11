@@ -107,7 +107,7 @@ the author's ask, so populating the backlog is an attended pass
   it approaches, at the boundary's grooming pass.
 
 Exit: the backlog exists in Linear, milestoned and ordered; the
-Phase 3 milestone is fully ticketed and pulled to Todo.
+Phase 2 milestone is fully ticketed and pulled to Todo.
 
 ## Phase 2 — Orchestration hookup
 
@@ -116,7 +116,13 @@ for dashboard screens, deploy detection. Orchestration-side work
 items (its build is not finished): remaining milestones, plus a
 **generic health-endpoint deploy adapter** (reads §2.13's contract;
 provider-independent, covers any target) in preference to a
-provider-specific one.
+provider-specific one, plus a **boundary live-suite step**: at
+milestone boundary, after the boundary ticket is created and before
+the author's pass, run the project's `:live`-tagged suite (real
+network, real providers) and post results on the boundary ticket —
+failures file as blockers against the milestone through the existing
+blocking rule. The flag flip sits strictly downstream of a green
+live run.
 
 Exit: a trivial ticket flows through design → dev → reconcile →
 deploy on the Catapult repo. From here, phases 3+ are

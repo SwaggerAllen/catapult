@@ -187,11 +187,23 @@ Test determinism is a protocol requirement, not a virtue: the
 pipeline escalates two CI reds to a human, so a flaky suite
 mechanically defeats the automation (v5 §2.8).
 
-- **No network in tests. Ever.** Every external system sits behind a
-  port/behaviour with two implementations: real, and an in-memory
-  fake (Tracker, Host, Deploy, LLM Provider — orchestration's own
-  pattern, which this codebase re-expresses in Elixir). Tests use
-  fakes; the fake ships with the port, not with the test file.
+- **No network in per-ticket CI. Ever.** Every external system sits
+  behind a port/behaviour with two implementations: real, and an
+  in-memory fake (Tracker, Host, Deploy, LLM Provider —
+  orchestration's own pattern, which this codebase re-expresses in
+  Elixir). Ticket CI uses fakes; the fake ships with the port, not
+  with the test file.
+- **The `:live` suite is the exception, on a cadence, not a gate.**
+  Tests tagged `:live` (real providers, real tracker/host against
+  scratch projects, deployed surfaces) are excluded from ticket CI
+  and run at the **milestone boundary** — after the boundary ticket
+  is created, before the author's pass — so the true end-to-end
+  sanity check happens exactly once per milestone, with results on
+  the boundary ticket and failures filed as milestone blockers.
+  Rationale: per-ticket determinism is what the escalation rules
+  depend on; a live check that never runs is how "merged and green"
+  quietly diverges from "actually works against the world." Both
+  properties, each at its own cadence.
 - **Ecto sandbox, async by default.** A test that can't run async
   documents why in a comment.
 - **Injected clock** (`Catapult.Clock` behaviour; `DateTime.utc_now`

@@ -374,9 +374,22 @@ conflict territory.
 Framing: orchestration escalates two CI reds on a branch to `Blocked`
 (a human). **Test determinism is therefore a protocol requirement, not
 a virtue** — flaky tests mechanically drag the author into the loop
-the pipeline exists to keep them out of. Hence: no network in tests
-(fakes per §2.12), Ecto sandbox async-by-default, injected clock,
-seeded randomness.
+the pipeline exists to keep them out of. Hence: no network in
+per-ticket CI (fakes per §2.12), Ecto sandbox async-by-default,
+injected clock, seeded randomness.
+
+**The `:live` suite is the deliberate exception, on a cadence rather
+than a gate.** A `:live`-tagged suite (real providers, real external
+services, deployed surfaces) is excluded from ticket CI and runs once
+per milestone at the boundary — after the boundary ticket is created,
+before the author's pass — results posted on the boundary ticket,
+failures filed as milestone blockers, and the flag flip (§7.8)
+strictly downstream of a green run. Rationale: per-ticket determinism
+is what the escalation rules depend on, but a live check that never
+runs is how "merged and green" quietly diverges from "works against
+the world"; both properties hold, each at its own cadence.
+(Orchestration-side: one added boundary step, absorbed by its
+existing step-comment resume machinery.)
 
 - Test ownership mirrors the mutex: `test/<comp>/` mirrors
   `lib/<comp>/`; derived file maps include test paths. A thin
@@ -1291,10 +1304,14 @@ head SHA regardless of base branch.
 
 Unchanged from orchestration: a milestone is a collection of
 features; the boundary ticket, author's pass, archive/debt-scan/
-grooming machinery all port as-is. "Shipping" a milestone aggregates
-the flag set from its included features and flips it at the boundary
-after the author's pass — features merge dark as they complete; the
-milestone lights up together.
+grooming machinery all port as-is. One added machine step: on
+boundary-ticket creation, the **`:live` suite runs** (§2.8) and
+posts results before the author's pass, so the pass happens with the
+true end-to-end check in hand; failures block the boundary through
+the existing blocking rule. "Shipping" a milestone aggregates the
+flag set from its included features and flips it at the boundary
+after the author's pass and a green live run — features merge dark
+as they complete; the milestone lights up together.
 
 ### 7.9 The scaffold
 
