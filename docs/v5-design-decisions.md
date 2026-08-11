@@ -859,8 +859,12 @@ convention set is less developed and needs its own pass.
   and which gates each entry skips; the plan-tier → child-spawn-list
   join point; mutex-label derivation from scopes; the branch/PR
   topology (child PR → feature branch, feature PR → main); gate → CI
-  label mappings. Exact declaration syntax still to be drafted
-  (§7.10.3).
+  label mappings. Shape settled in §7.10: tier-side `delivery:`
+  annotations and flow ticket faces extend the existing syntax
+  (membership declared at the member, protocol defining only the
+  slots); spawn is a plane rule at the Building transition; only
+  `states.yaml` / `types.yaml` / `escalation.yaml` remain standalone
+  — the files with no design-graph counterpart.
 
 **Dropped from v4:** the phase machinery — `phased:` tiers, the
 `phase_plan` projection and plan rule, cross-phase delta context, the
@@ -958,7 +962,13 @@ pass generalized; everything downstream is standard. The taxonomy:
 - **Bug, fixed in-flow** — enters wherever the plan tier localizes
   the defect. "Which artifact was wrong — impl, comparch, screen
   definition?" is itself the first planning question; the cascade
-  runs downward from there.
+  runs downward from there. In-system is the *default* for bugs;
+  out-of-band is the escape valve.
+- **Maintenance** (dependency and vulnerability upgrades) —
+  plane-filed (§7.10): a watcher auto-files with entry `localized`;
+  routine bumps to Triage for batch-accept, advisory-backed security
+  bumps directly to the queue with `Urgent`. The plan tier decides
+  impl-only vs. architecture-implicating.
 - **Bug, fixed out-of-band** — the author's hotfix lands on main
   outside the pipeline (legal, per orchestration §2.5). The base
   check detects the ground moved; because file→scope mapping is
@@ -1142,17 +1152,168 @@ product that must ship as a coherent whole), phases can return as
 *pure batching* without the slicing machinery, which was always their
 expensive half. Watch metric: per-label mutex-wait (§7.5).
 
-### 7.10 Still open within the delivery model
+### 7.10 The delivery DSL
+
+**Framing decision: declare the shape, implement the semantics.** The
+plane's Commanded aggregates ARE the semantics (validate-or-revert,
+claims, harvesting, auto-merge-forward); there is no YAML-programmable
+workflow interpreter — that would be a second Turing tarpit, and the
+bundle DSL already drew this line (platform owns edge-type machinery,
+bundles own instances). Declarations exist so the plane is generic
+over projects and target layers, so the protocol is inspectable
+(orchestration's DESIGN.md tables become machine-read artifacts
+instead of prose the code hopefully matches), and so the sim ring is
+configured from the same declarations production reads.
+
+**The protocol is platform-fixed; projects bind, never restructure.**
+Agent prompts, plane logic, and shared vocabulary are written against
+the protocol; a project with bespoke states forks all three
+(orchestration §1: two copies of a shared vocabulary drift silently).
+Projects get a bindings file — tracker team/project ids, the
+state-name mapping into Linear's workflow, actor role→user-ids,
+deploy endpoint, preview target, `tunable`-marked thresholds —
+nothing structural.
+
+**The join to the design graph extends the existing syntax rather
+than paralleling it.** Forced, not aesthetic: projects can add tiers
+via bundle `extends` but cannot edit the protocol, so membership must
+be declared at the member, with the protocol defining only the slots:
+
+- **Tiers gain a `delivery:` block** — `phase:` (status shown while
+  the tier generates) and `gate:` (which author gate's PR diff
+  approves it). A gate's review set is *derived* — the tiers
+  declaring it. Bundle-load validates annotations against the
+  protocol vocabulary: unknown phase or gate is a load error; one
+  loader spans both worlds.
+- **Flows gain a ticket face.** Entry types (§7.3) and v4's flow
+  catalog are one list — opening a ticket IS opening a flow instance.
+  A flow's `flow.yaml` adds `ticket: { entry: <tier>, labels: [...] }`
+  alongside its schema delta and walk primitive; its planning tiers
+  carry `delivery:` annotations like any tier. Flow completion maps
+  onto phase transitions ("phase complete" = no ready or in-flight
+  scopes with this phase within this flow instance). Scaffolding
+  keeps its v4 status as "a flow with an empty delta" — the base
+  schema wearing a ticket face.
+- **Spawn is a plane rule, not a declaration.** Spawning attaches to
+  the *Building transition*, not to fanout edges: at entry to
+  Building, spawn children partitioned by the fanout structure of the
+  impacted scope set (plan/staleness data), one child per impacted
+  component, nesting to subcomponents only where the plan proves
+  independent parallel work; ticket type follows nesting depth.
+  Product-tier fanouts never spawn because product tiers generate
+  under gate phases, not Building. The grain rule is a platform
+  constant.
+
+**What remains standalone** is exactly the files with no design-graph
+counterpart:
+
+- `states.yaml` — the status vocabulary with owners and the **writer
+  matrix** (`moved_by: author | machine | ci | deploy | nobody` per
+  transition — one field, and it makes the state-admission test
+  executable by the sim ring), plus which states are gates.
+- `types.yaml` — ticket types, per-type lifecycles, PR topology
+  (feature: base main, squash; child: base parent branch, merge).
+- `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
+  markers as the only project-override surface.
+
+CI suite selection is *derived*, not declared: gate phases are
+docs-phases → `ci:docs`; Building → `ci:code`. A `ci.yaml` exists
+only if a real exception ever forces it.
+
+**Agents are three layers, changing at three rates.** The writer
+matrix carries *roles* only — authority, invariant across
+implementations. The protocol names *agent kinds* (design, dev,
+reconcile, boundary, validation) as vocabulary. Tier declarations may
+carry an *executor profile* (model, effort, harness requirements —
+v4's per-tier `thinking_effort` is the precedent). The project
+bindings file maps kind → runtime (orchestration's `agents:` config,
+generalized). Supporting a second agent implementation is a new
+bindings entry and zero protocol or bundle change.
+
+**Maintenance is in-system and plane-filed.** In-system entry is the
+default for bugs and dependency/vulnerability work; out-of-band (§7.3)
+is the author's escape valve, not a recommended route. A plane-side
+watcher (Oban job over hex advisories, `mix hex.outdated`, GitHub
+security advisories) auto-files maintenance tickets with entry
+`localized` — the plan tier decides impl-only (the overwhelming case:
+delivery-only ticket, empty gates) vs. architecture-implicating (a
+major version changing APIs walks the doc graph like any change).
+Filing discipline bends "issues only on the author's ask" the same
+way the boundary ticket does: routine bumps file to Triage for
+batch-accept; advisory-backed security bumps file directly to the
+queue with `Urgent` plus a notification — the alternative is the
+author doing it by hand out-of-band, which is strictly worse. The
+auto-queue threshold is a `tunable`. Bumps touch `mix.exs`/`mix.lock`
+(accepted shared-file territory) and serialize textually at their
+natural cadence. `Urgent` itself is a **modifier on any type**, never
+a type: pure precedence (preempts at pickup, overrides the milestone
+pause, never steals an in-flight mutex), preserving orchestration's
+treatment.
+
+### 7.11 Validation and the repair loop
+
+Validation is per-ticket and bottom-up over the ticket tree, and its
+repair loop is deliberately *simultaneous* — the rationale is §1's
+debt theory applied to repair: **when several validation failures
+share an ancestor, fixing them one at a time renegotiates the shared
+contract serially** — three sequential patches to one comparch is
+interface drift happening inside the machinery built to prevent it.
+Simultaneous rework lets the upward walk reach the shared parent
+carrying every failing child's context and make one coherent
+revision.
+
+The mechanics, all built from existing machinery:
+
+- **Bottom-up order is a readiness rule.** "A component cannot
+  validate until all its subcomponents validate" is the standard
+  cardinality-many gate; validation slots into the scheduler as
+  per-scope passes gated by child passes — leaves first, the feature
+  last. No new scheduler machinery.
+- **The repair is `up_then_down`, seeded by the failure set.** The
+  walk coalesces naturally at lowest common ancestors — which is
+  where interaction-catching happens. **The walk may terminate at
+  height zero**: its first planning step decides how far up to go,
+  and "no doc change, fix the implementation" is the degenerate case
+  — so every failure gets shared-cause detection without forcing doc
+  churn on ordinary implementation bugs.
+- **A new join point, flowing the reverse direction:** the flow's
+  planning tiers may read `ticket.findings` — the validation findings
+  and ticket thread for scopes the walk visits. Delivery data as doc
+  generation context; every prior join point flowed the other way.
+- **The down-walk catches the passed-but-now-stale.** A revision
+  landing at comparch stales passing siblings that depend on the
+  revised contract through ordinary staleness; their tickets reopen
+  to rework alongside the failures. Re-validate the affected subtree;
+  passes over untouched scopes stand.
+- **No new states.** A validation failure files a findings comment
+  (fixed marker) and routes the child through `Ready for rework` —
+  newest-comment-is-scope works unchanged, and the marker is what
+  tells the plane to open the up-walk. The feature holds in
+  `Validating` while its subtree churns. State set stays small;
+  meaning rides the marker, per the label-vs-state discipline.
+- **Convergence guard:** the progress criterion is that the failure
+  set strictly shrinks each full cycle. A failure surviving two
+  cycles escalates individually to `Blocked`; two full cycles with no
+  shrinkage escalates the feature. Same pattern as CI-red-twice and
+  bounce-twice — the author is the fixed point of every
+  non-converging loop.
+
+Open within this: the *content* of a validation pass (affordance and
+state checks against the deployed feature, impl-doc `<tests>` as
+normative, composed-journey checks) is specced in pieces across
+§2.8/§4.3 and needs consolidation into a single check inventory.
+
+### 7.12 Still open within the delivery model
 
 1. Agent-run substrate for children (Actions vs owned runners) and
    how many concurrent agent sessions the plane dispatches.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
-3. The exact delivery-DSL declaration shape (§6) — states, gates,
-   entry-tier mappings, spawn rules as bundle-layer content.
+3. The validation check inventory (§7.11) — routing settled, content
+   scattered.
 
-### 7.11 Load-bearing constants
+### 7.13 Load-bearing constants
 
 Recorded so nothing relitigates them: mutex labels derive from
 doc-graph scopes (§2.1, §5.4); the sketch is a diff against
@@ -1163,7 +1324,9 @@ generated projects; the Go core's snapshot→actions purity is the
 porting model (near-1:1 to a Commanded process manager); descriptions
 immutable and newest-comment-is-scope survive at the child grain;
 detect-and-revert survives as validate-or-revert with the event log
-as authority.
+as authority; the protocol has one home in the platform layer —
+projects bind ids and tune marked thresholds, never restructure
+states.
 
 ---
 
@@ -1185,10 +1348,10 @@ as authority.
 - `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
   reviewed against §1.1's multi-document intake; reconcile before the
   input-role design freezes.
-- Agent-run substrate for child tickets (§7.10.1).
-- Linear plan/API limits under many sub-issues (§7.10.2).
-- Delivery-DSL declaration syntax (§7.10.3) — semantics settled in §7,
-  syntax undrafted.
+- Agent-run substrate for child tickets (§7.12.1).
+- Linear plan/API limits under many sub-issues (§7.12.2).
+- Validation check inventory (§7.12.3) — routing settled in §7.11,
+  checks scattered across §2.8/§4.3, needs consolidation.
 - Phases-as-pure-batching fallback (§7.9) — only if ad-hoc batching
   ever strains; not designed.
 - Debugging surface scope (§7.4) — budgeted as real engineering;
