@@ -1013,6 +1013,34 @@ shared-component dep where needed, test templates. Compliance is
 the founding case: regulation changes propagate through the same
 upgrade flow as any external node.
 
+**The convention corpus ships as the default policy set** (author
+proposal, adopted): the elixir-target conventions become external
+policy nodes — each with its enforcement attached (the substrate's
+audit checks and macros are the artifacts), consumed by every
+project as defaults. Three payoffs: the policy mechanism gets its
+first consumer on every project's day one rather than at
+compliance-someday; convention revisions reach existing projects as
+governed upgrades (version bump → staleness → reviewed ticket)
+instead of silent substrate drift; and deviation becomes a reviewed
+graph change to a visible node instead of a forked doc
+(`catapult:allow` stays as the line-level point exception). Each
+policy carries a **mutability grade**, the `tunable` idiom
+generalized: `fixed` (automation-load-bearing — the pipeline's
+correctness depends on it; overriding is a load error: single-owner
+tables, registry collisions, test determinism, file-map honesty,
+marker discipline — enumeration illustrative, finalized with the
+policy-set build), `tunable` (declared parameters within a shape),
+`optional` (default-on, replaceable with a declared substitute).
+Strengthening is always allowed; weakening only within declared
+mutability. Because defaults arrive *with* their enforcement,
+consuming the set files zero enforcement-gap tickets — gaps appear
+only for project-added policies and raised grades, exactly when a
+human should see one. Known drift risk, recorded: `conventions.md`
+governs Catapult's own repo (no doc graph); the policy set governs
+target projects; both derive from this document — eventually the
+conventions doc's target-relevant sections should *generate from*
+the policy set, per the no-hand-maintained-inventories doctrine.
+
 ## 5. Frontend architecture
 
 ### 5.1 Two collection kinds, six architecture tiers
