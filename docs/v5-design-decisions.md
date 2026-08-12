@@ -1006,6 +1006,30 @@ a policy whose enforcement silently doesn't exist is worse than no
 policy — it's confidence without coverage; the standing ticket list
 is the visibility that keeps the gap honest.
 
+**Enforcement tickets route by a per-policy attribute**, three
+lanes, author-overridable per ticket:
+
+- **`urgent`** — files with the `Urgent` modifier (§7.3's existing
+  preemption, no new machinery). Compliance and structural
+  guarantees the automation or safety posture depends on.
+- **`feature`** — rides the work that created the gap: a policy
+  newly attached during a feature's cascade files as a **blocking
+  child of the introducing feature ticket** — the feature cannot
+  pass `Validating` without the enforcement, because for a
+  product-load-bearing policy (Polyphony's visibility guarantee is
+  the archetype) the enforcement is part of what "the feature
+  works" means. A policy created against already-shipped scopes
+  files into the current milestone directly.
+- **`debt`** — accumulates to the next debt milestone through the
+  existing debt-composition machinery, gating test and all. Code
+  style and non-load-bearing conventions.
+
+The default policy set ships with routings (structural/`fixed`
+leans `urgent`; style leans `debt`); registry policies declare
+theirs; and since defaults arrive with their enforcement, routing
+matters only for the gaps that actually occur — project-added
+policies and raised grades.
+
 **External policies are a registry artifact kind**: a policy that
 ships *with its enforcement* — node content in the handle, audit
 checks via the extension mechanism, runtime guards as a
