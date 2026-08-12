@@ -66,19 +66,33 @@ is exactly what boundary-level testing, the debt scan, and the
 refactor flow exist for.
 
 **The negative-space doctrine (from the Haven and Polyphony gap
-passes):** the graph records what is deliberately *not* built and
-*not yet* decided, with its argument, and every generator and planner
-reads it. Two mechanisms carry it: (a) a **`non_goals` input role** —
-orchestration §4's confirmed-non-asks document promoted to a standard
-intake role, read by product-tier and plan-tier prompts, checked by
-reconciliation (the cautionary tale: a regeneration that can't see
-the non-asks rebuilds the exact feature a standing decision ruled
-out); (b) **argued deferrals** — "total architecture" means every
-*contract* complete (seams, pubapis, entity models), not every
-implementation detail pre-decided; a deferred internal behind a
-fully-specified stub seam is legitimate **when the deferral is itself
-a named standing decision with its argument recorded**. An unargued
-deferral is a §2.8-class violation.
+passes; carrier settled in the non-goals design pass):** the graph
+records what is deliberately *not* built and *not yet* decided, with
+its argument, and every generator and planner reads it. **The
+carrier is policy nodes — non-goals are negative policies** (§4.5):
+same lifecycle, same three-grain scoping (project-global is the
+default and is what "off to the side" means as a first-class thing),
+same enforcement ladder — a non-goal's natural grade is `prose`
+(reconciliation refusing to re-admit the excluded thing IS the
+enforcement; the cautionary tale: a regeneration that can't see the
+non-asks rebuilds the exact feature a standing decision ruled out),
+promotable where an audit check can pin it. **Derived at intake, not
+read from an assumed file**: input docs are free-form, so a
+distillation pass extracts candidate non-goal policies from the
+*whole raft* — an explicit non-goals document is strong signal,
+never a requirement — and the author reviews the extracted set like
+any tier output. No walk may require a role's presence (§6-adjacent
+readiness rule in `dsl-syntax.md` §7): a missing role is an empty
+collection, never a readiness block. Post-intake, new non-goals
+enter as new policy nodes via tickets, like all graph change (the
+seed raft is frozen, §1.1 below). **Argued deferrals are the same
+node shape**: "total architecture" means every *contract* complete
+(seams, pubapis, entity models), not every implementation detail
+pre-decided; a deferral is a negative policy carrying a revisit
+condition ("never, argued" and "not until X" differ by one field),
+with the stub grade (§2.16) attaching when the deferral is
+implementation-shaped. An unargued deferral is a §2.8-class
+violation.
 
 **Input documents freeze at intake** (from the docs review pass).
 The seed raft is read by the intake/scaffold pass and never again:
@@ -101,10 +115,11 @@ a project repo is graph body (generated, lifecycle-managed), a ref
 (registered, hint-staleness), a frozen input doc, or generated
 output (docs site) — a hand-maintained document outside those
 categories is the drift surface this rule exists to close.
-Consequence for the negative space: the `non_goals` role seeds it,
-but post-intake non-goals accrue as graph content (policy nodes and
-standing decisions); prompts and reconciliation read the frozen seed
-plus the live graph, never an evolving side file.
+Consequence for the negative space: the raft seeds it through the
+intake distillation (non-goals extracted as negative policy nodes,
+above), and post-intake non-goals accrue as new policy nodes;
+prompts and reconciliation read the live graph, never an evolving
+side file.
 
 ### 1.2 The inversion of v4 commitment #2
 
@@ -1000,7 +1015,17 @@ rather than a ref variant.)
 
 **Policies** (siege's "invariants," orchestration's "standing
 decisions," v4's policy tier — one concept, one name now) are
-first-class nodes with two additions:
+first-class nodes. **Non-goals are policies with negative content**
+(§1.1's carrier decision): "we do not build X" is a policy like any
+other — `prose` grade by default (reconciliation's refusal to
+re-admit the exclusion is the enforcement), promotable, scoped by
+the same three grains, seeded by the intake distillation and grown
+by tickets. Deferrals ride the same shape with a **revisit
+condition** ("never, argued" vs "not until X" is one field); an
+implementation-shaped deferral additionally carries the stub grade
+(§2.16). No new node kind, deliberately — a separate non-goal tier
+would be the policy tier with the sign flipped and a second
+lifecycle to maintain. Two additions beyond v4:
 
 - **An enforcement grade per node**, a promote-from-prose ladder:
   `prose` (reconciliation's standing-decision check — exists),
