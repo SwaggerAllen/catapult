@@ -1600,6 +1600,30 @@ holds content** (bundle, `catapult.yaml`) — versioned with the
 design; **plane holds bindings** — queried, picked, stored. Not
 urgent to build (§8); cheap and high-value when it lands.
 
+**The store test, completing the family** (from the
+configurable-policy design pass): *does changing it change what would
+be generated, validated, or enforced?* → **graph state** — repo
+content, versioned, staleness-propagating, because replay determinism
+requires every generation input to be answerable from git history.
+Policy tunings, component `options:`, the per-project policy overlay
+all pass this test: they live in the bundle's `extends:` layer and a
+change is a PR, not a settings write. *Does changing it change only
+how the plane connects and operates?* → **plane state** — the
+bindings entities above. *Does changing it change only the built
+app's runtime behavior?* → **app state** — the generated project's
+own database, none of Catapult's business. The tempting shortcut —
+"it's configuration, put it in the settings UI" — is exactly how
+generation inputs leak out of version control; the test is the
+tiebreak, applied per attribute, not per feature. The UI consequence
+is §5's third prong: the **configuration surface** is a *composer,
+not a review surface* — forms generated from registry declarations
+(option enums as selects, `tunable` shapes as bounded inputs, `fixed`
+policies rendered read-only), where "save" composes a well-formed
+diff and files it through the normal entry machinery (the plan tier
+classifies impact: a tenancy flip routes through §3.4's upgrade flow;
+a threshold tweak is maintenance-grade). Review stays in the PR; the
+composer never bypasses a gate.
+
 **The join to the design graph extends the existing syntax rather
 than paralleling it.** Forced, not aesthetic: projects can add tiers
 via bundle `extends` but cannot edit the protocol, so membership must

@@ -37,8 +37,10 @@ recorded decision, and say so explicitly.
 - **No dashboard-as-working-surface** (v5 §7.4, systems/dashboard.md).
   Debugging and observation only, *for the work loop* — artifact
   review and ticket action live in Linear and PRs. Settings and
-  onboarding (the bindings UI, v5 §7.10) are ops, not the work loop,
-  and are explicitly in-bounds.
+  onboarding (the bindings UI, v5 §7.10) and the configuration
+  surface (a composer that files graph-state changes as PRs — it
+  never bypasses a gate) are ops and authoring-composition, not the
+  work loop, and are explicitly in-bounds.
 - **Catapult never executes target-project code** (v4 §A.10.5
   carried forward, sharpened): agent runs execute code in their own
   CI/runner environments; the plane dispatches and observes but

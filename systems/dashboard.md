@@ -29,11 +29,16 @@ conventions §13).
   the dashboard." A pipeline this deep will generate constant
   temptation to grow a working UI here; this line exists to be
   pointed at. **Carve-out, explicit so this line isn't cited against
-  it:** settings and onboarding (v5 §7.10's bindings UI —
-  query-and-pick project wiring, tracker provisioning, tunables) are
-  ops, not the work loop, and belong here. The non-goal forbids
-  artifact review and ticket action migrating in; it does not forbid
-  configuration.
+  it:** two more prongs beside debugging belong here — **admin/
+  settings** (v5 §7.10's bindings UI — query-and-pick project
+  wiring, tracker provisioning, plane-state tunables) and the
+  **configuration surface** (registry consumption: policy tunings,
+  component options — *graph* state, edited by composed PR: forms
+  generated from declarations, save files a change through the
+  normal entry machinery, review stays in the PR). Both are ops/
+  authoring-composition, not the work loop. The non-goal forbids
+  artifact review and ticket action migrating in; it does not
+  forbid configuration, and the composer never bypasses a gate.
 - **"Why is nothing happening" must be answerable in minutes** — the
   design bar for every view. Explain-why over dashboards-of-numbers.
 - **LiveView + daisyUI, stateless presentational components** —
