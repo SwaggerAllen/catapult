@@ -961,8 +961,10 @@ should hold that no dedicated tier models): singleton pool, `id`
 identity, full draft→review→approve lifecycle, attached via
 reference edges, consumed comparch-and-below. Out-of-cycle iteration
 is re-approval + staleness, and staleness *hints, never cascades*
-(v4 §A.6.5 kept): a ref edit marks consumers; regeneration is
-chosen, not triggered. **Refs are the one deliberate escape hatch,
+(v4 §A.6.5 kept): a ref edit surfaces its consumers in the staleness
+projection (§7.11 — stale is derived, never stored; no node is
+flagged); regeneration is chosen, not triggered, and choosing it
+means filing a ticket. **Refs are the one deliberate escape hatch,
 and stay general on purpose**: no per-use kinds, no special-case
 lifecycles — an escape hatch that accretes special cases becomes N
 more mechanisms. A ref type system is future design, taken up when
@@ -1797,6 +1799,46 @@ The mechanics, all built from existing machinery:
   shrinkage escalates the feature. Same pattern as CI-red-twice and
   bounce-twice — the author is the fixed point of every
   non-converging loop.
+
+**Staleness is a projection, never stored state** (from the
+staleness design pass — explicit because whoever builds this won't
+have read v4 and must not reinvent its mechanism). v4 held staleness
+as a persistent per-node flag with comments parked on the node: the
+node was the mailbox, and "whatever run procs next" was the delivery
+mechanism, because v4 had nowhere else to hold pending work. v5
+does — pending work is always a ticket, and feedback lives in
+`ticket.findings` and harvested PR comments, scoped to a flow
+instance. So there is no stale flag table and no node-attached
+pending work, ever; "stale" is a pure computation off the event
+log — *this node's committed content predates the inputs its context
+walk reads* — queryable (the dashboard's staleness provenance view)
+but never work-holding. It has exactly two consumers, split
+mechanically by whether a live flow's walk reaches the node:
+
+- **Inside a flow → scope of the current ticket.** The spawn rule
+  already partitions children by the impacted scope set, and the
+  down-walk already reopens passed-but-now-stale siblings; the
+  cascade set of the walk *is* the stale set, including
+  previously-shipped nodes when they're downstream-reachable from a
+  revision. No sequencing question can arise — there is no separate
+  staleness pass to order against the current ticket, because
+  staleness resolution *is* the walk, and bottom-up readiness defines
+  the order.
+- **Outside any flow → a plane-filed backlog ticket**, and every
+  out-of-band staling source already has a named ticket shape:
+  upgrade-flow tickets (§3.4), enforcement tickets (§4.5), swap
+  tickets (§2.16), ref regeneration chosen from a hint (§4.5). There
+  is deliberately no generic "staleness ticket" kind — the named
+  shapes carry more meaning, and a generic kind would be the flag
+  table sneaking back in as a ticket.
+
+The case that spans both — feature A revising a shared contract
+while feature B is in-flight downstream — needs no cross-ticket
+blocking edge: the mutex prevents simultaneous holds, and the
+handoff is the existing merge-main-forward rule. When A lands and
+the plane merges main into B's branch, B's own readiness computation
+sees the moved inputs and B's walk regenerates the affected nodes —
+the in-flow mechanism, executing inside B's flow instance.
 
 Open within this: the *content* of a validation pass (affordance and
 state checks against the deployed feature, impl-doc `<tests>` as

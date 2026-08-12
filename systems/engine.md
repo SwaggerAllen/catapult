@@ -33,12 +33,18 @@ them.
 - **`ready_scopes` is the plane's dispatch source** (v5 §1.2's
   inversion) — the engine writes it; generation and delivery consume
   it; nothing else initiates work.
+- **Staleness is a projection, never stored state** (v5 §7.11): a
+  node is stale when its committed content predates the inputs its
+  context walk reads — computed from the log on demand, consumed by
+  flow walks and the plane's out-of-band ticket filing. No stale
+  flag is ever written, and no pending work attaches to nodes;
+  pending work is always a ticket.
 
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event
 set, core projections, scheduler + sweeper. Target: flow instances,
-staleness cascades, snapshots, replay tooling surfaced in the
+staleness provenance, snapshots, replay tooling surfaced in the
 dashboard.
 
 ## Depends on
