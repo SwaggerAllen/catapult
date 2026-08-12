@@ -51,10 +51,15 @@ Then: create the app, verify `GET /health` returns the SHA and
 - `deploy`: `{ "provider": "digitalocean", "endpoint": TODO,
   "timeout": "30m" }`
 - `staleClaimGrace`: `"20m"`
-- `preview`: **blocked on the preview-optional decision** — either
-  orchestration makes the block optional (preferred; a backend-only
-  project is a legitimate config) or this repo ships a placeholder
-  static export. Resolve before this step.
+- `preview`: **mandatory, by decision** (optional-now-mandatory-later
+  is the painful direction; Catapult may be the only backend-only
+  project ever). Ship a placeholder export until dashboard screens
+  exist: `preview/index.html` (a static "no storybook yet — dashboard
+  screens arrive Phase 4" page), `buildCommand:
+  "mkdir -p dist && cp preview/index.html dist/"`, `outputDir:
+  "dist"`, `pagesProject`: `TODO` (create the Cloudflare Pages
+  project). The placeholder is replaced by the real storybook export
+  when Phase 4's dashboard screens land.
 - `milestoneNaming`: `"debt: / product: prefixes"`
 - `actors`: author + controlplane Linear user ids: `TODO`
 - `agents`: stub workflow filenames for design, dev, reconcile,
@@ -63,10 +68,10 @@ Then: create the app, verify `GET /health` returns the SHA and
 ## 3. Stub workflows and repo settings
 
 - Copy the stubs from orchestration `examples/stubs/` (sweep, the
-  four agents, live-suite; skip preview until the decision above,
-  skip record-deploy — that's the dummy project's). The live-suite
-  stub's command: `mix test --only live` (no `:live` tests exist
-  yet — the suite passes empty, which is correct).
+  four agents, live-suite, preview; skip record-deploy — that's the
+  dummy project's). The live-suite stub's command: `mix test --only
+  live` (no `:live` tests exist yet — the suite passes empty, which
+  is correct).
 - Actions secrets: `LINEAR_API_KEY`, `ANTHROPIC_API_KEY`.
 - Repo setting: "Allow GitHub Actions to create and approve pull
   requests" — on.

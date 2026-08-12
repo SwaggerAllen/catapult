@@ -128,14 +128,14 @@ protection, and the agent-facing CLAUDE.md **copied from
 orchestration's template** — maintained there, because orchestration
 runs the agents; this repo hosts the copy.
 
-Orchestration-side items (its build is not finished): the
-`preview`-optional config decision (a backend-only project is a
-legitimate config; Catapult has no storybook until Phase 4), the
-**generic health-endpoint deploy adapter** (now off Catapult's
-critical path — the App Platform adapter covers the reference
-instance; still wanted for DOKS-target projects), remaining PLAN
-milestones. The **boundary live-suite step** is done (shipped with
-the live-suite change).
+Orchestration-side items (its build is not finished): the **generic
+health-endpoint deploy adapter** (off Catapult's critical path — the
+App Platform adapter covers the reference instance; still wanted for
+DOKS-target projects), remaining PLAN milestones. Settled: `preview`
+stays mandatory (optional-now-mandatory-later is the painful
+direction) — Catapult ships a placeholder export per SETUP.md. The
+**boundary live-suite step** is done (shipped with the live-suite
+change).
 
 Exit: a trivial ticket flows through design → dev → reconcile →
 deploy on the Catapult repo. From here, phases 3+ are
