@@ -1861,6 +1861,22 @@ normative, composed-journey checks) is specced in pieces across
    artifacts agents read (orchestration's preview machinery
    extended). Likely pool shape: actions-runner-controller on the
    already-blessed DOKS cluster, images cached on nodes.
+   Refinements from the hosted-option pass (§8): **the execution
+   substrate is an adapter behind the dispatch port** — Actions and
+   the worker pool are two adapters over one runner-harness contract
+   (fetch rendered context, run agent, commit, report); the contract
+   is the invariant, the substrate is swappable, and the executor
+   must not grow Actions-specific assumptions outside its adapter.
+   Actions stays the default (self-hosters will use it out of
+   convenience); the pool is the latency upgrade. And **the pool
+   rides BYO like everything else**: its canonical home is the
+   customer's cluster (ARC on their DOKS — the same blessed pattern),
+   with plane-adjacent managed runners as the opt-in for zero-infra
+   customers, not the default. **The dispatch-concurrency cap is a
+   per-instance, plane-enforced `tunable` in the bindings** — this
+   open item's "how many concurrent sessions" question now has two
+   consumers (scheduler backpressure and hosted tiering), so the cap
+   is plane state from the start, never a config constant.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
@@ -1917,6 +1933,16 @@ states.
      accepts any outside artifact.** Community content compiles
      into customer applications, so inbound grants must permit that
      — under any license posture Catapult itself ends up with.
+  4. **The execution substrate stays an adapter behind the dispatch
+     port (§7.12.1).** Actions is the community default; the worker
+     pool — BYO on the customer's cluster canonically, managed
+     runners as opt-in — is the hosted latency upgrade. The
+     runner-harness contract is the invariant; nothing outside the
+     Actions adapter may assume Actions.
+  5. **The dispatch-concurrency cap is a per-instance, plane-enforced
+     `tunable` in the bindings (§7.12.1)** — scheduler backpressure
+     and hosted tiering are the same knob; it is plane state from
+     the start, never a config constant.
   Everything else (fleet provisioning, upgrade train, the auth
   flows, billing) is deferred entirely; license posture is a
   separate, undecided question and deliberately not recorded here.

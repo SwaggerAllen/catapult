@@ -39,6 +39,14 @@ and validation logic and must not fork it.
 - **Latency scales the pool, never the architecture**: slow
   generation means an autoscaling worker pool pulling from the
   queue — generation never moves in-plane.
+- **The execution substrate is an adapter behind the host port**
+  (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
+  cluster canonically, managed opt-in) are two adapters over one
+  runner-harness contract — fetch rendered context, run agent,
+  commit, report. The contract is the invariant; nothing outside
+  the Actions adapter may assume Actions. The dispatch-concurrency
+  cap is a per-instance `tunable` in plane state, never a config
+  constant — scheduler backpressure and hosted tiering share it.
 
 ## Initial vs target
 
