@@ -68,3 +68,8 @@ suite path.
   call in plane code is an architecture violation.
 - Root artifacts (supervisor, routers) are composed from component
   declarations, never hand-edited.
+- The license split is load-bearing (`LICENSING.md`):
+  `components/**` and `bundles/**` are Apache-2.0 and ship into
+  generated projects — never copy plane code (AGPL) into them and
+  never add a copyleft dependency there. New files take their
+  directory's license.

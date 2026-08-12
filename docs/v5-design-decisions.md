@@ -1944,8 +1944,13 @@ states.
      and hosted tiering are the same knob; it is plane state from
      the start, never a config constant.
   Everything else (fleet provisioning, upgrade train, the auth
-  flows, billing) is deferred entirely; license posture is a
-  separate, undecided question and deliberately not recorded here.
+  flows, billing) is deferred entirely. **License posture is
+  decided** and recorded in `LICENSING.md` at the repo root:
+  AGPL-3.0-only plane, Apache-2.0 for everything that ships into
+  generated projects (the hard requirement), CLA-before-open (which
+  preserves the commercial-license option without offering it).
+  Hosted is the monetization path; self-hosting is the budget path;
+  hosted tiers are business-targeted.
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,
