@@ -243,16 +243,22 @@ mechanically defeats the automation (v5 §2.8).
   readiness derived from the registries. Deploy detection and ops
   read the same facts.
 
-## 11. LLM usage (the plane's own generation)
+## 11. LLM usage
 
-- **All model calls go through the provider behaviour** (LLM adapter
-  component). No direct API calls anywhere else — not in scripts,
-  not in tests, not "just this once." Rationale: the adapter carries
-  the fakes (no-network CI), the metering (cost caps), the routing
-  (model tiers), and the failure taxonomy; a bypassed call has none
-  of them.
-- **Deterministic fakes for all test paths**; live-provider tests are
-  a separately tagged, budget-capped suite that CI does not require.
+- **The plane makes no model calls, ever** (v5 §1.2: agents
+  end-to-end). Generation is dispatched agent runs; the plane
+  renders context, dispatches, and validates commits. No Anthropic
+  key exists on the plane's box. A model call appearing in plane
+  code is an architecture violation, not a style issue.
+- **Target apps and the runtime**: all model calls go through the
+  provider behaviour (LLM adapter component, Phase 8). No direct API
+  calls anywhere else — not in scripts, not in tests, not "just this
+  once." The adapter carries the fakes (no-network CI), the metering
+  (cost caps), the routing, and the failure taxonomy; a bypassed
+  call has none of them.
+- **Deterministic fakes for all test paths** — for the plane, the
+  agent-port fake (canned bodies through the real commit path); for
+  the runtime, the adapter fake. Live tests are the `:live` suite.
 - Prompts are bundle content (Liquid), never inline strings in code.
   Prompt changes are reviewed diffs like any artifact.
 

@@ -96,14 +96,35 @@ projection. The cleanest statement of the change: **`ready_scopes`
 stops being something an agent polls and becomes something that
 enqueues Oban jobs.**
 
-**Two execution substrates**, and the distinction is load-bearing:
+**Catapult is agents end-to-end, for its full lifespan** (settled
+after deliberation; supersedes the earlier two-substrate assignment
+that put doc-tier generation on in-plane API calls). Every
+generation — doc tiers and ticket delivery alike — is a dispatched
+agent session on a runner. Three reasons, in order of weight:
 
-- Document-tier generation is a deterministic Liquid render → LLM API
-  call → grammar-validated commit. Runs as plain Anthropic API calls
-  from Oban workers. No agent session needed.
-- Ticket delivery needs a real agent session with a repo checkout,
-  toolchain, and CI. Stays "dispatch a Claude Code run" (Actions or a
-  runner we own).
+1. **The plane never holds a working copy.** In-plane generation
+   would mean writing bodies to ephemeral storage, then owning
+   branch and PR management, with multiple working trees per project
+   on local disk. Agents-end-to-end deletes the whole persistence
+   class: the runner's checkout is the working copy; the plane's git
+   surface shrinks to read-at-SHA for validation and projection
+   (possibly servable via the host API with no local clones at all).
+2. **Architecture and spec-integration tiers are assumed to need web
+   search and file access.** There is no separate doc-lookup step,
+   and adding one is more machinery than using the agent capability
+   that already exists.
+3. **One execution path**, proven in production by orchestration's
+   Go pipeline, extended rather than duplicated.
+
+The plane renders context and serves it; agents fetch, generate,
+commit, and report; the plane validates at commit. **Latency doctrine:
+if generation is slow, the answer is an autoscaling worker pool
+pulling from our queue — never moving generation in-plane.** The
+synchronous-completion substrate still exists, but its customer is
+the generation runtime (target apps, §10.1) — Catapult's own chain
+never uses it. Noted without irony: this lands closer to v4's
+"the server is pure state" commitment than the interim design did —
+the plane coordinates and validates; it does not generate.
 
 ### 1.3 Self-bootstrapping: descoped
 
@@ -1641,8 +1662,11 @@ normative, composed-journey checks) is specced in pieces across
 
 ### 7.12 Still open within the delivery model
 
-1. Agent-run substrate for children (Actions vs owned runners) and
-   how many concurrent agent sessions the plane dispatches.
+1. Agent-run substrate (Actions vs owned runners) and how many
+   concurrent sessions the plane dispatches — now covering *all*
+   generation, not just children (§1.2). Direction decided, shape
+   open: start on Actions; the scale-out is an autoscaling worker
+   pool pulling from our queue.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
@@ -1793,12 +1817,13 @@ The stack, three layers, each a shared component:
    request/response — because the fake, the metering, and the
    taxonomy depend on that purity. Agent-in-environment runs are
    *stateful* (delegate to an environment, complete out-of-band) and
-   belong to delivery's dispatch machinery (host port, run
-   correlation), never to an adapter. Doc-tier completions stay
-   in-plane (an Oban worker parked on a socket is IO-bound — the
-   BEAM's best case); if generation ever moves off-box, relocate the
-   worker (a runner-side workflow using the same adapter), never
-   bend the contract.
+   belong to the dispatch machinery (host port, run correlation),
+   never to an adapter. **Catapult's own chain never uses this
+   layer** (§1.2: agents end-to-end) — the adapter component's
+   customer is the generation runtime, i.e. target apps, so it is
+   **built with the runtime (Phase 8), not before**. Its design is
+   settled here so the runtime dialect's contract is stable; its
+   construction waits for its consumer.
 2. **Generation runtime** — the embedded engine loading the DSL's
    **runtime dialect** (§9): declared generation nodes, scopes,
    context queries, grammars, readiness; on-success commands/events

@@ -147,14 +147,18 @@ In dependency order: `core.dsl` (loader, core vocabulary, extension
 registry per v5 §9, libgraph validation) → `core.engine` (event log,
 reducer, projections, reactive scheduler — **the first consumer of
 the ES store family**: purity floors and the `events/0` registry are
-proven on ourselves) → **LLM adapters** (first shared component:
-provider behaviour, deterministic fakes, model routing, metering,
-failure taxonomy — the plane's doc generation is its first consumer)
-→ design-dialect generation (Liquid render → provider → grammar
-validation → events) → **the siege prompt port**.
+proven on ourselves) → **the agent-dispatch generation executor**
+(v5 §1.2: agents end-to-end — dispatch via the host port, the
+runner-side harness that fetches rendered context, runs the agent,
+commits, reports; in-process fake through the same commit path) →
+design-dialect generation (readiness-driven dispatch, Liquid render
+served to agents, grammar validation at commit) → **the siege prompt
+port**. The LLM adapter component moves to Phase 8 with its consumer
+(the runtime); Catapult's chain never calls it.
 
 Exit: the chain generates and validates artifacts for a toy seed,
-offline against fakes and live against a provider.
+offline against the agent-port fake and live against real dispatched
+runs.
 
 ## Phase 4 — The authoring loop (front-loaded Linear-as-UI)
 
@@ -210,8 +214,11 @@ merged → validated → shipped, unattended except at the gates.
 ## Phase 8 — The rebuild
 
 Generation runtime app dialect (v5 §10.1 — Polyphony's beat loop is
-the forcing consumer); client corpus completion; observability full
-build. **Acceptance test: Polyphony rebuilt end-to-end from its
+the forcing consumer) **including the LLM adapter component** (the
+synchronous-completion layer, built here with its first real
+consumer; Catapult's own chain is agents end-to-end and never uses
+it); client corpus completion; observability full build.
+**Acceptance test: Polyphony rebuilt end-to-end from its
 documentation**, delivered by Catapult, running on DOKS.
 
 ---

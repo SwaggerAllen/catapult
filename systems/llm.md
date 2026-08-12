@@ -6,11 +6,13 @@ paths:
 # llm
 
 The LLM adapter component (v5 §10.1 layer 1), shipped to target apps
-and consumed first by the plane's own generation: the provider
-behaviour with real and deterministic-fake implementations,
-model-tier routing, the metering/cost ledger with caps and circuit
-breaker, the three-way failure taxonomy (refusal → editable;
-transport → retryable; schema-invalid → cancel), and
+via the generation runtime — **not consumed by the plane**: Catapult
+is agents end-to-end (v5 §1.2) and its chain never makes a
+synchronous completion call. The component: the provider behaviour
+with real and deterministic-fake implementations, model-tier
+routing, the metering/cost ledger with caps and circuit breaker, the
+three-way failure taxonomy (refusal → editable; transport →
+retryable; schema-invalid → cancel), and
 generation-failures-as-domain-read-models.
 
 ## Standing decisions
@@ -31,10 +33,13 @@ generation-failures-as-domain-read-models.
 
 ## Initial vs target
 
-Initial (Phase 3): provider behaviour, Anthropic adapter, fake,
-basic routing + metering. Target: cost ledger with caps/breaker,
-per-tier effort routing (bundle-declared, v5 §B.2.4), published on
-the release train.
+Initial: **nothing until Phase 8** — the component is built with its
+first real consumer (the runtime dialect; Polyphony's beat loop).
+The contract is settled now (v5 §10.1: synchronous completions only;
+agent-in-environment runs are dispatch machinery, never adapters) so
+the runtime's design is stable; construction waits. Target: provider
+behaviour, Anthropic adapter, deterministic fake, routing,
+metering/caps, published on the release train.
 
 ## Depends on
 
