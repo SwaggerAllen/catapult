@@ -188,7 +188,10 @@ v5 additions:
 
 - **`input.<role>`** — reads an input document by declared role
   (`input.project_doc`, `input.non_goals`; roles registered in the
-  platform layer, v5 §7.3's intake list).
+  platform layer, v5 §7.3's intake list). **Resolves to the version
+  pinned at intake, always** — input documents freeze after the
+  scaffold pass (v5 §1.1); a later file edit changes nothing a walk
+  reads and stales nothing.
 - **`ticket.findings`** — extension-provided source (§12): validation
   findings + ticket thread for the scope, available to flow planning
   tiers only (v5 §7.11).

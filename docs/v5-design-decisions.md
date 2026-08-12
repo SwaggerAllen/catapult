@@ -80,6 +80,32 @@ fully-specified stub seam is legitimate **when the deferral is itself
 a named standing decision with its argument recorded**. An unargued
 deferral is a §2.8-class violation.
 
+**Input documents freeze at intake** (from the docs review pass).
+The seed raft is read by the intake/scaffold pass and never again:
+`input.<role>` walks resolve to the version pinned at intake, and a
+later edit to an input file **stales nothing and changes nothing** —
+deliberately. Rationale: input docs are the likeliest duplication
+surface against the tree, and if their edits propagated, the system
+would be committed to keeping arbitrary prose synchronized with the
+graph — the exact upward-propagation burden the meaning-engine
+prompts are designed to avoid (downstream regeneration is the sync
+mechanism; upward absorption is the exception, not the contract).
+Post-intake, the graph is the only truth: a change of intent enters
+as a ticket (feature, policy, ref) like any other change. The inert
+edit is answered **loudly**: the base-check sweep detects a diff
+under a registered input path and the plane files a Triage notice —
+"input docs are frozen; this edit affects nothing" — naming the two
+real moves (revert it, or bring the content into the graph via a
+ticket). Corollary, the repo-prose taxonomy: every prose artifact in
+a project repo is graph body (generated, lifecycle-managed), a ref
+(registered, hint-staleness), a frozen input doc, or generated
+output (docs site) — a hand-maintained document outside those
+categories is the drift surface this rule exists to close.
+Consequence for the negative space: the `non_goals` role seeds it,
+but post-intake non-goals accrue as graph content (policy nodes and
+standing decisions); prompts and reconciliation read the frozen seed
+plus the live graph, never an evolving side file.
+
 ### 1.2 The inversion of v4 commitment #2
 
 v4 committed to "the server is pure state; CC drives; Catapult never
@@ -1830,7 +1856,10 @@ mechanically by whether a live flow's walk reaches the node:
   tickets (§2.16), ref regeneration chosen from a hint (§4.5). There
   is deliberately no generic "staleness ticket" kind — the named
   shapes carry more meaning, and a generic kind would be the flag
-  table sneaking back in as a ticket.
+  table sneaking back in as a ticket. Input documents are
+  deliberately absent from this list: they are frozen at intake
+  (§1.1) — an input-doc edit is not a staling source at all; it
+  stales nothing and is answered loudly with a Triage notice.
 
 The case that spans both — feature A revising a shared contract
 while feature B is in-flight downstream — needs no cross-ticket
