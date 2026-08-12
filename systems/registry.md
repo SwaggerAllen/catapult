@@ -27,6 +27,14 @@ with per-component semver.
 - **Static-first**: v0 is artifacts behind a web server; the service
   (handle-diff queries, release notifications) grows behind the same
   URLs. No consumer should be able to tell when the upgrade happens.
+- **Artifact identity includes origin registry, from the first
+  artifact** (v5 §8, hosted discipline): the parked hosted direction
+  is per-org instance registries federated with a central community
+  one, and origin-in-identity makes that federation a namespace
+  rather than a migration. Costs nothing now; retrofitting rewrites
+  every pin. Corollary, same entry: the central registry accepts no
+  outside artifact before its contribution terms exist — community
+  content compiles into customer applications.
 
 ## Initial vs target
 

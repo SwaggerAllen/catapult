@@ -1889,6 +1889,37 @@ states.
 
 ## 8. Parked / open items
 
+- **Hosted option** (direction favored, not committed; **the
+  discipline is live now**). Shape if it happens: instance-per-org —
+  separate plane + Postgres per customer, no multitenancy machinery
+  (`topology: single` stands); BYO keys and cloud — the model API
+  key lives in the customer's Actions secrets and never transits the
+  plane, agent compute rides their runners, deploy targets and
+  preview hosting live in the customer's own accounts. What makes
+  hosting cheap is the recorded architecture itself (§1.2; "never
+  executes target-project code"): the plane is coordination-only and
+  IO-bound, so per-org cost is one small instance and its database —
+  and nothing may erode that property. Three constraints are active
+  today so the hosted product stays a fork-free extension rather
+  than a rewrite:
+  1. **Per-project credentials and connectivity are bindings
+     entities (§7.10) — never env vars, never repo files.** Env is
+     instance-level config only. Hosted onboarding is the bindings
+     UI plus app-grade auth flows (GitHub App, tracker OAuth)
+     replacing the solo-operator tokens; that swap only stays cheap
+     if nothing meanwhile grows roots in env.
+  2. **Registry artifact identity includes origin registry, from
+     the first artifact (§3.1).** The hosted shape is per-org
+     instance registries — orgs bless and self-host artifacts —
+     federated with a central community registry. With origin in
+     identity, federation is a namespace; without it, a migration.
+  3. **The central registry decides contribution terms before it
+     accepts any outside artifact.** Community content compiles
+     into customer applications, so inbound grants must permit that
+     — under any license posture Catapult itself ends up with.
+  Everything else (fleet provisioning, upgrade train, the auth
+  flows, billing) is deferred entirely; license posture is a
+  separate, undecided question and deliberately not recorded here.
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,
