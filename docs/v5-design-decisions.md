@@ -1788,7 +1788,17 @@ The stack, three layers, each a shared component:
    generation-failures-as-domain-read-models (never crash reporting).
    Absorbs the serial-pipeline pattern: enqueue-on-completion chains
    with log-derived progress (pausable, resumable, identical inline
-   in tests).
+   in tests). **Boundary: the adapter contract is synchronous
+   completions only** — API call or CLI subprocess, both
+   request/response — because the fake, the metering, and the
+   taxonomy depend on that purity. Agent-in-environment runs are
+   *stateful* (delegate to an environment, complete out-of-band) and
+   belong to delivery's dispatch machinery (host port, run
+   correlation), never to an adapter. Doc-tier completions stay
+   in-plane (an Oban worker parked on a socket is IO-bound — the
+   BEAM's best case); if generation ever moves off-box, relocate the
+   worker (a runner-side workflow using the same adapter), never
+   bend the contract.
 2. **Generation runtime** — the embedded engine loading the DSL's
    **runtime dialect** (§9): declared generation nodes, scopes,
    context queries, grammars, readiness; on-success commands/events
