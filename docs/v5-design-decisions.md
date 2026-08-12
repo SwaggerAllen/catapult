@@ -946,6 +946,63 @@ system; no second path, no full-API-component tier.
 
 ---
 
+### 4.5 Supporting tiers: refs, app prompts, policies
+
+**The v4 supporting tiers (`ref`, `vocab`, `policy`) carry forward**
+into the default bundle; this section records their v5 form (from
+the refs/policies design pass).
+
+**Refs** — project-local supplemental content (runbooks, style
+guides, implementation guides): singleton pool, `id` identity, full
+draft→review→approve lifecycle, attached via reference edges,
+consumed comparch-and-below. Out-of-cycle iteration is re-approval +
+staleness, and staleness *hints, never cascades* (v4 §A.6.5 kept):
+a ref edit marks consumers; regeneration is chosen, not triggered.
+
+**App prompts are refs with `kind: prompt` and a contract/body
+split.** The *contract* — variables, expected output shape — is what
+downstream artifacts bind to; the *body* is the prompt text.
+Lifecycle rules: **body-only replacement stales consumers but needs
+no architecture pass** (capability- or maintenance-grade — most
+prompt tuning in most apps); **contract changes are ordinary design
+changes**. The prompt file lives under the owning component's file
+map; runtime-editable overrides are app *data*, outside the graph,
+which models defaults and contracts only. Deliberately decoupled
+from the platform's LLM machinery: an app on an external provider
+gets the full modeling; adopting the runtime + declaring evals makes
+these refs harness-iterable, opt-in. (Catapult's *own* prompts are
+different: bundle content, harness-iterated, and **prompt changes
+never auto-stale approved content** — regeneration under a new
+prompt is an explicit cohort or full-corpus choice, or iteration
+becomes radioactive.)
+
+**Policies** (siege's "invariants," orchestration's "standing
+decisions," v4's policy tier — one concept, one name now) are
+first-class nodes with two additions:
+
+- **An enforcement grade per node**, a promote-from-prose ladder:
+  `prose` (reconciliation's standing-decision check — exists),
+  `test` (the policy names the tests that pin it; the audit checks
+  they exist — Polyphony's membership-parity test pinned to the
+  irony seam is the archetype), `audit` (a registered check via the
+  §6 enforcement-profile mechanism), `runtime` (a guard in code —
+  the tenancy `prepare_query` hook shape). Framework invariants stay
+  conventions; *project* policies are nodes with declared grades.
+- **Scoping at three grains**: project-global; **through
+  responsibilities** — the load-bearing choice: a policy bound to
+  resps binds to *what the system does*, not how it's decomposed,
+  so it survives refactors, with components inheriting through
+  `fulfills` (the `policy_application` type's reachability
+  semantics); and direct component links for genuinely structural
+  policies.
+
+**External policies are a registry artifact kind**: a policy that
+ships *with its enforcement* — node content in the handle, audit
+checks via the extension mechanism, runtime guards as a
+shared-component dep where needed, test templates. Compliance is
+the founding case: regulation changes propagate through the same
+upgrade flow as any external node.
+
 ## 5. Frontend architecture
 
 ### 5.1 Two collection kinds, six architecture tiers
@@ -1665,8 +1722,17 @@ normative, composed-journey checks) is specced in pieces across
 1. Agent-run substrate (Actions vs owned runners) and how many
    concurrent sessions the plane dispatches — now covering *all*
    generation, not just children (§1.2). Direction decided, shape
-   open: start on Actions; the scale-out is an autoscaling worker
-   pool pulling from our queue.
+   open: start on Actions with **prebaked container images** (the
+   browser/toolchain stack pulls, never builds, per firing); the
+   scale-out is an autoscaling worker pool pulling from our queue —
+   **committed as a late-delivery feature, not speculative**: the
+   validation loop's endgame needs agents that interactively drive
+   rendered apps (chromium-grade tooling), which screenshots can't
+   replace for client-locus apps. Interim validation capability:
+   Pages previews + containerized screenshot/trace jobs whose
+   artifacts agents read (orchestration's preview machinery
+   extended). Likely pool shape: actions-runner-controller on the
+   already-blessed DOKS cluster, images cached on nodes.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
@@ -1700,7 +1766,8 @@ states.
 - Registry notifications / push-on-release (§3.1) — seam designed,
   build later. The registry is now multi-kind: packages, extracted
   handles, handle diffs, whole-app operator releases, harness
-  baselines — name new kinds as entries, not debates.
+  baselines, **external policies with their enforcement** (§4.5) —
+  name new kinds as entries, not debates.
 - Release distribution to third-party operators (Haven pass) —
   "validated on the reference instance" vs "released to operators"
   as a versioned whole-app artifact through the registry; flags
