@@ -653,7 +653,10 @@ collections, §5.6); OpenAPI *and* channel-contract diffs vs prior
 release for undeclared breaking changes; the stub inventory and its
 ticket-sync check — every `implementation: stubbed` scope has exactly
 one open `Stubbed` swap ticket, and a swapped or deleted scope's
-ticket closes with a comment (§2.16, §7.10).
+ticket closes with a comment (§2.16, §7.10); the enforcement-gap
+inventory and its ticket-sync check — every policy×scope missing its
+declared-grade artifact has exactly one open enforcement ticket
+(§4.5).
 
 ### 2.15 Non-Elixir components (the escape hatch, defined)
 
@@ -953,28 +956,19 @@ into the default bundle; this section records their v5 form (from
 the refs/policies design pass).
 
 **Refs** — project-local supplemental content (runbooks, style
-guides, implementation guides): singleton pool, `id` identity, full
-draft→review→approve lifecycle, attached via reference edges,
-consumed comparch-and-below. Out-of-cycle iteration is re-approval +
-staleness, and staleness *hints, never cascades* (v4 §A.6.5 kept):
-a ref edit marks consumers; regeneration is chosen, not triggered.
-
-**App prompts are refs with `kind: prompt` and a contract/body
-split.** The *contract* — variables, expected output shape — is what
-downstream artifacts bind to; the *body* is the prompt text.
-Lifecycle rules: **body-only replacement stales consumers but needs
-no architecture pass** (capability- or maintenance-grade — most
-prompt tuning in most apps); **contract changes are ordinary design
-changes**. The prompt file lives under the owning component's file
-map; runtime-editable overrides are app *data*, outside the graph,
-which models defaults and contracts only. Deliberately decoupled
-from the platform's LLM machinery: an app on an external provider
-gets the full modeling; adopting the runtime + declaring evals makes
-these refs harness-iterable, opt-in. (Catapult's *own* prompts are
-different: bundle content, harness-iterated, and **prompt changes
-never auto-stale approved content** — regeneration under a new
-prompt is an explicit cohort or full-corpus choice, or iteration
-becomes radioactive.)
+guides, implementation guides, app prompt text — anything the graph
+should hold that no dedicated tier models): singleton pool, `id`
+identity, full draft→review→approve lifecycle, attached via
+reference edges, consumed comparch-and-below. Out-of-cycle iteration
+is re-approval + staleness, and staleness *hints, never cascades*
+(v4 §A.6.5 kept): a ref edit marks consumers; regeneration is
+chosen, not triggered. **Refs are the one deliberate escape hatch,
+and stay general on purpose**: no per-use kinds, no special-case
+lifecycles — an escape hatch that accretes special cases becomes N
+more mechanisms. A ref type system is future design, taken up when
+real usage shows what types would need to mean. (External components
+are the sanctioned exception, and are by now their own mechanism
+rather than a ref variant.)
 
 **Policies** (siege's "invariants," orchestration's "standing
 decisions," v4's policy tier — one concept, one name now) are
@@ -995,6 +989,22 @@ first-class nodes with two additions:
   `fulfills` (the `policy_application` type's reachability
   semantics); and direct component links for genuinely structural
   policies.
+
+**Enforcement gaps are plane-filed tickets, instantly visible.**
+When a policy node is approved, or an `applies_to` edge newly
+attaches a policy to a scope, the plane files an **enforcement
+ticket** (machinery-filed, like swap and maintenance tickets):
+bring this policy to its declared grade on this scope — or, for an
+ungraded policy, decide the grade as the ticket's first act. The
+audit keeps tickets in lockstep with the enforcement-gap inventory,
+the same mechanism as stub↔swap tickets: every policy×scope whose
+declared grade lacks its artifact (the named test, the registered
+audit check, the runtime guard) has exactly one open ticket;
+`prose`-grade policies carry no gap (reconciliation's check is
+inherent). Rationale: for what policies are being asked to do,
+a policy whose enforcement silently doesn't exist is worse than no
+policy — it's confidence without coverage; the standing ticket list
+is the visibility that keeps the gap honest.
 
 **External policies are a registry artifact kind**: a policy that
 ships *with its enforcement* — node content in the handle, audit
