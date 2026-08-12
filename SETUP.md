@@ -10,9 +10,14 @@ it's done. Values marked `TODO` get filled in as steps complete.
 - **Linear team + project**: provisioned; the pipeline's states and
   labels exist in the team (shared with orchestration's test
   project). Record the ids below via `pipeline ids`.
-- **Cloudflare Worker metronome**: wired on the Cloudflare side.
-  Our side: set this repo's sweep workflow as the dispatch target in
-  the worker's config, then run the action once to confirm.
+- **Cloudflare Worker metronome + Linear webhook**: deployed from the
+  orchestration repo; one webhook on the team serves every project,
+  routed by Linear project id. Our side, two acts in orchestration's
+  court: add this repo to `worker/wrangler.toml`'s `PROJECTS` with our
+  Linear project id as `trackerProject` (merging redeploys the Worker
+  itself), and add this repo to the `DISPATCH_TOKEN` fine-grained
+  token's repository list in GitHub settings — the separate act that's
+  easy to forget; a beat that can't reach the repo just logs 404s.
 
 ## 1. Deploy the reference instance (App Platform)
 
@@ -57,22 +62,34 @@ Then: create the app, verify `GET /health` returns the SHA and
   exist: `preview/index.html` (a static "no storybook yet — dashboard
   screens arrive Phase 4" page), `buildCommand:
   "mkdir -p dist && cp preview/index.html dist/"`, `outputDir:
-  "dist"`, `pagesProject`: `TODO` (create the Cloudflare Pages
-  project). The placeholder is replaced by the real storybook export
-  when Phase 4's dashboard screens land.
-- `milestoneNaming`: `"debt: / product: prefixes"`
-- `actors`: author + controlplane Linear user ids: `TODO`
+  "dist"`, `pagesProject`: `TODO` (a name only — the project itself
+  is created by the **pipeline-pages-provision** workflow, step 3).
+  The placeholder is replaced by the real storybook export when
+  Phase 4's dashboard screens land.
+- `actors`: author + controlplane Linear user ids: `TODO` — the two
+  may share one id (the sanctioned solo-workspace exception: a
+  personal API key IS the author; resolution is deterministic,
+  controlplane wins)
 - `agents`: stub workflow filenames for design, dev, reconcile,
   boundary, live-suite (from step 3)
 
 ## 3. Stub workflows and repo settings
 
-- Copy the stubs from orchestration `examples/stubs/` (sweep, the
-  four agents, live-suite, preview; skip record-deploy — that's the
-  dummy project's). The live-suite stub's command: `mix test --only
-  live` (no `:live` tests exist yet — the suite passes empty, which
-  is correct).
-- Actions secrets: `LINEAR_API_KEY`, `ANTHROPIC_API_KEY`.
+- Copy the stubs from orchestration `examples/stubs/` (sweep — now
+  webhook-era with the hourly fallback beat, the four agents,
+  live-suite, preview, pages-provision, preview-cleanup; skip
+  record-deploy — that's the dummy project's). The live-suite stub's
+  command: `mix test --only live` (no `:live` tests exist yet — the
+  suite passes empty, which is correct).
+- Run **pipeline-pages-provision** once (creates the Pages project
+  named in the config).
+- Actions secrets: `LINEAR_API_KEY`, `ANTHROPIC_API_KEY`,
+  `PIPELINE_REPO_TOKEN` (fine-grained, Contents read-only on the
+  orchestration repo — lets workflows check out `.pipeline/`; same
+  token value as the dummy project's), `CLOUDFLARE_API_TOKEN` (the
+  Pages-scoped token) + `CLOUDFLARE_ACCOUNT_ID`, and
+  `DIGITALOCEAN_TOKEN` (deploy detection against the App Platform
+  API).
 - Repo setting: "Allow GitHub Actions to create and approve pull
   requests" — on.
 - Branch protection on `main`: require the `ci` checks + pull
@@ -81,12 +98,14 @@ Then: create the app, verify `GET /health` returns the SHA and
 
 ## 4. Agent-facing CLAUDE.md
 
-Copy the project CLAUDE.md from orchestration's template —
-**maintained there, not here**: orchestration runs the agents, so
-the agent-facing operating instructions are its protocol surface;
-this repo only hosts the copy (plus a pointer to
-`docs/conventions.md` and `systems/`). Re-copy on orchestration
-upgrades.
+**Nothing to copy — the design changed** (orchestration `274cb42`):
+the protocol half is `prompts/repo-context.md` in the orchestration
+repo, **injected into every agent run's prompt at claim time** from
+the `.pipeline/` checkout, so protocol edits reach every project on
+the next run with no copies to drift. This repo's `CLAUDE.md` holds
+only what this repo alone can say — toolchain, verification
+commands, layout, pointers into `docs/` — and is ours, hand-written
+(done; see the repo root).
 
 ## 5. Verification
 
