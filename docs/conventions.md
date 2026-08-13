@@ -114,7 +114,9 @@ unattended pipeline must be mechanical or forbidden.
 - **The component behaviour** (`use Catapult.Component`, substrate
   Phase 1) declares the registries: `config/0`, `pubsub_topics/0`,
   `oban_queues/0`, `telemetry_events/0`, `events/0` (ES components),
-  `processes/0`, `seeds/0`. The root composer collision-checks at
+  `processes/0`, `seeds/0`, `errors/0` (boundary failure vocabulary
+  with remedies, v5 §2.2), `externals/0` (wrapped third-party
+  services, v5 §2.2). The root composer collision-checks at
   compile time. A new registered name is a decision; it shows in the
   diff.
 - **Root artifacts are composed, never edited** (v5 §2.7): router,
@@ -210,6 +212,13 @@ unattended pipeline must be mechanical or forbidden.
   fact about the work, not a fault in the system.
 - Every boundary export's failure modes are part of its contract:
   documented at the export, tested at the boundary.
+- **Deliberate error kinds are registered** (`errors/0`, v5 §2.2):
+  spine-prefixed, each with a one-line meaning and a remedy
+  (minimally "what to do" prose; gradable to a runbook ref or admin
+  link). Declared↔constructed checked both ways; the error catalog
+  generates from the registry. Scope: what crosses `defexport` —
+  internal tagged tuples stay unceremonied, and **crashes are out**
+  (exceptions are for bugs; bug-shapes are not inventoriable).
 
 ## 9. Testing
 
@@ -222,7 +231,9 @@ mechanically defeats the automation (v5 §2.8).
   in-memory fake (Tracker, Host, Deploy, LLM Provider —
   orchestration's own pattern, which this codebase re-expresses in
   Elixir). Ticket CI uses fakes; the fake ships with the port, not
-  with the test file.
+  with the test file. Each wrapped external is registered via
+  `externals/0` (v5 §2.2) — adapter, fake, kill-switch — so the
+  audit can hold the line mechanically.
 - **The `:live` suite is the exception, on a cadence, not a gate.**
   Tests tagged `:live` (real providers, real tracker/host against
   scratch projects, deployed surfaces) are excluded from ticket CI
@@ -261,6 +272,12 @@ mechanically defeats the automation (v5 §2.8).
   event sequence, trace id). Content-bearing data never enters the
   operational log channel (v5 §2.11); Catapult's plane logs contain
   project/scope identifiers, not artifact bodies.
+- **Logs are write-only** (v5 §2.11): nothing parses, alerts on, or
+  derives state from a log — alerting rides telemetry; replayable
+  facts are events. Ad hoc logging is legitimate *because* of that
+  fence; the export macro sets Logger metadata at boundary entry so
+  ad hoc logs still arrive structured. Secret-flagged config values
+  (v5 §2.2) never appear in logs or error payloads — audit-checked.
 - **Instrument the boundary:** the export macro auto-emits telemetry
   spans (start/stop/exception) per exported function — latency,
   throughput, error rate at every public surface, for free. Custom

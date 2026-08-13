@@ -13,9 +13,11 @@ as a hex package via the registry; Catapult consumes it as a path dep
 ## Owns
 
 The component behaviour (`use Catapult.Component`) and its registry
-callbacks (config/Vapor, pubsub topics, Oban queues, telemetry
-events, `events/0`, `processes/0`, seeds); the compile-time root
-composer with collision checks; the boundary-export macro (telemetry
+callbacks (config/Vapor with secret flags, pubsub topics, Oban
+queues with cron annotations, telemetry events, `events/0`,
+`processes/0`, seeds, `errors/0` — boundary failure vocabulary with
+remedies, `externals/0` — wrapped third-party services; v5 §2.2);
+the compile-time root composer with collision checks; the boundary-export macro (telemetry
 spans now, `@requires_permission` enforcement when identity lands);
 `mix catapult.audit` and its check registry; the health-endpoint
 plug (SHA + per-component readiness); the injected clock behaviour;
