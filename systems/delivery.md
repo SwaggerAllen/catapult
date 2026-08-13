@@ -29,6 +29,12 @@ milestones with the `:live` boundary step, the maintenance watcher).
 - **Every comment the plane relies on carries a fixed marker**
   (orchestration §9's rule, kept verbatim): counts and resumes
   parse markers, never prose.
+- **Intent → idempotent effect → observed completion** (v5 §7.1):
+  no external effect shares a transaction with an event. Outbound
+  acts record intent, execute via outbox workers, and complete only
+  on the world's confirmation (webhook/sweep). Effect-without-record
+  heals by re-observation; intent-without-effect is visible and
+  escalates. The log never says "done" on the plane's own word.
 - **The authoring loop is a strict subset, not a fork**: Phase 4
   ships the gate/PR/harvest slice of the same modules the full
   machinery grows into; no throwaway scaffolding that Phase 7

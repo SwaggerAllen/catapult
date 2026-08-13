@@ -1414,6 +1414,25 @@ but **every state where the author must act is unmistakable**, and
 there are few of them. Orchestration's naming discipline is retained:
 no two states (or a state and a label) one hyphen apart in meaning.
 
+**The log records decisions and observations, never wishes** (the
+events×external-effects question, settled at the docs review pass).
+One answer for every external surface — tracker, host, git,
+deploys: **an external effect never shares a transaction with an
+event.** Outbound, the plane records the *intent* as an event,
+executes the effect through an idempotent outbox worker (§2.6's
+pattern applied to ourselves — the event insert plus the job insert
+is the one legal transaction), and records *completion* only from
+the world's own confirmation (webhook, sweep observation) — "merge
+succeeded" enters the log because GitHub said so, never because we
+hoped so. Both dual-write failure modes resolve without the log
+lying: **intent-without-effect** stands as honest history, visible
+in explain-why, owned by retries and escalation;
+**effect-without-recorded-completion** is divergence the sweep
+re-observes and idempotent ingestion dedupes — the convergence
+floor is the healer. The state-driven scheduler's doctrine applied
+to writing: the world is observed into the log, never assumed into
+it.
+
 ### 7.2 The ticket tree is a projection of the doc DAG's fanout
 
 Linear sub-issues nest (a sub-issue is a full issue with a parent
@@ -2086,23 +2105,32 @@ states.
   preserves the commercial-license option without offering it).
   Hosted is the monetization path; self-hosting is the budget path;
   hosted tiers are business-targeted.
-- **Restore-from-backup semantics** (docs review pass; open,
-  actively being thought through). Two distinct cases, both wanted:
-  (1) *the database is corrupt, the world is fine* — revert to a
-  known-good copy and catch up to the present; (2) *the world went
-  wrong* — genuinely operate from the backup moment. The tension in
-  (1): supporting it well implies git + Linear retain enough to
-  reconstruct plane state, which quietly demotes the event log from
-  source of truth to a projection over git (preferred) and Linear
-  (kept dumb on purpose) — but all three surfaces are corruptible,
-  so authority during recovery may be **per event class** rather
-  than global: body commits re-derivable from git, ticket
-  transitions from Linear, bindings edits and dispatch history
-  plane-only. Not settled. **Interim rule, binding until it is:**
-  after any restore, the plane re-synchronizes from tracker and
-  host as *signals* before resuming authority — validate-or-revert
-  must never "correct" the world back to a rewound log. Ops floor
-  regardless: PITR on the plane's Postgres (SETUP.md).
+- **Restore-from-backup semantics** (docs review pass; **settled at
+  the evidence model**; cold-storage rider open). The authority
+  question resolved as a distinction, not a demotion: **the event
+  log is the source of truth in operation; git and Linear are
+  evidence in recovery** — recoverability is a property of the
+  system, not a transfer of the crown. Two cases, both supported:
+  (1) *database corrupt, world fine* — restore the known-good copy,
+  then **re-ingest the gap window from git and Linear as evidence**:
+  body commits and ticket transitions re-derive as observed facts;
+  only plane-native events (bindings edits, dispatch history) are
+  lost for the window, and those are operational rather than
+  authoritative — bindings are rare and re-enterable, dispatch
+  history is observational. (2) *the world went wrong* — operate
+  from the backup moment. Binding in both cases: after any restore
+  the plane re-synchronizes from tracker and host as *signals*
+  before resuming authority — validate-or-revert never "corrects"
+  the world back to a rewound log. **Cold-storage rider (punted as
+  machinery, shaping the backup strategy now):** at scale,
+  projections will need snapshotting and old events will archive to
+  cold storage — the database will not stay tidy. Constraints
+  pinned ahead of that build: archived segments are **part of the
+  backup/restore surface** (a restore includes them; archived
+  events remain immutable and replay-reachable), and snapshots stay
+  **disposable projections — never backup artifacts, never
+  authority**. Ops floor today: PITR on the plane's Postgres
+  (SETUP.md).
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,
