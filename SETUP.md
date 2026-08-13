@@ -100,9 +100,13 @@ from tracker/host as signals before resuming authority).
 
 ## 4. Verification (Phase 2's exit)
 
-Promote **ORC-2** (the README-touch verification ticket) from
-Backlog to Todo and watch it flow design → dev → reconcile → deploy
-unattended. Its `Done` is the exit criterion; from there, Phase 3
-is worked by the pipeline. The ci audit step arms itself on the
-first ticket-keyed PR now that `PIPELINE_REPO_TOKEN` exists —
-confirm its step stops saying "skipped".
+Move **ORC-2** (the README-touch verification ticket) into
+**Designing** — that is the starting gun. `Todo` means committed,
+not started (who-has-the-ball: nobody), and the sweep deliberately
+never pulls it forward; the design agent dispatches on Designing
+*entry*, so starting work is always the author's act. From there
+watch it flow design → dev → reconcile → deploy unattended. Its
+`Done` is the exit criterion; from there, Phase 3 is worked by the
+pipeline. The ci audit step arms itself on the first ticket-keyed
+PR now that `PIPELINE_REPO_TOKEN` exists — confirm its step stops
+saying "skipped".
