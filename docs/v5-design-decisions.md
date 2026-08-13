@@ -1659,7 +1659,10 @@ machine-shaped set, grown as named entries like registry kinds:
 cannot announce, because Linear is the silent thing);
 **dispatch-budget warn/cutoff** (§7.12.1); **bindings-credential
 expiry or auth failure** (invisible until a dispatch fails, so
-checked proactively); **deploy-detection anomalies** wider than any
+checked proactively — the *proactive* half; a run **discovering** a
+missing prerequisite files `Blocked`/`needs-setup` instead, §7.6,
+because once it blocks a ticket the fact is work-shaped);
+**deploy-detection anomalies** wider than any
 one ticket; **restore/cutover lifecycle states** (§6, §8). The rule
 exists because notification surfaces multiply on convenience, and
 every additional one is a place attention goes to die.
@@ -1748,6 +1751,28 @@ state.
   staleness and escalation checks (nothing is stale about waiting
   deliberately); carries no milestone until scheduled, so it can
   never block a boundary.
+- **Blocked carries flavor labels and its origin** (ported from
+  orchestration `372630a`). Three flavors, as labels — never
+  states, because a flavor dispatches nothing and a state would be
+  Blocked under another name duplicating every attached rule:
+  `needs-review` (a judgment is owed), **`needs-setup`** (an
+  environment prerequisite — a secret to set, an API to enable, an
+  account to create; the filing *must name exactly what has to be
+  done*, the `errors/0` remedy mandate applied to aborts — a parked
+  ticket nobody can act on is worse than a failed one), and bare
+  failure. The column's real question is "is anything broken," and
+  waiting-vs-broken must never look identical. **Every Blocked
+  entry names its origin state.** In Catapult the event log holds
+  this natively — `from` is a projection, not bookkeeping — but the
+  plane still stamps it on the Blocked comment, because the author
+  reads Linear, not the log, and "Reworking, until someone sets a
+  secret" has no obvious exit without its origin. **Blocked has no
+  timeout, deliberately** (orchestration `853df67`, rationale
+  ported): the only action a timeout could take is moving the
+  ticket, the only honest destination is the queue, and that
+  discards the claim, the branch, and the reason — to buy a nudge
+  that the assignment projection (§7.10) already provides. The
+  single-driving-author assumption is that they are prompt.
 
 ### 7.7 CI
 
