@@ -17,10 +17,10 @@ if config_env() == :prod do
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
   # Deliberately HEALTH_PORT, not PORT: this is the app's HTTP
-  # listener (the health endpoint), and reading the platform's
-  # injected PORT would let the listener drift from the spec's
-  # http_port. Ignoring PORT pins the listener to 4000 always.
+  # listener (the health endpoint). App Platform routes public
+  # traffic to 8080 and that isn't changeable in its UI, so 8080 is
+  # the prod default; HEALTH_PORT exists as the explicit override.
   config :catapult,
     serve_health: true,
-    health_port: String.to_integer(System.get_env("HEALTH_PORT", "4000"))
+    health_port: String.to_integer(System.get_env("HEALTH_PORT", "8080"))
 end

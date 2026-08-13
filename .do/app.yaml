@@ -17,7 +17,7 @@ services:
       repo: SwaggerAllen/catapult
       branch: main
       deploy_on_push: false
-    http_port: 4000
+    http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
     health_check:
@@ -27,12 +27,12 @@ services:
         scope: RUN_TIME
         value: ${db-pgsql-sfo2-33976.DATABASE_URL}
       # The app's HTTP listener (the health endpoint) — named
-      # HEALTH_PORT so nobody reads it as database-related, and so
-      # any platform-injected PORT is ignored entirely. Must match
-      # http_port above.
+      # HEALTH_PORT so nobody reads it as database-related. DO
+      # routes public traffic to 8080, not changeable in its UI, so
+      # everything pins there; must match http_port above.
       - key: HEALTH_PORT
         scope: RUN_TIME
-        value: "4000"
+        value: "8080"
 
 jobs:
   - name: migrate
