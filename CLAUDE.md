@@ -21,8 +21,9 @@ DSL grammar: `docs/dsl-syntax.md` (normative; wins over the v4 spec).
 
 ## Toolchain
 
-Pinned in `.tool-versions` (Elixir 1.17.3-otp-27 / OTP 27.2); CI
-enforces it. Dep series are temporarily pinned to what an older
+Pinned in `.tool-versions` (Elixir 1.17.3-otp-27 / OTP 27.3.4 —
+27.2 and earlier reject builds.hex.pm's TLS cert with
+`key_usage_mismatch`); CI enforces it. Dep series are temporarily pinned to what an older
 interim toolchain compiles (see the debt milestone) — don't bump
 them piecemeal.
 

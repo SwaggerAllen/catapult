@@ -120,10 +120,11 @@ Then: create the app, verify `GET /health` returns the SHA and
 - Run **pipeline-pages-provision** once (creates the Pages project
   named in the config).
 - Actions secrets: `LINEAR_API_KEY`, the model credentials —
-  `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN`, at least
-  one; orchestration supports both with configurable order and
-  failover (exact secret/variable names per its SETUP once the
-  credential PR lands there) —
+  `CLAUDE_CODE_OAUTH_TOKEN` and/or `ANTHROPIC_API_KEY`, at least
+  one (landed upstream, orchestration `d4fe42c`: subscription runs
+  first, the API key retries on a failed pass; set one and that one
+  is used; set neither and the model step fails loudly before any
+  call) —
   `PIPELINE_REPO_TOKEN` (fine-grained, Contents read-only on the
   orchestration repo — lets workflows check out `.pipeline/`; same
   token value as the dummy project's), **`AGENT_GITHUB_TOKEN`** (the

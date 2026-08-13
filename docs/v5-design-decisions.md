@@ -1810,7 +1810,23 @@ counterpart:
 - `states.yaml` — the status vocabulary with owners and the **writer
   matrix** (`moved_by: author | machine | ci | deploy | nobody` per
   transition — one field, and it makes the state-admission test
-  executable by the sim ring), plus which states are gates.
+  executable by the sim ring), plus which states are gates, plus
+  **display metadata: a per-state color, with board order = the
+  file's declaration order** (previously unstipulated; caught at
+  the states pass). Provisioning writes both, so every
+  Catapult-provisioned tracker board reads identically. The palette
+  is orchestration's, adopted by reference (its `protocol.Colors`):
+  **per-state, never per-category** — most pipeline states share
+  Linear's `started` category, and a category-keyed palette paints
+  the whole board one color. The families answer "what is happening,
+  and is any of it mine?" at a glance: grey for nothing-happening
+  (queued and terminal both — Done is deliberately grey, finished
+  work is out of mind and green is spent on flight), violet/cyan
+  for doc-generation and reconcile agents, green for building,
+  yellow for machinery verifying or shipping (CI, deploy), orange
+  for the author's sign-off, red for Blocked-needs-you. Nothing
+  reads colors back; they exist so the author sees the queue
+  without reading it.
 - `types.yaml` — ticket types, per-type lifecycles, PR topology
   (feature: base main, squash; child: base parent branch, merge).
 - `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`

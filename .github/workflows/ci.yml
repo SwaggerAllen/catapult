@@ -2,11 +2,19 @@
 # per the build plan: reconciliation trusts green, so the gates predate
 # the work. Name is load-bearing later: orchestration's sweep stub
 # triggers on this workflow's completion.
+#
+# PRs into main only (orchestration 423a636's rule): push + bare
+# pull_request ran every commit twice for the same verdict, and branch
+# protection reads the PR run. Main gets no post-merge run — the PR
+# that merged into it is the run; required checks make that a
+# guarantee. This repo is orchestration-delivered (ticket branches PR
+# into main), so the filter never misses a PR; v5 §7.7's
+# no-branch-filter rule applies to plane-delivered projects, not here.
 name: ci
 
 on:
-  push:
   pull_request:
+    branches: [main]
 
 jobs:
   ci:
