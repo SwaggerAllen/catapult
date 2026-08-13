@@ -47,6 +47,14 @@ and validation logic and must not fork it.
   the Actions adapter may assume Actions. The dispatch-concurrency
   cap is a per-instance `tunable` in plane state, never a config
   constant — scheduler backpressure and hosted tiering share it.
+- **Runners authenticate with GitHub Actions OIDC** (v5 §7.12.1):
+  the plane's context-fetch and result-report endpoints accept
+  GitHub's signed ID token, validated against GitHub's JWKS with
+  audience + `repository` + `run_id` matched to the plane's own
+  dispatch record. No secret rides the dispatch inputs (they are
+  visible-log territory). Pool adapter: plane-minted per-dispatch
+  tokens over the dispatch channel. **Rendered context never
+  contains bindings or credentials.**
 
 ## Initial vs target
 

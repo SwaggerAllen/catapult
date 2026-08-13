@@ -31,6 +31,12 @@ Build the deploy artifacts (attended — pre-pipeline work):
   Postgres 16 attached (`DATABASE_URL` injected); `PORT` set;
   deploy-on-push **off** — the pipeline's reconcile merge is the
   deploy trigger once live, and before that, deploys are manual.
+- Managed Postgres: verify **daily backups + PITR** are enabled (DO
+  managed databases include them — confirm retention). The event
+  log is the plane's state of record; restore semantics are
+  recorded in v5 §8 (after any restore: resync from tracker/host as
+  signals before resuming authority — never revert the world to a
+  rewound log).
 
 Then: create the app, verify `GET /health` returns the SHA and
 `foundation: true`.

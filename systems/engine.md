@@ -33,6 +33,11 @@ them.
 - **`ready_scopes` is the plane's dispatch source** (v5 §1.2's
   inversion) — the engine writes it; generation and delivery consume
   it; nothing else initiates work.
+- **Events are versioned and upcast on read** (v5 §2.4): shapes are
+  immutable contracts; changes are new versions with pure upcasters
+  registered beside the reducer; the log is never rewritten; replay
+  fixtures retain every historical shape. Built into the ES family
+  from the first event, because retrofit means a broken replay.
 - **Staleness is a projection, never stored state** (v5 §7.11): a
   node is stale when its committed content predates the inputs its
   context walk reads — computed from the log on demand, consumed by

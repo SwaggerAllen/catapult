@@ -249,6 +249,20 @@ once (at sysarch/comparch approval) and everything downstream derived
 and compiler-checked. Hand-maintained mappings drift; derivations
 can't.
 
+**Renames run through a rename system, never drive-by** (docs
+review pass). Every derivation the spine produces registers, beside
+the derivation itself, its **rename transform**: a codemod for
+code-shaped consumers (namespace, topics, queues, telemetry, flags,
+permissions, docs path, admin mount, mutex label) and a generated,
+lint-gated migration for data-shaped ones (table prefixes — live
+data on an unattended pipeline). A slug rename is a maintenance-flow
+ticket that composes and executes every registered transform; a
+slug change appearing outside that flow is an audit failure.
+Rationale: the spine is exactly what makes renames *enumerable* —
+the registry that derives every name knows every consumer — and a
+data-bearing rename must be mechanical or forbidden; "an agent
+improved a name in passing" is the forbidden thing.
+
 ### 2.2 Component behaviour and registries
 
 Every component adopts a platform behaviour (`use Catapult.Component`,
@@ -348,6 +362,18 @@ export module, and drift between them is checkable.
   schema; app code reaches it only through its API). Test convention:
   env-switched adapter — in-memory for dev/test so the domain runs
   offline, persistent in prod, identical aggregates either way.
+  **Versioning and upcasting are built into the family, not added
+  when needed** (docs review pass): events are immutable contracts;
+  a shape change — additive included — is a **new version** with a
+  **pure upcaster** registered beside the reducer, applied on read;
+  the log is never rewritten. `events/0` carries versions, and the
+  replay test suite retains fixture logs of **every historical
+  shape ever committed** (the format zoo), so rebuild-from-zero is
+  proven against real old events, not just current ones. Rationale:
+  replay-from-zero means old events live forever; without this
+  discipline the first post-launch schema change either breaks
+  replay or gets handled ad hoc per project — the classic ES cliff,
+  cheap to preempt in the substrate and miserable to retrofit.
 
 ### 2.5 Distribution by default
 
@@ -1320,6 +1346,25 @@ checks what a project declares**:
   `states.yaml` / `types.yaml` / `escalation.yaml` remain standalone
   — the files with no design-graph counterpart.
 
+**Bundle evolution over a populated graph is a cutover, not an
+edit** (docs review pass). Additive changes — new tiers, new edges —
+are free: a fresh walk populates them. Anything destructive
+(removals, renames, restructures, merges) requires a **cutover
+ticket** with four ordered acts: (1) **the pipeline drains** — no
+in-flight flow instances, new work holds; (2) a design pass compares
+the old and new graph structures and emits a **graph-transform
+list**, with the simple classes auto-proposed (new tier → walk it;
+removed tier → delete its nodes) and the hard classes — renamed,
+restructured, or combined tiers — computed by the design agent and
+**human-reviewed**, because "renamed" versus "removed plus added" is
+a semantic judgment no structural diff can make; (3) the migration
+executes the reviewed transforms; (4) the active bundle flips
+**only after migration completes**. Never a halfway state with work
+in the pipeline. For platform-shipped layers, an update **ships
+with its transform list** — authored upstream like §3.4's upgrade
+docs — so consuming a new platform-layer version is the same
+cutover with act (2) pre-supplied.
+
 **Dropped from v4:** the phase machinery — `phased:` tiers, the
 `phase_plan` projection and plan rule, cross-phase delta context, the
 plan-change flow, `/run_phase` (v4 §A.7 and §B.5 in their entirety).
@@ -1430,6 +1475,21 @@ pass generalized; everything downstream is standard. The taxonomy:
   scopes and opens an **absorption ticket** running the upward flow:
   docs absorb reality, walking upward only as far as the change
   argues.
+- **Doc edited out-of-band** (docs review pass) — a *body file*
+  changed on main outside the pipeline: the author hand-edited
+  architecture. The projections are insulated (walks read bodies at
+  recorded SHAs, so the graph itself doesn't move), but agents check
+  out the repo and humans read files, so an unratified doc state is
+  live influence the moment it lands. The base-check sweep detects
+  diffs under body paths and files a **doc-reconciliation ticket,
+  always `Urgent`** — by rule, not judgment: every ticket that
+  starts while the divergence stands can make decisions based on a
+  doc claim no code backs. The ticket resolves to one truth: adopt
+  the edit through the normal gate flow (it becomes a reviewed
+  revision event; downstream staleness follows ordinarily) or revert
+  it to match reality. The absorption ticket's mirror image — that
+  one makes docs absorb code; this one stops docs from leading it
+  unratified.
 - **Urgent / stop-the-world** — orchestration's rules port verbatim:
   `Urgent` preempts at pickup, never interrupts in-flight work, never
   steals an in-flight mutex, overrides the milestone pause. A true
@@ -1931,6 +1991,27 @@ normative, composed-journey checks) is specced in pieces across
    open item's "how many concurrent sessions" question now has two
    consumers (scheduler backpressure and hosted tiering), so the cap
    is plane state from the start, never a config constant.
+   **Runner↔plane authentication (docs review pass, settled — this
+   was the review's top gap):** the Actions adapter authenticates
+   runs with **GitHub Actions OIDC** — the runner requests GitHub's
+   signed ID token and presents it as a bearer to the plane's
+   context-fetch and result-report endpoints; the plane validates
+   offline against GitHub's published JWKS and matches audience,
+   `repository`, and `run_id` against its own dispatch record. The
+   credential is therefore scoped to a single run the plane itself
+   started, expires in minutes, is minted by GitHub rather than
+   stored by anyone, and **no secret rides the dispatch inputs**
+   (which are visible-log territory — the reason a naive shared
+   token is wrong). This is the industry-standard mechanism (the
+   same tokens authenticate Actions to AWS/GCP/Vault); JWT + JWKS
+   verification is stock Elixir machinery (joken/joken_jwks-grade),
+   not custom crypto. The pool adapter mints per-dispatch capability
+   tokens delivered over the dispatch channel instead — pool
+   dispatch is plane-initiated and not publicly logged, so
+   plane-minted is safe there; cluster OIDC is the upgrade if ever
+   wanted. Corollary under both adapters: **rendered context never
+   contains bindings or credentials** — context is design content
+   only.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
@@ -2005,6 +2086,23 @@ states.
   preserves the commercial-license option without offering it).
   Hosted is the monetization path; self-hosting is the budget path;
   hosted tiers are business-targeted.
+- **Restore-from-backup semantics** (docs review pass; open,
+  actively being thought through). Two distinct cases, both wanted:
+  (1) *the database is corrupt, the world is fine* — revert to a
+  known-good copy and catch up to the present; (2) *the world went
+  wrong* — genuinely operate from the backup moment. The tension in
+  (1): supporting it well implies git + Linear retain enough to
+  reconstruct plane state, which quietly demotes the event log from
+  source of truth to a projection over git (preferred) and Linear
+  (kept dumb on purpose) — but all three surfaces are corruptible,
+  so authority during recovery may be **per event class** rather
+  than global: body commits re-derivable from git, ticket
+  transitions from Linear, bindings edits and dispatch history
+  plane-only. Not settled. **Interim rule, binding until it is:**
+  after any restore, the plane re-synchronizes from tracker and
+  host as *signals* before resuming authority — validate-or-revert
+  must never "correct" the world back to a rewound log. Ops floor
+  regardless: PITR on the plane's Postgres (SETUP.md).
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,

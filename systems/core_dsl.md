@@ -29,6 +29,12 @@ context-source kinds, and audit profiles.
   extension schemas. A bundle that loads is a bundle the engine can
   run; instance-level checks (dependency cycles) run at projection
   time.
+- **Destructive bundle change over a populated graph is a cutover,
+  never a hot edit** (v5 §6): additive loads freely; removals,
+  renames, and restructures go through the cutover ticket — drain,
+  reviewed graph-transform list, migrate, then flip the active
+  bundle. The loader may load the new bundle for validation, but
+  the engine switches graphs only at a completed cutover.
 - **Grammar machinery lives here** (validators derived from bundle
   declarations); engine and generation call it. One validator source
   because commit-time rejection (engine) and pre-flight validation

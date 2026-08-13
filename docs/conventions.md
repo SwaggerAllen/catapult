@@ -76,6 +76,12 @@ Rationale: hand-maintained mappings drift; derivations can't. Never
 invent a name off-spine — if a name doesn't fit the table, the
 component decomposition is wrong, not the table.
 
+Slugs are renamed only through the rename flow (v5 §2.1): every
+derivation registers its rename transform — codemod or generated
+migration — and a rename ticket composes them. A slug change
+outside that flow is an audit failure, because table renames on an
+unattended pipeline must be mechanical or forbidden.
+
 ## 4. Boundaries and component structure
 
 - **Every component and subcomponent is a Boundary** with an explicit
@@ -148,6 +154,11 @@ component decomposition is wrong, not the table.
   (in-memory dev/test, persistent prod, identical aggregates).
   Catapult's own engine is the family's first consumer; the reducer's
   rebuild-from-zero property is a standing test, not a hope.
+- **Event shapes are immutable contracts** (v5 §2.4): a change —
+  additive included — is a new version with a **pure upcaster**
+  applied on read; the log is never rewritten. `events/0` registers
+  versions; the replay suite keeps fixture logs of every historical
+  shape, so rebuild-from-zero is tested against real old events.
 
 ## 7. Cross-component effects
 
