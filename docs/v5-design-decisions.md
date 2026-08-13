@@ -2157,6 +2157,35 @@ states.
   **disposable projections — never backup artifacts, never
   authority**. Ops floor today: PITR on the plane's Postgres
   (SETUP.md).
+- **MCP surface** (parked — customer-era, not near-term; scope
+  shaped now so it doesn't get designed badly later). Three prongs,
+  one exclusion:
+  1. **A plane MCP server** for the author's assistant: the queries
+     only the plane can answer (explain-why, staleness provenance,
+     dispatch history, findings, stub inventory, enforcement gaps,
+     bindings health) plus plane-native actions with no
+     tracker/host expression. Auth via the identity component's API
+     tokens (§2.9). Phase 7-adjacent.
+  2. **Never reimplement GitHub's or Linear's MCP servers** —
+     first-party servers exist, and legality is already structural:
+     every tracker/host write from *any* client is a signal under
+     validate-or-revert, and the writer matrix doesn't care who
+     typed it. An assistant misusing Linear's MCP gets the same
+     revert-with-comment a human does. A pre-validating pass-through
+     is therefore **UX polish, not a safety requirement** — adopt it
+     only if revert-after proves noisy in practice.
+  3. **`api_surface/0` emits an MCP server** the way it emits
+     OpenAPI and the typed channel client (§4.4): generated apps get
+     an MCP surface from declarations — thin-wrapper legality by
+     construction, `audience` levels apply, breaking-change
+     detection rides the same handle-diff machinery. The
+     customer-facing win, and it's mostly existing machinery.
+  Exclusion, recorded before someone helpfully adds it: **agent runs
+  never get an open plane-query MCP.** Context walks are the
+  contract; a mid-run query surface would erode context reduction
+  and break replay determinism — generation inputs must be
+  answerable from recorded context, and an ad-hoc query is an
+  unrecorded input.
 - Tenancy default-on vs opt-in (§2.9).
 - Dialyzer in the gate set (§2.13).
 - Registry notifications / push-on-release (§3.1) — seam designed,
