@@ -119,7 +119,13 @@ Then: create the app, verify `GET /health` returns the SHA and
   `PIPELINE_REPO_TOKEN`, which don't exist until this runbook runs.
 - Run **pipeline-pages-provision** once (creates the Pages project
   named in the config).
-- Actions secrets: `LINEAR_API_KEY`, `ANTHROPIC_API_KEY`,
+- Actions secrets: `LINEAR_API_KEY`, the model credentials —
+  `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN` (at least
+  one; with both set the agents fail over between them on
+  limit-class errors only, subscription-first by default so prepaid
+  capacity burns before the meter starts; optional repo *variable*
+  `PIPELINE_MODEL_AUTH` = `api-first` flips the order; the run log's
+  first line names which credential served) —
   `PIPELINE_REPO_TOKEN` (fine-grained, Contents read-only on the
   orchestration repo — lets workflows check out `.pipeline/`; same
   token value as the dummy project's), **`AGENT_GITHUB_TOKEN`** (the
