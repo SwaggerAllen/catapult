@@ -26,6 +26,11 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db-pgsql-sfo2-33976.DATABASE_URL}
+      # Pinned explicitly so the listener and http_port can never
+      # disagree, regardless of what the platform injects.
+      - key: PORT
+        scope: RUN_TIME
+        value: "4000"
 
 jobs:
   - name: migrate

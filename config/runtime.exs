@@ -1,8 +1,19 @@
 import Config
 
 if config_env() == :prod do
+  # DO managed Postgres injects a URL ending in `?sslmode=require`.
+  # Ecto's URL parser rejects `sslmode` as an option, so the query
+  # string is stripped and TLS configured explicitly. verify_none is
+  # deliberate for now: the bindable URL points at the cluster over
+  # DO's network, and certificate pinning is recorded follow-up work
+  # (the maintenance lane), not a boot blocker.
+  db_url = System.fetch_env!("DATABASE_URL")
+  [base_url | _query] = String.split(db_url, "?", parts: 2)
+  ssl? = String.contains?(db_url, "sslmode=require")
+
   config :catapult, Catapult.Repo,
-    url: System.fetch_env!("DATABASE_URL"),
+    url: base_url,
+    ssl: if(ssl?, do: [verify: :verify_none], else: false),
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
   config :catapult,
