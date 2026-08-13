@@ -26,9 +26,11 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db-pgsql-sfo2-33976.DATABASE_URL}
-      # Pinned explicitly so the listener and http_port can never
-      # disagree, regardless of what the platform injects.
-      - key: PORT
+      # The app's HTTP listener (the health endpoint) — named
+      # HEALTH_PORT so nobody reads it as database-related, and so
+      # any platform-injected PORT is ignored entirely. Must match
+      # http_port above.
+      - key: HEALTH_PORT
         scope: RUN_TIME
         value: "4000"
 
