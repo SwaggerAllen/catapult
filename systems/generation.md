@@ -58,6 +58,13 @@ and validation logic and must not fork it.
   visible-log territory). Pool adapter: plane-minted per-dispatch
   tokens over the dispatch channel. **Rendered context never
   contains bindings or credentials.**
+- **Model credentials are a pair with limit-class failover** (v5
+  §7.12.1): the runner harness accepts `ANTHROPIC_API_KEY` and/or
+  `CLAUDE_CODE_OAUTH_TOKEN` — customer-side secrets the plane never
+  sees. Order is a per-project bindings `tunable` passed as a
+  dispatch input (a preference, not a secret); failover on
+  limit-class errors only; the run report names which credential
+  served.
 
 ## Initial vs target
 

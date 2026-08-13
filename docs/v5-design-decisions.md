@@ -2049,6 +2049,23 @@ normative, composed-journey checks) is specced in pieces across
    wanted. Corollary under both adapters: **rendered context never
    contains bindings or credentials** — context is design content
    only.
+   **Model credentials are a pair, and the runner harness carries
+   the failover** (credential pass): the harness's run-agent step
+   accepts `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN` —
+   both customer-side secrets per the BYO rule; the plane never
+   sees either. This is budget-path economics, not a convenience:
+   solo devs will mostly run Max subscriptions, and the
+   subscription token is what makes their marginal generation cost
+   near zero. **The order is a per-project bindings `tunable`**
+   (an ops preference — plane state by the store test), delivered
+   to the runner as an ordinary dispatch input, since a preference
+   is not a secret. Failover fires on **limit-class failures only**
+   (usage/rate limits, exhausted credits); every other failure
+   fails the run unchanged — failover is for capacity, never for
+   bugs, or a real failure gets paid for twice. The run report
+   names which credential served, so dispatch history answers
+   "when did we start spilling onto the meter" as a query, not
+   archaeology.
    **A daily dispatch budget rides beside the concurrency cap**
    (notifications pass): the cap bounds parallelism, not volume, and
    an unattended system spending customer money needs both. Two
@@ -2088,8 +2105,9 @@ states.
 - **Hosted option** (direction favored, not committed; **the
   discipline is live now**). Shape if it happens: instance-per-org —
   separate plane + Postgres per customer, no multitenancy machinery
-  (`topology: single` stands); BYO keys and cloud — the model API
-  key lives in the customer's Actions secrets and never transits the
+  (`topology: single` stands); BYO keys and cloud — the model
+  credentials (API key and/or subscription OAuth token, §7.12.1)
+  live in the customer's Actions secrets and never transit the
   plane, agent compute rides their runners, deploy targets and
   preview hosting live in the customer's own accounts. What makes
   hosting cheap is the recorded architecture itself (§1.2; "never
