@@ -33,11 +33,12 @@ defmodule Catapult.MixProject do
       {:catapult_substrate, path: "components/substrate"},
       {:boundary, "~> 0.10", runtime: false},
       {:ecto_sql, "~> 3.11.0"},
-      {:postgrex, "~> 0.17.5"},
+      {:postgrex, "~> 0.22.2"},
       {:oban, "~> 2.17.0"},
       {:plug_cowboy, "~> 2.6"},
       {:jason, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test}
     ]
   end

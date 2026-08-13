@@ -33,9 +33,11 @@ delivered by an unattended pipeline. Where a rule below restates v5
 - **A new dependency is a decision, not a port** (v5 §2.8's rule).
   Name it in the ticket/sketch with its reason. `mix.lock` churn from
   transitive updates is accepted; new direct deps are not silent.
-- Dialyzer: **not in the gate set** for now (open item, v5 §8). Don't
-  add `@spec`s you don't maintain; do add typespecs on boundary
-  exports, where they are documentation.
+- Type checking: **the native set-theoretic checker, via
+  warnings-as-errors** (v5 §2.13 — settled; Dialyzer stays out).
+  Add typespecs on boundary exports, where they are documentation
+  and now enforcement; don't add `@spec`s you don't maintain
+  elsewhere.
 
 ## 2. Formatting, linting, compilation
 
@@ -51,6 +53,16 @@ green (v5 §2.13):
   report with the timestamp removed.
 - `mix boundary` (via compiler) — see §4.
 - Migration lint (safety checks) — see §6.
+- `mix deps.get --check-locked` — lockfile integrity is a **hard**
+  gate, never softened: a silently drifting lockfile is a supply
+  surface and a reproducibility lie (v5 §2.14).
+- `mix deps.audit` — known-vulnerable and retired deps blocked at
+  the door; the plane's maintenance watcher handles what's already
+  in. (Advisory data fetches like deps fetch — the no-network rule
+  governs the test suite, not toolchain fetches.)
+- `mix xref graph --format cycles --fail-above 0` — compile-
+  dependency cycles prohibited; the compile-connected ratchet joins
+  it via the audit (v5 §2.14).
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
 
 ## 3. The naming spine
@@ -124,6 +136,9 @@ unattended pipeline must be mechanical or forbidden.
   invalidation topic. Catapult runs `topology: single` today — the
   discipline is what makes a later flip mechanical, so it is not
   optional at n=1.
+- Registered processes may declare **VM guardrails** (v5 §2.5) —
+  `max_heap_size`, message-queue bounds — enforced by the BEAM
+  itself; legal because processes are never the state of record.
 - Commanded's and Oban's internal processes and tables are
   infrastructure — exempt from the registries, reached only through
   their APIs (v5 §2.4).
@@ -159,6 +174,10 @@ unattended pipeline must be mechanical or forbidden.
   applied on read; the log is never rewritten. `events/0` registers
   versions; the replay suite keeps fixture logs of every historical
   shape, so rebuild-from-zero is tested against real old events.
+- **ES invariants are property-tested** (v5 §2.4): reducers ship a
+  replay-determinism property, workers an idempotency property,
+  upcasters a round-trip property (StreamData). Examples supplement;
+  the property is the floor.
 
 ## 7. Cross-component effects
 

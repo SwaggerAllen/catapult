@@ -374,6 +374,13 @@ export module, and drift between them is checkable.
   discipline the first post-launch schema change either breaks
   replay or gets handled ad hoc per project — the classic ES cliff,
   cheap to preempt in the substrate and miserable to retrofit.
+  **Property tests are the family's testing grade** (sleeper pass):
+  the family's invariants are property-shaped by nature, so every
+  reducer ships a replay-determinism property, every worker an
+  idempotency/double-delivery property, every upcaster a round-trip
+  property (StreamData; templates ship with the family). Example
+  tests supplement, never substitute — an example proves one replay;
+  the property is the floor the family stands on.
 
 ### 2.5 Distribution by default
 
@@ -395,6 +402,12 @@ GenServer) on day one instead of at the first scale event.
   from persistent state; node-local caches declare their invalidation
   topic. Rationale: Horde hand-off and split-brain are manageable for
   coordinators and caches, catastrophic for sole copies of state.
+- **Registered processes may declare VM guardrails** (sleeper pass):
+  optional `max_heap_size` and message-queue bounds on a
+  `processes/0` entry, and the BEAM itself enforces them — a runaway
+  process dies before it takes the node. `runtime`-grade enforcement
+  on the §4.5 ladder for the cost of a registry field, and legal
+  precisely because processes are never the state of record.
 - Known tax, accepted: projects run this machinery at n=1–2 nodes for
   a while. Retrofitting placement discipline into a live system is the
   week-to-month rewrite this exists to preempt; dev-mode ergonomics
@@ -689,8 +702,15 @@ check, migration lint, pubapi-drift check, storybook export build —
 shipped as **`mix catapult.audit`**, the target-project counterpart of
 orchestration's `pipeline audit`, checking compiler-backed facts
 instead of YAML. The reconcile agent runs the same task — keeps its
-verification honest across projects. Dialyzer: **open** (value vs.
-CI-loop latency).
+verification honest across projects. **Type checking: the native
+set-theoretic checker, not Dialyzer** (sleeper pass — resolves the
+former open item): Elixir's built-in gradual type checker runs
+*inside* `mix compile`, so `--warnings-as-errors` — already a gate —
+makes it an enforcement organ with zero added latency, and it
+strengthens with every Elixir release. Boundary exports carry
+typespecs (they're documentation there anyway); signature drift on a
+pubapi becomes a compile failure. Dialyzer stays out: its CI-loop
+cost buys mostly overlap now, and the overlap grows.
 
 ### 2.14 The audit as the enforcement organ
 
@@ -724,6 +744,35 @@ ticket closes with a comment (§2.16, §7.10); the enforcement-gap
 inventory and its ticket-sync check — every policy×scope missing its
 declared-grade artifact has exactly one open enforcement ticket
 (§4.5).
+
+**Sleeper-check additions (ecosystem pass — adopted wholesale):**
+
+- **Dependency vulnerability + retirement checks** (`mix deps.audit`,
+  `mix hex.audit`) as the CI-side floor beneath §7.10's maintenance
+  watcher: the watcher files upgrade tickets for what's already in;
+  this blocks a merge *introducing* a known-bad dep. (Advisory data
+  fetches like deps fetch — §2.8's no-network rule governs the test
+  suite, not the toolchain's package and advisory fetches.)
+- **Sobelow** on every Phoenix-bearing project — security static
+  analysis as a stock gate; arms when a web layer exists.
+- **`mix xref` graph gates**: compile-dependency cycles prohibited,
+  plus a **ratcheting compile-connected cap** — the erosion metric
+  for §1's coupling theory, from a stock command; the cap may never
+  rise without a reviewed change.
+- **Lockfile integrity is a hard gate** (`deps.get --check-locked`,
+  never softened) — a lockfile that drifts silently is a supply
+  surface and a reproducibility lie.
+- **The grep checks graduate to AST-grade custom Credo checks**
+  (`utc_now`, unregistered `name:`, raw topic strings): no false
+  positives from comments and strings, IDE-surfaced, and
+  `catapult:allow` implemented as a real mechanism rather than
+  same-line text.
+- **Boundary's external-dependency mode** promotes adapter
+  conventions from prose/grep to compile grade: only `Store`
+  subcomponents may depend on Ecto, only the outbox wrapper on
+  Oban's insert surface, only adapters on Req — and no model-call
+  library anywhere in plane code, making conventions §11 a compile
+  error rather than an architecture-review catch.
 
 ### 2.15 Non-Elixir components (the escape hatch, defined)
 
@@ -2233,7 +2282,10 @@ states.
   answerable from recorded context, and an ad-hoc query is an
   unrecorded input.
 - Tenancy default-on vs opt-in (§2.9).
-- Dialyzer in the gate set (§2.13).
+- ~~Dialyzer in the gate set (§2.13)~~ **Settled: the native
+  set-theoretic type checker instead** — in-compiler, so
+  warnings-as-errors makes it a gate for free; Dialyzer's cost
+  bought only overlap.
 - Registry notifications / push-on-release (§3.1) — seam designed,
   build later. The registry is now multi-kind: packages, extracted
   handles, handle diffs, whole-app operator releases, harness

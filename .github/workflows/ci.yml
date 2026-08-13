@@ -59,10 +59,13 @@ jobs:
           key: mix-${{ runner.os }}-${{ hashFiles('.tool-versions', 'mix.lock', 'components/substrate/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
+      # --check-locked is a hard gate (conventions §2): a silently
+      # drifting lockfile is a supply surface and a reproducibility lie.
       - name: deps
-        run: |
-          mix deps.get
-          mix deps.get --check-locked || true
+        run: mix deps.get --check-locked
+
+      - name: deps audit (vulnerable/retired)
+        run: mix deps.audit
 
       - name: format
         run: mix format --check-formatted
@@ -72,6 +75,9 @@ jobs:
 
       - name: compile (warnings are errors; boundary in the compiler set)
         run: mix compile --warnings-as-errors
+
+      - name: xref cycles
+        run: mix xref graph --format cycles --fail-above 0
 
       - name: audit
         run: mix catapult.audit
