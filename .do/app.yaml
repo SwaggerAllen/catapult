@@ -1,0 +1,53 @@
+# App Platform spec for the reference instance (SETUP.md §2).
+# Create with: doctl apps create --spec .do/app.yaml
+# (or paste into the dashboard's app-spec editor).
+#
+# deploy_on_push is off by design: once the pipeline runs, its
+# reconcile merge is the deploy trigger; before that, deploys are
+# manual (`doctl apps create-deployment <app-id>`).
+#
+# TODO(human): create the managed Postgres 16 cluster first and put
+# its name in cluster_name below. (A `production: false` dev database
+# would boot, but has no PITR/backups — SETUP.md requires them.)
+name: catapult
+region: nyc
+
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    source_dir: /
+    github:
+      repo: SwaggerAllen/catapult
+      branch: main
+      deploy_on_push: false
+    http_port: 4000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    dockerfile_path: Dockerfile
+    source_dir: /
+    github:
+      repo: SwaggerAllen/catapult
+      branch: main
+      deploy_on_push: false
+    run_command: /app/bin/catapult eval "Catapult.Release.migrate()"
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: true
+    cluster_name: TODO-your-managed-postgres-cluster
