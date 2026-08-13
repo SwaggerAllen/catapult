@@ -47,6 +47,9 @@ jobs:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       GITHUB_TOKEN: ${{ github.token }}
       PIPELINE_KILL_SWITCH: ${{ vars.PIPELINE_KILL_SWITCH }}
+      # Deploy detection against the App Platform API; without it the
+      # pipeline logs a warning and Merged tickets hit the timeout.
+      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
     steps:
       - name: checkout project (for pipeline.config.json)
         uses: actions/checkout@v4
