@@ -42,7 +42,7 @@
   ],
   "deploy": {
     "provider": "digitalocean",
-    "endpoint": "TODO-https://api.digitalocean.com/v2/apps/<app-id>/deployments",
+    "endpoint": "https://api.digitalocean.com/v2/apps/26a2dbe4-0559-49b8-ab11-b9e5d4bb8666/deployments",
     "timeout": "30m"
   },
   "staleClaimGrace": "20m",
