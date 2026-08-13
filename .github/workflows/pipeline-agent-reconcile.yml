@@ -1,0 +1,78 @@
+# Project stub: reconcile agent.
+#
+# run-name is load-bearing: "pipeline: reconcile <ticket>" is how the
+# control plane correlates this run to its ticket (stale claims, busy
+# checks). Set it exactly.
+name: pipeline-agent-reconcile
+run-name: "pipeline: reconcile ${{ inputs.ticket }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: Ticket key, e.g. PIPE-12
+        required: true
+        type: string
+
+# Every pipeline command builds a snapshot first, and the snapshot has a
+# fixed read-set: the agent run list (actions), the open PRs
+# (pull-requests), each PR head's CI verdict (checks), and commit
+# ancestry (contents). Those are needed even by a run that only writes a
+# comment — the cost of reading the world, not of changing it. A missing
+# one surfaces as an HTTP 403 partway through the claim.
+#
+# Opening the draft PR additionally needs the repository setting
+# Settings → Actions → General → "Allow GitHub Actions to create and
+# approve pull requests". No workflow file can grant it.
+#
+# deployments: write is for the stand-in deployment reconcile records
+# straight after merging, on projects whose deploy provider is "github".
+# That was a separate workflow triggered by the push to main, and it
+# never fired: GitHub does not start a run from an event created with
+# GITHUB_TOKEN, and the merge is made with exactly that. On a real
+# platform the pipeline records nothing and the scope goes unused.
+permissions:
+  contents: write # merges the PR, and reads ancestry
+  pull-requests: write # reads and merges it
+  actions: read # the snapshot's agent run list
+  checks: read # CI verdict per PR head
+  deployments: write # records the stand-in deployment after merging
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — the verdict compares the PR branch to main.
+      # Checked out with the agent token so the push carries it. The
+      # default GITHUB_TOKEN works for the push itself, but GitHub does
+      # not start a workflow run from an event it created — so CI never
+      # ran, previews never built, deploys were never recorded — and a
+      # PR it opens is authored by github-actions[bot], which GitHub
+      # gates behind a manual approval on every ticket. See SETUP 2.
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
+          fetch-depth: 0
+
+      # ---- this project's toolchain, before the agent runs --------------
+      # The whole reason the pipeline ships composite actions rather than
+      # reusable workflows: a reusable workflow cannot accept `uses:`
+      # steps, so there was nowhere to put this and agents ran without
+      # the language they were being asked to write in. Replace with
+      # whatever this project needs.
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+      # ------------------------------------------------------------------
+
+      # Pin to a pipeline release tag (@v1) once one exists; main while
+      # the pipeline itself is under construction (DESIGN §5).
+      - uses: SwaggerAllen/orchestration/.github/actions/agent-reconcile@main
+        with:
+          ticket: ${{ inputs.ticket }}
+          linear_api_key: ${{ secrets.LINEAR_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
+          pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}

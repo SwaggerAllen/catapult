@@ -270,13 +270,48 @@ name TBD) with callbacks that register claims on shared root
 resources, aggregated by a compile-time root composer that fails the
 build on collision:
 
-- `config/0` — Vapor provider; per-component `.env`, prefixed env vars.
+- `config/0` — Vapor provider; per-component `.env`, prefixed env
+  vars. Entries may carry **`secret: true`** (ops-enforcement pass):
+  the audit forbids secret-flagged values in logs and error
+  payloads; settings surfaces mask them by construction.
 - `pubsub_topics/0` — topics as functions (`Comp.Topics.user_updated(id)`),
   never raw strings.
-- `oban_queues/0` — queue and worker names.
+- `oban_queues/0` — queue and worker names. Periodic schedules are
+  declared here too (cron annotations on queue entries) — what runs
+  on a timer is diffable, never buried in plugin config.
 - `telemetry_events/0` — see §2.11.
 - `feature_flags/0` — see §2.10.
 - `permissions/0` — see §2.9.
+- `errors/0` (ops-enforcement pass) — the component's **deliberate
+  failure vocabulary at its boundary**: spine-prefixed kinds, each
+  with a one-line meaning and a **remedy** — minimally "what to do
+  about it" prose, gradable up to a runbook ref or an admin-surface
+  link (the policy ladder's promote-from-prose instinct). Scope
+  lines that make it workable: it governs what crosses `defexport`,
+  never every internal tagged tuple; and **crashes are out** —
+  exceptions are for bugs, and registering bug-shapes is
+  inventorying the unknowable. Checked declared↔constructed both
+  directions (the telemetry check's shape). Payoffs: the docs-site
+  **error catalog generates** from the registry (never
+  hand-written); `defexport` spans key error-rate metrics by kind —
+  **cardinality-safe because the vocabulary is closed**; OpenAPI
+  and channel contracts enumerate the kinds, so clients get typed
+  errors carrying their remedies; and every deliberate error in a
+  hosted customer's log links its runbook — the support envelope's
+  difference between a screenshot and an open runbook. The LLM
+  failure taxonomy becomes the adapter component's registered
+  vocabulary; "generation failures as domain read models with
+  affordances" — the affordance is the remedy pointer made live.
+- `externals/0` (ops-enforcement pass) — every third-party service
+  the component wraps (§2.12): the adapter module, its fake, its
+  kill-switch flag, a data-classification note. The enumeration
+  that makes the adapter convention *enforceable*: the audit checks
+  every HTTP-client usage sits inside a registered adapter (with
+  Boundary's externals mode as the compile-grade half), the
+  kill-switch is tied to the thing it switches instead of a naming
+  convention, and the generated "what does this app talk to" page
+  is the compliance inventory — and, in the hosted shape, the
+  customer's egress inventory.
 - `processes/0` — see §2.5.
 - `seeds/0` — see §2.12.
 - `api_surface/0` — see §4.4. Sibling: `cli/0` (same pattern, escript
@@ -374,6 +409,13 @@ export module, and drift between them is checkable.
   discipline the first post-launch schema change either breaks
   replay or gets handled ad hoc per project — the classic ES cliff,
   cheap to preempt in the substrate and miserable to retrofit.
+  **Property tests are the family's testing grade** (sleeper pass):
+  the family's invariants are property-shaped by nature, so every
+  reducer ships a replay-determinism property, every worker an
+  idempotency/double-delivery property, every upcaster a round-trip
+  property (StreamData; templates ship with the family). Example
+  tests supplement, never substitute — an example proves one replay;
+  the property is the floor the family stands on.
 
 ### 2.5 Distribution by default
 
@@ -395,6 +437,12 @@ GenServer) on day one instead of at the first scale event.
   from persistent state; node-local caches declare their invalidation
   topic. Rationale: Horde hand-off and split-brain are manageable for
   coordinators and caches, catastrophic for sole copies of state.
+- **Registered processes may declare VM guardrails** (sleeper pass):
+  optional `max_heap_size` and message-queue bounds on a
+  `processes/0` entry, and the BEAM itself enforces them — a runaway
+  process dies before it takes the node. `runtime`-grade enforcement
+  on the §4.5 ladder for the cost of a registry field, and legal
+  precisely because processes are never the state of record.
 - Known tax, accepted: projects run this machinery at n=1–2 nodes for
   a while. Retrofitting placement discipline into a live system is the
   week-to-month rewrite this exists to preempt; dev-mode ergonomics
@@ -637,6 +685,20 @@ providers anyway.
   collector's job outside the envelope. Reference stack prefers Loki
   over ELK (pairs with the required Prometheus/Grafana, label-indexed,
   far lighter); ELK is just another provider adapter.
+- **Logs are write-only, with a metadata floor — and deliberately
+  unregistered** (ops-enforcement pass). No log registry, because
+  anything worth replaying is an event and anything worth counting
+  or alerting on is registered telemetry — logs are the residue,
+  human-readable forensic context, and ad hoc is *correct* for
+  residue. The fence that makes ad hoc safe: **nothing may depend
+  on a log** — no parsing, no log-pattern alerting, no log-derived
+  state; a consumer reading logs back is the tell that the signal
+  belongs in telemetry or the event log. (Orchestration's marker
+  rule inverted: it made comments parseable because they were
+  load-bearing; we make logs explicitly not.) The floor: the
+  boundary macro sets Logger metadata (component, trace id) at
+  every export entry, so even a one-off log inside a component
+  arrives structured and greppable at zero per-call cost.
 - **Content-log channel split** (Polyphony pass): the logging
   convention supports a declared split between operational logs and
   content-bearing logs (user data, transcripts), the latter on its
@@ -689,8 +751,15 @@ check, migration lint, pubapi-drift check, storybook export build —
 shipped as **`mix catapult.audit`**, the target-project counterpart of
 orchestration's `pipeline audit`, checking compiler-backed facts
 instead of YAML. The reconcile agent runs the same task — keeps its
-verification honest across projects. Dialyzer: **open** (value vs.
-CI-loop latency).
+verification honest across projects. **Type checking: the native
+set-theoretic checker, not Dialyzer** (sleeper pass — resolves the
+former open item): Elixir's built-in gradual type checker runs
+*inside* `mix compile`, so `--warnings-as-errors` — already a gate —
+makes it an enforcement organ with zero added latency, and it
+strengthens with every Elixir release. Boundary exports carry
+typespecs (they're documentation there anyway); signature drift on a
+pubapi becomes a compile failure. Dialyzer stays out: its CI-loop
+cost buys mostly overlap now, and the overlap grows.
 
 ### 2.14 The audit as the enforcement organ
 
@@ -724,6 +793,43 @@ ticket closes with a comment (§2.16, §7.10); the enforcement-gap
 inventory and its ticket-sync check — every policy×scope missing its
 declared-grade artifact has exactly one open enforcement ticket
 (§4.5).
+
+**Sleeper-check additions (ecosystem pass — adopted wholesale):**
+
+- **Dependency vulnerability + retirement checks** (`mix deps.audit`,
+  `mix hex.audit`) as the CI-side floor beneath §7.10's maintenance
+  watcher: the watcher files upgrade tickets for what's already in;
+  this blocks a merge *introducing* a known-bad dep. (Advisory data
+  fetches like deps fetch — §2.8's no-network rule governs the test
+  suite, not the toolchain's package and advisory fetches.)
+- **Sobelow** on every Phoenix-bearing project — security static
+  analysis as a stock gate; arms when a web layer exists.
+- **`mix xref` graph gates**: compile-dependency cycles prohibited,
+  plus a **ratcheting compile-connected cap** — the erosion metric
+  for §1's coupling theory, from a stock command; the cap may never
+  rise without a reviewed change.
+- **Lockfile integrity is a hard gate** (`deps.get --check-locked`,
+  never softened) — a lockfile that drifts silently is a supply
+  surface and a reproducibility lie.
+- **The grep checks graduate to AST-grade custom Credo checks**
+  (`utc_now`, unregistered `name:`, raw topic strings): no false
+  positives from comments and strings, IDE-surfaced, and
+  `catapult:allow` implemented as a real mechanism rather than
+  same-line text.
+- **Boundary's external-dependency mode** promotes adapter
+  conventions from prose/grep to compile grade: only `Store`
+  subcomponents may depend on Ecto, only the outbox wrapper on
+  Oban's insert surface, only adapters on Req — and no model-call
+  library anywhere in plane code, making conventions §11 a compile
+  error rather than an architecture-review catch.
+
+**Registry-completeness additions (ops-enforcement pass):** the
+`errors/0` declared↔constructed check plus remedy presence (a
+registered kind with no remedy is an audit failure); every
+external-HTTP usage inside a registered `externals/0` adapter;
+secret-flagged config values never appearing in logs or error
+payloads; cron schedules declared on queue entries, never bare in
+plugin config.
 
 ### 2.15 Non-Elixir components (the escape hatch, defined)
 
@@ -2233,7 +2339,10 @@ states.
   answerable from recorded context, and an ad-hoc query is an
   unrecorded input.
 - Tenancy default-on vs opt-in (§2.9).
-- Dialyzer in the gate set (§2.13).
+- ~~Dialyzer in the gate set (§2.13)~~ **Settled: the native
+  set-theoretic type checker instead** — in-compiler, so
+  warnings-as-errors makes it a gate for free; Dialyzer's cost
+  bought only overlap.
 - Registry notifications / push-on-release (§3.1) — seam designed,
   build later. The registry is now multi-kind: packages, extracted
   handles, handle diffs, whole-app operator releases, harness

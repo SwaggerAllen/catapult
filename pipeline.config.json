@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "tracker": {
+    "teamId": "94b1977f-5b88-4aae-9a0e-c4d7d00ebf85",
+    "projectId": "2bdba291-161c-4cf4-bbe2-6eab216a2985"
+  },
+  "states": {
+    "backlog": "Backlog",
+    "todo": "Todo",
+    "designing": "Designing",
+    "design_review": "Design review",
+    "ready_for_dev": "Ready for dev",
+    "in_progress": "In Progress",
+    "checks": "Checks",
+    "reconciling": "Reconciling",
+    "ready_for_rework": "Ready for rework",
+    "reworking": "Reworking",
+    "merged": "Merged",
+    "boundary_review": "Boundary review",
+    "blocked": "Blocked",
+    "done": "Done",
+    "canceled": "Canceled"
+  },
+  "designOwnedPaths": [
+    "screens/**",
+    "storybook/**",
+    "systems/*.md",
+    "docs/non-goals.md"
+  ],
+  "componentPaths": [
+    "lib/catapult_web/components/**"
+  ],
+  "nonAsksPath": "docs/non-goals.md",
+  "qualityGates": [
+    "mix format --check-formatted",
+    "mix credo --strict",
+    "mix compile --warnings-as-errors",
+    "mix deps.audit",
+    "mix xref graph --format cycles --fail-above 0",
+    "mix catapult.audit",
+    "mix test"
+  ],
+  "deploy": {
+    "provider": "digitalocean",
+    "endpoint": "TODO-https://api.digitalocean.com/v2/apps/<app-id>/deployments",
+    "timeout": "30m"
+  },
+  "staleClaimGrace": "20m",
+  "preview": {
+    "pagesProject": "catapult-storybook",
+    "buildCommand": "mkdir -p dist && cp preview/index.html dist/index.html",
+    "outputDir": "dist"
+  },
+  "actors": {
+    "author": [
+      "35acc20f-05b8-4931-8cc2-3b4a5dffe6da"
+    ],
+    "controlplane": [
+      "35acc20f-05b8-4931-8cc2-3b4a5dffe6da"
+    ]
+  },
+  "agents": {
+    "design": "pipeline-agent-design.yml",
+    "dev": "pipeline-agent-dev.yml",
+    "reconcile": "pipeline-agent-reconcile.yml",
+    "boundary": "pipeline-agent-boundary.yml",
+    "live-suite": "pipeline-live-suite.yml"
+  }
+}

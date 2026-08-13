@@ -9,7 +9,7 @@ defmodule Catapult.MixProject do
       app: :catapult,
       version: "0.1.0",
       # Floor, not pin — the pin is .tool-versions; CI enforces it.
-      elixir: "~> 1.14",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -32,12 +32,13 @@ defmodule Catapult.MixProject do
     [
       {:catapult_substrate, path: "components/substrate"},
       {:boundary, "~> 0.10", runtime: false},
-      {:ecto_sql, "~> 3.11.0"},
-      {:postgrex, "~> 0.17.5"},
-      {:oban, "~> 2.17.0"},
-      {:plug_cowboy, "~> 2.6"},
+      {:ecto_sql, "~> 3.13"},
+      {:postgrex, "~> 0.22.2"},
+      {:oban, "~> 2.20"},
+      {:plug_cowboy, "~> 2.8"},
       {:jason, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test}
     ]
   end

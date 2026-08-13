@@ -38,7 +38,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      # fetch-depth: 0 — the pipeline-audit step diffs against
+      # origin/main, which a shallow PR-merge checkout can't reach.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: erlef/setup-beam@v1
         with:
@@ -55,10 +59,13 @@ jobs:
           key: mix-${{ runner.os }}-${{ hashFiles('.tool-versions', 'mix.lock', 'components/substrate/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
+      # --check-locked is a hard gate (conventions §2): a silently
+      # drifting lockfile is a supply surface and a reproducibility lie.
       - name: deps
-        run: |
-          mix deps.get
-          mix deps.get --check-locked || true
+        run: mix deps.get --check-locked
+
+      - name: deps audit (vulnerable/retired)
+        run: mix deps.audit
 
       - name: format
         run: mix format --check-formatted
@@ -68,6 +75,9 @@ jobs:
 
       - name: compile (warnings are errors; boundary in the compiler set)
         run: mix compile --warnings-as-errors
+
+      - name: xref cycles
+        run: mix xref graph --format cycles --fail-above 0
 
       - name: audit
         run: mix catapult.audit
@@ -83,3 +93,37 @@ jobs:
           mix credo --strict
           mix compile --warnings-as-errors
           mix test
+
+      # DESIGN §9's three checks (mutex, doc lint, class) via
+      # `pipeline audit`. Self-arming: it skips with a notice until the
+      # PIPELINE_REPO_TOKEN secret exists (set at hookup, SETUP.md §4)
+      # and the branch carries a ticket key — pre-pipeline PRs have
+      # neither. The key parses from head_ref, never GITHUB_REF_NAME:
+      # under pull_request the ref is refs/pull/N/merge, and "N/merge"
+      # silently audits nothing (orchestration's stubs README).
+      - name: gate the pipeline audit
+        id: audit_gate
+        env:
+          TOKEN: ${{ secrets.PIPELINE_REPO_TOKEN }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          KEY=$(echo "$BRANCH" | grep -oiE 'orc-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]' || true)
+          if [ -n "$TOKEN" ] && [ -n "$KEY" ]; then
+            { echo "run=true"; echo "key=$KEY"; } >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "pipeline audit skipped:${TOKEN:+}${TOKEN:- no PIPELINE_REPO_TOKEN;}${KEY:+}${KEY:- no ticket key in branch '$BRANCH'}"
+          fi
+      - name: set up the pipeline
+        if: steps.audit_gate.outputs.run == 'true'
+        uses: SwaggerAllen/orchestration/.github/actions/setup-pipeline@main
+        with:
+          pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
+      - name: pipeline audit (mutex, doc lint, class)
+        if: steps.audit_gate.outputs.run == 'true'
+        run: |
+          BASE="origin/main...HEAD"
+          git diff --name-only "$BASE" > /tmp/changed
+          git diff --diff-filter=A --name-only "$BASE" > /tmp/added
+          pipeline audit --changed-files /tmp/changed --added-files /tmp/added \
+            --ticket "${{ steps.audit_gate.outputs.key }}"
