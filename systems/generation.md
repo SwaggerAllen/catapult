@@ -46,7 +46,10 @@ and validation logic and must not fork it.
   commit, report. The contract is the invariant; nothing outside
   the Actions adapter may assume Actions. The dispatch-concurrency
   cap is a per-instance `tunable` in plane state, never a config
-  constant — scheduler backpressure and hosted tiering share it.
+  constant — scheduler backpressure and hosted tiering share it. A
+  **daily dispatch budget** (warn + cutoff `tunable`s) rides beside
+  it; alerts via observability, mirrored on the dashboard (v5 §7.4's
+  two-channel rule).
 - **Runners authenticate with GitHub Actions OIDC** (v5 §7.12.1):
   the plane's context-fetch and result-report endpoints accept
   GitHub's signed ID token, validated against GitHub's JWKS with

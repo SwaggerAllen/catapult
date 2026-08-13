@@ -1540,6 +1540,24 @@ parent-ticket comment about a component's internals becomes feedback
 on the child (or the artifact), moved by the plane with a note.
 Scope rules only protect you if scope stays where it belongs.
 
+**Notifications have exactly two channels, and a third would be a
+bug** (notifications pass). If a fact is about *the work*, it is a
+ticket — the machinery-filed shapes (enforcement, swap, maintenance,
+absorption, doc-reconciliation, Triage notices) — and Linear's inbox
+is the delivery mechanism; that stays the overwhelming majority. If
+a fact is about *the machine*, it is an observability alert
+(Prometheus → the author's pager/email, outside the envelope per
+§2.11), mirrored on the dashboard's health surface. The
+machine-shaped set, grown as named entries like registry kinds:
+**signal silence** (webhook flow stopped — the one failure Linear
+cannot announce, because Linear is the silent thing);
+**dispatch-budget warn/cutoff** (§7.12.1); **bindings-credential
+expiry or auth failure** (invisible until a dispatch fails, so
+checked proactively); **deploy-detection anomalies** wider than any
+one ticket; **restore/cutover lifecycle states** (§6, §8). The rule
+exists because notification surfaces multiply on convenience, and
+every additional one is a place attention goes to die.
+
 **The Catapult LiveView UI is a debugging surface, not a working
 surface.** Lesson from siege: the DAG is for machine comprehension
 (humans got a tree view because the graph was unnavigable), and
@@ -2031,6 +2049,14 @@ normative, composed-journey checks) is specced in pieces across
    wanted. Corollary under both adapters: **rendered context never
    contains bindings or credentials** — context is design content
    only.
+   **A daily dispatch budget rides beside the concurrency cap**
+   (notifications pass): the cap bounds parallelism, not volume, and
+   an unattended system spending customer money needs both. Two
+   `tunable` thresholds per instance: **warn** (notification +
+   dashboard banner) and **cutoff** (dispatch halts; in-flight runs
+   finish; urgent notification). Alerting rides the observability
+   dogfood (Prometheus, §2.11) — a machine-shaped fact, not a
+   ticket, per §7.4's two-channel rule.
 2. Linear API/webhook limits under many child tickets — verify plan
    limits before the plane assumes them (orchestration §14's warning,
    inherited).
@@ -2274,9 +2300,13 @@ The stack, three layers, each a shared component:
    wholesale.
 3. **Prompt harness** — see §10.2.
 
-**Dogfooding is the design's proof:** the plane's own doc-tier
-generation runs on layers 1–2, so the taxonomy, metering, fakes, and
-runtime get exercised harder by Catapult itself than by any app.
+**Dogfooding note, corrected for §1.2** (stale text caught at the
+docs review pass — the original claimed the plane's doc tiers ran on
+layers 1–2): the plane's chain is agents end-to-end and never
+touches the adapter. The adapter and runtime get their exercise from
+the harness's runtime-dialect campaigns (§10.2) and from the
+runtime's first real consumer — Polyphony's beat loop, Phase 8 —
+which is why both are built with that consumer, not before.
 
 ### 10.2 The prompt harness
 
@@ -2295,10 +2325,36 @@ working prompt harness that re-platforms onto the v5 engine. Shape:
 sample scopes into a cohort; regenerate under a prompt variant; score
 via the declared review grammar plus structural metrics (grammar
 parse rate, cardinality violations); compare against a baseline
-pinned in the registry (a registry artifact kind). The LLM
-component's metering caps bound a harness run's budget; its
-deterministic fakes give the harness an offline mode for testing the
-harness itself.
+pinned in the registry (a registry artifact kind).
+
+**Campaigns never touch the pipeline** (harness isolation pass).
+Candidates and scores live in a **campaign workspace** —
+harness-owned storage seeded from a snapshot of the target graph —
+never the production graph, never git, never Linear. No tickets, no
+gates, no review lifecycle: gates exist to protect shipped truth,
+and harness output is deliberately disposable at a throughput
+(hundreds of regenerations of one tier's prompt) that would abuse
+any human-attention surface. The author drives campaigns from the
+harness surface directly. The dummy repo + test tracker project
+remain the **protocol** test surface (sim ring, live suite) —
+protocol correctness and content quality are different axes, tested
+by different instruments, and the harness deliberately opting out of
+Linear is what lets it iterate single prompts at volume instead of
+staging full runs.
+
+**Candidates run under the tier's production executor** — the
+fidelity rule: a design-dialect tier's candidates generate as
+dispatched agent runs (same render path, same executor profile,
+committing into the campaign workspace instead of git); a
+runtime-dialect tier iterates through the adapter, which *is* its
+production executor. A prompt scored under a different executor
+than production is a measurement of the wrong thing — an agent that
+can research behaves differently from a bare completion on the same
+prompt. Offline mode uses the matching fake (agent-port or
+adapter). Budgets are campaign-scoped by construction:
+dispatch-count caps for agent campaigns (§7.12.1's budget
+machinery), adapter metering for completion campaigns — a run
+without a cap is a config error, not a choice.
 
 Open (also in §8): the exact runtime-dialect boundary, and whether
 the app-facing harness mode ships with runtime v1 or follows.
