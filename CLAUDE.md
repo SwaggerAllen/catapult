@@ -23,9 +23,12 @@ DSL grammar: `docs/dsl-syntax.md` (normative; wins over the v4 spec).
 
 Pinned in `.tool-versions` (Elixir 1.17.3-otp-27 / OTP 27.3.4 —
 27.2 and earlier reject builds.hex.pm's TLS cert with
-`key_usage_mismatch`); CI enforces it. Dep series are temporarily pinned to what an older
-interim toolchain compiles (see the debt milestone) — don't bump
-them piecemeal.
+`key_usage_mismatch`); CI enforces it, and `mix.exs` floors match
+(`~> 1.17`). Dep series ride current stable — the `deps.audit` gate
+forced the bump the day it armed (the old interim pins are retired;
+ORC-3's coherence pass, done ahead of the pipeline). An out-of-band
+toolchain older than the pin cannot compile the deps; the pinned
+toolchain is the only supported one.
 
 ## Layout
 

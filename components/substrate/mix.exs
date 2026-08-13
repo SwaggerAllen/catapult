@@ -11,7 +11,7 @@ defmodule Catapult.Substrate.MixProject do
       version: "0.1.0",
       # Floor, not pin: the pin lives in .tool-versions and CI enforces
       # it; the floor is what lets older local toolchains compile.
-      elixir: "~> 1.14",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env())
@@ -25,7 +25,7 @@ defmodule Catapult.Substrate.MixProject do
 
   defp deps do
     [
-      {:plug, "~> 1.15.0"},
+      {:plug, "~> 1.18"},
       {:telemetry, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
