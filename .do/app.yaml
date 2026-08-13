@@ -6,11 +6,8 @@
 # reconcile merge is the deploy trigger; before that, deploys are
 # manual (`doctl apps create-deployment <app-id>`).
 #
-# TODO(human): create the managed Postgres 16 cluster first and put
-# its name in cluster_name below. (A `production: false` dev database
-# would boot, but has no PITR/backups — SETUP.md requires them.)
 name: catapult
-region: nyc
+region: sfo
 
 services:
   - name: web
@@ -28,7 +25,7 @@ services:
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        value: ${db-pgsql-sfo2-33976.DATABASE_URL}
 
 jobs:
   - name: migrate
@@ -43,11 +40,15 @@ jobs:
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        value: ${db-pgsql-sfo2-33976.DATABASE_URL}
 
 databases:
-  - name: db
+  # Attached through the dashboard, which names the spec component
+  # after the cluster — the ${...} refs above resolve against this
+  # name, not the cluster_name field (the two happen to coincide
+  # here; they are different fields).
+  - name: db-pgsql-sfo2-33976
     engine: PG
     version: "16"
     production: true
-    cluster_name: TODO-your-managed-postgres-cluster
+    cluster_name: db-pgsql-sfo2-33976
