@@ -1815,18 +1815,30 @@ counterpart:
   file's declaration order** (previously unstipulated; caught at
   the states pass). Provisioning writes both, so every
   Catapult-provisioned tracker board reads identically. The palette
-  is orchestration's, adopted by reference (its `protocol.Colors`):
-  **per-state, never per-category** — most pipeline states share
-  Linear's `started` category, and a category-keyed palette paints
-  the whole board one color. The families answer "what is happening,
-  and is any of it mine?" at a glance: grey for nothing-happening
-  (queued and terminal both — Done is deliberately grey, finished
-  work is out of mind and green is spent on flight), violet/cyan
-  for doc-generation and reconcile agents, green for building,
-  yellow for machinery verifying or shipping (CI, deploy), orange
-  for the author's sign-off, red for Blocked-needs-you. Nothing
-  reads colors back; they exist so the author sees the queue
-  without reading it.
+  originates in orchestration and is **restated here in full**
+  (whoever builds states.yaml reads this document, not orchestration
+  source). Rule one: **per-state, never per-category** — most
+  pipeline states share Linear's `started` category, and a
+  category-keyed palette paints the whole board one color. The
+  families answer "what is happening, and is any of it mine?" at a
+  glance:
+
+  | Family | Hex | Meaning | Catapult states |
+  |---|---|---|---|
+  | grey | `#bec2c8` | not scheduled | Backlog; Stubbed (deliberate wait — its own column is its visibility; the color needn't shout) |
+  | light grey | `#e2e2e2` | queued | Todo, Ready for dev, Ready for rework |
+  | violet | `#9b8fd4` | a generation agent is working | Product design, Architecting |
+  | green | `#4cb782` | building | Building, In progress, Reworking |
+  | yellow | `#f2c94c` | machinery verifying/shipping | Checks, Merged (awaiting deploy), Validating |
+  | cyan | `#26b5ce` | reconcile agent | Reconciling |
+  | orange | `#f2994a` | the author's sign-off | Product review, Architecture review |
+  | red | `#eb5757` | stuck; the author unsticks | Blocked |
+  | dark grey | `#95a2b3` | terminal, out of mind | Done/Shipped, Canceled |
+
+  Rule two, carried with its reason: **Done is deliberately grey,
+  not green** — finished work is out of mind, and green is spent on
+  work in flight. Nothing reads colors back; they exist so the
+  author sees the queue without reading it.
 - `types.yaml` — ticket types, per-type lifecycles, PR topology
   (feature: base main, squash; child: base parent branch, merge).
 - `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
