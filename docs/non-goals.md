@@ -64,3 +64,23 @@ recorded decision, and say so explicitly.
   matrices, no hand-written API docs where generation exists.
   Documents that mirror code drift silently; every such document is
   generated or absent.
+- **No second home for the reference instance's live facts.** App
+  name, region, public hostname, port, autodeploy, the migrate
+  PRE_DEPLOY job: `SETUP.md` §2 records them and nothing else
+  restates them. The README says the deployment exists, that
+  `/health` is the only served path, and points at §2 — nobody
+  opens a README to find a database cluster name, so the one home
+  is the file a reader is already in when the values matter.
+  (Author decision, ORC-40.) This is the entry above one level up
+  rather than a case of it: that rule is scoped to documents
+  mirroring *code*, and these are prose facts about a running
+  system, but the failure mode is identical and we have first-hand
+  evidence. ORC-2's README paragraph (`4a4aa91`) sourced the
+  deployment to `.do/app.yaml` one commit after `b5c878f` deleted
+  that file — the same paragraph, in its first week, citing
+  something that no longer existed. The next drift is a hostname or
+  a port, which a reader acts on. Corollary, and the reason no
+  check is added: **no doc-lint holding the two files in
+  agreement.** A lint is what a second copy needs; one home needs
+  nothing, and these facts leave the tree entirely at
+  open-sourcing, so the lint would be written to be deleted.
