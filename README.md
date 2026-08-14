@@ -9,7 +9,8 @@ tickets, so the pipeline's deploy step is checking a real running
 system. `GET /health` is the contract everything else reads — the
 endpoint from `Catapult.Health`, the only served path, returning the
 build's git SHA, an overall `ok`, and per-component readiness as JSON
-(200 when every component is ready, 503 otherwise); deploy detection,
-ops and agents all read those same facts. The live app's own
-specifics — name, region, public hostname, port, autodeploy, the
-migrate PRE_DEPLOY job — live in `SETUP.md` §2 and nowhere else.
+(200 when every component is ready, 503 otherwise); ops and agents
+read those facts. Deploy detection watches the App Platform app
+itself instead. The live app's own specifics — name, region, public
+hostname, port, autodeploy, the migrate PRE_DEPLOY job, the id of the
+app deploy detection watches — are in `SETUP.md` §2 and nowhere else.
