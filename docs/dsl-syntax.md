@@ -187,8 +187,9 @@ Context is the only readiness signal.
 v5 additions:
 
 - **`input.<role>`** — reads the intake documents tagged with a
-  declared role (`input.project_doc`, `input.behavior_docs`; roles
-  registered in the platform layer, v5 §7.3's intake list).
+  declared role (`input.project_doc`, `input.behavior_docs`,
+  `input.mocks`; roles registered in the platform layer, v5 §7.3's
+  intake list).
   **Roles are optional classification of a free-form raft, never
   requirements**: a role with no documents yields an empty
   collection and **never blocks readiness** (v5 §1.1 — requiring a

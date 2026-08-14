@@ -1021,6 +1021,30 @@ Chain placement: `inputs → feature_expansion → journeys → screens →
 requirements → sysarch → …`. UX/IA before requirements grounds the
 rotation tier in concrete surfaces — historically the mushiest tier.
 
+**Screens-first and hybrid intake: one chain, always downward**
+(mocks pass). Many projects now arrive screens-first — the author
+worked the idea out as mocks or a vibe-coded prototype, and the
+feature list lives in those screens. Supported without a second
+traversal mode: **mocks are raft members** (an optional `mocks`
+input role as classification signal; free-form, frozen at intake
+like every input), and generation stays top-down — deliberately no
+upward intake variant. Two tiers read the evidence: **feature
+expansion** (the feature list may come *out of* the screens; mock
+evidence and prose docs are weighed together, which makes the
+hybrid case native rather than special — mocks-only is just a raft
+thin on prose) and **the screens tier directly** (so visual and
+state evidence shapes definitions without having to survive two
+abstraction rotations first). Agents-end-to-end makes mocks
+*runnable* evidence — the intake agent renders and interacts with a
+prototype rather than squinting at its source. Two disciplines
+carry the weight: extraction prompts **complete the negative
+space** — mock sets show happy paths, and proposing the missing
+empty/error/loading/denied states is the chain improving the mocks,
+not transcribing them — and **mock code is evidence, never copied**:
+the fresh-scaffold rule holds. Standing visual guidance for the
+delivery-time design pass rides refs (§4.5), hint-staleness as
+ever; a supplied design system rides §5.4's `design_system` node.
+
 ### 4.2 Journeys
 
 First-class nodes between features and screens. Grammar: argument,
@@ -1129,7 +1153,8 @@ into the default bundle; this section records their v5 form (from
 the refs/policies design pass).
 
 **Refs** — project-local supplemental content (runbooks, style
-guides, implementation guides, app prompt text — anything the graph
+guides, implementation guides, app prompt text, user-supplied mocks
+kept as delivery-time visual guidance — anything the graph
 should hold that no dedicated tier models): singleton pool, `id`
 identity, full draft→review→approve lifecycle, attached via
 reference edges, consumed comparch-and-below. Out-of-cycle iteration
@@ -1327,6 +1352,13 @@ Frontend edge inventory: `screen_coll → screen` (hosts),
 (calls), `screen_coll → journey` (consumes journey state),
 `ui_coll → backend comp` (shapes), `ui_coll → design_system`
 (primitives), plus same-tier `dependency` edges within families.
+
+**`design_system` may be supplied, not generated** (mocks pass): a
+user arriving with a design system pins it — an external or
+vendored node like any §3.2 external — and the UI tiers design
+against its primitives instead of deriving them. The Polyphony
+pass's single-source kit-with-drift-test stance (§5.5) is the
+maintenance discipline either way.
 
 Per-family handles: backend pubapi = exported functions; UI-collection
 pubapi = exported function components with assigns/slots contracts;

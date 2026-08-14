@@ -3,12 +3,12 @@
 The remaining **human** steps (build-plan Phase 2), one-time and
 attended. Everything code-shaped already lives in the repo:
 
-- `Dockerfile` + `.do/app.yaml` + `Catapult.Release.migrate` (the
-  deploy artifacts; the migrate release task is the PRE_DEPLOY job)
+- `Dockerfile` + `Catapult.Release.migrate` (the deploy artifacts;
+  the migrate release task is the PRE_DEPLOY job)
 - `pipeline.config.json` — tracker ids, the state mapping (read live
   from the team), actors (author = controlplane, the sanctioned
-  solo-workspace exception), gates, preview, agents. **One TODO
-  remains**: `deploy.endpoint`, filled in step 2.
+  solo-workspace exception), gates, preview, agents, and the live
+  app's `deploy.endpoint`.
 - The eight pipeline stubs under `.github/workflows/` (toolchain
   blocks read `.tool-versions`; live-suite runs
   `mix test --only live`, which passes empty until `:live` tests
@@ -34,23 +34,39 @@ Do the steps in order; values you create early are consumed late.
   that's easy to forget; a beat that can't reach the repo just logs
   404s hourly.
 
-## 2. Deploy the reference instance (App Platform)
+## 2. The reference instance (App Platform) — LIVE; facts recorded
 
-1. Create (or pick) the **managed Postgres 16 cluster** and put its
-   name in `.do/app.yaml`'s `cluster_name` TODO. A dev database would
-   boot but has no PITR/backups, which this runbook requires.
-2. `doctl apps create --spec .do/app.yaml` (or paste the spec into
-   the dashboard).
-3. Verify `GET /health` returns `foundation: true` and a **real git
-   SHA**. If it says `"dev"`, the build context carried no `.git`
-   and no `GIT_SHA` build arg — set a `GIT_SHA` build-time env on
-   the app, or adjust; deploy detection is blind until the SHA is
-   real.
-4. Verify **daily backups + PITR** are enabled on the cluster
-   (restore semantics: v5 §8 — after any restore, the plane resyncs
-   from tracker/host as signals before resuming authority).
-5. Fill `deploy.endpoint` in `pipeline.config.json`:
-   `https://api.digitalocean.com/v2/apps/<app-id>/deployments`.
+**Done, through DO's dashboard** — `/health` answers with
+`foundation: true` and main's real SHA. **The live app is the
+authority on its own configuration**: there is deliberately no
+committed app-spec file (one existed, was never read by anything,
+and drifted from reality five times in one afternoon — the
+no-hand-maintained-inventories rule applies to us too). Export the
+current spec from the dashboard if it's ever needed; that export is
+generated, therefore trustworthy.
+
+The facts a future session needs, recorded as facts:
+
+- App `catapult`, region `sfo`; app id is in
+  `pipeline.config.json`'s `deploy.endpoint`. Public URL:
+  `https://catapult-ezten.ondigitalocean.app` — `/health` is the
+  only served path (the design agent's finding: this hostname had
+  no committed source of truth; now it does, here).
+- **Public port is 8080, fixed by App Platform** — the prod listener
+  defaults to it (`config/runtime.exs`; `HEALTH_PORT` overrides).
+- Database: managed PG 16, component/cluster
+  `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
+  bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted
+  (encryption breaks substitution). `runtime.exs` strips the URL's
+  `sslmode` query and configures TLS itself.
+- **Autodeploy is ON and must stay on** — reconcile's merge to main
+  is the deploy trigger; the migrate job runs PRE_DEPLOY.
+- The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
+  scope** — deploy detection is a single GET.
+
+Remaining here: verify **daily backups + PITR** on the cluster
+(restore semantics: v5 §8 — after any restore the plane resyncs
+from tracker/host as signals before resuming authority).
 
 ## 3. Secrets, webhook, repo settings (GitHub UI)
 
@@ -87,9 +103,13 @@ Do the steps in order; values you create early are consumed late.
 
 ## 4. Verification (Phase 2's exit)
 
-Promote **ORC-2** (the README-touch verification ticket) from
-Backlog to Todo and watch it flow design → dev → reconcile → deploy
-unattended. Its `Done` is the exit criterion; from there, Phase 3
-is worked by the pipeline. The ci audit step arms itself on the
-first ticket-keyed PR now that `PIPELINE_REPO_TOKEN` exists —
-confirm its step stops saying "skipped".
+Move **ORC-2** (the README-touch verification ticket) into
+**Designing** — that is the starting gun. `Todo` means committed,
+not started (who-has-the-ball: nobody), and the sweep deliberately
+never pulls it forward; the design agent dispatches on Designing
+*entry*, so starting work is always the author's act. From there
+watch it flow design → dev → reconcile → deploy unattended. Its
+`Done` is the exit criterion; from there, Phase 3 is worked by the
+pipeline. The ci audit step arms itself on the first ticket-keyed
+PR now that `PIPELINE_REPO_TOKEN` exists — confirm its step stops
+saying "skipped".

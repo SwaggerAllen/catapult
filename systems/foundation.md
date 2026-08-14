@@ -1,10 +1,15 @@
 ---
 paths:
   - lib/catapult/application.ex
+  - lib/catapult/foundation.ex
+  - lib/catapult/health_endpoint.ex
   - lib/catapult/repo.ex
   - lib/catapult/release.ex
   - config/**
   - priv/repo/migrations_infra/**
+  - test/catapult/*.exs
+  - test/support/**
+  - test/test_helper.exs
 ---
 
 # foundation
