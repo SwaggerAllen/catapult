@@ -64,3 +64,28 @@ recorded decision, and say so explicitly.
   matrices, no hand-written API docs where generation exists.
   Documents that mirror code drift silently; every such document is
   generated or absent.
+- **No vendored, pinned or freshness-checked copy of the advisory
+  database** (ORC-37). The obvious repair for `mix deps.audit`'s
+  fail-open — clone `mirego/elixir-security-advisories` ourselves,
+  assert it is non-empty and recent, fail the build otherwise — makes
+  us the maintainer of a fork of someone else's mirror of the GitHub
+  Advisory Database, with its refresh cadence as our build's
+  liveness dependency. The gate is bought far more cheaply by
+  sourcing the signal from Hex, which cannot report clean from a
+  fetch it did not make. Revisit condition: Hex's advisory feed
+  proving materially behind the GitHub database in practice, which
+  would be an argument for a real second source rather than for
+  babysitting this one.
+- **No `mix_audit` dependency in `components/substrate/`** (ORC-37).
+  Substrate is Apache-2.0 and ships into every generated project, so
+  each dependency it declares is one imposed on trees we don't own.
+  `mix hex.audit` is built into Hex and covers substrate's lockfile
+  for free; adding a package to obtain a weaker second opinion spends
+  other people's dependency budget to do it.
+- **No removal of `mix deps.audit` now that Hex covers the gate**
+  (ORC-37). Demoted is not deleted: it reads the GitHub Advisory
+  Database, which is a genuinely different source, and it earned its
+  place the day it armed by catching the postgrex advisory and
+  forcing the series bump (ORC-3). Two sources disagreeing is the
+  condition this ticket made legible, not a defect to resolve by
+  dropping one until the Hex feed is shown to dominate it.
