@@ -19,7 +19,11 @@ recorded decision, and say so explicitly.
   and existing apps won't conform to it; an absorption mode is a
   different product. (Author decision, Polyphony conversation.
   Revisit condition: none foreseeable soon — "so far out of scope we
-  may as well not think about it.")
+  may as well not think about it.") Boundary sharpened at the mocks
+  pass: user-supplied mocks and design systems enter as **seed
+  evidence and pinned artifacts** (v5 §4.1, §5.4) — read, rendered,
+  designed against, never absorbed; business logic still
+  regenerates.
 - **No workflow interpreter in the DSL, no bundle-side code, no
   Turing-complete predicates** (v5 §6, §7.10, §9). The plane's
   Commanded aggregates are the semantics; declarations configure

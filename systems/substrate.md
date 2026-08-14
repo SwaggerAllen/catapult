@@ -1,6 +1,7 @@
 ---
 paths:
   - components/substrate/**
+  - lib/mix/tasks/catapult.audit.ex
 ---
 
 # substrate
