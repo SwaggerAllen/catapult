@@ -48,7 +48,10 @@ generated, therefore trustworthy.
 The facts a future session needs, recorded as facts:
 
 - App `catapult`, region `sfo`; app id is in
-  `pipeline.config.json`'s `deploy.endpoint`.
+  `pipeline.config.json`'s `deploy.endpoint`. Public URL:
+  `https://catapult-ezten.ondigitalocean.app` — `/health` is the
+  only served path (the design agent's finding: this hostname had
+  no committed source of truth; now it does, here).
 - **Public port is 8080, fixed by App Platform** — the prod listener
   defaults to it (`config/runtime.exs`; `HEALTH_PORT` overrides).
 - Database: managed PG 16, component/cluster
