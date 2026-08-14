@@ -2289,6 +2289,78 @@ as authority; the protocol has one home in the platform layer —
 projects bind ids and tune marked thresholds, never restructure
 states.
 
+### 7.14 Bug intake and the log cursor
+
+An event-sourced plane can answer a question a conventional one
+cannot: **what was true when this went wrong.** Bug intake is built
+around that answer rather than around a description of symptoms.
+
+- **A bug report carries a sequence, not just a timestamp.** On
+  intake the plane stamps the report with the log sequence at the
+  moment of ingest, as a marker comment (§7.1's programmatic-comment
+  rule). Wall-clock is what a reporter has; a sequence is what the
+  log can seek to. The stamp is an **upper bound on cause** —
+  everything causal happened at or before it — and that alone turns
+  "reproduce it" into "replay to N and look," which is the return on
+  being event-sourced in the first place.
+- **Where the stamp comes from, in preference order.** Best is the
+  *observation* point: a report raised from the dashboard or from a
+  running app's error surface carries the sequence the reporter was
+  looking at, and the bound is tight. Next is ingest: a ticket typed
+  into Linear is stamped when the plane first sees it, and the bound
+  is loose by however long the human took to file. **That gap is
+  stated on the ticket, never hidden** — a bound presented as a
+  pointer is worse than no bound, because it sends the agent
+  searching the wrong window with confidence.
+- **Vicinity is causal, not temporal.** A ±k window around N is the
+  v0 approximation and a poor one: the log interleaves every stream,
+  so a temporal window is mostly noise from unrelated scopes. The
+  target is the events the failing read's projections actually
+  consumed, and the machinery already exists — readiness and
+  staleness are computed from context walks (§7.11), which is
+  precisely a statement of which inputs a node's state depends on.
+  Ship the window, name it as an approximation, replace it with the
+  walk.
+- **The agent is given the evidence; it does not fetch it.** A
+  dispatched run holds no credentials and no working copy
+  (conventions §11), so the event window is rendered into its context
+  at claim time, bounded like any other rendered evidence, and marked
+  as **evidence rather than instruction** — §7.4's rule for ticket
+  text applies to event payloads verbatim, since a payload is data
+  somebody else wrote. An agent that must reach for the log is an
+  agent that will be handed a 403 and will proceed on inference
+  instead; that failure has already been observed in this project's
+  own pipeline, and it cost a full run.
+- **Payloads are classified before they are rendered.** In a hosted
+  instance event payloads hold customer data, so rendering one into a
+  model call is a data-flow decision rather than a convenience:
+  events carry a classification the way `externals/0` entries do
+  (§2.2), and the renderer redacts by class. A formality for the
+  community tier, the legal surface for the hosted one — and far
+  cheaper carried from the first event than retrofitted across a
+  format zoo (§2.4).
+- **Archived sequences stay reachable.** Cold-storage archiving (§8)
+  may not move a sequence out of reach while an open bug references
+  it: either open references pin their range, or retrieval is
+  transparent and slow. Decide it with the archiving work; do not let
+  a bug ticket become a pointer to nothing.
+
+**Why this earns its place beyond Catapult.** Generated projects
+adopt the same ES family (§2.4), so a bug-report-with-cursor is a
+platform capability rather than a plane feature: every application
+Catapult builds can hand its author a reproducible bug the same way.
+That is the argument for building intake properly instead of as an
+internal debugging aid — it is a product surface that happens to
+serve us first, and client-filed bugs and requests arrive through the
+tracker we already run on.
+
+Open: whether a bug is a distinct ticket type or a feature ticket
+wearing a label — it is born needing diagnosis rather than design, so
+it enters past the design gates the way children do (§7.10), but the
+label admission test is what settles the shape. Also open: whether
+client requests share intake with bugs (one surface, two types) or
+arrive on their own.
+
 ---
 
 ## 8. Parked / open items
