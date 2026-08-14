@@ -2321,16 +2321,44 @@ around that answer rather than around a description of symptoms.
   precisely a statement of which inputs a node's state depends on.
   Ship the window, name it as an approximation, replace it with the
   walk.
-- **The agent is given the evidence; it does not fetch it.** A
-  dispatched run holds no credentials and no working copy
-  (conventions §11), so the event window is rendered into its context
-  at claim time, bounded like any other rendered evidence, and marked
-  as **evidence rather than instruction** — §7.4's rule for ticket
-  text applies to event payloads verbatim, since a payload is data
-  somebody else wrote. An agent that must reach for the log is an
-  agent that will be handed a 403 and will proceed on inference
-  instead; that failure has already been observed in this project's
-  own pipeline, and it cost a full run.
+- **The unit is the ticket, not a window.** A report or harness
+  finding attached to a ticket imports *that ticket's* events — its
+  dispatches, claims, transitions, and the domain events its scope
+  produced. For a harness issue that is the entire causal set by
+  construction, since the pipeline's own events are ticket-scoped.
+  For a domain bug it is the seed, and the causal walk above extends
+  it.
+- **Seeded statically, expanded on demand.** The claim renders the
+  ticket's event set — a guaranteed floor, present even when every
+  other surface is down, bounded, and marked as **evidence rather
+  than instruction** (§7.4's rule applies to payloads verbatim, since
+  a payload is data somebody else wrote). Past that floor the run may
+  query, because the cases worth solving are cross-ticket: a defect
+  visible on one ticket whose cause sits in another scope still in
+  flight. Rendering every candidate ticket's events into one prompt
+  trades a context problem for a worse one.
+- **The query surface is typed and plane-mediated, never open.**
+  Reads are named questions — the events for a ticket, the projection
+  as of a sequence, explain-why for a scope — not a query language,
+  and **summarizing by default: the map before the territory.** A
+  tool that answers with five hundred payloads has spent the context
+  it was invented to save; it answers with counts, kinds and streams,
+  and yields payloads on request. Causal filtering happens plane-side
+  where the context walks live, not agent-side after the fact.
+- **A credential the plane mints, scoped to the run.** Not a standing
+  token the run happens to hold: dispatch mints it, scoped to that
+  ticket's readable set, expiring with the run. This is what the 403
+  actually taught — not "never fetch," but *never depend on a
+  credential nobody guaranteed you.* A rework run on this project's
+  own pipeline reached for CI logs with a token that could not read
+  them and worked the ticket blind, at the cost of a full run.
+- **Queries are recorded, and that is what replaces determinism
+  here.** Every read lands in the run's transcript as an observation
+  (§7.1: the log records decisions and observations). A diagnostic
+  run cannot be predicted in advance the way a generation run can,
+  but it must be reconstructible afterwards — *why it concluded what
+  it concluded* has to be answerable from the record. That is the
+  boundary of §8's MCP exclusion, restated there.
 - **Payloads are classified before they are rendered.** In a hosted
   instance event payloads hold customer data, so rendering one into a
   model call is a data-flow decision rather than a convenience:
@@ -2467,6 +2495,18 @@ arrive on their own.
   and break replay determinism — generation inputs must be
   answerable from recorded context, and an ad-hoc query is an
   unrecorded input.
+  **Bounded by run class (§7.14, and the boundary was found by
+  pushing on it).** That reasoning is about *generation* runs, where
+  it holds absolutely: an artifact's inputs must be answerable from
+  its recorded context walk, or staleness and regeneration mean
+  nothing. A **diagnostic** run — a bug or harness finding attached
+  to a ticket — has no context walk to protect and produces no
+  artifact whose provenance must replay, so the premises simply do
+  not reach it. It gets a typed, plane-mediated read port, a
+  credential minted per dispatch and scoped to its ticket, and every
+  query recorded as an observation. The load-bearing word in the
+  exclusion is **open**: no query language, no unrecorded reads, and
+  never on the generation path.
 - Tenancy default-on vs opt-in (§2.9).
 - ~~Dialyzer in the gate set (§2.13)~~ **Settled: the native
   set-theoretic type checker instead** — in-compiler, so
