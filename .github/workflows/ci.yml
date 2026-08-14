@@ -119,8 +119,14 @@ jobs:
         uses: SwaggerAllen/orchestration/.github/actions/setup-pipeline@main
         with:
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
+      # --ticket makes the audit fetch the issue's labels and text from
+      # Linear (the class check reads both), so it needs the key here —
+      # the stubs README's recipe omits this and the first armed run
+      # died on it before checking anything.
       - name: pipeline audit (mutex, doc lint, class)
         if: steps.audit_gate.outputs.run == 'true'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
         run: |
           BASE="origin/main...HEAD"
           git diff --name-only "$BASE" > /tmp/changed
