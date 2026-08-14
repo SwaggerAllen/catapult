@@ -42,7 +42,7 @@
   ],
   "deploy": {
     "provider": "digitalocean",
-    "endpoint": "https://api.digitalocean.com/v2/apps/26a2dbe4-0559-49b8-ab11-b9e5d4bb8666/deployments",
+    "endpoint": "https://api.digitalocean.com/v2/apps/b4f0108b-87cc-4358-9afc-b423e3ff6188/deployments",
     "timeout": "30m"
   },
   "staleClaimGrace": "20m",
