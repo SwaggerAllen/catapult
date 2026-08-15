@@ -33,6 +33,7 @@ permissions:
   actions: write # dispatching agent workflows; write covers listing runs
   pull-requests: read # the open-PR list the snapshot is built from
   checks: read # CI verdicts per PR head, which drive the Checks hop
+  deployments: read # deploy state, when the provider is \"github\"
 
 # One dispatcher at a time: the single-dev-agent invariant is only as
 # strong as single-dispatcher (DESIGN §13).
@@ -43,6 +44,15 @@ concurrency:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    # The kill switch stops the job, not just the work inside it
+    # (orchestration cd41b83). The binary already refuses to plan when the
+    # flag is set, which is correct and is not free: Actions bills each job
+    # rounded up to the minute, so an idle project on the hourly beat spends
+    # roughly 730 minutes a month producing nothing. A job whose `if` is
+    # false never starts. The env var below stays, so a hand-dispatched run
+    # with the flag on still refuses inside the binary — the two agree
+    # rather than one guarding the other.
+    if: vars.PIPELINE_KILL_SWITCH != 'true'
     env:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       GITHUB_TOKEN: ${{ github.token }}

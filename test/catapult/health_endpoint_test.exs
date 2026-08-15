@@ -1,6 +1,6 @@
 defmodule Catapult.HealthEndpointTest do
   use Catapult.DataCase, async: true
-  use Plug.Test
+  import Plug.Test
 
   test "GET /health reports sha and foundation readiness" do
     opts = Catapult.HealthEndpoint.init([])
