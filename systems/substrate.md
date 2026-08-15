@@ -12,14 +12,20 @@ as a hex package via the registry; Catapult consumes it as a path dep
 
 ## Owns
 
-The component behaviour (`use Catapult.Component`) and its registry
-callbacks (config/Vapor with secret flags, pubsub topics, Oban
-queues with cron annotations, telemetry events, `events/0`,
-`processes/0`, seeds, `errors/0` — boundary failure vocabulary with
-remedies, `externals/0` — wrapped third-party services; v5 §2.2);
-the compile-time root composer with collision checks; the
-boundary-export macro (telemetry spans now, `@requires_permission`
-enforcement when identity lands); the configuration layer that honors
+The component behaviour (`use Catapult.Component`) and the whole v5
+§2.2 registry roster it declares — `config/0` (secret flags),
+`pubsub_topics/0`, `oban_queues/0` (cron annotations),
+`telemetry_events/0`, `events/0` (versions), `processes/0` (placement
+and VM guardrails), `seeds/0`, `errors/0` (boundary failure
+vocabulary with remedies), `externals/0` (wrapped third-party
+services), `feature_flags/0`, `permissions/0`, `api_surface/0`,
+`admin/0`, `policies/0` — with the roster table that gives each its
+shape, the compile-time root composer with collision checks, and the
+normalized inventory the audit reads; the boundary-export macro
+(telemetry spans now, `@requires_permission` enforcement when identity
+lands, and the export trace `api_surface/0` validates against); the
+`children/0` and `ready?/0` composition points; the
+configuration layer that honors
 `config/0` — the source port, the shipped environment source, the
 static fake, the boot-time load and the single accessor;
 `mix catapult.audit` and its check registry; the health-endpoint plug
@@ -39,6 +45,193 @@ seeds release task.
   entries, a monolith by merge conflicts.
 - **Registries fail the build on collision, never warn.** A warning
   about a name collision is a collision that ships.
+- **The roster is one table, not one validator per registry** (ORC-22).
+  Twelve name-claiming registries × (entry shape, known opts, required
+  opts, spine rule, collision key) is a matrix, and hand-writing it as
+  twelve validator functions is how a composer becomes the monolith the
+  audit refused to be one level up. `Catapult.Component.Registries` holds
+  one row per registry; aggregation, the collision report and the inventory
+  are each one pass over it, and adding a registry is an entry rather
+  than a debate — `systems/registry.md`'s idiom for artifact kinds,
+  which is the same idiom for the same reason. Plural, and not
+  `Catapult.Component.Registry`, because the singular reads as the
+  artifact registry this repo also has a system doc for.
+
+  **What this document records is the columns, not the rows.** The rows
+  are code and the code is the inventory (`docs/non-goals.md`); a shape
+  is spelled out below only where the shape itself is the argued
+  decision. Without that line a roster ticket produces, in its own
+  design doc, exactly the hand-maintained mirror the roster exists to
+  make unnecessary.
+
+  The one registry deliberately outside the table is `config/0`: it is
+  the only one with a consumer, a boot half, and error messages worth
+  their specificity, and `Catapult.Config` keeps them. Absorbing it
+  would trade a good report for a uniform one.
+- **The address is positional, the policy is opts, and an opt is not
+  optional for sitting in a keyword list.** Every entry carrying more
+  than a name follows `config/0`'s `{key, name, opts}` grain:
+  positional elements identify the thing, the keyword tail is
+  everything said *about* it, checked against the row's known-opts list
+  the way the config layer already checks its own. Required opts are an
+  ordinary column — `api_surface/0`'s `version:` and `audience:` are
+  required and reported when absent — because the alternative is a
+  five-element tuple whose fourth element nobody can count.
+
+  This is where §4.4's literal `{exported_function, path, verb,
+  version, audience}` gets respelled rather than transcribed: the same
+  five facts as `{{fun, arity}, verb, path, opts}`, verb and path
+  adjacent because that is how every router in the language spells a
+  route and the composition that will consume this is a mechanical
+  transform of that pair. The ticket's rule was that anything
+  under-specified upstream is a doc edit first and code second; this
+  is the edit.
+- **Optional facts get sugar; mandatory ones get none.**
+  `oban_queues/0` keeps its bare atom and grows `{name, opts}` for a
+  cron annotation, and `processes/0` keeps `{name, placement}` and
+  grows a third element for VM guardrails, because most queues have no
+  schedule and most processes have no guardrail, and an entry that says
+  only its name is what the diff should show. `events/0` gets no such
+  sugar: the entry is `{type, version}`, with no bare form and no
+  default version, because an unversioned event is precisely the state
+  §2.4's upcasting discipline exists to prevent and a default of `1`
+  would make the first version the one fact invisible in the diff. The
+  claimed name is the type — two components declaring one type collide
+  — while one component declaring the same type at two versions is
+  ordinary and permanent, since old shapes live as long as the log
+  does. No upcaster field: the pair already identifies it, and whether
+  the function exists is a declared↔constructed check (ORC-21), not a
+  field to restate it in.
+
+  Making `events/0` breaking costs nothing today and could never be
+  done cheaply again — nothing declares an event until the engine does.
+  That is the roster-before-consumers argument arriving as a concrete
+  saving rather than a principle.
+
+  Two spellings are affordable only because nothing downstream sees
+  them: **normalization happens once, in the inventory**, and every
+  consumer — the collision report, the audit, the generators later —
+  reads the wide form. A second normalizer anywhere is the defect this
+  is trading against.
+- **The spine check arms wherever a name is a global atom, and
+  `external:` stays a config-only escape.** `errors/0` kinds,
+  `permissions/0` and `feature_flags/0` atoms, `oban_queues/0` names
+  and `telemetry_events/0` paths are all checked against the slug
+  prefix. `pubsub_topics/0` is not, and the exception is the rule's
+  proof: the composer renders `slug:name` from a bare atom, so a
+  prefix there would be the slug written twice.
+
+  **The escape does not travel with the check.** `external: true` stays
+  a `config/0` opt and is added to no other row, because an env var
+  name is the only claimed name a party outside this codebase can
+  impose (`DATABASE_URL`, injected by the host platform). Nobody
+  imposes a permission atom, a queue name or an error kind on us; a
+  registry that offered the escape anyway would be offering a way to
+  turn its own check off, which is the state the flag was invented to
+  avoid. Arming queues and telemetry, which never had the check,
+  belongs in this ticket for the same reason `events/0`'s shape change
+  does: nothing declares either yet, and the check is a table column.
+- **`errors/0`'s remedy ladder promotes by adding, never by
+  replacing.** `{kind, meaning, opts}`, where `remedy:` is required
+  prose and `runbook:` / `admin:` ride alongside as promotions. A
+  graded remedy that *replaced* the sentence would put a bare link into
+  the error payload and the generated catalog, and an operator who has
+  to open a runbook to find out whether it is the right runbook has
+  been handed something worse than one line of prose. Presence is
+  structural, so the composer reports a remedy-less kind with no
+  environment at all (v5 §2.14 wanted this as an audit failure and it
+  arrives for free); whether a kind is ever *constructed* is the
+  declared↔constructed check, and that waits for ORC-21.
+- **A kill switch names a flag its own component declares.** The first
+  cross-registry check, and what makes §2.2's promise literal — the
+  switch tied to the thing it switches instead of to a naming
+  convention. `externals/0`'s `kill_switch:` must appear in the same
+  component's `feature_flags/0`; a switch pointing at a flag nobody
+  registered is a switch that does nothing, discovered during the
+  incident it was built for. `adapter:` and `fake:` name modules and
+  are checked for loadability exactly as the composer already checks a
+  component module: a fake declared and never written is a hole in the
+  no-network rule (conventions §9), and CI is a better place to find it
+  than the first test that reaches for it.
+
+  **Data classification is a closed vocabulary, not a note.** §2.2 asks
+  for a note; a note cannot be grouped, and grouping is the entire
+  payoff — the generated "what does this app talk to" page is a
+  compliance inventory and, hosted, a customer's egress inventory. Four
+  atoms, highest applicable wins: `:none`, `:operational`,
+  `:customer_content`, `:personal`. Credentials are deliberately not a
+  class, because every adapter sends one and a class every entry
+  carries separates nothing; what the field classifies is application
+  data crossing the boundary in either direction.
+- **`api_surface/0` validates against a trace `defexport` does not yet
+  leave.** The macro composes a telemetry span and nothing else, so
+  nothing in the substrate can currently answer "is this function a
+  boundary export" — which is the whole of §4.4's thin-wrapper
+  enforcement. It grows an accumulating attribute and a generated
+  `__catapult_exports__/0`, in the shape of the
+  `__catapult_component__/0` beside it. The payoff outruns this
+  registry: the audit's
+  every-export-has-a-test check and its exported-mutating-function
+  permission check (v5 §2.14) are both blocked on this same fact, and
+  neither now has to invent it.
+
+  **Route identity is the path's shape, not its parameter names.**
+  Collisions compare `{version, verb, path}` with every `:param`
+  segment equal to every other, because `/projects/:id` and
+  `/projects/:project_id` are one route to any router and two strings
+  to a naive check. That is a claim about routes rather than about a
+  router, which is what makes it safe to hold here while the
+  composition that consumes it waits for a web layer.
+- **`admin/0` mounts are relative to a root the component does not
+  own.** An entry's path is a segment beneath the admin root, never an
+  absolute `/admin/...`: where the root mounts is the composing
+  application's decision (v5 §2.7), and a component spelling the prefix
+  has hard-coded a fact belonging to someone else. Catapult will
+  register none of these — its per-component admin surfaces are
+  subsumed by the dashboard (conventions §13) — which makes this the
+  roster's clearest case of a registry whose first consumer is not this
+  repo, and a standing reminder that shipped substrate is not measured
+  by what the plane happens to use.
+- **`policies/0` scopes are working-directory-relative globs, and the
+  shape is what enforces it.** An entry names a check module and the
+  scope it applies to; a glob that is absolute or climbs out with `..`
+  is a reported problem, not a convention someone remembers.
+  `docs/non-goals.md` ruled out teaching `mix catapult.audit` where
+  this repository keeps its components, and a registration surface that
+  accepted `../../lib/**` would walk that reach back in through the
+  front door while the task's own globs stayed innocent. Each mix
+  project composes its own check set and runs the audit in its own
+  directory; registration composes checks without touching that, which
+  is the product-facing payoff — the ES family's purity floor travels
+  with the ES family instead of being re-wired per project.
+
+  **The behaviour lands; the runner does not.** A registry whose
+  entries reference modules has to say what the module is, or its
+  collision check is checking the names of things with no contract — so
+  `Catapult.Audit.Check` and its one callback are part of the
+  mechanism, and the loop that calls it plus the checks that adopt it
+  are ORC-21's. The `policy:` field is a string and the composer checks
+  nothing beyond that it is one: resolving it means reading the doc
+  graph, and substrate ships into projects whose graph belongs to the
+  plane rather than to the package.
+- **The census is what makes an unconsumed registry visible.** The
+  inventory is a function returning normalized data — never a document,
+  per the no-hand-maintained-inventories rule — and `mix catapult.audit`
+  prints a count per registry on every green run, not behind a flag. A
+  registry aggregating into nothing is this ticket's deliberate state,
+  and that state's failure mode is not collision but rot: twelve
+  registries nobody looks at between now and Phase 3. One census line is
+  the cheapest thing that makes an empty registry a fact somebody sees,
+  and it keeps the inventory surface from being the one unconsumed
+  registry itself — the recursion a mechanism-only ticket opens the
+  moment nothing reads its output.
+- **Every callback keeps an overridable empty default; none becomes
+  `@optional_callbacks`.** Incremental adoption is what the default
+  already buys. An optional callback buys the same thing and charges
+  the composer a `function_exported?/3` guard at every call site: an
+  aggregation that is total is one that cannot silently skip a
+  component, and "declared nothing" versus "does not implement" is a
+  distinction with no consumer.
 - **An env var name is a claimed name like a queue or a topic.** Two
   components binding `DATABASE_URL` is the same class of bug as two
   claiming `:engine_default`, so it is checked where the others are —
@@ -492,6 +685,21 @@ Initial (Phase 1): behaviour + registries, export macro
 (telemetry-only), audit v0, health, clock, seeds. Target: permission
 enforcement wired to identity's principal behaviour; the full check
 registry; published on the release train.
+
+The registry roster arrives whole at **mechanism grade** — shape,
+aggregation, collision check, inventory — and consumes nothing
+(ORC-22). That is the deliverable rather than a shortfall: retrofitting
+a registry once its consumers exist means editing every component,
+while a registry aggregating into nothing costs a table row. Deferred
+is the consuming half, each to the ticket that has the consumer:
+FunWithFlags binding (the delivery loop, conventions §13),
+`@requires_permission` enforcement (identity, Phase 7), the root API
+router and OpenAPI generation (a web layer), the admin dashboard's
+mounts (Phase 4), the generated error catalog and the
+declared↔constructed checks (ORC-21), and the audit's policy-check
+runner (ORC-21). Nothing on that list can be reached from here, and
+none of it changes a declaration when it arrives — which is the
+property the roster is buying.
 
 The config layer arrives whole rather than as a stub — port, source,
 fake, load, accessor — because a registry the composer does not honor

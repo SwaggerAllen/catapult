@@ -3,7 +3,8 @@ defmodule Mix.Tasks.Catapult.Audit do
   @moduledoc """
   Audit v0 — the checks that exist so far, all-problems-at-once:
 
-    * component registry collisions (via the composer)
+    * component registry collisions (via the composer), across the
+      whole v5 §2.2 roster
     * direct wall-clock reads in lib/ — `utc_now` on the built-in
       date/time modules (the injected-clock rule, conventions §9)
     * processes named after their own module in lib/ — a `name:`
@@ -22,7 +23,13 @@ defmodule Mix.Tasks.Catapult.Audit do
   survive a formatted tree, so demanding it would be demanding a hatch
   no file here can hold. Visible in review, greppable, never silent.
   The check registry grows with the platform (v5 §2.14); this task is
-  the enforcement organ's first organ.
+  the enforcement organ's first organ. `policies/0` is the surface a
+  component registers a check through, and the runner that calls them
+  is ORC-21's.
+
+  A green run prints a **census** — one count per registry — because
+  most of the roster consumes nothing yet and an unconsumed registry's
+  failure mode is rot rather than collision (systems/substrate.md).
 
   The globs are rooted at the working directory and stay that way: this
   task ships into every generated project, so the layout of any one tree
@@ -37,6 +44,7 @@ defmodule Mix.Tasks.Catapult.Audit do
   use Mix.Task
 
   alias Catapult.Component.Composer
+  alias Catapult.Component.Registries
 
   @impl Mix.Task
   def run(_args) do
@@ -61,10 +69,28 @@ defmodule Mix.Tasks.Catapult.Audit do
     case problems do
       [] ->
         Mix.shell().info("catapult.audit: clean (#{length(components)} component(s))")
+        census(components)
 
       _ ->
         Mix.raise("catapult.audit failed:\n  " <> Enum.join(problems, "\n  "))
     end
+  end
+
+  # The census is what makes an unconsumed registry visible. Most of the
+  # roster aggregates into nothing today and that is deliberate
+  # (systems/substrate.md), so the failure mode is not collision but rot
+  # — twelve registries nobody looks at between now and Phase 3. One
+  # line per registry on every green run is the cheapest thing that
+  # makes an empty registry a fact somebody sees, and it keeps the
+  # inventory surface from being the one unconsumed registry itself.
+  defp census(components) do
+    inventory = Composer.inventory(components)
+
+    for key <- Registries.keys() do
+      Mix.shell().info("  #{key}: #{length(Map.fetch!(inventory, key))}")
+    end
+
+    :ok
   end
 
   defp registry_problems([]), do: []
