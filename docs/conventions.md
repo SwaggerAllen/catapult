@@ -56,14 +56,66 @@ green (v5 §2.13):
 - `mix deps.get --check-locked` — lockfile integrity is a **hard**
   gate, never softened: a silently drifting lockfile is a supply
   surface and a reproducibility lie (v5 §2.14).
-- `mix deps.audit` — known-vulnerable and retired deps blocked at
-  the door; the plane's maintenance watcher handles what's already
-  in. (Advisory data fetches like deps fetch — the no-network rule
-  governs the test suite, not toolchain fetches.)
+- `mix hex.audit` — **the supply gate**: known-vulnerable and retired
+  deps blocked at the door; the plane's maintenance watcher handles
+  what's already in. Built into Hex, so nothing is added to `deps` to
+  get it, and its data rides the registry fetch `deps.get
+  --check-locked` already made — a fetch it could not perform fails
+  the build one step earlier instead of passing here. (Advisory data
+  fetches like deps fetch — the no-network rule governs the test
+  suite, not toolchain fetches.)
+- `mix deps.audit` — **a second opinion, not the signal** (ORC-37).
+  It reads the GitHub Advisory Database via a third-party git mirror,
+  which is genuinely a different source and earned its keep the day
+  it armed by catching the postgrex advisory (ORC-3) — so it stays.
+  What it cannot see, verified against `cowlib 2.19.0` rather than
+  assumed, and the reason it is no longer the gate:
+  - **Retirement: never, at any version.** `mix_audit` has no
+    retirement check at all. Until `hex.audit` joined the set, the
+    line above claiming retired deps were blocked was false.
+  - **Advisories with no patched release.** The mirror's range for
+    `GHSA-g2wm-735q-3f56` stops at `<= 2.16.1` where the advisory
+    says "affects from 2.9.0" with no fix, so 2.19.0 does not match.
+  - **Advisories filed under another package.** `GHSA-w4f7-4cxr-rv3c`
+    is filed under `gun`; a `cowlib` dependency never matches it.
+  - **Its own fetch failing.** `MixAudit.Repo.synchronize/0` discards
+    the `git clone`/`pull` exit status, then globs an empty directory
+    — a failed clone prints "No vulnerabilities found." and exits 0.
+    This is the one that decides it: a gate whose failure mode is a
+    clean report is worse than no gate, because it converts "we
+    check" into a false all-clear on the supply surface.
+  Accepted residue, recorded so it is not rediscovered: an advisory
+  that reaches the GitHub database and not Hex's feed, on a run where
+  the mirror clone also failed, still reports clean.
+- Advisories with **no release to move to** are acknowledged per ID in
+  `mix.exs` (`hex: [ignore_advisories: [...]]`), never per package and
+  never by softening the gate. Hex prints them under *Ignored
+  advisories*: the exit code matches a clean run, the epistemic status
+  does not, and that is the whole point — "No vulnerabilities found."
+  becomes a named list with an author behind it. It stays honest both
+  ways: an advisory not on the list still fails, and an entry matching
+  nothing warns that it can be removed, so acknowledgements expire by
+  themselves when the dependency is bumped.
 - `mix xref graph --format cycles --fail-above 0` — compile-
   dependency cycles prohibited; the compile-connected ratchet joins
   it via the audit (v5 §2.14).
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
+
+At the root, `mix hex.audit` runs as the first element of the
+`deps.audit` alias in `mix.exs`, so the existing `mix deps.audit` gate
+— already in `pipeline.config.json` and already a `ci.yml` step — runs
+both audits, Hex first. Nothing protected was touched to arm it: the
+gate name stayed and its content grew (ORC-37).
+
+**Substrate is the half still unwired.** Its suite (`ci.yml`,
+`substrate suite`) invokes no audit task at all, so there is no gate
+for an alias to hook into and no agent-legal way to add one — it needs
+one `mix hex.audit` line in that block, which only the author can
+push. Until then, systems/substrate.md's "substrate carries its own
+supply gate" is a decision, not a running check, and substrate's own
+lockfile is unaudited. **Delete this paragraph when that line lands**;
+a list that says "all of these are CI gates" while one is not is the
+same false all-clear this ticket was filed about, one level up.
 
 ## 3. The naming spine
 
