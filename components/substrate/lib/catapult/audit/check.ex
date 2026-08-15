@@ -6,10 +6,19 @@ defmodule Catapult.Audit.Check do
   family's purity floor travels with the ES family instead of being
   re-wired per project.
 
-  The behaviour lands here; the loop that calls it, and the checks that
-  adopt it, are ORC-21's. A registry whose entries reference modules has
-  to say what the module is, or its collision check is checking the
-  names of things with no contract.
+  `mix catapult.audit` is the runner, and the platform's own bans adopt
+  this contract too (`Catapult.Audit.Checks.WallClock`, `.ProcessName`,
+  `.SecretInLog`) — hosting them anywhere else would have given
+  `catapult:allow` a second implementation one ticket after it got its
+  first (docs/non-goals.md). `Catapult.Audit.Source` is the shared half:
+  a check says what a violation *is* and says nothing about reading
+  files, honouring escapes or formatting a report.
+
+  The reversal that made hosting these here affordable is what fixes the
+  report format as part of the contract: a problem naming a location
+  spells it `path:line: message`, so a project that wants editor
+  surfacing writes a `Credo.Check` delegating to `run/1` and no check
+  logic moves.
 
   One callback, and it takes the scope the entry registered it under —
   a working-directory-relative glob, which is what keeps a registered
