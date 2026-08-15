@@ -64,7 +64,13 @@ defmodule Catapult.MixProject do
       {:jason, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
-      {:ex_machina, "~> 2.7", only: :test}
+      {:ex_machina, "~> 2.7", only: :test},
+      # The blessed HTTP client (conventions §1), named as a decision in
+      # systems/foundation.md rather than ported in silently. `only:
+      # :test` while the `:live` suite is its only consumer; the
+      # constraint widens the day the first external adapter (Tracker,
+      # Host, Deploy) lands in Phase 3.
+      {:req, "~> 0.7", only: :test}
     ]
   end
 
