@@ -10,6 +10,61 @@ defmodule Catapult.Foundation do
   alias Ecto.Adapters.SQL
 
   @impl Catapult.Component
+  def config do
+    [
+      # The one name imposed from outside: App Platform injects
+      # DATABASE_URL under a name we do not choose, and
+      # FOUNDATION_DATABASE_URL is not on offer (SETUP.md §2). That is
+      # what `external: true` is for, and it confers nothing — it only
+      # makes this case distinguishable from sloppiness, so the audit's
+      # spine check can stay armed for the two below.
+      {:database_url, "DATABASE_URL",
+       cast: &__MODULE__.cast_database_url/1, secret: true, external: true},
+      {:pool_size, "FOUNDATION_POOL_SIZE", cast: :integer, default: "10"},
+      # Deliberately not PORT: this is the app's HTTP listener (the
+      # health endpoint). App Platform routes public traffic to 8080 and
+      # that isn't changeable in its UI, so 8080 is the default and this
+      # variable is the explicit override.
+      {:health_port, "FOUNDATION_HEALTH_PORT", cast: :integer, default: "8080"}
+    ]
+  end
+
+  @doc """
+  Casts a database URL into the options `Catapult.Repo` merges.
+
+  This is where `runtime.exs`'s hand-parsing went (systems/foundation.md).
+  DO managed Postgres injects a URL ending in `?sslmode=require`, and
+  Ecto's URL parser rejects `sslmode` as an option, so the query string
+  is stripped and TLS configured explicitly. `verify_none` is deliberate
+  for now: the bindable URL points at the cluster over DO's network, and
+  certificate pinning is recorded follow-up work (the maintenance lane),
+  not a boot blocker.
+
+  It returns `{:error, _}` rather than raising, like every declared cast:
+  a URL that cannot be parsed is one line in the boot report next to
+  everything else that is wrong, not an `ArgumentError` from inside a
+  config library with the other four problems still undiscovered. The
+  reason names no part of the value — this one carries a password.
+  """
+  @spec cast_database_url(String.t()) :: {:ok, keyword()} | {:error, String.t()}
+  def cast_database_url(raw) do
+    [base | _query] = String.split(raw, "?", parts: 2)
+
+    case URI.new(base) do
+      {:ok, %URI{scheme: scheme, host: host}}
+      when is_binary(scheme) and is_binary(host) and host != "" ->
+        {:ok, [url: base, ssl: ssl_option(raw)]}
+
+      _ ->
+        {:error, "is not a database URL (expected scheme://user:password@host/database)"}
+    end
+  end
+
+  defp ssl_option(raw) do
+    if String.contains?(raw, "sslmode=require"), do: [verify: :verify_none], else: false
+  end
+
+  @impl Catapult.Component
   def children do
     if Application.get_env(:catapult, :start_persistence, true) do
       [Catapult.Repo, {Oban, Application.fetch_env!(:catapult, Oban)}]

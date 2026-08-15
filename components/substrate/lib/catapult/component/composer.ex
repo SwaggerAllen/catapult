@@ -30,7 +30,9 @@ defmodule Catapult.Component.Composer do
         collisions(real, :oban_queues, "oban queue") ++
         collisions(real, :telemetry_events, "telemetry event") ++
         collisions(real, :events, "event type") ++
-        process_collisions(real)
+        process_collisions(real) ++
+        config_collisions(real) ++
+        config_declarations(real)
 
     case problems do
       [] ->
@@ -79,22 +81,41 @@ defmodule Catapult.Component.Composer do
   defp collisions(components, callback, what) do
     components
     |> Enum.flat_map(fn c -> Enum.map(apply(c, callback, []), &{&1, c}) end)
-    |> Enum.group_by(fn {name, _c} -> name end)
-    |> Enum.filter(fn {_name, claims} -> length(claims) > 1 end)
-    |> Enum.map(fn {name, claims} ->
-      owners = Enum.map_join(claims, ", ", fn {_n, c} -> inspect(c) end)
-      "#{what} #{inspect(name)} claimed by #{owners}"
-    end)
+    |> duplicates(what)
   end
 
   defp process_collisions(components) do
     components
     |> Enum.flat_map(fn c -> Enum.map(c.processes(), fn {name, _placement} -> {name, c} end) end)
+    |> duplicates("process name")
+  end
+
+  # An env var name is a claimed name like a queue or a topic: two
+  # components binding `DATABASE_URL` is the same class of bug as two
+  # claiming `:engine_default`, so it is reported in the same breath
+  # (systems/substrate.md). This is what makes `config/0` load-bearing
+  # rather than descriptive.
+  defp config_collisions(components) do
+    components
+    |> Enum.flat_map(fn c -> Enum.map(Catapult.Config.declared_names(c), &{&1, c}) end)
+    |> duplicates("env var")
+  end
+
+  # The structural half of the config report — malformed declarations,
+  # unknown opts, a name off the slug spine. Checkable with no
+  # environment at all, which is why it lives here and not at boot:
+  # values are the boot's half, and CI cannot see them.
+  defp config_declarations(components) do
+    Enum.flat_map(components, &Catapult.Config.declaration_problems/1)
+  end
+
+  defp duplicates(claims, what) do
+    claims
     |> Enum.group_by(fn {name, _c} -> name end)
     |> Enum.filter(fn {_name, claims} -> length(claims) > 1 end)
     |> Enum.map(fn {name, claims} ->
       owners = Enum.map_join(claims, ", ", fn {_n, c} -> inspect(c) end)
-      "process name #{inspect(name)} claimed by #{owners}"
+      "#{what} #{inspect(name)} claimed by #{owners}"
     end)
   end
 end

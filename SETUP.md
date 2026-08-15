@@ -59,12 +59,19 @@ The facts a future session needs, recorded as facts:
   property this section could never have. Still one home, not two
   (`docs/non-goals.md` records the amendment to ORC-40's rule).
 - **Public port is 8080, fixed by App Platform** — the prod listener
-  defaults to it (`config/runtime.exs`; `HEALTH_PORT` overrides).
+  defaults to it (foundation's `config/0` declaration;
+  `FOUNDATION_HEALTH_PORT` overrides, and was `HEALTH_PORT` before
+  ORC-4 put env var names on the slug spine — it is not set on the
+  instance, so the rename changed nothing there).
 - Database: managed PG 16, component/cluster
   `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
   bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted
-  (encryption breaks substitution). `runtime.exs` strips the URL's
-  `sslmode` query and configures TLS itself.
+  (encryption breaks substitution). The declared cast on
+  `DATABASE_URL` strips the URL's `sslmode` query and configures TLS
+  itself — `runtime.exs` did this until ORC-4, and no longer reads the
+  environment at all. `DATABASE_URL` keeps its name because App
+  Platform injects it: it is the one declaration flagged
+  `external: true`.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App

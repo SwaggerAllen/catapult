@@ -186,3 +186,123 @@ recorded decision, and say so explicitly.
   in the one direction that matters — a suite passing against a
   stale schema. The job gets CI's environment instead; the edit is
   cheap and it is visible.
+- **No config-library dependency in `components/substrate/`, Vapor
+  included** (ORC-4). This is the third entry of the same shape and
+  the shape is now the rule: substrate is Apache-2.0 and ships into
+  every generated project, so a dependency it declares is one imposed
+  on trees we do not own. The measurement, because this one was an
+  open question rather than an instinct: `vapor 0.10.0`, released
+  2020-08-12 and the newest there is, declares `jason`, `norm`, `toml`
+  and `yaml_elixir` as ordinary runtime dependencies, so it would put
+  a TOML parser and a YAML parser into every generated release in
+  order to read environment variables — against three runtime
+  dependencies in substrate today. What remains of Vapor once the
+  casts, the aggregation, the store and the provenance keying are ours
+  (`systems/substrate.md` argues each) is `System.get_env/0`, so
+  substrate ships an environment source with no dependencies and the
+  plane runs that same source. **Not a ban on Vapor**, which is still
+  conventions §1's blessed answer and is still what a project reaching
+  for file, remote or non-string config should adopt — a ban on
+  substrate being the thing that decides that for everyone. Revisit
+  condition: config the environment genuinely cannot carry, in the
+  substrate itself rather than in one consumer, at which point the
+  port takes an adapter and this entry is what gets argued with.
+  **Sharpened at the second pass (ORC-4), because "the port takes an
+  adapter" was doing too much work:** the port's domain is flat,
+  string-valued named settings arriving over a transport other than
+  the environment, and that is what an adapter is for — a mounted
+  secrets file, a remote parameter store. A *structured* document,
+  with nesting and lists of maps, is not a config source in this
+  sense; it is content, and it belongs in `config/*.exs` or a real
+  document loader. Vapor is the right answer on that side of the
+  line and this port is the wrong one, so the revisit condition
+  splits: flat settings from a new transport are an adapter, and a
+  structured document is not a reason to argue with this entry at
+  all — it is a different problem that never wanted the config layer.
+- **No `.env` files** (ORC-4), against v5 §2.2, which sketched
+  per-component `.env` alongside prefixed env vars. A dotenv file
+  feeds environment variables to a process that reads the
+  environment; under the compile-time source selection in
+  `systems/substrate.md`, dev reads `config/dev.exs` instead, so
+  there is nothing for the file to feed. What it would add is an
+  untracked local file that changes behaviour — the "works on my
+  machine" surface, bought for an ergonomic gain over editing a
+  tracked config file that is close to zero. Revisit condition: a
+  developer needing a real secret locally that cannot be committed —
+  which is a keychain or a shell profile, not a feature of the config
+  layer.
+- **No runtime reconfiguration** (ORC-4). Config is read once, before
+  the root supervisor starts, and does not change until the next
+  boot: no watcher, no reload signal, no swapping a value on a running
+  node. Reason: a value that can change under a running process is a
+  value every reader must re-read and no reader can hold, which is a
+  distributed-systems problem bought in exchange for redeploying —
+  and this platform's deploy model is one environment, autodeploy on
+  green, so the redeploy is the cheap thing here. It is also the same
+  boundary the flag-machinery entry above draws: the cases that
+  actually want live change are kill switches and rollouts, and those
+  are named non-goals, not features waiting for a config watcher.
+  Load-once is what makes `:persistent_term` correct and what lets the
+  boot report be the only report. **Amended at the second pass (ORC-4)
+  with where the cost actually sits,** since design review asked what
+  happens if a remote source ever wants watch semantics: not in the
+  port. `Config.Source.load/2` is a pull, a remote fits it unchanged,
+  and push would arrive as an `@optional_callbacks watch: 2` that the
+  shipped sources decline — one module and one line. The reason this
+  entry stands is the *accessor*: a value that can change is a value
+  no caller may hold, and holding it is what `:persistent_term`
+  write-once buys. Whoever argues with this line is therefore arguing
+  for a re-validation path that can reject an update without killing
+  the node, a rule for readers holding stale values, and atomicity
+  across values that must change together — three decisions, not a
+  callback. Naming them is the point: the port stays cheap to grow so
+  that the expensive half is the half being debated.
+- **No per-test or per-process config overrides** (ORC-4). The test
+  fake is seeded once, statically, and offers no
+  `put_config(pid, key, value)` — no process-dictionary scoping, no
+  ownership tree in the shape of the Ecto sandbox. Reason: a value
+  that varies per test case is an argument wearing config's clothes,
+  and the honest fix is the function taking it. The dishonest fix is
+  the one being ruled out here, because it costs shared mutable state
+  under `async: true` — the flake class conventions §9 calls a
+  protocol requirement to avoid, since two CI reds escalate to a
+  human. Revisit condition: a boundary export whose behaviour must
+  genuinely differ by a declared config value within one suite, where
+  passing it as an argument would distort the production signature.
+  That case is real enough to name; it has not appeared yet, and
+  building the machinery before it does would mean building the
+  sandbox's hardest feature on speculation.
+- **No per-key lookup on the config source port — no `fetch/1`, no
+  `get/2`, no `all/0`** (ORC-4, second pass). `Config.Source.load/2`
+  takes every declared name in one call and returns what it found;
+  the obvious alternative, a source answering one key at a time, is
+  ruled out here so the next pass does not reach for it as the
+  simpler shape. It is simpler only for the environment.
+  `System.get_env/1` per key is free; a file or remote source asked
+  per key must either re-read and re-parse its whole document N times
+  with no guarantee the N reads saw one document, or cache behind the
+  layer's back in a store the boot report cannot see, or become a
+  process whose lifecycle a two-callback port does not model. Each of
+  those is discovered *after* someone has written the adapter, which
+  is the wrong time. `all/0` is out for a different reason and a
+  firmer one: a source free to volunteer names nobody declared lets
+  values into the system behind the registry, and the registry being
+  load-bearing rather than descriptive is the entire ticket. Revisit
+  condition: none foreseeable — a source that cannot answer `load/2`
+  cannot answer `fetch/1` either.
+- **No layering or precedence chain of config sources** (ORC-4, second
+  pass). The layer takes one source, chosen at compile time, not an
+  ordered list. This is not an oversight to be repaired by the pass
+  that first wants two: Vapor's loader `Map.merge`s provider results,
+  so two providers offering one name silently pick a winner, and that
+  is cited in `systems/substrate.md` as a reason not to depend on it —
+  writing the same behaviour ourselves would be the same defect with
+  our name on it. The case that will eventually ask for this is
+  legitimate and predictable (secrets from a mounted file, everything
+  else from the environment), so the revisit condition is written in
+  advance rather than left open: layering arrives as per-declaration
+  source selection, or as an ordered list **whose overlaps are a
+  reported problem in the boot report**, and never as a merge. A
+  precedence rule that resolves an overlap quietly is the same class
+  of bug as two components claiming one queue, and this platform fails
+  the build on that.

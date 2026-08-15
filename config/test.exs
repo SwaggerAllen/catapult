@@ -1,12 +1,26 @@
 import Config
 
-config :catapult, Catapult.Repo,
-  username: System.get_env("PGUSER", "catapult"),
-  password: System.get_env("PGPASSWORD", "catapult"),
-  hostname: System.get_env("PGHOST", "localhost"),
-  database: "catapult_test",
-  pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10
+# The test database's connection parameters are the harness a sandboxed
+# suite needs, not any component's behaviour, so they stay on the build
+# side — but in `DATABASE_URL` shape, because that is the one
+# declaration `Repo.init/2` merges in every environment
+# (systems/foundation.md). Built here from the same PG* variables CI
+# provides, then seeded into the static source: the suite still reaches
+# its database from the config file, and no test reads the environment
+# through the config layer (conventions §9).
+database_url =
+  "ecto://#{System.get_env("PGUSER", "catapult")}:" <>
+    "#{System.get_env("PGPASSWORD", "catapult")}@" <>
+    "#{System.get_env("PGHOST", "localhost")}/catapult_test"
+
+config :catapult,
+       :config_source,
+       {Catapult.Config.Static, %{"DATABASE_URL" => database_url}}
+
+# The sandbox pool is genuinely a harness switch and not a connection
+# parameter: it selects what this build starts, which is the line
+# `config/*.exs` keeps.
+config :catapult, Catapult.Repo, pool: Ecto.Adapters.SQL.Sandbox
 
 # Oban in manual testing mode: no queues run; jobs assert via
 # Oban.Testing (conventions §9 — deterministic, no timing).
