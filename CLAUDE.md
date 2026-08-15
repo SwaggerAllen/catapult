@@ -46,11 +46,22 @@ toolchain is the only supported one.
 mix format --check-formatted
 mix credo --strict
 mix compile --warnings-as-errors     # boundary compiler is in the set
-mix catapult.audit
+mix catapult.audit                   # root project ONLY — see below
 mix test                             # needs Postgres; sandbox, async
-cd components/substrate && mix format --check-formatted && \
-  mix credo --strict && mix compile --warnings-as-errors && mix test
+cd components/substrate && mix deps.get --check-locked && \
+  mix format --check-formatted && mix credo --strict && \
+  mix compile --warnings-as-errors && mix catapult.audit && mix test
 ```
+
+The gate set is a property of a mix project, not of the repo
+(`systems/substrate.md`): the audit's globs are rooted at the working
+directory — deliberately, since the task ships into every generated
+project — so `mix catapult.audit` at the root never sees
+`components/substrate/lib/**`. Run it in both, or run
+`mix catapult.audit.all` from the root, which is the alias that does
+exactly that (and needs `components/substrate/deps` resolved; it exits
+1 rather than skipping if they are not). A new mix project brings its
+own gate block here.
 
 Tests: no network, ever (fakes per conventions §9); `mix test`
 creates/migrates `catapult_test` via the alias. `:live`-tagged tests

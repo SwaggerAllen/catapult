@@ -79,25 +79,40 @@ the seeds release task.
   the task by naming the directory it audited — layout-ignorant, and
   true in every generated project — never by the alias annotating
   output it does not own.
-- **`catapult:allow` is same-line, and marks code, never prose.** The
-  check reads the tag off the matching line only — literally
-  `String.contains?(line, "catapult:allow #{tag}")` — so a comment
-  on the line above is not an escape, however plainly it is written.
-  Kept same-line because any other span asks each reader to work out
-  how far a given escape reaches, and an escape whose extent is
-  arguable is worse than none. Documentation that names a banned
-  construct is reworded, not tagged: an allow tag asserts "this
-  occurrence is a deliberate exception", and spending it on a
-  sentence *about* the ban degrades the one signal review has, in a
-  package whose docs get published. The cost is real and accepted —
+- **`catapult:allow` spans one line or two, and marks code, never
+  prose.** *(Amended in implementation, ORC-30 — the sketch said
+  same-line only; see below.)* The tag is honored on the matching line
+  or on the comment line directly above it, and on no wider span,
+  because any wider one asks each reader to work out how far a given
+  escape reaches and an escape whose extent is arguable is worse than
+  none. The line above must itself be a comment, or a tagged violation
+  would excuse an untagged one on the next line.
+
+  **Why not same-line only, as drawn:** `mix format` relocates *every*
+  trailing comment onto its own line above — verified across statement
+  position, `def ..., do:` heads, list, map and argument elements, with
+  no form found that survives. Since `mix format --check-formatted` is
+  itself a hard gate with no escape of its own (conventions §2), a
+  same-line-only rule is a hatch that no file in a formatted tree can
+  hold, and the two gates would simply contradict each other. This also
+  re-reads the evidence the sketch built on: `clock.ex`'s tag sits one
+  line above the code it excuses not because the hatch was unexercised,
+  but because the formatter put it there. That the gap was invisible
+  from inside stands — the tag was written for a check that never
+  looked at the file — but the placement was never the tell.
+
+  **Documentation that names a banned construct is reworded, not
+  tagged:** an allow tag asserts "this occurrence is a deliberate
+  exception", and spending it on a sentence *about* the ban degrades
+  the one signal review has, in a package whose docs get published.
+  This half of the decision is unchanged. The cost is real and accepted —
   the clock's moduledoc and the audit's own cannot spell the
-  construct they forbid. Turning the gate on is therefore not free:
-  the substrate audit fails today with five hits, one of which is
-  `clock.ex`, the runtime clock and the single legitimate exception,
-  whose `catapult:allow utc_now` sits one line above the code it
-  excuses. An escape hatch written in a form its own gate rejects is
-  what an unexercised hatch looks like, and it is the clearest
-  evidence in the tree that the gap was invisible from inside.
+  construct they forbid. Turning the gate on was therefore not free:
+  the substrate audit failed on five hits, and four of them were
+  prose — the clock's moduledoc and three lines of the audit's own
+  moduledoc and messages — reworded rather than tagged. The fifth was
+  `clock.ex`'s runtime `utc_now`, the single legitimate exception,
+  whose tag was already correctly placed under the amended rule.
 - **The supply gate is Hex-sourced; `mix_audit` is a second opinion,
   not the signal.** `mix deps.audit` reads a third-party git mirror
   (`mirego/elixir-security-advisories`) cloned at run time and

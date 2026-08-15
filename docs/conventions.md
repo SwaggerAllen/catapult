@@ -100,6 +100,17 @@ green (v5 §2.13):
   dependency cycles prohibited; the compile-connected ratchet joins
   it via the audit (v5 §2.14).
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
+  Its greps are `Path.wildcard("lib/**/*.ex")`, rooted at the working
+  directory and deliberately kept there (the task ships into every
+  generated project; `docs/non-goals.md`). So this bullet, like every
+  other in this list, is a claim about **one mix project** — the set
+  runs per project, and a new mix project brings its own gate block
+  (ORC-30, `systems/substrate.md`). The audit is the only one of these
+  whose absence is invisible — `mix credo` at the root plainly checks
+  the root, while `mix catapult.audit` at the root reads as though it
+  audits the repository — so it is the one that earns an invoker:
+  `mix catapult.audit.all` in the root `mix.exs` runs it once per
+  project here.
 
 At the root, `mix hex.audit` runs as the first element of the
 `deps.audit` alias in `mix.exs`, so the existing `mix deps.audit` gate
@@ -107,15 +118,33 @@ At the root, `mix hex.audit` runs as the first element of the
 both audits, Hex first. Nothing protected was touched to arm it: the
 gate name stayed and its content grew (ORC-37).
 
-**Substrate is the half still unwired.** Its suite (`ci.yml`,
-`substrate suite`) invokes no audit task at all, so there is no gate
-for an alias to hook into and no agent-legal way to add one — it needs
-one `mix hex.audit` line in that block, which only the author can
-push. Until then, systems/substrate.md's "substrate carries its own
-supply gate" is a decision, not a running check, and substrate's own
-lockfile is unaudited. **Delete this paragraph when that line lands**;
-a list that says "all of these are CI gates" while one is not is the
-same false all-clear this ticket was filed about, one level up.
+**Substrate is the half still unwired, in three places.** Its suite
+(`ci.yml`, `substrate suite`) runs `mix deps.get`, format, credo,
+compile, test — so relative to the list above it is missing
+`--check-locked`, `mix hex.audit`, and `mix catapult.audit`. ORC-30
+made all three *runnable and green* from that directory and left the
+arming to the author, because every remaining edit is in a file agents
+cannot push:
+
+- `working-directory: components/substrate` → `mix deps.get
+  --check-locked` (one flag) and a `mix catapult.audit` line. Both
+  pass there today; the audit's five hits were fixed in that ticket.
+- `mix hex.audit` in the same block. Unlike the root there is no
+  existing audit gate for an alias to hook into, and substrate must
+  not take an audit *dependency* to get one (`systems/substrate.md`) —
+  so this one is a line or it is nothing.
+- Cheapest single arming point for the audit leg, in a third
+  author-owned file: `pipeline.config.json` → `qualityGates`, where
+  `mix catapult.audit` → `mix catapult.audit.all` covers both projects
+  on every pipeline run.
+
+Until they land, `systems/substrate.md`'s "substrate carries its own
+supply gate" is a decision rather than a running check, substrate's own
+lockfile is resolved unpinned, and the injected-clock and process-name
+rules are enforced nowhere in the half we ship to customers. **Delete
+this paragraph when those lines land**; a list that says "all of these
+are CI gates" while three are not is the same false all-clear this
+section was written about, one level up.
 
 ## 3. The naming spine
 
