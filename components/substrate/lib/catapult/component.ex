@@ -16,8 +16,16 @@ defmodule Catapult.Component do
   @doc "The component's slug — the spine every derived name hangs off."
   @callback slug() :: atom()
 
-  @doc "Config surface: env-var specs, prefixed by the slug."
-  @callback config() :: [{key :: atom(), env_var :: String.t(), opts :: keyword()}]
+  @doc """
+  Config surface: env-var specs, prefixed by the slug.
+
+  Honored by `Catapult.Config`, which is where the opts vocabulary
+  (`cast:`, `default:`, `required:`, `secret:`, `external:`) is
+  documented. Declared names are claimed names: the composer fails the
+  build on two components binding one variable, and on a name off the
+  slug spine that does not say `external: true`.
+  """
+  @callback config() :: [Catapult.Config.declaration()]
 
   @doc "PubSub topic prefixes claimed (as atoms; rendered `slug:name`)."
   @callback pubsub_topics() :: [atom()]
