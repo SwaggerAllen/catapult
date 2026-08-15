@@ -101,13 +101,21 @@ green (v5 §2.13):
   it via the audit (v5 §2.14).
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
 
-`mix hex.audit` is the one entry above not yet wired: it needs a
-`ci.yml` step (root and substrate) and a `qualityGates` entry in
-`pipeline.config.json`, both of which only the author can push
-(ORC-37). The repo half — the acknowledgements that let it pass — is
-in `mix.exs` and passes today. **Delete this paragraph when it is
-wired**; a list that says "all of these are CI gates" while one is not
-is the same false all-clear this ticket was filed about, one level up.
+At the root, `mix hex.audit` runs as the first element of the
+`deps.audit` alias in `mix.exs`, so the existing `mix deps.audit` gate
+— already in `pipeline.config.json` and already a `ci.yml` step — runs
+both audits, Hex first. Nothing protected was touched to arm it: the
+gate name stayed and its content grew (ORC-37).
+
+**Substrate is the half still unwired.** Its suite (`ci.yml`,
+`substrate suite`) invokes no audit task at all, so there is no gate
+for an alias to hook into and no agent-legal way to add one — it needs
+one `mix hex.audit` line in that block, which only the author can
+push. Until then, systems/substrate.md's "substrate carries its own
+supply gate" is a decision, not a running check, and substrate's own
+lockfile is unaudited. **Delete this paragraph when that line lands**;
+a list that says "all of these are CI gates" while one is not is the
+same false all-clear this ticket was filed about, one level up.
 
 ## 3. The naming spine
 

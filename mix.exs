@@ -70,6 +70,17 @@ defmodule Catapult.MixProject do
 
   defp aliases do
     [
+      # The gate name stays, its content grows: `mix deps.audit` is
+      # already a quality gate and a ci.yml step, so folding the
+      # Hex-sourced signal in here arms it without touching a file only
+      # the author can push. Order is load-bearing — `hex.audit` reads
+      # the registry and must run before anything compiles the tree,
+      # and running it first also means the Hex signal reports even
+      # when a later step would fail. Shadowing a task and re-invoking
+      # it as the alias's own last element is the same shape as `test`
+      # below. Both audits run; only the Hex one is load-bearing
+      # (conventions §2).
+      "deps.audit": ["hex.audit", "deps.audit"],
       # Infra migrations live in priv/repo/migrations_infra (the
       # foundation's file map); per-store paths compose in as stores
       # land (conventions §6).
