@@ -84,3 +84,24 @@ recorded decision, and say so explicitly.
   agreement.** A lint is what a second copy needs; one home needs
   nothing, and these facts leave the tree entirely at
   open-sourcing, so the lint would be written to be deleted.
+- **No cross-project reach in `mix catapult.audit`.** Its file globs
+  stay rooted at the working directory. The root invocation is not
+  taught to descend into `components/**`, nor given a `--path`, nor
+  taught to discover the sibling mix projects, so that one run
+  covers the tree. Reason: the task is substrate code — it ships to
+  every generated project, and the layout of *this* repository is
+  not a fact it may hold. Two runs of a layout-ignorant task beat
+  one run of a task that knows where Catapult keeps its components,
+  because the second kind is what a customer inherits. The accepted
+  consequence is recorded as a standing decision in
+  `systems/substrate.md`: the conventions §2 gate set is run per mix
+  project, and a new mix project brings its own gate block with it.
+  (Design pass, ORC-30 — the ticket's own framing, "the fix is
+  nearly free … `cd components/substrate && mix catapult.audit`
+  already resolves", is this decision stated as a convenience;
+  written down here because the tempting cleanup later is to
+  de-duplicate the CI block by widening the glob.) Revisit
+  condition: enough mix projects that the repeated block is itself
+  what drifts — at which point the answer is CI looping over
+  discovered projects, still one working-directory-rooted audit
+  each, and not a glob that reaches.
