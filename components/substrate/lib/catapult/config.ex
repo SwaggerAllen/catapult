@@ -22,10 +22,16 @@ defmodule Catapult.Config do
     * `required:` — `true` unless a `default:` says otherwise.
       `required: false` resolves an absent value to `nil` and does not
       run the cast.
-    * `secret:` — declared now, enforced later (v5 §2.2's audit pass:
-      no secret-flagged value in a log or an error payload). It changes
-      nothing about the report today because the report never names a
-      value at all, flagged or not.
+    * `secret:` — the resolved value is wrapped in a
+      `Catapult.Config.Secret`, whose `Inspect` and `String.Chars`
+      implementations redact and whose contents come out only through an
+      explicit `unwrap/1`. That is v5 §2.2's "never appears in logs or
+      error payloads" held by the type rather than chased by a check
+      (systems/substrate.md): interpolation, `inspect/1`, a `Logger` call
+      and a crash dump are safe by construction, and the audit's residue
+      is one hop — an `unwrap` inside a logging call. It changes nothing
+      about the *report*, which never names a value at all, flagged or
+      not.
     * `external:` — the variable's name is imposed by something outside
       this codebase (`DATABASE_URL`, injected by the host platform), so
       the audit's slug-prefix check does not apply. It confers no
@@ -69,7 +75,13 @@ defmodule Catapult.Config do
   The store is keyed by slug, not by module: the slug is the spine every
   other claimed name hangs off (conventions §3), and the composer
   already fails the build on two components sharing one.
+
+  Secret-flagged values are wrapped on the way in rather than on the way
+  out, so the store never holds a bare secret either — the accessor's
+  contract is the same and the crash-dump surface is one smaller.
   """
+
+  alias Catapult.Config.Secret
 
   defmodule LoadError do
     @moduledoc "Raised at boot with every configuration problem at once."
@@ -149,6 +161,10 @@ defmodule Catapult.Config do
   The one accessor. There is no `get/3` with a runtime default, because
   a default is a property of the declaration and two ways to spell one
   is one too many.
+
+  A declaration carrying `secret: true` returns a
+  `Catapult.Config.Secret`; reaching its contents is an explicit
+  `Catapult.Config.Secret.unwrap/1` at the call site.
   """
   @spec fetch!(atom(), atom()) :: term()
   def fetch!(slug, key) do
@@ -211,7 +227,7 @@ defmodule Catapult.Config do
       Enum.reduce(declarations, {%{}, []}, fn {slug, key, name, opts}, {values, problems} ->
         case value_for(name, opts, found) do
           {:ok, value} ->
-            {Map.put(values, {slug, key}, value), problems}
+            {Map.put(values, {slug, key}, guard(value, opts)), problems}
 
           {:error, reason} ->
             {values, ["#{name} #{reason} (#{inspect(slug)}.#{key})" | problems]}
@@ -222,6 +238,13 @@ defmodule Catapult.Config do
       [] -> {:ok, values}
       _ -> {:error, Enum.reverse(problems)}
     end
+  end
+
+  # Unconditionally, including a `required: false` value that resolved to
+  # `nil`: a declaration's type should not depend on whether the variable
+  # was set, or every consumer needs both spellings.
+  defp guard(value, opts) do
+    if Keyword.get(opts, :secret, false), do: Secret.wrap(value), else: value
   end
 
   defp value_for(name, opts, found) do
