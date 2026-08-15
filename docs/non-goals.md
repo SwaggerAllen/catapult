@@ -306,3 +306,65 @@ recorded decision, and say so explicitly.
   precedence rule that resolves an overlap quietly is the same class
   of bug as two components claiming one queue, and this platform fails
   the build on that.
+- **No `docs/0` callback, and no `cli/0` row in the roster yet**
+  (ORC-22). Both are named in v5 §2.2 and both are deliberately
+  outside the registry roster, for different reasons. `docs/` is a
+  directory whose path derives from the slug (conventions §3): there
+  is nothing to declare, nothing that can collide, and a callback
+  returning a path the spine already fixes would be a derivation
+  written twice — the failure the spine table exists to prevent.
+  `cli/0` is `api_surface/0`'s shape with an escript composer instead
+  of a router, and it stays out on a narrower argument than the one
+  this ticket is built on: the retrofit cost ORC-22 pays down is the
+  cost of components having already declared their names *somewhere
+  else*, and no component can declare a CLI command anywhere today
+  because there is no escript to declare it to. Nothing shadows it,
+  so nothing is being deferred except a table row. Revisit condition
+  for `cli/0`: the escript, at which point it is one row and this
+  entry is what says the wait was priced rather than forgotten.
+- **No prose data-classification field on `externals/0`** (ORC-22),
+  against v5 §2.2's word "note". The field's entire payoff is a
+  grouping — the generated "what does this app talk to" page is a
+  compliance inventory and, in the hosted shape, a customer's egress
+  inventory — and free text cannot be grouped, filtered, or checked,
+  so a note would leave the audit with a column it can only print.
+  The vocabulary is four atoms with highest-applicable-wins
+  (`systems/substrate.md`), and credentials are not among them
+  because every adapter sends one and a class every entry carries
+  separates nothing. Revisit condition: a real external that none of
+  the four describes — which is an argument for a fifth atom, an
+  entry rather than a debate, and never for reopening the closed
+  vocabulary itself.
+- **No `policies/0` scope glob that leaves the working directory**
+  (ORC-22). Absolute paths and `..` segments are a reported problem
+  in the declaration, not a discipline anyone has to remember. This
+  is the shape-level guard on the ORC-30 entry above: that entry
+  stops `mix catapult.audit` from being taught where this repository
+  keeps its components, and a registration surface accepting
+  `../../lib/**` would walk the same reach back in through the front
+  door while the task's own globs stayed innocent — worse, because it
+  would arrive as customer-authored data rather than as a diff to the
+  task. Revisit condition: none. A check needing to see another
+  project is a check registered in that project.
+- **No default version on an `events/0` entry, and no bare-atom form**
+  (ORC-22). The obvious convenience — accept `:project_created` and
+  mean version 1 — is ruled out here so the next pass does not add it
+  as an ergonomic win. An unversioned event is the exact state v5
+  §2.4's upcasting discipline exists to prevent, and a default makes
+  the *first* version the one fact absent from the diff, which is the
+  version every later upcaster is written against. The shape is free
+  to fix now because nothing declares an event until the engine does,
+  and it will never be free again. Revisit condition: none — this is
+  the cheap half of the ES cliff, and the expensive half is what
+  happens if it is skipped.
+- **No `@optional_callbacks` on the component behaviour** (ORC-22).
+  Every registry callback keeps an overridable empty default instead.
+  Incremental adoption is what the default already buys; optional
+  callbacks buy the same thing and charge the composer a
+  `function_exported?/3` guard at every call site, so an aggregation
+  that is total today becomes one that can silently skip a component.
+  "Declared nothing" and "does not implement" is a distinction with
+  no consumer, and the composer reporting every problem at once is
+  the property being protected. Revisit condition: a callback whose
+  empty default is a *meaningful* claim rather than an absence —
+  which would be a callback that should have been two.
