@@ -117,6 +117,18 @@ seeds release task.
   Write-once-at-boot is also the access pattern `persistent_term` is
   for. The accepted cost is that values are not visible from a remote
   console without calling the accessor.
+
+  **The store is keyed by slug, not by module** —
+  `Catapult.Config.fetch!(:foundation, :health_port)` — settled at
+  implementation (ORC-4). The slug is the spine every other claimed
+  name hangs off (conventions §3) and the composer already fails the
+  build on two components sharing one, so it is exactly as unique as
+  the module and shorter to read. It also keeps the accessor from
+  putting a component module into the caller's module graph, which is
+  what a keyed-by-module store would have cost: `Catapult.Repo`
+  reading `fetch!(Catapult.Foundation, …)` closes a cycle through the
+  component that lists the Repo among its children, and cycles are a
+  hard gate.
 - **The port hands the source every name at once; there is no per-key
   lookup.** The signature in full, because the whole of "adopting
   Vapor later is one module and one compile-time line" rests on this
@@ -124,7 +136,7 @@ seeds release task.
 
   ```elixir
   defmodule Catapult.Config.Source do
-    @callback load(names :: [String.t()], opts :: keyword()) ::
+    @callback load(names :: [String.t()], opts :: term()) ::
                 {:ok, %{optional(String.t()) => String.t()}}
                 | {:error, problems :: [String.t()]}
   end
@@ -133,7 +145,13 @@ seeds release task.
   Called once, before the root supervisor starts, with every name
   every component declared; `opts` is the source's own settings, which
   cannot themselves come from the config layer (see the compile-time
-  selection decision below). `Catapult.Config.Env` implements it as
+  selection decision below). `term()` rather than the `keyword()` this
+  block was sketched with, because the same sketch says the static
+  fake's seeded *map* is exactly this `opts` — and the map carries the
+  argument (a seed keyed by name and valued with strings needs no
+  special case anywhere in the layer), where the typing was
+  incidental. Its shape is the source's business, which is the whole
+  point of the parameter. `Catapult.Config.Env` implements it as
   one `System.get_env/0` and a `Map.take`. Nothing else is a callback:
   no `fetch/1`, no `get/2`, and in particular no `all/0`, because a
   source free to volunteer names nobody declared puts values into the

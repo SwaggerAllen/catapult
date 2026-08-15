@@ -1,6 +1,7 @@
 ---
 paths:
   - lib/catapult/application.ex
+  - lib/catapult/boot.ex
   - lib/catapult/foundation.ex
   - lib/catapult/health_endpoint.ex
   - lib/catapult/repo.ex
@@ -45,20 +46,47 @@ reached only through their APIs per v5 §2.4).
   rather than any component's behaviour — routing those through the
   fake would be the fake standing between the suite and the database
   it is required to reach. On the instance side and moving:
-  `DATABASE_URL`, `POOL_SIZE`, `HEALTH_PORT` — the three values that
-  differ between the reference instance and a laptop, declared in
-  foundation's `config/0` and loaded once at boot. Dev and test reach
-  them through the static source (`systems/substrate.md`), which means
-  `config/dev.exs` seeds a `DATABASE_URL` rather than setting Ecto's
-  discrete `username`/`hostname` keys: one declaration, one shape for
+  `DATABASE_URL`, `FOUNDATION_POOL_SIZE`, `FOUNDATION_HEALTH_PORT` —
+  the three values that differ between the reference instance and a
+  laptop, declared in foundation's `config/0` and loaded once at boot.
+  Dev and test reach them through the static source
+  (`systems/substrate.md`), which means `config/dev.exs` seeds a
+  `DATABASE_URL` rather than setting Ecto's discrete
+  `username`/`hostname` keys: one declaration, one shape for
   `Repo.init/2` to merge, and dev exercising the same cast the
   deployment does.
+
+  **Two of those three were drawn as `POOL_SIZE` and `HEALTH_PORT`,
+  and implementation renamed them** (ORC-4). The substrate's rule is
+  that a name off the slug spine is legal only with `external: true`,
+  and that the flag confers nothing — "an `external: true` on a name
+  nobody else imposes is a lie a reviewer can see". Only `DATABASE_URL`
+  is imposed: App Platform injects it under a name we do not choose.
+  Marking the other two external to keep their spelling would have
+  falsified that argument in the same commit that first armed the
+  check, on its only three subjects. Renaming costs nothing
+  operationally — neither is set on the reference instance, both carry
+  the same defaults they had (`10`, `8080`), and `SETUP.md` §2 names
+  the new spelling for the override. The rule the rename keeps:
+  `external: true` marks names the world imposes, never names we chose
+  and would rather not re-type.
+
+  **And the test build reads its database URL through the static
+  source too**, which is the only reading of the two bullets above
+  that is self-consistent: the harness switch this list means to
+  protect is `pool: Ecto.Adapters.SQL.Sandbox`, and it stays in
+  `config/test.exs`. The connection parameters stay there as well —
+  built from the same `PG*` variables CI provides — but in
+  `DATABASE_URL` shape, because Ecto's URL parsing *replaces* the
+  discrete keys rather than merging with them, so a build setting both
+  would have one of them silently win. One shape in every environment
+  is what makes `Repo.init/2` the same code everywhere.
 - **`runtime.exs` stops reading the environment.** It is the file the
   substrate's whole config layer is an argument against: today it
   fetches three variables and hand-parses one of them, and it reports
   exactly one problem per boot because each way of failing there
   raises — `fetch_env!` on an unset `DATABASE_URL`, `to_integer` on a
-  `POOL_SIZE` someone typed wrong. The `sslmode` strip and the
+  pool size someone typed wrong. The `sslmode` strip and the
   `verify_none` choice do not disappear: they become the declared cast
   on `DATABASE_URL`, which is where they get to fail by name and
   alongside everything else that is wrong. The file keeps only what
@@ -80,6 +108,20 @@ reached only through their APIs per v5 §2.4).
   speculatively: the plane runs substrate's shipped environment
   source, which is how that source stays exercised
   (`systems/substrate.md`).
+- **The roster and the source selection live in `Catapult.Boot`, and
+  every entry point goes through it** (ORC-4). Root glue in v5 §2.7's
+  sense, and its own module rather than functions on
+  `Catapult.Application` for a reason implementation found: the
+  application is not the only entry point. `Catapult.Release.migrate/0`
+  runs under `eval` with the app loaded but not started, and mix's ecto
+  tasks call `Catapult.Repo.init/2` after `app.config` — both need
+  configuration and neither boots a supervision tree. Hanging the load
+  off `Catapult.Application` would put `Repo → Application → Foundation
+  → Repo` in the module graph, and `mix xref graph --format cycles
+  --fail-above 0` is a hard gate (conventions §2). The load being
+  idempotent is what lets three entry points ask for it without
+  arranging who goes first; load-once (`docs/non-goals.md`) is what
+  makes that safe rather than lucky.
 
 ## The live suite
 
