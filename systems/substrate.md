@@ -1,7 +1,6 @@
 ---
 paths:
   - components/substrate/**
-  - lib/mix/tasks/catapult.audit.ex
 ---
 
 # substrate
@@ -37,6 +36,68 @@ the seeds release task.
   entries, a monolith by merge conflicts.
 - **Registries fail the build on collision, never warn.** A warning
   about a name collision is a collision that ships.
+- **The gate set is a property of a mix project, not of the repo.**
+  The audit's greps are `Path.wildcard("lib/**/*.ex")`, rooted at the
+  working directory — deliberately, because this task ships into
+  every generated project and the shape of *this* tree is not a fact
+  it may hold. The consequence is the rule: every mix project here
+  runs the whole conventions §2 set in its own directory, and adding
+  a mix project means adding its gate block. Stated as the whole set
+  rather than as a list, so a gate added to §2 later is in scope
+  without anyone re-enumerating — which is how `xref` (never named
+  in the ticket) and `hex.audit` (added to §2 by ORC-37 after the
+  ticket was written) are both covered. In the substrate the greps
+  are the entire value of the run: it declares no components, so the
+  composer check validates an empty list and the audit is exactly
+  its two greps there.
+
+  **The invoker that names both projects lives in the root
+  `mix.exs`,** as a `catapult.audit.all` alias running
+  `catapult.audit` and then `cmd --cd components/substrate mix
+  catapult.audit`. This is not the cross-project reach ruled out in
+  `docs/non-goals.md` and the distinction is the point: the shipped
+  task stays cwd-rooted and layout-ignorant, while knowledge of
+  where *this* repo keeps its components sits in this repo's own
+  `mix.exs` — AGPL plane code that never reaches a hex consumer and
+  whose literal job is knowing the project's layout. The audit is
+  the one gate that earns an invoker, because it is the only one
+  whose absence is invisible: `mix credo` at the root plainly checks
+  the root, while `mix catapult.audit` at the root reads as though
+  it audits the repository and does not. That asymmetry is this
+  ticket's bug, and a third mix project would reproduce it silently
+  against a convention held only in memory. Two costs, both
+  accepted. The alias does not collapse the substrate CI block —
+  substrate must still run its own `deps.get` before anything
+  resolves there, verified: with `components/substrate/deps` absent
+  the alias dies on dependency resolution. It dies loudly, exit 1,
+  which is the property that matters — an invoker that skipped a
+  project it could not resolve would be the fail-open this ticket
+  exists to close. And the second leg's failures print
+  substrate-relative paths (`lib/catapult/clock.ex:3`) with nothing
+  marking which project they came from, which is the very confusion
+  the stale file map caused. If that is worth fixing, it is fixed in
+  the task by naming the directory it audited — layout-ignorant, and
+  true in every generated project — never by the alias annotating
+  output it does not own.
+- **`catapult:allow` is same-line, and marks code, never prose.** The
+  check reads the tag off the matching line only — literally
+  `String.contains?(line, "catapult:allow #{tag}")` — so a comment
+  on the line above is not an escape, however plainly it is written.
+  Kept same-line because any other span asks each reader to work out
+  how far a given escape reaches, and an escape whose extent is
+  arguable is worse than none. Documentation that names a banned
+  construct is reworded, not tagged: an allow tag asserts "this
+  occurrence is a deliberate exception", and spending it on a
+  sentence *about* the ban degrades the one signal review has, in a
+  package whose docs get published. The cost is real and accepted —
+  the clock's moduledoc and the audit's own cannot spell the
+  construct they forbid. Turning the gate on is therefore not free:
+  the substrate audit fails today with five hits, one of which is
+  `clock.ex`, the runtime clock and the single legitimate exception,
+  whose `catapult:allow utc_now` sits one line above the code it
+  excuses. An escape hatch written in a form its own gate rejects is
+  what an unexercised hatch looks like, and it is the clearest
+  evidence in the tree that the gap was invisible from inside.
 - **The supply gate is Hex-sourced; `mix_audit` is a second opinion,
   not the signal.** `mix deps.audit` reads a third-party git mirror
   (`mirego/elixir-security-advisories`) cloned at run time and
