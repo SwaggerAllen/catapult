@@ -117,6 +117,126 @@ seeds release task.
   Write-once-at-boot is also the access pattern `persistent_term` is
   for. The accepted cost is that values are not visible from a remote
   console without calling the accessor.
+- **The port hands the source every name at once; there is no per-key
+  lookup.** The signature in full, because the whole of "adopting
+  Vapor later is one module and one compile-time line" rests on this
+  shape fitting a source that is not the environment:
+
+  ```elixir
+  defmodule Catapult.Config.Source do
+    @callback load(names :: [String.t()], opts :: keyword()) ::
+                {:ok, %{optional(String.t()) => String.t()}}
+                | {:error, problems :: [String.t()]}
+  end
+  ```
+
+  Called once, before the root supervisor starts, with every name
+  every component declared; `opts` is the source's own settings, which
+  cannot themselves come from the config layer (see the compile-time
+  selection decision below). `Catapult.Config.Env` implements it as
+  one `System.get_env/0` and a `Map.take`. Nothing else is a callback:
+  no `fetch/1`, no `get/2`, and in particular no `all/0`, because a
+  source free to volunteer names nobody declared puts values into the
+  system behind the registry's back, and the registry is the product.
+
+  **Tested against a file source, which is what design review asked
+  for.** A `Catapult.Config.File` over a flat TOML or JSON document
+  implements `load/2` as one read, one parse and one `Map.take`, and
+  it fits without the port bending — because the port never asks it a
+  second question. A `fetch(name)` port would leave that same adapter
+  three bad options: re-read and re-parse per key (N reads for N
+  declarations, with no guarantee they saw one document), cache in
+  `:persistent_term` behind the layer's back (a second store, absent
+  from the report), or become a process whose lifecycle the port's
+  shape does not model. That is the port that can only ever be env,
+  and `load/2` is the shape that is not it.
+
+  **The file source is also what proves the `{:error, _}` branch is
+  not ceremony.** An environment source cannot fail — `System.get_env/0`
+  always answers — so with only the shipped adapter in view that
+  branch reads as a return nobody will ever construct. A file source
+  fails four ways before it reaches a value (absent, unreadable,
+  unparseable, wrong root shape), and it forces the distinction that
+  makes the report survive a second source: **when the source itself
+  fails, the layer reports that and stops**, rather than falling
+  through to the per-declaration pass. "DATABASE_URL is not set" is a
+  false statement about a file that was never opened, and forty such
+  lines bury the one true one. Missing *values* enumerate; a missing
+  *source* is the whole report.
+- **The source's currency is named strings, and the namespace is the
+  adapter's business.** A declaration's second element is a name, and
+  the name is env-shaped (`SCREAMING_SNAKE`, on the slug spine) even
+  under a source that is not the environment, because the environment
+  is the transport every deployment has and a per-source rename table
+  is a mapping no audit can read — the prefix check and `external:
+  true` both stop meaning anything the moment one name has two
+  spellings. A file source resolves the declared name inside its own
+  document, and how it does that (top-level key, or a documented
+  `DATABASE_URL` → `["database", "url"]` unfolding) is the adapter's,
+  not the declaration's.
+
+  Values crossing the port are strings. A TOML `pool_size = 20`
+  arrives at the layer as `"20"` and the declared cast derives the
+  integer, which looks wasteful and is deliberate: the alternative is
+  `term()` values and casts that must accept both shapes, so every
+  component in every generated project pays a two-headed cast for a
+  source it does not run. The adapter discards typing the document
+  had; the cast stays the single definition of what a value means,
+  which is the reason casts became ours at all. Present-but-empty is
+  present — `DATABASE_URL=""` is a value the source found, and whether
+  empty is legal is the cast's business — because App Platform can
+  inject an empty variable and "unset" and "set to nothing" deserve
+  different lines in the report.
+
+  **The boundary this draws, said plainly:** the port's domain is
+  flat, string-valued, named settings arriving over some transport
+  other than the environment. A document with nested structure and
+  lists of maps is not a config source in this sense at all — it is
+  content, and it belongs in `config/*.exs` or in a real document
+  loader. That is precisely where Vapor is the right answer and this
+  port is not, and the non-goal entry is written to that line rather
+  than to a claim that the port handles everything.
+- **One source, never several merged.** The layer takes exactly one.
+  Vapor's loader `Map.merge`s provider results, so two providers
+  offering one name silently pick a winner — already the reason it is
+  not a dependency, and it would be no better for being our own code.
+  The case that would force layering is real, so it is named here to
+  be recognised rather than rediscovered: secrets from a mounted file,
+  everything else from the environment. When it arrives, layering is
+  either per-declaration source selection or an ordered list **whose
+  overlaps are a reported problem** — the discipline the composer
+  already applies to queues and topics, applied to transports — and
+  never a merge. Until then provenance is trivial: every value came
+  from the one place, and no report needs a field to say which.
+- **Refresh and watch are questions about the accessor, not about the
+  port** — the second half of what design review asked. A remote
+  source (Vault, Parameter Store, Consul) fits `load/2` today,
+  unchanged: one round trip at boot for every name at once is what a
+  remote is best at, and "unreachable" is exactly the `{:error, _}`
+  the file source proved was load-bearing. What a remote cannot do
+  through this port is push, and that limitation is not the port's to
+  fix. `docs/non-goals.md` records load-once; the thing actually
+  standing between us and watching is the accessor's contract —
+  `:persistent_term`, written once before the supervisor starts, read
+  by callers who may hold what they read. A source pushing into a
+  store nobody re-reads has changed nothing.
+
+  So the growth path, named at its real size. The *port* takes it as
+  `@optional_callbacks watch: 2`, which the environment and static
+  sources decline and the layer guards with `function_exported?/3`:
+  that part genuinely is one module and one line, and it is the answer
+  to "does the shape fit." What is not one line is what the accessor
+  then owes — a re-validation path that can **reject** an update
+  without taking the node down (a boot report may exit; a running
+  node's may not), a rule for the process holding a value it read a
+  minute ago, and atomicity for two values that must change together.
+  Four decisions and a supervision tree: a ticket, not a refactor, and
+  nothing in this shape prejudges any of them. The nearer cousin —
+  a source needing to be a running process merely to *load*, a remote
+  with a connection pool — is smaller still and changes the call site
+  rather than the port: the layer would start the source under a
+  bootstrap supervisor before calling `load/2`. One place, recorded
+  here so it is not met as a surprise.
 - **The config source is chosen at compile time, because it is the
   bottom turtle.** v5 §2.12 has every external's real-vs-fake
   selection ride config; config's own source therefore cannot, since
@@ -125,6 +245,26 @@ seeds release task.
   `Application.compile_env` choice: the shipped environment source in
   every real build, the static fake in test — the same shape as the
   clock, and for the same reason.
+
+  **The selection carries the source's own settings, and that is the
+  one bounded exception to "one reader of the environment."** A
+  source's configuration cannot come from the config layer without
+  reintroducing the circle, so it rides the compile-time value as a
+  tuple — `{Catapult.Config.Static, %{"DATABASE_URL" => "ecto://..."}}`,
+  `{Catapult.Config.File, path: "/etc/app.toml"}` — and lands as
+  `load/2`'s `opts`. If some future adapter's own setting genuinely
+  must be dynamic (the path of the file to read), the adapter reads it
+  from the environment itself, below the layer. That is legitimate and
+  it is the only such read: a source's bootstrap, never a component's
+  value, which is the whole of what the layer was built to own.
+
+  The static fake's seeded map is exactly this `opts`, keyed by name
+  and valued with strings like any other source, which is why the fake
+  needs no special case anywhere in the layer — and why a test seeds
+  `"10"` rather than `10`. Seeding post-cast values would be the
+  obvious convenience and it is the wrong one: it would leave every
+  declared cast unexercised by every test that is not about casts,
+  which is most of them.
 
   **Dev selects the static source too, and that is what settles
   `.env`.** v5 §2.2 sketched per-component `.env` files alongside
@@ -183,7 +323,22 @@ seeds release task.
   Vapor remains the sanctioned answer the day a project needs config
   from a file, a remote source, or a format the environment cannot
   carry; nothing here needs that, and the port means adopting it then
-  is one new module and one compile-time line, not a migration. It is
+  is one new module and one compile-time line, not a migration.
+
+  **The second pass split that sentence in two, because the port
+  demonstration showed it was true of only half of it.** A flat file
+  or a remote parameter store *is* one module and one line: it answers
+  `load/2` with named strings and every other decision in this layer
+  stands. A format the environment cannot carry — a nested document,
+  lists of maps — is not an adapter behind this port at all, and
+  pretending otherwise is how a port ends up with a `term()` value
+  type and casts that accept two shapes. That case is a different
+  problem which happens to share the word "config", and Vapor as an
+  ordinary library in the consumer that has it is a better answer than
+  Vapor squeezed through this seam. Saying which half is cheap
+  matters more than saying it is cheap: the reversal the author was
+  promised is real for the transports, and the case it does not cover
+  is one this platform has never had. It is
   also what makes this whole entry cheap to reverse: the placement
   question is decidable by the author without redesign, because the
   port is the decision and the adapter is not.
