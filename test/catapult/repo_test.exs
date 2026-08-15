@@ -3,6 +3,20 @@ defmodule Catapult.RepoTest do
 
   alias Ecto.Adapters.SQL
 
+  test "connection settings are assembled from the config layer" do
+    config = Repo.config()
+
+    # The declared cast's output, merged in by init/2 and then expanded
+    # by Ecto's own URL parsing — which is why there is no `:url` key
+    # left to assert on, and why config/*.exs must not also set the
+    # discrete keys: the URL wins. One reader of DATABASE_URL in the
+    # tree (systems/foundation.md).
+    assert config[:database] == "catapult_test"
+    assert config[:pool_size] == 10
+    # And the harness switch config/test.exs keeps for itself survives.
+    assert config[:pool] == Ecto.Adapters.SQL.Sandbox
+  end
+
   test "the database round-trips" do
     assert {:ok, %{rows: [[1]]}} = SQL.query(Repo, "SELECT 1", [])
   end
