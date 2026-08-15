@@ -52,8 +52,8 @@ defmodule Catapult.Component.RegistriesTest do
 
       assert {:ok, %{queue: :a_work, opts: []}} = Registries.normalize(queues, :a_work)
 
-      assert {:ok, %{queue: :a_work, opts: [cron: "* * * * *"]}} =
-               Registries.normalize(queues, {:a_work, cron: "* * * * *"})
+      assert {:ok, %{queue: :a_work, opts: [cron: [{"* * * * *", Enum}]]}} =
+               Registries.normalize(queues, {:a_work, cron: [{"* * * * *", Enum}]})
     end
 
     test "a sugared multi-field row may omit only the opts tail" do

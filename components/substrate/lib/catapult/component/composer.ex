@@ -44,7 +44,7 @@ defmodule Catapult.Component.Composer do
         duplicate_slugs(real) ++
         Enum.flat_map(declared, fn {_c, d} -> d.problems end) ++
         Enum.flat_map(Registries.rows(), &registry_problems(&1, declared)) ++
-        Enum.flat_map(declared, fn {c, d} -> kill_switch_problems(c, d.entries) end) ++
+        Enum.flat_map(declared, fn {c, d} -> cross_registry_problems(c, d.entries) end) ++
         config_collisions(real) ++
         config_declarations(real)
 
@@ -201,6 +201,15 @@ defmodule Catapult.Component.Composer do
 
   ## Cross-registry
 
+  # Facts no single row can hold, because each is about two declarations
+  # at once. They are the payoff of one table: a row says what an entry
+  # *is*, and these say what two of them owe each other.
+  defp cross_registry_problems(component, entries) do
+    kill_switch_problems(component, entries) ++
+      cron_worker_problems(component, entries) ++
+      external_contract_problems(component, entries)
+  end
+
   # The first cross-registry check, and what makes v5 §2.2's promise
   # literal: a switch pointing at a flag nobody registered is a switch
   # that does nothing, discovered during the incident it was built for.
@@ -214,6 +223,67 @@ defmodule Catapult.Component.Composer do
       "#{inspect(component)}'s external #{inspect(external.name)} names kill switch " <>
         "#{inspect(switch)}, which it does not declare in feature_flags/0"
     end
+  end
+
+  # The cross-fact the `{schedule, worker}` shape buys (ORC-21): a
+  # worker's queue comes from its own `use Oban.Worker`, so a scheduled
+  # worker whose queue is not the entry it was declared under is a job
+  # that will run somewhere nobody declared — invisible in the queue
+  # registry, which is the one place an operator would look.
+  defp cron_worker_problems(component, entries) do
+    for queue <- Map.fetch!(entries, :oban_queues),
+        {:ok, crontab} <- [Keyword.fetch(queue.opts, :cron)],
+        is_list(crontab),
+        {schedule, worker} <- crontab,
+        is_binary(schedule),
+        is_atom(worker) and not is_nil(worker) and Code.ensure_loaded?(worker),
+        reason <- worker_queue_reason(worker, queue.queue) do
+      "#{inspect(component)}'s oban queue #{inspect(queue.queue)} schedules " <>
+        "#{inspect(worker)}, which #{reason}"
+    end
+  end
+
+  # `use Oban.Worker` generates `__opts__/0`, which is the worker's own
+  # answer and the only one that matters at enqueue time. Substrate takes
+  # no Oban dependency to ask (systems/substrate.md), so the question is
+  # put to the module rather than to a library.
+  defp worker_queue_reason(worker, queue) do
+    cond do
+      not function_exported?(worker, :__opts__, 0) ->
+        ["is not an Oban worker (no __opts__/0)"]
+
+      to_string(Keyword.get(worker.__opts__(), :queue)) == to_string(queue) ->
+        []
+
+      true ->
+        ["runs on queue #{inspect(Keyword.get(worker.__opts__(), :queue))}"]
+    end
+  end
+
+  # The one thing `externals/0` still owes the audit, and it needs no new
+  # field: both modules already carry the answer in their own attributes.
+  # A fake that has drifted off its adapter's contract is a test lying
+  # about a system it never called (systems/substrate.md).
+  defp external_contract_problems(component, entries) do
+    for external <- Map.fetch!(entries, :externals),
+        {:ok, adapter} <- [Keyword.fetch(external.opts, :adapter)],
+        {:ok, fake} <- [Keyword.fetch(external.opts, :fake)],
+        loadable?(adapter) and loadable?(fake),
+        MapSet.disjoint?(behaviours(adapter), behaviours(fake)) do
+      "#{inspect(component)}'s external #{inspect(external.name)} declares adapter " <>
+        "#{inspect(adapter)} and fake #{inspect(fake)}, which share no behaviour"
+    end
+  end
+
+  defp loadable?(module) do
+    is_atom(module) and not is_nil(module) and Code.ensure_loaded?(module)
+  end
+
+  defp behaviours(module) do
+    module.module_info(:attributes)
+    |> Keyword.get_values(:behaviour)
+    |> List.flatten()
+    |> MapSet.new()
   end
 
   ## Config's own report, folded in

@@ -101,12 +101,38 @@ defmodule Catapult.Component.ComposerTest do
 
   ## The rest of the v5 §2.2 roster (ORC-22)
 
+  defmodule Payments do
+    @callback charge(pos_integer()) :: :ok
+  end
+
   defmodule Adapter do
-    def call, do: :ok
+    @behaviour Payments
+    @impl Payments
+    def charge(_cents), do: :ok
   end
 
   defmodule Fake do
-    def call, do: :ok
+    @behaviour Payments
+    @impl Payments
+    def charge(_cents), do: :ok
+  end
+
+  # A fake that never adopted the adapter's contract: a test lying about
+  # a system it never called.
+  defmodule DriftedFake do
+    def charge(_cents), do: :ok
+  end
+
+  defmodule SweepWorker do
+    def __opts__, do: [queue: :roster_nightly]
+  end
+
+  defmodule ElsewhereWorker do
+    def __opts__, do: [queue: :roster_work]
+  end
+
+  defmodule NotAWorker do
+    def perform(_job), do: :ok
   end
 
   defmodule Dashboard do
@@ -131,7 +157,10 @@ defmodule Catapult.Component.ComposerTest do
       {:ok, id}
     end
 
-    def oban_queues, do: [:roster_work, {:roster_nightly, cron: "0 3 * * *"}]
+    def oban_queues do
+      [:roster_work, {:roster_nightly, cron: [{"0 3 * * *", SweepWorker}]}]
+    end
+
     def telemetry_events, do: [[:catapult, :roster, :thing, :built]]
     # One type at two versions: ordinary, and permanent.
     def events, do: [{:thing_created, 1}, {:thing_created, 2}]
@@ -200,6 +229,33 @@ defmodule Catapult.Component.ComposerTest do
     def api_surface, do: [{{:never_exported, 1}, :get, "things", version: "v1"}]
     def admin, do: [{"/admin/sloppy", Dashboard}]
     def policies, do: [{NotACheck, "../lib/**/*.ex", policy: 42}]
+  end
+
+  # Each declaration is well-formed on its own row; what is wrong with
+  # them is a second declaration somewhere else.
+  defmodule Drifting do
+    use Catapult.Component, slug: :drift
+
+    def feature_flags, do: [:drift_off]
+
+    def oban_queues do
+      [
+        {:drift_nightly, cron: [{"0 3 * * *", ElsewhereWorker}]},
+        {:drift_hourly, cron: [{"0 * * * *", NotAWorker}]}
+      ]
+    end
+
+    def externals do
+      [
+        {:stripe,
+         adapter: Adapter, fake: DriftedFake, kill_switch: :drift_off, classification: :none}
+      ]
+    end
+  end
+
+  defmodule BareCron do
+    use Catapult.Component, slug: :bare
+    def oban_queues, do: [{:bare_nightly, cron: "0 3 * * *"}]
   end
 
   defmodule NotAList do
@@ -285,6 +341,35 @@ defmodule Catapult.Component.ComposerTest do
                "which it does not declare in feature_flags/0"
   end
 
+  test "a cron entry is {schedule, worker}, and a bare string is not one" do
+    err =
+      assert_raise Composer.CollisionError, fn ->
+        Composer.validate!([BareCron])
+      end
+
+    assert err.message =~ "has a cron that is not a non-empty list of {schedule, worker} pairs"
+  end
+
+  test "a scheduled worker must run on the queue it was declared under" do
+    err = assert_raise Composer.CollisionError, fn -> Composer.validate!([Drifting]) end
+
+    assert err.message =~
+             "oban queue :drift_nightly schedules " <>
+               "Catapult.Component.ComposerTest.ElsewhereWorker, which runs on queue :roster_work"
+
+    assert err.message =~
+             "oban queue :drift_hourly schedules Catapult.Component.ComposerTest.NotAWorker, " <>
+               "which is not an Oban worker (no __opts__/0)"
+  end
+
+  test "an external's adapter and fake must share a behaviour" do
+    err = assert_raise Composer.CollisionError, fn -> Composer.validate!([Drifting]) end
+
+    assert err.message =~
+             "external :stripe declares adapter Catapult.Component.ComposerTest.Adapter and " <>
+               "fake Catapult.Component.ComposerTest.DriftedFake, which share no behaviour"
+  end
+
   test "api_surface accepts only functions the component exports with defexport" do
     err = assert_raise Composer.CollisionError, fn -> Composer.validate!([SloppyRoster]) end
 
@@ -324,7 +409,7 @@ defmodule Catapult.Component.ComposerTest do
 
       assert %{queue: :roster_work, opts: []} = Enum.find(queues, &(&1.queue == :roster_work))
 
-      assert %{queue: :roster_nightly, opts: [cron: "0 3 * * *"]} =
+      assert %{queue: :roster_nightly, opts: [cron: [{"0 3 * * *", SweepWorker}]]} =
                Enum.find(queues, &(&1.queue == :roster_nightly))
 
       processes = Composer.inventory([Roster]).processes
