@@ -2389,6 +2389,111 @@ label admission test is what settles the shape. Also open: whether
 client requests share intake with bugs (one surface, two types) or
 arrive on their own.
 
+### 7.15 Pausing and resuming a pass
+
+The first architecture pass over a real seed is expected to outrun a
+subscription window. That is the normal shape of intake, not an
+incident, and the machinery treats it that way: a pass pauses, says
+so, and resumes itself.
+
+**Two failure modes, never merged.** *Overran an internal budget* and
+*overran an external limit* look alike from a distance and behave
+differently in every way that matters, so they get separate handling
+and separate names.
+
+| | internal budget | external limit |
+|---|---|---|
+| whose | ours (§7.12.1's `cutoff`) | the provider's |
+| when known | predictable — we choose the stopping point | discovered on the failure |
+| boundary | **clean**: in-flight runs finish | **dirty**: the run dies mid-scope |
+| resume | scheduled, at the window we set | polled hourly until it lifts |
+| manual restart | available, **and requires raising the limit** | available |
+
+The manual restart on the internal side carries the raise because it
+must: a restart that leaves the budget where it was trips the same
+cutoff on the next dispatch, and a button whose only effect is to
+re-announce the thing you just dismissed teaches you to stop pressing
+it. The external side has no such lever — the limit is not ours to
+raise — so its button is a "try now" against the hourly poll.
+
+**Both tiers get the same strategy.** Spilling to the metered
+credential does not make hosted immune: a hosted instance runs on
+credentials that have their own ceiling, so it meets the external
+mode too. Only the notification default differs — self-hosted
+notifications are **opt-in**, since a solo instance paging its owner
+by default is a pager they will mute (§7.4's two-channel rule and
+its warning about surfaces where attention goes to die). Every
+threshold, the resume schedule, the poll interval and the
+notification choice are `tunable`: the point is that it behaves the
+way its operator wants, not the way we guessed.
+
+**Where the resumable state lives: not in the run.** This is the
+question that looks hard and is already answered by two recorded
+decisions. Readiness is a query against current projections (§7.11's
+state-driven scheduler), and staleness is a projection rather than
+stored state (§7.11) — so *what still needs doing* is derived, on
+demand, from the log. A pass therefore has no cursor to checkpoint
+and no queue to restore. **Resume is re-asking the readiness
+question.**
+
+**"Scope" here is a doc-graph node, not a ticket — the two fan out at
+different times and this is the place that confusion lands.** The
+graph is materialized at intake, so scopes exist from the first pass
+and `ready_scopes` ranges over them; generation dispatches per scope
+and the log carries per-scope events from the beginning. The *ticket*
+tree is a separate, deliberately coarser projection of the same
+fanout (§7.2), and its children spawn at `Building`, where the plan
+document has proved independent parallel work exists — depth earned,
+never reflexive. So during an architecture pass there is **one**
+feature ticket sitting in `Architecting` while N scopes generate
+beneath it. Per-scope pause and resume needs no early ticket fanout
+and must not be read as an argument for one.
+
+The consequence is about what the author sees: with no per-scope
+tickets during design, a paused pass surfaces on the parent ticket
+and on the dashboard's unbuilt-scope count, and nowhere else. That
+count is not a convenience during intake — it is the only progress
+surface there is.
+
+What that requires of the executor, stated so it is built that way
+rather than discovered later:
+
+- **One dispatched run per ready scope**, never one run per pass. The
+  scope is the unit of work *and* the unit of resumption.
+- **One atomic commit per scope, at the end.** A scope that dies
+  partway leaves no commit, so the readiness query still lists it and
+  it is dispatched again from the top. A half-written artifact is
+  never committed — partial output is the one thing that would turn a
+  derived answer back into a checkpoint.
+- **No memory across dispatches.** A re-dispatched scope re-renders
+  its context walk and starts clean. Re-running a scope must be
+  indistinguishable from running it the first time, because after an
+  external limit that is exactly what happens.
+
+The asymmetry above is why this matters more than it looks: an
+internal cutoff never needs the idempotent path, because it stops on
+a commit boundary by choice. An external limit always needs it.
+Building only for the tidy case leaves the untidy one to be
+discovered by a customer.
+
+**The failure this must detect rather than loop on: a scope too large
+to finish inside one full window.** It will fail at the limit,
+resume when the window lifts, fail again, and consume every window
+forever while reporting progress it is not making. Repeated
+limit-class failure on the *same* scope is therefore `Blocked` with a
+named reason (§7.6's `needs-setup` shape: say exactly what must
+change — split the scope, raise the plan, or move that tier to the
+metered credential), never another retry. A retry loop that always
+fails at the same place is indistinguishable from work, which is what
+makes it dangerous.
+
+**Progress is a query, not a report.** Unbuilt ready scopes, with the
+paused-until time when paused: one number the dashboard shows beside
+explain-why (§7.4), and the same number a resumed pass starts from. A
+paused pass that looks identical to a dead one is the "signal
+silence" failure §7.4 already names — so pausing announces, and the
+announcement carries when it intends to wake.
+
 ---
 
 ## 8. Parked / open items

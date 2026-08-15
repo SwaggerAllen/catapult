@@ -9,12 +9,30 @@ attended. Everything code-shaped already lives in the repo:
   from the team), actors (author = controlplane, the sanctioned
   solo-workspace exception), gates, preview, agents, and the live
   app's `deploy.endpoint`.
-- The eight pipeline stubs under `.github/workflows/` (toolchain
-  blocks read `.tool-versions`; live-suite runs
-  `mix test --only live`, which the foundation's `/health` smoke test
-  now answers — ORC-29. That job still needs `ci.yml`'s environment,
-  a deps step and the Postgres service, because the `test` alias
-  creates and migrates the database; see below)
+- The ten pipeline stubs under `.github/workflows/` (toolchain blocks
+  read `.tool-versions`; live-suite runs `mix test --only live`, which
+  the foundation's `/health` smoke test now answers — ORC-29). **The
+  five that run this project's own commands — the four agents and the
+  live suite — carry `ci.yml`'s `env` and `services` blocks and a deps
+  step for both mix projects**, because an agent runs the config's
+  `qualityGates` and the live suite runs the test command: the rule is
+  that a stub carries the project's *environment*, not just its
+  toolchain (orchestration `069e7b2`). Three runs here were spent
+  bootstrapping that by hand before the rule existed. The other five
+  run no project commands and deliberately have none of it.
+- Two of the ten are **run by you, from a phone**, and neither is on a
+  schedule:
+  - **pipeline-preflight** — exercises every credential-bearing call
+    the pipeline makes, reads only. Run it after changing a
+    `permissions:` block, after rotating a token, and at hookup. A
+    green run means "the reads are fine", not "the permissions are
+    fine", and it names the write scopes it did not exercise.
+  - **pipeline-order** — "what goes into `Designing` next, and what
+    can run beside it", from the ticket graph, rendered to the run
+    summary rather than buried in a step log. Derived every time and
+    never stored: the mutex labels that decide what parallelises do
+    not exist until each design pass writes them, so a saved ordering
+    is wrong by construction rather than by neglect.
 - `preview/index.html` — the placeholder export (preview is
   mandatory by decision; the real storybook replaces it in Phase 4)
 - `ci.yml`'s pipeline-audit step, **self-arming**: it skips with a
@@ -109,7 +127,15 @@ from tracker/host as signals before resuming authority).
 - Branch protection on `main`: require the `ci` checks + pull
   requests. Only reconciliation merges within the pipeline; your
   direct pushes are the deliberate admin bypass.
-- Optional: repo variable `PIPELINE_KILL_SWITCH=true` halts dispatch.
+- Repo variable `PIPELINE_KILL_SWITCH=true` **parks** the project. It
+  halts dispatch inside the binary *and* skips the sweep job itself
+  (orchestration `cd41b83`), which is what makes parking free: Actions
+  bills each job rounded up to the minute, so an idle project on the
+  hourly beat otherwise spends around 730 minutes a month producing
+  nothing. Both guards stay, deliberately — a hand-dispatched run with
+  the flag set still refuses inside the binary, so the two agree
+  instead of one covering for the other. Clear it before expecting
+  work: a parked project looks exactly like a broken pipeline.
 - Then run **pipeline-pages-provision** once (Actions → Run
   workflow) — creates the `catapult-storybook` Pages project named
   in the config. Needs the Cloudflare secrets above.
