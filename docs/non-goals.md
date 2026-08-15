@@ -122,6 +122,31 @@ recorded decision, and say so explicitly.
   forcing the series bump (ORC-3). Two sources disagreeing is the
   condition this ticket made legible, not a defect to resolve by
   dropping one until the Hex feed is shown to dominate it.
+- **No cross-project reach in `mix catapult.audit` itself** (ORC-30).
+  The task's file globs stay rooted at the working directory. It is
+  not taught to descend into `components/**`, not given a `--path`,
+  and not taught to discover sibling mix projects, so that one run
+  covers the tree. Reason: the task is substrate code — Apache-2.0,
+  shipped into every generated project — and the layout of *this*
+  repository is not a fact it may hold. Two runs of a layout-ignorant
+  task beat one run of a task that knows where Catapult keeps its
+  components, because the second kind is what a customer inherits.
+  **The sanctioned form is the opposite end of the same wire:** a
+  `catapult.audit.all` alias in the *root* `mix.exs` that invokes the
+  task once per project (`cmd --cd components/substrate mix
+  catapult.audit`). That is AGPL plane code which never reaches a hex
+  consumer and whose job is precisely to know this project's own
+  layout, so it is in bounds and is not an exception to this entry —
+  the prohibition is on the *task* carrying the knowledge, never on
+  this repo carrying it. Do not delete the alias as a violation of
+  this line; it is the line's intended shape. The accepted
+  consequence is a standing decision in `systems/substrate.md`: the
+  conventions §2 gate set runs per mix project, and a new mix project
+  brings its own gate block. Revisit condition: enough mix projects
+  that the repeated block is itself what drifts — at which point the
+  answer is CI looping over discovered projects, still one
+  working-directory-rooted audit each, and still not a glob that
+  reaches.
 - **No `:live` tag on a test that doesn't cross a real network
   boundary to a real external system** (ORC-29). The tag buys a seat
   in the once-per-milestone suite and nothing else, so a `:live`

@@ -1,9 +1,10 @@
 defmodule Catapult.Clock do
   @moduledoc """
-  The injected clock (conventions §9): `DateTime.utc_now/0` is banned in
-  domain code by the audit's grep; domain code takes the clock as a
+  The injected clock (conventions §9): reading the wall clock directly is
+  banned in domain code by the audit's grep — which is why this text does
+  not spell the call it forbids; domain code takes the clock as a
   dependency so tests are deterministic. `Catapult.Clock.System` is the
-  runtime implementation.
+  runtime implementation, and the one sanctioned exception.
   """
 
   @callback utc_now() :: DateTime.t()

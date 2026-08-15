@@ -87,6 +87,23 @@ defmodule Catapult.MixProject do
       # below. Both audits run; only the Hex one is load-bearing
       # (conventions §2).
       "deps.audit": ["hex.audit", "deps.audit"],
+      # The audit's globs are rooted at the working directory, so
+      # `mix catapult.audit` here reads as though it audits the
+      # repository and audits only the root project — the one gate whose
+      # absence is invisible (ORC-30). The invoker that knows this repo
+      # has two mix projects lives here, in AGPL plane code that never
+      # reaches a hex consumer and whose job is precisely to know the
+      # layout; the shipped task stays layout-ignorant
+      # (docs/non-goals.md, systems/substrate.md). It does not replace
+      # substrate's own gate block: the second leg needs
+      # components/substrate/deps resolved and dies loudly, exit 1, if it
+      # is not — an invoker that skipped a project it could not resolve
+      # would be the fail-open this exists to close. A third mix project
+      # is a third element here.
+      "catapult.audit.all": [
+        "catapult.audit",
+        "cmd --cd components/substrate mix catapult.audit"
+      ],
       # Infra migrations live in priv/repo/migrations_infra (the
       # foundation's file map); per-store paths compose in as stores
       # land (conventions §6).
