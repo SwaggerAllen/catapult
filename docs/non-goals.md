@@ -368,3 +368,91 @@ recorded decision, and say so explicitly.
   the property being protected. Revisit condition: a callback whose
   empty default is a *meaningful* claim rather than an absence —
   which would be a callback that should have been two.
+- **No Credo-hosted platform checks, and no Credo in a generated
+  tree** (ORC-21), against v5 §2.14, which adopted "AST-grade custom
+  Credo checks" by name. The grade is adopted; the host is not, and
+  the reason is mechanical rather than preferential. `Credo.Check` is
+  a `__using__` macro, so a check module compiles only where Credo is
+  loadable, and Mix loads a dependency's own children with
+  `env: :prod` (`Mix.Dep.Loader`) — so substrate's `only: [:dev,
+  :test]` Credo never reaches a consumer, and a check shipped in
+  `lib/` would fail to compile in every tree that adopted it. Buying
+  the host means either a Credo dependency imposed on trees we do not
+  own — the fourth entry of that shape in this file — or a fourth mix
+  project and a second package on the release train, and both are
+  spent on IDE surfacing. `policies/0` + `Catapult.Audit.Check` is the
+  inheritance mechanism, it shipped in ORC-22, and a second one would
+  give `catapult:allow` two implementations. Revisit condition, and it
+  is cheap by construction: a project that wants editor surfacing
+  writes a `Credo.Check` delegating to `run/1`. That is a wrapper, in
+  the project that wants it, and no check logic moves — which is why
+  the report format (`path:line: message`) is part of the contract.
+- **No compile-connected cap anywhere a ticket can edit it** (ORC-21).
+  Not `config/*.exs`, not a module attribute in the audit, not a
+  checked-in baseline file: `mix xref graph --label compile-connected
+  --fail-above N` is stock and already exits 1, so the only question
+  is where N lives, and the pipeline answers it. An agent that adds a
+  compile dependency can raise a cap that sits in the tree, in the
+  same commit that made it necessary, with a plausible sentence in the
+  PR body — and a ratchet the ratcheting party can turn is not a
+  ratchet. `qualityGates` is author-owned, which is what makes v5
+  §2.14's "may never rise without a reviewed change" literal. The
+  accepted cost is that lowering it is also an author edit, including
+  on the runs where a refactor earned the lower number. Revisit
+  condition: none while agents write the diffs — this entry is about
+  who holds the number, and that does not change with scale.
+- **No `system_monitor`-based mailbox guardrail, and no kill grade for
+  a full mailbox** (ORC-21), against v5 §2.5's "the BEAM itself
+  enforces them", which is true of the heap bound and false of the
+  queue bound. Verified rather than assumed:
+  `erlang:process_flag(:max_message_queue_len, _)` raises `badarg` —
+  there is no such flag — and `:erlang.system_monitor/2` is node-wide,
+  notify-only, and singular, so setting one discards the previous
+  settings and any dependency reaching for `long_gc` disables our
+  guardrail without a word. A check whose failure mode is silence is
+  the shape this repo has already refused twice. The mailbox threshold
+  is sampled and reported (`systems/observability.md`); killing is
+  rejected separately and on its own merits, since a process that is
+  behind is usually the only thing holding the work. Revisit
+  condition: a per-process, VM-enforced queue bound appearing in OTP —
+  at which point the field changes grade rather than the decision
+  changing shape.
+- **No `spawn_opt` threading by the composer** (ORC-21). VM guardrails
+  are applied by the process in `init/1` and *checked* by the
+  composer, never injected into a child spec's start call. A process
+  flag can only be set from inside its own process — `process_flag/3`
+  covers `save_calls` and nothing else — so the only external route is
+  `spawn_opt`, which requires the composer to know the option
+  conventions of start functions it did not write, and has no answer
+  at all for a child whose `start_link` takes no options. That is the
+  same defect as a shipped task knowing this repository's layout, one
+  level in: generic composition machinery holding specific knowledge
+  about things it composes. Revisit condition: none — declared↔applied
+  is the check shape the platform already uses twice.
+- **The audit never runs another gate, and never detects one by
+  directory name** (ORC-21). v5 §2.14 arms Sobelow on Phoenix-bearing
+  projects; the audit's part is to *report the missing gate*, not to
+  shell out to it. A task that invokes other tools swallows their exit
+  codes and their output formatting and becomes a meta-runner, while
+  `qualityGates` and `ci.yml` are already where a gate is one line
+  somebody can read. The second half is the ORC-30 rule applied to a
+  new check: the predicate is `:phoenix` in the dependency tree, never
+  "`catapult_web` exists", because a directory name is this repo's
+  layout and the task ships into projects whose spine puts their web
+  layer elsewhere. Revisit condition: none for the layout half. For
+  the first half, a gate with no other home would be an argument — and
+  it would be an argument for giving it a home, not for the audit
+  growing a runner.
+- **No taint analysis for secret config values** (ORC-21). v5 §2.2
+  asks that secret-flagged values never appear in logs or error
+  payloads, and the tempting reading is a static check that follows a
+  value from the accessor to a `Logger` call. It is not built: a value
+  bound to a variable, put in a map, or passed to a helper is out of
+  reach of any check that is also free of false positives, and a
+  redaction check that misses is worse than none because it is
+  reported as coverage. The wrapper type is what holds the property
+  everywhere at once — a redacting `Inspect`, an explicit unwrap — and
+  the audit keeps only the exact, one-hop residue: an unwrap inside a
+  logging call. Revisit condition: none. If the wrapper is ever found
+  insufficient the answer is a narrower unwrap surface, not a deeper
+  analysis.

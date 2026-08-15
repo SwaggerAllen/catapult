@@ -122,6 +122,43 @@ reached only through their APIs per v5 §2.4).
   idempotent is what lets three entry points ask for it without
   arranging who goes first; load-once (`docs/non-goals.md`) is what
   makes that safe rather than lucky.
+- **Boundary's strict external mode arms now, against one boundary,
+  rather than later against all of them** (ORC-21). v5 §2.14 promotes
+  the adapter conventions to compile grade — only `Store`
+  subcomponents on Ecto, only the outbox wrapper on Oban's insert
+  surface, only adapters on Req, no model-call library anywhere in
+  plane code. Every one of those is a rule *about a sub-boundary*, and
+  the tree has exactly one boundary today (`lib/catapult.ex`, `deps:
+  []`), so none of them can be stated yet. What can be stated is the
+  mode: `boundary: [default: [type: :strict]]` in the root `mix.exs`,
+  which makes the coarse boundary declare the external applications it
+  actually calls. That is a one-line diff and a short list right now,
+  and it is N boundaries at once at any later moment — worse, every
+  carve-out between now and then would land a boundary that has never
+  been checked, so the retrofit grows with exactly the work it is
+  supposed to constrain. Arming the mode is therefore not the same
+  ticket as arming any of the four rules: the rules arrive with the
+  boundaries they constrain, in those systems' tickets, and this
+  decision is what makes each of them a `deps:` line instead of a
+  migration.
+
+  **What it does not cover, so the gap is not mistaken for coverage:**
+  Boundary documents that calls to `:elixir`, `:boundary` and pure
+  Erlang applications cannot be restrained, so `:httpc` reaching a
+  model provider from plane code compiles clean under strict mode.
+  Conventions §11 is a compile error for every Elixir client and an
+  audit check for the Erlang ones (`systems/substrate.md`); the plane
+  is where that residue matters most, because it is the tree §11 is
+  written about.
+- **The root project's compile-connected cap is 0 and is armed as a
+  gate line** (ORC-21). Measured here rather than assumed: `mix xref
+  graph --format stats` reports 0 compile dependencies across the seven
+  tracked files, and `--label compile-connected --fail-above 0` exits
+  0. The number's home is `qualityGates`, not this repo's code, for the
+  reason `systems/substrate.md` argues — a cap a ticket can edit is a
+  cap the ticket that breaks it will edit. Recorded here because the
+  value is a fact about *this* project's tree, and the day it stops
+  being 0 the diff that raised it should have to say so.
 
 ## The live suite
 
