@@ -11,8 +11,10 @@ attended. Everything code-shaped already lives in the repo:
   app's `deploy.endpoint`.
 - The eight pipeline stubs under `.github/workflows/` (toolchain
   blocks read `.tool-versions`; live-suite runs
-  `mix test --only live`, which passes empty until `:live` tests
-  exist — correct)
+  `mix test --only live`, which the foundation's `/health` smoke test
+  now answers — ORC-29. That job still needs `ci.yml`'s environment,
+  a deps step and the Postgres service, because the `test` alias
+  creates and migrates the database; see below)
 - `preview/index.html` — the placeholder export (preview is
   mandatory by decision; the real storybook replaces it in Phase 4)
 - `ci.yml`'s pipeline-audit step, **self-arming**: it skips with a
@@ -48,10 +50,14 @@ generated, therefore trustworthy.
 The facts a future session needs, recorded as facts:
 
 - App `catapult`, region `sfo`; app id is in
-  `pipeline.config.json`'s `deploy.endpoint`. Public URL:
-  `https://catapult-ezten.ondigitalocean.app` — `/health` is the
-  only served path (the design agent's finding: this hostname had
-  no committed source of truth; now it does, here).
+  `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
+  `:live_base_url` key in `config/test.exs` — `/health` is the only
+  served path. The hostname's home moved there when the `:live`
+  suite acquired a code consumer for it (ORC-29): prose cannot be
+  dereferenced, and a value the boundary suite reads once a
+  milestone goes red and names itself when it drifts, which is the
+  property this section could never have. Still one home, not two
+  (`docs/non-goals.md` records the amendment to ORC-40's rule).
 - **Public port is 8080, fixed by App Platform** — the prod listener
   defaults to it (`config/runtime.exs`; `HEALTH_PORT` overrides).
 - Database: managed PG 16, component/cluster
@@ -113,3 +119,29 @@ watch it flow design → dev → reconcile → deploy unattended. Its
 pipeline. The ci audit step arms itself on the first ticket-keyed
 PR now that `PIPELINE_REPO_TOKEN` exists — confirm its step stops
 saying "skipped".
+
+## 5. The live suite's job environment — author-owned, one edit
+
+ORC-29 landed the repo's first `:live` test, so
+`mix test --only live` now matches something. The job that runs it
+still needs the rest of `ci.yml`'s environment before it can get
+that far:
+
+- a `mix deps.get` step — the tree cannot compile without it, and
+  `mix test` compiles before it filters;
+- the Postgres service and `PGHOST`/`PGUSER`/`PGPASSWORD`, because
+  the `test` alias creates and migrates `catapult_test` on every
+  run, live filter or not.
+
+Copy both from `ci.yml` into `pipeline-live-suite.yml`'s `live` job,
+after the `setup-beam` step. Agents cannot make this edit — a push
+token without `workflow` scope has GitHub reject the entire push, so
+`.github/workflows/**` is author-owned by construction
+(`systems/README.md`).
+
+Teaching the `test` alias to skip database setup when it sees
+`--only live` in argv is the tempting alternative and is a recorded
+non-goal (`docs/non-goals.md`): that alias is what makes `mix test`
+correct for every other run in the repo, and a version that drops
+migrations on the strength of a flag fails silently in the one
+direction that matters — a suite passing against a stale schema.
