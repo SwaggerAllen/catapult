@@ -389,3 +389,68 @@ recorded decision, and say so explicitly.
   — a test that calls `put_req_header/3` or any other `Plug.Conn`
   function adds the import as an ordinary consequence of using it,
   and this entry is only the reason it is not there before then.
+- **No license check that decides *which* projects to check by
+  reading the tree** (ORC-16), against the ticket's own words — "for
+  every mix project under `components/`". That is the cross-project
+  reach two entries' worth of argument already rules out, arriving
+  through a new door: a task that walks `components/*` knows where
+  this repository keeps its components, and it ships into customer
+  trees where that glob means nothing and where a permissive-deps
+  requirement is not Catapult's to impose. The sanctioned form is a
+  declaration the project makes about itself — `package: [licenses:
+  [...]]`, checked when it names something the allowlist contains,
+  inert when it names nothing (`systems/substrate.md`). That delivers
+  the ticket's stated scope as a property: the plane declares no
+  package, so its dependencies are never checked, with no exclusion
+  list for anyone to maintain. The property that makes it safe rather
+  than merely tidy is that the arming declaration is one hex already
+  demands — `mix hex.build` refuses a package with no `licenses`,
+  measured — so nothing that ships can forget it. Revisit condition:
+  none. A shipped artifact that cannot say what it is licensed under
+  has a bigger problem than the audit.
+- **No exception mechanism on the license check — no ignore list, no
+  `catapult:allow`, no per-dependency waiver** (ORC-16). The obvious
+  symmetry is with `ignore_advisories` a few entries up, and the
+  symmetry is false: an advisory is imposed on us by the world and
+  frequently has no action until an upstream we do not control cuts a
+  release, whereas nobody imposes a dependency on anyone. It is the
+  one supply-chain fact that is entirely our own choice, so the fix
+  for a copyleft dependency in the shipped layer is not taking it,
+  and a waiver could only ever be spent breaking the rule
+  `LICENSING.md` calls the single most important one in it. This is
+  the same line `external: true` draws — an escape exists where an
+  outside party imposes a name on us and nowhere else. The overrides
+  file is not a hole in this: it supplies a *license*, read by a human
+  out of a package's own LICENSE, and that license is then checked
+  like any other, so an override naming `GPL-3.0-only` fails the build
+  exactly as the metadata would have. Revisit condition: a dependency
+  genuinely worth an exception is worth replacing instead; if one ever
+  is not, the argument belongs in `LICENSING.md` as a change to the
+  policy, in daylight, never in the audit as a way around it.
+- **No normalization table for license spellings, and no inference
+  from LICENSE file text** (ORC-16). Matching is exact SPDX
+  identifiers; anything else is unrecognized and therefore a problem,
+  resolved by an override entry a reviewer reads. The cost is real and
+  measured — `cowboy_telemetry` declares `["Apache 2.0"]`, which no
+  amount of being obviously fine makes an SPDX identifier — and the
+  cheaper fix is refused because its failures run silent and in the
+  permissive direction. A table that maps "Apache 2" teaches its next
+  reader that near-misses are handled, and the next near-miss is a
+  string like `GPL-2.0-with-classpath-exception`, whose distance from
+  `GPL-2.0-only` is the entire question the check exists to ask. Text
+  inference is the same defect with a bigger surface: a fuzzy match
+  over prose, deciding a legal question, with no line in the diff
+  where a human agreed. Revisit condition: none — an override costs
+  one line and one reading, and the readings are rare by construction
+  (one dependency in two trees today).
+- **No per-file license headers, for now** (ORC-16, carrying the
+  ticket's own deferral so it is not re-proposed as the obvious
+  adjacent win). The inventory check answers what the *dependencies*
+  impose; what carries attribution for our own files — headers in
+  every source file, or a `NOTICE` file at each project root — is a
+  separate decision with a real cost either way, and taking it now
+  would mean stamping thousands of lines against a posture counsel
+  has not reviewed. Revisit condition, and it is dated rather than
+  open: the repository opening to outside contributions, which is
+  when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
+  attribution question has to be answered anyway.
