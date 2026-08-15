@@ -36,11 +36,37 @@ permissions:
   pull-requests: write # reads and merges it
   actions: read # the snapshot's agent run list
   checks: read # CI verdict per PR head
+  deployments: read # deploy state, when the provider is \"github\"
   deployments: write # records the stand-in deployment after merging
 
 jobs:
   reconcile:
     runs-on: ubuntu-latest
+    # This job's environment is ci.yml's job environment, because the
+    # commands are the same commands: an agent runs the config's
+    # qualityGates before it finishes, and the live suite runs the
+    # project's test command. Copy ci.yml's `env`/`services` across when
+    # either changes — three runs here were spent bootstrapping this by
+    # hand (Postgres installed but stopped; deps unfetched, which fails
+    # `mix format` at :import_deps before any gate runs).
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGUSER: catapult
+      PGPASSWORD: catapult
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: catapult
+          POSTGRES_PASSWORD: catapult
+          POSTGRES_DB: catapult_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       # fetch-depth: 0 — the verdict compares the PR branch to main.
       # Checked out with the agent token so the push carries it. The
@@ -64,6 +90,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      # Both mix projects: CLAUDE.md's verification block runs the
+      # substrate suite separately, and its deps are its own.
+      - run: mix deps.get
+      - run: mix deps.get
+        working-directory: components/substrate
       # ------------------------------------------------------------------
 
       # Pin to a pipeline release tag (@v1) once one exists; main while
