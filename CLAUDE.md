@@ -43,17 +43,23 @@ toolchain is the only supported one.
 ## Verification (run all before claiming done)
 
 ```
+mix deps.get --check-locked
+mix deps.audit                       # hex.audit runs first, inside the alias
 mix format --check-formatted
 mix credo --strict
 mix compile --warnings-as-errors     # boundary compiler is in the set
+mix xref graph --format cycles --fail-above 0
 mix catapult.audit                   # root project ONLY — see below
 mix test                             # needs Postgres; sandbox, async
 cd components/substrate && mix deps.get --check-locked && \
-  mix format --check-formatted && mix credo --strict && \
-  mix compile --warnings-as-errors && mix catapult.audit && mix test
+  mix hex.audit && mix format --check-formatted && \
+  mix credo --strict && mix compile --warnings-as-errors && \
+  mix xref graph --format cycles --fail-above 0 && \
+  mix catapult.audit && mix test
 ```
 
-The gate set is a property of a mix project, not of the repo
+Both blocks are the whole of conventions §2, per project — not a
+subset. The gate set is a property of a mix project, not of the repo
 (`systems/substrate.md`): the audit's globs are rooted at the working
 directory — deliberately, since the task ships into every generated
 project — so `mix catapult.audit` at the root never sees
@@ -62,6 +68,16 @@ project — so `mix catapult.audit` at the root never sees
 exactly that (and needs `components/substrate/deps` resolved; it exits
 1 rather than skipping if they are not). A new mix project brings its
 own gate block here.
+
+The two blocks differ on one line only, and deliberately: the root's
+`mix deps.audit` is an alias running `hex.audit` first and `mix_audit`
+second (ORC-37), while substrate must not take an audit *dependency*
+(`systems/substrate.md`), so there it is `mix hex.audit` on its own.
+Four of substrate's lines — `--check-locked`, `mix hex.audit`, xref
+and `mix catapult.audit` — are green here but **not yet armed in CI**:
+`ci.yml`'s `substrate suite` step still runs the shorter set, and
+arming it is author work (conventions §2). Until it is, this block is
+the only thing running them.
 
 Tests: no network, ever (fakes per conventions §9); `mix test`
 creates/migrates `catapult_test` via the alias. `:live`-tagged tests

@@ -118,17 +118,19 @@ At the root, `mix hex.audit` runs as the first element of the
 both audits, Hex first. Nothing protected was touched to arm it: the
 gate name stayed and its content grew (ORC-37).
 
-**Substrate is the half still unwired, in three places.** Its suite
+**Substrate is the half still unwired, in four places.** Its suite
 (`ci.yml`, `substrate suite`) runs `mix deps.get`, format, credo,
 compile, test — so relative to the list above it is missing
-`--check-locked`, `mix hex.audit`, and `mix catapult.audit`. ORC-30
-made all three *runnable and green* from that directory and left the
-arming to the author, because every remaining edit is in a file agents
-cannot push:
+`--check-locked`, `mix hex.audit`, `mix xref graph --format cycles
+--fail-above 0`, and `mix catapult.audit`. ORC-30 made all four
+*runnable and green* from that directory and left the arming to the
+author, because every remaining edit is in a file agents cannot push:
 
 - `working-directory: components/substrate` → `mix deps.get
-  --check-locked` (one flag) and a `mix catapult.audit` line. Both
-  pass there today; the audit's five hits were fixed in that ticket.
+  --check-locked` (one flag), a `mix catapult.audit` line, and a
+  `mix xref graph --format cycles --fail-above 0` line. All three
+  pass there today; the audit's five hits were fixed in that ticket,
+  and xref reports no cycles.
 - `mix hex.audit` in the same block. Unlike the root there is no
   existing audit gate for an alias to hook into, and substrate must
   not take an audit *dependency* to get one (`systems/substrate.md`) —
@@ -140,11 +142,14 @@ cannot push:
 
 Until they land, `systems/substrate.md`'s "substrate carries its own
 supply gate" is a decision rather than a running check, substrate's own
-lockfile is resolved unpinned, and the injected-clock and process-name
-rules are enforced nowhere in the half we ship to customers. **Delete
-this paragraph when those lines land**; a list that says "all of these
-are CI gates" while three are not is the same false all-clear this
-section was written about, one level up.
+lockfile is resolved unpinned, a compile-dependency cycle there is
+caught nowhere, and the injected-clock and process-name rules are
+enforced nowhere in the half we ship to customers. **Delete this
+paragraph when all four of those lines land** — deleting it while any
+of them is outstanding drops the only written record that the gate was
+ever missing, which is the failure this paragraph exists to prevent. A
+list that says "all of these are CI gates" while four are not is the
+same false all-clear this section was written about, one level up.
 
 ## 3. The naming spine
 
