@@ -134,3 +134,64 @@ recorded decision, and say so explicitly.
   answer is CI looping over discovered projects, still one
   working-directory-rooted audit each, and still not a glob that
   reaches.
+- **No config-library dependency in `components/substrate/`, Vapor
+  included** (ORC-4). This is the third entry of the same shape and
+  the shape is now the rule: substrate is Apache-2.0 and ships into
+  every generated project, so a dependency it declares is one imposed
+  on trees we do not own. The measurement, because this one was an
+  open question rather than an instinct: `vapor 0.10.0`, released
+  2020-08-12 and the newest there is, declares `jason`, `norm`, `toml`
+  and `yaml_elixir` as ordinary runtime dependencies, so it would put
+  a TOML parser and a YAML parser into every generated release in
+  order to read environment variables — against three runtime
+  dependencies in substrate today. What remains of Vapor once the
+  casts, the aggregation, the store and the provenance keying are ours
+  (`systems/substrate.md` argues each) is `System.get_env/0`, so
+  substrate ships an environment source with no dependencies and the
+  plane runs that same source. **Not a ban on Vapor**, which is still
+  conventions §1's blessed answer and is still what a project reaching
+  for file, remote or non-string config should adopt — a ban on
+  substrate being the thing that decides that for everyone. Revisit
+  condition: config the environment genuinely cannot carry, in the
+  substrate itself rather than in one consumer, at which point the
+  port takes an adapter and this entry is what gets argued with.
+- **No `.env` files** (ORC-4), against v5 §2.2, which sketched
+  per-component `.env` alongside prefixed env vars. A dotenv file
+  feeds environment variables to a process that reads the
+  environment; under the compile-time source selection in
+  `systems/substrate.md`, dev reads `config/dev.exs` instead, so
+  there is nothing for the file to feed. What it would add is an
+  untracked local file that changes behaviour — the "works on my
+  machine" surface, bought for an ergonomic gain over editing a
+  tracked config file that is close to zero. Revisit condition: a
+  developer needing a real secret locally that cannot be committed —
+  which is a keychain or a shell profile, not a feature of the config
+  layer.
+- **No runtime reconfiguration** (ORC-4). Config is read once, before
+  the root supervisor starts, and does not change until the next
+  boot: no watcher, no reload signal, no swapping a value on a running
+  node. Reason: a value that can change under a running process is a
+  value every reader must re-read and no reader can hold, which is a
+  distributed-systems problem bought in exchange for redeploying —
+  and this platform's deploy model is one environment, autodeploy on
+  green, so the redeploy is the cheap thing here. It is also the same
+  boundary the flag-machinery entry above draws: the cases that
+  actually want live change are kill switches and rollouts, and those
+  are named non-goals, not features waiting for a config watcher.
+  Load-once is what makes `:persistent_term` correct and what lets the
+  boot report be the only report.
+- **No per-test or per-process config overrides** (ORC-4). The test
+  fake is seeded once, statically, and offers no
+  `put_config(pid, key, value)` — no process-dictionary scoping, no
+  ownership tree in the shape of the Ecto sandbox. Reason: a value
+  that varies per test case is an argument wearing config's clothes,
+  and the honest fix is the function taking it. The dishonest fix is
+  the one being ruled out here, because it costs shared mutable state
+  under `async: true` — the flake class conventions §9 calls a
+  protocol requirement to avoid, since two CI reds escalate to a
+  human. Revisit condition: a boundary export whose behaviour must
+  genuinely differ by a declared config value within one suite, where
+  passing it as an argument would distort the production signature.
+  That case is real enough to name; it has not appeared yet, and
+  building the machinery before it does would mean building the
+  sandbox's hardest feature on speculation.
