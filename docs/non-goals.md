@@ -368,3 +368,24 @@ recorded decision, and say so explicitly.
   the property being protected. Revisit condition: a callback whose
   empty default is a *meaningful* claim rather than an absence —
   which would be a callback that should have been two.
+- **No `import Plug.Conn` beside `import Plug.Test` in a test module
+  that calls nothing from it** (ORC-38). The deprecation being paid
+  off names its own replacement — "Please use `import Plug.Test` and
+  `import Plug.Conn` directly instead" — and `Plug.Test.__using__/1`
+  does expand to exactly those two lines, so the mechanical
+  translation is the one the compiler asks for and the one the next
+  pass will reach for. It is wrong at both call sites here: neither
+  health test calls a `Plug.Conn` function — they build a conn with
+  `conn/2` and read `status`, `resp_body` and `halted` off the struct
+  — so the second import is unused, and Elixir says so, in the same
+  place and at the same volume (`warning: unused import Plug.Conn`,
+  measured on both files before this was written). A warning traded
+  for a warning delivers nothing of what the ticket was filed for,
+  which was the recurrence and not the deprecation. The rule, stated
+  once so it survives the next test file the compiler gives the same
+  advice to: translate the `use` into the imports the module actually
+  exercises. Today that is `import Plug.Test` alone, and both suites
+  then run warning-free. Revisit condition: none, and none is needed
+  — a test that calls `put_req_header/3` or any other `Plug.Conn`
+  function adds the import as an ordinary consequence of using it,
+  and this entry is only the reason it is not there before then.

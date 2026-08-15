@@ -1,6 +1,6 @@
 defmodule Catapult.HealthTest do
   use ExUnit.Case, async: true
-  use Plug.Test
+  import Plug.Test
 
   defmodule Ready do
     use Catapult.Component, slug: :ready
