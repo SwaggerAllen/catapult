@@ -833,6 +833,16 @@ build work at all.
   owns anyway, and declared↔applied is then the same check shape as
   declared↔constructed and declared↔emitted — a third instance of a
   pattern the platform already has two of.
+
+  **Amended in build (ORC-21): the checker is the audit, not the
+  composer**, and the sentence above is right about everything except
+  which organ holds it. The composer sees declarations; declared↔applied
+  needs *call sites*, and a call site is a fact about a tree. So it
+  lands beside the other declaration↔tree check
+  (`Catapult.Audit.Declarations`), which is what the last clause of that
+  same sentence already says — the pattern it is a third instance of is
+  an audit check both times. The composer's half is unchanged and it is
+  the important half: it still never threads `spawn_opt`.
 - **`errors/0`'s struct is generated from the registry, so one
   direction of declared↔constructed is a compile error rather than an
   audit finding.** §2.14 asks for the check both ways. The expensive
@@ -853,6 +863,35 @@ build work at all.
   the same shape as the census. It ships with the docs-site
   composition, which conventions §13 defers, so it is not this roster's
   to build.
+
+  **Amended in build (ORC-21): the grade is construction-time, and the
+  registry is read at construction rather than at compile time.** Two
+  corrections, both found by writing it, and the second is the one that
+  matters:
+
+    * *Compile error was never on offer.* Elixir validates a struct
+      literal's **keys** at compile time and never its values, so no
+      generator can make `%Engine.Error{kind: :invented}` fail to
+      compile. What the generated `new/2` does buy is that the
+      vocabulary a caller can *build* is the vocabulary the composer
+      validated, with meaning and remedy carried from the declaration
+      rather than copied — and the residue is one narrow shape, a
+      hand-built literal, instead of the open set an AST pass would
+      have had to cover.
+    * *Reading `errors/0` while compiling the error module deadlocks
+      the canonical usage.* `Engine.Error` would wait for `Engine`,
+      and conventions §8's own spelling has `Engine` constructing
+      `%Engine.Error{}`, which makes `Engine` wait for `Engine.Error`.
+      That is a compile cycle, and `mix xref graph --format cycles
+      --fail-above 0` is a hard gate — a mechanism whose adoption trips
+      one of this repo's own gates is not a mechanism. `new/2` resolves
+      against the registry at call time, which costs a list scan on a
+      failure path and buys back the whole hazard.
+
+  Everything downstream of the paragraph above is unchanged: the audit
+  keeps exactly the declared-and-never-constructed direction
+  (`Catapult.Audit.Declarations`), and remedy presence stays the
+  composer's.
 - **Secret config values are wrapped, not audited.** "Never appears in
   logs or error payloads" is a claim about values, and an audit sees
   source: the honest static version is a shallow check one hop from the

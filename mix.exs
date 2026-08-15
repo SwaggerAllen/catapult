@@ -12,6 +12,7 @@ defmodule Catapult.MixProject do
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
+      boundary: boundary(),
       deps: deps(),
       compilers: [:boundary] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -41,6 +42,33 @@ defmodule Catapult.MixProject do
         "EEF-CVE-2026-43969"
       ]
     ]
+  end
+
+  # Boundary's external-dependency checking, armed now against one
+  # boundary rather than later against all of them (ORC-21,
+  # systems/foundation.md). v5 §2.14 promotes the adapter conventions to
+  # compile grade — only Store subcomponents on Ecto, only the outbox
+  # wrapper on Oban's insert surface, only adapters on Req, no model-call
+  # library in plane code — and every one of those is a rule *about a
+  # sub-boundary*, while the tree has exactly one boundary today. What
+  # can be armed is the checking, so a carve-out lands already checked
+  # instead of retrofitted N boundaries at a time.
+  #
+  # The list is these four applications and the HTTP listener, and it is
+  # `check: [apps: ...]` rather than `type: :strict` for a mechanical
+  # reason worth writing down, since strict is what the sketch drew.
+  # Strict would additionally require naming implicit boundaries inside
+  # `:catapult_substrate`, and Boundary's cached view drops a *path dep*'s
+  # boundaries on every incremental compile and rebuilds them only from
+  # loaded applications — which the cache-hit path does not load. The
+  # result is a clean `mix compile --force` and a `mix compile` that
+  # reports every substrate call as forbidden, so the second gate run in
+  # any CI job fails on state rather than on code (measured, not
+  # inferred). This list is checked identically and stably; its accepted
+  # cost is that a *newly added* dependency is unchecked until it is
+  # named here, which is a line in the same diff that added it.
+  defp boundary do
+    [default: [check: [apps: [:ecto, :ecto_sql, :oban, :plug, :plug_cowboy, :req]]]]
   end
 
   def application do

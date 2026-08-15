@@ -150,6 +150,30 @@ reached only through their APIs per v5 §2.4).
   audit check for the Erlang ones (`systems/substrate.md`); the plane
   is where that residue matters most, because it is the tree §11 is
   written about.
+
+  **Amended in build (ORC-21): the arming is
+  `check: [apps: [...]]`, not `type: :strict`, and the reason is a
+  Boundary defect rather than a preference.** Strict additionally
+  requires naming implicit boundaries *inside* `:catapult_substrate`,
+  and Boundary's cached view (`Boundary.Mix.View.refresh/2`) drops a
+  **path dep's** boundaries on every incremental compile and rebuilds
+  them only from loaded applications — which the cache-hit path never
+  loads. Measured, not inferred: `mix compile --force` is clean and the
+  very next `mix compile` reports all fifteen substrate calls as
+  forbidden, so the second compile in any CI job fails on state rather
+  than on code (`mix credo` compiles before `mix compile
+  --warnings-as-errors` in `ci.yml`, so this is the ordinary path and
+  not a corner). The app list — `:ecto`, `:ecto_sql`, `:oban`, `:plug`,
+  `:plug_cowboy`, `:req` — is checked identically and stably, and it is
+  exactly the four rules' applications plus the HTTP listener, so every
+  paragraph above holds unchanged: the rules still arrive as `deps:`
+  lines on the boundaries they constrain. What is lost is the one thing
+  strict adds beyond the list, and it is named rather than absorbed: a
+  *newly added* dependency is unchecked until it is named here, which
+  is a line in the same diff that added it and a §2.8 decision either
+  way. Revisit condition: Boundary loading a path dep's applications on
+  the cache-hit path, at which point `type: :strict` is a one-line
+  change and this list is deleted.
 - **The root project's compile-connected cap is 0 and is armed as a
   gate line** (ORC-21). Measured here rather than assumed: `mix xref
   graph --format stats` reports 0 compile dependencies across the seven
