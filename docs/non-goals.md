@@ -84,6 +84,19 @@ recorded decision, and say so explicitly.
   agreement.** A lint is what a second copy needs; one home needs
   nothing, and these facts leave the tree entirely at
   open-sourcing, so the lint would be written to be deleted.
+  **Amended (ORC-29): the public hostname's home moves, it does not
+  multiply.** The live suite has to dereference that value and prose
+  cannot be dereferenced, so the hostname becomes
+  `config/test.exs`'s `:live_base_url` and §2 names the key where it
+  used to print the URL. Every other fact in §2 stays put. The
+  amendment is faithful to the reason rather than the letter: what
+  ORC-40 was written about is a stale copy nobody checks — a README
+  paragraph citing a file deleted one commit earlier — and a
+  hostname the live suite reads at every boundary is checked by
+  machine once a milestone, going red and naming itself when it
+  drifts. Prose never had that property. The rule the amendment
+  keeps: still one home, and a fact acquiring a code consumer moves
+  to where code can read it rather than getting a copy there.
 - **No vendored, pinned or freshness-checked copy of the advisory
   database** (ORC-37). The obvious repair for `mix deps.audit`'s
   fail-open — clone `mirego/elixir-security-advisories` ourselves,
@@ -134,3 +147,42 @@ recorded decision, and say so explicitly.
   answer is CI looping over discovered projects, still one
   working-directory-rooted audit each, and still not a glob that
   reaches.
+- **No `:live` tag on a test that doesn't cross a real network
+  boundary to a real external system** (ORC-29). The tag buys a seat
+  in the once-per-milestone suite and nothing else, so a `:live`
+  test that exercises the health plug in-process — or over a
+  listener this same job started — reproduces the empty gate this
+  ticket was filed about, one level in, and worse: `no-tests` at
+  least says nothing was checked, where a green run over a local
+  fixture claims the world was. If a test needs no deployed thing,
+  it belongs in the default suite, where its determinism is an asset
+  instead of a disguise.
+- **No `test/live/` directory** (ORC-29). Live tests sit beside the
+  system they exercise, under that system's file map, and the tag
+  alone decides the cadence. A directory is a second axis that can
+  disagree with the first, and one directory holding every system's
+  live tests would give a single file map a veto over every system's
+  tickets — the mutex collision the maps exist to prevent.
+- **No polling or retry-until-deployed in the live suite** (ORC-29).
+  Deploy detection is the plane's job and already exists (poll the
+  App Platform API, compare SHAs). A live check that waits out a
+  rollout is a second, slower deploy detector, and its long timeout
+  is exactly where a real outage hides. A bounded per-request
+  timeout is the whole budget.
+- **No asserting the deployed SHA equals this checkout's** (ORC-29).
+  Autodeploy fires on the merge to main and the boundary run follows
+  within minutes, so equality races the rollout and produces a flake
+  — and a flaky boundary signal costs more than the coverage it
+  would buy, which is the failure mode ORC-29 exists to stop. Assert
+  the SHA is stamped (not the `"dev"` fallback), which catches the
+  real defect — an image that never went through the build path —
+  without racing anything.
+- **No argv-sniffing in the `test` alias** (ORC-29). The tempting
+  version notices `--only live` and skips `ecto.create`/
+  `ecto.migrate` so the live-suite job needs no database, saving an
+  author-owned workflow edit. Rejected: that alias is what makes
+  `mix test` correct for every other run in the repo, and a version
+  that drops migrations on the strength of a flag fails silently and
+  in the one direction that matters — a suite passing against a
+  stale schema. The job gets CI's environment instead; the edit is
+  cheap and it is visible.
