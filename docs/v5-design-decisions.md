@@ -2436,6 +2436,25 @@ demand, from the log. A pass therefore has no cursor to checkpoint
 and no queue to restore. **Resume is re-asking the readiness
 question.**
 
+**"Scope" here is a doc-graph node, not a ticket — the two fan out at
+different times and this is the place that confusion lands.** The
+graph is materialized at intake, so scopes exist from the first pass
+and `ready_scopes` ranges over them; generation dispatches per scope
+and the log carries per-scope events from the beginning. The *ticket*
+tree is a separate, deliberately coarser projection of the same
+fanout (§7.2), and its children spawn at `Building`, where the plan
+document has proved independent parallel work exists — depth earned,
+never reflexive. So during an architecture pass there is **one**
+feature ticket sitting in `Architecting` while N scopes generate
+beneath it. Per-scope pause and resume needs no early ticket fanout
+and must not be read as an argument for one.
+
+The consequence is about what the author sees: with no per-scope
+tickets during design, a paused pass surfaces on the parent ticket
+and on the dashboard's unbuilt-scope count, and nowhere else. That
+count is not a convenience during intake — it is the only progress
+surface there is.
+
 What that requires of the executor, stated so it is built that way
 rather than discovered later:
 
