@@ -14,7 +14,32 @@ defmodule Catapult.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:boundary] ++ Mix.compilers(),
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      hex: hex()
+    ]
+  end
+
+  # `mix hex.audit` is the load-bearing supply gate (conventions §2,
+  # systems/substrate.md). Advisories we cannot act on are named here
+  # per ID rather than absorbed by a silent gate: the exit code matches
+  # a clean run, the epistemic status does not. Never ignore a *package*
+  # — that re-blinds the gate to the next advisory against it, which is
+  # the failure this list exists to prevent. Hex warns that an entry
+  # matching nothing can be removed, so each one expires by itself the
+  # day the dependency is bumped.
+  defp hex do
+    [
+      ignore_advisories: [
+        # cowlib 2.19.0, both unpatched upstream as of 2026-08-15 — no
+        # release to move to, so this is maintenance-watcher territory
+        # (ORC-37 scoped the gate, not the advisories). cowlib arrives
+        # transitively via plug_cowboy; neither path is reachable from
+        # our own code today (the plane serves /health only).
+        # HTTP response splitting, cow_http_struct_hd:escape_string/2.
+        "EEF-CVE-2026-43966",
+        # Cookie request header injection, cow_cookie:cookie/1.
+        "EEF-CVE-2026-43969"
+      ]
     ]
   end
 
@@ -45,6 +70,17 @@ defmodule Catapult.MixProject do
 
   defp aliases do
     [
+      # The gate name stays, its content grows: `mix deps.audit` is
+      # already a quality gate and a ci.yml step, so folding the
+      # Hex-sourced signal in here arms it without touching a file only
+      # the author can push. Order is load-bearing — `hex.audit` reads
+      # the registry and must run before anything compiles the tree,
+      # and running it first also means the Hex signal reports even
+      # when a later step would fail. Shadowing a task and re-invoking
+      # it as the alias's own last element is the same shape as `test`
+      # below. Both audits run; only the Hex one is load-bearing
+      # (conventions §2).
+      "deps.audit": ["hex.audit", "deps.audit"],
       # Infra migrations live in priv/repo/migrations_infra (the
       # foundation's file map); per-store paths compose in as stores
       # land (conventions §6).
