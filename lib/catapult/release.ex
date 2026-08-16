@@ -13,6 +13,10 @@ defmodule Catapult.Release do
 
   def migrate do
     Application.load(@app)
+    # The app is loaded, not started, so nothing has read configuration
+    # yet — and the Repo this is about to start needs it. Same call, same
+    # report as a real boot (Catapult.Boot).
+    Catapult.Boot.load!()
 
     for rel <- @migration_paths do
       path = Application.app_dir(@app, Path.join("priv/repo", rel))

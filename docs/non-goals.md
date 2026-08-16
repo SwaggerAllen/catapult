@@ -186,3 +186,206 @@ recorded decision, and say so explicitly.
   in the one direction that matters — a suite passing against a
   stale schema. The job gets CI's environment instead; the edit is
   cheap and it is visible.
+- **No config-library dependency in `components/substrate/`, Vapor
+  included** (ORC-4). This is the third entry of the same shape and
+  the shape is now the rule: substrate is Apache-2.0 and ships into
+  every generated project, so a dependency it declares is one imposed
+  on trees we do not own. The measurement, because this one was an
+  open question rather than an instinct: `vapor 0.10.0`, released
+  2020-08-12 and the newest there is, declares `jason`, `norm`, `toml`
+  and `yaml_elixir` as ordinary runtime dependencies, so it would put
+  a TOML parser and a YAML parser into every generated release in
+  order to read environment variables — against three runtime
+  dependencies in substrate today. What remains of Vapor once the
+  casts, the aggregation, the store and the provenance keying are ours
+  (`systems/substrate.md` argues each) is `System.get_env/0`, so
+  substrate ships an environment source with no dependencies and the
+  plane runs that same source. **Not a ban on Vapor**, which is still
+  conventions §1's blessed answer and is still what a project reaching
+  for file, remote or non-string config should adopt — a ban on
+  substrate being the thing that decides that for everyone. Revisit
+  condition: config the environment genuinely cannot carry, in the
+  substrate itself rather than in one consumer, at which point the
+  port takes an adapter and this entry is what gets argued with.
+  **Sharpened at the second pass (ORC-4), because "the port takes an
+  adapter" was doing too much work:** the port's domain is flat,
+  string-valued named settings arriving over a transport other than
+  the environment, and that is what an adapter is for — a mounted
+  secrets file, a remote parameter store. A *structured* document,
+  with nesting and lists of maps, is not a config source in this
+  sense; it is content, and it belongs in `config/*.exs` or a real
+  document loader. Vapor is the right answer on that side of the
+  line and this port is the wrong one, so the revisit condition
+  splits: flat settings from a new transport are an adapter, and a
+  structured document is not a reason to argue with this entry at
+  all — it is a different problem that never wanted the config layer.
+- **No `.env` files** (ORC-4), against v5 §2.2, which sketched
+  per-component `.env` alongside prefixed env vars. A dotenv file
+  feeds environment variables to a process that reads the
+  environment; under the compile-time source selection in
+  `systems/substrate.md`, dev reads `config/dev.exs` instead, so
+  there is nothing for the file to feed. What it would add is an
+  untracked local file that changes behaviour — the "works on my
+  machine" surface, bought for an ergonomic gain over editing a
+  tracked config file that is close to zero. Revisit condition: a
+  developer needing a real secret locally that cannot be committed —
+  which is a keychain or a shell profile, not a feature of the config
+  layer.
+- **No runtime reconfiguration** (ORC-4). Config is read once, before
+  the root supervisor starts, and does not change until the next
+  boot: no watcher, no reload signal, no swapping a value on a running
+  node. Reason: a value that can change under a running process is a
+  value every reader must re-read and no reader can hold, which is a
+  distributed-systems problem bought in exchange for redeploying —
+  and this platform's deploy model is one environment, autodeploy on
+  green, so the redeploy is the cheap thing here. It is also the same
+  boundary the flag-machinery entry above draws: the cases that
+  actually want live change are kill switches and rollouts, and those
+  are named non-goals, not features waiting for a config watcher.
+  Load-once is what makes `:persistent_term` correct and what lets the
+  boot report be the only report. **Amended at the second pass (ORC-4)
+  with where the cost actually sits,** since design review asked what
+  happens if a remote source ever wants watch semantics: not in the
+  port. `Config.Source.load/2` is a pull, a remote fits it unchanged,
+  and push would arrive as an `@optional_callbacks watch: 2` that the
+  shipped sources decline — one module and one line. The reason this
+  entry stands is the *accessor*: a value that can change is a value
+  no caller may hold, and holding it is what `:persistent_term`
+  write-once buys. Whoever argues with this line is therefore arguing
+  for a re-validation path that can reject an update without killing
+  the node, a rule for readers holding stale values, and atomicity
+  across values that must change together — three decisions, not a
+  callback. Naming them is the point: the port stays cheap to grow so
+  that the expensive half is the half being debated.
+- **No per-test or per-process config overrides** (ORC-4). The test
+  fake is seeded once, statically, and offers no
+  `put_config(pid, key, value)` — no process-dictionary scoping, no
+  ownership tree in the shape of the Ecto sandbox. Reason: a value
+  that varies per test case is an argument wearing config's clothes,
+  and the honest fix is the function taking it. The dishonest fix is
+  the one being ruled out here, because it costs shared mutable state
+  under `async: true` — the flake class conventions §9 calls a
+  protocol requirement to avoid, since two CI reds escalate to a
+  human. Revisit condition: a boundary export whose behaviour must
+  genuinely differ by a declared config value within one suite, where
+  passing it as an argument would distort the production signature.
+  That case is real enough to name; it has not appeared yet, and
+  building the machinery before it does would mean building the
+  sandbox's hardest feature on speculation.
+- **No per-key lookup on the config source port — no `fetch/1`, no
+  `get/2`, no `all/0`** (ORC-4, second pass). `Config.Source.load/2`
+  takes every declared name in one call and returns what it found;
+  the obvious alternative, a source answering one key at a time, is
+  ruled out here so the next pass does not reach for it as the
+  simpler shape. It is simpler only for the environment.
+  `System.get_env/1` per key is free; a file or remote source asked
+  per key must either re-read and re-parse its whole document N times
+  with no guarantee the N reads saw one document, or cache behind the
+  layer's back in a store the boot report cannot see, or become a
+  process whose lifecycle a two-callback port does not model. Each of
+  those is discovered *after* someone has written the adapter, which
+  is the wrong time. `all/0` is out for a different reason and a
+  firmer one: a source free to volunteer names nobody declared lets
+  values into the system behind the registry, and the registry being
+  load-bearing rather than descriptive is the entire ticket. Revisit
+  condition: none foreseeable — a source that cannot answer `load/2`
+  cannot answer `fetch/1` either.
+- **No layering or precedence chain of config sources** (ORC-4, second
+  pass). The layer takes one source, chosen at compile time, not an
+  ordered list. This is not an oversight to be repaired by the pass
+  that first wants two: Vapor's loader `Map.merge`s provider results,
+  so two providers offering one name silently pick a winner, and that
+  is cited in `systems/substrate.md` as a reason not to depend on it —
+  writing the same behaviour ourselves would be the same defect with
+  our name on it. The case that will eventually ask for this is
+  legitimate and predictable (secrets from a mounted file, everything
+  else from the environment), so the revisit condition is written in
+  advance rather than left open: layering arrives as per-declaration
+  source selection, or as an ordered list **whose overlaps are a
+  reported problem in the boot report**, and never as a merge. A
+  precedence rule that resolves an overlap quietly is the same class
+  of bug as two components claiming one queue, and this platform fails
+  the build on that.
+- **No `docs/0` callback, and no `cli/0` row in the roster yet**
+  (ORC-22). Both are named in v5 §2.2 and both are deliberately
+  outside the registry roster, for different reasons. `docs/` is a
+  directory whose path derives from the slug (conventions §3): there
+  is nothing to declare, nothing that can collide, and a callback
+  returning a path the spine already fixes would be a derivation
+  written twice — the failure the spine table exists to prevent.
+  `cli/0` is `api_surface/0`'s shape with an escript composer instead
+  of a router, and it stays out on a narrower argument than the one
+  this ticket is built on: the retrofit cost ORC-22 pays down is the
+  cost of components having already declared their names *somewhere
+  else*, and no component can declare a CLI command anywhere today
+  because there is no escript to declare it to. Nothing shadows it,
+  so nothing is being deferred except a table row. Revisit condition
+  for `cli/0`: the escript, at which point it is one row and this
+  entry is what says the wait was priced rather than forgotten.
+- **No prose data-classification field on `externals/0`** (ORC-22),
+  against v5 §2.2's word "note". The field's entire payoff is a
+  grouping — the generated "what does this app talk to" page is a
+  compliance inventory and, in the hosted shape, a customer's egress
+  inventory — and free text cannot be grouped, filtered, or checked,
+  so a note would leave the audit with a column it can only print.
+  The vocabulary is four atoms with highest-applicable-wins
+  (`systems/substrate.md`), and credentials are not among them
+  because every adapter sends one and a class every entry carries
+  separates nothing. Revisit condition: a real external that none of
+  the four describes — which is an argument for a fifth atom, an
+  entry rather than a debate, and never for reopening the closed
+  vocabulary itself.
+- **No `policies/0` scope glob that leaves the working directory**
+  (ORC-22). Absolute paths and `..` segments are a reported problem
+  in the declaration, not a discipline anyone has to remember. This
+  is the shape-level guard on the ORC-30 entry above: that entry
+  stops `mix catapult.audit` from being taught where this repository
+  keeps its components, and a registration surface accepting
+  `../../lib/**` would walk the same reach back in through the front
+  door while the task's own globs stayed innocent — worse, because it
+  would arrive as customer-authored data rather than as a diff to the
+  task. Revisit condition: none. A check needing to see another
+  project is a check registered in that project.
+- **No default version on an `events/0` entry, and no bare-atom form**
+  (ORC-22). The obvious convenience — accept `:project_created` and
+  mean version 1 — is ruled out here so the next pass does not add it
+  as an ergonomic win. An unversioned event is the exact state v5
+  §2.4's upcasting discipline exists to prevent, and a default makes
+  the *first* version the one fact absent from the diff, which is the
+  version every later upcaster is written against. The shape is free
+  to fix now because nothing declares an event until the engine does,
+  and it will never be free again. Revisit condition: none — this is
+  the cheap half of the ES cliff, and the expensive half is what
+  happens if it is skipped.
+- **No `@optional_callbacks` on the component behaviour** (ORC-22).
+  Every registry callback keeps an overridable empty default instead.
+  Incremental adoption is what the default already buys; optional
+  callbacks buy the same thing and charge the composer a
+  `function_exported?/3` guard at every call site, so an aggregation
+  that is total today becomes one that can silently skip a component.
+  "Declared nothing" and "does not implement" is a distinction with
+  no consumer, and the composer reporting every problem at once is
+  the property being protected. Revisit condition: a callback whose
+  empty default is a *meaningful* claim rather than an absence —
+  which would be a callback that should have been two.
+- **No `import Plug.Conn` beside `import Plug.Test` in a test module
+  that calls nothing from it** (ORC-38). The deprecation being paid
+  off names its own replacement — "Please use `import Plug.Test` and
+  `import Plug.Conn` directly instead" — and `Plug.Test.__using__/1`
+  does expand to exactly those two lines, so the mechanical
+  translation is the one the compiler asks for and the one the next
+  pass will reach for. It is wrong at both call sites here: neither
+  health test calls a `Plug.Conn` function — they build a conn with
+  `conn/2` and read `status`, `resp_body` and `halted` off the struct
+  — so the second import is unused, and Elixir says so, in the same
+  place and at the same volume (`warning: unused import Plug.Conn`,
+  measured on both files before this was written). A warning traded
+  for a warning delivers nothing of what the ticket was filed for,
+  which was the recurrence and not the deprecation. The rule, stated
+  once so it survives the next test file the compiler gives the same
+  advice to: translate the `use` into the imports the module actually
+  exercises. Today that is `import Plug.Test` alone, and both suites
+  then run warning-free. Revisit condition: none, and none is needed
+  — a test that calls `put_req_header/3` or any other `Plug.Conn`
+  function adds the import as an ordinary consequence of using it,
+  and this entry is only the reason it is not there before then.

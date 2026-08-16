@@ -162,7 +162,7 @@ A component's slug mechanically derives every name it claims
 | Boundary | `Catapult.Engine` (the module *is* the boundary) |
 | Store | `Catapult.Engine.Store` |
 | Tables | `engine_*` |
-| Env vars | `ENGINE_*` (via the component's Vapor provider) |
+| Env vars | `ENGINE_*` (declared in the component's `config/0`; off-spine names need `external: true` — ORC-4) |
 | PubSub topics | `engine:*` via `Catapult.Engine.Topics` functions |
 | Oban queues | `:engine_*` |
 | Telemetry | `[:catapult, :engine, ...]` |
@@ -189,7 +189,8 @@ unattended pipeline must be mechanical or forbidden.
   what makes the mutex partition, the pubapi contract, and AI-driven
   refactoring safe (v5 §2.3).
 - **Standard component skeleton:** public interface module (the
-  boundary export), `Config` (Vapor provider), `Supervisor`
+  boundary export), `Config` (the `config/0` declarations and their
+  casts — ORC-4), `Supervisor`
   (children composed into the root via the behaviour), `Store`
   subcomponent (see §6), `TestSupport` (boundary-exported, test env
   only — factories and fakes), `docs/`.
