@@ -49,12 +49,14 @@ mix format --check-formatted
 mix credo --strict
 mix compile --warnings-as-errors     # boundary compiler is in the set
 mix xref graph --format cycles --fail-above 0
+mix xref graph --label compile-connected --fail-above 0   # the ratchet
 mix catapult.audit                   # root project ONLY — see below
 mix test                             # needs Postgres; sandbox, async
 cd components/substrate && mix deps.get --check-locked && \
   mix hex.audit && mix format --check-formatted && \
   mix credo --strict && mix compile --warnings-as-errors && \
   mix xref graph --format cycles --fail-above 0 && \
+  mix xref graph --label compile-connected --fail-above 0 && \
   mix catapult.audit && mix test
 ```
 
@@ -79,6 +81,16 @@ and `mix catapult.audit` — are green here but **not yet armed in CI**:
 arming it is author work (conventions §2). Until it is, this block is
 the only thing running them.
 
+The compile-connected line is the second half of v5 §2.14's xref item
+(ORC-21) and **is not armed anywhere but here yet**, in either project.
+The number's home is `pipeline.config.json` → `qualityGates` and
+`ci.yml`, both author-owned by construction — which is precisely what
+makes "raising it may never happen without a reviewed change" literal
+rather than aspirational, and precisely why a ticket cannot arm it
+(`docs/non-goals.md`, `systems/foundation.md`). It is `0` in both
+projects today, measured; every later value is a concession, and the
+strongest cap this metric will ever have is the one available now.
+
 Tests: no network, ever (fakes per conventions §9); `mix test`
 creates/migrates `catapult_test` via the alias. `:live`-tagged tests
 run only at milestone boundaries — never add one to the default
@@ -91,9 +103,29 @@ suite path.
 - Public functions on a component's boundary use `defexport`
   (telemetry rides it; permissions will).
 - No `DateTime.utc_now` in domain code (inject `Catapult.Clock`);
-  no bare `name: __MODULE__` (register via `processes/0`). The audit
-  greps; `catapult:allow <check>` on the same line is the visible
-  escape.
+  no bare `name: __MODULE__` (register via `processes/0`); no
+  unwrapped `Catapult.Config.Secret` inside a `Logger` call. The audit
+  parses rather than greps (ORC-21), so a string that spells a ban is
+  a string. The escape is a **comment** — `# catapult:allow <check>`,
+  on the offending line or the comment line directly above it, and one
+  written inside a string literal excuses nothing. A tag covering no
+  violation is itself reported, so the escape list prunes itself.
+- A `secret: true` config value comes back wrapped; `Catapult.Config
+  .Secret.unwrap/1` at the call site is the only way to its contents,
+  and it is meant to be visible in review.
+- VM guardrails on `processes/0` are applied by the process, in
+  `init/1`, via `Catapult.Guardrails.apply!/2` — the composer never
+  threads them into a child spec, and the audit reports a guardrail
+  declared and never applied. `max_heap_size:` is VM-enforced;
+  `message_queue_alarm_len:` is sampled and reported, never enforced.
+- An `errors/0` kind is built with the component's generated
+  `use Catapult.Error` struct (`Engine.Error.new/2`), which is what
+  makes the declaration the only vocabulary. The audit reports a kind
+  declared and never constructed.
+- An external application the plane calls is named in `lib/catapult.ex`
+  `deps:` or the boundary compiler fails the build (the app list is in
+  `mix.exs`). Pure Erlang applications cannot be restrained — that gap
+  is `systems/foundation.md`'s and is deliberate, not forgotten.
 - The plane makes no LLM calls and holds no working copies —
   generation is dispatched agent runs (conventions §11). A model
   call in plane code is an architecture violation.

@@ -1,35 +1,61 @@
 defmodule Mix.Tasks.Catapult.Audit do
   @shortdoc "Runs the structural audit (conventions §2.14 of the v5 decisions)"
   @moduledoc """
-  Audit v0 — the checks that exist so far, all-problems-at-once:
+  The audit, all-problems-at-once. Four kinds of check, and the kinds are
+  the interesting part:
 
-    * component registry collisions (via the composer), across the
-      whole v5 §2.2 roster
-    * direct wall-clock reads in lib/ — `utc_now` on the built-in
-      date/time modules (the injected-clock rule, conventions §9)
-    * processes named after their own module in lib/ — a `name:`
-      option handed `__MODULE__` (the placement rule, conventions §5)
+    * **Registry structure**, via the composer: collisions, malformed
+      entries and the cross-registry facts, across the whole v5 §2.2
+      roster.
+    * **The platform's own bans**, at AST grade —
+      `Catapult.Audit.Checks.WallClock`, `.ProcessName`, `.SecretInLog`.
+      Every project inherits them by running this task at all; they need
+      no declaration.
+    * **Registered checks**, from every component's `policies/0`. A
+      component ships its enforcement into every project that adopts it,
+      each against the working-directory-relative scope it registered —
+      which is what keeps a registered check from reaching across mix
+      projects.
+    * **Facts spanning a registry and a tree**: a declared VM guardrail
+      never applied, a declared error kind never constructed, and a
+      Phoenix-bearing project with no sobelow gate.
 
-  Those two are stated rather than spelled: the greps read this file
-  too, and an allow tag on a sentence *about* a ban is a tag spent on
-  prose (systems/substrate.md).
+  ## AST grade, and what it bought (ORC-21)
 
-  A line may opt out with a `catapult:allow <check>` comment, on the
-  offending line **or on the comment line directly above it** — those
-  two and no other span, so an escape's extent is never something a
-  reader has to work out. Both, because `mix format --check-formatted`
-  is itself a hard gate (conventions §2) and the formatter relocates
-  every trailing comment onto its own line: the same-line form does not
-  survive a formatted tree, so demanding it would be demanding a hatch
-  no file here can hold. Visible in review, greppable, never silent.
-  The check registry grows with the platform (v5 §2.14); this task is
-  the enforcement organ's first organ. `policies/0` is the surface a
-  component registers a check through, and the runner that calls them
-  is ORC-21's.
+  These bans were greps, and a grep for a banned call matches the ban's
+  own name in a docstring — which is why this text used to *state* them
+  rather than spell them. It can spell them now: a call is a call and a
+  string is a string. The escape moved with the grade.
+  `catapult:allow <check>` is matched against a comment the parser found,
+  on the offending line or the comment line directly above it, so a tag
+  written inside a string literal excuses nothing — and a tag that
+  excuses nothing is itself reported, because an escape list nobody
+  prunes is how the next reader learns the ban is negotiable
+  (`Catapult.Audit.Source`).
 
-  A green run prints a **census** — one count per registry — because
-  most of the roster consumes nothing yet and an unconsumed registry's
-  failure mode is rot rather than collision (systems/substrate.md).
+  ## The audit never runs another gate
+
+  It reports a *missing* one. A task that shelled out to sobelow would
+  swallow that tool's exit code and its output formatting and become a
+  meta-runner, while `qualityGates` and `ci.yml` are already the place
+  where a gate is one line somebody can read. So the finding is the gap —
+  this project has a web layer and no sobelow gate — and arming it is the
+  ordinary author edit every other gate takes. The predicate is
+  `:phoenix` in the dependency tree, never a directory name: a generated
+  project puts its web layer wherever its own spine says, and this task
+  ships into all of them.
+
+  The compile-connected ratchet is the same rule from the other side:
+  `mix xref graph --label compile-connected --fail-above N` is stock and
+  already exits 1, so the number lives in `qualityGates` — author-owned,
+  which is what makes "raising it is a reviewed change" literal rather
+  than aspirational (docs/non-goals.md).
+
+  ## A green run prints a census
+
+  One count per registry, because most of the roster consumes nothing yet
+  and an unconsumed registry's failure mode is rot rather than collision
+  (systems/substrate.md).
 
   The globs are rooted at the working directory and stay that way: this
   task ships into every generated project, so the layout of any one tree
@@ -43,8 +69,17 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   use Mix.Task
 
+  alias Catapult.Audit.Declarations
   alias Catapult.Component.Composer
   alias Catapult.Component.Registries
+
+  @platform_checks [
+    Catapult.Audit.Checks.WallClock,
+    Catapult.Audit.Checks.ProcessName,
+    Catapult.Audit.Checks.SecretInLog
+  ]
+
+  @scope "lib/**/*.ex"
 
   @impl Mix.Task
   def run(_args) do
@@ -55,16 +90,10 @@ defmodule Mix.Tasks.Catapult.Audit do
 
     problems =
       registry_problems(components) ++
-        grep_problem(
-          "utc_now",
-          ~r/(?:Naive)?DateTime\.utc_now/,
-          "bare utc_now (inject Catapult.Clock; conventions §9)"
-        ) ++
-        grep_problem(
-          "name_module",
-          ~r/name:\s*__MODULE__/,
-          "process registered under its own module name (register via processes/0; conventions §5)"
-        )
+        Enum.flat_map(@platform_checks, &check(&1, @scope)) ++
+        policy_problems(components) ++
+        declaration_problems(components) ++
+        sobelow_problems()
 
     case problems do
       [] ->
@@ -102,30 +131,59 @@ defmodule Mix.Tasks.Catapult.Audit do
     e in Composer.CollisionError -> [Exception.message(e)]
   end
 
-  defp grep_problem(allow_tag, regex, label) do
-    tag = "catapult:allow #{allow_tag}"
+  ## Registered checks
 
-    Path.wildcard("lib/**/*.ex")
-    |> Enum.flat_map(fn file ->
-      lines = file |> File.read!() |> String.split("\n")
+  defp policy_problems([]), do: []
 
-      lines
-      # Pair each line with its predecessor; `nil` for the first.
-      |> Enum.zip([nil | lines])
-      |> Enum.with_index(1)
-      |> Enum.filter(fn {{line, previous}, _n} ->
-        Regex.match?(regex, line) and not allowed?(line, previous, tag)
-      end)
-      |> Enum.map(fn {_pair, n} -> "#{file}:#{n}: #{label}" end)
-    end)
+  defp policy_problems(components) do
+    for entry <- Composer.inventory(components).policies,
+        problem <- check(entry.check, entry.scope) do
+      problem
+    end
   end
 
-  # The line above must itself be a comment: without that, a tagged
-  # violation would silently excuse an untagged one on the next line.
-  defp allowed?(line, previous, tag) do
-    String.contains?(line, tag) or
-      (is_binary(previous) and comment?(previous) and String.contains?(previous, tag))
+  # A check that raised would take the rest of the report down with it,
+  # which is the one thing the all-problems-at-once style cannot afford —
+  # so a broken check becomes a problem like any other rather than an
+  # aborted audit.
+  defp check(module, scope) do
+    case module.run(scope) do
+      problems when is_list(problems) -> problems
+      other -> ["#{inspect(module)}.run/1 returned #{inspect(other)}, expected a list"]
+    end
+  rescue
+    error ->
+      [
+        "#{inspect(module)}.run/1 raised #{inspect(error.__struct__)}: #{Exception.message(error)}"
+      ]
   end
 
-  defp comment?(line), do: line |> String.trim_leading() |> String.starts_with?("#")
+  ## Declared ↔ the tree
+
+  # `Catapult.Audit.Declarations` holds both, because a check nobody can
+  # call is a check nobody tests; the task's job is to hand them the
+  # composed inventory a registered check deliberately never sees.
+  defp declaration_problems([]), do: []
+
+  defp declaration_problems(components) do
+    inventory = Composer.inventory(components)
+
+    Declarations.guardrails(inventory.processes, Catapult.Guardrails.enforceable(), @scope) ++
+      Declarations.error_kinds(inventory.errors, @scope)
+  end
+
+  ## Gates this task reports and never runs
+
+  defp sobelow_problems do
+    apps = Mix.Project.deps_apps()
+
+    if :phoenix in apps and :sobelow not in apps do
+      [
+        "this project's dependency tree contains :phoenix and no :sobelow — " <>
+          "arm the gate (add sobelow to deps, a qualityGates line and a ci.yml step); v5 §2.14"
+      ]
+    else
+      []
+    end
+  end
 end

@@ -105,6 +105,25 @@ seeds release task.
   the function exists is a declared↔constructed check (ORC-21), not a
   field to restate it in.
 
+  **Amended (ORC-21): `cron:` is a list of `{schedule, worker}`, not a
+  string, because a crontab entry does not point at a queue.** The
+  sketch above drew `cron: :string` and the composing half is what
+  showed it under-specified: `Oban.Plugins.Cron` takes
+  `{expression, worker}` or `{expression, worker, opts}` (verified
+  against `oban 2.20`'s `validate_crontab/1`), and a worker's queue
+  comes from its own `use Oban.Worker`. So a schedule names *what* runs
+  and the queue is downstream of that — one string on a queue entry can
+  say when but never what, and one queue hosting two periodic jobs
+  cannot be spelled at all. The entry becomes
+  `{:engine_work, cron: [{"0 * * * *", Engine.SweepWorker}]}`: the queue
+  stays the claimed name and the address, the schedules ride as policy
+  about it, which is the row grain rather than an exception to it. It
+  buys a cross-fact worth checking, too — a scheduled worker whose own
+  `queue:` is not the entry it was declared under is a job that will run
+  somewhere nobody declared. Free to fix here for the same reason
+  `events/0` was: nothing declares a queue yet, and a wrong shape is
+  only cheap before it has entries.
+
   Making `events/0` breaking costs nothing today and could never be
   done cheaply again — nothing declares an event until the engine does.
   That is the roster-before-consumers argument arriving as a concrete
@@ -1118,6 +1137,278 @@ seeds release task.
   review now and nothing afterwards, where the same rung added once a
   copyleft dependency is in costs the dependency.
 
+### The enforcement roster (ORC-21)
+
+The checks v5 §2.14 gathered as sleepers, designed as a set because
+three of them turn out to be the same decision and two of them are not
+build work at all.
+
+- **The AST upgrade lands on `Catapult.Audit.Check`, not on Credo.**
+  §2.14 adopted "AST-grade custom Credo checks", and this argues with
+  the host rather than the grade — said out loud, per the rule about
+  recorded decisions. Credo cannot host them without a cost this
+  package has already refused three times. `Credo.Check` is a
+  `__using__` macro, so a check module compiles only where Credo is
+  loadable; `Mix.Dep.Loader` loads a dependency's own children with
+  `env: :prod`, so substrate's `only: [:dev, :test]` Credo is never
+  fetched into a consumer's tree, and a check in `lib/` would fail to
+  compile there. Both ways out are worse than the thing they buy: a
+  Credo dependency in every generated tree, or a fourth mix project and
+  a second package on the release train.
+
+  Meanwhile the mechanism these checks want shipped last ticket.
+  `policies/0` registers a `Catapult.Audit.Check` against a
+  working-directory-relative scope, and the runner is this roster's; a
+  target project inherits exactly the checks its components declare,
+  which is the whole argument for that registry. Hosting the platform's
+  own checks anywhere else would give `catapult:allow` a second
+  implementation one ticket after it got its first — the two-homes
+  failure the registry idiom exists against, and the reason this is one
+  decision rather than a preference.
+
+  **The cost is IDE surfacing, and it is real:** a Credo check
+  underlines in the editor where an audit finding waits for CI. The
+  reversal is what makes that affordable, so it is priced rather than
+  promised — a Credo check that delegates to `run/1` is a wrapper in
+  whichever project wants one, and no logic moves. What the wrapper
+  needs is a parseable report, so the format joins the contract instead
+  of remaining a habit: a problem that names a location spells it
+  `path:line: message`, which is what the greps already emit.
+- **`catapult:allow` reads a comment the parser found, and an escape
+  that excuses nothing is itself a problem.** This is what §2.14 means
+  by "a real mechanism rather than same-line text", and it is smaller
+  than it sounds: the tag stays in a comment, because the violations
+  are lines inside function bodies and there is nowhere else for a
+  line-grained escape to live. What changes is who reads it.
+  `Code.string_to_quoted_with_comments/2` yields comments with their
+  line numbers, so the tag is matched against a comment rather than
+  against a substring of a source line — which fixes the symmetric half
+  of the bug the AST grade was adopted for. A ban that no longer
+  false-positives on a string literal must also stop honouring an allow
+  tag written *inside* one, or the escape becomes the new false
+  positive. ORC-30's span survives untouched (the offending line, or
+  the comment line directly above it) because comment line numbers are
+  exactly what that span was always about.
+
+  The new half is free only at AST grade and worth taking there: a tag
+  excusing a line with no violation is reported. An escape list nobody
+  prunes is how the next reader learns the ban is negotiable, and this
+  repo has already chosen that shape once — Hex warns that an
+  `ignore_advisories` entry matching nothing can be removed, so the
+  acknowledgement expires by itself. Same property, same reason.
+- **The compile-connected ratchet is a gate line, never a constant the
+  audit reads.** Both halves of §2.14's xref item are stock:
+  `mix xref graph --label compile-connected --fail-above N` exits 1
+  above the threshold with no code behind it, so an audit check would
+  be a second implementation of a number `mix xref` already computes.
+  The placement is the decision, and this pipeline decides it rather
+  than taste: a cap in `config/*.exs` or in the audit is a cap the
+  agent adding a compile dependency can raise in the same commit that
+  made it necessary, and a ratchet the ratcheting party can turn is not
+  one. In `qualityGates` the number sits in an author-owned file, which
+  makes "raising it is a reviewed change" literally true instead of
+  aspirational.
+
+  **It arms at zero, today, in both projects** — measured, not
+  estimated: `mix xref graph --format stats` reports 0 compile
+  dependencies at the root and 0 in `components/substrate`, and
+  `--label compile-connected --fail-above 0` exits 0 in each. The
+  strongest cap this metric will ever have is available for the price
+  of a line, and every later value is a concession. That is also why
+  the erosion metric is worth arming before there is erosion to
+  measure: a baseline recorded after the first compile dependency lands
+  is a baseline that already contains it.
+- **The audit reports a missing gate; it never runs one.** Sobelow's
+  arming rule is the case that decides this. An audit that shells out
+  to another gate swallows that tool's exit code and its output
+  formatting, and becomes a meta-runner whose own report is the least
+  interesting thing in it — while `qualityGates` and `ci.yml` are
+  already the place where a gate is a line. So the audit's finding is
+  the gap: *this project has a web layer and no sobelow gate*, which is
+  the part invisible from anywhere else, and arming it is the ordinary
+  author edit every other gate takes.
+
+  **The predicate is `:phoenix` in the dependency tree, never a
+  directory name.** §2.14's shorthand — arms "when `catapult_web`
+  appears" — names a path in *this* repo, and a shipped, cwd-rooted
+  task may not hold that fact any more than it may know where this repo
+  keeps its components (`docs/non-goals.md`). A generated project puts
+  its web layer wherever its own spine says; the dependency is the
+  thing that is true in all of them.
+- **The two VM guardrails are not one grade, and the registry should
+  stop implying they are.** §2.5 says the BEAM enforces both. It
+  enforces one. `max_heap_size` is a real process flag, kills the
+  process, and is exactly the runtime-grade guardrail described.
+  `erlang:process_flag(:max_message_queue_len, _)` does not exist —
+  `badarg`, verified on the pinned OTP — and the only queue-length
+  facility in the VM is `:erlang.system_monitor/2`'s
+  `long_message_queue`, which notifies rather than kills, is
+  node-global rather than per-process, and is **singular**: setting a
+  system monitor returns and discards the previous one, so any
+  dependency that wants `long_gc` silently disables our mailbox
+  guardrail. A guardrail a library can turn off by accident is the
+  fail-open shape this repo has ruled on twice already, and it is worse
+  here than in the supply gate, because what stops being reported is a
+  process about to take the node down.
+
+  So `max_heap_size` stays an enforced bound, and the mailbox bound
+  becomes a declared threshold that is *sampled and reported* — the opt
+  renamed `message_queue_alarm_len:` so the declaration states its own
+  grade, since `max_` is a promise the platform cannot keep. Where the
+  sampling lives is `systems/observability.md`'s. Renaming costs
+  nothing today (nothing declares a guardrail yet) and the alternative
+  is a field that will be read as enforcement by every operator who
+  ever greps for it.
+
+  **Guardrails are applied by the process and checked by the composer;
+  the composer does not thread `spawn_opt`.** A flag can only be set
+  from inside its own process (`process_flag/3` covers `save_calls` and
+  nothing else), so the only external route is `spawn_opt` on the start
+  call — which requires the composer to know each child's option
+  conventions, for children it did not write, and fails outright for
+  the first child whose `start_link` accepts no options. That is the
+  audit's layout knowledge wearing a different hat. A one-line call in
+  `init/1` reading the component's own declaration is what the process
+  owns anyway, and declared↔applied is then the same check shape as
+  declared↔constructed and declared↔emitted — a third instance of a
+  pattern the platform already has two of.
+
+  **Amended in build (ORC-21): the checker is the audit, not the
+  composer**, and the sentence above is right about everything except
+  which organ holds it. The composer sees declarations; declared↔applied
+  needs *call sites*, and a call site is a fact about a tree. So it
+  lands beside the other declaration↔tree check
+  (`Catapult.Audit.Declarations`), which is what the last clause of that
+  same sentence already says — the pattern it is a third instance of is
+  an audit check both times. The composer's half is unchanged and it is
+  the important half: it still never threads `spawn_opt`.
+- **`errors/0`'s struct is generated from the registry, so one
+  direction of declared↔constructed is a compile error rather than an
+  audit finding.** §2.14 asks for the check both ways. The expensive
+  way is an AST pass hunting `kind:` keys, which is a check guessing at
+  what construction looks like; the cheap way is to make construction
+  go through something the registry built. `use Catapult.Error` defines
+  the component's error struct from its declared kinds — conventions
+  §8's `%Engine.Error{kind: ...}` spelling is unchanged and callers
+  still match on the struct — and an undeclared kind then cannot be
+  constructed at all. What is left for the audit is the direction a
+  compiler cannot see: a kind declared and never constructed, which is
+  dead vocabulary in a catalog operators read. Remedy presence is
+  already the composer's (ORC-22), so §2.14's third clause needs
+  nothing.
+
+  The generated catalog is a rendering of the inventory on demand and
+  never a committed file — the no-hand-maintained-inventories rule, and
+  the same shape as the census. It ships with the docs-site
+  composition, which conventions §13 defers, so it is not this roster's
+  to build.
+
+  **Amended in build (ORC-21): the grade is construction-time, and the
+  registry is read at construction rather than at compile time.** Two
+  corrections, both found by writing it, and the second is the one that
+  matters:
+
+    * *Compile error was never on offer.* Elixir validates a struct
+      literal's **keys** at compile time and never its values, so no
+      generator can make `%Engine.Error{kind: :invented}` fail to
+      compile. What the generated `new/2` does buy is that the
+      vocabulary a caller can *build* is the vocabulary the composer
+      validated, with meaning and remedy carried from the declaration
+      rather than copied — and the residue is one narrow shape, a
+      hand-built literal, instead of the open set an AST pass would
+      have had to cover.
+    * *Reading `errors/0` while compiling the error module deadlocks
+      the canonical usage.* `Engine.Error` would wait for `Engine`,
+      and conventions §8's own spelling has `Engine` constructing
+      `%Engine.Error{}`, which makes `Engine` wait for `Engine.Error`.
+      That is a compile cycle, and `mix xref graph --format cycles
+      --fail-above 0` is a hard gate — a mechanism whose adoption trips
+      one of this repo's own gates is not a mechanism. `new/2` resolves
+      against the registry at call time, which costs a list scan on a
+      failure path and buys back the whole hazard.
+
+  Everything downstream of the paragraph above is unchanged: the audit
+  keeps exactly the declared-and-never-constructed direction
+  (`Catapult.Audit.Declarations`), and remedy presence stays the
+  composer's.
+- **Secret config values are wrapped, not audited.** "Never appears in
+  logs or error payloads" is a claim about values, and an audit sees
+  source: the honest static version is a shallow check one hop from the
+  accessor, which misses every value bound to a variable first. The
+  type is what holds it everywhere — `fetch!/2` on a `secret: true`
+  entry returns a wrapper whose `Inspect` and `String.Chars`
+  implementations redact, and whose value comes out only through an
+  explicit unwrap. Then interpolation, `inspect/1`, a crash dump and a
+  `Logger` call are all safe by construction rather than by a check
+  that has to see them, and §2.2's "settings surfaces mask by
+  construction" stops being a separate rule about one screen. The
+  audit's residue is small and exact, which is the point: an unwrap
+  inside a logging call, one hop, no inference.
+
+  **The cost is one call site, today.** Every consumer of a secret must
+  unwrap, and the only declared secret in the tree is `DATABASE_URL` on
+  its way into `Repo.init/2`. This is the `events/0` argument again and
+  it is the last time it will be cheap: the wrapper is free while there
+  is one reader and a migration once there are twenty.
+- **Export metadata carries registered vocabulary and nothing else.**
+  `defexport`'s span emits empty metadata today, and §2.2's
+  error-rate-by-kind is the first thing to put something in it: a
+  registered error kind, taken from the export's own return. The rule
+  arriving with it matters more than the field — metadata never carries
+  arguments or return bodies. Span metadata and Logger metadata are the
+  operational channel (conventions §10), content stays out of it by
+  §2.11, and the alternative would put the secret wrapper above in the
+  position of defending a second surface.
+
+  §2.2's Logger floor rides the same interception point: `component:`
+  at every export entry, and `trace_id:` **only when absent**. An
+  export that overwrote an inherited trace id would cut every trace at
+  the first internal boundary crossing, which is the seam tracing
+  exists to cross; generating one where there is none is what makes an
+  export the root of its own trace. The macro restores the outer
+  `component:` on the way out, because a nested export that leaves its
+  own slug behind misattributes every later log line in its caller — a
+  bug that costs two `Logger.metadata/1` calls to not have.
+- **The ES property templates are a macro, and that is why StreamData
+  is not a dependency.** §2.4 ships templates with the family; a
+  template that is copied stops matching the invariant the day the
+  family changes one, and nobody re-copies. A macro that injects the
+  replay-determinism, idempotency and round-trip properties keeps "the
+  property is the floor" literal — adopting the family is what makes
+  the property present. The dependency question then answers itself: a
+  module that only *quotes* `StreamData` never compiles against it, so
+  the property generator ships here while `stream_data` is a test-scope
+  dependency of the project that expands it. That asymmetry is also why
+  the Credo decision above went the other way — `use Credo.Check` runs
+  at the check module's own compile time, where quoting cannot help.
+- **The external-HTTP rule is a boundary declaration, not an audit
+  check** — which collapses two roster items into one and moves them
+  out of the audit entirely. Boundary's `type: :strict` reports every
+  call to an external application not allowed in a boundary's `deps:`,
+  and `check: [apps: [...]]` forces the same for a named application
+  regardless. "Only `Store` subcomponents depend on Ecto", "only the
+  outbox wrapper on Oban's insert surface", "only adapters on Req", and
+  §2.2's every-HTTP-usage-inside-a-registered-adapter are all one
+  sentence in that vocabulary. §2.14's third grep — raw topic strings —
+  lands here too rather than at AST grade: the rule that matters is
+  that PubSub is reached through the platform's wrapper (conventions
+  §10 threads trace context there), and "nothing outside the wrapper
+  calls `Phoenix.PubSub`" is a boundary fact, not a string-shaped one.
+
+  **The residue is Erlang, and it stays an AST check.** Boundary
+  documents that calls to `:elixir`, `:boundary` and pure Erlang
+  applications cannot be restrained — so a plane module reaching a
+  model provider through `:httpc` is invisible to the compile grade,
+  and conventions §11 becomes *mostly* a compile error rather than
+  wholly one. Naming which half is which is the difference between a
+  gate and a belief about a gate.
+
+  The one thing `externals/0` still owes the audit needs no new field:
+  an entry's `adapter:` and `fake:` must declare a behaviour in common.
+  A fake that has drifted off its adapter's contract is a test lying
+  about a system it never called, and both modules already carry the
+  answer in their own attributes.
+
 ## Initial vs target
 
 Initial (Phase 1): behaviour + registries, export macro
@@ -1139,6 +1430,22 @@ declared↔constructed checks (ORC-21), and the audit's policy-check
 runner (ORC-21). Nothing on that list can be reached from here, and
 none of it changes a declaration when it arrives — which is the
 property the roster is buying.
+
+**Amended (ORC-21) on two of those, now that the roster above has
+designed them.** The error catalog is not ORC-21's after all: it is a
+rendering of the inventory and it ships with the docs-site composition
+conventions §13 defers, so it moves off this list to that one. And the
+declared↔constructed check shrinks rather than lands whole — the
+undeclared-kind direction becomes a compile error the generated struct
+gives for free, leaving the audit only the declared-and-never-
+constructed direction. Three declarations do change when the roster's
+enforcement arrives, against the property this paragraph claims:
+`oban_queues/0`'s `cron:` takes a worker, `processes/0`'s mailbox opt
+is renamed, and `secret: true`'s accessor returns a wrapper. All three
+are shape corrections found by designing the consuming half, all three
+cost nothing while the registries are empty, and that is the argument
+for changing them now rather than evidence against the roster — the
+alternative is the same three edits with entries to migrate.
 
 The config layer arrives whole rather than as a stub — port, source,
 fake, load, accessor — because a registry the composer does not honor

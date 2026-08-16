@@ -30,6 +30,28 @@ outside the deployment envelope.
   ages, stale claims, mutex-wait per label, deploy timeouts) ships
   as metrics from day one of delivery — closing orchestration's
   "no alerting anywhere" open item as a side effect.
+- **The mailbox guardrail is sampled here, because the VM has no
+  enforcement to offer** (ORC-21). `processes/0`'s heap guardrail is a
+  BEAM process flag and stays substrate's; the message-queue half has
+  no per-process flag at all, and the VM's only queue facility —
+  `:erlang.system_monitor/2`'s `long_message_queue` — is node-global,
+  notify-only, and singular, so any library setting a system monitor
+  silently replaces ours (`systems/substrate.md` records the
+  verification). A declared threshold sampled per registered process
+  and emitted as telemetry is what is actually on offer, and this
+  component is where it belongs by the rule directly above: substrate
+  declares, this component consumes the registries. Sampling also
+  survives what a monitor does not — several samplers coexist, and a
+  reading nobody clobbers is the difference between a signal and a
+  guardrail that reports clean because something else armed first.
+
+  **A full mailbox is reported, never killed.** The heap bound kills
+  because a process that will not stop allocating takes the node with
+  it; a process that is merely behind is usually the only thing holding
+  the work, and killing it discards the queue that was the evidence.
+  The declaration's name carries this — `message_queue_alarm_len:`,
+  not `max_` — so the grade is legible where it is declared rather than
+  only here.
 
 ## Initial vs target
 

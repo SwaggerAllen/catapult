@@ -15,6 +15,7 @@ defmodule Catapult.Repo do
   use Ecto.Repo, otp_app: :catapult, adapter: Ecto.Adapters.Postgres
 
   alias Catapult.Config
+  alias Catapult.Config.Secret
 
   @impl Ecto.Repo
   def init(_context, config) do
@@ -24,9 +25,14 @@ defmodule Catapult.Repo do
     # (Catapult.Boot).
     Catapult.Boot.load!()
 
+    # The one unwrap in the tree, and the whole cost of the secret
+    # wrapper today (systems/substrate.md): `database_url` is declared
+    # `secret: true`, so the layer hands back a `Catapult.Config.Secret`
+    # and reaching its contents is a word a reviewer can see. Ecto's
+    # options are the only place these values may land.
     {:ok,
      config
-     |> Keyword.merge(Config.fetch!(:foundation, :database_url))
+     |> Keyword.merge(Secret.unwrap(Config.fetch!(:foundation, :database_url)))
      |> Keyword.put(:pool_size, Config.fetch!(:foundation, :pool_size))}
   end
 end

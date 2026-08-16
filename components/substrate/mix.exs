@@ -18,7 +18,10 @@ defmodule Catapult.Substrate.MixProject do
     ]
   end
 
-  def application, do: [extra_applications: [:logger]]
+  # `:crypto` for the export macro's trace ids (Catapult.Component.API);
+  # it is OTP's, not a dependency, but a release that did not list it
+  # would leave every export raising on its first log line.
+  def application, do: [extra_applications: [:crypto, :logger]]
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
