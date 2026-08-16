@@ -37,7 +37,8 @@
     "mix compile --warnings-as-errors",
     "mix deps.audit",
     "mix xref graph --format cycles --fail-above 0",
-    "mix catapult.audit",
+    "mix xref graph --label compile-connected --fail-above 0",
+    "mix catapult.audit.all",
     "mix test"
   ],
   "deploy": {

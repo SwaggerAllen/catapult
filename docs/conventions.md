@@ -97,8 +97,16 @@ green (v5 §2.13):
   nothing warns that it can be removed, so acknowledgements expire by
   themselves when the dependency is bumped.
 - `mix xref graph --format cycles --fail-above 0` — compile-
-  dependency cycles prohibited; the compile-connected ratchet joins
-  it via the audit (v5 §2.14).
+  dependency cycles prohibited.
+- `mix xref graph --label compile-connected --fail-above 0` — the
+  ratchet, v5 §2.14's second half. It does **not** join via the audit:
+  ORC-21 reversed that, and `docs/non-goals.md` names "a module
+  attribute in the audit" as one of the homes it refuses. The number
+  lives in `pipeline.config.json` → `qualityGates` and in `ci.yml`,
+  both author-owned by construction, which is what makes "raising it
+  needs a reviewed change" literal rather than aspirational. Armed at
+  `0` in both projects (ORC-49) — the strongest cap it will ever have,
+  and the only moment arming it was free.
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
   Its greps are `Path.wildcard("lib/**/*.ex")`, rooted at the working
   directory and deliberately kept there (the task ships into every
@@ -118,38 +126,15 @@ At the root, `mix hex.audit` runs as the first element of the
 both audits, Hex first. Nothing protected was touched to arm it: the
 gate name stayed and its content grew (ORC-37).
 
-**Substrate is the half still unwired, in four places.** Its suite
-(`ci.yml`, `substrate suite`) runs `mix deps.get`, format, credo,
-compile, test — so relative to the list above it is missing
-`--check-locked`, `mix hex.audit`, `mix xref graph --format cycles
---fail-above 0`, and `mix catapult.audit`. ORC-30 made all four
-*runnable and green* from that directory and left the arming to the
-author, because every remaining edit is in a file agents cannot push:
-
-- `working-directory: components/substrate` → `mix deps.get
-  --check-locked` (one flag), a `mix catapult.audit` line, and a
-  `mix xref graph --format cycles --fail-above 0` line. All three
-  pass there today; the audit's five hits were fixed in that ticket,
-  and xref reports no cycles.
-- `mix hex.audit` in the same block. Unlike the root there is no
-  existing audit gate for an alias to hook into, and substrate must
-  not take an audit *dependency* to get one (`systems/substrate.md`) —
-  so this one is a line or it is nothing.
-- Cheapest single arming point for the audit leg, in a third
-  author-owned file: `pipeline.config.json` → `qualityGates`, where
-  `mix catapult.audit` → `mix catapult.audit.all` covers both projects
-  on every pipeline run.
-
-Until they land, `systems/substrate.md`'s "substrate carries its own
-supply gate" is a decision rather than a running check, substrate's own
-lockfile is resolved unpinned, a compile-dependency cycle there is
-caught nowhere, and the injected-clock and process-name rules are
-enforced nowhere in the half we ship to customers. **Delete this
-paragraph when all four of those lines land** — deleting it while any
-of them is outstanding drops the only written record that the gate was
-ever missing, which is the failure this paragraph exists to prevent. A
-list that says "all of these are CI gates" while four are not is the
-same false all-clear this section was written about, one level up.
+Substrate's suite is the whole list too, as of ORC-49. ORC-30 made
+`--check-locked`, `mix hex.audit`, xref cycles and `mix catapult.audit`
+runnable and green from that directory and left the arming to the
+author; ORC-21 did the same for the compile-connected ratchet in both
+projects. They ran nowhere automated in between, which is the gap this
+paragraph used to describe at length and no longer needs to: the
+`substrate suite` block in `ci.yml` now carries every line above, and
+`qualityGates` runs `mix catapult.audit.all` rather than the root-only
+task.
 
 ## 3. The naming spine
 
