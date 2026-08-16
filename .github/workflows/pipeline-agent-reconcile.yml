@@ -36,7 +36,6 @@ permissions:
   pull-requests: write # reads and merges it
   actions: read # the snapshot's agent run list
   checks: read # CI verdict per PR head
-  deployments: read # deploy state, when the provider is \"github\"
   deployments: write # records the stand-in deployment after merging
 
 jobs:
