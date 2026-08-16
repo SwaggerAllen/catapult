@@ -44,6 +44,7 @@ defmodule Catapult.Component.Registries do
 
   `:atom`, `:string`, `:pos_integer`, `:module` (loadable),
   `:check_module` (loadable and implementing `Catapult.Audit.Check`),
+  `:crontab` (a non-empty list of `{schedule, worker}` pairs),
   `:telemetry_path`, `:export` (a `{name, arity}` this component
   actually exports through `defexport`), `:route_path`, `:mount_path`
   (relative to an admin root the component does not own),
@@ -89,7 +90,7 @@ defmodule Catapult.Component.Registries do
       row(:pubsub_topics, "pubsub topic", fields: [topic: :atom]),
       row(:oban_queues, "oban queue",
         fields: [queue: :atom],
-        opts: [cron: :string],
+        opts: [cron: :crontab],
         sugar: true,
         spine: {:atom_prefix, :queue}
       ),
@@ -103,7 +104,7 @@ defmodule Catapult.Component.Registries do
       ),
       row(:processes, "process name",
         fields: [name: :atom, placement: {:one_of, @placements}],
-        opts: [max_heap_size: :pos_integer, max_message_queue_len: :pos_integer],
+        opts: [max_heap_size: :pos_integer, message_queue_alarm_len: :pos_integer],
         sugar: true
       ),
       row(:errors, "error kind",
@@ -410,6 +411,19 @@ defmodule Catapult.Component.Registries do
     end
   end
 
+  # A crontab entry points at a *worker*, not at a queue
+  # (`Oban.Plugins.Cron`), so one string on a queue entry could say when
+  # but never what — and one queue hosting two periodic jobs could not be
+  # spelled at all. The queue stays the claimed name and the address; the
+  # schedules ride as policy about it (systems/substrate.md).
+  defp type_problem(:crontab, value, component) do
+    if is_list(value) and value != [] and Enum.all?(value, &crontab_entry?(&1, component)) do
+      nil
+    else
+      "is not a non-empty list of {schedule, worker} pairs"
+    end
+  end
+
   defp type_problem(:telemetry_path, value, _component) do
     if is_list(value) and value != [] and Enum.all?(value, &is_atom/1) do
       nil
@@ -460,6 +474,12 @@ defmodule Catapult.Component.Registries do
       true -> nil
     end
   end
+
+  defp crontab_entry?({schedule, worker}, component) when is_binary(schedule) do
+    type_problem(:module, worker, component) == nil
+  end
+
+  defp crontab_entry?(_entry, _component), do: false
 
   defp climbs_out?(path), do: ".." in String.split(path, "/")
 

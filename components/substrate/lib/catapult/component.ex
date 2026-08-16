@@ -73,10 +73,22 @@ defmodule Catapult.Component do
   @doc """
   Oban queue names claimed, `queue` or `{queue, opts}`.
 
-  Opts: `cron:` — a periodic schedule, declared on the queue it runs on
+  Opts: `cron:` — periodic schedules, declared on the queue they run on
   so that what runs on a timer is diffable rather than buried in plugin
-  config (v5 §2.2). Most queues have no schedule, so the bare atom stays
-  the spelling a diff shows.
+  config (v5 §2.2). A list of `{schedule, worker}` pairs, because a
+  crontab entry points at a worker and never at a queue
+  (`Oban.Plugins.Cron`): a single string could say *when* but never
+  *what*, and one queue hosting two periodic jobs could not be spelled at
+  all. The composer checks the pairing back — a scheduled worker whose
+  own `queue:` is not the entry it was declared under is a job that will
+  run somewhere nobody declared.
+
+  Most queues have no schedule, so the bare atom stays the spelling a
+  diff shows:
+
+      def oban_queues do
+        [:engine_work, {:engine_nightly, cron: [{"0 3 * * *", Engine.SweepWorker}]}]
+      end
   """
   @callback oban_queues() :: [atom() | {atom(), keyword()}]
 
@@ -103,11 +115,26 @@ defmodule Catapult.Component do
   optional VM guardrails: `{name, placement}` or
   `{name, placement, opts}`.
 
-  Opts: `max_heap_size:` and `max_message_queue_len:` — the BEAM kills a
-  runaway process before it takes the node down (v5 §2.5), which is
-  `runtime`-grade enforcement for the cost of a registry field and legal
-  precisely because processes are never the state of record. Most
-  processes have no guardrail, so the two-element entry stays the
+  Opts, and the two are not one grade (ORC-21):
+
+    * `max_heap_size:` — a real BEAM process flag. The VM kills a runaway
+      process before it takes the node down (v5 §2.5), which is
+      `runtime`-grade enforcement for the cost of a registry field and
+      legal precisely because processes are never the state of record.
+    * `message_queue_alarm_len:` — a threshold observability *samples and
+      reports*, not a bound anything enforces. There is no per-process
+      message-queue flag in the VM, and the node-global facility that
+      exists is notify-only and singular; the name states the grade,
+      because `max_` would be a promise the platform cannot keep
+      (`Catapult.Guardrails`, `systems/observability.md`).
+
+  Guardrails are applied by the process, in `init/1`, via
+  `Catapult.Guardrails.apply!/2` — never threaded into a child spec by
+  the composer, which would need the option conventions of start
+  functions it did not write. `mix catapult.audit` reports a guardrail
+  declared and never applied.
+
+  Most processes have no guardrail, so the two-element entry stays the
   spelling a diff shows.
   """
   @callback processes() :: [{atom(), placement()} | {atom(), placement(), keyword()}]
@@ -127,9 +154,14 @@ defmodule Catapult.Component do
 
   It governs what crosses `defexport`, never every internal tagged
   tuple, and crashes are out — exceptions are for bugs, and registering
-  bug-shapes is inventorying the unknowable. Whether a kind is ever
-  *constructed* is the declared↔constructed check, and that waits for
-  ORC-21.
+  bug-shapes is inventorying the unknowable.
+
+  Declared↔constructed is checked from both ends and neither is an AST
+  pass hunting `kind:` keys: `use Catapult.Error` builds the component's
+  error struct against this declaration, so an undeclared kind has
+  nowhere to be constructed from, and `mix catapult.audit` reports the
+  direction no constructor can see — a kind declared and never
+  constructed, which is dead vocabulary in a catalog operators read.
   """
   @callback errors() :: [{atom(), String.t(), keyword()}]
 
@@ -139,7 +171,9 @@ defmodule Catapult.Component do
 
   Opts, all required: `adapter:` and `fake:` name modules and are
   checked for loadability, because a fake declared and never written is
-  a hole in the no-network rule (conventions §9); `kill_switch:` names a
+  a hole in the no-network rule (conventions §9), and for a *shared
+  behaviour*, because a fake that has drifted off its adapter's contract
+  is a test lying about a system it never called; `kill_switch:` names a
   flag **this same component declares** in `feature_flags/0`, which is
   what makes §2.2's promise literal — the switch tied to the thing it
   switches instead of to a naming convention; `classification:` is a
@@ -224,8 +258,13 @@ defmodule Catapult.Component do
   The payoff is composition: a component ships its enforcement into
   every project that adopts it. This does not widen the audit's file
   scope, deliberately — each mix project composes its own check set and
-  runs the audit in its own directory. The runner and the checks that
-  adopt this are ORC-21's.
+  runs the audit in its own directory.
+
+  `mix catapult.audit` is the runner. The platform's own bans
+  (`Catapult.Audit.Checks.*`) are that task's floor and need no
+  declaration — every project inherits them by running the audit at all;
+  what a component registers here is enforcement of its *own*, which is
+  what `policies/0` exists for.
   """
   @callback policies() :: [{module(), String.t(), keyword()}]
 
