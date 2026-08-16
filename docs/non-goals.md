@@ -408,6 +408,18 @@ recorded decision, and say so explicitly.
   measured — so nothing that ships can forget it. Revisit condition:
   none. A shipped artifact that cannot say what it is licensed under
   has a bigger problem than the audit.
+  **Amended at the second pass (ORC-16): a second declaration joins
+  it, and the entry gets stronger rather than weaker.** Design review
+  changed the premise — `components/*` will hold components that are
+  not open source, so the directory no longer even describes the
+  shipped layer — and the answer is `licensing/0` on the component
+  (`distribution:` and `license:`), read alongside the project's
+  `package:`. Both remain declarations and neither is a path, which is
+  what this entry is about. The reason both are needed is measured and
+  is the sharpest argument the entry has: `components/substrate`
+  declares no components at all, so a check armed only by component
+  class would read the one tree ORC-16 was filed about, find no
+  subject, and report clean. Two declarations, no glob.
 - **No exception mechanism on the license check — no ignore list, no
   `catapult:allow`, no per-dependency waiver** (ORC-16). The obvious
   symmetry is with `ignore_advisories` a few entries up, and the
@@ -430,11 +442,15 @@ recorded decision, and say so explicitly.
 - **No normalization table for license spellings, and no inference
   from LICENSE file text** (ORC-16). Matching is exact SPDX
   identifiers; anything else is unrecognized and therefore a problem,
-  resolved by an override entry a reviewer reads. The cost is real and
-  measured — `cowboy_telemetry` declares `["Apache 2.0"]`, which no
-  amount of being obviously fine makes an SPDX identifier — and the
-  cheaper fix is refused because its failures run silent and in the
-  permissive direction. A table that maps "Apache 2" teaches its next
+  resolved by an override entry a reviewer reads. The cost is
+  measured and, once the class rules landed, zero on this tree:
+  `cowboy_telemetry` declares `["Apache 2.0"]`, which no amount of
+  being obviously fine makes an SPDX identifier — but it is a plane
+  dependency, and the plane is a public-licensed service and therefore
+  unchecked, so no override exists on landing. The near-miss is kept
+  here as the illustration it always was. The cheaper fix is refused
+  because its failures run silent and in the permissive
+  direction. A table that maps "Apache 2" teaches its next
   reader that near-misses are handled, and the next near-miss is a
   string like `GPL-2.0-with-classpath-exception`, whose distance from
   `GPL-2.0-only` is the entire question the check exists to ask. Text
@@ -442,7 +458,7 @@ recorded decision, and say so explicitly.
   over prose, deciding a legal question, with no line in the diff
   where a human agreed. Revisit condition: none — an override costs
   one line and one reading, and the readings are rare by construction
-  (one dependency in two trees today).
+  (zero in the checked closure today).
 - **No per-file license headers, for now** (ORC-16, carrying the
   ticket's own deferral so it is not re-proposed as the obvious
   adjacent win). The inventory check answers what the *dependencies*
@@ -454,3 +470,76 @@ recorded decision, and say so explicitly.
   open: the repository opening to outside contributions, which is
   when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
   attribution question has to be answered anyway.
+- **No fourth distribution class and no `proprietary:` flag beside the
+  license** (ORC-16). `distribution/0`'s vocabulary stays the three the
+  review named — `:distributed`, `:service`, `:internal` — and the
+  "ours versus proprietary" split the `:service` rules turn on is read
+  off the declared identifier instead: SPDX already spells "no listed
+  license applies" as `LicenseRef-<id>`. A `:proprietary_service`
+  class, or a boolean riding alongside, would be a second place to
+  state a fact the identifier already states, and two places that can
+  disagree is how a check ends up enforcing the wrong rule with
+  complete confidence. It also keeps the vocabulary describing *how
+  code reaches people*, which is what obligations key on and what makes
+  the three classes legible to someone who has never heard of
+  Catapult's business model — the property the review picked them for.
+  Revisit condition: a real licensing consequence that turns on
+  something other than conveyance, network use or neither, which would
+  be a fourth way code reaches people rather than a fourth adjective
+  for the same three.
+- **No licensing verdict at boot, and no allowlist inside the
+  composer** (ORC-16). The composer validates that `licensing/0` is
+  well-formed, exactly as it does every other declaration and for the
+  same reason (it needs no environment); it never holds the allowlist
+  and never decides whether a license passes. Reason: the composer runs
+  at boot as well as under the audit, so an allowlist there means a
+  production node refusing to start because a transitive dependency's
+  license string is unrecognized — a catastrophic response to a
+  question with no runtime consequence at all. The severity that fits a
+  legal fact is CI red. This is not a claim that the check is
+  unimportant; it is a claim that the failure has to land where a human
+  is already reading, not where a deploy is already halfway out.
+  Revisit condition: none. There is no license question whose answer
+  changes what a running node should do.
+- **No `licensing/0` row in the registry roster table** (ORC-16),
+  against the obvious consistency argument, and this entry exists
+  because that argument is a good one. The table is one row per
+  *name-claiming* registry, and its `:claim` and `:identity` columns
+  are the reason it exists: two components declaring `Apache-2.0` is
+  the ordinary case rather than a collision, so a licensing row would
+  carry two empty columns and the fold over `rows/0` would need to skip
+  it — the `function_exported?/3` guard the no-optional-callbacks entry
+  refused, arriving as a table row instead of a callback. The shape
+  does not fit either: a keyword list *is* a list of two-tuples, so a
+  table-driven aggregator reads one declaration as two entries. It sits
+  beside `config/0` on `config/0`'s own recorded criterion — a
+  consumer, and error messages worth their specificity. Revisit
+  condition: a second declaration of this shape, at which point the
+  argument is for a small table of component-scalar facts and never for
+  folding them into the claims table.
+- **No defaulted distribution class for a component that declares
+  none** (ORC-16). Defaulting to `:distributed` is the safe direction
+  for the dependency half and is ruled out anyway, because the pair
+  cannot be half-defaulted — there is no license a component "probably"
+  carries, and a defaulted class paired with an absent identifier makes
+  the component's self-check a verdict about nothing. The deciding
+  reason is the other one: a default makes every project's audit print
+  a policy verdict nobody asserted, which is a check that passed
+  without checking anything, and removing exactly that from the ladder
+  is the ticket. An undeclared component is reported instead, at audit
+  time, alongside every other structural absence — not at compile time,
+  since the overridable empty default stays (`errors/0`'s required
+  `remedy:` is the same treatment). Revisit condition: none. A
+  component whose author will not say who receives it is the case the
+  check was built for, not a case for the check to guess at.
+- **No per-component attribution of dependencies** (ORC-16). The check
+  does not try to work out which component pulled `plug` in, and a
+  project's dependency policy is instead the strictest among every
+  subject it composes. Reason: mix has no per-component dependency
+  declarations, so any attribution would be a call-graph guess made
+  offline, and its errors would run in the permissive direction — the
+  one direction this check may not fail in. The shared-tree fact is
+  also simply true: every dependency in a project is available to every
+  component in it, whatever brought it in. Revisit condition: a real
+  per-component dependency declaration in the language, which is not a
+  thing mix has and not a thing to build here.
