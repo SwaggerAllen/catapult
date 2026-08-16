@@ -40,6 +40,7 @@ defmodule Catapult.Component do
   alias Catapult.Component.Registries
 
   @type placement :: :local | :singleton | :sharded
+  @type distribution :: :distributed | :service | :internal
   @type audience :: :internal | :public | :partner
   @type classification :: :none | :operational | :customer_content | :personal
   @type verb :: :get | :post | :put | :patch | :delete
@@ -56,10 +57,44 @@ defmodule Catapult.Component do
   build on two components binding one variable, and on a name off the
   slug spine that does not say `external: true`.
 
-  The one registry outside the roster table: it is the only one with a
-  consumer, a boot half and error messages worth their specificity.
+  One of two registries outside the roster table: it is the only one
+  with a boot half, and its error messages are worth their specificity.
   """
   @callback config() :: [Catapult.Config.declaration()]
+
+  @doc """
+  How this component reaches the people who use it, and under what
+  terms: `[distribution: t:distribution/0, license: "SPDX-Id"]`.
+
+  Both opts are required and there is no default class. A default would
+  make every project's audit print a policy verdict nobody asserted,
+  which is the shape `mix catapult.audit`'s license check exists to
+  remove from the ladder (docs/non-goals.md); the pair also cannot be
+  half-defaulted, since there is no license a component "probably"
+  carries. An undeclared component is reported by the audit alongside
+  every other structural absence — never at compile time, because the
+  overridable empty default keeps `use Catapult.Component` sufficient to
+  compile, exactly as `errors/0`'s required `remedy:` does.
+
+  One callback rather than two, because the facts are only meaningful as
+  a pair: a license says nothing about obligation until you know who
+  receives the code, and a class says nothing about terms. Two callbacks
+  would also manufacture two half-declared states that mean nothing and
+  have to be reported anyway.
+
+  The second registry outside the roster table, and for `config/0`'s
+  reason plus one of its own: it claims no name. Two components
+  declaring `Apache-2.0` is the ordinary case rather than a collision,
+  so the table's `:claim` and `:identity` columns — the reason it exists
+  — would sit empty (`Catapult.Component.Registries`).
+
+  The composer validates the *shape*; the policy — which classes are
+  checked, against which identifiers — is `Catapult.Audit.License`'s
+  alone. A production node refusing to start because a transitive
+  dependency's license string is unrecognized is a catastrophic response
+  to a question with no runtime consequence whatsoever (`LICENSING.md`).
+  """
+  @callback licensing() :: [{:distribution, distribution()} | {:license, String.t()}]
 
   @doc """
   PubSub topic prefixes claimed (as atoms; rendered `slug:name`).
@@ -292,7 +327,7 @@ defmodule Catapult.Component do
         end
       end
 
-    overridable = Enum.map([:config | registry_keys], &{&1, 0})
+    overridable = Enum.map([:config, :licensing | registry_keys], &{&1, 0})
 
     quote do
       @behaviour Catapult.Component
@@ -310,6 +345,11 @@ defmodule Catapult.Component do
 
       @impl Catapult.Component
       def config, do: []
+
+      # Empty, not defaulted: the absence is what the audit reports, and
+      # a class the platform guessed would be a verdict nobody asserted.
+      @impl Catapult.Component
+      def licensing, do: []
 
       unquote(defaults)
 

@@ -53,6 +53,21 @@ defmodule Catapult.Component.ComposerTest do
     end
   end
 
+  defmodule LicensingSloppy do
+    use Catapult.Component, slug: :lic_sloppy
+    def licensing, do: [distribution: :conveyed, licence: "Apache-2.0"]
+  end
+
+  defmodule LicensingBroken do
+    use Catapult.Component, slug: :lic_broken
+    def licensing, do: :apache
+  end
+
+  defmodule LicensingCopyleft do
+    use Catapult.Component, slug: :lic_copyleft
+    def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
+  end
+
   test "clean set validates" do
     assert :ok = Composer.validate!([CompA])
   end
@@ -97,6 +112,35 @@ defmodule Catapult.Component.ComposerTest do
 
   test "readiness maps slugs" do
     assert Composer.readiness([CompA, CompB]) == %{a: true, b: true}
+  end
+
+  ## licensing/0's shape, and only its shape (ORC-16)
+
+  test "a licensing declaration is validated for shape, all at once" do
+    err = assert_raise Composer.CollisionError, fn -> Composer.validate!([LicensingSloppy]) end
+
+    assert err.message =~ "carries unknown opt :licence"
+    assert err.message =~ "is missing required opt :license"
+    assert err.message =~ ":conveyed that is not one of [:distributed, :service, :internal]"
+  end
+
+  test "a licensing declaration that is not a keyword list is reported, not raised through" do
+    err = assert_raise Composer.CollisionError, fn -> Composer.validate!([LicensingBroken]) end
+
+    assert err.message =~ "licensing/0 returned :apache, expected a keyword list"
+  end
+
+  # The verdict is the audit's (`Catapult.Audit.License`) and the shape is
+  # the composer's, because this function also runs at boot: a node
+  # refusing to start over a dependency's license string is a
+  # catastrophic response to a question with no runtime consequence.
+  test "a well-formed declaration passes the composer whatever it says" do
+    assert :ok = Composer.validate!([LicensingCopyleft])
+  end
+
+  test "declaring nothing is legal here and reported by the audit" do
+    assert :ok = Composer.validate!([CompA])
+    assert CompA.licensing() == []
   end
 
   ## The rest of the v5 §2.2 roster (ORC-22)

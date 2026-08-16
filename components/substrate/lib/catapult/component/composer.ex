@@ -25,6 +25,7 @@ defmodule Catapult.Component.Composer do
   here, which is what makes an env var a claimed name like a queue.
   """
 
+  alias Catapult.Component.Licensing
   alias Catapult.Component.Registries
 
   defmodule CollisionError do
@@ -46,7 +47,8 @@ defmodule Catapult.Component.Composer do
         Enum.flat_map(Registries.rows(), &registry_problems(&1, declared)) ++
         Enum.flat_map(declared, fn {c, d} -> cross_registry_problems(c, d.entries) end) ++
         config_collisions(real) ++
-        config_declarations(real)
+        config_declarations(real) ++
+        licensing_declarations(real)
 
     case problems do
       [] ->
@@ -305,6 +307,17 @@ defmodule Catapult.Component.Composer do
   # values are the boot's half, and CI cannot see them.
   defp config_declarations(components) do
     Enum.flat_map(components, &Catapult.Config.declaration_problems/1)
+  end
+
+  ## Licensing's shape, and only its shape
+
+  # The other registry outside the table (`Catapult.Component.Licensing`).
+  # Shape only, deliberately: this function runs at boot as well as under
+  # the audit, and a licensing *verdict* at boot is a node refusing to
+  # start over a question with no runtime consequence (LICENSING.md). The
+  # policy is `Catapult.Audit.License`'s, which never runs here.
+  defp licensing_declarations(components) do
+    Enum.flat_map(components, &Licensing.problems/1)
   end
 
   defp duplicates(claims, what) do
