@@ -81,7 +81,7 @@ The policy, which is ours and which another project would replace:
 | --- | --- | --- |
 | `:distributed` | Apache-2.0 | **permissive only** (Apache-2.0, MIT, BSD-2/3, ISC). A copyleft dependency here reaches every generated application; this is the rule the whole document exists for. |
 | `:service`, ours | AGPL-3.0-only | anything — we offer source, so nothing a dependency asks for is a cost we are not already paying. |
-| `:service`, proprietary (hosted tier) | proprietary | **no copyleft, pending counsel.** AGPL is out on its own terms: §13 would oblige us to offer source to our own users, defeating the point of the component being closed. Plain GPL arguably imposes nothing on a service that conveys nothing — but that is a *permission*, and the allowlist is cheap to widen and expensive to narrow once something has shipped against it, so it stays out until counsel says otherwise. |
+| `:service`, proprietary (hosted tier) | proprietary (`LicenseRef-*`) | **the same list**, and for its own reason: AGPL §13 would oblige us to offer source to our own users, defeating the point of the component being closed. Not "no copyleft" — "everything except copyleft" cannot be enumerated, so a denylist would have the check deciding the copyleft-ness of identifiers it has never seen, which is a guess running in the permissive direction. `MPL-2.0` and `EPL-2.0` are therefore outside this row until a project's list says otherwise, which is a line in one `mix.exs` rather than a release of the check. |
 | `:internal` | anything | anything |
 
 **Why a declaration is enough, without a path to back it up.** The
@@ -106,11 +106,31 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
   cannot leak into shipped artifacts through the dependency graph.
 - **Prose (this document, CLAUDE.md):** the split is a recorded
   load-bearing invariant; agents and reviewers are told.
-- **Test (planned, ticketed):** a license-inventory check in
-  `mix catapult.audit` — the dependency licenses of every
-  `components/*` project against a permissive allowlist, failing
-  the audit on violation. Filed as a backlog ticket per §4.5's
-  enforcement-gap-visibility rule.
+- **Test (exists, ORC-16):** a license-inventory check in
+  `mix catapult.audit`. Every dependency a consumer of the project
+  would fetch — the transitive closure over hex metadata already on
+  disk, offline — against **the list of SPDX identifiers the project
+  states in its own `mix.exs`**, failing the audit on any it cannot
+  place. It is armed by declaration and never by a path: a project's
+  `package: [licenses: [...]]` and its components' `licensing/0`,
+  read together, decide *whether* a tree is checked and for which of
+  the reasons in the table above; the list decides *against what*.
+  `components/substrate` states the five identifiers this document
+  already argues for, which is that argument in a form the audit can
+  read:
+
+      licensing: [allow: ~w(Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]
+
+  The list is the project's rather than the tool's because
+  `Catapult.Audit.License` ships into every generated project, and
+  five identifiers compiled into it would be our legal position
+  imposed on codebases nobody here has read. A project that states no
+  list has *declined* the check and every run says so on stdout;
+  there is no per-dependency waiver, and none is coming
+  (`docs/non-goals.md`). What the check honestly claims is that no
+  dependency in a checked tree **declares** terms nobody accepted —
+  hex metadata is the publisher's own assertion, and the counsel pass
+  below is what verification would mean.
 
 ## Contributions
 
@@ -143,12 +163,13 @@ terms are posted.
   fork keeping the name is the scenario to preclude).
 - **Dependency licenses inside a proprietary `:service` component.**
   The table above bans AGPL there on the reasoning that §13 obliges
-  an offer of source to network users, and allows plain GPL on the
-  reasoning that a hosted service conveys nothing and so triggers
-  nothing. The first is the same argument we rely on for choosing
-  AGPL ourselves and is safe to act on; the second is the one worth
-  checking, because it is a permission rather than a restriction and
-  the cost of being wrong about it is a component we cannot keep
-  closed. Treat GPL there as disallowed until counsel says otherwise
-  — the allowlist is cheap to widen and expensive to narrow after
-  something has shipped against it.
+  an offer of source to network users, which is the same argument we
+  rely on for choosing AGPL ourselves and is safe to act on. Plain
+  GPL arguably imposes nothing on a service that conveys nothing, and
+  that is the open question — but it is a *permission* rather than a
+  restriction, and the cost of being wrong about it is a component we
+  cannot keep closed, so the row holds proprietary `:service` to the
+  same list as the shipped layer until counsel says otherwise. A list
+  is cheap to widen and expensive to narrow after something has
+  shipped against it, and widening it is now one reviewed line in one
+  project's `mix.exs` rather than a change to the check.

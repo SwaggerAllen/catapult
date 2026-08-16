@@ -19,6 +19,12 @@ defmodule Mix.Tasks.Catapult.Audit do
     * **Facts spanning a registry and a tree**: a declared VM guardrail
       never applied, a declared error kind never constructed, and a
       Phoenix-bearing project with no sobelow gate.
+    * **The license inventory** (`Catapult.Audit.License`): every
+      dependency a consumer of this project would fetch, against the
+      list of SPDX identifiers the project states in its own `mix.exs`.
+      Armed by declaration — the project's `package:` and its
+      components' `licensing/0` — never by reading the tree for a
+      `components/*` directory this task ships too widely to know about.
 
   ## AST grade, and what it bought (ORC-21)
 
@@ -57,6 +63,12 @@ defmodule Mix.Tasks.Catapult.Audit do
   and an unconsumed registry's failure mode is rot rather than collision
   (systems/substrate.md).
 
+  The licensing line rides the same argument for a different reason: the
+  license check has an *inert* state — a project that states no `allow:`
+  list has declined it — and a gate whose failure mode is a clean report
+  is the thing ORC-37 was filed about. So the state it reached is on
+  stdout of every green run, armed or not.
+
   The globs are rooted at the working directory and stay that way: this
   task ships into every generated project, so the layout of any one tree
   is not a fact it may hold (docs/non-goals.md). Auditing a repo with
@@ -70,6 +82,7 @@ defmodule Mix.Tasks.Catapult.Audit do
   use Mix.Task
 
   alias Catapult.Audit.Declarations
+  alias Catapult.Audit.License
   alias Catapult.Component.Composer
   alias Catapult.Component.Registries
 
@@ -87,18 +100,21 @@ defmodule Mix.Tasks.Catapult.Audit do
     app = Mix.Project.config()[:app]
     Application.load(app)
     components = Application.get_env(app, :components, [])
+    licensing = License.audit(Mix.Project.config(), components)
 
     problems =
       registry_problems(components) ++
         Enum.flat_map(@platform_checks, &check(&1, @scope)) ++
         policy_problems(components) ++
         declaration_problems(components) ++
-        sobelow_problems()
+        sobelow_problems() ++
+        licensing.problems
 
     case problems do
       [] ->
         Mix.shell().info("catapult.audit: clean (#{length(components)} component(s))")
         census(components)
+        Mix.shell().info("  licensing: #{licensing.census}")
 
       _ ->
         Mix.raise("catapult.audit failed:\n  " <> Enum.join(problems, "\n  "))
