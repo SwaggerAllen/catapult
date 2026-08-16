@@ -75,21 +75,18 @@ The two blocks differ on one line only, and deliberately: the root's
 `mix deps.audit` is an alias running `hex.audit` first and `mix_audit`
 second (ORC-37), while substrate must not take an audit *dependency*
 (`systems/substrate.md`), so there it is `mix hex.audit` on its own.
-Four of substrate's lines — `--check-locked`, `mix hex.audit`, xref
-and `mix catapult.audit` — are green here but **not yet armed in CI**:
-`ci.yml`'s `substrate suite` step still runs the shorter set, and
-arming it is author work (conventions §2). Until it is, this block is
-the only thing running them.
 
-The compile-connected line is the second half of v5 §2.14's xref item
-(ORC-21) and **is not armed anywhere but here yet**, in either project.
-The number's home is `pipeline.config.json` → `qualityGates` and
-`ci.yml`, both author-owned by construction — which is precisely what
-makes "raising it may never happen without a reviewed change" literal
-rather than aspirational, and precisely why a ticket cannot arm it
-(`docs/non-goals.md`, `systems/foundation.md`). It is `0` in both
-projects today, measured; every later value is a concession, and the
-strongest cap this metric will ever have is the one available now.
+Every line in both blocks is armed in CI as of ORC-49 — `ci.yml`'s
+`substrate suite` step carries the full set, and `qualityGates` runs
+`mix catapult.audit.all` rather than the root-only task. So this block
+is the local mirror of what CI runs, not the only thing running any of
+it. The compile-connected line is v5 §2.14's second half (ORC-21); the
+number's home is `pipeline.config.json` → `qualityGates` and `ci.yml`,
+both author-owned by construction, which is what makes "raising it
+needs a reviewed change" literal rather than aspirational and why a
+ticket cannot arm or raise it (`docs/non-goals.md`,
+`systems/foundation.md`). It is `0` in both projects; every later value
+is a concession.
 
 Tests: no network, ever (fakes per conventions §9); `mix test`
 creates/migrates `catapult_test` via the alias. `:live`-tagged tests

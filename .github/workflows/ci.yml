@@ -79,19 +79,37 @@ jobs:
       - name: xref cycles
         run: mix xref graph --format cycles --fail-above 0
 
+      # The ratchet, armed at the only number it will ever be cheap to
+      # arm at (ORC-49). 0 is measured in both projects today; the engine
+      # is the largest influx of `use`-macro compile coupling planned, so
+      # arming after it would arm at whatever that work leaves behind.
+      # The cap also lives in `qualityGates` so raising it is a reviewed
+      # author change (docs/non-goals.md).
+      - name: xref compile-connected
+        run: mix xref graph --label compile-connected --fail-above 0
+
       - name: audit
         run: mix catapult.audit
 
       - name: test
         run: mix test
 
+      # The gate set is a property of a mix project, not of the repo
+      # (systems/substrate.md), so this block is conventions §2 in full
+      # rather than a subset. `mix hex.audit` stands alone here: at the
+      # root it rides inside the `deps.audit` alias, but substrate must
+      # not take an audit *dependency* to get one.
       - name: substrate suite
         working-directory: components/substrate
         run: |
-          mix deps.get
+          mix deps.get --check-locked
+          mix hex.audit
           mix format --check-formatted
           mix credo --strict
           mix compile --warnings-as-errors
+          mix xref graph --format cycles --fail-above 0
+          mix xref graph --label compile-connected --fail-above 0
+          mix catapult.audit
           mix test
 
       # DESIGN §9's three checks (mutex, doc lint, class) via
