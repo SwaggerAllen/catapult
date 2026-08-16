@@ -35,8 +35,64 @@ Catapult is two kinds of code with opposite licensing needs:
 | Future client corpus packages (`platform-client-ts`) and all registry-published artifacts | Apache-2.0 |
 | Everything else — `lib/`, `priv/`, `test/`, `docs/`, `systems/`, repo root | AGPL-3.0-only |
 
-New files take their directory's license. A new shipped component
-is a new `components/*` entry and is Apache-2.0 by construction.
+New files take their directory's license. **The table above is
+descriptive, not the rule** — it records where things happen to live
+today, which is a useful map and a poor policy: it cannot express a
+component that is deliberately not open source, and the hosted tier
+will have those.
+
+## Classification: declared, not inferred from a path
+
+**Every component declares two facts about itself; the project
+declares the policy over them.** The audit checks the first against
+the second, so a component in the wrong class is a build failure
+rather than a licensing surprise.
+
+The declared facts, on the component registry (v5 §2.2):
+
+- **`distribution`** — how the component reaches the people who use
+  it, which is what license obligations actually key on:
+  - **`:distributed`** — conveyed to third parties: a shipped
+    library, a published package, code generated into a customer's
+    repository. Copyleft anywhere in its dependencies propagates to
+    every recipient.
+  - **`:service`** — runs on infrastructure its operator controls and
+    is reached over a network. **AGPL §13 triggers here and plain GPL
+    does not**, which is the whole reason this is its own class
+    rather than a flavour of the one above.
+  - **`:internal`** — neither conveyed nor network-reachable: build
+    tooling, ops scripts, fixtures. Practically nothing triggers.
+- **`license`** — the SPDX identifier this component's own code
+  carries. SPDX because it is the vocabulary every other tool
+  already speaks; inventing names here would make the declaration
+  unreadable to anything but us.
+
+**The classes are deliberately not our business model.** "Shipped /
+hosted / plane" would have been shorter and would have made this
+useless to anybody else. The three above are derived from how
+licenses actually work, so a project that dual-licenses a library, or
+one that bans copyleft for procurement reasons rather than product
+ones, gets the same three classes and writes a different policy over
+them.
+
+The policy, which is ours and which another project would replace:
+
+| `distribution` | our code | dependencies |
+| --- | --- | --- |
+| `:distributed` | Apache-2.0 | **permissive only** (Apache-2.0, MIT, BSD-2/3, ISC). A copyleft dependency here reaches every generated application; this is the rule the whole document exists for. |
+| `:service`, ours | AGPL-3.0-only | anything — we offer source, so nothing a dependency asks for is a cost we are not already paying. |
+| `:service`, proprietary (hosted tier) | proprietary | **no copyleft, pending counsel.** AGPL is out on its own terms: §13 would oblige us to offer source to our own users, defeating the point of the component being closed. Plain GPL arguably imposes nothing on a service that conveys nothing — but that is a *permission*, and the allowlist is cheap to widen and expensive to narrow once something has shipped against it, so it stays out until counsel says otherwise. |
+| `:internal` | anything | anything |
+
+**Why a declaration is enough, without a path to back it up.** The
+objection to declaring is that a declaration can be wrong where a
+directory cannot. What answers it is that these registries are
+projected into the doc graph: a component's class is not a field
+buried in a module that only the compiler reads, it is part of the
+documented surface, reviewed like any other declaration and visible
+to anyone reading the architecture. A wrong class is therefore
+wrong *in public*, which is the property the path rule was providing
+and the only one it was providing.
 
 ## The policy, with its enforcement ladder
 
@@ -85,3 +141,14 @@ terms are posted.
 - Trademark: the name and marks are not licensed by any of the
   above; a trademark policy is wanted by first release (the AGPL
   fork keeping the name is the scenario to preclude).
+- **Dependency licenses inside a proprietary `:service` component.**
+  The table above bans AGPL there on the reasoning that §13 obliges
+  an offer of source to network users, and allows plain GPL on the
+  reasoning that a hosted service conveys nothing and so triggers
+  nothing. The first is the same argument we rely on for choosing
+  AGPL ourselves and is safe to act on; the second is the one worth
+  checking, because it is a permission rather than a restriction and
+  the cost of being wrong about it is a component we cannot keep
+  closed. Treat GPL there as disallowed until counsel says otherwise
+  — the allowlist is cheap to widen and expensive to narrow after
+  something has shipped against it.
