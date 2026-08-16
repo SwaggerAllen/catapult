@@ -420,6 +420,14 @@ recorded decision, and say so explicitly.
   declares no components at all, so a check armed only by component
   class would read the one tree ORC-16 was filed about, find no
   subject, and report clean. Two declarations, no glob.
+  **Third pass, for the phrase above that has since acquired a second
+  reading:** "checked when it names something the allowlist contains"
+  means the project's own list, not a platform-wide one, now that the
+  list is data each project states. Arming and standard are separate
+  facts — the declarations decide *whether* a tree is checked, the
+  list decides *against what* — and a project that arms the check
+  while stating no list is inert with a census line, per the entry
+  further down. Neither of them became a path.
 - **No exception mechanism on the license check — no ignore list, no
   `catapult:allow`, no per-dependency waiver** (ORC-16). The obvious
   symmetry is with `ignore_advisories` a few entries up, and the
@@ -439,6 +447,28 @@ recorded decision, and say so explicitly.
   genuinely worth an exception is worth replacing instead; if one ever
   is not, the argument belongs in `LICENSING.md` as a change to the
   policy, in daylight, never in the audit as a way around it.
+  **Amended at the third pass (ORC-16), and the amendment is the
+  entry's own sentence taken seriously.** Design review reversed half
+  of what the second pass wrote here: the *allowlist* is data each
+  project states in its `mix.exs`, and Catapult's five identifiers are
+  a default value rather than the rule (`systems/substrate.md`). That
+  is not the hole this entry refuses, and the two are worth reading
+  together precisely because they are the same keyword list. "This
+  dependency is copyleft and we accept it anyway" is a **waiver** —
+  per-dependency, argued once and inherited forever, read only by
+  whoever added it — and is still refused, with nothing above weakened.
+  "Our list of acceptable licenses is not yours" is a **policy
+  difference**: stated once, applied uniformly to every dependency in
+  the tree, and reviewable as a policy. The check acquires a different
+  subject; it does not switch off. The reason it had to become
+  configurable is this entry's own logic pointed at ourselves —
+  `Catapult.Audit.License` ships into every generated project, so five
+  identifiers compiled into it is Catapult's legal position imposed on
+  a codebase nobody here has read, which is the same imposition
+  this file refuses when the subject is a dependency substrate
+  declares. The line, stated once so the next pass does not have to
+  re-derive it: a project may say what terms are acceptable in its
+  tree, and may never say that one package is measured against nothing.
 - **No normalization table for license spellings, and no inference
   from LICENSE file text** (ORC-16). Matching is exact SPDX
   identifiers; anything else is unrecognized and therefore a problem,
@@ -500,7 +530,11 @@ recorded decision, and say so explicitly.
   unimportant; it is a claim that the failure has to land where a human
   is already reading, not where a deploy is already halfway out.
   Revisit condition: none. There is no license question whose answer
-  changes what a running node should do.
+  changes what a running node should do. (The check does not hold the
+  allowlist either, for an unrelated reason — see the entry on
+  `Catapult.Audit.License` below. The composer does not hold it because
+  it runs at boot; the check does not hold it because it ships into
+  other people's projects.)
 - **No `licensing/0` row in the registry roster table** (ORC-16),
   against the obvious consistency argument, and this entry exists
   because that argument is a good one. The table is one row per
@@ -543,3 +577,66 @@ recorded decision, and say so explicitly.
   component in it, whatever brought it in. Revisit condition: a real
   per-component dependency declaration in the language, which is not a
   thing mix has and not a thing to build here.
+- **No allowlist inside `Catapult.Audit.License`, and no default policy
+  applied to a project that states none** (ORC-16, third pass). The
+  check ships into every generated project and carries the *rule* — how
+  code reaches people, which classes are checked, and for which reason
+  — while the list of acceptable SPDX identifiers is data the project
+  states in its own `mix.exs`. A constant in the module is the same
+  mistake as the path rule one level in: it holds a fact about the
+  world outside the package, in a package that runs everywhere. The
+  second half matters more and is easier to lose: a project that states
+  no list is **inert with a census line saying so**, never held to
+  Catapult's five by default. A default would make every project's
+  audit print a policy verdict nobody asserted, which is the
+  undeclared-component ruling in this same ticket and the same
+  sentence — and the honest reading of a silent green run would be that
+  a legal question about someone else's codebase was answered by us.
+  The sane starting value still exists; it is emitted as literal data
+  into a generated project's `mix.exs` by `bundles/platform-elixir`
+  (`systems/platform_content.md`), which is the place a project's files
+  come from, and never as a call back into a shipped module that
+  resolves it. Revisit condition: none for the constant. The inert
+  state is worth watching — if generated projects turn out to lose the
+  block routinely, the answer is the generator asserting it, never the
+  check assuming it.
+- **No allowlist keyed by distribution class within one mix project**
+  (ORC-16, third pass), against design review's own wording ("the
+  allowlist per class is data the project states") and recorded here
+  because reversing it is a one-line change if the author wants it.
+  Dependencies are a mix project's fact — one lockfile, one `deps/`,
+  one working directory — which is the entire reason `package:` arms
+  the check. A list per class leaves a project composing a
+  `:distributed` component and a proprietary `:service` one resolving
+  to the *intersection* of two lists over one shared tree, which turns
+  strictest-wins from a total order into a merge whose result is
+  written in no file and citable in no report. That is the same defect
+  as merging config sources, refused for the config layer above and
+  refused here for the same reason. What stays per class is the *reason* a tree is checked and
+  the report line that prints it. A project genuinely needing two
+  policies needs two dependency trees, which is two mix projects, which
+  is what it already had to be. Revisit condition: a single mix project
+  with a legitimate reason to hold subjects under different lists —
+  which would be an argument that the check's subject is not the
+  project, and would want answering there rather than by adding a
+  keyed map.
+- **No classification of a license identifier as copyleft** (ORC-16,
+  third pass). The check answers two questions about an identifier —
+  is it spelled `LicenseRef-*`, and is it on the project's list — and
+  infers nothing else; there is no third bucket and no small table of
+  copyleft identifiers to produce one. This removed a row from the
+  second pass's table (*public copyleft, conveyed → unchecked*), which
+  was true about obligations and undecidable in code: the residue of a
+  project-stated list is not copyleft, it is whatever that project did
+  not write down, and reading it as copyleft leaves the tree
+  **unchecked** — an inference in the permissive direction, which is
+  the one direction this check may not fail in. It is the same refusal
+  as the normalization table above, arriving where it is
+  tempting to think we would be guessing about ourselves rather than
+  about a stranger's package. Conveying under copyleft deliberately is
+  still expressible and is now better expressed: put the identifier on
+  the project's own list, and dependencies are checked against a list
+  containing it — which catches `GPL-2.0-only` inside an
+  `AGPL-3.0-only` work, a real incompatibility the dropped row passed
+  in silence. Revisit condition: none. Every use anyone proposed for a
+  copyleft bucket is served by the project's list saying so out loud.

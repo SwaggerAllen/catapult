@@ -31,6 +31,31 @@ loader tickets carry `system:core-dsl`.
   downstream reader and pushes against category-speak; if a tier's
   output is vague, fix that tier's prompt, don't pass more context
   downstream.
+- **The layer carries the default license policy, written literally
+  into the generated project** (ORC-16). `mix catapult.audit`'s license
+  check is held to a list of SPDX identifiers the project states in its
+  own `mix.exs` (`systems/substrate.md`), and the check itself carries
+  none: an allowlist compiled into a module that ships everywhere is
+  Catapult's legal position imposed on codebases nobody here has read.
+  Somebody still has to supply the sane starting value, and that is
+  this layer's job rather than the check's — the elixir-target layer is
+  what a generated project's `mix.exs` comes from, and it is already
+  where the enforcement profiles live.
+
+  **Literally, and this is the whole of the decision.** The five
+  identifiers are emitted as data in the project's own file, readable
+  and editable in place; never as a call into a shipped module that
+  resolves them, which would put the constant back inside the check
+  with an extra hop and leave a project unable to read what it is being
+  held to. A project that edits the list is not evading a gate, it is
+  stating a policy — the distinction `docs/non-goals.md` records
+  against the per-dependency waiver, which stays refused.
+
+  Nothing here exists yet: `bundles/` arrives in Phase 3 and the check
+  lands before it, so this is recorded now for the ticket that builds
+  the layer rather than built now. Until then the only project on the
+  path is `components/substrate`, which states its own list by hand
+  because it is not a generated project.
 - **Stubbing is the instructed pattern for externally-gated scopes**
   (v5 §2.16): the arch and impl prompt material tells the generator —
   design the contract fully, type it opaquely, stub the
