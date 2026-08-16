@@ -477,3 +477,254 @@ recorded decision, and say so explicitly.
   logging call. Revisit condition: none. If the wrapper is ever found
   insufficient the answer is a narrower unwrap surface, not a deeper
   analysis.
+- **No license check that decides *which* projects to check by
+  reading the tree** (ORC-16), against the ticket's own words — "for
+  every mix project under `components/`". That is the cross-project
+  reach two entries' worth of argument already rules out, arriving
+  through a new door: a task that walks `components/*` knows where
+  this repository keeps its components, and it ships into customer
+  trees where that glob means nothing and where a permissive-deps
+  requirement is not Catapult's to impose. The sanctioned form is a
+  declaration the project makes about itself — `package: [licenses:
+  [...]]`, checked when it names something the allowlist contains,
+  inert when it names nothing (`systems/substrate.md`). That delivers
+  the ticket's stated scope as a property: the plane declares no
+  package, so its dependencies are never checked, with no exclusion
+  list for anyone to maintain. The property that makes it safe rather
+  than merely tidy is that the arming declaration is one hex already
+  demands — `mix hex.build` refuses a package with no `licenses`,
+  measured — so nothing that ships can forget it. Revisit condition:
+  none. A shipped artifact that cannot say what it is licensed under
+  has a bigger problem than the audit.
+  **Amended at the second pass (ORC-16): a second declaration joins
+  it, and the entry gets stronger rather than weaker.** Design review
+  changed the premise — `components/*` will hold components that are
+  not open source, so the directory no longer even describes the
+  shipped layer — and the answer is `licensing/0` on the component
+  (`distribution:` and `license:`), read alongside the project's
+  `package:`. Both remain declarations and neither is a path, which is
+  what this entry is about. The reason both are needed is measured and
+  is the sharpest argument the entry has: `components/substrate`
+  declares no components at all, so a check armed only by component
+  class would read the one tree ORC-16 was filed about, find no
+  subject, and report clean. Two declarations, no glob.
+  **Third pass, for the phrase above that has since acquired a second
+  reading:** "checked when it names something the allowlist contains"
+  means the project's own list, not a platform-wide one, now that the
+  list is data each project states. Arming and standard are separate
+  facts — the declarations decide *whether* a tree is checked, the
+  list decides *against what* — and a project that arms the check
+  while stating no list is inert with a census line, per the entry
+  further down. Neither of them became a path.
+- **No exception mechanism on the license check — no ignore list, no
+  `catapult:allow`, no per-dependency waiver** (ORC-16). The obvious
+  symmetry is with `ignore_advisories` a few entries up, and the
+  symmetry is false: an advisory is imposed on us by the world and
+  frequently has no action until an upstream we do not control cuts a
+  release, whereas nobody imposes a dependency on anyone. It is the
+  one supply-chain fact that is entirely our own choice, so the fix
+  for a copyleft dependency in the shipped layer is not taking it,
+  and a waiver could only ever be spent breaking the rule
+  `LICENSING.md` calls the single most important one in it. This is
+  the same line `external: true` draws — an escape exists where an
+  outside party imposes a name on us and nowhere else. The overrides
+  file is not a hole in this: it supplies a *license*, read by a human
+  out of a package's own LICENSE, and that license is then checked
+  like any other, so an override naming `GPL-3.0-only` fails the build
+  exactly as the metadata would have. Revisit condition: a dependency
+  genuinely worth an exception is worth replacing instead; if one ever
+  is not, the argument belongs in `LICENSING.md` as a change to the
+  policy, in daylight, never in the audit as a way around it.
+  **Amended at the third pass (ORC-16), and the amendment is the
+  entry's own sentence taken seriously.** Design review reversed half
+  of what the second pass wrote here: the *allowlist* is data each
+  project states in its `mix.exs`, and Catapult's five identifiers are
+  a default value rather than the rule (`systems/substrate.md`). That
+  is not the hole this entry refuses, and the two are worth reading
+  together precisely because they are the same keyword list. "This
+  dependency is copyleft and we accept it anyway" is a **waiver** —
+  per-dependency, argued once and inherited forever, read only by
+  whoever added it — and is still refused, with nothing above weakened.
+  "Our list of acceptable licenses is not yours" is a **policy
+  difference**: stated once, applied uniformly to every dependency in
+  the tree, and reviewable as a policy. The check acquires a different
+  subject; it does not switch off. The reason it had to become
+  configurable is this entry's own logic pointed at ourselves —
+  `Catapult.Audit.License` ships into every generated project, so five
+  identifiers compiled into it is Catapult's legal position imposed on
+  a codebase nobody here has read, which is the same imposition
+  this file refuses when the subject is a dependency substrate
+  declares. The line, stated once so the next pass does not have to
+  re-derive it: a project may say what terms are acceptable in its
+  tree, and may never say that one package is measured against nothing.
+- **No normalization table for license spellings, and no inference
+  from LICENSE file text** (ORC-16). Matching is exact SPDX
+  identifiers; anything else is unrecognized and therefore a problem,
+  resolved by an override entry a reviewer reads. The cost is
+  measured and, once the class rules landed, zero on this tree:
+  `cowboy_telemetry` declares `["Apache 2.0"]`, which no amount of
+  being obviously fine makes an SPDX identifier — but it is a plane
+  dependency, and the plane is a public-licensed service and therefore
+  unchecked, so no override exists on landing. The near-miss is kept
+  here as the illustration it always was. The cheaper fix is refused
+  because its failures run silent and in the permissive
+  direction. A table that maps "Apache 2" teaches its next
+  reader that near-misses are handled, and the next near-miss is a
+  string like `GPL-2.0-with-classpath-exception`, whose distance from
+  `GPL-2.0-only` is the entire question the check exists to ask. Text
+  inference is the same defect with a bigger surface: a fuzzy match
+  over prose, deciding a legal question, with no line in the diff
+  where a human agreed. Revisit condition: none — an override costs
+  one line and one reading, and the readings are rare by construction
+  (zero in the checked closure today).
+- **No per-file license headers, for now** (ORC-16, carrying the
+  ticket's own deferral so it is not re-proposed as the obvious
+  adjacent win). The inventory check answers what the *dependencies*
+  impose; what carries attribution for our own files — headers in
+  every source file, or a `NOTICE` file at each project root — is a
+  separate decision with a real cost either way, and taking it now
+  would mean stamping thousands of lines against a posture counsel
+  has not reviewed. Revisit condition, and it is dated rather than
+  open: the repository opening to outside contributions, which is
+  when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
+  attribution question has to be answered anyway.
+- **No fourth distribution class and no `proprietary:` flag beside the
+  license** (ORC-16). `distribution/0`'s vocabulary stays the three the
+  review named — `:distributed`, `:service`, `:internal` — and the
+  "ours versus proprietary" split the `:service` rules turn on is read
+  off the declared identifier instead: SPDX already spells "no listed
+  license applies" as `LicenseRef-<id>`. A `:proprietary_service`
+  class, or a boolean riding alongside, would be a second place to
+  state a fact the identifier already states, and two places that can
+  disagree is how a check ends up enforcing the wrong rule with
+  complete confidence. It also keeps the vocabulary describing *how
+  code reaches people*, which is what obligations key on and what makes
+  the three classes legible to someone who has never heard of
+  Catapult's business model — the property the review picked them for.
+  Revisit condition: a real licensing consequence that turns on
+  something other than conveyance, network use or neither, which would
+  be a fourth way code reaches people rather than a fourth adjective
+  for the same three.
+- **No licensing verdict at boot, and no allowlist inside the
+  composer** (ORC-16). The composer validates that `licensing/0` is
+  well-formed, exactly as it does every other declaration and for the
+  same reason (it needs no environment); it never holds the allowlist
+  and never decides whether a license passes. Reason: the composer runs
+  at boot as well as under the audit, so an allowlist there means a
+  production node refusing to start because a transitive dependency's
+  license string is unrecognized — a catastrophic response to a
+  question with no runtime consequence at all. The severity that fits a
+  legal fact is CI red. This is not a claim that the check is
+  unimportant; it is a claim that the failure has to land where a human
+  is already reading, not where a deploy is already halfway out.
+  Revisit condition: none. There is no license question whose answer
+  changes what a running node should do. (The check does not hold the
+  allowlist either, for an unrelated reason — see the entry on
+  `Catapult.Audit.License` below. The composer does not hold it because
+  it runs at boot; the check does not hold it because it ships into
+  other people's projects.)
+- **No `licensing/0` row in the registry roster table** (ORC-16),
+  against the obvious consistency argument, and this entry exists
+  because that argument is a good one. The table is one row per
+  *name-claiming* registry, and its `:claim` and `:identity` columns
+  are the reason it exists: two components declaring `Apache-2.0` is
+  the ordinary case rather than a collision, so a licensing row would
+  carry two empty columns and the fold over `rows/0` would need to skip
+  it — the `function_exported?/3` guard the no-optional-callbacks entry
+  refused, arriving as a table row instead of a callback. The shape
+  does not fit either: a keyword list *is* a list of two-tuples, so a
+  table-driven aggregator reads one declaration as two entries. It sits
+  beside `config/0` on `config/0`'s own recorded criterion — a
+  consumer, and error messages worth their specificity. Revisit
+  condition: a second declaration of this shape, at which point the
+  argument is for a small table of component-scalar facts and never for
+  folding them into the claims table.
+- **No defaulted distribution class for a component that declares
+  none** (ORC-16). Defaulting to `:distributed` is the safe direction
+  for the dependency half and is ruled out anyway, because the pair
+  cannot be half-defaulted — there is no license a component "probably"
+  carries, and a defaulted class paired with an absent identifier makes
+  the component's self-check a verdict about nothing. The deciding
+  reason is the other one: a default makes every project's audit print
+  a policy verdict nobody asserted, which is a check that passed
+  without checking anything, and removing exactly that from the ladder
+  is the ticket. An undeclared component is reported instead, at audit
+  time, alongside every other structural absence — not at compile time,
+  since the overridable empty default stays (`errors/0`'s required
+  `remedy:` is the same treatment). Revisit condition: none. A
+  component whose author will not say who receives it is the case the
+  check was built for, not a case for the check to guess at.
+- **No per-component attribution of dependencies** (ORC-16). The check
+  does not try to work out which component pulled `plug` in, and a
+  project's dependency policy is instead the strictest among every
+  subject it composes. Reason: mix has no per-component dependency
+  declarations, so any attribution would be a call-graph guess made
+  offline, and its errors would run in the permissive direction — the
+  one direction this check may not fail in. The shared-tree fact is
+  also simply true: every dependency in a project is available to every
+  component in it, whatever brought it in. Revisit condition: a real
+  per-component dependency declaration in the language, which is not a
+  thing mix has and not a thing to build here.
+- **No allowlist inside `Catapult.Audit.License`, and no default policy
+  applied to a project that states none** (ORC-16, third pass). The
+  check ships into every generated project and carries the *rule* — how
+  code reaches people, which classes are checked, and for which reason
+  — while the list of acceptable SPDX identifiers is data the project
+  states in its own `mix.exs`. A constant in the module is the same
+  mistake as the path rule one level in: it holds a fact about the
+  world outside the package, in a package that runs everywhere. The
+  second half matters more and is easier to lose: a project that states
+  no list is **inert with a census line saying so**, never held to
+  Catapult's five by default. A default would make every project's
+  audit print a policy verdict nobody asserted, which is the
+  undeclared-component ruling in this same ticket and the same
+  sentence — and the honest reading of a silent green run would be that
+  a legal question about someone else's codebase was answered by us.
+  The sane starting value still exists; it is emitted as literal data
+  into a generated project's `mix.exs` by `bundles/platform-elixir`
+  (`systems/platform_content.md`), which is the place a project's files
+  come from, and never as a call back into a shipped module that
+  resolves it. Revisit condition: none for the constant. The inert
+  state is worth watching — if generated projects turn out to lose the
+  block routinely, the answer is the generator asserting it, never the
+  check assuming it.
+- **No allowlist keyed by distribution class within one mix project**
+  (ORC-16, third pass), against design review's own wording ("the
+  allowlist per class is data the project states") and recorded here
+  because reversing it is a one-line change if the author wants it.
+  Dependencies are a mix project's fact — one lockfile, one `deps/`,
+  one working directory — which is the entire reason `package:` arms
+  the check. A list per class leaves a project composing a
+  `:distributed` component and a proprietary `:service` one resolving
+  to the *intersection* of two lists over one shared tree, which turns
+  strictest-wins from a total order into a merge whose result is
+  written in no file and citable in no report. That is the same defect
+  as merging config sources, refused for the config layer above and
+  refused here for the same reason. What stays per class is the *reason* a tree is checked and
+  the report line that prints it. A project genuinely needing two
+  policies needs two dependency trees, which is two mix projects, which
+  is what it already had to be. Revisit condition: a single mix project
+  with a legitimate reason to hold subjects under different lists —
+  which would be an argument that the check's subject is not the
+  project, and would want answering there rather than by adding a
+  keyed map.
+- **No classification of a license identifier as copyleft** (ORC-16,
+  third pass). The check answers two questions about an identifier —
+  is it spelled `LicenseRef-*`, and is it on the project's list — and
+  infers nothing else; there is no third bucket and no small table of
+  copyleft identifiers to produce one. This removed a row from the
+  second pass's table (*public copyleft, conveyed → unchecked*), which
+  was true about obligations and undecidable in code: the residue of a
+  project-stated list is not copyleft, it is whatever that project did
+  not write down, and reading it as copyleft leaves the tree
+  **unchecked** — an inference in the permissive direction, which is
+  the one direction this check may not fail in. It is the same refusal
+  as the normalization table above, arriving where it is
+  tempting to think we would be guessing about ourselves rather than
+  about a stranger's package. Conveying under copyleft deliberately is
+  still expressible and is now better expressed: put the identifier on
+  the project's own list, and dependencies are checked against a list
+  containing it — which catches `GPL-2.0-only` inside an
+  `AGPL-3.0-only` work, a real incompatibility the dropped row passed
+  in silence. Revisit condition: none. Every use anyone proposed for a
+  copyleft bucket is served by the project's list saying so out loud.
