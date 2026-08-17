@@ -1771,11 +1771,16 @@ dissolved by giving every feedback type a home:
    the artifact set *is* a doc diff on the feature PR, so artifact
    feedback is line-anchored PR review comments. **Harvesting rule:**
    on a gate decline (state moved back), the plane collects review
-   comments since the last gate, buckets them by the artifact file
-   span they anchor to, and threads each bucket into that scope's
-   regeneration as `feedback`. Machine comments carry fixed markers
-   (orchestration's programmatic-comment rule); anything unmarked in
-   the diff span is human feedback.
+   comments since the last gate, buckets them by the artifact span
+   they anchor to, and threads each bucket into that scope's
+   regeneration as `feedback`. **How machine and human comments are
+   told apart now depends on the surface.** On surfaces we own,
+   plane-authored annotations are *records with kinds* and no prose
+   is parsed — the marker rule is retired there (`docs/ui-spec.md`,
+   `systems/delivery.md`). On GitHub PRs, which we do not own,
+   machine comments still carry fixed markers and anything unmarked
+   in the diff span is human feedback: the original reason holds
+   exactly where the store is somebody else's.
 3. **Preview URLs / storybook exports** — visual review, per branch.
 4. **The docs site** — human browsing of settled architecture.
 
@@ -2088,12 +2093,28 @@ be declared at the member, with the protocol defining only the slots:
   scopes with this phase within this flow instance). Scaffolding
   keeps its v4 status as "a flow with an empty delta" — the base
   schema wearing a ticket face.
-- **Spawn is a plane rule, not a declaration.** Spawning attaches to
-  the *Building transition*, not to fanout edges: at entry to
-  Building, spawn children partitioned by the fanout structure of the
-  impacted scope set (plan/staleness data), one child per impacted
-  component, nesting to subcomponents only where the plan proves
-  independent parallel work; ticket type follows nesting depth.
+- **Spawn is a plane rule, not a declaration.** Spawning is
+  partitioned by the fanout structure of the impacted scope set
+  (plan/staleness data), one child per impacted component, nesting to
+  subcomponents only where the plan proves independent parallel work;
+  ticket type follows nesting depth.
+  **Amended: children are created when the plan node names them, not
+  at the Building transition** (`docs/ui-spec.md` §3.1). The reason
+  is review, not display: the ticket and ticket-graph screens carry
+  per-child artifacts and per-child comment history, and those
+  screens are only useful for *reviewing* a design if the children
+  exist while the design is still under review. Spawning at Building
+  means the fan-out first appears after every gate it should have
+  informed.
+  **Creation is not dispatchability.** A child created at plan time
+  enters a pre-queue state and becomes queue-eligible only when its
+  parent's design gates have passed; otherwise agents would start
+  work against an unreviewed design, which is the failure this
+  ordering exists to prevent. Two things need care and are called out
+  rather than assumed: the blocking relation (§7.2's child-blocks-
+  parent, which is about completion) must not be read as dispatch
+  gating, and a boundary-style `openBlockerFor` check must not treat
+  early children as blockers that prevent the parent's own dispatch.
   Product-tier fanouts never spawn because product tiers generate
   under gate phases, not Building. The grain rule is a platform
   constant.

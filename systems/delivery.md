@@ -26,9 +26,16 @@ milestones with the `:live` boundary step, the maintenance watcher).
   §7.1). Human actions arrive as commands; validate-or-revert, with
   the plane's record as ground truth. No plane behavior may depend
   on tracker state it didn't project.
-- **Every comment the plane relies on carries a fixed marker**
-  (orchestration §9's rule, kept verbatim): counts and resumes
-  parse markers, never prose.
+- ~~**Every comment the plane relies on carries a fixed marker.**~~
+  **Retired for surfaces we own** (v5 §7.17, `docs/ui-spec.md`).
+  Markers existed because an external tracker had nowhere to put
+  typed data, so protocol state rode in prose behind a prefix and
+  counts and resumes parsed it. Owning the tracker removes the
+  premise: **plane-authored annotations are records with kinds**, and
+  nothing parses prose to find them. The rule survives verbatim on
+  surfaces we do not own — GitHub PR comments — where the original
+  reason still holds, and orchestration keeps it wholesale since it
+  has no store of its own.
 - **Intent → idempotent effect → observed completion** (v5 §7.1):
   no external effect shares a transaction with an event. Outbound
   acts record intent, execute via outbox workers, and complete only

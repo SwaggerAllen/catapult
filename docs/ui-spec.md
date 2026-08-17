@@ -42,9 +42,13 @@ This is that inventory, and §2 is that rule.
    temptation is never "build a whole tracker", it is "add one field
    here", and a field here is vocabulary.
 3. **Every screen answers a named question or performs a
-   protocol-defined action.** Explain-why over dashboards-of-numbers
-   (`systems/dashboard.md`). A screen that exists to look
-   comprehensive is refused.
+   protocol-defined action.** A screen that exists to look
+   comprehensive is refused. Numbers are in-bounds where they *are*
+   the answer — instance health is a numeric determination and
+   throughput is evidence — but a number never substitutes for
+   explain-why on "why is nothing happening" (§3.3). The old
+   formulation, "explain-why over dashboards-of-numbers", overshot:
+   the target was decoration, not measurement.
 
 ---
 
@@ -53,15 +57,35 @@ This is that inventory, and §2 is that rule.
 ### 3.1 Work surface
 
 **`my-queue`** — the inbox, and the most important screen here.
-Cross-project list of tickets where *this human holds the ball*,
-derived from status ownership rather than from assignment (§7.11:
-assignment renders who-has-the-ball, the plane never reads it).
+**Two tabs, because they are two different questions.**
 
-- tickets in author-owned statuses this user's roles can act on
-- blocked tickets whose origin status this user owns
-- grouping by action needed: *sign off*, *unblock*, *triage*, *decide*
-- empty state is a real state and says so — an empty queue means the
-  machine has the ball, and the screen links to `explain-why`
+- **Assigned** — tickets assigned to *you*, directly. This is the
+  delegation view, and it is the default. §7.11 already makes room
+  for it: assignment is derived on state entry, and "a human
+  reassignment within an author-owned state is delegation, respected
+  until the next state entry re-derives". Reading assignment here is
+  a *rendering* concern; §7.11's rule that the plane never reads
+  assignees governs dispatch and protocol decisions, which this is
+  not.
+- **My roles** — tickets sitting in statuses one of your roles owns,
+  whether or not anyone is assigned. The "could I unblock something"
+  view, and the one that works before delegation has happened.
+
+**The action-needed set is enumerated, and it is short** — these are
+the only three things the plane asks a human to do:
+
+- **sign off** — a review status whose role you hold: approve, or
+  throw back to a declared exit
+- **unblock** — a blocked ticket whose origin status you own: the
+  prerequisite is done, choose the return (§7.19)
+- **triage** — machinery-filed work awaiting batch-accept (§7.3)
+
+Nothing else is emitted. In particular there is no *decide* action:
+decisions arrive as one of the three above or as a PR, and an action
+type with no emitter is a screen looking comprehensive (§2, rule 3).
+
+Empty state is a real state and says so — an empty queue means the
+machine has the ball, and the screen links to `explain-why`.
 
 **`board`** — swim lanes for one project, the daily surface.
 
@@ -72,9 +96,29 @@ assignment renders who-has-the-ball, the plane never reads it).
 - **blocked tickets group under the status that kicked them**, not
   in a lane of their own — origin comes from the log, no comment
   stamping (§7.6, §7.19)
-- fan-out depth as a visible axis: top level, components,
-  subcomponents
 - filters: type, label, milestone, mutex label, assignee
+
+**Fan-out collapses, and collapsed is the default.** A declared
+workflow can have many statuses and a fan-out can have many children,
+so the unabridged board is unreadable by construction. Within a lane,
+children group under their top-level ticket and render as one
+roll-up; subcomponents group under their component the same way.
+**The first thing the board answers is which top-level tickets are in
+flight and what state their components are in** — everything below
+that is expansion, not default content. Note the grouping is *per
+lane*: one feature's components legitimately sit in several lanes at
+once, so each lane rolls up only the children it holds.
+
+**Lanes abbreviate to the ones you have standing in** — lanes your
+roles own, plus lanes currently holding your tickets. The full set is
+one control away and is the exception, not the view.
+
+**Cards carry pass-forward and pass-back directly.** With lanes
+abbreviated and fan-outs collapsed, the common action has to be
+reachable without opening a ticket; the controls are the same two
+transitions the ticket screen offers, under the same
+compare-and-swap (§7.16), so a stale card fails the same way and says
+who moved it.
 
 **`ticket`** — one ticket, the detail and action surface.
 
@@ -86,23 +130,47 @@ assignment renders who-has-the-ball, the plane never reads it).
 - **blocked**: flavor label, origin status, and the return control —
   defaulting to the origin, with the earlier-prefix as a picker
   (§7.19); never forward
-- **comments with marker-filtered tabs** — the pipeline's own marker
-  comments (`[pipeline:v1:…]`) separated from human discussion rather
-  than interleaved. This is the concrete want that started the
-  tracker reversal, and it is nearly free once comments are events
 - child roll-up, blocking relations, linked PRs and runs
 - optimistic-concurrency feedback: a rejected transition names who
   moved it and where (§7.16), rendered as a conflict at the point of
   action rather than a revert comment afterwards
 
-**`ticket-graph`** — the fan-out under one top-level ticket.
+**The swim-lane navigator is the ticket's spine.** The lanes this
+ticket has passed through are the navigation, not a separate history
+tab:
 
-- the ticket tree as the projection of the doc DAG's fan-out it
-  actually is (§7.2): feature → component children → subcomponent
-  grandchildren
-- status and depth per node; blocking edges drawn
+- **a generation lane** opens that lane's *generations* — every pass
+  this ticket made through that step, the diff between consecutive
+  ones, and the comments that sat between them. Regeneration history
+  becomes legible as a sequence rather than as a scrolled log.
+- **a review lane** opens the comments left at that step across the
+  ticket's whole life — every time it passed through, including
+  re-entries after a throwback.
+
+**The governing rule: a comment is always rendered in the context of
+what it comments on, or links to it.** No orphan comment stream.
+This is what the marker tabs were reaching for, and it is a better
+answer than filtering a flat list.
+
+**`ticket-graph`** — everything one top-level ticket touches, in
+both directions.
+
+- **downstream**: the ticket tree as the projection of the doc DAG's
+  fan-out it actually is (§7.2) — feature → component children →
+  subcomponent grandchildren, with status and depth per node and
+  blocking edges drawn
+- **upstream**: the graph nodes this ticket's work reads — the
+  handles and fragments its context walks consume — so "what does
+  this depend on" is answerable without leaving the ticket
+- **and what it makes stale**: downstream consumers of the artifacts
+  it changes, which is the staleness projection (§7.11) rendered as
+  neighbourhood rather than as a list
+- **a doc and comment navigator, on the same swim-lane spine as the
+  ticket screen**: every change related to this top-level ticket,
+  filterable down to a single connected node. The whole-feature view
+  of what the ticket screen shows for one ticket.
 - one of the two reasons the native surface is *better* rather than
-  merely available (§7.17) — a general tracker cannot easily draw it
+  merely available (§7.17) — a general tracker cannot draw any of it
 - read-only; every action opens the ticket
 
 **`milestone`** — commitment and boundary progress.
@@ -169,9 +237,31 @@ gates run, result.
 **`staleness`** — what is stale and *why*, derived, never a stored
 flag (§7.11). Includes passed gates gone stale (§7.19).
 
-**`health`** — the machine-shaped alert set mirrored (§7.4): signal
-silence, dispatch-budget warn/cutoff, bindings-credential expiry,
-deploy-detection anomalies, restore/cutover lifecycle states.
+**`health`** — instance health, which is a **numeric** determination
+and is rendered as one: queue depth and age, dispatch concurrency
+against the per-instance cap (§7.12.1), run success and retry rates,
+webhook and sweep liveness, error rates by class, storage and event
+-log growth. On top of the numbers, the machine-shaped alert set
+mirrored (§7.4): signal silence, dispatch-budget warn/cutoff,
+bindings-credential expiry, deploy-detection anomalies,
+restore/cutover lifecycle states.
+
+**`metrics`** — throughput and cycle time, over time. Distinct from
+`health`: health asks *is the instance well*, metrics asks *is the
+system delivering*, and the second is how the platform's value gets
+demonstrated rather than asserted.
+
+- cycle time per ticket and per stage — how long work sits in each
+  status, which is where a badly placed review gate becomes visible
+- review latency per gate and per role, the number that tells an
+  organization its own workflow is the bottleneck
+- throughput: tickets and scopes completed per period, by type
+- regeneration counts and throwback rates per gate — high throwback
+  at one gate is a design problem upstream of it
+- staleness volume and age
+- filterable by project, milestone, ticket type and depth; every
+  chart drills through to the tickets behind it, because a number
+  you cannot open is decoration (rule 3)
 
 ### 3.4 Configuration and ops
 
@@ -288,8 +378,14 @@ Recorded so nobody adds them back as conveniences:
 - **Line-anchored review of prose artifacts.** Superseded by
   per-sentence anchoring; code review stays line-anchored in the PR,
   where it belongs.
-- **Dashboards of numbers.** Explain-why instead
-  (`systems/dashboard.md`).
+- **Marker-prefixed comments as a protocol mechanism.** Retired here
+  (§3.1): markers existed because an external tracker had nowhere to
+  put typed data. Plane-authored annotations are records with kinds;
+  parsing prose for `[pipeline:v1:…]` is not a thing this UI does.
+  Markers survive only on surfaces we do not own — GitHub PR
+  comments — where the original reason still holds.
+- **An orphan comment stream.** Every comment renders against what it
+  comments on, or links to it (§3.1).
 - **An inbound write path from a mirrored tracker**
   (`docs/non-goals.md`) — nothing in this UI presents external
   tracker state as authoritative.

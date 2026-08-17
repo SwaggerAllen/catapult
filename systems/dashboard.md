@@ -49,7 +49,14 @@ conventions §13).
   through the normal entry machinery, review stays in the PR). The
   composer never bypasses a gate.
 - **"Why is nothing happening" must be answerable in minutes** — the
-  design bar for every view. Explain-why over dashboards-of-numbers.
+  design bar for every view, and explain-why is what answers it, not
+  a number. **But numbers are in-bounds where they are the answer**
+  (`docs/ui-spec.md` §2, §3.3): instance health is a numeric
+  determination, and throughput and cycle time are how the platform's
+  value is demonstrated rather than asserted. The earlier phrasing —
+  "explain-why over dashboards-of-numbers" — overshot; the target was
+  decoration, not measurement. The test that replaces it: a number
+  you cannot drill through to the tickets behind it is decoration.
 - **LiveView + daisyUI, stateless presentational components** —
   orchestration's assumed stack, deliberately, so its design agent
   and storybook export machinery work on our own UI.
