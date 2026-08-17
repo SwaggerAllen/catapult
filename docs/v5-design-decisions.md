@@ -907,11 +907,43 @@ delivery machinery only.
 
 ### 3.1 The registry
 
-**Self-hosted, hex-compatible** (the `mini_repo` pattern): generated
-projects consume shared components with ordinary `mix deps` machinery;
-packages publish from Catapult's monorepo, not hex.pm. Notifications /
-push-on-release: not needed yet; the seam is designed so the registry
-can grow into serving handle diffs and release notifications later.
+**Git for distribution; public hex.pm for public publishing.**
+Revised from the original `mini_repo` decision (self-hosted
+hex-compatible registry, packages published from the monorepo rather
+than hex.pm), which is struck rather than deleted because the
+reasoning is worth keeping: it was made for *components*, and it
+silently became the assumed answer for bundles and policy packs,
+which were never in the registry's artifact list at all.
+
+The two things hex does that git cannot are **retirement and advisory
+signalling** (`mix hex.audit`, armed in CI and load-bearing) and
+**real version resolution across a diamond**. Both matter for public
+code consumed by strangers. Neither earns its keep here: §3.1's
+single release train designs the diamond away (*"which auth works
+with which catapult"* is a non-question by construction), and
+Catapult's own components appear in no advisory database — third-
+party deps, which remain ordinary hex packages, keep their audit
+coverage untouched. What hex was being bought for — **private,
+org-blessed registries** — git provides as ordinary private repos,
+so that argument never favored hex to begin with.
+
+What git adds is the thing the artifacts actually need: **fork, tailor,
+and merge upstream later.** Hex has no merge story; a fork is a
+permanent exile. That lifecycle is normal for bundles and policy
+packs, and — see §3.5 — legitimate for components too.
+
+**Public artifacts still publish to hex.pm**, where ecosystem
+discovery, `hex.audit` for consumers, and docs hosting are real and
+free. The split is by *audience*, not by artifact kind: public goes
+to hex, everything internal and org-private lives in git.
+
+**Distribution is independent of the forge** (§7.17). Git-based
+distribution works on whatever forge a customer already uses and does
+**not** require Gitea; the two decisions were briefly entangled and
+are hereby separated. Keeping the registry off the forge is what
+keeps the forge a cheap swap — an artifact store riding the forge
+would relocate every customer's artifacts on a forge migration, not
+just their code.
 
 **Monorepo, single release train, per-component semver.** All shared
 components live in the Catapult repo; every release publishes all
@@ -977,7 +1009,30 @@ discipline as the predicate language, deliberately not expressions.
 ### 3.5 Governance
 
 - The dev agent never edits shared-component code — structurally
-  guaranteed (hex dep, outside the repo tree, outside file maps).
+  guaranteed (a dependency, outside the repo tree, outside file
+  maps). The guarantee rests on *being a dependency*, not on being a
+  hex one, so it survives §3.1's move to git unchanged — a mix git
+  dep resolves into `deps/` exactly as a hex package does. What would
+  break it is **vendoring** a component into the project tree, which
+  is therefore not a supported shape.
+- **Forking a component is legitimate, and is an org act rather than
+  a project act.** Revised: an earlier draft called forking
+  pathological, which was wrong and contradicted the record —
+  `LICENSING.md` puts `components/**` under Apache-2.0 precisely so
+  it ships into generated projects, and §2.9 already builds in a
+  pluggable principal for projects with domain-native identity. Auth
+  is the likeliest fork of all: bespoke SSO, legacy password hashes,
+  jurisdictional requirements. The distinction that keeps §2.9's
+  anti-drift argument intact is *where the fork lives*: forking
+  produces **a different component, maintained as its own repo and
+  consumed as a dependency**, never editable-in-place project code.
+  Per-project divergence is still what §2.9 rejects ("N projects with
+  drifting unpatchable auth code"); one org maintaining one deliberate
+  fork is a different thing and an honest one.
+- **The fork's cost is stated, not hidden:** you own that component's
+  security patches from then on, and handle diffing (below) is how you
+  learn what upstream changed while you were away. That is exactly the
+  merge-upstream lifecycle §3.1 chose git for.
 - Push-back channel: a project's pipeline discovering a shared
   component is wrong files a **cross-project upward finding** — an
   issue against Catapult's own tracker. Designed escape hatch, not
