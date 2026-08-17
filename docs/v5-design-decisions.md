@@ -1442,8 +1442,12 @@ checks what a project declares**:
   (conventions, grammars for permission/process-inventory blocks,
   template tiers, external-node declarations, audit grammar) that
   project bundles inherit and overlay. Without it every project forks
-  the convention corpus. The delivery DSL section (§7) also ships from
-  this layer.
+  the convention corpus. ~~The delivery DSL section (§7) also ships
+  from this layer.~~ **Corrected at §7.18:** delivery ships from a
+  platform *workflow* layer, on the other axis. Shipping it from the
+  language layer would tie the workflow vocabulary to one target
+  stack, and the whole point of the chain/workflow split is that one
+  organization's workflow spans decompositions that differ by stack.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
   source for shared prompt framing across the six architecture tiers;
   per-tier files for what differs. (Siege's `_shared.py` pattern,
@@ -2763,6 +2767,60 @@ they must never become repo content. The tempting error runs in both
 directions: an endpoint in the bundle breaks the hosted BYO rule
 (§8's constraint 1), and a gate in the bindings puts a generation
 input outside version control, which §7.10's test exists to prevent.
+
+**The decomposition and the workflow are separately importable, and
+this is load-bearing rather than a convenience.** A project imports
+two bundles: a **chain bundle** (the doc graph — tiers, edges, flows,
+prompts, schemas: what the agents do) and a **workflow bundle** (the
+human cycle — gates, review states, environments). The driving case
+is an organization whose two projects need different decompositions
+under one shared workflow, and it gets more common with each language
+binding: decomposition tracks the target stack, while review and
+deployment track the organization. Welding them into one artifact
+forces a fork of the workflow per stack, which is the failure this
+split exists to prevent.
+
+**One language, two documents.** This is not a second bundle system
+(§9 again): same loader, same validation pass, same `extends:`
+semantics. `catapult.yaml` names one of each instead of one bundle,
+and a bundle manifest declares its `kind`. The declaration kinds a
+workflow bundle contains are registered exactly like any other
+(`dsl-syntax.md` §12).
+
+**The invariant that makes the split real: the dependency runs one
+way. A chain names gates; a workflow never names a tier.** A workflow
+that reached back into the decomposition — gating a named tier,
+sequencing by tier — could not be shared across two decompositions,
+which is the entire use case. So the join stays where §7.10 already
+put it: a tier's `delivery:` block names the gate that approves it,
+and that name is a cross-bundle reference the loader resolves. The
+workflow's gate names are its published interface; chains bind
+against them.
+
+**The required-gate set is derived, never declared.** The temptation
+is a `requires_gates:` list in the chain manifest so compatibility is
+checkable at a glance. That is a hand-maintained inventory mirroring
+the tiers, and `docs/non-goals.md` refuses those on the grounds that
+they drift silently. The loader computes the set from the tiers'
+`delivery:` annotations and reports a chain/workflow mismatch the
+same way it reports any unresolved cross-reference — all problems at
+once (§13).
+
+**`extends:` layers within an axis and never across it.** Each axis
+has its own base layer, and a chain extending a workflow (or the
+reverse) is a load error. This corrects §6's bundle-layering bullet,
+which had the delivery DSL shipping from the `platform-elixir` layer:
+that is exactly the weld this section breaks, because it would tie
+the workflow vocabulary to one language binding. Delivery ships from
+a platform *workflow* layer, which is also where the default gates
+(a UX review and an engineering review) and the default environments
+(`dev`, `staging`) live.
+
+**A consequence worth keeping straight: the `runtime` dialect loads
+no workflow bundle at all.** §12 defines it as having no review
+lifecycle and no git bodies, so a workflow bundle there is not merely
+unused but incoherent, and the loader should say so rather than
+accept it.
 
 **Two recorded absences have to narrow to admit this**, the same
 narrowing `docs/non-goals.md` took at §7.16 and for the same reason:

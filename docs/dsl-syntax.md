@@ -16,10 +16,17 @@ core is frozen; growth happens in extensions** (§12 below).
 
 ## 1. On-disk layout
 
+A project loads **two bundles on two independent axes** (v5 §7.18): a
+**chain** bundle (the doc graph — what the agents build) and a
+**workflow** bundle (the human cycle — gates, review states,
+environments). Same language, same loader, separate files, imported
+separately, so one organization's workflow can span decompositions
+that differ by target stack.
+
 ```
-catapult.yaml                  # repo root: pins the active bundle
-bundles/<name>/
-  bundle.yaml                  # registry: name, version, extends, file lists
+catapult.yaml                  # repo root: pins one bundle per axis
+bundles/<name>/                # kind: chain
+  bundle.yaml                  # registry: name, version, kind, extends, files
   tiers/<tier>.yaml            # one file per tier declaration
   edges/<edge>.yaml            # one file per named edge instance
   predicates.yaml              # optional: named predicates
@@ -29,12 +36,17 @@ bundles/<name>/
   schemas/<name>.xsd           # body grammars referenced by tiers
   flows/<flow>/flow.yaml       # one directory per flow
   flows/<flow>/<prompt>.md.liquid
+bundles/<name>/                # kind: workflow
+  bundle.yaml
+  gates/<gate>.yaml            # one file per declared review gate
+  environments/<env>.yaml      # one file per deployment environment
 ```
 
 `catapult.yaml`:
 
 ```yaml
-bundle: default          # directory name under bundles/
+chain: default           # directory name under bundles/, kind: chain
+workflow: default-flow   # directory name under bundles/, kind: workflow
 ```
 
 ## 2. bundle.yaml
@@ -42,12 +54,20 @@ bundle: default          # directory name under bundles/
 ```yaml
 name: default
 version: "1.0.0"
+kind: chain                       # chain | workflow (§11)
 extends: platform-elixir          # optional; content layering (§11)
 tiers: [tiers/*.yaml]             # glob lists; the loaded bundle is the union
 edges: [edges/*.yaml]
 fragments: [techspec, pubapi, privapi, policies, failure_surface]
 flows: [flows/*/flow.yaml]
 ```
+
+A workflow bundle's manifest carries `kind: workflow`, its own
+`extends:` (the platform workflow layer, which ships the default UX
+and engineering review gates and the `dev`/`staging` environments),
+and `gates:` / `environments:` globs in place of the chain's lists.
+The file-list keys are per-kind: a `tiers:` list in a workflow bundle
+is an unknown field and a load error, per §13.
 
 Fragment kinds are a **closed vocabulary per bundle**: a kind used in
 any `handle:` or `produces:` must appear here.
@@ -240,11 +260,31 @@ normative for reconciliation.
 
 A bundle naming `extends: <layer>` loads the layer first, then
 overlays: **declarations union; same-path files replace; the
-protocol's own files never override** (delivery states/types/
-escalation ship in the platform layer and are not overlayable — v5
-§7.10). Cycles in `extends:` chains are load errors. Layering
-composes *content*; it never adds vocabulary — that is §12's job,
-and the two mechanisms are deliberately distinct (v5 §9).
+*automation* protocol's own files never override** — the agent and
+queue states, and the graph connecting them, ship in the platform
+workflow layer and are not overlayable (v5 §7.10). **Narrowed at v5
+§7.16/§7.18:** review states and deployment environments *are*
+declarable, in a workflow bundle; what stays un-overlayable is the
+automation graph itself. The admission rule is that a state may be
+declared iff no plane logic branches on it.
+
+**`extends:` layers within an axis and never across it.** A chain
+extending a workflow, or the reverse, is a load error: the two axes
+exist precisely so they can vary independently (v5 §7.18). Cycles in
+`extends:` chains are load errors. Layering composes *content*; it
+never adds vocabulary — that is §12's job, and the two mechanisms are
+deliberately distinct (v5 §9).
+
+**The axes join in one direction only: a chain names gates, and a
+workflow never names a tier.** A tier's `delivery:` block (v5 §7.10)
+carries `gate:`, which resolves against the loaded workflow bundle's
+gate names — those names are the workflow's published interface. A
+workflow that named tiers could not be shared across decompositions,
+which is the use case the split exists for. The set of gates a chain
+requires is **derived from its tiers, never declared in its
+manifest**: a hand-maintained `requires_gates:` would be an inventory
+mirroring the tiers, and those drift silently
+(`docs/non-goals.md`).
 
 ## 12. Extension registration — the platform surface
 
@@ -278,11 +318,39 @@ absent from readiness walks; `extends:` acyclic. A bundle that loads
 is a bundle the engine can run; only instance-level constraints
 (dependency cycles, cardinality counts) wait for projection time.
 
+Added with the two axes and the declarable protocol surface (v5
+§7.16, §7.18):
+
+- every `delivery: gate:` on a tier resolves to a gate the loaded
+  **workflow** bundle declares — the chain/workflow compatibility
+  check, reported as an ordinary unresolved cross-reference;
+- `extends:` never crosses axes, and each named bundle's `kind`
+  matches the `catapult.yaml` key that named it;
+- **a gate whose role has no holders is a load error**, not a runtime
+  condition — otherwise a deadlocked gate is indistinguishable from a
+  slow reviewer (v5 §7.16);
+- a gate's exits (forward and throwback) resolve to states that
+  exist, and its declared escalation policy is well-formed;
+- every declared review state has a counterpart in the mirror mapping
+  when the outbound tracker add-on is configured (v5 §7.17) — an
+  unmapped state is the failure that has halted a sweep before;
+- §7.6's naming discipline over the *declared* set: no two states, or
+  a state and a label, one hyphen apart in meaning — cheap against a
+  fixed list, and an actual check against a declared one;
+- a workflow bundle under the `runtime` dialect is a load error, not
+  dead weight: that dialect has no review lifecycle (§12).
+
 ## 14. Deliberately absent
 
 Recorded so nobody re-adds them: **phases** (v5 §6 — dropped
 entirely); **spawn declarations** (a plane rule at the Building
 transition, not bundle content); **derived fragments** (context
 walks at read time); **bundle-side code or open predicates**; **per-
-project protocol restructuring** (bindings are plane entities, v5
-§7.10).
+project restructuring of the *automation* protocol** (v5 §7.10) —
+narrowed at v5 §7.16/§7.18 from a flat "per-project protocol
+restructuring": review gates and deployment environments are
+declarable in a workflow bundle, while the automation graph, and the
+agent and queue states composing it, stay platform-fixed. Also
+absent, and newly so: a **`requires_gates:`** manifest key (derived
+from tiers, §11) and a **second bundle system** for delivery
+configuration (v5 §9, §7.18 — one language, two document kinds).
