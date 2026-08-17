@@ -2917,19 +2917,72 @@ from a loose end into a dependency: without the pin there is no
 derivation, and all-reopen degrades into re-reviewing everything by
 hand every time.
 
-**Blocked statuses carry explicit entry and exit lists**, and **every
-generation status must have at least one blocked status to kick to**
-— a load-time check, since a generation that can fail with nowhere to
-land is the parked-ticket-nobody-can-act-on failure §7.6 already
-names. *Tension to resolve:* §7.6 records one `Blocked` state with
-flavor *labels* and argues against multiple blocked states on the
-grounds that a flavor dispatches nothing and would duplicate every
-attached rule. Declarable statuses weaken but do not kill that
-argument. The reconciliation that seems right: a distinct blocked
-status earns its keep exactly when its **exits differ**, which is
-§7.6's own admission test — `needs-setup` returns to the author,
-failed checks return to the dev agent — while flavor labels stay for
-the reason dimension within a status. Not settled here.
+**Blocked stays a single system status** (§7.6's decision, revisited
+under declarable statuses and upheld), with flavor labels for the
+reason dimension. It is itself a system status, not a review status:
+the automation kicks tickets into it, so it belongs to the fixed
+vocabulary.
+
+**The origin status is tracked beside it, and needs no new
+mechanism.** §7.6 already requires every Blocked entry to name its
+origin, and already observes that in Catapult the event log holds
+this natively — `from` is a projection, not bookkeeping. What
+changes with the native UI (§7.17) is that the projection is *read*
+rather than stamped onto a comment: §7.6 stamped it because "the
+author reads Linear, not the log", and owning the surface retires
+that workaround. Swim lanes group blocked tickets under the status
+that kicked them over.
+
+**Returning from Blocked is one rule: the origin status, or any
+earlier status in this ticket's effective sequence. Never forward.**
+Forward would skip steps that later stages depend on — a required
+review before deployment, a queue before generation — so it is
+refused rather than discouraged. Landing on a status that has a queue
+puts the ticket in the queue, not directly into generation.
+
+**"Earlier" is well-defined only because review is sequential
+(§7.19's own decision).** A ticket's effective sequence at its
+fan-out level is a total order, so "earlier" is a prefix — computable
+and directly renderable. Under parallel branches it would be a
+partial order and this rule would be ambiguous exactly when someone
+needed it.
+
+**No routing rules are declared, because the default carries the
+load.** The return defaults to the origin status — one action,
+covering nearly every unblock — with the earlier-prefix offered as a
+picker behind it. Per-pair routing hints (blocked label × source
+status) were the reason multiple blocked statuses looked attractive;
+with origin tracked and the prefix computable, the matrix has nothing
+left to say and is not introduced.
+
+**Backward movement is one rule with two entry points.** A throwback
+from a review and an unblock to an earlier status are the same
+movement; both reopen everything downstream, and §7.11's derived
+staleness makes the re-pass free where nothing a review saw actually
+changed. Specifying them separately would let an unblock leave a
+stale approval standing downstream.
+
+**The escape valve for a genuinely unwanted step stays heavy on
+purpose.** Deciding a parked ticket does not need its security review
+means changing the workflow bundle, which is graph state, which is a
+PR. Skipping a required review is not a one-click operation, and if
+an override is ever warranted it is an explicit labeled exception
+recorded as an event (the shape `codegen: restricted`'s override
+label already uses), never a softening of the routing rule.
+
+*Open:* **a workflow bundle can change while a ticket sits blocked**,
+and blocked tickets are long-lived by definition. If a review status
+is removed or renamed while something is parked with it as origin,
+the return target is gone. The resolution that fits the rest of the
+system is to re-derive against the current sequence and land at the
+nearest surviving earlier status, since staleness propagation already
+assumes graph state moves under live work — but the alternative
+(pinning each ticket to the bundle version it entered under) is much
+heavier to retrofit, so this wants deciding rather than discovering.
+
+**Every generation status must have at least one blocked exit** — a
+load-time check, since a generation that can fail with nowhere to
+land is the parked-ticket-nobody-can-act-on failure §7.6 names.
 
 **Scope is expressed as fan-out depth, which is how a status narrows
 without naming a tier.** A status carries an optional depth: omitted

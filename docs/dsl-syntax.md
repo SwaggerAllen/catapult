@@ -334,10 +334,12 @@ Added with the two axes and the declarable protocol surface (v5
   (queue, generation, checks, merge, deploy) that exists, and its
   exits resolve within the workflow bundle (v5 §7.19);
 - a **queue status precedes every generation and every deployment**;
-- **every generation status has at least one blocked status to kick
-  to** — a generation that can fail with nowhere to land is the
-  parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19);
-- blocked statuses' entry and exit lists resolve to declared statuses;
+- **every generation status has at least one blocked exit** — a
+  generation that can fail with nowhere to land is the
+  parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19). `Blocked`
+  is a single system status; return routing is a rule over the
+  ticket's effective sequence, not declared data, so there is nothing
+  per-workflow to validate beyond this;
 - **fan-out depth is never validated against the chain.** A depth
   exceeding a chain's actual fan-out applies at the levels that exist
   and is not an error: erroring would make the workflow's depth a
