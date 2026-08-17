@@ -2547,6 +2547,59 @@ controls. Recorded here because it is a standing force on §7.17's
 tracker question, and because the degradation must be understood as
 chosen rather than discovered.
 
+**Approval is a status, and review states are declared** (shape
+settled; the mechanism is a later increment, and a sizeable one).
+There is no separate approval object: a human approves by moving the
+ticket, and the state it lands in *is* the record. This is why the
+one-approves-one-rejects case needs no resolution rule — the ticket
+is in exactly one place at all times, the first mover wins under the
+rule above, and the second is told who moved it and where, then moves
+it again from the new state. The disagreement becomes a conversation
+instead of a data structure. Attribution is not lost to the coarse
+projection: the tracker shows only a status, but the plane records
+the command with its actor, so *who approved* stays answerable from
+the log.
+
+**The shape, stated as the rule it implies: we fix the shape of the
+automation, not the shape of the organization.** The agent and queue
+states are platform-fixed. **Review states are declared**, vary by
+ticket type, and the default set is a UX review and an engineering
+review, either of which may throw back to design.
+
+This argues against `docs/non-goals.md`'s
+`No per-project protocol restructuring`, which says states and gates
+are platform-fixed — and it satisfies that entry's stated reason,
+which is that prompts, plane logic and shared vocabulary are written
+against the states. That holds for states the automation reads. It
+does not hold for a state whose only job is routing a human: nothing
+dispatches from it and no prompt is written against it. So the
+admission rule narrows rather than dissolving — **a state may be
+declared iff no plane logic branches on it.**
+
+Mechanically the plane never learns a new state. A gate sits on an
+*edge* of the fixed graph: the plane parks there and resumes on a
+resolution drawn from a fixed vocabulary (proceed, or throw back to
+the gate's declared target). Gate identity is data; gate resolution
+is the fixed thing the plane branches on. This is §6's doctrine
+applied to the delivery protocol — declarations configure fixed
+semantics, and a gate declaration is not a program.
+
+**A gate declares three things, each closing a failure:** the role it
+routes to (§2.9 holds the grants; a gate whose role has no holders is
+a deadlock that must fail at configuration time, not look like a slow
+reviewer); its exits, forward and throwback; and its escalation
+policy, since §7.6 already shows states carrying distinct escalation
+semantics and a human gate is author-owned.
+
+**Two failure classes grow with a declared set and must be closed at
+configuration time.** A declared gate with no corresponding tracker
+state is the unmapped-state halt (§7.17's evidence list) — the plane
+provisions its own states and validates the mapping at boot and in
+the audit, turning a silent runtime halt into a loud misconfiguration.
+And §7.6's naming discipline — no two states, or a state and a label,
+one hyphen apart in meaning — was cheap to hold against a fixed list
+and is not against a declared one, so it becomes an audit check.
+
 **Still open within this section:**
 
 - **The compare token: version, not status.** Status alone cannot
@@ -2556,19 +2609,15 @@ chosen rather than discovered.
   version while the *message* speaks in states, because the version
   is what is correct and the state is what the human needs to hear.
   Author's call: the rule as stated compares on status.
-- **Whether approval is additive and the transition derived.** Two
-  designers approving is not a conflict, and modelling approval as a
-  state move makes it one. The alternative: approvals are additive
-  events (actor, role, scope, and the version of what was reviewed),
-  and the plane fires the transition when the required set is
-  satisfied — which fits §7.1's human-actions-are-signals shape and
-  leaves conflict for the case that deserves it, one person approving
-  what another rejected. Not decided.
-- **What an approval pins.** An approval that does not name the
-  version it approved silently survives the artifact changing under
-  it. §7.11's staleness-is-derived machinery is the natural home —
-  an approval goes stale when what it approved does — but the pinning
-  has to exist for that to be derivable at all.
+- **What a passed gate pins** — the one piece status-as-approval does
+  not answer, and the sharper problem now that the approval *is* the
+  transition. A gate approves a version of an artifact; the ticket
+  then moves past it. When the artifact regenerates underneath, the
+  ticket is already downstream and the judgment it carries is stale
+  while nothing says so. §7.11's staleness-is-derived machinery is
+  the natural home — a passed gate goes stale when what it approved
+  does, and reopens — but the gate has to record what it approved for
+  that to be derivable at all.
 - **Staleness clocks under more writers.** `staleClaimGrace` measures
   from `max(Run.EndedAt, StateSince)`, so every state move resets it.
   More writers means more resets, and the constant (§7.13) was chosen

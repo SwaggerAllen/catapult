@@ -29,10 +29,21 @@ recorded decision, and say so explicitly.
   Commanded aggregates are the semantics; declarations configure
   them. Extensions are platform-shipped. This is a correctness
   property the scheduler, audit, and security posture lean on.
-- **No per-project protocol restructuring** (v5 §7.10). Projects
-  bind tracker ids and tune marked thresholds; states and gates are
-  platform-fixed, because prompts, plane logic, and shared
-  vocabulary are all written against them.
+- **No per-project restructuring of the *automation* protocol** (v5
+  §7.10, §7.16). Projects bind tracker ids and tune marked
+  thresholds; the agent and queue states, and the graph connecting
+  them, are platform-fixed, because prompts, plane logic, and shared
+  vocabulary are all written against them. **Narrowed at §7.16 from a
+  flat "states and gates are platform-fixed":** review states — the
+  ones whose only job is routing a human — are *declared*, vary by
+  ticket type, and default to a UX review and an engineering review.
+  The entry's stated reason survives the narrowing intact, because
+  nothing dispatches from a review state and no prompt is written
+  against one. The admission rule that replaces the flat version:
+  **a state may be declared iff no plane logic branches on it.** We
+  fix the shape of the automation, not the shape of the
+  organization. What stays refused is a project rewiring the
+  automation graph itself.
 - **No tracker product.** Linear is the working UI, behind the
   Tracker port. The tell that would reopen this: catching ourselves
   teaching Linear state (custom fields carrying doc-graph data,
