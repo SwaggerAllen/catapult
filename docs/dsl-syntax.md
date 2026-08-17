@@ -107,8 +107,9 @@ review:                           # optional; presence enables the review pass
   grammar: schemas/review.xsd
   required: false                 # true gates approval on review commit
 delivery:                         # extension-provided namespace (§12)
-  phase: Architecting
-  gate: Architecture review
+  phase: Architecting             # platform-fixed vocabulary only (§11):
+  agent_step: design              # statuses, queues, agent steps — never a
+                                  # workflow bundle's gate or environment
 enforcement: []                   # extension-provided profiles, e.g. [codegen: restricted]
 ```
 
@@ -275,16 +276,16 @@ exist precisely so they can vary independently (v5 §7.18). Cycles in
 never adds vocabulary — that is §12's job, and the two mechanisms are
 deliberately distinct (v5 §9).
 
-**The axes join in one direction only: a chain names gates, and a
-workflow never names a tier.** A tier's `delivery:` block (v5 §7.10)
-carries `gate:`, which resolves against the loaded workflow bundle's
-gate names — those names are the workflow's published interface. A
-workflow that named tiers could not be shared across decompositions,
-which is the use case the split exists for. The set of gates a chain
-requires is **derived from its tiers, never declared in its
-manifest**: a hand-maintained `requires_gates:` would be an inventory
-mirroring the tiers, and those drift silently
-(`docs/non-goals.md`).
+**The axes do not reference each other at all. Both reference only
+the platform's fixed vocabulary — statuses, queues, agent steps.** A
+tier's `delivery:` block (v5 §7.10) names the phase it generates in
+and the agent step that generates it, and nothing else; a workflow's
+gates and environments attach to those same fixed positions. Neither
+side can name a declaration belonging to the other, which is what
+makes **any chain bundle composable with any workflow bundle** — no
+shared gate or environment vocabulary, and no compatibility contract
+to check (v5 §7.18). A gate's review set follows from where it sits:
+it reviews whatever the chain produced at the step it follows.
 
 ## 12. Extension registration — the platform surface
 
@@ -321,9 +322,16 @@ is a bundle the engine can run; only instance-level constraints
 Added with the two axes and the declarable protocol surface (v5
 §7.16, §7.18):
 
-- every `delivery: gate:` on a tier resolves to a gate the loaded
-  **workflow** bundle declares — the chain/workflow compatibility
-  check, reported as an ordinary unresolved cross-reference;
+- every `delivery:` value on a tier — phase, agent step — resolves
+  against the **platform's fixed vocabulary**, never against the
+  loaded workflow bundle. A chain referencing a workflow declaration
+  (or a workflow referencing a tier) is a load error naming the
+  offending reference, because that reference is what would make the
+  two bundles a matched pair rather than freely composable. There is
+  deliberately **no chain/workflow compatibility check**: with no
+  shared vocabulary there is nothing to check;
+- every gate and environment attaches to a fixed position that
+  exists, and each gate's exits resolve within the workflow bundle;
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
@@ -351,6 +359,10 @@ narrowed at v5 §7.16/§7.18 from a flat "per-project protocol
 restructuring": review gates and deployment environments are
 declarable in a workflow bundle, while the automation graph, and the
 agent and queue states composing it, stay platform-fixed. Also
-absent, and newly so: a **`requires_gates:`** manifest key (derived
-from tiers, §11) and a **second bundle system** for delivery
-configuration (v5 §9, §7.18 — one language, two document kinds).
+absent, and newly so: **any cross-axis reference** — a `gate:` on a
+tier, a tier name in a gate, a `requires_gates:` manifest key. All
+three assume the chain and workflow bundles are a matched pair; they
+are not, and composability with no shared vocabulary is the property
+being protected (v5 §7.18). And a **second bundle system** for
+delivery configuration (v5 §9, §7.18 — one language, two document
+kinds).

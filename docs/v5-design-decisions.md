@@ -1947,11 +1947,17 @@ via bundle `extends` but cannot edit the protocol, so membership must
 be declared at the member, with the protocol defining only the slots:
 
 - **Tiers gain a `delivery:` block** — `phase:` (status shown while
-  the tier generates) and `gate:` (which author gate's PR diff
-  approves it). A gate's review set is *derived* — the tiers
-  declaring it. Bundle-load validates annotations against the
-  protocol vocabulary: unknown phase or gate is a load error; one
-  loader spans both worlds.
+  the tier generates) and the agent step that generates it. **Amended
+  at §7.18:** this block names *only* platform-fixed vocabulary. It
+  formerly also carried `gate:`, naming the author gate whose PR diff
+  approved the tier, with a gate's review set derived from the tiers
+  declaring it. Both are gone: a chain cannot name a gate, because
+  gates are workflow-bundle declarations and the two axes must
+  compose without a shared vocabulary. The review set is still
+  derived, keyed on position instead — a gate reviews whatever the
+  chain produced at the fixed step it follows. Bundle-load validates
+  annotations against the protocol vocabulary: an unknown phase or
+  agent step is a load error; one loader spans both worlds.
 - **Flows gain a ticket face.** Entry types (§7.3) and v4's flow
   catalog are one list — opening a ticket IS opening a flow instance.
   A flow's `flow.yaml` adds `ticket: { entry: <tier>, labels: [...] }`
@@ -2787,24 +2793,50 @@ and a bundle manifest declares its `kind`. The declaration kinds a
 workflow bundle contains are registered exactly like any other
 (`dsl-syntax.md` §12).
 
-**The invariant that makes the split real: the dependency runs one
-way. A chain names gates; a workflow never names a tier.** A workflow
-that reached back into the decomposition — gating a named tier,
-sequencing by tier — could not be shared across two decompositions,
-which is the entire use case. So the join stays where §7.10 already
-put it: a tier's `delivery:` block names the gate that approves it,
-and that name is a cross-bundle reference the loader resolves. The
-workflow's gate names are its published interface; chains bind
-against them.
+**The invariant that makes the split real: neither axis references
+the other. Both reference only the platform's fixed vocabulary —
+statuses, queues, and agent steps.** A chain says which agent step
+generates a tier and which status shows while it does. A workflow
+says how its own steps relate to those same fixed positions: this
+gate sits after that agent step, this environment is promoted into at
+that status. Neither names anything the other declares.
 
-**The required-gate set is derived, never declared.** The temptation
-is a `requires_gates:` list in the chain manifest so compatibility is
-checkable at a glance. That is a hand-maintained inventory mirroring
-the tiers, and `docs/non-goals.md` refuses those on the grounds that
-they drift silently. The loader computes the set from the tiers'
-`delivery:` annotations and reports a chain/workflow mismatch the
-same way it reports any unresolved cross-reference — all problems at
-once (§13).
+The consequence is the strong form of what the split was reaching
+for: **any workflow bundle composes with any chain bundle**, with no
+shared gate or environment vocabulary and no compatibility contract
+between them. An earlier draft of this section had tiers naming their
+gate, which made the workflow's gate names a published interface and
+the pairing a thing to check. That was a weaker design for a worse
+reason — it kept a coupling that buys nothing, since a gate does not
+need to know which tier it is reviewing to review it.
+
+**The review set is derived from position, not from naming.** A gate
+placed after a fixed step reviews whatever the chain produced at that
+step — one tier or six, and the gate is unchanged either way. This
+replaces §7.10's earlier derivation ("a gate's review set is the
+tiers declaring it") with the same principle keyed differently, and
+it is what lets a decomposition grow a tier without any workflow
+noticing.
+
+**The cost, stated plainly: review granularity is bounded by the
+fixed vocabulary.** If two tiers generate at the same step, no
+workflow can gate them separately — the knob is the platform's phase
+set, not the project's. That is the intended trade and it is the same
+sentence as §7.16's rule: we fix the shape of the automation, not the
+shape of the organization. Finer granularity is a *platform* change,
+reviewed as one, which is exactly where the design wants that
+decision to sit. It also means the fixed vocabulary has to be rich
+enough to carry the gates people actually want — §7.6's lifecycle
+already separates product-tier from architecture-tier generation,
+which is what makes the two default gates expressible without any
+project-specific reference.
+
+**A near miss worth recording, because it looks like a leak and is
+not:** comparch's `enforcement:` block names profiles like
+`codegen: restricted`, which bind delivery gates. Those profiles are
+platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
+vocabulary there too, not a workflow bundle's declaration. The rule
+holds; the resemblance is what makes it worth a sentence.
 
 **`extends:` layers within an axis and never across it.** Each axis
 has its own base layer, and a chain extending a workflow (or the
