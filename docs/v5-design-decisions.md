@@ -1507,6 +1507,18 @@ with its transform list** — authored upstream like §3.4's upgrade
 docs — so consuming a new platform-layer version is the same
 cutover with act (2) pre-supplied.
 
+**The drain in act (1) is per axis, and the workflow axis relaxes it**
+(§7.18's split, resolved at §7.19). On the chain axis it stands as
+written: flow instances complete, so an empty pipeline is a condition
+that arrives. On the workflow axis it cannot stand — a blocked ticket
+is in-flight and stays blocked for as long as its human prerequisite
+takes, so requiring an empty pipeline would make workflow evolution
+hostage to the slowest block in the organization. Blocked tickets
+therefore ride the cutover and re-resolve against the new sequence by
+§7.19's rule, anchored on the system statuses, which are the part of
+a ticket's history no bundle change can delete. Act (4)'s flip is
+**recorded as an event** on both axes; §7.19 depends on it.
+
 **Dropped from v4:** the phase machinery — `phased:` tiers, the
 `phase_plan` projection and plan rule, cross-phase delta context, the
 plan-change flow, `/run_phase` (v4 §A.7 and §B.5 in their entirety).
@@ -2970,15 +2982,45 @@ an override is ever warranted it is an explicit labeled exception
 recorded as an event (the shape `codegen: restricted`'s override
 label already uses), never a softening of the routing rule.
 
-*Open:* **a workflow bundle can change while a ticket sits blocked**,
-and blocked tickets are long-lived by definition. If a review status
-is removed or renamed while something is parked with it as origin,
-the return target is gone. The resolution that fits the rest of the
-system is to re-derive against the current sequence and land at the
-nearest surviving earlier status, since staleness propagation already
-assumes graph state moves under live work — but the alternative
-(pinning each ticket to the bundle version it entered under) is much
-heavier to retrofit, so this wants deciding rather than discovering.
+**A workflow bundle can change while a ticket sits blocked, and §6's
+drain does not cover it.** §6 requires a destructive bundle change to
+be a cutover whose first act is that *the pipeline drains — no
+in-flight flow instances*. That rule was written when there was one
+bundle. It is satisfiable on the chain axis, where flow instances
+complete; it is **not reliably satisfiable on the workflow axis**,
+because a blocked ticket is in-flight and blocked tickets are
+long-lived by definition — a `needs-setup` block waits on a human
+creating an account, for as long as that takes. Requiring a fully
+empty pipeline before any workflow change would make workflow
+evolution hostage to the slowest human in the organization.
+
+**So blocked tickets survive the cutover, and the system statuses are
+what they survive on.** When a ticket's recorded status no longer
+exists in the new bundle, it resolves to (a) the most recent status
+it held that still exists, failing that (b) **the status after the
+most recent system status it reached**. (b) always terminates: system
+statuses are platform-fixed, so they are exactly the part of a
+ticket's history that no bundle change can delete. The fixed
+vocabulary earns a second job here — it is the anchor set that makes
+re-derivation total rather than best-effort, and it is only able to
+be that because it is not declarable.
+
+Two properties worth stating, because they are what make this safe:
+(b) can never place a ticket past a system status it has not reached,
+so §7.19's no-skipping-forward invariant survives the migration
+intact; and a ticket landing on a newly declared review status it
+never saw is correct rather than a defect — the new workflow says
+that review is required, and the ticket has not had it.
+
+**This requires the active-bundle flip to be an event, on both axes.**
+§7.10 already records binding changes as event-sourced; the bundle
+flip is stated in §6 as act (4) of the cutover but not explicitly as
+a recorded event, and it now has to be, because rule (a) above is a
+join between a ticket's status history and the bundle-version
+timeline. Neither half is answerable without the other in the log.
+This is §7.1's doctrine applied to our own configuration: the world
+is observed into the log, and a graph the engine switched to is an
+observation like any other.
 
 **Every generation status must have at least one blocked exit** — a
 load-time check, since a generation that can fail with nowhere to
