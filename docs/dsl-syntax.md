@@ -379,3 +379,113 @@ are not, and composability with no shared vocabulary is the property
 being protected (v5 §7.18). And a **second bundle system** for
 delivery configuration (v5 §9, §7.18 — one language, two document
 kinds).
+
+## 15. Workflow declarations
+
+Placed after §14 rather than beside the chain declaration kinds
+(§3–§10) so the existing section numbers, which the design record
+cross-references throughout, stay stable. Everything here belongs to
+a `kind: workflow` bundle (§2).
+
+### 15.1 System statuses — the fixed vocabulary
+
+Platform-fixed, referenced by both bundle axes, declarable by
+neither (v5 §7.18, §7.19). They are the skeleton review statuses
+attach to, and the anchor set a blocked ticket re-resolves against
+when a workflow cutover removes the status it was parked at (v5 §6,
+§7.19) — which they can only be because they are not declarable.
+
+| kind | meaning | ball |
+|---|---|---|
+| `backlog` | committed to nothing yet | author |
+| `queue` | committed, awaiting dispatch capacity | plane |
+| `generation` | an agent run producing artifacts | agent |
+| `fanout` | children in flight; progress rolls up | plane |
+| `checks` | CI running against produced work | world |
+| `merge` | reconciliation into the parent branch | agent |
+| `deploy` | promotion into a declared environment | world |
+| `validating` | post-deploy verification (§7.11) | plane |
+| `blocked` | single status, flavor labels, origin kept | varies |
+| `stubbed` | waiting on an external timeline, by choice | world |
+| `terminal` | shipped / done | — |
+
+`ball` is v5 §7.11's author-owned vs machine-owned distinction, which
+drives assignee rendering; `blocked` inherits from the status that
+kicked to it.
+
+**A `queue` precedes every `generation` and every `deploy`** — a
+load-time check (§13), not a convention. **`stubbed` is exempt from
+staleness and escalation** (v5 §7.6): nothing is stale about waiting
+deliberately.
+
+Mapping onto v5 §7.6's lifecycles, which are this vocabulary with
+every review sequence at length one — feature: `Todo`(queue) →
+*Product design*(generation) → **Product review**(review) →
+*Architecting*(generation) → **Architecture review**(review) →
+`Building`(fanout) → `Reconciling`(merge) → `Merged`(merge) →
+`Validating`(validating) → `Shipped`(terminal). Child: `Ready for
+dev`(queue) → `In progress`(generation) → `Checks`(checks) →
+`Reconciling`(merge) → `Merged`(merge) → `Done`(terminal), with
+`Ready for rework`(queue) / `Reworking`(generation) as the repair
+loop. The two bolded statuses are the platform workflow layer's
+default review declarations, not system statuses — which is what
+makes them replaceable.
+
+**Agent steps**, the other half of what a chain's `delivery:` block
+may name (§3): `design` (produces a design-graph artifact for a
+tier), `dev` (implements a child scope), `reconcile`, `validate`
+(§7.11's repair loop), `boundary` (the milestone pass). Adding one is
+a platform change, reviewed as one.
+
+### 15.2 `gates/<gate>.yaml` — a review status
+
+```yaml
+review: ux-review               # status name; unique in the loaded union
+after: product-review           # predecessor: a system status or another
+                                #   review in this bundle (§15.3)
+role: design                    # who signs off; identity holds the
+                                #   holders, bindings the reviewers: map
+ticket_types: [feature]         # which types visit it; omitted = all
+depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
+                                #   top level only. A maximum, never
+                                #   validated against the chain.
+throwback: [product-design]     # exits it may reject to; each must be
+                                #   earlier in the effective sequence
+escalation: author              # policy; human gates are author-owned
+```
+
+Approval is the transition itself (v5 §7.16) — there is no approval
+object, and no `approvers:` list. Who approved is answerable from the
+log because the plane records the command with its actor.
+
+### 15.3 Ordering, and why `after:` is a reference
+
+Position is declared by naming a predecessor, never by an index. An
+integer `order:` cannot survive `extends:` layering: an organization
+inserting a review between two platform-layer reviews would have to
+renumber files it does not own. Naming the predecessor lets the org
+layer say `after: product-review` and leave the platform layer
+untouched — which is the whole point of layering content (§11).
+
+Since review is sequential (v5 §7.19), the order on an edge must be
+total: **two review statuses declaring the same `after:` is a load
+error**, as is a cycle in `after:` references.
+
+### 15.4 `environments/<env>.yaml` — a deployment environment
+
+```yaml
+environment: staging
+after: merge                    # the system status it deploys at
+promote_from: dev               # previous environment; omitted = first
+depth: 0                        # top level only, the usual case
+lifetime: persistent            # persistent | per_ticket (per-PR envs,
+                                #   which are simply depth 0 + per_ticket)
+```
+
+**Endpoints, credentials and hostnames are not here.** They change
+only how the plane connects and operates, so they are bindings —
+plane entities, queried and picked, never repo content (v5 §7.10's
+store test, and §8's BYO constraint: an endpoint in a bundle breaks
+hosted onboarding). What lives here is which environments exist and
+what promotion into one requires; that changes what is enforced, so
+it is graph state, versioned, changed by PR.
