@@ -44,30 +44,50 @@ recorded decision, and say so explicitly.
   fix the shape of the automation, not the shape of the
   organization. What stays refused is a project rewiring the
   automation graph itself.
-- **No tracker product.** Linear is the working UI, behind the
-  Tracker port. The tell that would reopen this: catching ourselves
-  teaching Linear state (custom fields carrying doc-graph data,
-  load-bearing prose parsing). Until then, the port keeps the exit
-  cheap and we build zero tracker UI. **Under active pressure, and
-  the tell is nearer than this entry assumed** (v5 §7.17): the
-  pipeline already carries an external state store because the
-  tracker cannot record *who* wrote a change; protocol state already
-  rides in tracker comments behind markers; an unmapped tracker state
-  has halted a sweep for hours; tracker comment ordering has
-  contradicted its own API contract; and §7.16's rejection of a stale
-  transition cannot be delivered synchronously through a tracker the
-  plane does not control. The standing decision is unchanged —
-  delivery is to Linear, and a plane-native tracker is **deferred,
-  not rejected**. What this amendment buys is that the reopening,
-  when it comes, is argued from accumulation rather than from a bad
-  afternoon.
-- **No dashboard-as-working-surface** (v5 §7.4, systems/dashboard.md).
-  Debugging and observation only, *for the work loop* — artifact
-  review and ticket action live in Linear and PRs. Settings and
-  onboarding (the bindings UI, v5 §7.10) and the configuration
-  surface (a composer that files graph-state changes as PRs — it
-  never bypasses a gate) are ops and authoring-composition, not the
-  work loop, and are explicitly in-bounds.
+- ~~**No tracker product.**~~ **Reversed** (v5 §7.17). This entry
+  held that Linear was the working UI behind a Tracker port, that we
+  would build zero tracker UI, and it named the tell that would
+  reopen it: catching ourselves teaching the tracker state it cannot
+  hold. The tell arrived, repeatedly — an external state store
+  because the tracker cannot record *who* wrote a change; protocol
+  state riding in comments behind markers; an unmapped state halting
+  a sweep for hours; comment ordering contradicting its own API
+  contract; §7.16's stale-transition rejection undeliverable at the
+  point of action; and §7.16's declared review states needing to be
+  provisioned into a product that does not know what they mean.
+  **Catapult ships its own ticket UI to every user.** External
+  trackers become an add-on: an *outbound* projection of top-level
+  tickets only, for teams that must report into a larger org's
+  system. Inbound acceptance is not committed and, if it happens, is
+  a narrow explicit command surface rather than a write path. Kept
+  rather than deleted because the reversal is the record: this entry
+  named its own reopen condition and the condition came true, which
+  is the process working.
+- **No inbound write path from a mirrored tracker** (v5 §7.17) — the
+  live half of the entry above. Mirroring outward is a read model
+  leaving the building and is safe by construction. Accepting
+  arbitrary state changes back in reintroduces unmapped states,
+  last-write-wins and unattributable writes into a system that just
+  escaped them. Anything inbound is a §7.1 signal, validated like any
+  other, never a state change adopted on the tracker's word.
+- ~~**No dashboard-as-working-surface**~~ **Reversed with the tracker
+  reversal** (v5 §7.17). The entry held debugging and observation
+  only, with artifact review and ticket action living in Linear and
+  PRs; it cannot survive owning the tracker, because owning it is
+  precisely deciding that ticket action lives here. Two of its
+  carve-outs stand unchanged and were always in-bounds: settings and
+  onboarding (the bindings UI, v5 §7.10), and the configuration
+  surface — a composer that files graph-state changes as PRs and
+  never bypasses a gate.
+  **What replaces the line is not "anything goes".** Review comes
+  home where the native surface is *better*, not merely available,
+  and §7.17 records the two reasons it is: our docs diff per sentence
+  rather than per line, and the graph of tickets under a top-level
+  ticket is a view a general tracker cannot easily replicate. The
+  extent is the UI spec's to settle. The entry's real warning —
+  that a pipeline this deep generates constant temptation to grow UI
+  — is not retired by the reversal and wants a successor rule once
+  the screen inventory exists.
 - **Catapult never executes target-project code** (v4 §A.10.5
   carried forward, sharpened): agent runs execute code in their own
   CI/runner environments; the plane dispatches and observes but

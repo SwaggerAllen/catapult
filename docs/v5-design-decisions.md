@@ -2623,23 +2623,66 @@ and is not against a declared one, so it becomes an audit check.
   More writers means more resets, and the constant (§7.13) was chosen
   against a single-writer rate.
 
-### 7.17 The tracker and the host are adapters
+### 7.17 The tracker is ours; the host is an adapter
 
-**Both are ports with swappable adapters. Linear and GitHub are the
-delivery adapters, and the only ones built.** The self-hosted
-question — a Gitea-class forge, a plane-native tracker — is
-deliberately deferred, not rejected, and this is what keeps the exit
-cheap. The timing is the whole argument: delivery's ports arrive in
-Phase 4 (`systems/delivery.md`) and no adapter exists yet, so
-neutrality costs approximately nothing now and is a retrofit later.
+**Reversed, deliberately, and it is the largest change to the record
+since §1.2's inversion.** An earlier draft of this section had the
+tracker as a port with Linear the only adapter and a native tracker
+deferred. That is inverted: **every user gets Catapult's own ticket
+UI, and external trackers become an add-on.** The reason is the one
+§7.16 exposed — a protocol this specific fights a general-purpose
+tracker at every step. Declared review states must be provisioned
+into someone else's product and mapped, an unmapped one halts the
+sweep, the tracker applies last-write-wins where the protocol needs
+compare-and-swap, it cannot say who wrote a change, and the
+rejection §7.16 specifies cannot be delivered at the point of action.
+Each is survivable; together they are a permanent tax on the
+protocol's own semantics.
+
+**What the add-on is: an outbound projection, and one grain only.**
+Events duplicate out to the customer's tracker of choice (Jira,
+Linear, Notion) for teams inside a larger org that must report
+somewhere central. **Only top-level tickets mirror** — the fan-out
+(§7.2's ticket tree) stays native, which is the descoping this buys
+and is most of why the add-on is cheap. Mirroring a projection
+outward is safe by construction: it is a read model leaving the
+building, and §7.1 already says the log is the authority.
+
+**Inbound is the dangerous direction and is not committed.** Accepting
+events *from* a mirrored tracker reintroduces every problem above —
+unmapped states, last-write-wins, unattributable writes — inside a
+system that just escaped them. If it happens it is a narrow, explicit
+command surface (comments, at most a bounded set of transitions),
+never a general write path, and every inbound event is a §7.1 signal
+validated like any other rather than a state change to be adopted.
+
+**Two things follow that were not obvious before the reversal.** The
+review surface partly comes home: our docs diff better per sentence
+than per line, and a graph view of the tickets under a top-level
+ticket is something a general tracker cannot easily replicate — both
+are reasons the native UI is not merely a substitute but the better
+surface for this content. And the UI stops being a debugging
+dashboard and becomes a working surface, which reverses a second
+non-goal; how far it extends is what the UI spec has to settle, not
+this section.
+
+**The host stays a port with swappable adapters**, GitHub the only
+one built, for the reasons the rest of this section gives. The
+asymmetry is the point: ticket state is a projection the plane
+already computes, so owning it removes machinery; code hosting and CI
+are services the plane is architecturally forbidden to be
+(`docs/non-goals.md`: never executes target-project code), so a forge
+is always somebody else's, and the port is how that stays cheap.
 
 **Three disciplines, without which the port is nominal:**
 
 1. **Ports are shaped by what the protocol needs, never by what the
-   vendor offers.** A `Tracker` that grows a method because Linear
-   has the feature is a Linear-shaped port with an adapter-shaped
-   hole in it. This is the easy thing to get wrong while exactly one
-   adapter exists.
+   vendor offers.** A `Host` that grows a method because GitHub has
+   the feature is a GitHub-shaped port with an adapter-shaped hole in
+   it. This is the easy thing to get wrong while exactly one adapter
+   exists — and it applies to the mirror add-on too, whose port is
+   "publish a top-level ticket's state somewhere", not Jira's issue
+   model.
 2. **The fake is the second implementation.** `systems/delivery.md`
    already ships a fake with every port; the reason is not only the
    offline test ring — it is the forcing function that keeps the port
@@ -2658,14 +2701,82 @@ forge swap, which is not. The one genuinely hard piece is
 runner↔plane authentication: §7.12.1 settled it on GitHub-minted
 Actions OIDC, which is a good design and a GitHub-specific one.
 
-**Evidence the tracker question is live** (recorded so the decision
-is made on accumulation rather than on a bad afternoon): the pipeline
+**The evidence the reversal rests on**, recorded so the decision
+reads as accumulation rather than as a bad afternoon: the pipeline
 already needs an external state store because the tracker cannot say
 *who* wrote a change; protocol state already rides in tracker
 comments behind markers; an unmapped tracker state has halted a sweep
-for hours; and tracker comment ordering has silently contradicted its
-own API contract. None of these is decisive. Together they are why
-the port matters more than it looks.
+for hours; tracker comment ordering has silently contradicted its own
+API contract; and §7.16's declared review states would have to be
+provisioned and mapped into a product that does not know what they
+mean. No single one of these decides it. The shape of the list does —
+every entry is the same shape, a general tracker refusing a specific
+protocol, and that is a tax that grows with the protocol rather than
+one that gets paid off.
+
+**What this costs, recorded honestly.** A working tracker is a real
+product surface: search, notifications, permissions, and mobile —
+and mobile matters more than its line here suggests, because the
+author works from a phone and the incumbent's app is good. The
+staging is what makes it survivable: delivery to Linear stands until
+the native UI exists, and the UI spec (§7.18's sibling work) is what
+turns "we build our own" from a direction into a scope.
+
+### 7.18 Configurable deployments, and where configurability lives
+
+**Deployment environments are declared, on the same rule as §7.16's
+review states.** The default set is `dev` and `staging`;
+per-PR environments are a later addition and, when they land, are
+expected to attach to top-level tickets only — the fan-out would
+otherwise mint an environment per child, which is the cost that makes
+per-PR previews expensive everywhere they are expensive. Promotion
+between environments is automation and stays platform-fixed; *which*
+environments exist, and what a promotion into one requires, is the
+organization's shape, not the automation's.
+
+**There is no second bundle system, and adding one would contradict
+§9.** The instinct to give delivery configuration its own bundle
+mechanism parallel to the prompt bundles is the thing §9 already
+refused: one DSL, core plus extensions. The existing split does the
+whole job, and the two halves are already named in `dsl-syntax.md`:
+
+- **Vocabulary is an extension** (`dsl-syntax.md` §12) —
+  platform-shipped modules registering annotation namespaces,
+  declaration kinds, and enforcement profiles. A gate kind and an
+  environment kind are new declaration kinds registered exactly this
+  way. Extensions compose the *language*.
+- **Instances are content** (`dsl-syntax.md` §11) — a project's
+  actual gates and environments live in its bundle's `extends:`
+  layer, versioned in the repo, changed by PR. `extends:` composes
+  *content* and never adds vocabulary.
+
+**The store test (§7.10) splits each feature in the same place, and
+the split is not where intuition puts it.** *Topology is content;
+attachment is a binding.* Which gates exist, which roles they route
+to, their exits, which environments exist and what promotion into one
+requires — all change what is generated, validated or enforced, so
+they are graph state: repo, versioned, staleness-propagating, PR to
+change. Who currently holds a reviewer role, and an environment's
+endpoint URL and credentials — these change only how the plane
+connects and operates, so they are plane state in the bindings, and
+they must never become repo content. The tempting error runs in both
+directions: an endpoint in the bundle breaks the hosted BYO rule
+(§8's constraint 1), and a gate in the bindings puts a generation
+input outside version control, which §7.10's test exists to prevent.
+
+**Two recorded absences have to narrow to admit this**, the same
+narrowing `docs/non-goals.md` took at §7.16 and for the same reason:
+`dsl-syntax.md` §11's "the protocol's own files never override" and
+§14's "per-project protocol restructuring, deliberately absent". Both
+were written when every state was platform-fixed. What they protect —
+that no project rewires the automation graph — is untouched: a
+declared gate or environment adds a node the plane parks at, and the
+plane still branches only on a fixed resolution vocabulary. What
+narrows is the claim that *nothing* in the protocol is declarable.
+Load-time validation (§13) is where this is enforced, and it grows
+the checks §7.16 named: a gate whose role has no holders, a declared
+state with no counterpart in the mirror mapping, and §7.6's
+one-hyphen-apart naming rule over the declared set.
 
 ---
 
