@@ -84,10 +84,15 @@ recorded decision, and say so explicitly.
   and §7.17 records the two reasons it is: our docs diff per sentence
   rather than per line, and the graph of tickets under a top-level
   ticket is a view a general tracker cannot easily replicate. The
-  extent is the UI spec's to settle. The entry's real warning —
+  extent is settled in `docs/ui-spec.md`. The entry's real warning —
   that a pipeline this deep generates constant temptation to grow UI
-  — is not retired by the reversal and wants a successor rule once
-  the screen inventory exists.
+  — is not retired by the reversal, and its **successor rule** is
+  `docs/ui-spec.md` §2: reads are projections and writes are
+  commands; **no screen introduces protocol vocabulary**; every
+  screen answers a named question or performs a protocol-defined
+  action. The middle one is the one to cite, because the temptation
+  never arrives as "build a tracker" — it arrives as "add one field
+  here", and a field here is vocabulary.
 - **Catapult never executes target-project code** (v4 §A.10.5
   carried forward, sharpened): agent runs execute code in their own
   CI/runner environments; the plane dispatches and observes but

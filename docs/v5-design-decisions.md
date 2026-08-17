@@ -1805,16 +1805,35 @@ one ticket; **restore/cutover lifecycle states** (§6, §8). The rule
 exists because notification surfaces multiply on convenience, and
 every additional one is a place attention goes to die.
 
-**The Catapult LiveView UI is a debugging surface, not a working
-surface.** Lesson from siege: the DAG is for machine comprehension
-(humans got a tree view because the graph was unnavigable), and
-Linear+GitHub already unify comments, states, and diffs. The
-debugging surface is load-bearing and genuinely hard — event-log
-inspection, replay-to-sequence, ready_scopes explain-why ("what is
-blocking this scope" as a first-class query), staleness provenance,
-dispatch history, agent-run transcripts. When a pipeline this deep
-stalls, "why is nothing happening" must be answerable in minutes.
-Budgeted as a real engineering line item, not a leftover dashboard.
+~~**The Catapult LiveView UI is a debugging surface, not a working
+surface.**~~ **Reversed at §7.17; the screens are `docs/ui-spec.md`.**
+The original reasoning was that Linear and GitHub already unify
+comments, states and diffs, so the UI need only explain the machine.
+Owning the tracker removes the first half of that premise, and two
+things turn out to be *better* here rather than merely available: our
+documents diff per sentence rather than per line, and the ticket
+graph under a top-level ticket is a view a general tracker cannot
+easily draw.
+
+**The debugging half survives untouched and is still the hard part** —
+event-log inspection, replay-to-sequence, `ready_scopes` explain-why
+("what is blocking this scope" as a first-class query), staleness
+provenance, dispatch history, agent-run transcripts. When a pipeline
+this deep stalls, "why is nothing happening" must be answerable in
+minutes. Budgeted as a real engineering line item, not a leftover
+dashboard — and now sharing a surface with the work loop rather than
+sitting beside it.
+
+**The four feedback surfaces re-sort accordingly.** The author's
+inbox and state lever is *ours* (`my-queue`, `board`, `ticket`).
+Artifact feedback splits by artifact kind rather than living wholly
+in PRs: **prose artifacts review natively at sentence granularity**,
+**code review stays line-anchored in the PR** where line anchoring is
+correct. The harvesting rule is unchanged in substance — on a gate
+decline the plane collects feedback since the last gate and buckets
+it by the artifact span it anchors to — it simply now has two
+sources, and the native one carries a better anchor. Preview URLs /
+storybook exports and the docs site are unaffected.
 
 ### 7.5 Branches, merges, reconciliation
 
