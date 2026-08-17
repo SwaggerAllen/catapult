@@ -2100,12 +2100,20 @@ be declared at the member, with the protocol defining only the slots:
   ticket type follows nesting depth.
   **Amended: children are created when the plan node names them, not
   at the Building transition** (`docs/ui-spec.md` §3.1). The reason
-  is review, not display: the ticket and ticket-graph screens carry
-  per-child artifacts and per-child comment history, and those
-  screens are only useful for *reviewing* a design if the children
-  exist while the design is still under review. Spawning at Building
-  means the fan-out first appears after every gate it should have
-  informed.
+  is review, not display: reviewing a design that names its children
+  is better with those children in existence, so the artifacts and
+  comments attach where they belong from the start. Spawning at
+  Building means the fan-out first appears after every gate it should
+  have informed.
+  **Dependency flagged, because the derivation ran the wrong way:**
+  this amendment was reached *from* a screen — `ui-spec.md`'s ticket
+  and ticket-graph navigators, which that document marks
+  sketch-grade. The justification above is intended to stand on its
+  own without them, and if it does not survive that reading the
+  amendment should be revisited rather than inherited. A protocol
+  change downstream of an unvalidated screen is the one coupling in
+  this area worth being uncomfortable about; the screens are cheap to
+  redraw and this is not.
   **Creation is not dispatchability.** A child created at plan time
   enters a pre-queue state and becomes queue-eligible only when its
   parent's design gates have passed; otherwise agents would start

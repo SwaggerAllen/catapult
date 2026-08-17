@@ -14,6 +14,20 @@ configuration composer), §7.16 (concurrent writers, approval as
 status), §7.19 (system statuses, review sequences, fan-out depth),
 `systems/dashboard.md` (the system and its file map).
 
+**Not everything here is equally settled, and the document says which
+is which.** Most screens are *determined* rather than designed —
+`my-queue` follows from who-holds-the-ball, the ticket action surface
+from §7.16 and §7.19, the observation screens were specced before the
+reversal. Two things are **sketch-grade** and marked at the point of
+use: the **swim-lane navigator** (§3.1, and its reappearance at
+feature scope in `ticket-graph`) and the **bidirectional graph**
+(§3.1). They are the novel parts, they carry §7.17's claim that the
+native surface is *better* rather than merely available, and unlike
+every other decision in this design record they cannot be checked
+against anything — there is no internal contradiction a wrong screen
+produces. They are staged at v2 (§5) precisely so that being wrong
+about them costs a redraw and not a release.
+
 ---
 
 ## 1. Why this document exists
@@ -135,9 +149,9 @@ who moved it.
   moved it and where (§7.16), rendered as a conflict at the point of
   action rather than a revert comment afterwards
 
-**The swim-lane navigator is the ticket's spine.** The lanes this
-ticket has passed through are the navigation, not a separate history
-tab:
+**The swim-lane navigator is the ticket's spine** — *sketch-grade;
+see the status note above.* The lanes this ticket has passed through
+are the navigation, not a separate history tab:
 
 - **a generation lane** opens that lane's *generations* — every pass
   this ticket made through that step, the diff between consecutive
@@ -153,7 +167,9 @@ This is what the marker tabs were reaching for, and it is a better
 answer than filtering a flat list.
 
 **`ticket-graph`** — everything one top-level ticket touches, in
-both directions.
+both directions. *Sketch-grade below the fan-out tree: the tree is
+determined by §7.2, the upstream/staleness directions and the
+navigator are invented and unvalidated.*
 
 - **downstream**: the ticket tree as the projection of the doc DAG's
   fan-out it actually is (§7.2) — feature → component children →
