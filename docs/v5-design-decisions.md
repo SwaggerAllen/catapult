@@ -2735,14 +2735,14 @@ turns "we build our own" from a direction into a scope.
 ### 7.18 Configurable deployments, and where configurability lives
 
 **Deployment environments are declared, on the same rule as §7.16's
-review states.** The default set is `dev` and `staging`;
-per-PR environments are a later addition and, when they land, are
-expected to attach to top-level tickets only — the fan-out would
-otherwise mint an environment per child, which is the cost that makes
-per-PR previews expensive everywhere they are expensive. Promotion
-between environments is automation and stays platform-fixed; *which*
-environments exist, and what a promotion into one requires, is the
-organization's shape, not the automation's.
+review states.** The default set is `dev` and `staging`; per-PR
+environments are a later addition and, when they land, are `deploy`
+at fan-out depth `0` (§7.19) rather than a special case — the fan-out
+would otherwise mint an environment per child, which is the cost that
+makes per-PR previews expensive everywhere they are expensive.
+Promotion between environments is automation and stays
+platform-fixed; *which* environments exist, and what a promotion into
+one requires, is the organization's shape, not the automation's.
 
 **There is no second bundle system, and adding one would contradict
 §9.** The instinct to give delivery configuration its own bundle
@@ -2867,6 +2867,101 @@ Load-time validation (§13) is where this is enforced, and it grows
 the checks §7.16 named: a gate whose role has no holders, a declared
 state with no counterpart in the mirror mapping, and §7.6's
 one-hyphen-apart naming rule over the declared set.
+
+### 7.19 System statuses, review sequences, and fan-out depth
+
+**The fixed vocabulary is the set of *system statuses*** — queue,
+generation, checks, merge, deploy. These are the platform's, they are
+what both bundle axes reference (§7.18), and they are the anchors
+everything else positions against. The earlier framing of "between
+generation steps" was too narrow: a security review before merge and
+an approval before a staging deploy are both obviously wanted and
+neither sits between generations.
+
+**A workflow bundle declares an arbitrary sequence of review statuses
+on any edge between system statuses.** The default workflow ships a
+product review between the product and architecture generations; an
+organization is free to insert a UX review and a security review
+beside it, or before merge, without the chain knowing. §7.6's
+existing feature lifecycle is the degenerate case of this model with
+every sequence length pinned at one, which is a good sign the shape
+is right rather than novel.
+
+**Queue statuses are required before every generation and every
+deployment**, and that is a load-time check rather than a convention.
+
+**Sequential only, deliberately.** A ticket has one status and one
+assignee at a time, which is how essentially every tracker in common
+use behaves — and comprehensibility is the reason, not a limitation
+we are accepting. Users of this system already face a large amount of
+novel UI; swim lanes with single assignees are a UX win even when
+they cost review latency. Parallel review is a real want and is
+**deferred, not refused**: the intended shape is a togglable
+*parallelize sequential review* setting that takes review steps which
+would run serially on one edge and runs them together. Worth noting
+why the order of these two matters — a sequential model can be
+relaxed into a parallel one later, while a parallel spec cannot be
+serialized without losing information. Sequential-first is what keeps
+the option open.
+
+**Throwback reopens everything downstream of the regeneration.** The
+happy path is a straight line and the sad paths are simple loops. A
+throwback from the third review on an edge re-runs the generation,
+and the two approvals before it approved a version that no longer
+exists, so they reopen. The all-reopen rule is only affordable
+because staleness is derived rather than eagerly reset (§7.11): a
+passed review goes stale when what it approved changes, so a
+regeneration that touched nothing it saw costs nothing to re-pass.
+This is what turns §7.16's open item — *what a passed gate pins* —
+from a loose end into a dependency: without the pin there is no
+derivation, and all-reopen degrades into re-reviewing everything by
+hand every time.
+
+**Blocked statuses carry explicit entry and exit lists**, and **every
+generation status must have at least one blocked status to kick to**
+— a load-time check, since a generation that can fail with nowhere to
+land is the parked-ticket-nobody-can-act-on failure §7.6 already
+names. *Tension to resolve:* §7.6 records one `Blocked` state with
+flavor *labels* and argues against multiple blocked states on the
+grounds that a flavor dispatches nothing and would duplicate every
+attached rule. Declarable statuses weaken but do not kill that
+argument. The reconciliation that seems right: a distinct blocked
+status earns its keep exactly when its **exits differ**, which is
+§7.6's own admission test — `needs-setup` returns to the author,
+failed checks return to the dev agent — while flavor labels stay for
+the reason dimension within a status. Not settled here.
+
+**Scope is expressed as fan-out depth, which is how a status narrows
+without naming a tier.** A status carries an optional depth: omitted
+or `0` means the top level only; `1` adds components; `2` adds
+subcomponents. The simplifying assumption is that **validation wanted
+at a nested level is also wanted at every level above it**, which is
+what lets depth be one number instead of a set of levels. If that
+ever fails, depth generalizes to a level set compatibly.
+
+Worked example — `checks` (2) → `code review` (1) → `merge` (2)
+→ `deploy` (0): subcomponents get checks and then merge to their
+component branch; components get checks and code review before merge;
+the top level gets checks and code review before merge, with
+deployment after. **The effective sequence at any level is the
+declared sequence filtered by depth, order preserved**, which is what
+makes one declaration describe every level at once.
+
+**Depth is a maximum, never a requirement — and this is what keeps
+portability intact.** Bundles choose how far they fan out;
+component/subcomponent is the sweet spot and the default chain's
+shape, but nothing hard-codes it. So a workflow declaring depth `2`
+against a chain that fans out once applies at the two levels that
+exist, silently. It must *not* be a load error: erroring would make
+the workflow's depth a claim about the chain's decomposition, which
+is precisely the cross-axis coupling §7.18 removed. Depth is a number
+rather than a name, which is the whole reason it can scope without
+coupling.
+
+**One special case disappears into this.** §7.18 said per-PR
+environments would attach to top-level tickets only. That is not a
+special case; it is `deploy` at depth `0`, and it stops needing its
+own rule.
 
 ---
 

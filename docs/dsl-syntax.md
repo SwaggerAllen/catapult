@@ -330,8 +330,19 @@ Added with the two axes and the declarable protocol surface (v5
   two bundles a matched pair rather than freely composable. There is
   deliberately **no chain/workflow compatibility check**: with no
   shared vocabulary there is nothing to check;
-- every gate and environment attaches to a fixed position that
-  exists, and each gate's exits resolve within the workflow bundle;
+- every review status sits on an edge between **system statuses**
+  (queue, generation, checks, merge, deploy) that exists, and its
+  exits resolve within the workflow bundle (v5 §7.19);
+- a **queue status precedes every generation and every deployment**;
+- **every generation status has at least one blocked status to kick
+  to** — a generation that can fail with nowhere to land is the
+  parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19);
+- blocked statuses' entry and exit lists resolve to declared statuses;
+- **fan-out depth is never validated against the chain.** A depth
+  exceeding a chain's actual fan-out applies at the levels that exist
+  and is not an error: erroring would make the workflow's depth a
+  claim about the chain's decomposition, which is the cross-axis
+  coupling §11 forbids (v5 §7.19);
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
