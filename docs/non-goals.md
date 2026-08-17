@@ -37,7 +37,19 @@ recorded decision, and say so explicitly.
   Tracker port. The tell that would reopen this: catching ourselves
   teaching Linear state (custom fields carrying doc-graph data,
   load-bearing prose parsing). Until then, the port keeps the exit
-  cheap and we build zero tracker UI.
+  cheap and we build zero tracker UI. **Under active pressure, and
+  the tell is nearer than this entry assumed** (v5 §7.17): the
+  pipeline already carries an external state store because the
+  tracker cannot record *who* wrote a change; protocol state already
+  rides in tracker comments behind markers; an unmapped tracker state
+  has halted a sweep for hours; tracker comment ordering has
+  contradicted its own API contract; and §7.16's rejection of a stale
+  transition cannot be delivered synchronously through a tracker the
+  plane does not control. The standing decision is unchanged —
+  delivery is to Linear, and a plane-native tracker is **deferred,
+  not rejected**. What this amendment buys is that the reopening,
+  when it comes, is argued from accumulation rather than from a bad
+  afternoon.
 - **No dashboard-as-working-surface** (v5 §7.4, systems/dashboard.md).
   Debugging and observation only, *for the work loop* — artifact
   review and ticket action live in Linear and PRs. Settings and
@@ -50,10 +62,21 @@ recorded decision, and say so explicitly.
   CI/runner environments; the plane dispatches and observes but
   never runs generated code in-process. The plane's blast radius is
   its own.
-- **No multi-writer projects.** One driving author per project;
-  collaborators read. The coordination model for concurrent human
-  writers is a different system (v4 §A.0.1 commitment 4, still
-  true in v5).
+- **No concurrent authoring of artifact bodies** (v5 §7.16).
+  Narrowed, deliberately, from a former `No multi-writer projects`
+  entry — **small teams are supported**, and that entry contradicted
+  both §1's target class ("single-author / small teams") and §2.9's
+  identity component, which ships orgs, membership, invitations and
+  roles-as-data. It was inherited from v4 §A.0.1 commitment 4 rather
+  than decided here, and the narrowing is a reconciliation, not a
+  reversal. What remains out is what v4 actually carved out: two
+  people editing the same artifact body under merge semantics the
+  plane would have to invent. Bodies live in git, PRs already carry
+  those semantics, and the plane does not grow a second set.
+  Concurrent *action on the delivery protocol* — several people
+  holding a sign-off role, racing each other on transitions — is in,
+  and is optimistic concurrency (§7.16): first writer wins, a stale
+  `from` is rejected rather than applied.
 - **No experimentation/percentage-rollout flag machinery** (v5
   §2.10): release flags, ops kill-switches, actor targeting — no
   more. Machinery without a customer at this scale.

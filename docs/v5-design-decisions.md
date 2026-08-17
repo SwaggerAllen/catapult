@@ -2494,6 +2494,130 @@ paused pass that looks identical to a dead one is the "signal
 silence" failure §7.4 already names — so pausing announces, and the
 announcement carries when it intends to wake.
 
+### 7.16 Concurrent writers
+
+**Small teams are supported.** This reconciles a contradiction the
+record carried rather than reversing a decision: §1's target class
+has read "single-author / **small teams** shipping enterprise-scale
+systems" from the start, and §2.9's identity component already ships
+orgs, membership, invitations and roles-as-data. The old
+`No multi-writer projects` non-goal was the outlier, inherited from
+v4 §A.0.1 commitment 4 rather than decided here.
+
+**The two things that entry welded together, separated — one stays
+out:**
+
+- **Concurrent authoring of artifact bodies** is still out. Bodies
+  live in git; PRs already carry merge semantics, and the plane does
+  not grow a second set. This is what v4 actually carved out and the
+  carve-out holds.
+- **Concurrent action on the delivery protocol** is in, and is the
+  subject of this section. It is optimistic concurrency, not merge
+  semantics — a solved problem rather than a different system.
+
+**Sign-off is role-scoped, and any holder of the role satisfies it.**
+Product/design sign-off and architecture sign-off are distinct
+permissions; one or more people hold each; any one of them can give
+their role's. This lands exactly on §2.9's split — **permissions are
+code, roles are data**: the delivery system defines the sign-off
+atoms, identity stores who holds them and evaluates the grant. More
+sign-off classes, and whatever states they imply, are a later
+increment (§7.6's admission test still governs); nothing here may
+assume today's two.
+
+**Every transition carries the state it believed it was leaving.**
+First writer wins. A second writer's command whose `from` no longer
+matches the ticket's actual state is **rejected, not applied**, and
+the rejection names who moved it and to what — so the loser retries
+against the new state or goes and talks to the winner. Commanded's
+`expected_version` is the mechanism and the aggregate is the arbiter;
+this is the same primitive the mutex uses against agents, so
+human-vs-agent and human-vs-human races resolve through one path
+rather than two.
+
+**The synchronous rejection is not achievable through Linear, and
+that is a property of the tracker, not of this design.** Two humans
+both moving a ticket in Linear both succeed there — Linear applies
+last-write-wins and tells nobody — and the plane sees the result
+afterwards, by webhook or sweep. The loser is therefore reverted
+after the fact with a comment (§7.1's validate-or-revert, already the
+designed behavior) rather than stopped at the point of action. "Pop
+an error and make them try again" requires a surface the plane
+controls. Recorded here because it is a standing force on §7.17's
+tracker question, and because the degradation must be understood as
+chosen rather than discovered.
+
+**Still open within this section:**
+
+- **The compare token: version, not status.** Status alone cannot
+  tell two writers apart who both moved `A → B`, and it readmits the
+  ABA case — a ticket that returns to `A` accepts a stale command
+  aimed at the first `A`. The compare should be the aggregate's
+  version while the *message* speaks in states, because the version
+  is what is correct and the state is what the human needs to hear.
+  Author's call: the rule as stated compares on status.
+- **Whether approval is additive and the transition derived.** Two
+  designers approving is not a conflict, and modelling approval as a
+  state move makes it one. The alternative: approvals are additive
+  events (actor, role, scope, and the version of what was reviewed),
+  and the plane fires the transition when the required set is
+  satisfied — which fits §7.1's human-actions-are-signals shape and
+  leaves conflict for the case that deserves it, one person approving
+  what another rejected. Not decided.
+- **What an approval pins.** An approval that does not name the
+  version it approved silently survives the artifact changing under
+  it. §7.11's staleness-is-derived machinery is the natural home —
+  an approval goes stale when what it approved does — but the pinning
+  has to exist for that to be derivable at all.
+- **Staleness clocks under more writers.** `staleClaimGrace` measures
+  from `max(Run.EndedAt, StateSince)`, so every state move resets it.
+  More writers means more resets, and the constant (§7.13) was chosen
+  against a single-writer rate.
+
+### 7.17 The tracker and the host are adapters
+
+**Both are ports with swappable adapters. Linear and GitHub are the
+delivery adapters, and the only ones built.** The self-hosted
+question — a Gitea-class forge, a plane-native tracker — is
+deliberately deferred, not rejected, and this is what keeps the exit
+cheap. The timing is the whole argument: delivery's ports arrive in
+Phase 4 (`systems/delivery.md`) and no adapter exists yet, so
+neutrality costs approximately nothing now and is a retrofit later.
+
+**Three disciplines, without which the port is nominal:**
+
+1. **Ports are shaped by what the protocol needs, never by what the
+   vendor offers.** A `Tracker` that grows a method because Linear
+   has the feature is a Linear-shaped port with an adapter-shaped
+   hole in it. This is the easy thing to get wrong while exactly one
+   adapter exists.
+2. **The fake is the second implementation.** `systems/delivery.md`
+   already ships a fake with every port; the reason is not only the
+   offline test ring — it is the forcing function that keeps the port
+   vendor-neutral, and it only works if the fake is written against
+   the protocol rather than mirroring the adapter.
+3. **No capability negotiation until a second adapter demands it.**
+   Degradation frameworks for backends that do not exist are the
+   speculative machinery `docs/non-goals.md` rejects elsewhere.
+
+**The forge is two seams, decided separately.** The `Host` port (PRs,
+merges, file writes, ancestry) and the execution substrate (§7.12.1's
+dispatch port, already committed as an adapter) are different
+questions, and a forge swap needs both. Keeping them distinct means
+the CI-substrate work, which is planned, does not entangle with a
+forge swap, which is not. The one genuinely hard piece is
+runner↔plane authentication: §7.12.1 settled it on GitHub-minted
+Actions OIDC, which is a good design and a GitHub-specific one.
+
+**Evidence the tracker question is live** (recorded so the decision
+is made on accumulation rather than on a bad afternoon): the pipeline
+already needs an external state store because the tracker cannot say
+*who* wrote a change; protocol state already rides in tracker
+comments behind markers; an unmapped tracker state has halted a sweep
+for hours; and tracker comment ordering has silently contradicted its
+own API contract. None of these is decisive. Together they are why
+the port matters more than it looks.
+
 ---
 
 ## 8. Parked / open items
