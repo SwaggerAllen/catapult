@@ -976,6 +976,14 @@ version. Lifecycle maps onto existing machinery:
   config surface are the source; its build publishes the handle
   (pubapi, permission vocabulary, config surface, upgrade notes)
   alongside the package.
+- **`external` is one of two modes** (§3.5). A component may instead
+  be **adopted**: its documents enter the graph as ordinary generated
+  nodes and its code is generated into the tree. The transition is
+  explicit, recorded, and one-way in practice — an adopted component
+  stops receiving the version-bump staleness above and receives
+  handle-diff-seeded absorption tickets instead. Nothing else in this
+  section changes: an unadopted external node behaves exactly as
+  described.
 
 Upgrades have two channels: **codemods for the mechanical part**
 (dep bump, renames — Igniter is the candidate framework, run inside
@@ -1008,31 +1016,58 @@ discipline as the predicate language, deliberately not expressions.
 
 ### 3.5 Governance
 
-- The dev agent never edits shared-component code — structurally
-  guaranteed (a dependency, outside the repo tree, outside file
-  maps). The guarantee rests on *being a dependency*, not on being a
-  hex one, so it survives §3.1's move to git unchanged — a mix git
-  dep resolves into `deps/` exactly as a hex package does. What would
-  break it is **vendoring** a component into the project tree, which
-  is therefore not a supported shape.
-- **Forking a component is legitimate, and is an org act rather than
-  a project act.** Revised: an earlier draft called forking
-  pathological, which was wrong and contradicted the record —
-  `LICENSING.md` puts `components/**` under Apache-2.0 precisely so
-  it ships into generated projects, and §2.9 already builds in a
-  pluggable principal for projects with domain-native identity. Auth
-  is the likeliest fork of all: bespoke SSO, legacy password hashes,
-  jurisdictional requirements. The distinction that keeps §2.9's
-  anti-drift argument intact is *where the fork lives*: forking
-  produces **a different component, maintained as its own repo and
-  consumed as a dependency**, never editable-in-place project code.
-  Per-project divergence is still what §2.9 rejects ("N projects with
-  drifting unpatchable auth code"); one org maintaining one deliberate
-  fork is a different thing and an honest one.
-- **The fork's cost is stated, not hidden:** you own that component's
-  security patches from then on, and handle diffing (below) is how you
-  learn what upstream changed while you were away. That is exactly the
-  merge-upstream lifecycle §3.1 chose git for.
+- **A component has two consumption modes, and adoption is an
+  explicit, recorded, one-way act.**
+  - **Dependency** (the default): the component resolves into
+    `deps/`, outside the repo tree and outside file maps, and appears
+    in the graph as an `external` node (§3.2) whose content is
+    read-only and whose "approval" is version pinning. Here the
+    standing guarantee holds — **the dev agent never edits
+    shared-component code, structurally**. That guarantee rests on
+    *being a dependency*, not on being a hex one, so it survives
+    §3.1's move to git unchanged: a mix git dep resolves into `deps/`
+    exactly as a hex package does.
+  - **Adopted**: the component's *documents* enter the project's
+    graph as ordinary generated nodes, and its code is generated into
+    the tree like any other component's. Agents edit it because it is
+    now the project's, and it passes the same review gates as
+    everything else.
+- **Adoption is the fork, and it is legitimate.** An earlier draft
+  called forking pathological and then tried to save the claim with
+  an org-versus-project distinction. Both were wrong. `LICENSING.md`
+  puts `components/**` under Apache-2.0 *precisely* so it ships into
+  generated projects; §2.9 already builds in a pluggable principal;
+  and the org/project split does no work at this target class, where
+  an enterprise-scale monorepo means one org routinely has exactly
+  one project. Auth is the likeliest adoption of all — bespoke SSO,
+  legacy password hashes, jurisdictional requirements. Adoption works
+  *because* these components are Catapult-shaped: comparch documents,
+  file maps, handles, conventions. They slot into a graph natively in
+  a way no ordinary dependency could.
+- **The merge target is the documents, never the code.** This is what
+  makes adoption survivable rather than a one-time copy. Regenerated
+  code does not correspond to upstream's code, so merging upstream
+  *code* into it is either perpetual conflict or meaningless; merging
+  upstream's comparch and impl *documents* into the graph works, and
+  regeneration follows. **The upgrade path is therefore already
+  built:** an upstream release produces a handle diff, the handle diff
+  seeds an **absorption ticket** (§7.3), and the ticket runs the
+  upward flow — documents absorb reality, walking upward only as far
+  as the change argues. Same machinery as an out-of-band commit;
+  different trigger.
+- **What adoption costs, stated rather than hidden:** you own that
+  component's security patches, §2.9's central-propagation argument
+  stops protecting you for it, and the handle is now yours — upstream
+  handle diffs become advisory rather than authoritative. §2.9 still
+  refuses *accidental* generate-and-own ("N projects with drifting
+  unpatchable auth code"); what it never refused is a deliberate,
+  recorded divergence that someone chose with the bill in view.
+- **This is not the absorption `docs/non-goals.md` refuses.** That
+  entry rejects ingesting *existing outside codebases*, on the stated
+  grounds that "the platform's structure is narrow by design and
+  existing apps won't conform to it." A Catapult component conforms
+  by construction — it is the structure. The reason does not reach
+  this case, which is why the resemblance is worth a sentence.
 - Push-back channel: a project's pipeline discovering a shared
   component is wrong files a **cross-project upward finding** — an
   issue against Catapult's own tracker. Designed escape hatch, not
