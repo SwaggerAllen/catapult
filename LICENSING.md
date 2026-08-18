@@ -132,6 +132,21 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
   hex metadata is the publisher's own assertion, and the counsel pass
   below is what verification would mean.
 
+  **A dependency with no hex metadata is not an automatic failure**
+  (ORC-74) — git-distributed dependencies, Catapult's own components
+  included once §3.1 lands them that way, never carry
+  `hex_metadata.config` at all. Resolution is an ordered rung ladder,
+  first answer wins, no reconciliation between rungs
+  (`systems/substrate.md`): hex metadata, then the dependency's own
+  `licensing/0` if it is a Catapult component, then an explicit
+  `SPDX-License-Identifier:` line in its LICENSE file if it is a
+  third-party one, then `overrides:` in `mix.exs`, then unresolved —
+  which still fails, exactly as before the ladder existed. The
+  practical change for a human: `overrides:` now only supplies a fact
+  where nothing above it could, and can no longer correct a
+  present-but-unrecognized hex metadata spelling — that residue is
+  what the project's own `allow:` list is for.
+
 ## Contributions
 
 **No outside contribution is accepted without a signed CLA** —

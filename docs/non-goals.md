@@ -636,6 +636,28 @@ recorded decision, and say so explicitly.
   where a human agreed. Revisit condition: none — an override costs
   one line and one reading, and the readings are rare by construction
   (zero in the checked closure today).
+  **Amended (ORC-74): an explicit `SPDX-License-Identifier:` line is
+  now read, and this entry's refusal survives intact because that line
+  is a declaration, not prose.** The rung ladder's third rung matches
+  one line's own syntax — a fixed marker, a single token, no internal
+  whitespace — and does not resolve at all if the file has none, more
+  than one, or a value that isn't a bare token (`systems/substrate.md`).
+  It never turns "Apache License, Version 2.0…" into `Apache-2.0`; the
+  distinction this entry draws is exactly the one that makes the new
+  rung safe. **The `cowboy_telemetry` illustration above changed
+  meaning underneath it, and is worth reading again with that in
+  mind:** the ladder now tries hex metadata before `overrides:`, so a
+  dependency whose metadata parses to *something* — `["Apache 2.0"]`
+  included — resolves at rung 1 and never reaches the override rung at
+  all. An override can no longer correct a present-but-unrecognized
+  metadata value, only supply one where metadata, a component's own
+  `licensing/0`, and an SPDX line in its LICENSE all came up empty. Had
+  `cowboy_telemetry` ever needed checking, this document's older
+  illustration — "the mechanism exists because the first one will be a
+  sentence in a diff" — would no longer be true of it; the sentence in
+  the diff is now a line in the project's own `allow:` list, which is
+  what this entry already argues is the correct home for a spelling the
+  project is willing to name outright, never a table.
 - **No per-file license headers, for now** (ORC-16, carrying the
   ticket's own deferral so it is not re-proposed as the obvious
   adjacent win). The inventory check answers what the *dependencies*
@@ -974,3 +996,42 @@ recorded decision, and say so explicitly.
   than being silent, which is what this ticket's whole ladder argument
   rests on. Revisit condition: none while Catapult is offered as a
   hosted product.
+- **No SPDX boolean-expression parsing in the license-file rung, and no
+  fourth or fifth filename added to its fixed list** (ORC-74). The rung
+  that reads a git dependency's own LICENSE file (`systems/substrate.md`)
+  matches one line's declared syntax — a fixed marker, a single bare
+  token — and stops there on purpose. `MIT OR Apache-2.0` is a real,
+  formal SPDX license expression and not prose, so refusing to parse it
+  looks like the inconsistency the moment someone hits it; it is refused
+  anyway, because `AND`/`OR`/`WITH`/parens is a small grammar with
+  precedence rules, and a small grammar shipped into every generated
+  project to save one human reading one LICENSE file is the same trade
+  the no-normalization entry above already declined for prose, arriving
+  through a more sympathetic door. A file using it does not resolve at
+  this rung, exactly as a file with two plain declarations does not, and
+  `overrides:` is one line away. The filename list — `LICENSE`,
+  `LICENSE.md`, `LICENSE.txt`, `COPYING`, first found, others never
+  consulted — is closed for the same reason `licensing/0`'s known opts
+  and `licensing:`'s known keys are: a fifth name quietly added the day
+  some dependency's file happens to be spelled differently is exactly
+  the drift a closed, exact list exists to refuse. Revisit condition: a
+  real dependency in a checked closure whose license file uses a name or
+  an expression outside this rung's reach, read and argued in the same
+  diff that widens it — never a guess at what the next one might be.
+- **No cross-rung reconciliation anywhere in the license resolution
+  ladder** (ORC-74), stated once because the ladder applies it at three
+  different seams and a future pass should recognize the shape rather
+  than re-derive it each time it appears. Hex metadata and a component's
+  own `licensing/0` are never cross-checked against each other; two
+  modules in one git-fetched dependency answering `licensing/0`
+  differently resolve nothing rather than averaging or preferring one;
+  two `SPDX-License-Identifier:` lines in one LICENSE file resolve
+  nothing for the identical reason. In every case the fix is a human
+  reading the disagreement and recording an `overrides:` entry, never
+  the check picking a winner. The order among the four rungs is the
+  same rule at the top level: first to answer wins, and nothing below
+  is consulted once something above has — including `overrides:`
+  itself, which no longer runs a race against hex metadata (see the
+  amendment to the entry above). Revisit condition: none — a check that
+  reconciles disagreeing sources is a check asserting a fact nobody
+  checked, which is the defect this whole module exists to refuse.
