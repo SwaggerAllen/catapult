@@ -73,6 +73,14 @@ defmodule Catapult.Foundation do
   end
 
   @impl Catapult.Component
+  def policies do
+    [
+      {Catapult.Foundation.Policies.ErlangHttp, "lib/**/*.ex",
+       policy: "conventions §11: no plane module calls a pure Erlang HTTP client"}
+    ]
+  end
+
+  @impl Catapult.Component
   def children do
     if Application.get_env(:catapult, :start_persistence, true) do
       [Catapult.Repo, {Oban, Application.fetch_env!(:catapult, Oban)}]

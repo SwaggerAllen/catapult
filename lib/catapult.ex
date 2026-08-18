@@ -26,9 +26,12 @@ defmodule Catapult do
   Boundary documents that calls to `:elixir`, `:boundary` and pure Erlang
   applications cannot be restrained. So a plane module reaching a model
   provider through `:httpc` compiles clean here, and conventions §11 is a
-  compile error for every Elixir client and an audit check for the Erlang
-  ones (`systems/substrate.md`). Naming which half is which is the
-  difference between a gate and a belief about a gate.
+  compile error for every Elixir client the app list names, and for the
+  Erlang ones the plane-owned transport ban at
+  `Catapult.Foundation.Policies.ErlangHttp` (`systems/foundation.md`),
+  registered through `Catapult.Foundation.policies/0` rather than shipped
+  in substrate (`systems/substrate.md`). Naming which half is which is
+  the difference between a gate and a belief about a gate.
   """
   use Boundary,
     deps: [

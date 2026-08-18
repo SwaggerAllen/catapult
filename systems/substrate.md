@@ -1396,13 +1396,36 @@ build work at all.
   §10 threads trace context there), and "nothing outside the wrapper
   calls `Phoenix.PubSub`" is a boundary fact, not a string-shaped one.
 
-  **The residue is Erlang, and it stays an AST check.** Boundary
-  documents that calls to `:elixir`, `:boundary` and pure Erlang
-  applications cannot be restrained — so a plane module reaching a
-  model provider through `:httpc` is invisible to the compile grade,
-  and conventions §11 becomes *mostly* a compile error rather than
-  wholly one. Naming which half is which is the difference between a
-  gate and a belief about a gate.
+  **The residue is Erlang, and it is not a check this package
+  ships** (ORC-52). Boundary documents that calls to `:elixir`,
+  `:boundary` and pure Erlang applications cannot be restrained — so a
+  plane module reaching a model provider through `:httpc` is invisible
+  to the compile grade, and conventions §11 is *mostly* a compile error
+  rather than wholly one. What this paragraph used to say — that the
+  residue "stays an AST check" — named no module in `lib/` and no entry
+  in the audit's platform set, which is `WallClock`, `ProcessName`,
+  `SecretInLog` and has been since ORC-21. The sentence written to
+  separate a gate from a belief about a gate was the belief. The gap is
+  named here and closed in `systems/foundation.md`; the split of labour
+  is this package's decision rather than a pointer, and it has two
+  halves:
+
+    * **Substrate ships the mechanism and nothing else.**
+      `Catapult.Audit.Check`, `Catapult.Audit.Source` and the
+      `policies/0` roster row are exactly what a project needs to state
+      a ban of its own at this grade, and all three are already here.
+      A project inherits the ability, not the ban.
+    * **This ban may not join `@platform_checks`, or live here under
+      another name.** That set is inherited by every project that runs
+      the task at all, and "no model calls" is a *plane* rule:
+      conventions §11's second bullet has generated projects making
+      model calls through the LLM adapter, so a package-wide egress ban
+      would fail the audit of a project doing exactly what the platform
+      told it to do. Hosting it here unregistered is the same defect
+      one level in — the list of banned modules is Catapult's
+      policy, and a policy compiled into a package that ships into
+      trees we do not own is the `Catapult.Audit.License` allowlist
+      mistake, one registry over (`docs/non-goals.md`).
 
   The one thing `externals/0` still owes the audit needs no new field:
   an entry's `adapter:` and `fake:` must declare a behaviour in common.
