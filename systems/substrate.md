@@ -1491,6 +1491,16 @@ used.
   buys is that the audit prints one line per cause, and never advice
   that would break a boot.
 
+  Implementation found a third thing that makes a read unknowable and
+  the same argument settles it: **a file in scope that does not parse
+  suppresses the dead direction, and reports nothing of its own.** Its
+  reads cannot be seen, so every declaration is a candidate false dead;
+  and the line is already owed by somebody else — the file-scoped checks
+  sweeping the identical scope report an unparseable file by contract
+  (`Catapult.Audit.Source`), so the run is red and the cause is named
+  exactly once. The task compiles before it audits, which is what makes
+  this unreachable in practice rather than merely survivable.
+
   Neither this nor the dead direction takes `catapult:allow`, for
   `Declarations`' standing reason and one more: an escape on an
   unjoinable read would silently re-arm exactly the false-dead report
@@ -1529,6 +1539,15 @@ used.
   is a variable every deploy must set for a value production never
   consults. Widening the glob to cover `test/` would make exactly that
   case report clean.
+- **The audit task loses its empty-components short circuit, and config
+  is why** (found in implementation). `declaration_problems/1` returned
+  early when a project composed nothing, which was free while both
+  checks took a registry as their subject. The read direction does not:
+  a project that composes nothing declares nothing, so a `fetch!/2` call
+  in its tree is a read *nothing* can explain — the one case where an
+  empty registry makes the report more interesting rather than less. The
+  saving stays where it belongs, on the two checks that skip their own
+  sweep when their entries are empty.
 - **`config/0` gets no census line.** The census exists because most of
   the roster consumes nothing and an unconsumed registry rots quietly;
   `config/0` is the registry that never had that problem — it is the one
@@ -1538,9 +1557,15 @@ used.
   would be the count restating what the check already asserts.
 - **The one hole is a renamed alias, and it announces itself.** Reads
   are matched as qualified calls whose module's last segment is
-  `Config`, so `alias Catapult.Config, as: Cfg` hides one — a limit
-  `Catapult.Audit.Source.alias?/2` imposes on every check in the family,
-  not a new one. Here it is the benign case, and uniquely so: hiding a
+  `Config` — in both spellings, because the piped
+  `:engine |> Config.fetch!(:key)` is the same call reaching the parser
+  at a different arity, and leaving that unmatched would have been a
+  second hole of a worse kind (found in implementation: an arity-shaped
+  miss makes a *live* declaration report dead, and credo's SinglePipe is
+  tagged controversial, so nothing else in the gate set forbids the
+  spelling). What stays is the alias: `alias Catapult.Config, as: Cfg`
+  hides a read — a limit `Catapult.Audit.Source.alias?/2` imposes on
+  every check in the family, not a new one. Here it is the benign case, and uniquely so: hiding a
   read does not hide a violation, it makes the declaration that read
   serves report as dead, so the check's other direction is what surfaces
   it. A ban that goes quiet when someone renames an alias is the failure
