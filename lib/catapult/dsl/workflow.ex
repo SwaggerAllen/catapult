@@ -80,7 +80,8 @@ defmodule Catapult.Dsl.Workflow do
         naming_discipline_problems(gate_map, env_map) ++
         role_holder_problems(gate_map, Keyword.get(opts, :role_holders)) ++
         mirror_mapping_problems(gate_map, Keyword.get(opts, :mirror_mapping)) ++
-        generation_blocked_exit_problems()
+        generation_blocked_exit_problems() ++
+        queue_precedes_problems()
 
     if problems == [] do
       {:ok, %__MODULE__{name: name, gates: gate_map, environments: env_map}}
@@ -148,14 +149,29 @@ defmodule Catapult.Dsl.Workflow do
     end)
   end
 
+  # `DslGraph.acyclic?/find_cycle` drop self-loops before building the
+  # graph (that module's moduledoc: correct for the edge-instance graph,
+  # where a same-tier dependency edge is a legitimate self-loop). A gate
+  # naming itself as its own predecessor has no such legitimate meaning
+  # — it is the degenerate one-node case of §15.3's "order must be
+  # total" — so it is checked directly rather than through the shared
+  # cycle check, which would silently drop it.
   defp after_cycle_problems(gates) do
     edges = for {name, gate} <- gates, do: {name, gate.after}
 
-    if DslGraph.acyclic?(edges) do
-      []
-    else
-      ["gates' after: references cycle: #{inspect(DslGraph.find_cycle(edges))}"]
-    end
+    self_problems =
+      for {name, gate} <- gates, gate.after == name do
+        "gates' after: references cycle: #{inspect([name, name])}"
+      end
+
+    graph_problems =
+      if DslGraph.acyclic?(edges) do
+        []
+      else
+        ["gates' after: references cycle: #{inspect(DslGraph.find_cycle(edges))}"]
+      end
+
+    self_problems ++ graph_problems
   end
 
   defp gate_throwback_problems(gates) do
@@ -193,12 +209,20 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
+  # Same reasoning as `after_cycle_problems/1`: a same-name
+  # `promote_from:` is the one-node cycle case, and `DslGraph`'s shared
+  # cycle check drops self-loops by design, so it is checked directly.
   defp environment_promotion_problems(environments) do
     missing =
       for {name, env} <- environments,
           env.promote_from,
           not Map.has_key?(environments, env.promote_from) do
         "environment #{inspect(name)}'s promote_from #{inspect(env.promote_from)} names an environment that is not declared"
+      end
+
+    self_problems =
+      for {name, env} <- environments, env.promote_from == name do
+        "environments' promote_from: references cycle: #{inspect([name, name])}"
       end
 
     edges = for {name, env} <- environments, env.promote_from, do: {name, env.promote_from}
@@ -210,7 +234,7 @@ defmodule Catapult.Dsl.Workflow do
         ["environments' promote_from: references cycle: #{inspect(DslGraph.find_cycle(edges))}"]
       end
 
-    missing ++ cycle_problems
+    missing ++ self_problems ++ cycle_problems
   end
 
   ## §7.6's naming discipline over the declared set, now a real check
@@ -282,6 +306,17 @@ defmodule Catapult.Dsl.Workflow do
       []
     else
       ["platform defect: the fixed system-status skeleton has no path from generation to blocked"]
+    end
+  end
+
+  # dsl-syntax.md §13/§15.1: "a queue status precedes every generation
+  # and every deployment" — same shape as generation_blocked_exit_problems/0
+  # above: a fact about the fixed skeleton (Catapult.Dsl.SystemStatus),
+  # exercised at load time so a defect in that skeleton, not in any one
+  # bundle, is what it would catch.
+  defp queue_precedes_problems do
+    for kind <- [:generation, :deploy], not SystemStatus.queue_precedes?(kind) do
+      "platform defect: the fixed system-status skeleton has no queue precedent for #{kind}"
     end
   end
 end

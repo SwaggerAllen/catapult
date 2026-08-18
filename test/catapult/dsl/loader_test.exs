@@ -3,6 +3,7 @@ defmodule Catapult.Dsl.LoaderTest do
 
   alias Catapult.Dsl.Fixture
   alias Catapult.Dsl.Loader
+  alias Catapult.Dsl.SystemStatus
 
   @moduletag :tmp_dir
 
@@ -298,6 +299,44 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "total order"))
   end
 
+  test "a gate naming itself as its own after: is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: product-review
+      role: design
+      escalation: author
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
+  end
+
+  test "a genuine cycle across two gates' after: is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: other-review
+      role: design
+      escalation: author
+      """,
+      "bundles/default-flow/gates/other-review.yaml" => """
+      review: other-review
+      after: product-review
+      role: design
+      escalation: author
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
+  end
+
   test "a throwback that is not earlier in the sequence is a load error", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
 
@@ -325,6 +364,21 @@ defmodule Catapult.Dsl.LoaderTest do
   test "role-holder check is skipped when no resolver is supplied", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
     assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  # dsl-syntax.md §13/§15.1: "a queue status precedes every generation
+  # and every deployment" is a fact about the fixed system-status
+  # skeleton (Catapult.Dsl.SystemStatus.queue_precedes?/1), not bundle
+  # content — like the sibling blocked-exit skeleton check, it cannot
+  # be made to fail from bundle data, so this locks in that the check
+  # is wired into every workflow load rather than dead code.
+  test "the queue-precedes-generation/deploy skeleton check is wired into workflow load", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+    assert {:ok, _loaded} = Loader.load(dir)
+    assert SystemStatus.queue_precedes?(:generation)
+    assert SystemStatus.queue_precedes?(:deploy)
   end
 
   test "naming discipline flags two declared statuses one hyphen-word apart", %{tmp_dir: dir} do
@@ -378,6 +432,41 @@ defmodule Catapult.Dsl.LoaderTest do
              problems,
              &String.contains?(&1, "\"nonexistent\" names an environment that is not declared")
            )
+  end
+
+  test "an environment naming itself as its own promote_from is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      promote_from: staging
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
+  end
+
+  test "a genuine cycle across two environments' promote_from is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/dev.yaml" => """
+      environment: dev
+      after: merge
+      promote_from: staging
+      """,
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      promote_from: dev
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
   end
 
   test "environments chain by promote_from and resolve against system statuses", %{tmp_dir: dir} do
