@@ -107,9 +107,11 @@ review:                           # optional; presence enables the review pass
   grammar: schemas/review.xsd
   required: false                 # true gates approval on review commit
 delivery:                         # extension-provided namespace (§12)
-  phase: Architecting             # platform-fixed vocabulary only (§11):
-  agent_step: design              # statuses, queues, agent steps — never a
-                                  # workflow bundle's gate or environment
+  phase: generation                # a §15.1 system-status kind — platform-
+  agent_step: design              # fixed vocabulary only (§11): statuses,
+                                  # agent steps — never a display name from
+                                  # a workflow bundle's declared review
+                                  # sequence, and never a gate or environment
 enforcement: []                   # extension-provided profiles, e.g. [codegen: restricted]
 ```
 
@@ -157,6 +159,12 @@ consistency: eventual             # dependency edges only:
                                   #   eventual (default) | transactional
                                   #   (v5 §2.6 — transactional couplings
                                   #   are declared, enumerable state)
+navigation: false                 # default; true marks a cyclic-legal
+                                  # navigation edge (§4's v5 rule below)
+constraint: reaches(source, target)   # optional; §8's fourth predicate
+                                  # slot, alongside scope_filter,
+                                  # cardinality.when and a flow's
+                                  # completion
 ```
 
 Rules carried from v4, still normative: the full edge-instance graph
@@ -349,12 +357,19 @@ Added with the two axes and the declarable protocol surface (v5
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
   condition — otherwise a deadlocked gate is indistinguishable from a
-  slow reviewer (v5 §7.16);
+  slow reviewer (v5 §7.16). Holders live in identity (Phase 7); until
+  that component exists, the loader takes the roster as an opt-in
+  input (a `role_holders:` resolver) and skips the check, rather than
+  failing every load, when none is supplied — the same shape the
+  mirror-mapping check below already has for the same reason;
 - a gate's exits (forward and throwback) resolve to states that
   exist, and its declared escalation policy is well-formed;
 - every declared review state has a counterpart in the mirror mapping
   when the outbound tracker add-on is configured (v5 §7.17) — an
-  unmapped state is the failure that has halted a sweep before;
+  unmapped state is the failure that has halted a sweep before. Same
+  opt-in shape as the role-holders check: a `mirror_mapping:` resolver
+  is a loader input, not bundle content, since the add-on lands later
+  (Phase 4+);
 - §7.6's naming discipline over the *declared* set: no two states, or
   a state and a label, one hyphen apart in meaning — cheap against a
   fixed list, and an actual check against a declared one;
