@@ -850,6 +850,130 @@ recorded decision, and say so explicitly.
   already runs, once per mix project. Revisit condition: none. A
   component's declarations are checked in the project that compiles
   them, and every project compiles its own.
+- **No exemption list on the boundary-apps check — no ignore entry, no
+  `catapult:allow`, no per-application waiver** (ORC-50). Three kinds
+  of application are outside the completeness requirement and every one
+  of them is *derived*, so no name is written and none can be spent:
+  `:boundary` itself (`Boundary.Checker.check_external_dep?/3` opens by
+  excluding it), applications contributing no `Elixir.*` modules
+  (`Boundary.Mix.app_modules/1` filters them out, so no list entry can
+  restrain a call into one), and path deps (read off `:path` in the dep
+  options; naming one reproduces ORC-21's defect at twelve forbidden
+  references and a red build, measured). This is the same line ORC-16
+  drew for licenses: nobody imposes a dependency on us, so the fix for
+  an unchecked application is naming it, and a waiver could only ever
+  be spent restoring the fail-open the check exists to close. Revisit
+  condition: none. A fourth exclusion would have to be a fourth
+  *mechanical* fact about what Boundary can restrain, discovered the
+  way these three were, and it would arrive as a derivation rather than
+  as a list.
+- **No derived apps list inside `mix.exs`'s `boundary/0`** (ORC-50),
+  which is the tempting one-line version of this ticket: compute the
+  closure at project-config time and there is nothing left to forget.
+  Rejected on three counts, in increasing order of weight. It runs on
+  every mix invocation including `deps.get`, before the compiled `.app`
+  files the closure reads exist. It is plane-local, so a generated
+  project — whose `mix.exs` comes from `bundles/platform-elixir` and
+  whose list drifts the same way — inherits nothing. And it deletes the
+  artifact review acts on: the list is the one place a human reads
+  which applications are constrained, and a derivation bug would narrow
+  it silently and in the permissive direction, which is the failure
+  this ticket was filed about wearing the fix's clothes. The check is
+  the loud half and the declaration is the readable half.
+- **No plane-local test in place of a shipped check** (ORC-50). An
+  ExUnit case in `test/catapult/` reading `Mix.Project.config()` would
+  hold this property for this repository at a fraction of the cost, and
+  it is refused for what it does not do: every project `mix
+  catapult.audit` ships into has the same list and the same drift, and
+  a test in the plane's suite reaches none of them. The second reason
+  is the census — the ticket's actual complaint is that the fail-open
+  has no tell, and a passing test is not a tell, where a line on stdout
+  of every green run naming what was checked and what could not be is.
+  A test asserts; the audit reports. Revisit condition: none — the
+  check has unit tests in substrate's suite, which is the assertion
+  half, in the project that owns the code.
+- **No sharing of `Catapult.Audit.License`'s dependency closure**
+  (ORC-50), against the obvious reuse argument, and recorded because
+  the argument is a good one and someone will make it again. The two
+  walks answer different questions from different sources: the license
+  closure is *what a consumer would fetch*, read out of publishers'
+  `hex_metadata.config`, and it deliberately stops at a path dep
+  because a path dep is another mix project audited in its own right;
+  the boundary closure is *what this build can reach*, read out of
+  compiled `.app` files, and it must descend into a path dep because
+  the plane's `lib/` reaches `:plug` and `:telemetry` only through
+  `components/substrate`. Unifying them would import the license
+  walk's path-dep exclusion into a check whose whole subject is
+  applications nothing constrains — a hole one level in, in the
+  permissive direction. Revisit condition: none foreseeable; two
+  answers to two questions is the correct count, and the day they
+  agree by coincidence is not the day to merge them.
+- **No demand that dev- or test-scope applications appear in the
+  boundary apps list** (ORC-50). The check's subject stops at what a
+  `:prod` build resolves, and the residue is closed already rather than
+  accepted: the release image builds with `mix deps.get --only prod`
+  under `MIX_ENV=prod` (`Dockerfile`), so a `lib/` module calling
+  `Credo` or `MixAudit` fails to compile there whether or not anything
+  is named. Extending the demand would put build tools into a list
+  whose readability is its purpose, in exchange for a property the
+  release build already enforces. Naming one anyway stays legal — `:req`
+  is `only: :test` and is named deliberately — because the rule is
+  coverage of the floor, never equality with it. Revisit condition: a
+  test-scope application the *shipped* tree can reach, which would mean
+  the release build stopped being the thing that decides what ships.
+- **No `package:` block on the root `mix.exs`, and never one added to
+  arm the license check** (ORC-51). The obvious symmetry with
+  `components/substrate` — which states `package: [licenses:
+  ["Apache-2.0"]]` precisely *because* that is the arming — is a trap
+  here, and the measurement is why it is worth an entry rather than an
+  instinct: adding `package: [licenses: ["AGPL-3.0-only"]]` beside the
+  plane's policy makes `subjects/1` count the project itself as a
+  `:distributed` subject, arms the entire plane closure with the reason
+  "a recipient would inherit terms nobody offered them", and fails on
+  exactly one dependency — `cowboy_telemetry`, whose `["Apache 2.0"]`
+  is not an SPDX identifier. One override line from green is what makes
+  it dangerous; a wall of failures would have been self-correcting.
+  What the block asserts is false: `package:` means somebody fetches
+  this, the plane is published nowhere, and an untrue claim about
+  conveyance is not a cheap way to buy coverage — it is the check
+  enforcing the shipped-layer rule, with the shipped-layer reason, on a
+  tree nothing ships out of, which `systems/substrate.md` already names
+  as wrong rather than conservative. `licensing/0` on the plane's
+  components is the whole arming the plane needs, and it deliberately
+  arms nothing. Revisit condition: the plane genuinely being published
+  as a package, which would be a different product than the one
+  `LICENSING.md` describes.
+- **No minimal one-identifier `allow:` list on a project whose check is
+  unarmed** (ORC-51). A plane stating `licensing: [allow:
+  ["AGPL-3.0-only"]]` places its own subject, prints the same
+  `unchecked` census, and is exactly as green today as the six-entry
+  list — so the shorter one looks like the honest one, and the "no
+  hand-maintained inventories" rule looks like it applies. It does not:
+  the list is a policy statement about acceptable terms, not a mirror
+  of anything in the tree. The cost lands entirely on the day some
+  subject in the project first arms the check, and it is measured:
+  against Catapult's five plus `AGPL-3.0-only`, the plane's closure
+  produces one problem; against `["AGPL-3.0-only"]` alone, one per
+  dependency. That is a licensing policy written under time pressure,
+  inside a diff that had another purpose and whose author will supply
+  the reasons the list gets. Revisit condition: none. A list is stated
+  once and read whenever the check arms; writing it while nothing is at
+  stake is the only time it is cheap.
+- **No `:internal` distribution class for the plane** (ORC-51). The
+  reading that gets there is not silly — the plane conveys nothing, we
+  operate it, and `:internal` is described as build tooling and ops
+  scripts where "practically nothing triggers" — so it is refused in
+  writing. The plane is reached over a network by people who are not
+  its operator, which is the sole case `:service` exists to name and
+  the entire reason `LICENSING.md` chose AGPL-3.0-only over plain GPL:
+  §13 is the provision that makes copyleft mean anything for this shape
+  of program. Declaring `:internal` would assert that §13 does not
+  reach the one program it was chosen for. It is also the failure mode
+  the declaration model accepts in exchange for dropping the path rule
+  — a wrong class is wrong *in public* — so being wrong here is worse
+  than being silent, which is what this ticket's whole ladder argument
+  rests on. Revisit condition: none while Catapult is offered as a
+  hosted product.
 - **No destination-detecting model-call check — nothing reads a URL,
   a hostname or a provider name out of an HTTP call's arguments**
   (ORC-52). The sentence this ticket retired promised "an audit check

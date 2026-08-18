@@ -67,6 +67,22 @@ loader tickets carry `system:core-dsl`.
   the layer rather than built now. Until then the only project on the
   path is `components/substrate`, which states its own list by hand
   because it is not a generated project.
+- **A generated project's `mix.exs` declares `boundary: [default:
+  [type: :strict]]`, not an apps list** (ORC-50), and this is recorded
+  now for the same reason the entry above is: the layer does not exist
+  yet, and the obvious move when it does is to copy the plane's own
+  block, which would be copying a workaround along with it. Catapult
+  runs `check: [apps: [...]]` because `components/substrate` is a
+  **path** dep and Boundary drops a path dep's boundaries from its
+  cached view (`systems/foundation.md`, measured twice). A generated
+  project fetches substrate from hex like any other package, so the
+  defect has no purchase there and strict is simply available —
+  and strict is the better artifact: it needs no list, so it cannot
+  have an incomplete one, and `Catapult.Audit.BoundaryApps` is inert
+  against it and says so on every green run rather than auditing a
+  declaration the project was never asked to maintain. The plane's list
+  is the exception that a defect bought, and exceptions are not what a
+  generator emits.
 - **Stubbing is the instructed pattern for externally-gated scopes**
   (v5 §2.16): the arch and impl prompt material tells the generator —
   design the contract fully, type it opaquely, stub the

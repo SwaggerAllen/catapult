@@ -16,8 +16,27 @@ defmodule Catapult.MixProject do
       deps: deps(),
       compilers: [:boundary] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      hex: hex()
+      hex: hex(),
+      licensing: licensing()
     ]
+  end
+
+  # Arms `mix catapult.audit`'s license check (ORC-51, systems/foundation.md)
+  # rather than leaving the plane inert: every component here declares
+  # `licensing/0` as `[distribution: :service, license: "AGPL-3.0-only"]`,
+  # and `{:service, :listed}` arms nothing — the plane's own dependency
+  # closure stays unchecked exactly as LICENSING.md's table says it should.
+  # No `package:` block: the plane is published nowhere, so a `licenses:`
+  # entry there would assert conveyance that is false and arm the whole
+  # closure on that false premise (docs/non-goals.md).
+  #
+  # The list is Catapult's five plus the plane's own identifier — it has
+  # to include `AGPL-3.0-only` or the plane's own subject reads as
+  # unplaceable — and every plane component declares the same class,
+  # because a subject needing a different one belongs in its own mix
+  # project (docs/non-goals.md).
+  defp licensing do
+    [allow: ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]
   end
 
   # `mix hex.audit` is the load-bearing supply gate (conventions §2,
@@ -64,21 +83,61 @@ defmodule Catapult.MixProject do
   # can be armed is the checking, so a carve-out lands already checked
   # instead of retrofitted N boundaries at a time.
   #
-  # The list is these four applications and the HTTP listener, and it is
-  # `check: [apps: ...]` rather than `type: :strict` for a mechanical
-  # reason worth writing down, since strict is what the sketch drew.
-  # Strict would additionally require naming implicit boundaries inside
-  # `:catapult_substrate`, and Boundary's cached view drops a *path dep*'s
-  # boundaries on every incremental compile and rebuilds them only from
-  # loaded applications — which the cache-hit path does not load. The
-  # result is a clean `mix compile --force` and a `mix compile` that
-  # reports every substrate call as forbidden, so the second gate run in
-  # any CI job fails on state rather than on code (measured, not
-  # inferred). This list is checked identically and stably; its accepted
-  # cost is that a *newly added* dependency is unchecked until it is
-  # named here, which is a line in the same diff that added it.
+  # It is `check: [apps: ...]` rather than `type: :strict` for a
+  # mechanical reason worth writing down, since strict is what the
+  # sketch drew. Strict would additionally require naming implicit
+  # boundaries inside `:catapult_substrate`, and Boundary's cached view
+  # drops a *path dep*'s boundaries on every incremental compile and
+  # rebuilds them only from loaded applications — which the cache-hit
+  # path does not load. The result is a clean `mix compile --force` and
+  # a `mix compile` that reports every substrate call as forbidden, so
+  # the second gate run in any CI job fails on state rather than on code
+  # (measured, not inferred). A generated project fetches substrate from
+  # hex, so the defect has no purchase there and its mix.exs states
+  # `type: :strict` (systems/platform_content.md).
+  #
+  # The list is no longer the four rules' applications, and ORC-21's
+  # accepted cost — "a newly added dependency is unchecked until it is
+  # named here, which is a line in the same diff that added it" — is
+  # retired with it (ORC-50). That price assumes the omission gets
+  # noticed and nothing noticed it: an application absent from this list
+  # is not partially checked, it is silently exempt, and the list was
+  # short of six the day it was written. So it is now the whole of what
+  # a `:prod` build can reach and Boundary can restrain, and
+  # `Catapult.Audit.BoundaryApps` re-derives that set from the tree on
+  # every `mix catapult.audit` rather than trusting a diff to remember.
+  # Three exclusions are derived there, never written here: `:boundary`
+  # itself, applications contributing no Elixir modules (cowboy, cowlib,
+  # ranch, telemetry — a call into one resolves to no application, so no
+  # entry could restrain it), and path deps, because naming
+  # `:catapult_substrate` reproduces the defect above through the list
+  # instead of through strict (measured at twelve forbidden references
+  # and a red build). The check demands coverage, never equality, which
+  # is what keeps `:req` — `only: :test`, and named deliberately —
+  # legal. It stays a literal a reviewer reads rather than a derivation
+  # inside this function: a computed list would fail open exactly where
+  # a derivation bug put it, with nothing to say so (docs/non-goals.md).
   defp boundary do
-    [default: [check: [apps: [:ecto, :ecto_sql, :oban, :plug, :plug_cowboy, :req]]]]
+    [
+      default: [
+        check: [
+          apps: [
+            :db_connection,
+            :decimal,
+            :ecto,
+            :ecto_sql,
+            :jason,
+            :mime,
+            :oban,
+            :plug,
+            :plug_cowboy,
+            :plug_crypto,
+            :postgrex,
+            :req
+          ]
+        ]
+      ]
+    ]
   end
 
   def application do

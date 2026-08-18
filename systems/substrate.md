@@ -1433,6 +1433,130 @@ build work at all.
   about a system it never called, and both modules already carry the
   answer in their own attributes.
 
+- **The apps list that arms that declaration is checked for
+  completeness, by `Catapult.Audit.BoundaryApps`** (ORC-50). The
+  entry above buys compile-grade enforcement for *named* applications,
+  and the naming is where it leaks: an application absent from
+  `boundary: [default: [check: [apps: [...]]]]` is not partially
+  checked, it is silently exempt, and a clean `mix compile` over a
+  dependency nobody constrained looks exactly like a clean
+  `mix compile` over one that is. ORC-21 priced the omission as "a
+  line in the same diff that added it"; the price assumes the omission
+  gets noticed and nothing notices it. This is the fail-open shape the
+  platform has refused twice on its own merits — `mix_audit` reporting
+  clean from a clone it never made (ORC-37), the licensing check
+  declining silently (ORC-16) — arriving a third time with no
+  equivalent tell, so it gets the same treatment: a check, and a census
+  line on every green run saying what the tell would have said.
+
+  **The subject is what a `:prod` build can reach, and it is computed
+  rather than listed.** Seed from the project's own `deps` that survive
+  into `:prod` — the `only:` filter `Catapult.Audit.License` already
+  applies — then walk each application's compiled `.app` file
+  (`Application.spec(app, :applications)` and
+  `:included_applications`), keeping only what `Mix.Project.deps_apps/0`
+  also contains, which is how OTP's own applications fall out without a
+  list of their names. Measured from a **dev**-env run
+  against `MIX_ENV=prod mix run`'s own answer: the two sets are
+  identical, eighteen applications, so the audit reports the same
+  subject in whatever env it is invoked. That property is the reason
+  for the mechanism rather than a bonus of it — a gate whose subject
+  changes with `MIX_ENV` reports different coverage on different runs
+  and cannot be reasoned about from its output.
+
+  **It does not share `Catapult.Audit.License`'s closure, and the
+  divergence is the point.** That walk answers *what a consumer would
+  fetch*, from publishers' `hex_metadata.config`, and it deliberately
+  does not descend into a path dep, because a path dep is another mix
+  project audited in its own right. This one answers *what this build
+  can reach*, which includes a path dep's own dependencies — and the
+  plane is the case: `:plug` and `:telemetry` reach `lib/` through
+  `components/substrate`, not through any root `deps` entry. Sharing
+  the walker would have imported that exclusion as a hole one level in.
+
+  **Three exclusions, none of them a waiver, and none of them a name
+  anybody writes.** They are derived, so there is nothing to forget and
+  nothing to spend:
+
+    * **`:boundary` itself**, because `Boundary.Checker` opens
+      `check_external_dep?/3` with `Boundary.app(view, reference.to) !=
+      :boundary`. Naming it is inert by construction.
+    * **Applications contributing no Elixir modules** — `:cowboy`,
+      `:cowlib`, `:ranch`, `:telemetry`, `:cowboy_telemetry` here.
+      `Boundary.Mix.app_modules/1` filters to `Elixir.*` and the check
+      resolves a callee's application through that map, so a call to
+      `:cow_http` resolves to no application and no list entry can
+      restrain it. Demanding those names would put lines in the list
+      that read as coverage and deliver none, which is this entry's own
+      complaint pointed the wrong way.
+    * **Path deps**, derived from `:path` in the dep options. Not a
+      preference: naming `:catapult_substrate` in the list reproduces
+      the ORC-21 defect exactly — measured at twelve forbidden
+      references and exit 1 under `--warnings-as-errors`, on
+      `mix compile --force` and on the incremental compile alike — for
+      the same reason strict does, because `check_external_dep?/3`
+      treats "named in `check.apps`" and "`type: :strict`" as one
+      condition and everything downstream of it is identical.
+
+  **Both modes, not either.** `Boundary.Definition` expands a bare atom
+  to `{app, :runtime}` and `{app, :compile}`, so a list may legally
+  carry one mode alone — and a `{app, :runtime}` entry leaves
+  compile-time calls unchecked, which is the same fail-open one level
+  smaller. Coverage means both modes; a half-covered application is
+  reported.
+
+  **Coverage, never equality.** A name in the list that the closure
+  does not contain is not a problem: `:req` is `only: :test` and is
+  named deliberately, and a list is free to say more than the floor
+  requires. The residue that leaves — a typo'd or stale application
+  name is inert rather than reported — is named here rather than
+  absorbed, and it is bounded by the fact that no name is load-bearing
+  in the permissive direction.
+
+  **A built-in of `mix catapult.audit`, not a `policies/0` entry**, on
+  `Catapult.Audit.License`'s recorded criterion rather than by analogy
+  with it: `Catapult.Audit.Check.run/1` takes a working-directory
+  glob, and a dependency graph is not a path scope, so registering
+  this would mean passing a scope argument that means "ignore me".
+  `policies/0` is how a *component* ships enforcement into projects
+  that adopt it; this is the task's own, present everywhere and armed
+  or silent by declaration. It takes no dependency on Boundary either —
+  it reads a keyword list out of `Mix.Project.config()` and never calls
+  the library, which is what keeps it shippable in a substrate that
+  refuses dependencies on other people's behalf.
+
+  **Armed by the declaration it audits, inert otherwise, and it says
+  which.** A project stating `check: [apps: [...]]` in its
+  project-level `boundary` default has the list this check is about; a
+  project stating `type: :strict` needs no list and the check is inert;
+  a project stating neither may still declare per-boundary rules this
+  check cannot see, because `use Boundary` options are module
+  attributes rather than project config. Each state prints its own
+  census line, for ORC-16's reason — the inert state is the only one
+  that could be mistaken for a pass. The armed line carries the
+  exclusions by name rather than only a count, because the excluded
+  applications *are* the residual gap and a number is not a tell:
+
+      boundary apps: 11 of 11 restrainable named, out of 18 reachable;
+      5 unrestrainable (cowboy, cowboy_telemetry, cowlib, ranch,
+      telemetry); 1 path dep (catapult_substrate); boundary itself
+
+  which is the same sentence `lib/catapult.ex` and
+  `systems/foundation.md` already write about the Erlang residue, moved
+  to where it is re-derived from the tree on every run instead of
+  standing in prose that can go stale.
+
+  The limit worth knowing before the first carve-out:
+  `Boundary.Definition.normalize!/3` merges a module's own `check:`
+  over the project default with `Map.merge`, so a boundary declaring
+  any `check:` key **replaces** the apps list rather than extending it.
+  There are zero such boundaries today, so no check is built for it —
+  building enforcement for a pattern with no subject is what
+  `docs/non-goals.md` refuses in three other places. The revisit
+  condition is the first `use Boundary` in this tree carrying a
+  `check:` key, which is an AST predicate of exactly the shape
+  `Catapult.Audit.Source` already serves.
+
 ### The config declared↔read check (ORC-48)
 
 `config/0` was the last registry with no declared↔used fact in the
@@ -1594,7 +1718,6 @@ used.
   it. A ban that goes quiet when someone renames an alias is the failure
   this repo cares about; a check that goes *loud* on the wrong line is a
   bad afternoon with a correct ending.
-
 ## Initial vs target
 
 Initial (Phase 1): behaviour + registries, export macro
