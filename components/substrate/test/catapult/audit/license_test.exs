@@ -34,6 +34,19 @@ defmodule Catapult.Audit.LicenseTest do
     use Catapult.Component, slug: :silent
   end
 
+  # A git-distributed dependency's own component, discovered off its
+  # application's module list rather than declared by the auditing
+  # project (rung 2).
+  defmodule GitComponent do
+    use Catapult.Component, slug: :git_component
+    def licensing, do: [distribution: :distributed, license: "MIT"]
+  end
+
+  defmodule DisagreeingGitComponent do
+    use Catapult.Component, slug: :disagreeing_git_component
+    def licensing, do: [distribution: :distributed, license: "GPL-3.0-only"]
+  end
+
   setup do
     dir = Path.join(System.tmp_dir!(), "catapult-license-#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
@@ -302,8 +315,148 @@ defmodule Catapult.Audit.LicenseTest do
     end
   end
 
+  ## Rung 2: a git dependency's own `licensing/0`
+
+  describe "resolving a git dependency's license from its own components" do
+    test "no hex metadata, one component declaring licensing/0, resolves", ctx do
+      File.mkdir_p!(Path.join(ctx.deps, "git_dep"))
+      register_git_app(:git_dep, [GitComponent])
+
+      verdict =
+        License.audit(project(ctx, package: ["Apache-2.0"], deps: [{:git_dep, "~> 1.0"}]), [])
+
+      assert verdict.problems == []
+      assert verdict.census =~ "1 via component licensing/0"
+    end
+
+    test "hex metadata answers first, before a dependency's own component is ever read", ctx do
+      package(ctx.deps, "hex_and_component_dep", licenses: ["Apache-2.0"])
+      register_git_app(:hex_and_component_dep, [DisagreeingGitComponent])
+
+      verdict =
+        License.audit(
+          project(ctx, package: ["Apache-2.0"], deps: [{:hex_and_component_dep, "~> 1.0"}]),
+          []
+        )
+
+      assert verdict.problems == []
+      assert verdict.census =~ "1 via hex metadata"
+    end
+
+    test "two of a dependency's components disagreeing resolves nothing, no reconciliation",
+         ctx do
+      File.mkdir_p!(Path.join(ctx.deps, "disagreeing_git_dep"))
+      register_git_app(:disagreeing_git_dep, [GitComponent, DisagreeingGitComponent])
+
+      verdict =
+        License.audit(
+          project(ctx, package: ["Apache-2.0"], deps: [{:disagreeing_git_dep, "~> 1.0"}]),
+          []
+        )
+
+      assert [problem] = verdict.problems
+      assert problem =~ "its license cannot be read"
+    end
+  end
+
+  ## Rung 3: an explicit SPDX-License-Identifier: line in the LICENSE file
+
+  describe "resolving a git dependency's license from its LICENSE file" do
+    test "a bare SPDX-License-Identifier: line resolves", ctx do
+      write_license(ctx.deps, "spdx_dep", "LICENSE", "SPDX-License-Identifier: MIT\n\ntext.\n")
+
+      verdict =
+        License.audit(project(ctx, package: ["Apache-2.0"], deps: [{:spdx_dep, "~> 1.0"}]), [])
+
+      assert verdict.problems == []
+      assert verdict.census =~ "1 via LICENSE file"
+    end
+
+    test "LICENSE is read before LICENSE.md, and the rest are never consulted", ctx do
+      write_license(ctx.deps, "precedence_dep", "LICENSE", "SPDX-License-Identifier: MIT\n")
+
+      write_license(
+        ctx.deps,
+        "precedence_dep",
+        "LICENSE.md",
+        "SPDX-License-Identifier: GPL-3.0-only\n"
+      )
+
+      verdict =
+        License.audit(
+          project(ctx, package: ["Apache-2.0"], deps: [{:precedence_dep, "~> 1.0"}]),
+          []
+        )
+
+      assert verdict.problems == []
+    end
+
+    test "two declaration lines resolve nothing, no reconciliation between them", ctx do
+      write_license(
+        ctx.deps,
+        "dual_spdx_dep",
+        "LICENSE",
+        "SPDX-License-Identifier: MIT\nSPDX-License-Identifier: Apache-2.0\n"
+      )
+
+      verdict =
+        License.audit(
+          project(ctx, package: ["Apache-2.0"], deps: [{:dual_spdx_dep, "~> 1.0"}]),
+          []
+        )
+
+      assert [problem] = verdict.problems
+      assert problem =~ "its license cannot be read"
+    end
+
+    test "an SPDX license expression is not parsed, only a bare identifier", ctx do
+      write_license(
+        ctx.deps,
+        "expr_spdx_dep",
+        "LICENSE",
+        "SPDX-License-Identifier: MIT OR Apache-2.0\n"
+      )
+
+      verdict =
+        License.audit(
+          project(ctx, package: ["Apache-2.0"], deps: [{:expr_spdx_dep, "~> 1.0"}]),
+          []
+        )
+
+      assert [problem] = verdict.problems
+      assert problem =~ "its license cannot be read"
+    end
+
+    test "no such line resolves nothing, exactly as a missing file", ctx do
+      write_license(ctx.deps, "prose_dep", "LICENSE", "Apache License, Version 2.0\n")
+
+      verdict =
+        License.audit(project(ctx, package: ["Apache-2.0"], deps: [{:prose_dep, "~> 1.0"}]), [])
+
+      assert [problem] = verdict.problems
+      assert problem =~ "its license cannot be read"
+    end
+  end
+
   describe "overrides" do
-    test "supply the fact the metadata could not", ctx do
+    test "supply the fact where nothing above the override rung could", ctx do
+      File.mkdir_p!(Path.join(ctx.deps, "unlisted"))
+
+      verdict =
+        License.audit(
+          project(ctx,
+            package: ["Apache-2.0"],
+            deps: [{:unlisted, "~> 1.0"}],
+            licensing: [allow: @allow, overrides: [unlisted: "MIT"]]
+          ),
+          []
+        )
+
+      assert verdict.problems == []
+      assert verdict.census =~ "1 via overrides"
+    end
+
+    test "no longer corrects a hex metadata value that already parsed to something", ctx do
       package(ctx.deps, "nearly", licenses: ["Apache 2.0"])
 
       verdict =
@@ -316,7 +469,8 @@ defmodule Catapult.Audit.LicenseTest do
           []
         )
 
-      assert verdict.problems == []
+      assert [problem] = verdict.problems
+      assert problem =~ ~s(declares ["Apache 2.0"])
     end
 
     test "supply no permission — an override recording copyleft fails like metadata", ctx do
@@ -362,9 +516,20 @@ defmodule Catapult.Audit.LicenseTest do
              "armed by this project's package is :distributed under \"Apache-2.0\""
 
     assert verdict.census =~ "5 dependencies checked"
+    assert verdict.census =~ "5 via hex metadata"
   end
 
   ## Helpers
+
+  defp register_git_app(app, modules) do
+    :ok = :application.load({:application, app, [vsn: ~c"1.0.0", modules: modules]})
+  end
+
+  defp write_license(dir, app, filename, content) do
+    path = Path.join(dir, app)
+    File.mkdir_p!(path)
+    File.write!(Path.join(path, filename), content)
+  end
 
   defp project(ctx, opts \\ []) do
     licensing = Keyword.get(opts, :licensing, allow: @allow)

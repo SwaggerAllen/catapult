@@ -1073,6 +1073,123 @@ seeds release task.
   [overrides: [...]]`, the same keyword list the policy sits in, which
   is the placement the third pass made general rather than an exception
   carved for one field.
+- **A git-distributed dependency resolves through an ordered rung
+  ladder, not straight to `overrides:`** (ORC-74). `unresolved/2` fires
+  today for any dependency with no `hex_metadata.config`, and that file
+  is a hex-fetch artifact — every dependency reached over git rather
+  than hex lands there, unconditionally, the day §3.1 lands any of them.
+  Applied to Catapult's own components consumed by another component or
+  by a generated project (v5 §3.5's dependency mode), that turns
+  `unresolved/2`'s "record an override" instruction into a standing
+  requirement that every consumer hand-maintain a license entry for the
+  platform's own packages — the inventory `docs/non-goals.md`'s
+  no-hand-maintained-inventories rule refuses, produced by the one check
+  built to prevent exactly that shape of drift. The fix is four rungs,
+  tried in this order, no tie-breaking and no reconciliation between
+  them — the order is the decision, and the census names which one
+  answered rather than folding "resolved" into one undifferentiated
+  fact (below):
+
+  1. **`hex_metadata.config`.** Unchanged: `declared_licenses/1`'s
+     existing reading of a publisher's own conveyed assertion.
+  2. **The dependency's own `licensing/0`.** `Catapult.Component
+     .Licensing.declared/1` already reads this — today only for the
+     *auditing* project's own composed `components`, to build the
+     self-check subject list. This rung turns the same function on the
+     *dependency*'s compiled code: `Catapult.Component.Licensing` gains
+     a function that, given an OTP application atom, loads it
+     (`Application.load/1` — offline, the same call this task already
+     makes on the audited project's own `app`) and returns every module
+     in it carrying the composer's own `__catapult_component__/0`
+     marker (`Catapult.Component.Composer.component?/1`'s predicate,
+     read from the application's module list instead of a hand-declared
+     config). `Catapult.Audit.License` calls `declared/1` on each. One
+     answering module resolves the rung; two that agree resolve it once;
+     two that disagree resolve nothing, per the no-reconciliation rule
+     below. Zero answering modules — every third-party git dependency,
+     and any Catapult component not yet carrying `licensing/0` — leaves
+     the rung unanswered rather than failing; rung 3 gets the next try.
+
+     Deliberately not read off the auditing project's own `:components`
+     config. That list is what the project composes into its own
+     supervision tree, and a dependency it resolves without adopting —
+     v5 §3.5's default consumption mode, the ordinary case for a
+     component reached this way — is never on it. Reading that list
+     instead of the dependency application's own modules would silently
+     blind this rung to the exact case it was built for.
+  3. **An explicit `SPDX-License-Identifier:` line in the dependency's
+     own LICENSE file** — the rung that reaches a *third-party* git
+     dependency, which rung 2 cannot, since it never declared any
+     `licensing/0` to read. Checked at `deps/<app>/LICENSE`, then
+     `LICENSE.md`, then `LICENSE.txt`, then `COPYING` — a fixed, closed,
+     ordered list, the same discipline `licensing/0`'s known opts and
+     `licensing:`'s known keys already hold to — and the first of the
+     four that exists is the one read; the rest are not consulted even
+     if they also exist. A file with exactly one such line, whose value
+     is a single token — no internal whitespace, so no `OR`, `AND`,
+     `WITH` or parenthesis — resolves to that token. A file with zero
+     such lines, two or more, or one whose value is not a single token
+     does not resolve at this rung (`docs/non-goals.md` records the
+     boolean-expression refusal specifically). Nothing here reads a
+     LICENSE file's prose: the rung matches one line's own declared
+     syntax and stops if it can't, never inferring what a paragraph of
+     legal text means — the same distinction the no-normalization entry
+     already draws for hex metadata, held to for a second source.
+  4. **`overrides:` in `mix.exs`.** Unchanged in shape, narrowed in when
+     it is reached, and this is the consequence worth naming rather than
+     discovering: today an override for `app` is read *before* metadata,
+     so it silently corrects a present-but-unrecognized hex metadata
+     value — the `nearly` fixture in `license_test.exs`, standing in for
+     the real case this repo has measured, `cowboy_telemetry`'s
+     `["Apache 2.0"]` (`docs/non-goals.md`'s no-normalization entry).
+     Under first-match-wins, rung 1 already answers for that dependency
+     — a non-empty `licenses` list is a resolution whether or not any
+     entry is a recognized identifier — so rung 4 is never reached for
+     it. What changes for a human: an override can no longer *correct* a
+     metadata value that parsed to something, only *supply* one where
+     nothing above supplied anything at all. A misspelled hex metadata
+     entry still fails the audit, exactly as any other unrecognized
+     identifier does, and the fix is the place a wrong identifier has
+     always been fixed — the project's own `allow:` list, if the
+     spelling is one the project is willing to name outright — never a
+     table and never a widened override.
+  5. **Unresolved.** Fails, exactly as now. The message stays the "read
+     its LICENSE and record it as `overrides:`" instruction it already
+     is (`unresolved/2`); its parenthetical explaining why nothing
+     answered grows a clause for each rung that was tried and came up
+     empty, so a human reading a failed run knows what was already
+     checked rather than re-deriving it.
+
+  **No reconciliation between rungs, anywhere in this design** — the
+  same rule, applied at three seams rather than derived three times.
+  Hex metadata and a component's own `licensing/0` are never
+  cross-checked against each other, so a hex-published Catapult
+  component whose package metadata disagrees with its own `licensing/0`
+  is not caught by this path (unchanged from the ORC-16 note above; a
+  missing or malformed `licensing/0` is still `undeclared_problems/1`'s
+  concern for a component in the auditing project's own list, and a
+  *dependency's* malformed `licensing/0` is that dependency's own
+  `mix catapult.audit` run's problem to report, per the no-widened-scope
+  entry `docs/non-goals.md` already holds for ORC-48 — never re-diagnosed
+  by a consumer). Rung 2's disagreeing modules and rung 3's disagreeing
+  declaration lines both refuse to average, vote, or prefer one. And the
+  rung order itself is the top-level instance: first to answer wins,
+  nothing below is consulted once something above has — `overrides:`
+  included, which no longer races hex metadata for a dependency it used
+  to occasionally out-run.
+
+  **The census names which rung answered, not only that something did.**
+  `armed_census/3`'s "N dependencies checked against M identifiers" line
+  is silent today on how any of the N were resolved, and a green run
+  built entirely on `overrides:` reads identically to one verified
+  against every publisher's own metadata — the check-that-checked-
+  nothing shape this ticket exists to remove from the ladder, arrived at
+  through a different door than ORC-16's inert state but the same
+  failure. The census gains a count per rung — metadata, component,
+  license-file, override — printed alongside the total on every green
+  run, so "resolved" from a publisher's registry assertion and
+  "resolved" from a human's override are never one undifferentiated
+  fact again.
 - **Scope is what a consumer would fetch, computed from metadata
   already on disk** (ORC-16). The in-scope set is the transitive
   closure over non-optional `requirements` in each dependency's
