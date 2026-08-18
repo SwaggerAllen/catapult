@@ -72,9 +72,10 @@ surface** — `my-queue`, `board`, `ticket`, `document-review` — and it
 is the gate on delivery moving off Linear (v5 §7.17: the reversal is
 a direction; v1 is the scope that makes it real). v2 adds what makes
 the native surface *better* rather than merely available
-(`ticket-graph`, sentence-granular anchoring, marker-filtered comment
-tabs). v3 is ops and scale: bindings, configuration, workflow,
-registry, milestone, triage, health, and identity consumption for
+(`ticket-graph`, sentence-granular anchoring, and the comment
+navigation serving ui-spec's R1/R2 — mechanism sketch-grade). v3 is
+ops and scale: bindings, configuration, workflow, registry,
+milestone, triage, health, metrics, and identity consumption for
 login (Phase 7; minimal auth before that).
 
 ## Depends on

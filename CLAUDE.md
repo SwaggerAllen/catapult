@@ -36,7 +36,9 @@ toolchain is the only supported one.
 - `components/substrate/` — the shipped platform substrate: a
   separate mix project, path-dep'd, **with its own test/format/credo
   suite that CI runs separately** — run both.
-- `bundles/` — DSL bundle content (platform layer + default chain).
+- `bundles/` — DSL bundle content, both axes (v5 §7.18): the
+  chain layers (platform-elixir + default chain) and the platform
+  workflow layer (default review sequence, `dev`/`staging`).
 - `priv/repo/migrations_infra/` — infrastructure migrations
   (Oban, EventStore); per-store migrations compose in as stores land.
 

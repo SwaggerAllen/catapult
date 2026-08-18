@@ -18,11 +18,16 @@ style rule: every ordering states its reason.
   needs the old code to rebuild the app, the doc chain failed — the
   documentation-only seed is the honest test of intake.
 - **The authoring loop is front-loaded** (Phase 4), ahead of the
-  machinery that could fully exercise it. Rationale: Linear + PR
-  review is the working interface; without it, feeding input and
-  reviewing chain output is painful enough to distort every later
-  phase's testing. Build the interface early; let later phases arrive
-  into it.
+  machinery that could fully exercise it. Rationale: a working
+  interface has to exist before later phases are testable at all;
+  without it, feeding input and reviewing chain output is painful
+  enough to distort every later phase's testing. Build the interface
+  early; let later phases arrive into it. **Which interface changed**
+  (v5 §7.17): this read "Linear + PR review is the working
+  interface", and the tracker reversal makes the native surface the
+  destination. The sequencing argument is unaffected — Linear + PR
+  review remains the interim through Phase 4, and UI v1
+  (`docs/ui-spec.md` §5) is where it hands over.
 - **A shared component is built when its first consumer's tickets
   need it, and the plane is made the first consumer wherever
   possible.** Dogfooding is the scheduler, not a virtue: LLM adapters

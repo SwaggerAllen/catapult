@@ -6,9 +6,10 @@ paths:
 # substrate
 
 The elixir-target platform substrate: everything a Catapult-built app
-(and Catapult itself) adopts to honor the convention corpus. Shipped
-as a hex package via the registry; Catapult consumes it as a path dep
-— the plane is its first consumer.
+(and Catapult itself) adopts to honor the convention corpus.
+**Distributed from git, and published to public hex.pm as a public
+artifact** (v5 §3.1, revised from the mini_repo registry); Catapult
+consumes it as a path dep — the plane is its first consumer.
 
 ## Owns
 
