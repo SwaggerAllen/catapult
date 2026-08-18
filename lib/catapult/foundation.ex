@@ -9,6 +9,14 @@ defmodule Catapult.Foundation do
 
   alias Ecto.Adapters.SQL
 
+  # The plane is reached over a network by people who are not its
+  # operator — the hosted tier is the product — which is the case
+  # `:service` exists to name, not `:internal` (ORC-51,
+  # systems/foundation.md). `{:service, :listed}` arms no dependency
+  # check, as it should: we offer source on AGPL's own terms.
+  @impl Catapult.Component
+  def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
+
   @impl Catapult.Component
   def config do
     [

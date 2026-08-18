@@ -16,8 +16,27 @@ defmodule Catapult.MixProject do
       deps: deps(),
       compilers: [:boundary] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      hex: hex()
+      hex: hex(),
+      licensing: licensing()
     ]
+  end
+
+  # Arms `mix catapult.audit`'s license check (ORC-51, systems/foundation.md)
+  # rather than leaving the plane inert: every component here declares
+  # `licensing/0` as `[distribution: :service, license: "AGPL-3.0-only"]`,
+  # and `{:service, :listed}` arms nothing — the plane's own dependency
+  # closure stays unchecked exactly as LICENSING.md's table says it should.
+  # No `package:` block: the plane is published nowhere, so a `licenses:`
+  # entry there would assert conveyance that is false and arm the whole
+  # closure on that false premise (docs/non-goals.md).
+  #
+  # The list is Catapult's five plus the plane's own identifier — it has
+  # to include `AGPL-3.0-only` or the plane's own subject reads as
+  # unplaceable — and every plane component declares the same class,
+  # because a subject needing a different one belongs in its own mix
+  # project (docs/non-goals.md).
+  defp licensing do
+    [allow: ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]
   end
 
   # `mix hex.audit` is the load-bearing supply gate (conventions §2,
