@@ -183,6 +183,115 @@ reached only through their APIs per v5 §2.4).
   cap the ticket that breaks it will edit. Recorded here because the
   value is a fact about *this* project's tree, and the day it stops
   being 0 the diff that raised it should have to say so.
+- **The plane declares a licensing policy rather than staying inert**
+  (ORC-51). Two declarations and no new mechanism: `licensing: [allow:
+  ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]` in
+  the root `mix.exs`, and `licensing/0` on `Catapult.Foundation`
+  returning `[distribution: :service, license: "AGPL-3.0-only"]`.
+  `arming/2` maps `{:service, :listed}` to `[]`, so the plane's
+  dependency closure stays unchecked exactly as `LICENSING.md`'s table
+  says it should — the engine's `commanded` and `eventstore` are
+  unchecked either way, and correctly.
+
+  Measured on this tree rather than reasoned, because "nothing
+  changes in the closure" is the whole point and a claim worth
+  checking: before, `licensing: inert — this project states no
+  licensing policy, so nothing was checked`; after, `licensing:
+  unchecked against 6 identifiers — no subject arms a dependency check
+  (Catapult.Foundation :service "AGPL-3.0-only")`. The verdict acquires
+  a subject and a reason somebody asserted, in place of a sentence
+  about the absence of one.
+
+  **The half that is worth a ticket is the other one.**
+  `Catapult.Audit.License` never reaches `undeclared_problems/1` while
+  a project is inert, so today the missing declaration is not reported
+  either — the check and its own precondition are both dark. Measured:
+  with the policy stated and `licensing/0` deleted again, the audit
+  fails with *"Catapult.Foundation declares no licensing/0, so this
+  project's policy cannot place it"*. Stating the policy is therefore
+  what makes every plane component the engine adds state its class in
+  the diff that adds it, instead of a retrofit sweep across seven
+  systems later — the retrofit `LICENSING.md`'s declaration model is
+  most exposed to, since a class nobody was asked for is a class
+  somebody guesses.
+
+  Both edits are one commit, and not because of an ordering hazard:
+  the `mix.exs` line alone fails the audit on the undeclared component,
+  and `licensing/0` alone changes nothing while the project is inert.
+  It is one decision landing in two files, one of which (`mix.exs`) is
+  unowned by construction (`systems/README.md`).
+
+  **`:service`, not `:internal`.** The plane is reached over a network
+  by people who are not its operator — the hosted tier is the product —
+  which is the case `:service` exists to name and the reason
+  `LICENSING.md` chose AGPL over plain GPL in the first place.
+  `:internal` is the class whose entire meaning is that nothing
+  triggers, and asserting it about the one program AGPL §13 was picked
+  for would be a false declaration made in public, which is precisely
+  the failure the declaration model trades a path rule for.
+- **The plane's `allow:` list is Catapult's five plus its own
+  identifier, and the five are not decoration** (ORC-51). The list has
+  to contain `AGPL-3.0-only` or `bucket/2` reads the subject as
+  unplaceable and reports it: the self-check and the bucket rule are
+  one rule, which is what `systems/substrate.md` means by a project's
+  list containing its own license even where nothing is checked.
+
+  Why the other five, when no dependency in this tree will ever be
+  measured against them, is the question the next pass will ask, so the
+  measurement is here. The list is consulted the instant any subject in
+  this project arms the check, and against the six identifiers above
+  the plane's whole closure produces exactly **one** problem —
+  `cowboy_telemetry`, which declares `["Apache 2.0"]` and is the
+  near-miss `systems/substrate.md` already names. Against
+  `["AGPL-3.0-only"]` alone it produces one per dependency. A list that
+  is correct only for as long as it is unused is a policy that gets
+  written under time pressure, inside the diff that first needed it and
+  for reasons that diff supplies.
+
+  **The seam, named rather than left to be found.**
+  `AGPL-3.0-only` is on the list, so if this project's check ever armed
+  for the *proprietary-`:service`* reason — AGPL §13 obliging an offer
+  of source to our own users — an AGPL dependency would pass a check
+  whose entire reason is that it must not. That is one-list-per-project
+  behaving exactly as recorded (`docs/non-goals.md`), and the guard is
+  the decision below rather than a second list keyed by class.
+- **Every subject in the root project is `:service` under
+  `AGPL-3.0-only`; a subject that is not belongs in another mix
+  project** (ORC-51). This is what keeps the seam above closed — the
+  plane states one policy because the plane is one class — and it is a
+  one-line consequence rather than a decision each system re-takes:
+  engine, delivery, generation, registry, dashboard, core_dsl and
+  harness each declare `[distribution: :service, license:
+  "AGPL-3.0-only"]` when they land, and the audit is what asks.
+
+  The two things that would break it already have somewhere else to be.
+  Anything **conveyed** — a published package, code generated into a
+  customer's tree — is Apache-2.0 under `components/**` or `bundles/**`
+  (`LICENSING.md`), and `components/*` are their own mix projects with
+  their own lockfiles and their own `allow:` lists. A hosted-tier
+  proprietary `:service` component under `LicenseRef-*` is its own mix
+  project too, for the reason `docs/non-goals.md` records: dependencies
+  are a mix project's fact, and a project needing two policies needs
+  two dependency trees. So the day something in the plane's own tree
+  wants a different class is the day it is not in the plane's own tree.
+- **ORC-74 and v5 §3.5 are in view, and neither moves this** (ORC-51).
+  §3.5 adoption forks a *component* into a customer's graph and tree,
+  which is legitimate precisely because `components/**` is Apache-2.0;
+  the plane is not a component and its own classification is untouched.
+  What the adjacency changes is what the dark ladder costs, not what
+  the answer is.
+
+  ORC-74 would teach `Catapult.Audit.License` to resolve a **git**
+  dependency's terms from its own `licensing/0`, since a git dep has no
+  `hex_metadata.config`. Foundation's declaration is correct under both
+  readings — the terms this code carries are `AGPL-3.0-only` whether
+  the reader is this project's own audit or a consumer resolving a
+  git dep — so the two tickets are order-independent and this one adds
+  no second spelling for that resolver to disagree with. The coincidence
+  is what makes the ordering free, though, not an argument that the two
+  facts are the same fact: nobody git-deps the plane, so the plane's
+  declaration is never itself a resolution subject, and a component
+  that *is* one would want reading in ORC-74's terms rather than these.
 
 ## The live suite
 

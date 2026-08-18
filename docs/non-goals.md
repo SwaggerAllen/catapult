@@ -850,3 +850,56 @@ recorded decision, and say so explicitly.
   already runs, once per mix project. Revisit condition: none. A
   component's declarations are checked in the project that compiles
   them, and every project compiles its own.
+- **No `package:` block on the root `mix.exs`, and never one added to
+  arm the license check** (ORC-51). The obvious symmetry with
+  `components/substrate` — which states `package: [licenses:
+  ["Apache-2.0"]]` precisely *because* that is the arming — is a trap
+  here, and the measurement is why it is worth an entry rather than an
+  instinct: adding `package: [licenses: ["AGPL-3.0-only"]]` beside the
+  plane's policy makes `subjects/1` count the project itself as a
+  `:distributed` subject, arms the entire plane closure with the reason
+  "a recipient would inherit terms nobody offered them", and fails on
+  exactly one dependency — `cowboy_telemetry`, whose `["Apache 2.0"]`
+  is not an SPDX identifier. One override line from green is what makes
+  it dangerous; a wall of failures would have been self-correcting.
+  What the block asserts is false: `package:` means somebody fetches
+  this, the plane is published nowhere, and an untrue claim about
+  conveyance is not a cheap way to buy coverage — it is the check
+  enforcing the shipped-layer rule, with the shipped-layer reason, on a
+  tree nothing ships out of, which `systems/substrate.md` already names
+  as wrong rather than conservative. `licensing/0` on the plane's
+  components is the whole arming the plane needs, and it deliberately
+  arms nothing. Revisit condition: the plane genuinely being published
+  as a package, which would be a different product than the one
+  `LICENSING.md` describes.
+- **No minimal one-identifier `allow:` list on a project whose check is
+  unarmed** (ORC-51). A plane stating `licensing: [allow:
+  ["AGPL-3.0-only"]]` places its own subject, prints the same
+  `unchecked` census, and is exactly as green today as the six-entry
+  list — so the shorter one looks like the honest one, and the "no
+  hand-maintained inventories" rule looks like it applies. It does not:
+  the list is a policy statement about acceptable terms, not a mirror
+  of anything in the tree. The cost lands entirely on the day some
+  subject in the project first arms the check, and it is measured:
+  against Catapult's five plus `AGPL-3.0-only`, the plane's closure
+  produces one problem; against `["AGPL-3.0-only"]` alone, one per
+  dependency. That is a licensing policy written under time pressure,
+  inside a diff that had another purpose and whose author will supply
+  the reasons the list gets. Revisit condition: none. A list is stated
+  once and read whenever the check arms; writing it while nothing is at
+  stake is the only time it is cheap.
+- **No `:internal` distribution class for the plane** (ORC-51). The
+  reading that gets there is not silly — the plane conveys nothing, we
+  operate it, and `:internal` is described as build tooling and ops
+  scripts where "practically nothing triggers" — so it is refused in
+  writing. The plane is reached over a network by people who are not
+  its operator, which is the sole case `:service` exists to name and
+  the entire reason `LICENSING.md` chose AGPL-3.0-only over plain GPL:
+  §13 is the provision that makes copyleft mean anything for this shape
+  of program. Declaring `:internal` would assert that §13 does not
+  reach the one program it was chosen for. It is also the failure mode
+  the declaration model accepts in exchange for dropping the path rule
+  — a wrong class is wrong *in public* — so being wrong here is worse
+  than being silent, which is what this ticket's whole ladder argument
+  rests on. Revisit condition: none while Catapult is offered as a
+  hosted product.
