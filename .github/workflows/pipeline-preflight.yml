@@ -34,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      PIPELINE_STATE_TOKEN: ${{ secrets.PIPELINE_STATE_TOKEN }}
       GITHUB_TOKEN: ${{ github.token }}
       # This project deploys to App Platform, so the deploy check is an
       # API call rather than a `deployments: read` on the workflow. Without
