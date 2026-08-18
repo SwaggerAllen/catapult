@@ -41,6 +41,14 @@ toolchain is the only supported one.
   workflow layer (default review sequence, `dev`/`staging`).
 - `priv/repo/migrations_infra/` — infrastructure migrations
   (Oban, EventStore); per-store migrations compose in as stores land.
+- `seed-docs/` — **vendored SiegeEngine reference, frozen**: the v4
+  spec (its **Appendix B** is what this repo's docs cite as "§B.2" —
+  it was never in `v5-design-decisions.md`), the v4 default-bundle
+  reference, and siege's own prompt chain. Read it when working on
+  bundle content; `docs/v5-design-decisions.md` wins wherever they
+  disagree, and `seed-docs/README.md` lists the three places they
+  knowingly do. Never copy its prompt text into `bundles/**` — that
+  zone is Apache-2.0 and siege is AGPL.
 
 ## Verification (run all before claiming done)
 
