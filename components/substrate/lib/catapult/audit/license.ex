@@ -111,9 +111,57 @@ defmodule Catapult.Audit.License do
   it will never have would report a problem that is not one. Everything
   else in scope owes metadata or an override.
 
+  ## A git-distributed dependency: an ordered rung ladder, not straight to overrides
+
+  `hex_metadata.config` is a hex-fetch artifact; a git-distributed
+  dependency never has one, `unresolved/2`'s "no metadata" case fires
+  unconditionally, and applied to Catapult's own components consumed
+  over git that would make every consumer hand-maintain a license
+  inventory for the platform's own packages — the shape
+  `docs/non-goals.md`'s no-hand-maintained-inventories rule refuses
+  (ORC-74, `systems/substrate.md`). Resolution is four rungs, tried in
+  this order, first answer wins, no reconciliation between them:
+
+    1. `hex_metadata.config` — unchanged, above.
+    2. The dependency's own `licensing/0`, read off every module the
+       application ships that carries the composer's own component
+       marker (`Catapult.Component.Licensing.components_of/1`). This is
+       the rung that answers for a **private** Catapult component: it
+       never reaches hex.pm, so rung 1 cannot, and it is exactly the
+       case with no metadata at all. One answering module resolves it;
+       two that agree resolve it once; two that disagree resolve
+       nothing, same as any other rung.
+    3. An explicit `SPDX-License-Identifier:` line in the dependency's
+       own LICENSE file — the rung that reaches a *third-party* git
+       dependency, which rung 2 cannot since it declares no
+       `licensing/0`. Checked at `deps/<app>/LICENSE`, then
+       `LICENSE.md`, then `LICENSE.txt`, then `COPYING`, first found and
+       the rest never consulted. It matches one line's own declared
+       syntax and nothing else: a file with zero such lines, more than
+       one, or a value that is not a single bare token (no `OR`, `AND`,
+       `WITH`, no parenthesis) does not resolve here — this rung parses
+       a declaration, never identifies a license from prose, which is
+       the whole of why it is safe (`docs/non-goals.md`).
+    4. `overrides:` — unchanged in shape, reached only once the first
+       three came up empty. It can no longer *correct* a metadata value
+       that parsed to something (rung 1 already answered), only *supply*
+       one where nothing above did.
+    5. Unresolved — fails, exactly as now.
+
+  Hex metadata and a component's own `licensing/0` are deliberately
+  never cross-checked against each other: a hex-published Catapult
+  component whose package metadata disagrees with its own `licensing/0`
+  is not caught by this path. A missing or malformed `licensing/0` is
+  still `undeclared_problems/1`'s concern, for a component in the
+  *auditing* project's own list.
+
+  The census names which rung answered, not only that something did — a
+  green run built entirely on `overrides:` must not read like one
+  verified against every publisher's own metadata.
+
   ## An override supplies a fact; nothing supplies a permission
 
-  A dependency whose license the metadata cannot answer is resolved by
+  A dependency none of the first three rungs can answer is resolved by
   `overrides:` naming what a human read out of that package's own
   LICENSE — and it is then checked like any other, so an override
   recording `GPL-3.0-only` fails the audit exactly as the metadata would
@@ -124,7 +172,7 @@ defmodule Catapult.Audit.License do
   nothing*. The fix for a copyleft dependency is not taking it.
 
   Licenses match as exact SPDX identifiers, with no normalization table
-  and no reading of LICENSE text: a table's failures run silent and in
+  and no reading of LICENSE prose: a table's failures run silent and in
   the permissive direction, and the next near-miss after `Apache 2.0` is
   a string like `GPL-2.0-with-classpath-exception`, whose distance from
   `GPL-2.0-only` is the entire question. A dependency declaring several
@@ -376,21 +424,26 @@ defmodule Catapult.Audit.License do
 
   defp dependencies(project, allow, overrides, arming, subject_problems) do
     {order, metadata} = closure(project)
+    deps_path = deps_path(project)
     checked = "checked because " <> Enum.join(arming, "; ")
+
+    resolutions = for app <- order, do: {app, resolve(app, metadata, overrides, deps_path)}
 
     problems =
       subject_problems ++
-        Enum.flat_map(order, &dependency_problems(&1, metadata, allow, overrides, checked)) ++
+        Enum.flat_map(resolutions, &dependency_problems(&1, allow, checked)) ++
         unused_override_problems(overrides, order)
 
-    %{problems: problems, census: armed_census(order, allow, arming)}
+    %{problems: problems, census: armed_census(order, allow, arming, resolutions)}
   end
 
   defp closure(project) do
-    deps_path = Keyword.get(project, :deps_path) || "deps"
+    deps_path = deps_path(project)
     {order, metadata} = Enum.reduce(seed(project), {[], %{}}, &visit(&1, deps_path, &2))
     {Enum.sort(order), metadata}
   end
+
+  defp deps_path(project), do: Keyword.get(project, :deps_path) || "deps"
 
   # What a consumer would fetch: the project's own deps, minus the ones
   # no `:prod` build resolves and minus path deps, which are mix projects
@@ -467,26 +520,96 @@ defmodule Catapult.Audit.License do
     end
   end
 
-  defp dependency_problems(app, metadata, allow, overrides, checked) do
-    case license_of(app, Map.get(metadata, app, :missing), overrides) do
-      {:ok, ids} -> placed(app, ids, allow, checked)
-      :unresolved -> [unresolved(app, checked)]
+  defp dependency_problems({app, {:ok, ids, _rung}}, allow, checked) do
+    placed(app, ids, allow, checked)
+  end
+
+  defp dependency_problems({app, :unresolved}, _allow, checked), do: [unresolved(app, checked)]
+
+  ## The rung ladder — first answer wins, no reconciliation between rungs
+
+  defp resolve(app, metadata, overrides, deps_path) do
+    with :unresolved <- declared_licenses(Map.get(metadata, app, :missing)),
+         :unresolved <- component_licenses(app),
+         :unresolved <- license_file_licenses(deps_path, app) do
+      override_license(app, overrides)
     end
   end
 
-  defp license_of(app, meta, overrides) do
-    case Map.fetch(overrides, app) do
-      {:ok, id} -> {:ok, [id]}
-      :error -> declared_licenses(meta)
-    end
-  end
-
+  # Rung 1: the publisher's own conveyed assertion.
   defp declared_licenses(:missing), do: :unresolved
 
   defp declared_licenses({:ok, meta}) do
     case Map.get(meta, "licenses") do
-      [_first | _rest] = ids -> {:ok, Enum.filter(ids, &is_binary/1)}
+      [_first | _rest] = ids -> {:ok, Enum.filter(ids, &is_binary/1), :metadata}
       _other -> :unresolved
+    end
+  end
+
+  # Rung 2: the dependency's own `licensing/0`, read off its own
+  # compiled module list — the rung a private Catapult component
+  # answers, since it never reaches hex.pm and rung 1 cannot.
+  defp component_licenses(app) do
+    app
+    |> String.to_atom()
+    |> Licensing.components_of()
+    |> Enum.flat_map(fn component ->
+      case Licensing.declared(component) do
+        {:ok, _distribution, license} -> [license]
+        _other -> []
+      end
+    end)
+    |> Enum.uniq()
+    |> case do
+      [id] -> {:ok, [id], :component}
+      _other -> :unresolved
+    end
+  end
+
+  # Rung 3: an explicit `SPDX-License-Identifier:` line in the
+  # dependency's own LICENSE file — a *third-party* git dependency's
+  # rung, since it declares no `licensing/0` for rung 2 to read.
+  # Parses one line's own declared syntax; never identifies a license
+  # from prose (docs/non-goals.md).
+  @license_files ~w(LICENSE LICENSE.md LICENSE.txt COPYING)
+
+  defp license_file_licenses(deps_path, app) do
+    case find_license_file(deps_path, app) do
+      nil -> :unresolved
+      path -> path |> File.read!() |> spdx_declarations() |> license_file_resolution()
+    end
+  end
+
+  defp find_license_file(deps_path, app) do
+    Enum.find_value(@license_files, fn name ->
+      path = Path.join([deps_path, app, name])
+      if File.regular?(path), do: path
+    end)
+  end
+
+  defp spdx_declarations(text) do
+    ~r/^SPDX-License-Identifier:(.*)$/m
+    |> Regex.scan(text, capture: :all_but_first)
+    |> Enum.map(fn [value] -> String.trim(value) end)
+  end
+
+  defp license_file_resolution([value]) do
+    if value != "" and not String.contains?(value, [" ", "\t"]) do
+      {:ok, [value], :license_file}
+    else
+      :unresolved
+    end
+  end
+
+  defp license_file_resolution(_other), do: :unresolved
+
+  # Rung 4: a human read it and vouched. Reached only once the first
+  # three came up empty, so it can no longer correct a metadata value
+  # that parsed to something — only supply one where nothing above did.
+  defp override_license(app, overrides) do
+    case Map.fetch(overrides, app) do
+      {:ok, id} -> {:ok, [id], :override}
+      :error -> :unresolved
     end
   end
 
@@ -506,9 +629,10 @@ defmodule Catapult.Audit.License do
   defp unresolved(app, checked) do
     problem(
       "dependency #{app} is in the checked closure and its license cannot be read " <>
-        "(no hex_metadata.config, or none declaring one) — read its LICENSE and " <>
-        "record it as licensing: [overrides: [#{app}: \"SPDX-Id\"]] in mix.exs; " <>
-        "#{checked}"
+        "(no hex_metadata.config, or none declaring one; none of its own components " <>
+        "declare licensing/0; no SPDX-License-Identifier: line in its LICENSE) — read " <>
+        "its LICENSE and record it as licensing: [overrides: [#{app}: \"SPDX-Id\"]] in " <>
+        "mix.exs; #{checked}"
     )
   end
 
@@ -550,10 +674,30 @@ defmodule Catapult.Audit.License do
       "check (#{summary})"
   end
 
-  defp armed_census(order, allow, arming) do
+  # Names which rung answered, not only that something did: "resolved"
+  # from a publisher's registry assertion and "resolved" from a human's
+  # override are never one undifferentiated fact on a green run.
+  @rung_labels [
+    metadata: "hex metadata",
+    component: "component licensing/0",
+    license_file: "LICENSE file",
+    override: "overrides"
+  ]
+
+  defp armed_census(order, allow, arming, resolutions) do
+    tally = Enum.frequencies_by(resolutions, fn {_app, resolution} -> rung(resolution) end)
+
+    breakdown =
+      Enum.map_join(@rung_labels, ", ", fn {rung, label} ->
+        "#{Map.get(tally, rung, 0)} via #{label}"
+      end)
+
     "#{count(order, "dependency", "dependencies")} checked against " <>
-      "#{count(allow, "identifier")}, armed by #{Enum.join(arming, "; ")}"
+      "#{count(allow, "identifier")} (#{breakdown}), armed by #{Enum.join(arming, "; ")}"
   end
+
+  defp rung({:ok, _ids, rung}), do: rung
+  defp rung(:unresolved), do: :unresolved
 
   defp count(list, singular, plural \\ nil) do
     case length(list) do

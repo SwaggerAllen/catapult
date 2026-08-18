@@ -25,6 +25,17 @@ defmodule Catapult.Component.Licensing do
   for which reason — is `Catapult.Audit.License`'s, which reads
   `declared/1` and holds no part of this.
 
+  ## Reading a dependency's own declaration, not only the subject's
+
+  `declared/1` reads the component the caller already has a module
+  reference to. `components_of/1` is the other direction (ORC-74): given
+  an OTP application atom, which of *its* modules are Catapult
+  components at all, discovered off the application's own compiled
+  module list rather than a config only the adopting project would
+  state. It is the rung that lets a git-distributed Catapult component
+  answer `Catapult.Audit.License` with no `hex_metadata.config` and no
+  hand-maintained override.
+
   ## An undeclared component is not a shape problem
 
   `licensing/0`'s empty default is legal here and reported there. It has
@@ -75,6 +86,46 @@ defmodule Catapult.Component.Licensing do
       _ ->
         :malformed
     end
+  end
+
+  @doc """
+  Every component module a compiled OTP application ships, read from
+  the application's own module list rather than a hand-declared config
+  (`Catapult.Audit.License`'s rung 2, `systems/substrate.md`).
+
+  `app` is loaded offline via `Application.load/1` — the same call
+  `mix catapult.audit` already makes on the audited project's own
+  `app`. Deliberately not the auditing project's own `:components`
+  config: that list is what the project *adopts* into its own
+  supervision tree, and a dependency it consumes without adopting (v5
+  §3.5's default mode) is never on it. An application with no
+  `.app` file to load, or none of whose modules carry
+  `__catapult_component__/0` (the composer's own marker,
+  `Catapult.Component.Composer.component?/1`'s predicate), answers
+  `[]` rather than raising — every third-party git dependency, and any
+  Catapult component not yet carrying `licensing/0`.
+  """
+  @spec components_of(atom()) :: [module()]
+  def components_of(app) do
+    if load(app) do
+      app |> modules() |> Enum.filter(&component?/1)
+    else
+      []
+    end
+  end
+
+  defp load(app) do
+    case Application.load(app) do
+      :ok -> true
+      {:error, {:already_loaded, ^app}} -> true
+      {:error, _reason} -> false
+    end
+  end
+
+  defp modules(app), do: Application.spec(app, :modules) || []
+
+  defp component?(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :__catapult_component__, 0)
   end
 
   @doc """
