@@ -40,26 +40,32 @@ loader tickets carry `system:core-dsl`.
   `seed-docs/catapult-spec-v4.md`** — §B never existed in
   `v5-design-decisions.md`, and every citation of it here was wrong.
   The earlier rule (mechanical f-string→Liquid conversion first,
-  harness iteration second, never both in one change) was written
-  when a byte-level port looked possible. It is retired for two
-  independent reasons, either of which alone would be enough:
-  **v5 moved the structure the prompts are written against** — `resp`
-  restored as a tier, `fanin` and the domain/presentational split
-  replaced by §4.1's three-way product/backend/frontend split, the
-  product tier inserted into the chain head — so there is no
-  tier-for-tier correspondence to convert along; and **`bundles/**` is
-  Apache-2.0 while SiegeEngine is AGPL-3.0** (`LICENSING.md`), so
-  copying prompt bytes across would put copyleft-origin text in the
-  zone that ships into customer projects. The shared copyright holder
-  makes that hygiene rather than law, but the zone stays clean by
-  construction and costs nothing to keep that way.
+  harness iteration second, never both in one change) was written when
+  a byte-level port looked possible. It is retired because **v5 moved
+  the structure the prompts are written against** — `resp` restored as
+  a tier, `fanin` and the domain/presentational split replaced by
+  §4.1's three-way product/backend/frontend split, the product tier
+  inserted into the chain head — so there is no tier-for-tier
+  correspondence left to convert along. Sequencing a mechanical step
+  before an iterative one only buys attributable quality regressions
+  when the mechanical step is a real transformation of matching parts;
+  here it would be a rewrite wearing a conversion's name.
+  **The license is not a second reason, and was briefly recorded as
+  one in error.** `bundles/**` is Apache-2.0 and SiegeEngine is
+  AGPL-3.0, but siege has a single copyright holder, no third-party
+  contributors and no users, so carrying its text into the Apache zone
+  is authorized outright (`seed-docs/README.md`). Rewriting is a
+  quality judgment, not a permission boundary — worth stating plainly,
+  because a rule believed to be a legal constraint stops getting
+  re-examined on its merits.
   What the vendored corpus is *for*, then: the v4 documents pin scope,
   identity, handle and generator per tier, which is structural fact
   that survives the rewrite, and the prompts show what siege learned
-  about how to ask — both read as evidence, neither copied. The
-  unattributability the old rule guarded against is real and gets its
-  successor in the ticket: content deltas from siege's semantics are
-  argued in the PR, not discovered later.
+  about how to ask. Both are there to be read, and quoted where
+  quoting is the right call — the constraint is editorial judgment,
+  not provenance. The unattributability the old rule guarded against
+  is real and gets its successor in the ticket: content deltas from
+  siege's semantics are argued in the PR, not discovered later.
 - **The meaning-engine discipline governs edits** (v4 §B.2.5,
   SiegeEngine's hard-won rule): each tier's prompt names its
   downstream reader and pushes against category-speak; if a tier's

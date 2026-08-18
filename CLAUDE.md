@@ -47,8 +47,10 @@ toolchain is the only supported one.
   reference, and siege's own prompt chain. Read it when working on
   bundle content; `docs/v5-design-decisions.md` wins wherever they
   disagree, and `seed-docs/README.md` lists the three places they
-  knowingly do. Never copy its prompt text into `bundles/**` — that
-  zone is Apache-2.0 and siege is AGPL.
+  knowingly do. Siege is AGPL and `bundles/**` is Apache-2.0, but
+  carrying text across is **authorized** (sole copyright holder, no
+  third-party contributors, no users) — see its README; ORC-7 still
+  writes fresh, for structural reasons rather than licensing ones.
 
 ## Verification (run all before claiming done)
 

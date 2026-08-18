@@ -54,12 +54,25 @@ oversights:
 
 ## Licensing
 
-SiegeEngine is AGPL-3.0, and this directory sits in Catapult's
-AGPL-3.0 zone (`LICENSING.md`: "everything else"), so vendoring it
-here changes nothing. **The constraint is downstream:** `bundles/**`
-is Apache-2.0 and ships into customer projects, so prompt text may
-not be copied from `siege-prompts/` into a bundle. Both repos share
-a copyright holder, so this is a housekeeping rule rather than a
-legal risk — but the Apache-2.0 zone stays clean by construction,
-which is why ORC-7 authors bundle content fresh with these
-documents as reference rather than porting bytes.
+**Settled: pulling from this corpus into `bundles/**` is authorized,
+including verbatim.** SiegeEngine is AGPL-3.0 and `bundles/**` is
+Apache-2.0 (`LICENSING.md`), which would normally be a one-way door.
+It isn't one here: SiegeEngine has a **single copyright holder, no
+third-party contributors, and has never had a user other than its
+author**, so there is no recipient with standing under AGPL §13 or
+anything else, and a sole copyright holder may license their own work
+under whatever terms they choose. The repo goes private before
+Catapult publishes. Checked and clean: no file under
+`siege-prompts/` carries third-party attribution.
+
+So the license is **not** a reason to avoid carrying text across, and
+was briefly recorded as one in error. The reason ORC-7 authors fresh
+anyway is structural — v5 moved the tiers the prompts are written
+against — plus a standing author preference for rewriting over
+porting. Both are about quality, not permission.
+
+One thing worth keeping: if siege text does land in `bundles/**`
+close to verbatim, say so in the commit message. Not a license
+requirement — just so a later reader who recognizes the prose knows
+it was deliberate and authorized rather than a leak across the zone
+boundary.
