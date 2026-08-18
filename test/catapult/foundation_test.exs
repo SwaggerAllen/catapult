@@ -17,6 +17,13 @@ defmodule Catapult.FoundationTest do
     assert database_opts[:secret]
   end
 
+  test "registers the Erlang-egress check over the whole plane tree" do
+    assert [{Catapult.Foundation.Policies.ErlangHttp, "lib/**/*.ex", opts}] =
+             Foundation.policies()
+
+    assert opts[:policy]
+  end
+
   describe "cast_database_url/1" do
     test "strips the sslmode query and configures TLS explicitly" do
       assert {:ok, opts} = Foundation.cast_database_url("ecto://u:p@host/db?sslmode=require")
