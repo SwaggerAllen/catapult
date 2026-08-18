@@ -26,6 +26,14 @@ mutex; nothing else arbitrates.
   `designOwnedPaths`: design passes change them through sketch
   diffs. Listed for completeness; the owner is the design process,
   not a system.
+- **`seed-docs/**`** — vendored upstream reference from SiegeEngine
+  (the v4 spec and bundle documents, and siege's own prompt chain),
+  frozen at a named commit and never edited. Unowned because it is
+  not ours to own: a system file map claims paths a system is
+  responsible for keeping true, and the whole value of this corpus
+  is that nobody maintains it. Changes are re-vendoring, which is an
+  author decision. See `seed-docs/README.md` for why it exists and
+  where it disagrees with v5.
 - **`lib/catapult.ex`** — the top-level Boundary declaration, root
   glue in v5 §2.7's sense: it changes only when a new system carves
   out of the coarse boundary, which is always a sketched, reviewed

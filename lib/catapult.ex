@@ -44,7 +44,12 @@ defmodule Catapult do
       Ecto.Adapters.SQL,
       Ecto.Migrator,
       Oban,
-      Plug
+      Plug,
+      # The DSL loader's two adopted libraries (ORC-5, systems/core_dsl.md):
+      # YAML parsing for bundle content, and libgraph for the type-level
+      # acyclicity checks §13 requires at load time.
+      Graph,
+      YamlElixir
     ],
     exports: []
 end

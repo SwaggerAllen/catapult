@@ -127,13 +127,15 @@ defmodule Catapult.MixProject do
             :ecto,
             :ecto_sql,
             :jason,
+            :libgraph,
             :mime,
             :oban,
             :plug,
             :plug_cowboy,
             :plug_crypto,
             :postgrex,
-            :req
+            :req,
+            :yaml_elixir
           ]
         ]
       ]
@@ -159,6 +161,15 @@ defmodule Catapult.MixProject do
       {:oban, "~> 2.20"},
       {:plug_cowboy, "~> 2.8"},
       {:jason, "~> 1.4"},
+      # Type-level acyclicity over the edge-instance graph, the extends:
+      # chain, and the workflow gate/environment ordering (dsl-syntax.md
+      # §4, §11, §13) — conventions §1's blessed graph library, ORC-5.
+      {:libgraph, "~> 0.16"},
+      # The bundle loader's YAML reader (ORC-5, systems/core_dsl.md):
+      # already resolved transitively via mix_audit's own dependency, so
+      # this promotes an existing lock entry to a direct runtime dep
+      # rather than introducing a new supply-chain leaf.
+      {:yaml_elixir, "~> 2.12"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},

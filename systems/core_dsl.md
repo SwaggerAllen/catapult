@@ -2,6 +2,7 @@
 paths:
   - lib/catapult/dsl/**
   - test/catapult/dsl/**
+  - catapult.yaml
 ---
 
 # core_dsl
@@ -48,6 +49,15 @@ context-source kinds, and audit profiles.
   declarations); engine and generation call it. One validator source
   because commit-time rejection (engine) and pre-flight validation
   (generation, CLI later) must agree byte-for-byte.
+- **`catapult.yaml` is the loader's, not the bundle's** (dsl-syntax.md
+  §1-2). It names one bundle per axis and nothing else — it is what
+  the loader reads to find `bundles/` in the first place, not content
+  the loader validates against a bundle schema. That makes it this
+  system's file, same as any other loader input, and distinct from
+  `bundles/**`'s content, which `platform_content` owns. Previously
+  unowned (repo-root, no system's map claimed it, not on
+  `systems/README.md`'s unowned list either) — the gap this ticket's
+  sketch closes.
 
 ## Initial vs target
 
