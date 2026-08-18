@@ -29,31 +29,90 @@ recorded decision, and say so explicitly.
   Commanded aggregates are the semantics; declarations configure
   them. Extensions are platform-shipped. This is a correctness
   property the scheduler, audit, and security posture lean on.
-- **No per-project protocol restructuring** (v5 §7.10). Projects
-  bind tracker ids and tune marked thresholds; states and gates are
-  platform-fixed, because prompts, plane logic, and shared
-  vocabulary are all written against them.
-- **No tracker product.** Linear is the working UI, behind the
-  Tracker port. The tell that would reopen this: catching ourselves
-  teaching Linear state (custom fields carrying doc-graph data,
-  load-bearing prose parsing). Until then, the port keeps the exit
-  cheap and we build zero tracker UI.
-- **No dashboard-as-working-surface** (v5 §7.4, systems/dashboard.md).
-  Debugging and observation only, *for the work loop* — artifact
-  review and ticket action live in Linear and PRs. Settings and
-  onboarding (the bindings UI, v5 §7.10) and the configuration
-  surface (a composer that files graph-state changes as PRs — it
-  never bypasses a gate) are ops and authoring-composition, not the
-  work loop, and are explicitly in-bounds.
+- **No per-project restructuring of the *automation* protocol** (v5
+  §7.10, §7.16). Projects bind tracker ids and tune marked
+  thresholds; the agent and queue states, and the graph connecting
+  them, are platform-fixed, because prompts, plane logic, and shared
+  vocabulary are all written against them. **Narrowed at §7.16 from a
+  flat "states and gates are platform-fixed":** review states — the
+  ones whose only job is routing a human — are *declared*, vary by
+  ticket type, and default to a UX review and an engineering review.
+  The entry's stated reason survives the narrowing intact, because
+  nothing dispatches from a review state and no prompt is written
+  against one. The admission rule that replaces the flat version:
+  **a state may be declared iff no plane logic branches on it.** We
+  fix the shape of the automation, not the shape of the
+  organization. What stays refused is a project rewiring the
+  automation graph itself.
+- ~~**No tracker product.**~~ **Reversed** (v5 §7.17). This entry
+  held that Linear was the working UI behind a Tracker port, that we
+  would build zero tracker UI, and it named the tell that would
+  reopen it: catching ourselves teaching the tracker state it cannot
+  hold. The tell arrived, repeatedly — an external state store
+  because the tracker cannot record *who* wrote a change; protocol
+  state riding in comments behind markers; an unmapped state halting
+  a sweep for hours; comment ordering contradicting its own API
+  contract; §7.16's stale-transition rejection undeliverable at the
+  point of action; and §7.16's declared review states needing to be
+  provisioned into a product that does not know what they mean.
+  **Catapult ships its own ticket UI to every user.** External
+  trackers become an add-on: an *outbound* projection of top-level
+  tickets only, for teams that must report into a larger org's
+  system. Inbound acceptance is not committed and, if it happens, is
+  a narrow explicit command surface rather than a write path. Kept
+  rather than deleted because the reversal is the record: this entry
+  named its own reopen condition and the condition came true, which
+  is the process working.
+- **No inbound write path from a mirrored tracker** (v5 §7.17) — the
+  live half of the entry above. Mirroring outward is a read model
+  leaving the building and is safe by construction. Accepting
+  arbitrary state changes back in reintroduces unmapped states,
+  last-write-wins and unattributable writes into a system that just
+  escaped them. Anything inbound is a §7.1 signal, validated like any
+  other, never a state change adopted on the tracker's word.
+- ~~**No dashboard-as-working-surface**~~ **Reversed with the tracker
+  reversal** (v5 §7.17). The entry held debugging and observation
+  only, with artifact review and ticket action living in Linear and
+  PRs; it cannot survive owning the tracker, because owning it is
+  precisely deciding that ticket action lives here. Two of its
+  carve-outs stand unchanged and were always in-bounds: settings and
+  onboarding (the bindings UI, v5 §7.10), and the configuration
+  surface — a composer that files graph-state changes as PRs and
+  never bypasses a gate.
+  **What replaces the line is not "anything goes".** Review comes
+  home where the native surface is *better*, not merely available,
+  and §7.17 records the two reasons it is: our docs diff per sentence
+  rather than per line, and the graph of tickets under a top-level
+  ticket is a view a general tracker cannot easily replicate. The
+  extent is settled in `docs/ui-spec.md`. The entry's real warning —
+  that a pipeline this deep generates constant temptation to grow UI
+  — is not retired by the reversal, and its **successor rule** is
+  `docs/ui-spec.md` §2: reads are projections and writes are
+  commands; **no screen introduces protocol vocabulary**; every
+  screen answers a named question or performs a protocol-defined
+  action. The middle one is the one to cite, because the temptation
+  never arrives as "build a tracker" — it arrives as "add one field
+  here", and a field here is vocabulary.
 - **Catapult never executes target-project code** (v4 §A.10.5
   carried forward, sharpened): agent runs execute code in their own
   CI/runner environments; the plane dispatches and observes but
   never runs generated code in-process. The plane's blast radius is
   its own.
-- **No multi-writer projects.** One driving author per project;
-  collaborators read. The coordination model for concurrent human
-  writers is a different system (v4 §A.0.1 commitment 4, still
-  true in v5).
+- **No concurrent authoring of artifact bodies** (v5 §7.16).
+  Narrowed, deliberately, from a former `No multi-writer projects`
+  entry — **small teams are supported**, and that entry contradicted
+  both §1's target class ("single-author / small teams") and §2.9's
+  identity component, which ships orgs, membership, invitations and
+  roles-as-data. It was inherited from v4 §A.0.1 commitment 4 rather
+  than decided here, and the narrowing is a reconciliation, not a
+  reversal. What remains out is what v4 actually carved out: two
+  people editing the same artifact body under merge semantics the
+  plane would have to invent. Bodies live in git, PRs already carry
+  those semantics, and the plane does not grow a second set.
+  Concurrent *action on the delivery protocol* — several people
+  holding a sign-off role, racing each other on transitions — is in,
+  and is optimistic concurrency (§7.16): first writer wins, a stale
+  `from` is rejected rather than applied.
 - **No experimentation/percentage-rollout flag machinery** (v5
   §2.10): release flags, ops kill-switches, actor targeting — no
   more. Machinery without a customer at this scale.

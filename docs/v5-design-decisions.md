@@ -907,11 +907,43 @@ delivery machinery only.
 
 ### 3.1 The registry
 
-**Self-hosted, hex-compatible** (the `mini_repo` pattern): generated
-projects consume shared components with ordinary `mix deps` machinery;
-packages publish from Catapult's monorepo, not hex.pm. Notifications /
-push-on-release: not needed yet; the seam is designed so the registry
-can grow into serving handle diffs and release notifications later.
+**Git for distribution; public hex.pm for public publishing.**
+Revised from the original `mini_repo` decision (self-hosted
+hex-compatible registry, packages published from the monorepo rather
+than hex.pm), which is struck rather than deleted because the
+reasoning is worth keeping: it was made for *components*, and it
+silently became the assumed answer for bundles and policy packs,
+which were never in the registry's artifact list at all.
+
+The two things hex does that git cannot are **retirement and advisory
+signalling** (`mix hex.audit`, armed in CI and load-bearing) and
+**real version resolution across a diamond**. Both matter for public
+code consumed by strangers. Neither earns its keep here: §3.1's
+single release train designs the diamond away (*"which auth works
+with which catapult"* is a non-question by construction), and
+Catapult's own components appear in no advisory database — third-
+party deps, which remain ordinary hex packages, keep their audit
+coverage untouched. What hex was being bought for — **private,
+org-blessed registries** — git provides as ordinary private repos,
+so that argument never favored hex to begin with.
+
+What git adds is the thing the artifacts actually need: **fork, tailor,
+and merge upstream later.** Hex has no merge story; a fork is a
+permanent exile. That lifecycle is normal for bundles and policy
+packs, and — see §3.5 — legitimate for components too.
+
+**Public artifacts still publish to hex.pm**, where ecosystem
+discovery, `hex.audit` for consumers, and docs hosting are real and
+free. The split is by *audience*, not by artifact kind: public goes
+to hex, everything internal and org-private lives in git.
+
+**Distribution is independent of the forge** (§7.17). Git-based
+distribution works on whatever forge a customer already uses and does
+**not** require Gitea; the two decisions were briefly entangled and
+are hereby separated. Keeping the registry off the forge is what
+keeps the forge a cheap swap — an artifact store riding the forge
+would relocate every customer's artifacts on a forge migration, not
+just their code.
 
 **Monorepo, single release train, per-component semver.** All shared
 components live in the Catapult repo; every release publishes all
@@ -944,6 +976,14 @@ version. Lifecycle maps onto existing machinery:
   config surface are the source; its build publishes the handle
   (pubapi, permission vocabulary, config surface, upgrade notes)
   alongside the package.
+- **`external` is one of two modes** (§3.5). A component may instead
+  be **adopted**: its documents enter the graph as ordinary generated
+  nodes and its code is generated into the tree. The transition is
+  explicit, recorded, and one-way in practice — an adopted component
+  stops receiving the version-bump staleness above and receives
+  handle-diff-seeded absorption tickets instead. Nothing else in this
+  section changes: an unadopted external node behaves exactly as
+  described.
 
 Upgrades have two channels: **codemods for the mechanical part**
 (dep bump, renames — Igniter is the candidate framework, run inside
@@ -976,8 +1016,58 @@ discipline as the predicate language, deliberately not expressions.
 
 ### 3.5 Governance
 
-- The dev agent never edits shared-component code — structurally
-  guaranteed (hex dep, outside the repo tree, outside file maps).
+- **A component has two consumption modes, and adoption is an
+  explicit, recorded, one-way act.**
+  - **Dependency** (the default): the component resolves into
+    `deps/`, outside the repo tree and outside file maps, and appears
+    in the graph as an `external` node (§3.2) whose content is
+    read-only and whose "approval" is version pinning. Here the
+    standing guarantee holds — **the dev agent never edits
+    shared-component code, structurally**. That guarantee rests on
+    *being a dependency*, not on being a hex one, so it survives
+    §3.1's move to git unchanged: a mix git dep resolves into `deps/`
+    exactly as a hex package does.
+  - **Adopted**: the component's *documents* enter the project's
+    graph as ordinary generated nodes, and its code is generated into
+    the tree like any other component's. Agents edit it because it is
+    now the project's, and it passes the same review gates as
+    everything else.
+- **Adoption is the fork, and it is legitimate.** An earlier draft
+  called forking pathological and then tried to save the claim with
+  an org-versus-project distinction. Both were wrong. `LICENSING.md`
+  puts `components/**` under Apache-2.0 *precisely* so it ships into
+  generated projects; §2.9 already builds in a pluggable principal;
+  and the org/project split does no work at this target class, where
+  an enterprise-scale monorepo means one org routinely has exactly
+  one project. Auth is the likeliest adoption of all — bespoke SSO,
+  legacy password hashes, jurisdictional requirements. Adoption works
+  *because* these components are Catapult-shaped: comparch documents,
+  file maps, handles, conventions. They slot into a graph natively in
+  a way no ordinary dependency could.
+- **The merge target is the documents, never the code.** This is what
+  makes adoption survivable rather than a one-time copy. Regenerated
+  code does not correspond to upstream's code, so merging upstream
+  *code* into it is either perpetual conflict or meaningless; merging
+  upstream's comparch and impl *documents* into the graph works, and
+  regeneration follows. **The upgrade path is therefore already
+  built:** an upstream release produces a handle diff, the handle diff
+  seeds an **absorption ticket** (§7.3), and the ticket runs the
+  upward flow — documents absorb reality, walking upward only as far
+  as the change argues. Same machinery as an out-of-band commit;
+  different trigger.
+- **What adoption costs, stated rather than hidden:** you own that
+  component's security patches, §2.9's central-propagation argument
+  stops protecting you for it, and the handle is now yours — upstream
+  handle diffs become advisory rather than authoritative. §2.9 still
+  refuses *accidental* generate-and-own ("N projects with drifting
+  unpatchable auth code"); what it never refused is a deliberate,
+  recorded divergence that someone chose with the bill in view.
+- **This is not the absorption `docs/non-goals.md` refuses.** That
+  entry rejects ingesting *existing outside codebases*, on the stated
+  grounds that "the platform's structure is narrow by design and
+  existing apps won't conform to it." A Catapult component conforms
+  by construction — it is the structure. The reason does not reach
+  this case, which is why the resemblance is worth a sentence.
 - Push-back channel: a project's pipeline discovering a shared
   component is wrong files a **cross-project upward finding** — an
   issue against Catapult's own tracker. Designed escape hatch, not
@@ -1442,8 +1532,12 @@ checks what a project declares**:
   (conventions, grammars for permission/process-inventory blocks,
   template tiers, external-node declarations, audit grammar) that
   project bundles inherit and overlay. Without it every project forks
-  the convention corpus. The delivery DSL section (§7) also ships from
-  this layer.
+  the convention corpus. ~~The delivery DSL section (§7) also ships
+  from this layer.~~ **Corrected at §7.18:** delivery ships from a
+  platform *workflow* layer, on the other axis. Shipping it from the
+  language layer would tie the workflow vocabulary to one target
+  stack, and the whole point of the chain/workflow split is that one
+  organization's workflow spans decompositions that differ by stack.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
   source for shared prompt framing across the six architecture tiers;
   per-tier files for what differs. (Siege's `_shared.py` pattern,
@@ -1502,6 +1596,18 @@ in the pipeline. For platform-shipped layers, an update **ships
 with its transform list** — authored upstream like §3.4's upgrade
 docs — so consuming a new platform-layer version is the same
 cutover with act (2) pre-supplied.
+
+**The drain in act (1) is per axis, and the workflow axis relaxes it**
+(§7.18's split, resolved at §7.19). On the chain axis it stands as
+written: flow instances complete, so an empty pipeline is a condition
+that arrives. On the workflow axis it cannot stand — a blocked ticket
+is in-flight and stays blocked for as long as its human prerequisite
+takes, so requiring an empty pipeline would make workflow evolution
+hostage to the slowest block in the organization. Blocked tickets
+therefore ride the cutover and re-resolve against the new sequence by
+§7.19's rule, anchored on the system statuses, which are the part of
+a ticket's history no bundle change can delete. Act (4)'s flip is
+**recorded as an event** on both axes; §7.19 depends on it.
 
 **Dropped from v4:** the phase machinery — `phased:` tiers, the
 `phase_plan` projection and plan rule, cross-phase delta context, the
@@ -1665,11 +1771,16 @@ dissolved by giving every feedback type a home:
    the artifact set *is* a doc diff on the feature PR, so artifact
    feedback is line-anchored PR review comments. **Harvesting rule:**
    on a gate decline (state moved back), the plane collects review
-   comments since the last gate, buckets them by the artifact file
-   span they anchor to, and threads each bucket into that scope's
-   regeneration as `feedback`. Machine comments carry fixed markers
-   (orchestration's programmatic-comment rule); anything unmarked in
-   the diff span is human feedback.
+   comments since the last gate, buckets them by the artifact span
+   they anchor to, and threads each bucket into that scope's
+   regeneration as `feedback`. **How machine and human comments are
+   told apart now depends on the surface.** On surfaces we own,
+   plane-authored annotations are *records with kinds* and no prose
+   is parsed — the marker rule is retired there (`docs/ui-spec.md`,
+   `systems/delivery.md`). On GitHub PRs, which we do not own,
+   machine comments still carry fixed markers and anything unmarked
+   in the diff span is human feedback: the original reason holds
+   exactly where the store is somebody else's.
 3. **Preview URLs / storybook exports** — visual review, per branch.
 4. **The docs site** — human browsing of settled architecture.
 
@@ -1699,16 +1810,35 @@ one ticket; **restore/cutover lifecycle states** (§6, §8). The rule
 exists because notification surfaces multiply on convenience, and
 every additional one is a place attention goes to die.
 
-**The Catapult LiveView UI is a debugging surface, not a working
-surface.** Lesson from siege: the DAG is for machine comprehension
-(humans got a tree view because the graph was unnavigable), and
-Linear+GitHub already unify comments, states, and diffs. The
-debugging surface is load-bearing and genuinely hard — event-log
-inspection, replay-to-sequence, ready_scopes explain-why ("what is
-blocking this scope" as a first-class query), staleness provenance,
-dispatch history, agent-run transcripts. When a pipeline this deep
-stalls, "why is nothing happening" must be answerable in minutes.
-Budgeted as a real engineering line item, not a leftover dashboard.
+~~**The Catapult LiveView UI is a debugging surface, not a working
+surface.**~~ **Reversed at §7.17; the screens are `docs/ui-spec.md`.**
+The original reasoning was that Linear and GitHub already unify
+comments, states and diffs, so the UI need only explain the machine.
+Owning the tracker removes the first half of that premise, and two
+things turn out to be *better* here rather than merely available: our
+documents diff per sentence rather than per line, and the ticket
+graph under a top-level ticket is a view a general tracker cannot
+easily draw.
+
+**The debugging half survives untouched and is still the hard part** —
+event-log inspection, replay-to-sequence, `ready_scopes` explain-why
+("what is blocking this scope" as a first-class query), staleness
+provenance, dispatch history, agent-run transcripts. When a pipeline
+this deep stalls, "why is nothing happening" must be answerable in
+minutes. Budgeted as a real engineering line item, not a leftover
+dashboard — and now sharing a surface with the work loop rather than
+sitting beside it.
+
+**The four feedback surfaces re-sort accordingly.** The author's
+inbox and state lever is *ours* (`my-queue`, `board`, `ticket`).
+Artifact feedback splits by artifact kind rather than living wholly
+in PRs: **prose artifacts review natively at sentence granularity**,
+**code review stays line-anchored in the PR** where line anchoring is
+correct. The harvesting rule is unchanged in substance — on a gate
+decline the plane collects feedback since the last gate and buckets
+it by the artifact span it anchors to — it simply now has two
+sources, and the native one carries a better anchor. Preview URLs /
+storybook exports and the docs site are unaffected.
 
 ### 7.5 Branches, merges, reconciliation
 
@@ -1943,11 +2073,17 @@ via bundle `extends` but cannot edit the protocol, so membership must
 be declared at the member, with the protocol defining only the slots:
 
 - **Tiers gain a `delivery:` block** — `phase:` (status shown while
-  the tier generates) and `gate:` (which author gate's PR diff
-  approves it). A gate's review set is *derived* — the tiers
-  declaring it. Bundle-load validates annotations against the
-  protocol vocabulary: unknown phase or gate is a load error; one
-  loader spans both worlds.
+  the tier generates) and the agent step that generates it. **Amended
+  at §7.18:** this block names *only* platform-fixed vocabulary. It
+  formerly also carried `gate:`, naming the author gate whose PR diff
+  approved the tier, with a gate's review set derived from the tiers
+  declaring it. Both are gone: a chain cannot name a gate, because
+  gates are workflow-bundle declarations and the two axes must
+  compose without a shared vocabulary. The review set is still
+  derived, keyed on position instead — a gate reviews whatever the
+  chain produced at the fixed step it follows. Bundle-load validates
+  annotations against the protocol vocabulary: an unknown phase or
+  agent step is a load error; one loader spans both worlds.
 - **Flows gain a ticket face.** Entry types (§7.3) and v4's flow
   catalog are one list — opening a ticket IS opening a flow instance.
   A flow's `flow.yaml` adds `ticket: { entry: <tier>, labels: [...] }`
@@ -1957,12 +2093,45 @@ be declared at the member, with the protocol defining only the slots:
   scopes with this phase within this flow instance). Scaffolding
   keeps its v4 status as "a flow with an empty delta" — the base
   schema wearing a ticket face.
-- **Spawn is a plane rule, not a declaration.** Spawning attaches to
-  the *Building transition*, not to fanout edges: at entry to
-  Building, spawn children partitioned by the fanout structure of the
-  impacted scope set (plan/staleness data), one child per impacted
-  component, nesting to subcomponents only where the plan proves
-  independent parallel work; ticket type follows nesting depth.
+- **Spawn is a plane rule, not a declaration.** Spawning is
+  partitioned by the fanout structure of the impacted scope set
+  (plan/staleness data), one child per impacted component, nesting to
+  subcomponents only where the plan proves independent parallel work;
+  ticket type follows nesting depth.
+  **Amended: children are created when the plan node names them, not
+  at the Building transition** (`docs/ui-spec.md` §3.1). The reason
+  is review, not display: reviewing a design that names its children
+  is better with those children in existence, so the artifacts and
+  comments attach where they belong from the start. Spawning at
+  Building means the fan-out first appears after every gate it should
+  have informed.
+  **The load-bearing reason is structural, and it is §7.19's own.** A
+  review status carries a fan-out depth, and a child's effective
+  sequence is the declared sequence filtered to its depth — so **any
+  depth-scoped gate sitting before Building is unclaimable unless the
+  children exist by then.** Spawning at Building confines every
+  depth-1 and depth-2 gate to the post-Building half of the sequence,
+  which forbids the case most worth having: a component-level
+  architecture review while the design is still under review. Early
+  spawn is therefore a precondition for half of §7.19's depth
+  mechanism rather than an ergonomic preference, and it lets gates at
+  a fan-out layer be claimed from the moment that layer exists —
+  which is the shape the initial build-out wants, where every
+  component is new at once.
+  **Clutter was the original objection and it is answered elsewhere:**
+  the board collapses fan-outs by default (`docs/ui-spec.md` §3.1),
+  so early children cost nothing in legibility. Noted because the
+  amendment was first reached *from* that screen work; it does not
+  depend on it, and the reasoning above is what it rests on.
+  **Creation is not dispatchability.** A child created at plan time
+  enters a pre-queue state and becomes queue-eligible only when its
+  parent's design gates have passed; otherwise agents would start
+  work against an unreviewed design, which is the failure this
+  ordering exists to prevent. Two things need care and are called out
+  rather than assumed: the blocking relation (§7.2's child-blocks-
+  parent, which is about completion) must not be read as dispatch
+  gating, and a boundary-style `openBlockerFor` check must not treat
+  early children as blockers that prevent the parent's own dispatch.
   Product-tier fanouts never spawn because product tiers generate
   under gate phases, not Building. The grain rule is a platform
   constant.
@@ -2493,6 +2662,558 @@ explain-why (§7.4), and the same number a resumed pass starts from. A
 paused pass that looks identical to a dead one is the "signal
 silence" failure §7.4 already names — so pausing announces, and the
 announcement carries when it intends to wake.
+
+### 7.16 Concurrent writers
+
+**Small teams are supported.** This reconciles a contradiction the
+record carried rather than reversing a decision: §1's target class
+has read "single-author / **small teams** shipping enterprise-scale
+systems" from the start, and §2.9's identity component already ships
+orgs, membership, invitations and roles-as-data. The old
+`No multi-writer projects` non-goal was the outlier, inherited from
+v4 §A.0.1 commitment 4 rather than decided here.
+
+**The two things that entry welded together, separated — one stays
+out:**
+
+- **Concurrent authoring of artifact bodies** is still out. Bodies
+  live in git; PRs already carry merge semantics, and the plane does
+  not grow a second set. This is what v4 actually carved out and the
+  carve-out holds.
+- **Concurrent action on the delivery protocol** is in, and is the
+  subject of this section. It is optimistic concurrency, not merge
+  semantics — a solved problem rather than a different system.
+
+**Sign-off is role-scoped, and any holder of the role satisfies it.**
+Product/design sign-off and architecture sign-off are distinct
+permissions; one or more people hold each; any one of them can give
+their role's. This lands exactly on §2.9's split — **permissions are
+code, roles are data**: the delivery system defines the sign-off
+atoms, identity stores who holds them and evaluates the grant. More
+sign-off classes, and whatever states they imply, are a later
+increment (§7.6's admission test still governs); nothing here may
+assume today's two.
+
+**Every transition carries the state it believed it was leaving.**
+First writer wins. A second writer's command whose `from` no longer
+matches the ticket's actual state is **rejected, not applied**, and
+the rejection names who moved it and to what — so the loser retries
+against the new state or goes and talks to the winner. Commanded's
+`expected_version` is the mechanism and the aggregate is the arbiter;
+this is the same primitive the mutex uses against agents, so
+human-vs-agent and human-vs-human races resolve through one path
+rather than two.
+
+**The synchronous rejection is not achievable through Linear, and
+that is a property of the tracker, not of this design.** Two humans
+both moving a ticket in Linear both succeed there — Linear applies
+last-write-wins and tells nobody — and the plane sees the result
+afterwards, by webhook or sweep. The loser is therefore reverted
+after the fact with a comment (§7.1's validate-or-revert, already the
+designed behavior) rather than stopped at the point of action. "Pop
+an error and make them try again" requires a surface the plane
+controls. Recorded here because it is a standing force on §7.17's
+tracker question, and because the degradation must be understood as
+chosen rather than discovered.
+
+**Approval is a status, and review states are declared** (shape
+settled; the mechanism is a later increment, and a sizeable one).
+There is no separate approval object: a human approves by moving the
+ticket, and the state it lands in *is* the record. This is why the
+one-approves-one-rejects case needs no resolution rule — the ticket
+is in exactly one place at all times, the first mover wins under the
+rule above, and the second is told who moved it and where, then moves
+it again from the new state. The disagreement becomes a conversation
+instead of a data structure. Attribution is not lost to the coarse
+projection: the tracker shows only a status, but the plane records
+the command with its actor, so *who approved* stays answerable from
+the log.
+
+**The shape, stated as the rule it implies: we fix the shape of the
+automation, not the shape of the organization.** The agent and queue
+states are platform-fixed. **Review states are declared**, vary by
+ticket type, and the default set is a UX review and an engineering
+review, either of which may throw back to design.
+
+This argues against `docs/non-goals.md`'s
+`No per-project protocol restructuring`, which says states and gates
+are platform-fixed — and it satisfies that entry's stated reason,
+which is that prompts, plane logic and shared vocabulary are written
+against the states. That holds for states the automation reads. It
+does not hold for a state whose only job is routing a human: nothing
+dispatches from it and no prompt is written against it. So the
+admission rule narrows rather than dissolving — **a state may be
+declared iff no plane logic branches on it.**
+
+Mechanically the plane never learns a new state. A gate sits on an
+*edge* of the fixed graph: the plane parks there and resumes on a
+resolution drawn from a fixed vocabulary (proceed, or throw back to
+the gate's declared target). Gate identity is data; gate resolution
+is the fixed thing the plane branches on. This is §6's doctrine
+applied to the delivery protocol — declarations configure fixed
+semantics, and a gate declaration is not a program.
+
+**A gate declares three things, each closing a failure:** the role it
+routes to (§2.9 holds the grants; a gate whose role has no holders is
+a deadlock that must fail at configuration time, not look like a slow
+reviewer); its exits, forward and throwback; and its escalation
+policy, since §7.6 already shows states carrying distinct escalation
+semantics and a human gate is author-owned.
+
+**Two failure classes grow with a declared set and must be closed at
+configuration time.** A declared gate with no corresponding tracker
+state is the unmapped-state halt (§7.17's evidence list) — the plane
+provisions its own states and validates the mapping at boot and in
+the audit, turning a silent runtime halt into a loud misconfiguration.
+And §7.6's naming discipline — no two states, or a state and a label,
+one hyphen apart in meaning — was cheap to hold against a fixed list
+and is not against a declared one, so it becomes an audit check.
+
+**Still open within this section:**
+
+- **The compare token: version, not status.** Status alone cannot
+  tell two writers apart who both moved `A → B`, and it readmits the
+  ABA case — a ticket that returns to `A` accepts a stale command
+  aimed at the first `A`. The compare should be the aggregate's
+  version while the *message* speaks in states, because the version
+  is what is correct and the state is what the human needs to hear.
+  Author's call: the rule as stated compares on status.
+- **What a passed gate pins** — the one piece status-as-approval does
+  not answer, and the sharper problem now that the approval *is* the
+  transition. A gate approves a version of an artifact; the ticket
+  then moves past it. When the artifact regenerates underneath, the
+  ticket is already downstream and the judgment it carries is stale
+  while nothing says so. §7.11's staleness-is-derived machinery is
+  the natural home — a passed gate goes stale when what it approved
+  does, and reopens — but the gate has to record what it approved for
+  that to be derivable at all.
+- **Staleness clocks under more writers.** `staleClaimGrace` measures
+  from `max(Run.EndedAt, StateSince)`, so every state move resets it.
+  More writers means more resets, and the constant (§7.13) was chosen
+  against a single-writer rate.
+
+### 7.17 The tracker is ours; the host is an adapter
+
+**Reversed, deliberately, and it is the largest change to the record
+since §1.2's inversion.** An earlier draft of this section had the
+tracker as a port with Linear the only adapter and a native tracker
+deferred. That is inverted: **every user gets Catapult's own ticket
+UI, and external trackers become an add-on.** The reason is the one
+§7.16 exposed — a protocol this specific fights a general-purpose
+tracker at every step. Declared review states must be provisioned
+into someone else's product and mapped, an unmapped one halts the
+sweep, the tracker applies last-write-wins where the protocol needs
+compare-and-swap, it cannot say who wrote a change, and the
+rejection §7.16 specifies cannot be delivered at the point of action.
+Each is survivable; together they are a permanent tax on the
+protocol's own semantics.
+
+**What the add-on is: an outbound projection, and one grain only.**
+Events duplicate out to the customer's tracker of choice (Jira,
+Linear, Notion) for teams inside a larger org that must report
+somewhere central. **Only top-level tickets mirror** — the fan-out
+(§7.2's ticket tree) stays native, which is the descoping this buys
+and is most of why the add-on is cheap. Mirroring a projection
+outward is safe by construction: it is a read model leaving the
+building, and §7.1 already says the log is the authority.
+
+**Inbound is the dangerous direction and is not committed.** Accepting
+events *from* a mirrored tracker reintroduces every problem above —
+unmapped states, last-write-wins, unattributable writes — inside a
+system that just escaped them. If it happens it is a narrow, explicit
+command surface (comments, at most a bounded set of transitions),
+never a general write path, and every inbound event is a §7.1 signal
+validated like any other rather than a state change to be adopted.
+
+**Two things follow that were not obvious before the reversal.** The
+review surface partly comes home: our docs diff better per sentence
+than per line, and a graph view of the tickets under a top-level
+ticket is something a general tracker cannot easily replicate — both
+are reasons the native UI is not merely a substitute but the better
+surface for this content. And the UI stops being a debugging
+dashboard and becomes a working surface, which reverses a second
+non-goal; how far it extends is what the UI spec has to settle, not
+this section.
+
+**The host stays a port with swappable adapters**, GitHub the only
+one built, for the reasons the rest of this section gives. The
+asymmetry is the point: ticket state is a projection the plane
+already computes, so owning it removes machinery; code hosting and CI
+are services the plane is architecturally forbidden to be
+(`docs/non-goals.md`: never executes target-project code), so a forge
+is always somebody else's, and the port is how that stays cheap.
+
+**Three disciplines, without which the port is nominal:**
+
+1. **Ports are shaped by what the protocol needs, never by what the
+   vendor offers.** A `Host` that grows a method because GitHub has
+   the feature is a GitHub-shaped port with an adapter-shaped hole in
+   it. This is the easy thing to get wrong while exactly one adapter
+   exists — and it applies to the mirror add-on too, whose port is
+   "publish a top-level ticket's state somewhere", not Jira's issue
+   model.
+2. **The fake is the second implementation.** `systems/delivery.md`
+   already ships a fake with every port; the reason is not only the
+   offline test ring — it is the forcing function that keeps the port
+   vendor-neutral, and it only works if the fake is written against
+   the protocol rather than mirroring the adapter.
+3. **No capability negotiation until a second adapter demands it.**
+   Degradation frameworks for backends that do not exist are the
+   speculative machinery `docs/non-goals.md` rejects elsewhere.
+
+**The forge is two seams, decided separately.** The `Host` port (PRs,
+merges, file writes, ancestry) and the execution substrate (§7.12.1's
+dispatch port, already committed as an adapter) are different
+questions, and a forge swap needs both. Keeping them distinct means
+the CI-substrate work, which is planned, does not entangle with a
+forge swap, which is not. The one genuinely hard piece is
+runner↔plane authentication: §7.12.1 settled it on GitHub-minted
+Actions OIDC, which is a good design and a GitHub-specific one.
+
+**The evidence the reversal rests on**, recorded so the decision
+reads as accumulation rather than as a bad afternoon: the pipeline
+already needs an external state store because the tracker cannot say
+*who* wrote a change; protocol state already rides in tracker
+comments behind markers; an unmapped tracker state has halted a sweep
+for hours; tracker comment ordering has silently contradicted its own
+API contract; and §7.16's declared review states would have to be
+provisioned and mapped into a product that does not know what they
+mean. No single one of these decides it. The shape of the list does —
+every entry is the same shape, a general tracker refusing a specific
+protocol, and that is a tax that grows with the protocol rather than
+one that gets paid off.
+
+**There is no cutover, and no tracker adapter is ever written.** The
+reversal landed before any tracker integration existed, so the plane
+never acquires one and nothing has to be migrated off. Worth stating
+plainly because the opposite reading is the natural one: **Catapult
+the platform does not talk to Linear at all.** Orchestration builds
+Catapult and orchestration uses Linear — a different system running a
+different loop, unaffected by any of this and not a dependency of it.
+
+**What this costs, recorded honestly.** A working tracker is a real
+product surface: search, notifications, permissions, and mobile —
+and mobile matters more than its line here suggests, because the
+author works from a phone and the incumbent's app is good. And the
+cost lands *earlier* than a staged reading suggests: with no borrowed
+surface to lean on, **UI v1 is the authoring loop's floor rather than
+a later stage** (`docs/ui-spec.md` §5). Nothing renders the loop
+until it exists. That is the honest shape of the bill — the reversal
+does not defer the UI, it makes it a prerequisite.
+
+### 7.18 Configurable deployments, and where configurability lives
+
+**Deployment environments are declared, on the same rule as §7.16's
+review states.** The default set is `dev` and `staging`; per-PR
+environments are a later addition and, when they land, are `deploy`
+at fan-out depth `0` (§7.19) rather than a special case — the fan-out
+would otherwise mint an environment per child, which is the cost that
+makes per-PR previews expensive everywhere they are expensive.
+Promotion between environments is automation and stays
+platform-fixed; *which* environments exist, and what a promotion into
+one requires, is the organization's shape, not the automation's.
+
+**There is no second bundle system, and adding one would contradict
+§9.** The instinct to give delivery configuration its own bundle
+mechanism parallel to the prompt bundles is the thing §9 already
+refused: one DSL, core plus extensions. The existing split does the
+whole job, and the two halves are already named in `dsl-syntax.md`:
+
+- **Vocabulary is an extension** (`dsl-syntax.md` §12) —
+  platform-shipped modules registering annotation namespaces,
+  declaration kinds, and enforcement profiles. A gate kind and an
+  environment kind are new declaration kinds registered exactly this
+  way. Extensions compose the *language*.
+- **Instances are content** (`dsl-syntax.md` §11) — a project's
+  actual gates and environments live in its bundle's `extends:`
+  layer, versioned in the repo, changed by PR. `extends:` composes
+  *content* and never adds vocabulary.
+
+**The store test (§7.10) splits each feature in the same place, and
+the split is not where intuition puts it.** *Topology is content;
+attachment is a binding.* Which gates exist, which roles they route
+to, their exits, which environments exist and what promotion into one
+requires — all change what is generated, validated or enforced, so
+they are graph state: repo, versioned, staleness-propagating, PR to
+change. Who currently holds a reviewer role, and an environment's
+endpoint URL and credentials — these change only how the plane
+connects and operates, so they are plane state in the bindings, and
+they must never become repo content. The tempting error runs in both
+directions: an endpoint in the bundle breaks the hosted BYO rule
+(§8's constraint 1), and a gate in the bindings puts a generation
+input outside version control, which §7.10's test exists to prevent.
+
+**The decomposition and the workflow are separately importable, and
+this is load-bearing rather than a convenience.** A project imports
+two bundles: a **chain bundle** (the doc graph — tiers, edges, flows,
+prompts, schemas: what the agents do) and a **workflow bundle** (the
+human cycle — gates, review states, environments). The driving case
+is an organization whose two projects need different decompositions
+under one shared workflow, and it gets more common with each language
+binding: decomposition tracks the target stack, while review and
+deployment track the organization. Welding them into one artifact
+forces a fork of the workflow per stack, which is the failure this
+split exists to prevent.
+
+**One language, two documents.** This is not a second bundle system
+(§9 again): same loader, same validation pass, same `extends:`
+semantics. `catapult.yaml` names one of each instead of one bundle,
+and a bundle manifest declares its `kind`. The declaration kinds a
+workflow bundle contains are registered exactly like any other
+(`dsl-syntax.md` §12).
+
+**The invariant that makes the split real: neither axis references
+the other. Both reference only the platform's fixed vocabulary —
+statuses, queues, and agent steps.** A chain says which agent step
+generates a tier and which status shows while it does. A workflow
+says how its own steps relate to those same fixed positions: this
+gate sits after that agent step, this environment is promoted into at
+that status. Neither names anything the other declares.
+
+The consequence is the strong form of what the split was reaching
+for: **any workflow bundle composes with any chain bundle**, with no
+shared gate or environment vocabulary and no compatibility contract
+between them. An earlier draft of this section had tiers naming their
+gate, which made the workflow's gate names a published interface and
+the pairing a thing to check. That was a weaker design for a worse
+reason — it kept a coupling that buys nothing, since a gate does not
+need to know which tier it is reviewing to review it.
+
+**The review set is derived from position, not from naming.** A gate
+placed after a fixed step reviews whatever the chain produced at that
+step — one tier or six, and the gate is unchanged either way. This
+replaces §7.10's earlier derivation ("a gate's review set is the
+tiers declaring it") with the same principle keyed differently, and
+it is what lets a decomposition grow a tier without any workflow
+noticing.
+
+**The cost, stated plainly: review granularity is bounded by the
+fixed vocabulary.** If two tiers generate at the same step, no
+workflow can gate them separately — the knob is the platform's phase
+set, not the project's. That is the intended trade and it is the same
+sentence as §7.16's rule: we fix the shape of the automation, not the
+shape of the organization. Finer granularity is a *platform* change,
+reviewed as one, which is exactly where the design wants that
+decision to sit. It also means the fixed vocabulary has to be rich
+enough to carry the gates people actually want — §7.6's lifecycle
+already separates product-tier from architecture-tier generation,
+which is what makes the two default gates expressible without any
+project-specific reference.
+
+**A near miss worth recording, because it looks like a leak and is
+not:** comparch's `enforcement:` block names profiles like
+`codegen: restricted`, which bind delivery gates. Those profiles are
+platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
+vocabulary there too, not a workflow bundle's declaration. The rule
+holds; the resemblance is what makes it worth a sentence.
+
+**`extends:` layers within an axis and never across it.** Each axis
+has its own base layer, and a chain extending a workflow (or the
+reverse) is a load error. This corrects §6's bundle-layering bullet,
+which had the delivery DSL shipping from the `platform-elixir` layer:
+that is exactly the weld this section breaks, because it would tie
+the workflow vocabulary to one language binding. Delivery ships from
+a platform *workflow* layer, which is also where the default gates
+(a UX review and an engineering review) and the default environments
+(`dev`, `staging`) live.
+
+**A consequence worth keeping straight: the `runtime` dialect loads
+no workflow bundle at all.** §12 defines it as having no review
+lifecycle and no git bodies, so a workflow bundle there is not merely
+unused but incoherent, and the loader should say so rather than
+accept it.
+
+**Two recorded absences have to narrow to admit this**, the same
+narrowing `docs/non-goals.md` took at §7.16 and for the same reason:
+`dsl-syntax.md` §11's "the protocol's own files never override" and
+§14's "per-project protocol restructuring, deliberately absent". Both
+were written when every state was platform-fixed. What they protect —
+that no project rewires the automation graph — is untouched: a
+declared gate or environment adds a node the plane parks at, and the
+plane still branches only on a fixed resolution vocabulary. What
+narrows is the claim that *nothing* in the protocol is declarable.
+Load-time validation (§13) is where this is enforced, and it grows
+the checks §7.16 named: a gate whose role has no holders, a declared
+state with no counterpart in the mirror mapping, and §7.6's
+one-hyphen-apart naming rule over the declared set.
+
+### 7.19 System statuses, review sequences, and fan-out depth
+
+**The fixed vocabulary is the set of *system statuses*** — queue,
+generation, checks, merge, deploy. These are the platform's, they are
+what both bundle axes reference (§7.18), and they are the anchors
+everything else positions against. The earlier framing of "between
+generation steps" was too narrow: a security review before merge and
+an approval before a staging deploy are both obviously wanted and
+neither sits between generations.
+
+**A workflow bundle declares an arbitrary sequence of review statuses
+on any edge between system statuses.** The default workflow ships a
+product review between the product and architecture generations; an
+organization is free to insert a UX review and a security review
+beside it, or before merge, without the chain knowing. §7.6's
+existing feature lifecycle is the degenerate case of this model with
+every sequence length pinned at one, which is a good sign the shape
+is right rather than novel.
+
+**Queue statuses are required before every generation and every
+deployment**, and that is a load-time check rather than a convention.
+
+**Sequential only, deliberately.** A ticket has one status and one
+assignee at a time, which is how essentially every tracker in common
+use behaves — and comprehensibility is the reason, not a limitation
+we are accepting. Users of this system already face a large amount of
+novel UI; swim lanes with single assignees are a UX win even when
+they cost review latency. Parallel review is a real want and is
+**deferred, not refused**: the intended shape is a togglable
+*parallelize sequential review* setting that takes review steps which
+would run serially on one edge and runs them together. Worth noting
+why the order of these two matters — a sequential model can be
+relaxed into a parallel one later, while a parallel spec cannot be
+serialized without losing information. Sequential-first is what keeps
+the option open.
+
+**Throwback reopens everything downstream of the regeneration.** The
+happy path is a straight line and the sad paths are simple loops. A
+throwback from the third review on an edge re-runs the generation,
+and the two approvals before it approved a version that no longer
+exists, so they reopen. The all-reopen rule is only affordable
+because staleness is derived rather than eagerly reset (§7.11): a
+passed review goes stale when what it approved changes, so a
+regeneration that touched nothing it saw costs nothing to re-pass.
+This is what turns §7.16's open item — *what a passed gate pins* —
+from a loose end into a dependency: without the pin there is no
+derivation, and all-reopen degrades into re-reviewing everything by
+hand every time.
+
+**Blocked stays a single system status** (§7.6's decision, revisited
+under declarable statuses and upheld), with flavor labels for the
+reason dimension. It is itself a system status, not a review status:
+the automation kicks tickets into it, so it belongs to the fixed
+vocabulary.
+
+**The origin status is tracked beside it, and needs no new
+mechanism.** §7.6 already requires every Blocked entry to name its
+origin, and already observes that in Catapult the event log holds
+this natively — `from` is a projection, not bookkeeping. What
+changes with the native UI (§7.17) is that the projection is *read*
+rather than stamped onto a comment: §7.6 stamped it because "the
+author reads Linear, not the log", and owning the surface retires
+that workaround. Swim lanes group blocked tickets under the status
+that kicked them over.
+
+**Returning from Blocked is one rule: the origin status, or any
+earlier status in this ticket's effective sequence. Never forward.**
+Forward would skip steps that later stages depend on — a required
+review before deployment, a queue before generation — so it is
+refused rather than discouraged. Landing on a status that has a queue
+puts the ticket in the queue, not directly into generation.
+
+**"Earlier" is well-defined only because review is sequential
+(§7.19's own decision).** A ticket's effective sequence at its
+fan-out level is a total order, so "earlier" is a prefix — computable
+and directly renderable. Under parallel branches it would be a
+partial order and this rule would be ambiguous exactly when someone
+needed it.
+
+**No routing rules are declared, because the default carries the
+load.** The return defaults to the origin status — one action,
+covering nearly every unblock — with the earlier-prefix offered as a
+picker behind it. Per-pair routing hints (blocked label × source
+status) were the reason multiple blocked statuses looked attractive;
+with origin tracked and the prefix computable, the matrix has nothing
+left to say and is not introduced.
+
+**Backward movement is one rule with two entry points.** A throwback
+from a review and an unblock to an earlier status are the same
+movement; both reopen everything downstream, and §7.11's derived
+staleness makes the re-pass free where nothing a review saw actually
+changed. Specifying them separately would let an unblock leave a
+stale approval standing downstream.
+
+**The escape valve for a genuinely unwanted step stays heavy on
+purpose.** Deciding a parked ticket does not need its security review
+means changing the workflow bundle, which is graph state, which is a
+PR. Skipping a required review is not a one-click operation, and if
+an override is ever warranted it is an explicit labeled exception
+recorded as an event (the shape `codegen: restricted`'s override
+label already uses), never a softening of the routing rule.
+
+**A workflow bundle can change while a ticket sits blocked, and §6's
+drain does not cover it.** §6 requires a destructive bundle change to
+be a cutover whose first act is that *the pipeline drains — no
+in-flight flow instances*. That rule was written when there was one
+bundle. It is satisfiable on the chain axis, where flow instances
+complete; it is **not reliably satisfiable on the workflow axis**,
+because a blocked ticket is in-flight and blocked tickets are
+long-lived by definition — a `needs-setup` block waits on a human
+creating an account, for as long as that takes. Requiring a fully
+empty pipeline before any workflow change would make workflow
+evolution hostage to the slowest human in the organization.
+
+**So blocked tickets survive the cutover, and the system statuses are
+what they survive on.** When a ticket's recorded status no longer
+exists in the new bundle, it resolves to (a) the most recent status
+it held that still exists, failing that (b) **the status after the
+most recent system status it reached**. (b) always terminates: system
+statuses are platform-fixed, so they are exactly the part of a
+ticket's history that no bundle change can delete. The fixed
+vocabulary earns a second job here — it is the anchor set that makes
+re-derivation total rather than best-effort, and it is only able to
+be that because it is not declarable.
+
+Two properties worth stating, because they are what make this safe:
+(b) can never place a ticket past a system status it has not reached,
+so §7.19's no-skipping-forward invariant survives the migration
+intact; and a ticket landing on a newly declared review status it
+never saw is correct rather than a defect — the new workflow says
+that review is required, and the ticket has not had it.
+
+**This requires the active-bundle flip to be an event, on both axes.**
+§7.10 already records binding changes as event-sourced; the bundle
+flip is stated in §6 as act (4) of the cutover but not explicitly as
+a recorded event, and it now has to be, because rule (a) above is a
+join between a ticket's status history and the bundle-version
+timeline. Neither half is answerable without the other in the log.
+This is §7.1's doctrine applied to our own configuration: the world
+is observed into the log, and a graph the engine switched to is an
+observation like any other.
+
+**Every generation status must have at least one blocked exit** — a
+load-time check, since a generation that can fail with nowhere to
+land is the parked-ticket-nobody-can-act-on failure §7.6 names.
+
+**Scope is expressed as fan-out depth, which is how a status narrows
+without naming a tier.** A status carries an optional depth: omitted
+or `0` means the top level only; `1` adds components; `2` adds
+subcomponents. The simplifying assumption is that **validation wanted
+at a nested level is also wanted at every level above it**, which is
+what lets depth be one number instead of a set of levels. If that
+ever fails, depth generalizes to a level set compatibly.
+
+Worked example — `checks` (2) → `code review` (1) → `merge` (2)
+→ `deploy` (0): subcomponents get checks and then merge to their
+component branch; components get checks and code review before merge;
+the top level gets checks and code review before merge, with
+deployment after. **The effective sequence at any level is the
+declared sequence filtered by depth, order preserved**, which is what
+makes one declaration describe every level at once.
+
+**Depth is a maximum, never a requirement — and this is what keeps
+portability intact.** Bundles choose how far they fan out;
+component/subcomponent is the sweet spot and the default chain's
+shape, but nothing hard-codes it. So a workflow declaring depth `2`
+against a chain that fans out once applies at the two levels that
+exist, silently. It must *not* be a load error: erroring would make
+the workflow's depth a claim about the chain's decomposition, which
+is precisely the cross-axis coupling §7.18 removed. Depth is a number
+rather than a name, which is the whole reason it can scope without
+coupling.
+
+**One special case disappears into this.** §7.18 said per-PR
+environments would attach to top-level tickets only. That is not a
+special case; it is `deploy` at depth `0`, and it stops needing its
+own rule.
 
 ---
 

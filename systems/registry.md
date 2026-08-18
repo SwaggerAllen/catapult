@@ -6,24 +6,40 @@ paths:
 
 # registry
 
-The self-hosted, hex-compatible component registry (v5 §3.1):
-serves the shared components as ordinary `mix deps`, plus the other
-artifact kinds the platform accumulated — extracted handles, handle
-diffs, whole-app operator releases (shaped, later), harness
-baselines. Publishes from this monorepo on a single release train
-with per-component semver.
+The artifact service (v5 §3.1): extracted handles, handle diffs,
+whole-app operator releases (shaped, later), harness baselines, and
+bundle/policy-pack index entries. Publishes from this monorepo on a
+single release train with per-component semver.
+
+**Not a package server.** Components resolve as ordinary `mix deps`
+from git (public releases additionally to hex.pm); bundles and policy
+packs are git repos, forked and merged. What remains here is the set
+of artifacts the *plane computes* and neither git nor hex can produce
+— which is the upgrade flow's whole substance.
 
 ## Standing decisions
 
-- **Hex tooling, not hex.pm** — the mini_repo pattern: ordinary
-  client machinery, lockfiles and all, no ecosystem fork and no
-  repo-per-package pressure (v5 §3.1's monorepo argument).
+- ~~**Hex tooling, not hex.pm** — the mini_repo pattern.~~
+  **Revised (v5 §3.1): git for distribution, public hex.pm for public
+  publishing.** Hex's two unique capabilities — retirement signalling
+  and diamond resolution — are for public code consumed by strangers;
+  the single release train designs the diamond away and Catapult's own
+  components appear in no advisory database, while third-party deps
+  stay ordinary hex packages and keep their audit coverage. Private
+  org-blessed registries, the thing mini_repo was bought for, are
+  ordinary private git repos. **This shrinks the system rather than
+  redirecting it: package *serving* leaves; everything below stays**,
+  because handles, diffs and baselines are plane-computed artifacts
+  with no home in either git or hex.
 - **The release train tests the set** — every release publishes all
   packages + handle artifacts together; "which auth works with which
   catapult" is permanently a non-question.
 - **Artifact kinds are named entries** (v5 §8): adding a kind is an
-  entry, not a debate. Current kinds: package, handle, handle-diff,
-  release-artifact (later), harness-baseline.
+  entry, not a debate. Current kinds: handle, handle-diff,
+  release-artifact (later), harness-baseline, and **bundle-index** /
+  **policy-pack-index** — pointers with provenance, not content,
+  since the content is a git repo. `package` is retired with the
+  mini_repo revision above; components resolve from git.
 - **Static-first**: v0 is artifacts behind a web server; the service
   (handle-diff queries, release notifications) grows behind the same
   URLs. No consumer should be able to tell when the upgrade happens.

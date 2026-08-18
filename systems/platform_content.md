@@ -5,11 +5,22 @@ paths:
 
 # platform_content
 
-The bundle *content* the DSL loads: `bundles/platform-elixir/` (the
-elixir-target layer — convention grammars, template tiers,
-enforcement profiles, delivery declarations) and `bundles/default/`
-(the software-design chain: tier declarations, edges, and the
-prompts ported from SiegeEngine).
+The bundle *content* the DSL loads, across **both bundle axes** (v5
+§7.18):
+
+- **chain axis** — `bundles/platform-elixir/` (the elixir-target
+  layer: convention grammars, template tiers, enforcement profiles)
+  and `bundles/default/` (the software-design chain: tier
+  declarations, edges, and the prompts ported from SiegeEngine).
+- **workflow axis** — the platform workflow layer, carrying the
+  default review sequence (a UX review and an engineering review) and
+  the default `dev`/`staging` environments.
+
+**Delivery declarations moved off the elixir layer** (v5 §6, corrected
+at §7.18): shipping them from the language layer welded the workflow
+vocabulary to one target stack, which is exactly what the two-axis
+split exists to prevent. They ship from the workflow layer instead,
+and the two layers are never `extends:`-related.
 
 A separate system from core_dsl **for the mutex**: prompt iteration
 and loader development are unrelated work streams, and one label

@@ -34,7 +34,16 @@ context-source kinds, and audit profiles.
   renames, and restructures go through the cutover ticket — drain,
   reviewed graph-transform list, migrate, then flip the active
   bundle. The loader may load the new bundle for validation, but
-  the engine switches graphs only at a completed cutover.
+  the engine switches graphs only at a completed cutover. **The
+  drain is per axis** (v5 §7.19): it stands on the chain axis, where
+  flow instances complete, and relaxes on the workflow axis, where a
+  blocked ticket is in-flight for as long as its human prerequisite
+  takes. Blocked tickets ride a workflow cutover and re-resolve
+  against the new sequence, anchored on the system statuses — the
+  part of a ticket's history no bundle change can delete. The flip
+  is recorded as an event on both axes; the re-resolution joins a
+  ticket's status history against the bundle-version timeline and
+  needs both in the log.
 - **Grammar machinery lives here** (validators derived from bundle
   declarations); engine and generation call it. One validator source
   because commit-time rejection (engine) and pre-flight validation
