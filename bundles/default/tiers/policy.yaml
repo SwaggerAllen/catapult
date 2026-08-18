@@ -1,0 +1,43 @@
+tier: policy
+scope: child_of(resp)             # minted by resp's policy_fanout — seeded
+                                   # by the intake distillation and grown by
+                                   # tickets thereafter (v5 §4.5); a policy
+                                   # node's own draft is what does the
+                                   # scoping, via the two policy_scope_*
+                                   # edges it may declare
+identity: id
+fields:
+  slug: draft.@slug
+  grade: draft.@grade             # prose | test | audit | runtime
+  mutability: draft.@mutability   # fixed | tunable | optional
+  statement: draft.statement
+handle:
+  fields: [id, slug, grade, mutability]
+  fragments: [policies]
+draft:
+  root_tag: policy
+  grammar: schemas/policy.xsd
+generator: llm
+prompt: prompts/policy.md.liquid
+executor:
+  effort: max
+context:
+  - self.parent.handle                          # resp: what the policy is
+                                                  # standing a decision
+                                                  # against or for
+  - input.project_doc
+produces:
+  # Project-global policies declare neither policy_scope_* edge (both
+  # min:0) and staple nothing — every fragment entry below is empty for
+  # them, which is the "no scope, no attachment" case working by absence
+  # rather than by a third mechanism.
+  - fragment: { owner: self.policy_scope_resp, kind: policies, authored: draft.statement }
+  - fragment: { owner: self.policy_scope_comp, kind: policies, authored: draft.statement }
+review:
+  prompt: prompts/review/policy.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

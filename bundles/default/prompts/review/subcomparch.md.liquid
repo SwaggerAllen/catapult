@@ -1,0 +1,61 @@
+{% render "partials/_review_framing", tier_label: "the subcomponent architecture tier (subcomparch)", downstream_reader: "impl generation for this subcomponent, and sibling subcomponents that read this subcomponent's privapi fragment" %}
+
+## Context the draft was written from
+
+**Owning component (comparch — techspec, pubapi):**
+{{ parent }}
+
+**Responsibilities the owning component is on the hook for:**
+{{ fulfills }}
+
+**Policies scoped to the owning component:**
+{{ policies }}
+
+**Sibling subcomponents' private surfaces:**
+{{ siblings }}
+
+**Draft under review:**
+{{ draft }}
+
+## What to check
+
+**Does every `<process_inventory>` entry have a real rationale?** A
+`category` with a `<rationale>` that just restates the category name
+("sharded because it's sharded") is the exact improvisation-at-impl-time
+failure this element exists to prevent (v5 §2.5). Demand the actual
+argument: what state does this process hold, what happens if a node
+holding it disappears, why does that force this category and not a
+plainer one. `local` needs justifying too — "doesn't need to survive a
+node loss" is an argument; silence is not.
+
+**Is `<privapi>` actually private?** Compare it against
+`{{ parent }}`'s `<pubapi>`. If an entry in this draft's `<privapi>`
+is the same surface, or trivially the same surface renamed, the
+subcomponent has leaked the component's public boundary down a level
+instead of owning a genuinely internal one — flag the specific entry
+and say which pubapi function it duplicates.
+
+**If this is the store subcomponent, are the queries function-shaped?**
+Read `<store><schemas>` for anything that reads like generic repository
+CRUD (`get/1`, `list/1`, `update/2` with no caller-specific meaning) —
+that's exactly what v5 §2.4 rules out. Every query should be named for
+what the caller actually needs. If `<grade>` is present, check it's
+warranted — only the event-sourced store family (bare_log or
+commanded_aggregate) carries it; a plain Ecto store declaring one is
+either wrong or under-explained.
+
+**Overlap with siblings.** Cross-reference this draft's `<privapi>`
+against `{{ siblings }}` — two subcomponents each exposing a
+same-shaped surface for the same concept is a seam nobody decided,
+just accreted; name both and ask which one should own it.
+
+**Does `<techspec>` earn the split from siblings?** The draft should
+argue why this slice belongs to this subcomponent and not a sibling.
+If the boundary reads arbitrary, that's a finding worth raising even
+if nothing downstream is broken yet — an arbitrary internal seam is
+exactly the drift the private/public split is supposed to prevent.
+
+Return a `<review verdict="approve|revise">` with a `<summary>` and one
+`<finding severity="blocking|advisory">` per issue — each `<location>`
+naming the process name, privapi entry, or store query at fault, each
+`<comment>` saying what a passing version would contain.

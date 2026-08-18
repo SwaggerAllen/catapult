@@ -1,0 +1,33 @@
+tier: ref
+scope: child_of(resp)             # minted by resp's ref_fanout; a flat,
+                                   # ad hoc-growable pool (v5 §4.5) rather
+                                   # than a per-component tier — the one
+                                   # deliberate escape hatch, kept general
+identity: id
+fields:
+  slug: draft.@slug
+  kind: draft.@kind
+  body: draft.body
+handle:
+  fields: [id, slug, kind]
+draft:
+  root_tag: ref
+  grammar: schemas/ref.xsd
+generator: llm
+prompt: prompts/ref.md.liquid
+executor:
+  effort: max
+context:
+  - input.project_doc
+  - input.mocks                                 # user-supplied mocks and
+                                                  # design systems ride refs
+                                                  # as delivery-time visual
+                                                  # guidance (v5 §4.1, §4.5)
+review:
+  prompt: prompts/review/ref.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

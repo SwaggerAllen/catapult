@@ -1,0 +1,12 @@
+review: engineering-review
+after: ux-review                   # sequential; two reviews may not share
+                                    # an `after:` (dsl-syntax.md §15.3)
+role: engineering
+depth: 1                           # covers the one level of fan-out the
+                                    # architecture chain produces (resp's
+                                    # component_fanout) — never validated
+                                    # against the chain's actual depth
+                                    # (§13), so this is a ceiling, not a
+                                    # claim about today's default bundle
+throwback: [Architecting, ux-review]
+escalation: author

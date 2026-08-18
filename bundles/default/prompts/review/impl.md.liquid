@@ -1,0 +1,69 @@
+{% render "partials/_review_framing", tier_label: "the implementation tier (impl)", downstream_reader: "the dev agent that implements this subcomponent from this document, and reconciliation, which mechanically checks that every test named in <tests> exists and passes" %}
+
+## Context the draft was written from
+
+**This subcomponent (subcomparch — techspec, privapi):**
+{{ subcomponent }}
+
+**Owning component (comparch — techspec, pubapi):**
+{{ component }}
+
+**Policies scoped to the owning component:**
+{{ policies }}
+
+**Responsibilities the owning component is on the hook for:**
+{{ fulfills }}
+
+**Dependencies' pubapi and failure_surface:**
+{{ dependencies }}
+
+**Draft under review:**
+{{ draft }}
+
+## What to check
+
+**Does every named test correspond to real acceptance criteria?**
+Reconciliation trusts `<tests>` mechanically — it checks the name
+exists and passes, not that the intent behind it was honored. So this
+review is where vagueness gets caught instead of shipped. For each
+`<test name="...">`, read `<acceptance>` and ask: if this test is
+green, does a human actually know the thing the name claims? "Tests
+error handling" with an acceptance of "errors are handled correctly" is
+not acceptance criteria — it's a test that will pass while proving
+nothing. Flag it by name and say what the acceptance should actually
+claim.
+
+**Does the test set cover the dependencies' failure_surface?** Walk
+`{{ dependencies }}`'s failure_surface entries against `<tests>`: for
+each declared failure mode a dependency can hand back, is there a test
+exercising what this subcomponent does when it happens? A dependency
+that can return three kinds of failure and gets exercised for one is a
+gap that will only surface in production, exactly what the normative
+`<tests>` block exists to catch before then.
+
+**Is `<approach>` honest about what the dependencies and privapi
+actually offer?** Cross-reference every claim in `<approach>` about
+calling a dependency against `{{ dependencies }}`'s pubapi — if
+`<approach>` describes calling a function, or relying on a behavior,
+that pubapi doesn't document, that's an invented capability, not an
+implementation detail; it will fail in a way this document gave no
+warning of. Same check against `{{ subcomponent }}`'s own `<privapi>`
+for how siblings are described reaching in.
+
+**Boundary discipline.** Check that `<tests>` are described as testing
+through an export module (this subcomponent's `<privapi>` or the
+owning component's `<pubapi>`), not internals — an internal-only test
+plan here is a maintenance cost the draft is committing the project to
+without saying so.
+
+**Store family property tests.** If this subcomponent is the
+event-sourced store (or its owning component's techspec says so),
+confirm `<tests>` includes `kind="property"` entries for
+replay-determinism, idempotency, and upcaster round-trip. Their absence
+here is blocking, not advisory — v5 §2.4 treats them as the family's
+testing floor, not optional depth.
+
+Return a `<review verdict="approve|revise">` with a `<summary>` and one
+`<finding severity="blocking|advisory">` per issue — each `<location>`
+naming the test name or `<approach>` claim at fault, each `<comment>`
+saying what a passing version would contain.

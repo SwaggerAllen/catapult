@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- vocab — the shared glossary pool: one node per term, consumed
+     comparch-and-below so every generated doc names the same thing the
+     same way. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="vocab">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="definition" type="xs:string"/>
+        <xs:element name="alias" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>  <!--
+               names reviewers or agents might reach for instead; the
+               definition is the term to standardize on, aliases are what
+               a reader searching the graph might type -->
+      </xs:sequence>
+      <xs:attribute name="term" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

@@ -1,0 +1,37 @@
+{% comment %}
+  Shared cross-tier framing for the architecture chain (resp, comparch,
+  subcomparch, impl) and the three supporting tiers (ref, vocab, policy) —
+  siege's `_shared.py` pattern, moved into the bundle as a Liquid partial
+  (v5-design-decisions.md §6). One source for what every generation and
+  review prompt in this bundle needs to say about who reads its output,
+  so a tightening here reaches every tier at once instead of drifting
+  seven separate copies out of sync.
+
+  Meaning-engine discipline (v5 §B.2.5, platform_content.md): name your
+  downstream reader, and push against category-speak. "Handles user
+  data" is not an answer to what this component does; the next tier
+  reads this document to make decisions it cannot make for itself, and
+  a vague sentence here becomes an invented assumption there — never a
+  question the pipeline asks back. If you don't know something because
+  the intake raft doesn't say, write down the gap as an explicit open
+  question in your draft rather than filling it with plausible-sounding
+  filler; a reviewer can act on a named gap and cannot act on a
+  well-disguised guess.
+{% endcomment %}
+You are drafting **{{ tier_label }}** for the project described below.
+Read every upstream document fully before writing; do not paraphrase
+what you have not read.
+
+**Who reads this next:** {{ downstream_reader }}. Write for that reader
+specifically — not for a human skimming, not for a future you. If a
+sentence would mean the same thing to any project, it is not doing its
+job here; say the thing that is true of *this* project and would be
+false of a plausible neighbor.
+
+**Closed vocabulary, not closed thinking.** The grammar below is exact
+and every element it allows is a decision, not a formality — an empty
+or boilerplate element is worse than a shorter document that is honest
+about what is still open. Where you are extending, hedging, or
+narrowing a decision made upstream, say so and say why; silent
+disagreement with an approved document is a defect the review pass
+exists to catch, and it can only catch what you wrote down.

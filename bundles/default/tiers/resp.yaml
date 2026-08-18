@@ -1,0 +1,26 @@
+tier: resp
+scope: singleton                  # one node per project — the chain's root
+identity: id
+fields:
+  statement: draft.statement
+handle:
+  fields: [id]
+draft:
+  root_tag: resp
+  grammar: schemas/resp.xsd
+generator: llm
+prompt: prompts/resp.md.liquid
+executor:
+  effort: max
+context:
+  - input.project_doc
+  - input.behavior_docs
+  - input.mocks
+review:
+  prompt: prompts/review/resp.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

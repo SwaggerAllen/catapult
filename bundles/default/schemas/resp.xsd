@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  resp — the responsibilities & decomposition tier. Singleton: one <resp>
+  per project. Plays the role v4/siege split into requirements + sysarch
+  (dsl-syntax.md's own worked example walks `resp.handle` as a single
+  target); folded into one tier here because the product tier that would
+  otherwise ground the split (screens, journeys, requirements — v5 §4)
+  isn't in this ticket's scope (Phase 5). Recorded as a delta, not a
+  silent improvement: see systems/platform_content.md.
+
+  <components>, <refs>, <vocabulary> and <policies> are the fanout seed
+  lists — component_fanout, ref_fanout, vocab_fanout and policy_fanout
+  (bundles/default/edges/) each declared_in one of these lists' @slug.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="ComponentKind">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="domain"/>       <!-- gets a full comparch pass
+                                                   (scope_filter: is_domain,
+                                                   predicates.yaml) -->
+      <xs:enumeration value="read_model"/>   <!-- templated, per v5 §2.6 -->
+      <xs:enumeration value="infra"/>        <!-- templated / infra-exempt,
+                                                   per v5 §2.4/§2.5 -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RefKind">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="runbook"/>
+      <xs:enumeration value="style_guide"/>
+      <xs:enumeration value="impl_guide"/>
+      <xs:enumeration value="app_prompt"/>
+      <xs:enumeration value="mocks"/>
+      <xs:enumeration value="other"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Responsibility">
+    <xs:sequence>
+      <xs:element name="statement" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Component">
+    <xs:attribute name="slug" type="xs:string" use="required"/>
+    <xs:attribute name="kind" type="ComponentKind" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="RefSeed">
+    <xs:attribute name="slug" type="xs:string" use="required"/>
+    <xs:attribute name="kind" type="RefKind" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="VocabSeed">
+    <xs:attribute name="slug" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="PolicySeed">
+    <xs:attribute name="slug" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="resp">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="statement" type="xs:string"/>        <!-- the
+                       system-level argument: what this project is
+                       responsible for and the shape of the decomposition
+                       below, in prose a reviewer can hold the rest
+                       against -->
+        <xs:element name="responsibilities">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="responsibility" type="Responsibility"
+                          minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="components">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="component" type="Component"
+                          minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="refs" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="ref" type="RefSeed"
+                          minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="vocabulary" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="term" type="VocabSeed"
+                          minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="policies" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="policy" type="PolicySeed"
+                          minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

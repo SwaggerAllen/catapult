@@ -1,0 +1,11 @@
+# Named predicates (dsl-syntax.md §8): comparison/boolean/edge-counting/
+# existential/universal/reachability only — no arithmetic, strings, regex.
+# One entry, used once: is_domain gates the comparch tier's scope_filter
+# so read-model and infra-kind components (declared in resp's component
+# list, §3.1's scope_filter) don't get a full architecture-doc generation
+# pass. Kept to exactly what's referenced — a predicate nobody's
+# scope_filter/cardinality.when/constraint/completion names is the same
+# drift class the audit refuses for policies and config keys elsewhere
+# in this repo, so this file grows only alongside a real reference.
+
+is_domain: self.kind == domain

@@ -1,0 +1,10 @@
+name: default
+version: "1.0.0"
+kind: chain
+extends: platform-elixir
+tiers: [tiers/*.yaml]
+edges: [edges/*.yaml]
+# Closed per bundle (dsl-syntax.md §2): every kind used in a handle:
+# or produces: below must appear here, and nowhere else authors one.
+fragments: [techspec, pubapi, privapi, policies, failure_surface]
+flows: []

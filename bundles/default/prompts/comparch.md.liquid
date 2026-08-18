@@ -1,0 +1,109 @@
+{% render "partials/_architecture_framing", tier_label: "the component architecture tier (comparch)", downstream_reader: "subcomparch and impl generation for this component, plus every comparch that declares a dependency edge onto this one" %}
+
+## What you have
+
+**Responsibility catalog (resp):**
+{{ resp }}
+
+**Ref pool:**
+{{ refs }}
+
+**Vocabulary pool:**
+{{ vocabulary }}
+
+**Policies scoped to this component:**
+{{ policies }}
+
+**Dependencies this draft names** (fill in only after you've decided
+`<dependencies>` below — this walk reads back your own draft's targets,
+so it is empty until you name a `to="..."`):
+{{ dependencies }}
+
+The ref and vocab pools may be sparse or empty this early — resp seeds
+them, and their own generation passes haven't necessarily run yet.
+Don't invent content to fill a gap; work with what's here and name what
+you need that isn't.
+
+## What to produce
+
+**`<fulfills>`** — one `<responsibility ref="...">` per responsibility id from
+the catalog above that this component satisfies. Cite at least one;
+a component fulfilling nothing shouldn't exist at this tier (resp
+should not have decomposed it in). If you're satisfying a
+responsibility only partially, say so in `<techspec>` rather than
+citing it and leaving the gap implicit.
+
+**`<techspec>`** — the design argument for this component: what it is,
+why its boundary sits where it does, how it fits the responsibilities
+it fulfills. This is what subcomparch reads to decide how to split
+itself internally, so name the actual shape, not a restatement of the
+component's name.
+
+**`<pubapi>`** — the public boundary, and it must be a **thin wrapper,
+nothing else** (v5 §4.4): any logic that exists only at this layer and
+nowhere a caller-agnostic test can reach it is drift by construction —
+behavior external callers get that internal callers don't. If you find
+yourself describing a computation that belongs here, it belongs in a
+subcomponent instead, exposed through this surface. Every export a
+downstream comparch might depend on must be described here in enough
+detail that a dependent can be designed against it without reading this
+component's internals.
+
+**`<privapi>`** (optional) — the surface shared *between this
+component's own subcomponents*, not exposed outside it. Omit if
+subcomponents don't need to talk to each other directly.
+
+**`<failure_surface>`** — the boundary error/failure taxonomy: what
+kinds of failure a caller of `<pubapi>` can observe, named the way
+`errors/0` will declare them. This is what a dependent component's
+`<dependencies>` context reads to decide how to handle you failing;
+vague failure surfaces (`may return an error`) push the decision onto
+whoever's forced to guess at impl time.
+
+**`<permissions>`** (optional) — compile-time atoms this component's
+exports require, each with a `<description>`. This is the design-tier
+standing decision (v5 §2.9: permissions are code, roles are data) —
+declare an atom for every mutating export a caller must be authorized
+for; the function→permission→role matrix is generated later and never
+belongs here.
+
+**`<enforcement>`** (optional) — `codegen:restricted` or
+`purity:replay_floor` entries, only where a real constraint applies
+(the event-sourced store family needs `purity:replay_floor`; content
+under genuine legal/compliance gating needs `codegen:restricted`). Most
+components declare none — reaching for one because the list exists is
+a finding waiting to happen at review.
+
+**`<processes>`** (optional) — named processes this component
+registers directly at the component grain, each with a `category`
+(`local | singleton | sharded`, v5 §2.5) and, where warranted, VM
+guardrails (`max_heap_size`, `message_queue_alarm_len`). Prefer leaving
+process placement to subcomparch's own inventory unless a process is
+genuinely component-wide.
+
+**`<implementation grade="stubbed|real" swap="...">`** (optional) —
+declare this **only** when part of this component is deliberately
+hollow pending an external human timeline (v5 §2.16: legal sign-off,
+compliance, absent partner credentials, professional review). A stub
+implements the reviewed contract verbatim, types included — the
+implementation is fake, the shape is not. Say what triggers the swap in
+`<deferral_argument>`, and if `swap` is not `transparent`, say in
+`<exit_data_plan>` what happens to data created under the stub (wipe,
+or grandfather with disclosure) — an unstated exit plan for a
+non-transparent swap is the gap that turns into an undocumented data
+migration later. Do not reach for this element to excuse an ordinary
+scope cut; that's just a smaller component.
+
+**`<subcomponents>`** — at least one `<subcomponent slug="..."/>`,
+the fanout list subcomparch generates against. Every component always
+has a store subcomponent among these (v5 §2.4 — no size floor).
+
+**`<dependencies>`** (optional) — one `<dependency to="..."
+consistency="eventual|transactional"/>` per component this one calls
+into. Default, and near-always correct, is `eventual`: the
+transactional-outbox pattern through Oban, in the same local
+transaction (v5 §2.6). Mark `transactional` only when a real invariant
+spans both components and can't tolerate the gap eventual consistency
+implies — that's the declared exception, and declaring it is what
+makes a future store split a query instead of archaeology, not a
+default reached for out of caution.

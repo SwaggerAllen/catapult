@@ -1,0 +1,12 @@
+edge: dependency
+type: dependency
+source: comparch
+target: comparch
+declared_in: comparch.draft.dependencies[].@to
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }
+graph_constraint: [acyclic, no_self_loop]
+consistency: eventual              # transactional is the declared exception
+                                    # (v5 §2.6); a project raises it per edge
+                                    # instance, never by default

@@ -1,0 +1,32 @@
+tier: vocab
+scope: child_of(resp)             # minted by resp's vocab_fanout; same flat
+                                   # pool shape as ref — a shared glossary
+                                   # entry is exactly the kind of graph
+                                   # content v4's supporting tiers held and
+                                   # no dedicated tier models on its own
+identity: id
+fields:
+  term: draft.@term
+  definition: draft.definition
+handle:
+  fields: [id, term]
+draft:
+  root_tag: vocab
+  grammar: schemas/vocab.xsd
+generator: llm
+prompt: prompts/vocab.md.liquid
+executor:
+  effort: max
+context:
+  - self.parent.handle                          # resp: the responsibility
+                                                  # catalog the glossary
+                                                  # gives shared names to
+  - input.project_doc
+review:
+  prompt: prompts/review/vocab.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

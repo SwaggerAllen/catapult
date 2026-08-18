@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  policy — siege's "invariants," orchestration's "standing decisions," v4's
+  policy tier: one concept, one name (v5 §4.5). Non-goals are policies
+  with negative content — there is no separate non-goal tier. Scoping is
+  the two policy_scope_* edges this same draft declares (applies_to_resp,
+  applies_to_component); a policy naming neither is project-global.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="Grade">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="prose"/>
+      <xs:enumeration value="test"/>
+      <xs:enumeration value="audit"/>
+      <xs:enumeration value="runtime"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Mutability">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="fixed"/>
+      <xs:enumeration value="tunable"/>
+      <xs:enumeration value="optional"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RoutingLane">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="urgent"/>
+      <xs:enumeration value="feature"/>
+      <xs:enumeration value="debt"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="ScopeRef">
+    <xs:attribute name="ref" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="RevisitCondition">
+    <xs:sequence>
+      <xs:element name="condition" type="xs:string"/>   <!-- "never,
+             argued" is a legal value here, spelled out in prose, not a
+             sentinel — a deferral that names no condition at all is what
+             this element exists to make impossible -->
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="policy">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="statement" type="xs:string"/>
+        <xs:element name="applies_to_resp" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="ref" type="ScopeRef" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="applies_to_component" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="ref" type="ScopeRef" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="revisit_condition" type="RevisitCondition" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="slug" type="xs:string" use="required"/>
+      <xs:attribute name="grade" type="Grade" use="required"/>
+      <xs:attribute name="mutability" type="Mutability" use="required"/>
+      <xs:attribute name="routing" type="RoutingLane" use="optional" default="debt"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

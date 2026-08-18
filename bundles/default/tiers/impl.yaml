@@ -1,0 +1,33 @@
+tier: impl
+scope: per(subcomparch)           # one impl doc per subcomponent (v5 §6:
+                                   # unphased — the total end state, not a
+                                   # per-ticket slice)
+identity: id
+fields:
+  summary: draft.summary
+handle:
+  fields: [id, summary]
+draft:
+  root_tag: impl
+  grammar: schemas/impl.xsd
+generator: llm
+prompt: prompts/impl.md.liquid
+executor:
+  effort: max
+context:
+  - self.parent.handle                          # this subcomparch:
+                                                  # techspec, privapi
+  - self.parent.parent.handle                    # the owning comparch:
+                                                  # techspec, pubapi
+  - self.parent.parent.handle.fragments[policies]
+  - self.parent.parent.fulfills -> resp.handle
+  - self.parent.parent.dependency -> target.handle.fragments[pubapi, failure_surface]
+produces: []
+review:
+  prompt: prompts/review/impl.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Building
+  agent_step: dev
+enforcement: []

@@ -1,0 +1,38 @@
+tier: subcomparch
+scope: child_of(comparch)         # minted by comparch's subcomponent_fanout
+identity: id
+fields:
+  name: draft.@name
+  techspec: draft.techspec
+handle:
+  fields: [id, name]
+  fragments: [techspec, privapi]
+draft:
+  root_tag: subcomparch
+  grammar: schemas/subcomparch.xsd
+generator: llm
+prompt: prompts/subcomparch.md.liquid
+executor:
+  effort: max
+context:
+  - self.parent.handle                          # the owning comparch:
+                                                  # techspec, pubapi
+  - self.parent.fulfills -> resp.handle          # what this component (and
+                                                  # so this subcomponent)
+                                                  # is on the hook for
+  - self.parent.handle.fragments[policies]       # policies scoped to the
+                                                  # owning component
+  - self.parent.subcomponent_fanout -> subcomparch.handle.fragments[privapi]
+                                                  # sibling subcomponents'
+                                                  # private surface
+produces:
+  - fragment: { owner: self, kind: techspec, authored: draft.techspec }
+  - fragment: { owner: self, kind: privapi, authored: draft.privapi }
+review:
+  prompt: prompts/review/subcomparch.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

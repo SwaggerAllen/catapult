@@ -1,0 +1,69 @@
+{% render "partials/_architecture_framing", tier_label: "the responsibilities & decomposition tier (resp) — the project's single root document", downstream_reader: "comparch generation for every domain-kind component this catalog seeds (the templated read_model/infra components read only your component list, not your prose), and the ref/vocab/policy generation seeded by anything you propose in <refs>, <vocabulary>, or <policies>" %}
+
+## What you have
+
+**Project doc:**
+{{ project_doc }}
+
+**Behavior docs:**
+{{ behavior_docs }}
+
+**Mocks:**
+{{ mocks }}
+
+These three are roles on one intake raft, not three required files. Any
+role can be empty — an author who wrote a project doc and shipped no
+mocks has not failed to give you something; a missing role is never a
+gap to complain about, it is a raft that came in shaped that way (v5
+§1.1). Do not wait for completeness that isn't coming: work from what
+is here.
+
+**Mocks are runnable evidence, not a transcript to reproduce.** If mocks
+show a populated list view, your job is not "there is a list view" —
+it's asking what that screen implies and isn't shown: what does it
+render when the list is empty, when the fetch fails, while it's
+loading, when the viewer lacks permission to see it at all. Extraction
+means completing the negative space the mocks leave implicit, not
+restating the positive case back at higher confidence.
+
+## What to produce
+
+**`<statement>`** — the system-level argument, in prose: what this
+project is responsible for and why the decomposition below cuts it up
+the way it does. A reviewer holds everything else in this document
+against this paragraph, so write the argument, not a summary sentence.
+
+**`<responsibilities>`** — the catalog. Each `<responsibility id="...">`
+is one thing this system must do, stated as an outcome the system is on
+the hook for, not a feature name or a UI affordance. This is the "what
+must exist" grounding every downstream tier fulfills against; a vague
+responsibility here (`handles data`) becomes an invented assumption at
+comparch, which is exactly the failure the meaning-engine discipline
+exists to catch upstream.
+
+**`<components>`** — the decomposition. Each `<component slug="..."
+kind="domain|read_model|infra"/>` is a unit comparch will design, or
+skip designing:
+
+- `domain` gets the full comparch LLM pass — pubapi, failure surface,
+  permissions, the works. Use it for anything that owns business logic
+  or state of record.
+- `read_model` is a composition over other components' data — a query
+  surface, no state of record of its own (v5 §2.6's escape hatch for
+  cross-component reads). Templated, not architected from scratch.
+- `infra` is platform machinery (queues, flags, the event store) —
+  templated, exempt from the domain design pass.
+
+Every responsibility should be traceable to at least one component that
+carries it; a responsibility nothing decomposes into is a dropped
+requirement, and a component that fulfills nothing is scope creep you
+introduced, not scope the raft asked for.
+
+**`<refs>`, `<vocabulary>`, `<policies>`** — optional, and genuinely
+optional: seed an entry only where you can already see, from this
+raft, that the project needs a runbook, a shared term, or a standing
+policy decision. At this tier you are naming a slug and a kind, nothing
+more — the content itself is authored later by that node's own
+generation pass. A seeded entry that exists to look thorough costs a
+review finding later; only seed what the next tier will actually need
+to find.

@@ -1115,3 +1115,53 @@ recorded decision, and say so explicitly.
   §2.8 named decision visible in the same diff, and the `check:` line
   belongs in that diff. Revisit condition: none. This is the one half of
   §11's enforcement where the thing being added announces itself.
+- **No separate node-minting tiers between resp and comparch, or
+  between comparch and subcomparch** (ORC-7), against v5 §5.1's own
+  naming of the backend family as five tiers —
+  `comp/comparch/subcomp/subcomparch/impl_backend` — and against
+  dsl-syntax.md §3's own worked example, which walks `self.parent`
+  from a tier declared `scope: per(comp)`. The literal five-tier
+  reading was tried first and abandoned: a join-target tier (no
+  `draft:`, per §3's "omit entirely for join-target tiers") still
+  needs to carry the name and kind a downstream `comparch` reads as
+  `self.parent.<field>`, and the only source for those scalars is the
+  fanout edge's own declared row on the *minting* tier's draft — a
+  `fields:` source dsl-syntax.md never documents (§3's `fields:`
+  examples are all `draft.*`). Inventing one here would mean this
+  bundle's content depends on DSL mechanics the normative syntax
+  reference doesn't define, which is a worse failure than diverging
+  from one illustrative example's tier-name choice: a bundle that
+  "loads cleanly under docs/dsl-syntax.md" (this ticket's own bar)
+  cannot lean on syntax that document doesn't have. So `comparch` is
+  `child_of(resp)` directly and `subcomparch` is `child_of(comparch)`
+  directly — the mint and the draft are one tier, the same shape §4.3
+  already uses for screens (minting and drafting in one tier, no
+  separate screen-node kind). Revisit condition: the DSL core loader
+  (core_dsl, blocked on a separate ticket per this ticket's own
+  framing) settling a real field-source syntax for join-target tiers
+  — at which point splitting `comp`/`subcomp` back out buys precise
+  per-node identity independent of the drafted content, which is a
+  real property this collapse gives up. Until then, the collapse is
+  the honest reading of a syntax reference that doesn't yet support
+  the alternative.
+- **No separate `sysarch` tier in the default bundle's architecture
+  chain, for now** (ORC-7). v5 §4.1's chain placement (`… requirements
+  → sysarch → …`) and §4.1's "just let sysarch read screens" aside
+  both name a system-architecture tier distinct from `resp`, sitting
+  between the product tier's requirements and the per-component
+  `comparch` fanout. This ticket's scope is the backend architecture
+  chain only — screens, journeys and requirements are Phase 5 (v5
+  build-plan) and don't exist in this bundle yet — so there is nothing
+  upstream of `resp` for a separate `sysarch` tier to read, and
+  splitting "what must this system do" from "how is it decomposed
+  into components" into two tiers with only each other for context
+  would be two nodes doing one job. `resp`'s draft therefore carries
+  both the responsibility catalog and the `<components>` fanout list
+  that `sysarch` would otherwise own. Revisit condition: Phase 5's
+  product tier landing. At that point `resp` most likely splits back
+  into a `requirements`-reading `sysarch` proper, fed by
+  `screens`/`journeys` per v5 §4.1's acyclicity argument (backend
+  depends on what users can do, routed through resp → feat →
+  journey/screen) — this is named now precisely so that pass doesn't
+  have to rediscover that the split was deferred on purpose rather
+  than never considered.

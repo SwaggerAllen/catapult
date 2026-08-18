@@ -1,0 +1,57 @@
+{% render "partials/_review_framing", tier_label: "a policy", downstream_reader: "every comparch and resp node this policy is scoped to, via the policies fragment" %}
+
+## Context the draft was written from
+
+**Responsibility catalog (resp):**
+{{ resp }}
+
+**Project doc:**
+{{ project_doc }}
+
+**Draft under review:**
+{{ draft }}
+
+## What to check
+
+**Is the grade honest, not aspirational.** `grade` claims an
+artifact: `test` claims named tests exist or will exist, `audit`
+claims a registered check, `runtime` claims a code guard. For any
+grade above `prose`, check whether the draft points at something
+concrete enough to become that artifact — a named test, a nameable
+audit check, an identifiable guard site. A policy graded `audit` or
+`runtime` on the strength of "this should be checked automatically"
+with nothing concrete behind it is the confidence-without-coverage
+failure v5 §4.5 warns about — blocking, and say what grade the draft
+actually supports today (usually `prose`).
+
+**Is the scoping grain right.** If the draft names neither
+`applies_to_resp` nor `applies_to_component`, check whether it's
+genuinely project-global or whether the author just didn't scope it —
+a global policy should read as obviously applying everywhere, not as
+one that forgot to say where. If it scopes through
+`applies_to_component`, check whether the policy is really about a
+structural property of that component or whether it's actually about
+behavior the system exhibits, which belongs scoped through
+`applies_to_resp` instead so it survives re-decomposition — a
+behavior-shaped policy pinned to a component name is a finding even if
+it reads correctly today.
+
+**Does every deferral name a real revisit condition.** If
+`mutability` or the statement implies this is a deferral, confirm
+`<revisit_condition>` is present and its `<condition>` names something
+checkable — a concrete "not until X" or an argued "never." A condition
+amounting to "later," "when needed," or simply absent from a draft
+that reads as a deferral is blocking; that's precisely the case this
+element exists to close off.
+
+**Does `routing` match what's actually at stake.** A structural or
+`fixed`-mutability policy routed `debt` will sit unenforced behind
+lower-priority work; a style policy routed `urgent` will preempt work
+it doesn't warrant. Check the routing against what the policy actually
+protects, not against what seems safest to write.
+
+Return a `<review verdict="approve|revise">` with a `<summary>` and
+one `<finding severity="blocking|advisory">` per issue — each
+`<location>` naming the attribute or element at fault, and each
+`<comment>` saying what's wrong and what a passing version would
+contain.

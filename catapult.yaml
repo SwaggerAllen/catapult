@@ -1,0 +1,2 @@
+chain: default           # directory name under bundles/, kind: chain
+workflow: default-flow   # directory name under bundles/, kind: workflow

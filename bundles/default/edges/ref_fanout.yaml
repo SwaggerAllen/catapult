@@ -1,0 +1,9 @@
+edge: ref_fanout
+type: fanout
+source: resp
+target: ref
+declared_in: resp.draft.refs[].@slug
+cardinality:
+  source: { min: 0 }
+  target: { min: 1, max: 1 }
+graph_constraint: [tree]

@@ -1,0 +1,42 @@
+{% render "partials/_review_framing", tier_label: "a vocab entry", downstream_reader: "every document comparch-and-below that reaches for this term instead of restating its own definition" %}
+
+## Context the draft was written from
+
+**Responsibility catalog (resp):**
+{{ resp }}
+
+**Project doc:**
+{{ project_doc }}
+
+**Draft under review:**
+{{ draft }}
+
+## What to check
+
+**Is the collision risk real.** Check the responsibility catalog
+above and ask whether this term actually appears, or is likely to
+appear, in more than one document where a drifted or duplicated name
+would cause real confusion. A term with an unambiguous plain-English
+reading, or one that's only ever going to be used in one place, is a
+dictionary entry, not a vocab entry — flag it as disambiguation work
+nobody needed done.
+
+**Does the definition actually settle things.** Read `<definition>`
+and ask whether it would end a naming argument between two engineers,
+not just describe the term to someone unfamiliar with it. A definition
+that restates the term in different words, or describes what the
+concept is for without saying precisely what does and doesn't count as
+an instance of it, is a finding — say what borderline case it fails to
+resolve.
+
+**Do the aliases earn their place.** Each `<alias>` should be a name
+someone working from a different document would plausibly reach for.
+An empty alias list when obvious near-synonyms exist in the catalog is
+a gap worth flagging; a list padded with implausible variants is
+noise but not blocking on its own — a missed real collision is.
+
+Return a `<review verdict="approve|revise">` with a `<summary>` and
+one `<finding severity="blocking|advisory">` per issue — each
+`<location>` naming `definition` or the specific `alias` at fault, and
+each `<comment>` saying what's wrong and what a passing version would
+contain.

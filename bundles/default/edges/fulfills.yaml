@@ -1,0 +1,9 @@
+edge: fulfills
+type: reference
+source: comparch
+target: resp
+declared_in: comparch.draft.fulfills[].@ref
+cardinality:
+  source: { min: 1 }               # every component names >=1 responsibility
+  target: { min: 0 }
+graph_constraint: []

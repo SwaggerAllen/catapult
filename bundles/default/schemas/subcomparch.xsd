@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  subcomparch — one per subcomponent (child_of(comparch)). Grammar growth
+  named in dsl-syntax.md §10: the process inventory (v5 §2.5 — placement
+  discipline is mandatory even where the clustered runtime is a project
+  option; "not improvised at impl time" is this element existing at all).
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="ProcessCategory">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="local"/>
+      <xs:enumeration value="singleton"/>
+      <xs:enumeration value="sharded"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="ProcessEntry">
+    <xs:sequence>
+      <xs:element name="rationale" type="xs:string"/>            <!--
+             why this category and not a plainer one — the audit greps
+             for unregistered name: options, not for this, but a category
+             with no argument is how "improvised at impl time" creeps
+             back in one level up -->
+      <xs:element name="max_heap_size" type="xs:string" minOccurs="0"/>
+      <xs:element name="message_queue_alarm_len" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>   <!--
+           the processes/0 registry name this process must apply
+           guardrails under, per its own init/1 (v5 §2.5; the composer
+           never threads them in) -->
+    <xs:attribute name="category" type="ProcessCategory" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="subcomparch">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="techspec" type="xs:string"/>
+        <xs:element name="privapi" type="xs:string"/>              <!--
+               this subcomponent's surface toward sibling subcomponents
+               inside the same component — never the component's public
+               boundary, which is comparch's <pubapi> -->
+        <xs:element name="process_inventory" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="process" type="ProcessEntry"
+                          minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="store" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="schemas" type="xs:string"/>
+              <xs:element name="grade" minOccurs="0">               <!--
+                     present only on the ES store family (v5 §2.4); a
+                     plain Ecto-backed store omits it -->
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="bare_log"/>
+                    <xs:enumeration value="commanded_aggregate"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

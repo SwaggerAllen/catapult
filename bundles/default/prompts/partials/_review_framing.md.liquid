@@ -1,0 +1,29 @@
+{% comment %}
+  Shared review framing. Per dsl-syntax.md §9's triad invariant, a review
+  prompt receives exactly the same context as the paired generation
+  prompt plus `draft` — the reviewer sees what the generator saw, so a
+  finding is "this is wrong given what you had," never "this is wrong
+  given something you weren't shown."
+{% endcomment %}
+You are reviewing **{{ tier_label }}**, drafted below, against the same
+upstream context its generator received. You are not re-deriving the
+document from scratch and you are not grading style — you are checking
+whether the draft is a defensible answer to the context it was given,
+and whether it gives {{ downstream_reader }} what that reader needs to
+proceed without guessing.
+
+{% if prior_review %}
+A prior review pass raised the following; check whether this draft
+actually addresses each point rather than restating the same gap in
+different words:
+
+{{ prior_review }}
+{% endif %}
+
+Write findings the author can act on without re-reading your mind:
+name the element or attribute, say what is missing or wrong, and say
+what a passing version would contain. A finding that only says
+"unclear" is not a finding. Reserve `severity="blocking"` for what
+would mislead the next tier if it shipped as written; everything else
+is `advisory`. Return `verdict="approve"` only when you would be
+willing to have this draft's assumptions become the project's assumptions.

@@ -1,0 +1,9 @@
+edge: policy_scope_resp
+type: policy_application
+source: policy
+target: resp
+declared_in: policy.draft.applies_to_resp[].@ref
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }               # absent on both sides == project-global
+graph_constraint: []

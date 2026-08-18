@@ -1,0 +1,47 @@
+tier: comparch
+scope: child_of(resp)             # minted by resp's component_fanout edge
+scope_filter: is_domain           # read-model/infra-kind components (v5
+                                   # §2.4's store family, templated rather
+                                   # than designed) skip the LLM pass here;
+                                   # platform-elixir's template generator
+                                   # tiers cover them (§6's `template` type)
+identity: id
+fields:
+  name: draft.@name
+  kind: draft.@kind
+  techspec: draft.techspec
+handle:
+  fields: [id, name, kind]
+  fragments: [techspec, pubapi, privapi, failure_surface]
+draft:
+  root_tag: comparch
+  grammar: schemas/comparch.xsd
+generator: llm
+prompt: prompts/comparch.md.liquid
+executor:
+  effort: max
+context:
+  - self.parent.handle                          # resp: the responsibility
+                                                  # catalog this component
+                                                  # decomposes
+  - self.parent.ref_fanout -> ref.handle
+  - self.parent.vocab_fanout -> vocab.handle
+  - self.handle.fragments[policies]              # policy nodes scoped to
+                                                  # this component staple
+                                                  # their content here via
+                                                  # their own produces: —
+                                                  # see tiers/policy.yaml
+  - self.dependency -> target.handle.fragments[pubapi, failure_surface]
+produces:
+  - fragment: { owner: self, kind: techspec, authored: draft.techspec }
+  - fragment: { owner: self, kind: pubapi, authored: draft.pubapi }
+  - fragment: { owner: self, kind: privapi, authored: draft.privapi }
+  - fragment: { owner: self, kind: failure_surface, authored: draft.failure_surface }
+review:
+  prompt: prompts/review/comparch.md.liquid
+  grammar: schemas/review.xsd
+  required: true
+delivery:
+  phase: Architecting
+  agent_step: design
+enforcement: []

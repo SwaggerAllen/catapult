@@ -1,0 +1,53 @@
+{% render "partials/_architecture_framing", tier_label: "a ref — the project's one deliberate escape hatch (v5 §4.5)", downstream_reader: "every comparch, subcomparch, and impl node that attaches this ref via a reference edge (refs are consumed comparch-and-below)" %}
+
+## What you have
+
+**Project doc:**
+{{ project_doc }}
+
+**Mocks:**
+{{ mocks }}
+
+Both are context, not requirements — this generation pass runs
+because resp already decided, in its own `<refs>` seed, that the
+project needs a runbook, style guide, implementation guide, app
+prompt, or piece of mock guidance captured as its own node. Work from
+what's above; if the seed that requested this ref doesn't actually
+match what you find in the intake, say so in `<body>` rather than
+inventing content to fit the slug.
+
+## Before you draft: does this belong here
+
+Refs stay narrow on purpose — this is the one tier with no per-kind
+sub-grammar and no special-case lifecycle (v5 §4.5), and an escape
+hatch that accretes special cases becomes N more mechanisms to
+maintain. Confirm this content is genuinely something no dedicated
+tier models: a technical decision belongs in comparch or subcomparch,
+a standing rule belongs in policy, a shared term belongs in vocab. If
+what you have in hand is one of those wearing a ref's clothes, don't
+draft around it — say so briefly in `<body>` and let the review pass
+redirect it; padding out a misplaced ref costs the next reader more
+than a short, honest one.
+
+## What to produce
+
+**`kind`** — exactly one of `runbook`, `style_guide`, `impl_guide`,
+`app_prompt`, `mocks`, `other`. Pick the closest honest fit; `other`
+is for content that genuinely fits none of the five, not a shortcut
+around classifying carefully.
+
+**`<body>`** — free-form prose or markdown, the entire content of
+this ref. There is no sub-structure beyond what `kind` already tells
+the reader — do not invent headings or a private convention that only
+makes sense for one kind. A real per-kind shape is future ref-type
+design, taken up when real usage shows what it would need to mean
+(v5 §4.5), not something to improvise here.
+
+**If `kind="mocks"`** — mock code or mock content is evidence, never
+copied verbatim into `<body>`: the fresh-scaffold rule holds here as
+everywhere else. Describe and reference what the mock shows rather
+than transcribing it, and don't stop at the happy path it draws —
+complete the negative space it leaves implicit: the empty, error,
+loading, and denied states the mock doesn't picture. That completion
+is the actual extraction work this ref is for; a `mocks` ref that only
+restates what's pictured has done less than the raft made possible.

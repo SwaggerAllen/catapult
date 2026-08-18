@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ref — the one deliberate escape hatch (v5 §4.5), kept general on
+  purpose: no per-kind sub-grammars beyond the closed `kind` vocabulary
+  used for classification, no per-use lifecycles.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="RefKind">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="runbook"/>
+      <xs:enumeration value="style_guide"/>
+      <xs:enumeration value="impl_guide"/>
+      <xs:enumeration value="app_prompt"/>
+      <xs:enumeration value="mocks"/>
+      <xs:enumeration value="other"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="ref">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="body" type="xs:string"/>    <!-- free-form; this
+               tier is general on purpose (v5 §4.5) — no dedicated
+               sub-structure beyond `kind`'s classification -->
+      </xs:sequence>
+      <xs:attribute name="slug" type="xs:string" use="required"/>
+      <xs:attribute name="kind" type="RefKind" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

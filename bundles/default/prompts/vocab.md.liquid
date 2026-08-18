@@ -1,0 +1,43 @@
+{% render "partials/_architecture_framing", tier_label: "a vocab entry", downstream_reader: "every document comparch-and-below that reaches for this term instead of restating its own definition" %}
+
+## What you have
+
+**Responsibility catalog (resp):**
+{{ resp }}
+
+**Project doc:**
+{{ project_doc }}
+
+resp seeded this vocab entry because it could already see a naming
+collision risk from the intake; walk the catalog above for that risk
+before writing anything. This tier is not a dictionary exercise —
+padding it with terms that never actually collide costs the graph a
+review finding, not a convenience.
+
+## Why this tier exists
+
+A vocab entry exists to prevent two documents naming the same concept
+differently, or two different concepts sharing the same name. That is
+the only job it does. Write it because a term is genuinely ambiguous
+across responsibilities, or because different documents are likely to
+describe the same thing in their own words, or because a piece of
+project-specific domain vocabulary would otherwise get a generic,
+misleading reading — not because the word appeared somewhere and
+seemed worth recording.
+
+## What to produce
+
+**`<definition>`** — the one true wording every other document should
+converge on. Write it precise enough to settle a naming disagreement
+on its own: if two engineers reading only the definition could still
+argue about whether something counts as this term, it hasn't done its
+job. This is the standing sentence a later document points to, not a
+description of what the term is for.
+
+**`<alias>`** (zero or more) — the other names a reviewer or an agent
+working from a different document might actually reach for instead of
+the term you chose, so the graph stays searchable under all of them
+while `<definition>` remains the wording to standardize on. List only
+spellings and near-synonyms likely to actually get typed elsewhere; an
+alias list padded with unlikely variants is noise, and an empty list
+is correct when there's genuinely nothing else anyone would call this.

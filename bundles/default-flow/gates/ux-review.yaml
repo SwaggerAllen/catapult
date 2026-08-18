@@ -1,0 +1,16 @@
+review: ux-review
+after: Product design              # a system status is `generation`; the
+                                    # phase label is platform-fixed
+                                    # vocabulary too (dsl-syntax.md §13,
+                                    # §15.1) — legal to name even though no
+                                    # tier in the *default* chain declares
+                                    # this phase yet (product tier, Phase 5).
+                                    # The chain and workflow axes carry no
+                                    # compatibility check by design (§7.18):
+                                    # this gate is correct the day product
+                                    # tier lands without a workflow edit.
+role: design
+depth: 0                           # top level only; nothing has fanned out
+                                    # this early in the sequence
+throwback: [queue]
+escalation: author

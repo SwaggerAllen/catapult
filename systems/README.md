@@ -30,6 +30,17 @@ mutex; nothing else arbitrates.
   glue in v5 §2.7's sense: it changes only when a new system carves
   out of the coarse boundary, which is always a sketched, reviewed
   structural change.
+- **`catapult.yaml`** (repo root) — created by ORC-7 to pin the chain
+  and workflow bundles (dsl-syntax.md §1); it is the loader's own
+  input, distinct from the bundle *content* under `bundles/**` that
+  `platform_content` owns. Listed here rather than claimed, because
+  ORC-5 (core_dsl, in flight on another branch as of this writing)
+  already reasons that this file belongs on core_dsl's map — "the
+  loader's own input... it belongs on core_dsl's map" — and that is
+  core_dsl's decision to land, not this ticket's to preempt. Whichever
+  of ORC-5 or ORC-7 merges second should move this entry into
+  `systems/core_dsl.md`'s file map rather than leave it here
+  contradicting a decision already made.
 
 Everything else in the tree belongs to a file map. A new unowned
 path is a decision: it gets an entry and a reason here, in the same

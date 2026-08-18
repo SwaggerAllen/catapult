@@ -90,13 +90,84 @@ loader tickets carry `system:core-dsl`.
   plan. An agent improvising a stub without the declaration is a
   prompt bug, not an agent judgment call: undeclared stubs are
   exactly the silent half-implementation the doctrine forbids.
+- **The siege port has no siege to diff against** (ORC-7). The actual
+  source — SiegeEngine's prompt chain and the v4 spec's own Appendix
+  B mapping (`catapult-spec-v4.md`, `seed-docs/` in the SiegeEngine
+  repo) — lives in a repository this pass has no checkout of and no
+  way to fetch; every reference to "v5 §B.2" elsewhere in this repo's
+  docs points at that appendix, not at anything in
+  `v5-design-decisions.md`. So this is not, mechanically, a port: it
+  is a from-scratch authoring of the default bundle's chain content
+  against `docs/v5-design-decisions.md` and `docs/dsl-syntax.md` as
+  the executable spec, which is what those documents already claim to
+  be ("the platform's own record," "v5 §B.2's mapping" cited but never
+  quoted). Recorded here rather than silently passed over, per this
+  ticket's own instruction that every content delta from the siege
+  originals be named: every sentence of prompt prose, every XSD
+  element, and the edge/tier structure connecting them in this commit
+  is new text, not a migrated one. The mechanical-conversion-first
+  rule two bullets up (f-string→Liquid, then iterate) could not be
+  followed literally for the same reason; what happened instead is the
+  nearest honest equivalent — structure fixed from the closed DSL
+  grammar first, prose filled in afterward, in this one pass, because
+  there was no separate mechanical step available to do first.
+- **The architecture chain collapses the mint/draft split** — no
+  separate `comp`/`subcomp` tiers, no separate `sysarch` tier — for
+  reasons recorded in `docs/non-goals.md` rather than restated here;
+  both are ORC-7 entries and both name a revisit condition.
+- **`ref`, `vocab` and `policy` are flat pools, minted `child_of(resp)`**
+  via their own fanout edges (`ref_fanout`, `vocab_fanout`,
+  `policy_fanout`), seeded as slugs in resp's own draft and grown
+  independently thereafter through each pool's own generation pass.
+  v5 §4.5's "singleton pool" phrasing is read as "one flat,
+  project-wide collection" rather than "one node" — `identity: id`
+  on all three only makes sense if many independent nodes exist, and
+  refs and policies are explicitly things that "grow by tickets" over
+  the project's life, which a single ever-revised document does not
+  model as cleanly as a pool that gains members. `policy`'s two
+  `policy_application` edges (`policy_scope_resp`, `policy_scope_comp`)
+  are separate from `policy_fanout`: the fanout edge only mints the
+  node, the scope edges (declared in the policy's own draft) are what
+  place it at one of v5 §4.5's three grains — project-global is the
+  case where a policy node declares neither.
+- **The default workflow bundle is named `default-flow`** (matching
+  dsl-syntax.md §1's own `catapult.yaml` example literally) and *is*
+  the platform workflow layer — it carries no `extends:` because
+  nothing sits above it yet; a project wanting a third review or a
+  per-ticket-type variant overlays it with its own bundle naming
+  `extends: default-flow`. Its two gates are named `ux-review` and
+  `engineering-review`, matching this ticket's own wording, layered
+  onto dsl-syntax.md §15.1's bolded default-lifecycle labels
+  (`Product review`, `Architecture review`) rather than reusing those
+  labels verbatim — the mapping table names them as *this vocabulary's*
+  defaults, not as fixed system statuses, "which is what makes them
+  replaceable" in that same section's own words.
+  **`ux-review` names `after: Product design`** even though no tier in
+  today's default chain declares that phase (the product tier is
+  Phase 5) — legal because gates attach to system statuses and
+  platform-fixed phase labels, never to a specific chain's tiers
+  (dsl-syntax.md §11, §13), and there is deliberately no chain/workflow
+  compatibility check to violate. The alternative (`after: generation`,
+  the bare system status, or renaming the phase this bundle's chain
+  actually starts with) was rejected because it would make the default
+  workflow layer describe *today's* chain rather than the platform's
+  fixed review sequence, and workflow content is supposed to outlive
+  any one chain's shape (v5 §7.18).
 
 ## Initial vs target
 
-Initial (Phase 3): default bundle's upstream tiers + ported prompts,
-platform-elixir grammar skeletons. Target: full tier set including
-product tier (Phase 5), delivery declarations (Phase 7), runtime-
-dialect example content (Phase 8).
+Initial (Phase 3, this ticket): default bundle's architecture chain —
+`resp`, `comparch`, `subcomparch`, `impl`, plus the supporting `ref`,
+`vocab`, `policy` tiers, their edges, fragments, prompts and grammars
+— and the platform workflow layer (`default-flow`: `ux-review`,
+`engineering-review`, `dev`, `staging`). `platform-elixir` ships only
+the platform-wide review grammar (`schemas/review.xsd`) at this phase
+— genuinely a skeleton, not the fuller convention corpus (permission
+taxonomy content, template-generator tiers for read-model/infra-kind
+components, audit grammar) that `enforcement:`/`scope_filter:
+is_domain` above already anticipate but don't yet need populated.
+Target: full tier set including product tier (Phase 5), delivery
+declarations (Phase 7), runtime-dialect example content (Phase 8).
 
 ## Depends on
 
