@@ -382,21 +382,30 @@ re-resolve on the system statuses (§6, §7.19).
 `event-log`, `explain-why`. These were always Phase 4 and the
 reversal does not move them earlier or later.
 
-**v1 — the working surface**, and the gate on real product work:
-`my-queue`, `board`, `ticket`, `document-review`. Delivery to Linear
-stands until these exist (§7.17): the reversal is a direction, and
-this row is the scope that makes it real.
+**v1 — the working surface, and the authoring loop's floor:**
+`my-queue`, `board`, `ticket`, `document-review`. **Not a later
+stage.** There is no third-party tracker anywhere in Catapult (§7.17)
+— no adapter is ever written and nothing is migrated off — so until
+these exist, nothing renders the loop and Phase 4 has no surface to
+be tested through. The reversal does not defer the UI; it makes it a
+prerequisite.
+
+*(Orchestration builds Catapult and orchestration uses Linear. That
+is a different system running a different loop. It is not this
+document's subject and nothing here changes it.)*
 
 **v2 — the reasons the native surface is better:** `ticket-graph`,
-per-sentence anchoring in `document-review`, marker-filtered comment
-tabs.
+per-sentence anchoring in `document-review`, and the comment
+navigation serving §3.1's R1/R2 — mechanism sketch-grade.
 
 **v3 — ops and scale:** `bindings`, `configuration`, `workflow`,
-`registry`, `milestone`, `triage`, the identity screens, `health`.
+`registry`, `milestone`, `triage`, the identity screens, `health`,
+`metrics`.
 
-The outbound mirror add-on (§7.17) attaches at v1: once tickets live
-here, mirroring top-level tickets outward is a projection leaving the
-building.
+The outbound mirror is a **product feature** rather than a stage of
+this surface: once tickets live here, a customer reporting into a
+larger org's system gets top-level tickets projected outward. Nothing
+in the loop depends on it.
 
 ---
 

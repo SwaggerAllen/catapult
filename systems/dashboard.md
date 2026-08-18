@@ -69,9 +69,11 @@ Staged in `docs/ui-spec.md` §5; summarised here. Initial (Phase 4,
 v0) is unmoved by the reversal: event log + ready_scopes explain-why,
 the debugging minimum for the authoring loop. **v1 is the working
 surface** — `my-queue`, `board`, `ticket`, `document-review` — and it
-is the gate on delivery moving off Linear (v5 §7.17: the reversal is
-a direction; v1 is the scope that makes it real). v2 adds what makes
-the native surface *better* rather than merely available
+is **Phase 4's floor rather than a later addition**: there is no
+third-party tracker in the loop to lean on while it is missing (v5
+§7.17), so until v1 exists the authoring loop has no surface at all.
+v2 adds what makes the native surface *better* rather than merely
+available
 (`ticket-graph`, sentence-granular anchoring, and the comment
 navigation serving ui-spec's R1/R2 — mechanism sketch-grade). v3 is
 ops and scale: bindings, configuration, workflow, registry,

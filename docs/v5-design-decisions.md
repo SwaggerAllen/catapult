@@ -2883,13 +2883,23 @@ every entry is the same shape, a general tracker refusing a specific
 protocol, and that is a tax that grows with the protocol rather than
 one that gets paid off.
 
+**There is no cutover, and no tracker adapter is ever written.** The
+reversal landed before any tracker integration existed, so the plane
+never acquires one and nothing has to be migrated off. Worth stating
+plainly because the opposite reading is the natural one: **Catapult
+the platform does not talk to Linear at all.** Orchestration builds
+Catapult and orchestration uses Linear — a different system running a
+different loop, unaffected by any of this and not a dependency of it.
+
 **What this costs, recorded honestly.** A working tracker is a real
 product surface: search, notifications, permissions, and mobile —
 and mobile matters more than its line here suggests, because the
-author works from a phone and the incumbent's app is good. The
-staging is what makes it survivable: delivery to Linear stands until
-the native UI exists, and the UI spec (§7.18's sibling work) is what
-turns "we build our own" from a direction into a scope.
+author works from a phone and the incumbent's app is good. And the
+cost lands *earlier* than a staged reading suggests: with no borrowed
+surface to lean on, **UI v1 is the authoring loop's floor rather than
+a later stage** (`docs/ui-spec.md` §5). Nothing renders the loop
+until it exists. That is the honest shape of the bill — the reversal
+does not defer the UI, it makes it a prerequisite.
 
 ### 7.18 Configurable deployments, and where configurability lives
 

@@ -22,12 +22,14 @@ style rule: every ordering states its reason.
   interface has to exist before later phases are testable at all;
   without it, feeding input and reviewing chain output is painful
   enough to distort every later phase's testing. Build the interface
-  early; let later phases arrive into it. **Which interface changed**
-  (v5 §7.17): this read "Linear + PR review is the working
-  interface", and the tracker reversal makes the native surface the
-  destination. The sequencing argument is unaffected — Linear + PR
-  review remains the interim through Phase 4, and UI v1
-  (`docs/ui-spec.md` §5) is where it hands over.
+  early; let later phases arrive into it. **Which interface, restated**
+  (v5 §7.17): the working interface is **Catapult's own surface plus
+  PR review**, not a third-party tracker. The sequencing argument is
+  unchanged and the consequence is a real one — UI v1
+  (`docs/ui-spec.md` §5) is part of this phase's floor, because there
+  is no borrowed surface to defer it behind. Orchestration builds
+  Catapult and orchestration uses Linear; that is a different system
+  and not this phase's interface.
 - **A shared component is built when its first consumer's tickets
   need it, and the plane is made the first consumer wherever
   possible.** Dogfooding is the scheduler, not a virtue: LLM adapters

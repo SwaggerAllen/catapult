@@ -16,14 +16,20 @@ two-grain delivery (child lifecycle, mutex, dispatch, reconciliation,
 the validation loop, escalations, milestones with the `:live`
 boundary step, the maintenance watcher).
 
-**The Tracker is no longer one of the ports** (v5 §7.17): ticket
-state is ours, and what remains outward-facing is a **mirror**
-adapter — an outbound projection of top-level tickets only, for teams
-reporting into a larger org's system, with no inbound write path
-(`docs/non-goals.md`). Delivery runs against Linear until the native
-work surface lands at UI v1 (`docs/ui-spec.md` §5), so the Linear
-adapter is real work with a stated end date rather than a permanent
-port.
+**There is no Tracker port, and no tracker adapter is ever built**
+(v5 §7.17). Ticket state is ours; the work surface is ours
+(`docs/ui-spec.md`). The only outward-facing tracker interface is a
+**mirror** — an outbound projection of top-level tickets only, for
+teams reporting into a larger org's system, with no inbound write
+path (`docs/non-goals.md`) — and it is a product feature, not a
+dependency of the loop.
+
+**There is no cutover, because there is nothing to cut over from.**
+The reversal landed before any tracker integration was written, so
+the plane never acquires one. Orchestration builds Catapult and
+orchestration uses Linear; that is a different system running a
+different loop, and it is unaffected by anything here. Catapult the
+platform does not talk to Linear at all.
 
 **Children spawn when the plan node names them, not at Building**
 (v5 §7.10): a depth-scoped gate sitting before Building is
@@ -68,9 +74,10 @@ design gates pass.
 
 ## Initial vs target
 
-Initial (Phase 4): ports + fakes; feature lifecycle through the two
-gates; PR + harvesting; state projection to Linear, which is the
-interim surface until UI v1. Target (Phase 7): the whole of v5 §7,
+Initial (Phase 4): the host port + fakes; feature lifecycle through
+the two gates; PR + harvesting; lifecycle projected into the plane's
+own read models, which the work surface renders — there is no third
+party in this path. Target (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound
 mirror in place of the Linear adapter.
@@ -80,5 +87,5 @@ mirror in place of the Linear adapter.
 substrate, engine (state of record), generation (the chain whose
 progress it projects), core_dsl (the workflow bundle's declared
 statuses and environments, v5 §7.18-§7.19), dashboard (the work
-surface, once UI v1 lands). Req for the GitHub client and, while it
-lasts, the Linear one.
+surface — a hard dependency, since nothing else renders the loop).
+Req for the GitHub client.
