@@ -1410,6 +1410,168 @@ build work at all.
   about a system it never called, and both modules already carry the
   answer in their own attributes.
 
+### The config declared↔read check (ORC-48)
+
+`config/0` was the last registry with no declared↔used fact in the
+audit, while every neighbour has one — errors are declared↔constructed,
+guardrails declared↔applied, telemetry declared↔emitted. ORC-4 deferred
+it on a stated blocker ("both of which want the check registry to grow
+first"); the registry grew two tickets later and nothing re-opened this
+half, so what follows is the design that retires the deferral rather
+than a new proposal.
+
+**Sized honestly, because it is smaller than its neighbours.** One
+direction is already caught, late: `Catapult.Config.fetch!/2` raises on
+an undeclared key, so this moves that from a runtime raise on whichever
+code path production reaches first to a line in CI. The other direction
+is caught nowhere — a declared value nobody reads is dead configuration
+that still fails a boot when its variable is missing, and the operator
+holding that deploy is being stopped by a value the code would not have
+used.
+
+- **The join key is the accessor's own two arguments, so this check is
+  exact where declared↔applied is approximate.** `fetch!(slug, key)`
+  names a declaration completely — the slug is the spine every claimed
+  name hangs off and the store is already keyed by it — so the join is
+  on the pair, and there is no name-shaped ambiguity of the sort
+  `Guardrails.apply!/2`'s single `name` leaves. That is a property of
+  the accessor's signature rather than of this check, and it is worth
+  naming because it is the reason the check can afford to be strict
+  about literals below.
+- **Two directions, one parse of the tree, and — deliberately —
+  different subjects.** *Declared and never read* takes as its subjects
+  only the declarations of components whose own source the audit's scope
+  covers. *Read and never declared* takes as its subjects every
+  `fetch!/2` call in scope, joined against **every** declaration the
+  project composes, in-scope or not.
+
+  The asymmetry is not tidiness, it is the direction this check may not
+  fail in. A component shipped from a package declares its config in a
+  module whose `lib/` is the package's, not the consumer's, so a
+  consumer's audit sweeping its own tree would find no reads for any of
+  them and report every one as dead — with the remedy the message
+  carries being *delete the declaration*, which breaks the boot of every
+  project that adopts it. A check whose advice is destructive on a tree
+  its author never read is the shape `Catapult.Audit.License`'s inert
+  state was designed against, arriving one registry over. Meanwhile the
+  reverse — a call in *this* tree naming a key nothing declares — is
+  joinable with complete information wherever the declaration lives, so
+  that direction keeps the wider subject and loses nothing.
+
+  **The predicate is not a directory name and not a dependency list:**
+  the declaring component's compile-time source (`module_info(:compile)`)
+  either is one of the files `scope` expanded to, or it is not. The scope
+  glob is already this task's only definition of *code this project
+  audits*, so the discriminator is the one fact the task is allowed to
+  hold — the same reason sobelow's predicate is `:phoenix` in the tree
+  rather than `catapult_web` on disk (`docs/non-goals.md`). Measured on
+  the pinned toolchain rather than assumed: `Catapult.Foundation` reports
+  `<cwd>/lib/catapult/foundation.ex` and the path-dep'd `Catapult.Config`
+  reports `<cwd>/components/substrate/lib/catapult/config.ex`, which
+  `lib/**/*.ex` does not match. The task compiles before it audits, so
+  the recorded path is this run's.
+
+  This is the sibling checks' bug too, and it is fixed there in the same
+  place: `Catapult.Audit.Declarations` sweeps once for all three, and a
+  shipped component's error kinds and guardrails have exactly the same
+  false-dead problem the day one exists. Repairing config alone would
+  leave two checks with a known destructive failure mode and no ticket
+  pointing at them.
+- **A read the join cannot resolve is a problem in its own right, and
+  suppresses only what it makes unknowable.** `fetch!/2` reached with a
+  non-literal slug or key is reported at its call site. The alternative
+  is worse than it looks: ignoring it silently makes the other direction
+  report a live declaration as dead, and *that* message tells the reader
+  to delete a value the boot requires — one wrong line printed with the
+  same confidence as the right ones. So the unjoinable call is what the
+  report names, and while it stands the declarations it could have been
+  reading are not also reported dead: a non-literal key suppresses that
+  slug, a non-literal slug suppresses the direction. Suppression costs
+  no coverage, because the run is already red on the call site; what it
+  buys is that the audit prints one line per cause, and never advice
+  that would break a boot.
+
+  Implementation found a third thing that makes a read unknowable and
+  the same argument settles it: **a file in scope that does not parse
+  suppresses the dead direction, and reports nothing of its own.** Its
+  reads cannot be seen, so every declaration is a candidate false dead;
+  and the line is already owed by somebody else — the file-scoped checks
+  sweeping the identical scope report an unparseable file by contract
+  (`Catapult.Audit.Source`), so the run is red and the cause is named
+  exactly once. The task compiles before it audits, which is what makes
+  this unreachable in practice rather than merely survivable.
+
+  Neither this nor the dead direction takes `catapult:allow`, for
+  `Declarations`' standing reason and one more: an escape on an
+  unjoinable read would silently re-arm exactly the false-dead report
+  the suppression exists to prevent, so the tag would fix one line by
+  corrupting another. A declaration nobody reads is deleted and a
+  computed key is spelled; both remedies are one line and always
+  available.
+- **The check does not police *who* reads.** ORC-4's sentence says "a
+  component reading a key it did not declare", and this narrows it to
+  *a key nobody declared*, out loud, because the strict reading needs a
+  path→component map and this task may never hold one — the audit
+  learning which files belong to which component is the layout knowledge
+  `docs/non-goals.md` refuses at the task's front door. It is also the
+  right narrowing on the merits: `fetch!/2` takes a slug precisely so a
+  reader can name a value it does not own, `Catapult.Repo` is the tree's
+  own example, and whether that coupling is acceptable is a boundary
+  question the boundary compiler is the organ for.
+- **What each direction may name.** The read directions name a location
+  and spell it `path:line: message`, which is the contract every check
+  with a line owes its Credo wrapper. The dead direction names no
+  location — it reports an absence, exactly as its two siblings do — and
+  names the component, the key and **the env var**, because removing the
+  variable from the deploy environment is the other half of the remedy
+  and the variable is what an operator greps. Naming a variable is not
+  naming a value: `Catapult.Config`'s rule that no report ever quotes
+  what it rejected is untouched, and this report has no access to a
+  value at all.
+- **The runtime raise stays where it is.** `fetch!/2` keeps raising on
+  an undeclared key. CI covers `lib/**/*.ex`; a release task, a test, an
+  `iex` session and any dynamically-reached call are outside it, and an
+  accessor whose contract depended on a gate having run would be
+  correct only in the tree that ran it.
+- **Scope is the audit's `lib/**/*.ex`, so a value read only by tests is
+  dead.** That is the answer rather than an oversight: config exists for
+  the running application, and a declaration whose only reader is a test
+  is a variable every deploy must set for a value production never
+  consults. Widening the glob to cover `test/` would make exactly that
+  case report clean.
+- **The audit task loses its empty-components short circuit, and config
+  is why** (found in implementation). `declaration_problems/1` returned
+  early when a project composed nothing, which was free while both
+  checks took a registry as their subject. The read direction does not:
+  a project that composes nothing declares nothing, so a `fetch!/2` call
+  in its tree is a read *nothing* can explain — the one case where an
+  empty registry makes the report more interesting rather than less. The
+  saving stays where it belongs, on the two checks that skip their own
+  sweep when their entries are empty.
+- **`config/0` gets no census line.** The census exists because most of
+  the roster consumes nothing and an unconsumed registry rots quietly;
+  `config/0` is the registry that never had that problem — it is the one
+  with a consumer, a boot half and its own report — and from this ticket
+  a dead entry is a red build rather than a number nobody reads. A
+  second inventory surface for the one registry outside the roster table
+  would be the count restating what the check already asserts.
+- **The one hole is a renamed alias, and it announces itself.** Reads
+  are matched as qualified calls whose module's last segment is
+  `Config` — in both spellings, because the piped
+  `:engine |> Config.fetch!(:key)` is the same call reaching the parser
+  at a different arity, and leaving that unmatched would have been a
+  second hole of a worse kind (found in implementation: an arity-shaped
+  miss makes a *live* declaration report dead, and credo's SinglePipe is
+  tagged controversial, so nothing else in the gate set forbids the
+  spelling). What stays is the alias: `alias Catapult.Config, as: Cfg`
+  hides a read — a limit `Catapult.Audit.Source.alias?/2` imposes on
+  every check in the family, not a new one. Here it is the benign case, and uniquely so: hiding a
+  read does not hide a violation, it makes the declaration that read
+  serves report as dead, so the check's other direction is what surfaces
+  it. A ban that goes quiet when someone renames an alias is the failure
+  this repo cares about; a check that goes *loud* on the wrong line is a
+  bad afternoon with a correct ending.
+
 ## Initial vs target
 
 Initial (Phase 1): behaviour + registries, export macro
@@ -1456,6 +1618,19 @@ declared↔read check (a value declared and never read, a component
 reading a key it did not declare) and `secret: true`'s enforcement
 beyond the boot report, both of which want the check registry to grow
 first.
+
+**The deferral above is retired: one half shipped, the other is
+designed one section up** (ORC-48). The blocker it named expired in
+ORC-22, when `policies/0` and `Catapult.Audit.Check` shipped the check
+registry both halves were waiting on. `secret: true`'s enforcement
+beyond the boot report is the wrapper type plus
+`Catapult.Audit.Checks.SecretInLog` and landed in ORC-21; the
+declared↔read check is this ticket's. The
+paragraph stays as written rather than being edited into agreement,
+because a deferral whose stated reason expires silently is what ORC-48
+was filed about — the record of what was waiting on what is the part
+worth keeping, and the amendment is what makes the wait priced rather
+than forgotten.
 
 ## Depends on
 

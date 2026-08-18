@@ -91,6 +91,15 @@ defmodule Catapult.Config do
   @typedoc "A component's `config/0` entry."
   @type declaration :: {key :: atom(), env_var :: String.t(), opts :: keyword()}
 
+  @typedoc "One declaration with its owner, as `declarations/1` returns it."
+  @type composed :: %{
+          component: module(),
+          slug: atom(),
+          key: atom(),
+          name: String.t(),
+          opts: keyword()
+        }
+
   @store {__MODULE__, :values}
 
   @known_opts [:cast, :default, :external, :required, :secret]
@@ -138,7 +147,7 @@ defmodule Catapult.Config do
           {:ok, %{{atom(), atom()} => term()}} | {:error, [String.t()]}
   def resolve(components, {source, opts}) do
     declarations = declarations(components)
-    names = declarations |> Enum.map(fn {_slug, _key, name, _opts} -> name end) |> Enum.uniq()
+    names = declarations |> Enum.map(& &1.name) |> Enum.uniq()
 
     case source.load(names, opts) do
       {:ok, found} when is_map(found) ->
@@ -208,23 +217,45 @@ defmodule Catapult.Config do
     for {_key, name, _opts} <- component.config(), is_binary(name), do: name
   end
 
-  ## Loading
+  @doc """
+  Every declaration `components` compose, each with its owner.
 
-  # A non-conforming entry does not match the generator's pattern and is
-  # skipped here; `declaration_problems/1` is what reports it, with no
-  # environment needed and long before a boot.
-  defp declarations(components) do
+  The composed config surface as data — `Catapult.Component.Composer`'s
+  `inventory/1` for the registry that sits outside the roster table. The
+  loader reads it, and so does the audit's declared↔read check, which
+  needs the component as well as the slug: it reports a dead declaration
+  by naming who declared it and which variable to stop setting.
+
+  A non-conforming entry does not match the pattern below and is absent,
+  as is a module that is not a component at all;
+  `Catapult.Component.Composer.validate!/1` and
+  `declaration_problems/1` are what report both, with no environment
+  needed and long before a boot. The predicate is spelled here rather
+  than borrowed from the composer, which reads this module: one
+  `function_exported?/3` is cheaper than a cycle in the graph.
+  """
+  @spec declarations([module()]) :: [composed()]
+  def declarations(components) do
     for component <- components,
+        component?(component),
         {key, name, opts} <- component.config(),
         is_atom(key),
         is_binary(name),
         is_list(opts),
-        do: {component.slug(), key, name, opts}
+        do: %{component: component, slug: component.slug(), key: key, name: name, opts: opts}
   end
+
+  defp component?(module) do
+    is_atom(module) and Code.ensure_loaded?(module) and
+      function_exported?(module, :__catapult_component__, 0)
+  end
+
+  ## Loading
 
   defp per_declaration(declarations, found) do
     {values, problems} =
-      Enum.reduce(declarations, {%{}, []}, fn {slug, key, name, opts}, {values, problems} ->
+      Enum.reduce(declarations, {%{}, []}, fn %{slug: slug, key: key, name: name, opts: opts},
+                                              {values, problems} ->
         case value_for(name, opts, found) do
           {:ok, value} ->
             {Map.put(values, {slug, key}, guard(value, opts)), problems}

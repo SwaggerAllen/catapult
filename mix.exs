@@ -31,15 +31,25 @@ defmodule Catapult.MixProject do
   defp hex do
     [
       ignore_advisories: [
-        # cowlib 2.19.0, both unpatched upstream as of 2026-08-15 — no
-        # release to move to, so this is maintenance-watcher territory
-        # (ORC-37 scoped the gate, not the advisories). cowlib arrives
-        # transitively via plug_cowboy; neither path is reachable from
+        # cowlib 2.19.0, all three unpatched upstream as of 2026-08-18
+        # — 2.19.0 is the newest release and every advisory names it, so
+        # there is nothing to move to and this is maintenance-watcher
+        # territory (ORC-37 scoped the gate, not the advisories). cowlib
+        # arrives transitively via plug_cowboy, pinned from below by
+        # cowboy 2.18.0's `cowlib >= 2.19.0`; no path is reachable from
         # our own code today (the plane serves /health only).
         # HTTP response splitting, cow_http_struct_hd:escape_string/2.
         "EEF-CVE-2026-43966",
         # Cookie request header injection, cow_cookie:cookie/1.
-        "EEF-CVE-2026-43969"
+        "EEF-CVE-2026-43969",
+        # Link header directive smuggling, cow_link:link/1: `>` in the
+        # target closes the URI slot early, letting a caller-supplied
+        # value append further entries with chosen `rel` directives.
+        # Published after ORC-48's first green run, which is how a
+        # registry-sourced gate fails a branch that changed no
+        # dependency — the signal is the registry moving, not the diff.
+        # Nothing in the tree calls cow_link.
+        "EEF-CVE-2026-43971"
       ]
     ]
   end

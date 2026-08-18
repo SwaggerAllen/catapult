@@ -17,8 +17,10 @@ defmodule Mix.Tasks.Catapult.Audit do
       which is what keeps a registered check from reaching across mix
       projects.
     * **Facts spanning a registry and a tree**: a declared VM guardrail
-      never applied, a declared error kind never constructed, and a
-      Phoenix-bearing project with no sobelow gate.
+      never applied, a declared error kind never constructed, a declared
+      config value never read (and a `Catapult.Config.fetch!/2` call no
+      declaration explains), and a Phoenix-bearing project with no
+      sobelow gate.
     * **The license inventory** (`Catapult.Audit.License`): every
       dependency a consumer of this project would fetch, against the
       list of SPDX identifiers the project states in its own `mix.exs`.
@@ -85,6 +87,7 @@ defmodule Mix.Tasks.Catapult.Audit do
   alias Catapult.Audit.License
   alias Catapult.Component.Composer
   alias Catapult.Component.Registries
+  alias Catapult.Config
 
   @platform_checks [
     Catapult.Audit.Checks.WallClock,
@@ -176,16 +179,21 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   ## Declared ↔ the tree
 
-  # `Catapult.Audit.Declarations` holds both, because a check nobody can
-  # call is a check nobody tests; the task's job is to hand them the
+  # `Catapult.Audit.Declarations` holds all three, because a check nobody
+  # can call is a check nobody tests; the task's job is to hand them the
   # composed inventory a registered check deliberately never sees.
-  defp declaration_problems([]), do: []
-
+  #
+  # There is no empty-components short circuit, and config is why: a
+  # project composing nothing declares nothing, but a `fetch!/2` call in
+  # its tree is then a read nothing can explain, which is exactly the
+  # line worth printing. The two registry checks skip their own sweep
+  # when their entries are empty, which is where that saving belongs.
   defp declaration_problems(components) do
     inventory = Composer.inventory(components)
 
     Declarations.guardrails(inventory.processes, Catapult.Guardrails.enforceable(), @scope) ++
-      Declarations.error_kinds(inventory.errors, @scope)
+      Declarations.error_kinds(inventory.errors, @scope) ++
+      Declarations.config(Config.declarations(components), @scope)
   end
 
   ## Gates this task reports and never runs
