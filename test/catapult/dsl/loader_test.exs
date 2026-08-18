@@ -1,0 +1,430 @@
+defmodule Catapult.Dsl.LoaderTest do
+  use ExUnit.Case, async: true
+
+  alias Catapult.Dsl.Fixture
+  alias Catapult.Dsl.Loader
+
+  @moduletag :tmp_dir
+
+  test "loads a minimal, valid chain + workflow bundle pair", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert %{"comparch" => _tier} = loaded.chain.tiers
+    assert %{"product-review" => _gate} = loaded.workflow.gates
+  end
+
+  test "reports catapult.yaml missing", %{tmp_dir: dir} do
+    assert {:error, :catapult_yaml, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "catapult.yaml"))
+  end
+
+  test "reports catapult.yaml missing chain:", %{tmp_dir: dir} do
+    Fixture.write!(dir, %{"catapult.yaml" => "workflow: default-flow\n"})
+    assert {:error, :catapult_yaml, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "missing required field \"chain\""))
+  end
+
+  test "the runtime dialect refuses a workflow: entry in catapult.yaml", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+    assert {:error, :catapult_yaml, problems} = Loader.load(dir, dialect: "runtime")
+    assert Enum.any?(problems, &String.contains?(&1, "runtime dialect"))
+  end
+
+  test "the runtime dialect loads the chain axis alone", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+    Fixture.write!(dir, %{"catapult.yaml" => "chain: default\n"})
+
+    assert {:ok, loaded} = Loader.load(dir, dialect: "runtime")
+    assert loaded.workflow == nil
+  end
+
+  test "an unknown top-level tier field is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      handle:
+        fields: [id]
+      gate: some-gate
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"gate\""))
+  end
+
+  test "scope naming an undeclared tier is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/subcomparch.yaml" => """
+      tier: subcomparch
+      scope: per(nonexistent)
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "per(nonexistent)"))
+  end
+
+  test "a delivery.phase outside the fixed system statuses is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      delivery:
+        phase: Architecting
+        agent_step: design
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "delivery.phase"))
+  end
+
+  test "a valid delivery block resolves against the fixed vocabulary", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      delivery:
+        phase: generation
+        agent_step: design
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "an edge cycle across tiers fails type-level acyclicity", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/a.yaml" => """
+      tier: a
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """,
+      "bundles/default/tiers/b.yaml" => """
+      tier: b
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """,
+      "bundles/default/edges/a_to_b.yaml" => """
+      edge: a_to_b
+      type: reference
+      source: a
+      target: b
+      declared_in: a.draft.b_ref
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      """,
+      "bundles/default/edges/b_to_a.yaml" => """
+      edge: b_to_a
+      type: reference
+      source: b
+      target: a
+      declared_in: b.draft.a_ref
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "type-level cycle"))
+  end
+
+  test "a self-referencing dependency edge is legal at the type level", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/edges/dependency.yaml" => """
+      edge: dependency
+      type: dependency
+      source: comparch
+      target: comparch
+      declared_in: comparch.draft.dependencies
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      graph_constraint: [acyclic]
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a navigation edge cannot be walked in a readiness context", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.nav -> comparch.handle
+      """,
+      "bundles/default/edges/nav.yaml" => """
+      edge: nav
+      type: reference
+      source: comparch
+      target: comparch
+      declared_in: comparch.draft.nav
+      navigation: true
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "navigation: true"))
+  end
+
+  test "extends: layers a base bundle and lets a same-path file replace it", %{tmp_dir: dir} do
+    Fixture.write!(dir, %{
+      "catapult.yaml" => "chain: project\n",
+      "bundles/base/bundle.yaml" => """
+      name: base
+      version: "1.0.0"
+      kind: chain
+      tiers: [tiers/*.yaml]
+      fragments: [techspec]
+      """,
+      "bundles/base/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """,
+      "bundles/base/tiers/other.yaml" => """
+      tier: other
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """,
+      "bundles/project/bundle.yaml" => """
+      name: project
+      version: "1.0.0"
+      kind: chain
+      extends: base
+      tiers: [tiers/*.yaml]
+      fragments: [techspec, pubapi]
+      """,
+      # Same relative path as base's comparch.yaml: replaces it.
+      "bundles/project/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: alias
+      generator: synthesis
+      handle:
+        fields: [id]
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir, dialect: "runtime")
+    assert Map.keys(loaded.chain.tiers) |> Enum.sort() == ["comparch", "other"]
+    assert loaded.chain.tiers["comparch"].identity == "alias"
+    assert "pubapi" in loaded.chain.fragments
+  end
+
+  test "extends: never crosses axes", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/bundle.yaml" => """
+      name: default
+      version: "1.0.0"
+      kind: chain
+      extends: default-flow
+      tiers: [tiers/*.yaml]
+      fragments: [techspec]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "across axes"))
+  end
+
+  test "a duplicate gate after: is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/other-review.yaml" => """
+      review: other-review
+      after: generation
+      role: design
+      escalation: author
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "total order"))
+  end
+
+  test "a throwback that is not earlier in the sequence is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: generation
+      role: design
+      escalation: author
+      throwback: [product-review]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "not earlier"))
+  end
+
+  test "opt-in role-holder check flags a gate whose role has no holders", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:error, :bundle, problems} = Loader.load(dir, role_holders: %{"design" => []})
+    assert Enum.any?(problems, &String.contains?(&1, "no holders"))
+  end
+
+  test "role-holder check is skipped when no resolver is supplied", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "naming discipline flags two declared statuses one hyphen-word apart", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review-final.yaml" => """
+      review: product-review-final
+      after: product-review
+      role: design
+      escalation: author
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "hyphen-separated word apart"))
+  end
+
+  test "a workflow manifest carrying a chain-only key is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/bundle.yaml" => """
+      name: default-flow
+      version: "1.0.0"
+      kind: workflow
+      gates: [gates/*.yaml]
+      environments: [environments/*.yaml]
+      tiers: [tiers/*.yaml]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"tiers\""))
+  end
+
+  test "an environment's promote_from must name a declared environment", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      promote_from: nonexistent
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "\"nonexistent\" names an environment that is not declared")
+           )
+  end
+
+  test "environments chain by promote_from and resolve against system statuses", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/dev.yaml" => """
+      environment: dev
+      after: merge
+      """,
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      promote_from: dev
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.environments["staging"].promote_from == "dev"
+  end
+
+  test "the opt-in mirror-mapping check flags an unmapped gate", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:error, :bundle, problems} = Loader.load(dir, mirror_mapping: %{})
+    assert Enum.any?(problems, &String.contains?(&1, "no counterpart in the outbound tracker"))
+  end
+
+  test "mirror-mapping check is skipped when no resolver is supplied", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "naming discipline does not flag unrelated single-word names", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/dev.yaml" => """
+      environment: dev
+      after: merge
+      """,
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+end
