@@ -3,12 +3,14 @@ paths:
   - lib/catapult/application.ex
   - lib/catapult/boot.ex
   - lib/catapult/foundation.ex
+  - lib/catapult/foundation/**
   - lib/catapult/health_endpoint.ex
   - lib/catapult/repo.ex
   - lib/catapult/release.ex
   - config/**
   - priv/repo/migrations_infra/**
   - test/catapult/*.exs
+  - test/catapult/foundation/**
   - test/support/**
   - test/test_helper.exs
 ---
@@ -146,10 +148,31 @@ reached only through their APIs per v5 §2.4).
   Boundary documents that calls to `:elixir`, `:boundary` and pure
   Erlang applications cannot be restrained, so `:httpc` reaching a
   model provider from plane code compiles clean under strict mode.
-  Conventions §11 is a compile error for every Elixir client and an
-  audit check for the Erlang ones (`systems/substrate.md`); the plane
-  is where that residue matters most, because it is the tree §11 is
-  written about.
+  Conventions §11 is a compile error for every Elixir client *the app
+  list names*, and for the Erlang ones it is the plane-owned transport
+  ban the bullet below decides — new work as of ORC-52, not a gate this
+  paragraph may describe in the present tense before it exists. The
+  plane is where that residue matters most, because it is the tree §11
+  is written about.
+
+  **Corrected (ORC-52), because this paragraph claimed a gate that was
+  never built.** It used to end "and an audit check for the Erlang ones
+  (`systems/substrate.md`)". No such check exists: the audit's platform
+  set is `WallClock`, `ProcessName`, `SecretInLog`, and nothing in
+  substrate mentions `:httpc` or a model-call rule. A paragraph headed
+  "so the gap is not mistaken for coverage" that itself manufactured
+  the coverage is the whole of the ticket. The italics are the second
+  half of the same correction and are not new work: `check: [apps:
+  [...]]` checks the applications it names, so a newly added Elixir
+  HTTP client is unchecked until it is named — which the amendment
+  below already records as a §2.8 decision in the diff that adds it,
+  i.e. review rather than a gate. Stating it once in the sentence that
+  makes the claim is cheaper than leaving the qualifier two paragraphs
+  away from the overclaim it qualifies. The claim has three homes and
+  all three change together: this paragraph, `systems/substrate.md`'s
+  enforcement roster, and `lib/catapult.ex`'s moduledoc — which is an
+  unowned path (`systems/README.md`) and so belongs to the change that
+  corrects the other two rather than to a system.
 
   **Amended in build (ORC-21): the arming is
   `check: [apps: [...]]`, not `type: :strict`, and the reason is a
@@ -174,6 +197,81 @@ reached only through their APIs per v5 §2.4).
   way. Revisit condition: Boundary loading a path dep's applications on
   the cache-hit path, at which point `type: :strict` is a one-line
   change and this list is deleted.
+- **The Erlang residue is a plane-owned `policies/0` check that bans
+  the transport, and it arms now while it is green** (ORC-52). Three
+  decisions — what, where, when — behind the refusal that makes them
+  possible, which comes first.
+
+  **The check the old sentence promised cannot be built, so it is not
+  what gets built.** "An audit check for the Erlang ones" reads as a
+  check that finds a *model call*, and at AST grade the call is
+  `:httpc.request(:post, {url, headers, type, body}, [], [])` — whether
+  `url` reaches a model provider is data, decided at runtime and
+  normally read from configuration. Recognising a provider hostname in
+  a literal would catch a spelling nobody writes and report clean on
+  every real instance of the thing it is named after: a check that
+  passed without checking anything, which is the class ORC-37 was filed
+  about and the class this ticket is filed about. Following `url` back
+  to its binding is the dataflow inference this repo has refused twice
+  already, in the secret-taint entry and the computed-config-key entry
+  (`docs/non-goals.md`), each time for the same reason — a shallow
+  analysis reported as a guarantee.
+
+  **The decidable rule is one level out: no plane module calls a pure
+  Erlang HTTP client.** The module in `:httpc.request/4` is a literal
+  atom in the source, so the ban is exact at the grade the audit
+  already runs at, needs no inference, and has the same shape as
+  `Catapult.Audit.Checks.WallClock` — a remote call on a literal module
+  atom, plus the `apply(:httpc, :request, _)` spelling, which is
+  literal atoms too. A computed module is out of reach and is not
+  chased, for the reason above. The ban is deliberately *broader* than
+  §11: it catches every unbounded egress by that route rather than only
+  the model-shaped one, which is v5 §2.2's every-HTTP-usage-inside-a-
+  registered-adapter rule arriving for the applications the compiler
+  cannot see. The banned set is named *modules*, and the asymmetry with
+  `mix.exs` is worth spelling rather than glossing: a call site names a
+  module, so this is a module list where the compiler's side is an
+  application list — `:httpc` and `:inets` (the OTP client and the
+  application whose `start/0` arms it), `:hackney`, `:gun`, `:ibrowse`.
+  Beyond the grade they are the same list split by what the compiler
+  can restrain: both author-visible, both extended by reviewed diff,
+  neither inferred. The entry's required `policy:` string is where the
+  rule is stated in prose, so the report cites the rule rather than the
+  module. The escape rides `Catapult.Audit.Source` like every other
+  check at this grade (`# catapult:allow erlang_http`) and has no
+  sanctioned use in this tree today — a tag covering no violation is
+  itself reported, so an unused one prunes itself.
+
+  **It is plane code**, at `Catapult.Foundation.Policies.ErlangHttp`,
+  registered through foundation's `policies/0` against the
+  working-directory-rooted scope every registered check takes. It may
+  not be a substrate platform check and may not live there under
+  another name: that set is inherited by every project that runs the
+  audit at all, and generated projects *do* make model calls — through
+  the LLM adapter, which is conventions §11's other bullet — so a
+  shipped egress ban would fail the audit of a project doing what the
+  platform told it to. Being AGPL plane code is exactly what makes
+  holding Catapult's own policy correct here, the same way
+  `catapult.audit.all` is the sanctioned home for knowing this repo's
+  layout (`docs/non-goals.md`).
+
+  **Now, rather than at a milestone where it has something to catch.**
+  The ticket offered Phase 4 and Phase 6 as homes, and both are wrong
+  for one mechanical reason: `:inets` ships with OTP, so `:httpc`
+  requires no dependency and will never appear in a `mix.exs` or
+  `mix.lock` diff. There is no arming moment for anyone to notice —
+  which is *why* it is the residue, and why "wait until it has a
+  subject" is waiting for a signal that cannot arrive. The rest is
+  ORC-21's own argument for arming the app list against one boundary,
+  one level in: the run is green today, so the diff is a module and a
+  registration rather than a cleanup, and every plane module written
+  between now and Phase 6 would otherwise land unchecked. The system's
+  own precedent agrees from the other side — the live suite already
+  rejected `:httpc` on its merits ("HTTP client: Req" below), so this
+  codifies a decision foundation has made once already instead of
+  anticipating one. Revisit condition: none for the arming. The
+  *list* is expected to grow, and growing it is the reviewed diff the
+  mirror-image argument above asks for.
 - **The root project's compile-connected cap is 0 and is armed as a
   gate line** (ORC-21). Measured here rather than assumed: `mix xref
   graph --format stats` reports 0 compile dependencies across the seven

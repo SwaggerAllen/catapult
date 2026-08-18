@@ -850,3 +850,83 @@ recorded decision, and say so explicitly.
   already runs, once per mix project. Revisit condition: none. A
   component's declarations are checked in the project that compiles
   them, and every project compiles its own.
+- **No destination-detecting model-call check — nothing reads a URL,
+  a hostname or a provider name out of an HTTP call's arguments**
+  (ORC-52). The sentence this ticket retired promised "an audit check
+  for the Erlang ones", and the natural reading is a check that finds a
+  *model call*. It is refused because it cannot be built honestly: at
+  AST grade the call is `:httpc.request(:post, {url, ...}, [], [])` and
+  whether `url` reaches a model provider is data, decided at runtime and
+  normally read from configuration. Matching a provider hostname in a
+  literal catches a spelling nobody writes and reports clean on every
+  real instance of the thing the check is named after — a check that
+  passed without checking anything, which is what this ticket was filed
+  about, reintroduced by its own fix. Chasing `url` back to its binding
+  is the third request for dataflow inference in this file, and it gets
+  the answer the secret-taint entry and the computed-config-key entry
+  got: a shallow analysis reported as a guarantee is worse than a stated
+  gap. What is built instead bans the *transport* — no plane module
+  calls a pure Erlang HTTP client (`systems/foundation.md`) — which is
+  decidable, broader than §11, and exact. Revisit condition: none. The
+  destination is not a static fact and no amount of check will make it
+  one.
+- **No Erlang-egress ban in `components/substrate/`, in
+  `@platform_checks` or hosted there under another name** (ORC-52). The
+  audit's platform set is inherited by every project that runs the task
+  at all, and "the plane makes no model calls" is a *plane* rule:
+  conventions §11's second bullet has generated projects making model
+  calls through the LLM adapter, so a package-wide egress ban would fail
+  the audit of a project doing exactly what the platform told it to do.
+  Hosting the module there unregistered fails on the other axis this
+  file has used four times — the list of banned modules is
+  Catapult's policy, and a policy compiled into a package that ships
+  into trees we do not own is the `Catapult.Audit.License` allowlist
+  mistake one registry over. Substrate ships the mechanism
+  (`Catapult.Audit.Check`, `Catapult.Audit.Source`, the `policies/0`
+  row) and a project states its own ban with it; a project inherits the
+  ability, not the ban. Revisit condition: a ban true of every project
+  that adopts the substrate, which this one is not by construction.
+- **No transport-layer ban — `:gen_tcp`, `:ssl`, `:socket` and friends
+  stay off the banned list** (ORC-52). The obvious objection to banning
+  named HTTP clients is that a determined module can open a socket and
+  write the request bytes itself, and the objection is correct and does
+  not change the answer. Those applications are what Postgres, the
+  clustering transport and every other legitimate connection ride on, so
+  banning them means an escape tag at every real call site, and a ban
+  escaped everywhere is a ban nobody reads. The trade is also asymmetric
+  in the direction that decides it: a plane module reaching a provider
+  through `:httpc` is a mistake somebody makes, while one hand-rolling
+  HTTP over `:gen_tcp` is a deliberate evasion, and no audit check in
+  this repo is built to stop an author who is trying. Revisit condition:
+  none. The named list grows by reviewed diff when a real client is
+  missing from it; that is a different move from descending a layer.
+- **No milestone-gating for the Erlang egress ban** (ORC-52), against
+  the filing ticket's own suggestion that Phase 4 or Phase 6 would be a
+  reasonable home for the check. Recorded because it is the reasonable-
+  sounding move and it is wrong for a mechanical reason worth keeping:
+  `:inets` ships with OTP, so `:httpc` needs no dependency and will
+  never appear in a `mix.exs` or `mix.lock` diff. There is no arming
+  moment for anyone to notice — that is *why* it is the residue the
+  compile grade leaves — so "wait until it has something to catch" is
+  waiting for a signal that cannot arrive, and the practical result is
+  a doc that promises a gate for two phases, which is the state this
+  ticket exists to end. ORC-21's argument for arming the boundary app
+  list before there were boundaries to constrain applies unchanged: the
+  run is green today, so the diff is a module and a registration rather
+  than a cleanup of everything written in between. Revisit condition:
+  none.
+- **No catalogue of the ecosystem's HTTP clients to close the Elixir
+  half** (ORC-52). `check: [apps: [...]]` checks the applications it
+  names, so an Elixir HTTP client added as a dependency is unchecked
+  until it is named there — a real residue, corrected into
+  `systems/foundation.md`'s sentence rather than left implied. The
+  tempting closure is a check that knows `:tesla`, `:finch`, `:mint`,
+  `:httpoison` and the rest, reports one present in the closure and
+  absent from the list, and it is refused: its coverage is a list of
+  the world maintained by us, its failure mode is silence for every
+  client not on it, and silence is what this ticket was filed about. The
+  existing mechanism is better than the check would be — an Elixir
+  client cannot be called without being a dependency, a dependency is a
+  §2.8 named decision visible in the same diff, and the `check:` line
+  belongs in that diff. Revisit condition: none. This is the one half of
+  §11's enforcement where the thing being added announces itself.
