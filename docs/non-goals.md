@@ -787,6 +787,69 @@ recorded decision, and say so explicitly.
   `AGPL-3.0-only` work, a real incompatibility the dropped row passed
   in silence. Revisit condition: none. Every use anyone proposed for a
   copyleft bucket is served by the project's list saying so out loud.
+- **No dataflow inference for a computed config key, and no reading a
+  dynamic `fetch!/2` as a wildcard** (ORC-48). The declared↔read check
+  joins two literal atoms — the accessor's own slug and key — and a call
+  it cannot join is reported at its call site rather than resolved.
+  Chasing the value of a variable back to its binding is the shape the
+  secret rule already refused one registry over, for the same reason: a
+  shallow analysis pretending to be a guarantee. The cheaper alternative
+  is the one worth naming, because it is what the next pass will reach
+  for — treat `fetch!(:foundation, key)` as reading *everything*
+  `:foundation` declares, so nothing false-positives. That is a whole
+  slug's worth of coverage switched off by a call that says so nowhere,
+  in a check whose entire subject is dead declarations; the silence is
+  the defect, not the strictness. Reporting the unjoinable call keeps
+  the run red and names the cause, which is the same trade as reporting
+  an unparseable file instead of skipping it. Revisit condition: a
+  legitimate computed read, which would be an argument for a second
+  accessor that declares what it may reach, never for the check
+  guessing.
+- **No `catapult:allow` escape on either direction of the config
+  declared↔read check** (ORC-48). `Catapult.Audit.Declarations` already
+  refuses the tag for what it reports — the escape excuses a *line* the
+  parser found, and a dead declaration is the absence of one — and the
+  unjoinable-read direction does name a line, so the exception has to be
+  refused on its own merits rather than inherited. It is: an allow tag
+  on an unjoinable read would silently re-arm the false-dead report the
+  suppression exists to prevent, so the tag would quiet one line by
+  making another line lie, and the lying line's advice is *delete this
+  declaration* against a value the boot requires. Both remedies are one
+  line and always available — delete the declaration, or spell the key —
+  which is the condition under which this repo has consistently declined
+  to build an escape. Revisit condition: none. An escape here is a way
+  to keep dead configuration forever, which is the thing being checked.
+- **No reader-identity rule on config reads — the check does not police
+  *who* reads a key** (ORC-48), against ORC-4's own phrasing ("a
+  component reading a key it did not declare"), narrowed out loud rather
+  than quietly. Two reasons, and the second would stand alone. The
+  mechanical one: deciding that a call site belongs to a component means
+  a path→component map inside `mix catapult.audit`, which is the layout
+  knowledge this file refuses at that task's front door — worse here
+  than in the `components/*` case, because a generated project's spine
+  puts its components wherever it likes and the map would be wrong
+  rather than merely absent. The substantive one: `Catapult.Config
+  .fetch!/2` takes a slug *precisely* so a reader can name a value it
+  does not own, `Catapult.Repo` reading `:foundation`'s database URL is
+  the tree's own example, and whether a cross-component read is
+  acceptable coupling is a boundary question with a boundary compiler
+  already answering it. The check keeps the half that is a registry
+  fact: a key nobody declared. Revisit condition: none foreseeable —
+  ownership of a *call site* is not a fact the config registry holds.
+- **No widening the audit's scope to `deps/**` to find a shipped
+  component's readers** (ORC-48). The declared↔read check reports a
+  declaration as dead only when the declaring component's own source is
+  inside the scope it is auditing, and the obvious repair for the
+  resulting blind spot — sweep the dependencies too, so a package's
+  declarations are checked against the package's code — is refused. It
+  makes every project's audit an audit of its dependencies' internals,
+  it scales with the closure rather than with the tree somebody wrote,
+  and it produces findings whose only available remedy is a PR to
+  someone else's repository. The package's own CI is where its
+  declarations meet its own `lib/`, which is exactly where this check
+  already runs, once per mix project. Revisit condition: none. A
+  component's declarations are checked in the project that compiles
+  them, and every project compiles its own.
 - **No exemption list on the boundary-apps check — no ignore entry, no
   `catapult:allow`, no per-application waiver** (ORC-50). Three kinds
   of application are outside the completeness requirement and every one
