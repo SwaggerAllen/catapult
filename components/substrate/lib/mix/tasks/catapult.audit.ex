@@ -21,6 +21,11 @@ defmodule Mix.Tasks.Catapult.Audit do
       config value never read (and a `Catapult.Config.fetch!/2` call no
       declaration explains), and a Phoenix-bearing project with no
       sobelow gate.
+    * **The boundary apps list** (`Catapult.Audit.BoundaryApps`): every
+      application a `:prod` build can reach and Boundary can restrain,
+      against the list that arms `check: [apps: [...]]`. Armed by that
+      declaration and inert without it — a project on `type: :strict`
+      needs no list, and both inert states say so on stdout.
     * **The license inventory** (`Catapult.Audit.License`): every
       dependency a consumer of this project would fetch, against the
       list of SPDX identifiers the project states in its own `mix.exs`.
@@ -65,11 +70,15 @@ defmodule Mix.Tasks.Catapult.Audit do
   and an unconsumed registry's failure mode is rot rather than collision
   (systems/substrate.md).
 
-  The licensing line rides the same argument for a different reason: the
-  license check has an *inert* state — a project that states no `allow:`
-  list has declined it — and a gate whose failure mode is a clean report
-  is the thing ORC-37 was filed about. So the state it reached is on
-  stdout of every green run, armed or not.
+  The licensing and boundary-apps lines ride the same argument for a
+  different reason: both checks have an *inert* state — a project that
+  states no `allow:` list has declined the license check, and a project
+  that names no `check: [apps: ...]` has no list to complete — and a
+  gate whose failure mode is a clean report is the thing ORC-37 was
+  filed about. So the state each one reached is on stdout of every green
+  run, armed or not. The boundary-apps line goes further and names the
+  applications it could *not* cover, because those are the residual gap
+  and a count is not a tell (ORC-50).
 
   The globs are rooted at the working directory and stay that way: this
   task ships into every generated project, so the layout of any one tree
@@ -83,6 +92,7 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   use Mix.Task
 
+  alias Catapult.Audit.BoundaryApps
   alias Catapult.Audit.Declarations
   alias Catapult.Audit.License
   alias Catapult.Component.Composer
@@ -100,10 +110,12 @@ defmodule Mix.Tasks.Catapult.Audit do
   @impl Mix.Task
   def run(_args) do
     Mix.Task.run("compile")
-    app = Mix.Project.config()[:app]
+    project = Mix.Project.config()
+    app = project[:app]
     Application.load(app)
     components = Application.get_env(app, :components, [])
-    licensing = License.audit(Mix.Project.config(), components)
+    licensing = License.audit(project, components)
+    boundary_apps = BoundaryApps.audit(project)
 
     problems =
       registry_problems(components) ++
@@ -111,13 +123,15 @@ defmodule Mix.Tasks.Catapult.Audit do
         policy_problems(components) ++
         declaration_problems(components) ++
         sobelow_problems() ++
-        licensing.problems
+        licensing.problems ++
+        boundary_apps.problems
 
     case problems do
       [] ->
         Mix.shell().info("catapult.audit: clean (#{length(components)} component(s))")
         census(components)
         Mix.shell().info("  licensing: #{licensing.census}")
+        Mix.shell().info("  boundary apps: #{boundary_apps.census}")
 
       _ ->
         Mix.raise("catapult.audit failed:\n  " <> Enum.join(problems, "\n  "))

@@ -174,6 +174,37 @@ reached only through their APIs per v5 §2.4).
   way. Revisit condition: Boundary loading a path dep's applications on
   the cache-hit path, at which point `type: :strict` is a one-line
   change and this list is deleted.
+
+  **Amended (ORC-50): the accepted cost above is retired, and the list
+  stops being the four rules' applications.** "A line in the same diff
+  that added it" prices an omission that gets noticed, and nothing
+  noticed it — the list has been short of six applications the plane's
+  own build resolves (`:db_connection`, `:decimal`, `:jason`, `:mime`,
+  `:plug_crypto`, `:postgrex`) since the day it was written, each of
+  them silently exempt rather than partially checked. So the list
+  becomes the whole of what a `:prod` build can reach and Boundary can
+  restrain, and `Catapult.Audit.BoundaryApps` reports the gap
+  (`systems/substrate.md` holds the check's subject, its three derived
+  exclusions and its census). Two measurements decide the shape and
+  both are cheap to re-run: naming all eleven costs **zero** forbidden
+  references, because the plane calls none of them today — the
+  expensive version of this ticket is the one the engine would have
+  filed — and naming `:catapult_substrate` costs twelve and a red
+  build, which is this entry's own defect reproduced through the list
+  instead of through strict, so the path dep is excluded by derivation
+  rather than by a name anyone writes.
+
+  What the amendment does **not** change is the paragraph above it: the
+  list is still a literal a reviewer reads in a diff, still not derived
+  inside `mix.exs`. A `boundary/0` that computed itself would delete
+  the one artifact review can act on and would fail open exactly where
+  a derivation bug put it, with nothing to say so. The check is the
+  half that has to be loud; the declaration is the half that has to be
+  readable, and they are different halves on purpose. The revisit
+  condition is unchanged and now retires two things at once: Boundary
+  loading a path dep's applications on the cache-hit path makes
+  `type: :strict` a one-line change, which deletes this list *and*
+  renders the check inert on its own terms.
 - **The root project's compile-connected cap is 0 and is armed as a
   gate line** (ORC-21). Measured here rather than assumed: `mix xref
   graph --format stats` reports 0 compile dependencies across the seven
