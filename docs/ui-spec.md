@@ -149,9 +149,26 @@ who moved it.
   moved it and where (§7.16), rendered as a conflict at the point of
   action rather than a revert comment afterwards
 
-**The swim-lane navigator is the ticket's spine** — *sketch-grade;
-see the status note above.* The lanes this ticket has passed through
-are the navigation, not a separate history tab:
+**Two requirements here are settled; the mechanism that serves them
+is not.** Recorded separately on purpose, so that discarding the
+mechanism leaves a target rather than a blank page:
+
+- **R1 — artifacts, tickets and comments are connected.** From a
+  ticket you can reach the artifacts its work produced and consumed;
+  from an artifact you can reach the tickets and comments that
+  touched it. Neither direction is a search.
+- **R2 — comments filter down to the ones you care about.** A
+  lifecycle's worth of machine and human commentary is unusable as
+  one stream; narrowing it is a first-class operation, not a Ctrl-F.
+
+Both are stable. What follows is **one candidate mechanism** for
+them, and it is sketch-grade — the marker tabs it replaced were an
+earlier candidate for R2 alone, which is roughly the rate at which
+these are expected to change.
+
+**The swim-lane navigator as the ticket's spine.** The lanes this
+ticket has passed through are the navigation, not a separate history
+tab:
 
 - **a generation lane** opens that lane's *generations* — every pass
   this ticket made through that step, the diff between consecutive
@@ -161,10 +178,13 @@ are the navigation, not a separate history tab:
   ticket's whole life — every time it passed through, including
   re-entries after a throwback.
 
-**The governing rule: a comment is always rendered in the context of
-what it comments on, or links to it.** No orphan comment stream.
-This is what the marker tabs were reaching for, and it is a better
-answer than filtering a flat list.
+**The governing rule, which outranks the mechanism: a comment is
+always rendered in the context of what it comments on, or links to
+it.** No orphan comment stream. This is R1 stated as a constraint on
+every candidate, and it survives whatever replaces the navigator —
+the lane spine happens to satisfy it by serving R1 and R2 with one
+structure, which is the argument for it and also the thing to be
+suspicious of.
 
 **`ticket-graph`** — everything one top-level ticket touches, in
 both directions. *Sketch-grade below the fan-out tree: the tree is

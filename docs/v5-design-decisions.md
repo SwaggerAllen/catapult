@@ -2105,15 +2105,24 @@ be declared at the member, with the protocol defining only the slots:
   comments attach where they belong from the start. Spawning at
   Building means the fan-out first appears after every gate it should
   have informed.
-  **Dependency flagged, because the derivation ran the wrong way:**
-  this amendment was reached *from* a screen — `ui-spec.md`'s ticket
-  and ticket-graph navigators, which that document marks
-  sketch-grade. The justification above is intended to stand on its
-  own without them, and if it does not survive that reading the
-  amendment should be revisited rather than inherited. A protocol
-  change downstream of an unvalidated screen is the one coupling in
-  this area worth being uncomfortable about; the screens are cheap to
-  redraw and this is not.
+  **The load-bearing reason is structural, and it is §7.19's own.** A
+  review status carries a fan-out depth, and a child's effective
+  sequence is the declared sequence filtered to its depth — so **any
+  depth-scoped gate sitting before Building is unclaimable unless the
+  children exist by then.** Spawning at Building confines every
+  depth-1 and depth-2 gate to the post-Building half of the sequence,
+  which forbids the case most worth having: a component-level
+  architecture review while the design is still under review. Early
+  spawn is therefore a precondition for half of §7.19's depth
+  mechanism rather than an ergonomic preference, and it lets gates at
+  a fan-out layer be claimed from the moment that layer exists —
+  which is the shape the initial build-out wants, where every
+  component is new at once.
+  **Clutter was the original objection and it is answered elsewhere:**
+  the board collapses fan-outs by default (`docs/ui-spec.md` §3.1),
+  so early children cost nothing in legibility. Noted because the
+  amendment was first reached *from* that screen work; it does not
+  depend on it, and the reasoning above is what it rests on.
   **Creation is not dispatchability.** A child created at plan time
   enters a pre-queue state and becomes queue-eligible only when its
   parent's design gates have passed; otherwise agents would start
