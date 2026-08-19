@@ -110,7 +110,7 @@ green (v5 §2.13):
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
   Its greps are `Path.wildcard("lib/**/*.ex")`, rooted at the working
   directory and deliberately kept there (the task ships into every
-  generated project; `docs/non-goals.md`). So this bullet, like every
+  generated project; `systems/substrate.md`). So this bullet, like every
   other in this list, is a claim about **one mix project** — the set
   runs per project, and a new mix project brings its own gate block
   (ORC-30, `systems/substrate.md`). The audit is the only one of these

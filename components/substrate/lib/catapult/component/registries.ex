@@ -464,7 +464,7 @@ defmodule Catapult.Component.Registries do
   end
 
   # A registration surface that accepted `../../lib/**` would walk back
-  # in the cross-project reach `docs/non-goals.md` ruled out, while the
+  # in the cross-project reach `systems/substrate.md` ruled out, while the
   # audit task's own globs stayed innocent.
   defp type_problem(:scope_glob, value, _component) do
     cond do

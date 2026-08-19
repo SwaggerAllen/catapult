@@ -30,7 +30,7 @@ defmodule Catapult.Boot do
   `config/test.exs`; every real build gets `Catapult.Config.Env`. That
   is also what settles `.env` files: a dotenv file exists to feed
   environment variables to a process that reads the environment, and dev
-  does not (docs/non-goals.md).
+  does not (systems/substrate.md).
   """
 
   alias Catapult.Component.Composer

@@ -19,7 +19,7 @@ defmodule Catapult.Guardrails do
   no options. It is the same defect as a shipped task knowing this
   repository's layout, one level in: generic composition machinery
   holding specific knowledge about the things it composes
-  (docs/non-goals.md).
+  (systems/substrate.md).
 
   So the declaration stays in the registry, the application is one line
   in `init/1`, and *declared↔applied* is the check —

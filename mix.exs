@@ -34,7 +34,7 @@ defmodule Catapult.MixProject do
   # to include `AGPL-3.0-only` or the plane's own subject reads as
   # unplaceable — and every plane component declares the same class,
   # because a subject needing a different one belongs in its own mix
-  # project (docs/non-goals.md).
+  # project (systems/substrate.md).
   defp licensing do
     [allow: ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]
   end
@@ -116,7 +116,8 @@ defmodule Catapult.MixProject do
   # is what keeps `:req` — `only: :test`, and named deliberately —
   # legal. It stays a literal a reviewer reads rather than a derivation
   # inside this function: a computed list would fail open exactly where
-  # a derivation bug put it, with nothing to say so (docs/non-goals.md).
+  # a derivation bug put it, with nothing to say so
+  # (systems/foundation.md).
   defp boundary do
     [
       default: [
@@ -202,12 +203,11 @@ defmodule Catapult.MixProject do
       # has two mix projects lives here, in AGPL plane code that never
       # reaches a hex consumer and whose job is precisely to know the
       # layout; the shipped task stays layout-ignorant
-      # (docs/non-goals.md, systems/substrate.md). It does not replace
-      # substrate's own gate block: the second leg needs
-      # components/substrate/deps resolved and dies loudly, exit 1, if it
-      # is not — an invoker that skipped a project it could not resolve
-      # would be the fail-open this exists to close. A third mix project
-      # is a third element here.
+      # (systems/substrate.md). It does not replace substrate's own gate
+      # block: the second leg needs components/substrate/deps resolved
+      # and dies loudly, exit 1, if it is not — an invoker that skipped
+      # a project it could not resolve would be the fail-open this
+      # exists to close. A third mix project is a third element here.
       "catapult.audit.all": [
         "catapult.audit",
         "cmd --cd components/substrate mix catapult.audit"
