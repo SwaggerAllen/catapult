@@ -39,8 +39,7 @@ defmodule Catapult.Dsl.Tier do
     extra: %{}
   ]
 
-  @type scope ::
-          {:singleton} | {:cascade_visit} | {:per, String.t()} | {:child_of, String.t()}
+  @type scope :: {:singleton} | {:per, String.t()} | {:child_of, String.t()}
 
   @type t :: %__MODULE__{
           name: String.t(),
@@ -154,7 +153,7 @@ defmodule Catapult.Dsl.Tier do
     {:error, ["tier declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
   end
 
-  ## scope (§3.1) — singleton | cascade_visit | per(X) | child_of(X)
+  ## scope (§3.1) — singleton | per(X) | child_of(X)
 
   defp parse_scope(raw, where) do
     case Fields.require_string(raw, "scope", where) do
@@ -164,7 +163,6 @@ defmodule Catapult.Dsl.Tier do
   end
 
   defp parse_scope_value("singleton", _where), do: {{:singleton}, []}
-  defp parse_scope_value("cascade_visit", _where), do: {{:cascade_visit}, []}
 
   defp parse_scope_value(value, where) do
     case Regex.run(~r/\A(per|child_of)\(([a-z0-9_]+)\)\z/, value) do
@@ -176,9 +174,7 @@ defmodule Catapult.Dsl.Tier do
 
       nil ->
         {nil,
-         [
-           "#{where} scope #{inspect(value)} is not singleton, cascade_visit, per(<tier>), or child_of(<tier>)"
-         ]}
+         ["#{where} scope #{inspect(value)} is not singleton, per(<tier>), or child_of(<tier>)"]}
     end
   end
 

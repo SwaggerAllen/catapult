@@ -1,27 +1,17 @@
 defmodule Catapult.Dsl.Edge do
   @moduledoc """
-  One `edges/<edge>.yaml` declaration (dsl-syntax.md §4): a shared
-  mechanism — `type`, `graph_constraint`, `consistency`, `navigation`,
-  `constraint` — over one or more **instances**, each its own
-  `source`/`target`/`declared_in`/`cardinality`.
-
-  Most edges declare a single instance, inline at the top level (the
-  common case, and the only shape earlier versions of this module
-  supported). An edge whose relationship recurs at several sites in
-  the tier graph — `decomposition` mints comp from sysarch, subcomp
-  from comparch, and vocab from feature_expansion; `dependency` covers
-  both comp→comp and subcomp→subcomp — names that once, under
-  `instances:`, rather than once per site under a distinct edge name:
-  "the mechanism is the same" (this repo's own bundle content cites
-  this exact wording). A context walk still names the edge once
-  (`.decomposition`, `.dependency`); which instance answers a given
-  hop is resolved by matching the walking tier against each
-  instance's `source`/`target` (`Catapult.Dsl.Chain`), not by the
-  bundle author picking one.
+  One `edges/<edge>.yaml` declaration (dsl-syntax.md §4): source, target,
+  cardinality, graph and consistency constraints. `graph_constraint:
+  acyclic` is an *instance-level* constraint checked at projection time
+  (the engine's); this module and `Catapult.Dsl.Bundle` only check what
+  §13 puts at load time — that the constraint set and type itself are
+  from the closed vocabularies, and that the *type-level* edge-instance
+  graph (every declared edge as a `source_tier -> target_tier` arrow) is
+  acyclic (`Catapult.Dsl.Graph.Acyclic`).
 
   Structural parsing only, same split as `Catapult.Dsl.Tier`: whether
-  an instance's `source`/`target` name tiers that exist is a
-  bundle-level cross-reference.
+  `source`/`target` name tiers that exist is a bundle-level
+  cross-reference.
   """
 
   alias Catapult.Dsl.Fields
@@ -31,26 +21,24 @@ defmodule Catapult.Dsl.Edge do
     :name,
     :file,
     :type,
+    :source,
+    :target,
+    :declared_in,
     :consistency,
     :constraint_raw,
-    instances: [],
+    cardinality: %{},
     graph_constraint: [],
     navigation: false
   ]
-
-  @typedoc "One source/target site sharing the edge's `type` and constraints."
-  @type instance :: %{
-          source: String.t(),
-          target: String.t(),
-          declared_in: String.t(),
-          cardinality: map()
-        }
 
   @type t :: %__MODULE__{
           name: String.t(),
           file: String.t(),
           type: String.t() | nil,
-          instances: [instance()],
+          source: String.t() | nil,
+          target: String.t() | nil,
+          declared_in: String.t() | nil,
+          cardinality: map(),
           graph_constraint: [String.t()],
           consistency: String.t() | nil,
           navigation: boolean(),
@@ -60,10 +48,8 @@ defmodule Catapult.Dsl.Edge do
   @types ~w(fanout reference dependency policy_application synthesis)
   @graph_constraints ~w(acyclic no_self_loop tree)
   @consistencies ~w(eventual transactional)
-  @flat_instance_keys ~w(source target declared_in cardinality)
-  @instance_keys ~w(source target declared_in cardinality)
-  @core_keys ~w(edge type source target declared_in cardinality instances graph_constraint
-                consistency navigation constraint)
+  @core_keys ~w(edge type source target declared_in cardinality graph_constraint consistency
+                navigation constraint)
 
   @doc "Parses one edge declaration from its YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -73,7 +59,10 @@ defmodule Catapult.Dsl.Edge do
     edge_where = if name, do: "edge #{inspect(name)} (#{file})", else: where
 
     {type, type_problems} = Fields.require_one_of(raw, "type", @types, edge_where)
-    {instances, instance_problems} = parse_instances(raw, edge_where)
+    {source, source_problems} = Fields.require_string(raw, "source", edge_where)
+    {target, target_problems} = Fields.require_string(raw, "target", edge_where)
+    {declared_in, declared_in_problems} = Fields.require_string(raw, "declared_in", edge_where)
+    {cardinality, cardinality_problems} = parse_cardinality(raw, edge_where)
     {graph_constraint, gc_problems} = parse_graph_constraint(raw, edge_where)
     {consistency, consistency_problems} = parse_consistency(raw, type, edge_where)
     {navigation, nav_problems} = Fields.optional_boolean(raw, "navigation", edge_where, false)
@@ -84,7 +73,10 @@ defmodule Catapult.Dsl.Edge do
     problems =
       name_problems ++
         type_problems ++
-        instance_problems ++
+        source_problems ++
+        target_problems ++
+        declared_in_problems ++
+        cardinality_problems ++
         gc_problems ++
         consistency_problems ++
         nav_problems ++
@@ -97,7 +89,10 @@ defmodule Catapult.Dsl.Edge do
          name: name,
          file: file,
          type: type,
-         instances: instances,
+         source: source,
+         target: target,
+         declared_in: declared_in,
+         cardinality: cardinality,
          graph_constraint: graph_constraint,
          consistency: consistency,
          navigation: navigation,
@@ -110,79 +105,6 @@ defmodule Catapult.Dsl.Edge do
 
   def parse(file, other) do
     {:error, ["edge declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
-  end
-
-  ## source/target/declared_in/cardinality — one instance inline, or
-  ## several under instances: (mutually exclusive)
-
-  defp parse_instances(raw, where) do
-    flat? = Enum.any?(@flat_instance_keys, &Map.has_key?(raw, &1))
-    list? = Map.has_key?(raw, "instances")
-
-    cond do
-      flat? and list? ->
-        {[],
-         [
-           "#{where} declares both a flat source/target and instances: — use one instance inline or several under instances:, never both"
-         ]}
-
-      list? ->
-        parse_instance_list(raw, where)
-
-      flat? ->
-        case parse_one_instance(raw, where) do
-          {nil, problems} -> {[], problems}
-          {instance, []} -> {[instance], []}
-        end
-
-      true ->
-        {[], ["#{where} declares neither source/target nor instances:"]}
-    end
-  end
-
-  defp parse_instance_list(raw, where) do
-    case Map.fetch(raw, "instances") do
-      {:ok, [_ | _] = list} ->
-        iw = "#{where}'s instances"
-
-        results =
-          for {entry, index} <- Enum.with_index(list, 1),
-              do: parse_one_instance(entry, "#{iw} ##{index}", true)
-
-        problems = Enum.flat_map(results, &elem(&1, 1))
-        instances = for {instance, []} <- results, do: instance
-        {instances, problems}
-
-      {:ok, []} ->
-        {[], ["#{where}'s instances is empty, expected at least one"]}
-
-      {:ok, other} ->
-        {[], ["#{where}'s instances is #{inspect(other)}, expected a list"]}
-    end
-  end
-
-  defp parse_one_instance(raw, where, check_unknown? \\ false)
-
-  defp parse_one_instance(%{} = raw, where, check_unknown?) do
-    {source, sp} = Fields.require_string(raw, "source", where)
-    {target, tp} = Fields.require_string(raw, "target", where)
-    {declared_in, dp} = Fields.require_string(raw, "declared_in", where)
-    {cardinality, cp} = parse_cardinality(raw, where)
-
-    unknown =
-      if check_unknown?, do: Fields.unknown_keys(raw, @instance_keys, where), else: []
-
-    problems = sp ++ tp ++ dp ++ cp ++ unknown
-
-    if problems == [] do
-      {%{source: source, target: target, declared_in: declared_in, cardinality: cardinality}, []}
-    else
-      {nil, problems}
-    end
-  end
-
-  defp parse_one_instance(other, where, _check_unknown?) do
-    {nil, ["#{where} is #{inspect(other)}, expected a YAML mapping"]}
   end
 
   defp parse_cardinality(raw, where) do
