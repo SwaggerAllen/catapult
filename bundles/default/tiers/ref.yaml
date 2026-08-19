@@ -25,9 +25,6 @@ draft:
   grammar: schemas/ref.xsd
 generator: llm
 prompt: prompts/ref.md.liquid
-review:
-  prompt: prompts/review/ref.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

@@ -58,10 +58,10 @@ oversights:
   tier's auto-review a **system status and agent step**, run as a
   second dispatched agent reading the PR's already-committed state,
   producing **comments, not a committed artifact** — there is nothing
-  for a `review_path:` to point at. The per-tier `review:` block
-  (dsl-syntax.md §3) and the platform-wide review grammar
-  (`<score>`, each `<finding id>` — v4 §B.3.2) carry forward
-  unchanged; only the path concept is void.
+  for a `review_path:` to point at. Per-tier review (dsl-syntax.md
+  §3.3 — its own tier, `reviews: <tier>`, not v4's nested block) and
+  the platform-wide review grammar (`<score>`, each `<finding id>` —
+  v4 §B.3.2) carry forward unchanged; only the path concept is void.
 
 ## Licensing
 

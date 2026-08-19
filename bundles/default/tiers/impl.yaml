@@ -30,9 +30,6 @@ context:
   # never a per-feature node `per(feature_id)` could name), so "the
   # features this impl relates to" reduces to "the project's feature
   # intent", which is feature_expansion's own singleton content.
-review:
-  prompt: prompts/review/impl.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

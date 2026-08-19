@@ -32,9 +32,6 @@ produces:
   - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
   - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
   - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
-review:
-  prompt: prompts/review/subcomparch.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

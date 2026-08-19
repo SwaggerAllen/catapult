@@ -1,0 +1,24 @@
+# docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
+# a nested block on comparch.yaml. `reviews: comparch` fixes this
+# review's scope and cardinality to comparch's own (per(comp), 1:1) —
+# not restated, dsl-syntax.md §3.3. `context:` below is the same set
+# of walks as comparch's own (comparch.yaml), checked at load time
+# (§13) rather than trusted; `draft`/`prior_review` reach the prompt
+# automatically (§9) and are never context: entries.
+tier: comparch_review
+reviews: comparch
+generator: llm
+prompt: prompts/review/comparch.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+  - self.parent.fulfills -> resp.handle
+  - self.parent.dependency -> comp.handle.fragments[pubapi]
+  - self.parent.dependency -> comp.handle.fragments[failure_surface]
+  - self.reference -> ref.handle
+  - self.parent.policy_application~ -> policy.handle
+  - self.parent.fulfills.policy_application~ -> policy.handle
+  - all.vocab.handle
+delivery:
+  phase: critique
+  agent_step: critique

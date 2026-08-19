@@ -109,10 +109,6 @@ context:                          # ordered edge-walk expressions (§7)
                                   # the tier named after "->" (§13)
 produces:                         # fragments this draft writes on other nodes
   - fragment: { owner: self.parent, kind: techspec, authored: draft.techspec }
-review:                           # optional; presence enables the review pass
-  prompt: prompts/review/comparch.md.liquid
-  grammar: schemas/review.xsd
-  required: false                 # true gates approval on review commit
 delivery:                         # extension-provided namespace (§12)
   phase: generation                # a §15.1 system-status kind — platform-
   agent_step: design              # fixed vocabulary only (§11): statuses,
@@ -180,6 +176,57 @@ resolves from the component registry at the pinned version; requires
 `package:` and optional `options:` per v5 §3.4) and **`template`**
 (deterministic scaffold; requires `template:` path; slots filled from
 context walks; no LLM call, same grammar validation).
+
+### 3.3 Review tiers — `reviews: <tier>`
+
+A review is a tier, not a nested block on the tier it reviews (v5
+§7.19, revised). Declared like any other tier, with one addition and
+several omissions:
+
+```yaml
+tier: comparch_review
+reviews: comparch                 # marks this a review tier for `comparch`;
+                                  # scope, identity and cardinality are
+                                  # comparch's, 1:1, and are never restated
+generator: llm
+prompt: prompts/review/comparch.md.liquid
+grammar: schemas/review.xsd       # the platform-wide review grammar (§10)
+context:                          # must equal comparch's own context: below —
+  - self.parent.handle            # a load-time check (§13), not the shared
+  - self.parent.fulfills -> resp.handle   # assembly-path convention this
+  - self.parent.dependency -> comp.handle.fragments[pubapi]  # replaces
+  - self.reference -> ref.handle
+delivery:
+  phase: critique                 # a §15.1 system-status kind, same rule
+  agent_step: critique            # as any other tier's delivery: (§11)
+```
+
+**No `scope:`, `identity:`, `handle:`, `fields:`, `draft:` or
+`produces:`.** A review's cardinality and position are the reviewed
+tier's by construction — `reviews: comparch` fully determines them, so
+restating `scope:` would only be a second place for it to drift out of
+step — and a review tier exposes nothing downstream: no committed
+body, no handle another tier's context walk could target
+(`docs/v5-design-decisions.md` §7.19). `self.parent` inside a review
+tier's own `context:` resolves exactly as it does for the reviewed
+tier, since the underlying node is the same one.
+
+**`context:` is restated and checked, not inherited silently.** The
+review tier declares its own `context:` list; the loader verifies it
+is the same set of walks as the reviewed tier's own `context:` (§13).
+This is what makes the per-tier triad invariant ("generation and
+review receive identical context plus `draft`", §9) a load-time
+property instead of a runtime discipline living in shared assembly
+code. `draft` and `prior_review` are never `context:` entries — they
+are template variables supplied automatically to a review tier's
+prompt (§9), exactly as before.
+
+**Never named from the workflow axis.** A workflow bundle may disable
+the critique slot that follows a given generation status, but only by
+naming the status (`critique`) — platform-fixed vocabulary, per §11 —
+never by naming a review tier (`comparch_review`). Naming one from a
+workflow declaration is the identical cross-axis leak §11 already
+forbids for gates and generation tiers.
 
 ## 4. Edge declarations
 
@@ -431,19 +478,26 @@ applies to me," not one variable per path that produced it. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
 shared framing across the six architecture tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
-the per-tier triad invariant, enforced by the shared context-assembly
-path, not convention.
+the per-tier triad invariant. `draft` (and `prior_review`) are
+supplied automatically by the shared context-assembly path; that a
+review tier's own declared `context:` matches the reviewed tier's is
+a load-time check instead (§3.3, §13).
 
 ## 10. Grammars
 
 Body grammars are XML-fragmented markdown validated per tier
 (`draft.root_tag` + XSD), at commit time, atomically — validation
 failure is typed feedback, never a half-committed state. The review
-grammar is platform-wide (v4 §B.3.2's `<review>` shape). v5 grammar
-growth (the productions, not the prose): comparch carries
-`<permissions>`, `<enforcement>`, per-scope `<implementation>`;
-subcomparch carries the process inventory; impl's `<tests>` block is
-normative for reconciliation.
+grammar is platform-wide (v4 §B.3.2's `<review>` shape) and the same
+file backs every review tier's `grammar:` (§3.3): `<intro>`, an
+integer `<score>` (0-100, v4's buckets), and zero or more
+`<finding id="...">` — the `id` is what a comment gets anchored under
+when the finding is projected into the PR rather than committed as a
+file (`docs/v5-design-decisions.md` §7.19). v5 grammar growth (the
+productions, not the prose): comparch carries `<permissions>`,
+`<enforcement>`, per-scope `<implementation>`; subcomparch carries the
+process inventory; impl's `<tests>` block is normative for
+reconciliation.
 
 ## 11. `extends:` — content layering
 
@@ -506,6 +560,18 @@ values validated against the protocol vocabulary; navigation edges
 absent from readiness walks; `extends:` acyclic. A bundle that loads
 is a bundle the engine can run; only instance-level constraints
 (dependency cycles, cardinality counts) wait for projection time.
+
+Added with review tiers (§3.3, `docs/v5-design-decisions.md` §7.19):
+
+- `reviews:` names a tier declared in the same loaded union — the
+  same cross-reference rule as an edge endpoint or a fragment kind;
+- a review tier's `context:` is the same set of walks as the tier it
+  reviews — the triad invariant, checked rather than trusted; a
+  review tier declaring a walk its reviewed tier doesn't (or missing
+  one it does) is a load error naming the mismatch;
+- a review tier carries no `scope:`, `draft:` or `produces:` — a
+  review tier declaring any of them is a load error, since a review's
+  cardinality is `reviews:`'s and it commits nothing (§3.3).
 
 Added with the two axes and the declarable protocol surface (v5
 §7.16, §7.18):
@@ -573,7 +639,12 @@ three assume the chain and workflow bundles are a matched pair; they
 are not, and composability with no shared vocabulary is the property
 being protected (v5 §7.18). And a **second bundle system** for
 delivery configuration (v5 §9, §7.18 — one language, two document
-kinds).
+kinds). On a review tier specifically (§3.3): **`review_path:`**
+(v4's paired `body_path:`/`review_path:`, `docs/v5-design-decisions.md`
+§7.19 — a review projects to comments, never a committed file) and
+**a per-tier `required:` gating flag** (dropped with the nested
+`review:` block it lived on; threshold-based gating is a parked
+scheduler item, §7.19, not bundle content).
 
 ## 15. Workflow declarations
 

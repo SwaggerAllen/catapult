@@ -99,6 +99,32 @@ context-source kinds, and audit profiles.
   still own vocabulary, core still owns grammar); a *fifth* grammar
   growth event still wants the same daylight this one got, whether or
   not another ticket happens to be carrying it.
+- **A fifth core-grammar growth event, same daylight, same ticket**
+  (ORC-84, author decision revising `docs/v5-design-decisions.md`
+  §7.19): a tier declaration gains `reviews: <tier>` (dsl-syntax.md
+  §3.3), marking it a review tier for the named tier rather than a
+  generation tier of its own. Unlike the four above, this isn't a new
+  scope kind, edge form, or context-walk source — it's a new relation
+  *between two tier declarations*: `reviews:` fixes the declaring
+  tier's scope and cardinality to the named tier's, 1:1, without
+  restating `scope:`, and it obligates a load-time check with no
+  precedent in the closed sets §13 already validates — that the
+  review tier's own `context:` names the same set of walks as the
+  reviewed tier's `context:`. Landed here rather than in a dedicated
+  ticket for the identical reason the first four did: the author's
+  decision superseded this ticket's own prior (and design-review-
+  corrected) handling of the chain's review mechanism, mid-flight, and
+  said so explicitly — "It lands mid-flight... the difference is that
+  it reaches the branch as ticket direction the pass reads before it
+  starts... the doc edit is this pass's to make." No loader tests
+  accompany it (the six plane-code files this ticket's design role may
+  touch were already stripped once by a prior review comment and stay
+  stripped — `lib/catapult/dsl/**` and `test/catapult/dsl/**` are this
+  ticket's own eventual dev pass, same as the four above), so
+  `bundles/default/` will not load cleanly against the merged loader
+  until that pass implements `reviews:`, exactly as the four earlier
+  additions don't either. Revisit condition: none — this *is* the
+  daylight the entry above asked for.
 
 ## Initial vs target
 

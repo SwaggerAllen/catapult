@@ -335,6 +335,35 @@ loader tickets carry `system:core-dsl`.
   placement is not load-bearing today — it is the ticket-instructed
   shape, validated only as "does not break the loader," not as "is
   read by anything yet."
+- **A review is a tier, not a nested `review:` block** (ORC-84,
+  revising the previous pass's `critique`-as-positional-wrapper
+  reading of `docs/v5-design-decisions.md` §7.19). The eight LLM tiers
+  that carried a nested `review: {prompt, grammar}` block —
+  `sysarch`, `comparch`, `subcomparch`, `requirements`,
+  `feature_expansion`, `impl`, `ref`, `vocab` — lose it; each gains a
+  sibling tier file (`tiers/<name>_review.yaml`) declaring `reviews:
+  <name>` instead. `dsl-syntax.md` §3.3 documents the mechanism: a
+  review tier's scope and cardinality are the reviewed tier's by
+  construction (never restated), it carries no `draft:`/`produces:`
+  (comments, not a commit), and its `context:` is restated verbatim
+  and checked at load time against the reviewed tier's own `context:`
+  — the per-tier triad invariant made a load-time property instead of
+  a shared-assembly-code discipline. `delivery: {phase: critique,
+  agent_step: critique}` replaces the old `delivery: {phase:
+  generation, agent_step: design}` + implicit-wrapper reading; `tiers:
+  [tiers/*.yaml]` in `bundle.yaml` already globs the eight new files
+  in, so no manifest edit was needed. `bundles/platform-elixir/schemas
+  /review.xsd` gained `<score>` (integer, 0-100) and `id` on
+  `<finding>` in the same pass — both were already named load-bearing
+  by `docs/v5-design-decisions.md` §7.19's original text and by design
+  review's explicit "nothing in the review grammar gets trimmed," but
+  neither actually existed in the shipped grammar until this pass
+  found the gap while rewiring the eight tiers around it.
+  `dsl-syntax.md` §15.1's system-status table still does not carry
+  `critique` — an explicit, unchanged instruction from design review,
+  since the vocabulary has not shipped in the loader yet (same
+  accepted-gap shape as `cascade_visit` and the reversed context-walk
+  hop before their own loader support landed).
 
 ## Initial vs target
 

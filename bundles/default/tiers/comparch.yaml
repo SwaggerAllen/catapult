@@ -60,9 +60,6 @@ produces:
   - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
   - fragment: { owner: self.parent, kind: policies, authored: draft.policies }
   - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure_surface }
-review:
-  prompt: prompts/review/comparch.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

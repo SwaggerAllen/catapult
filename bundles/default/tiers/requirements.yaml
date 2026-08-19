@@ -30,9 +30,6 @@ executor:
 prompt: prompts/requirements.md.liquid
 context:
   - self.parent.handle
-review:
-  prompt: prompts/review/requirements.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

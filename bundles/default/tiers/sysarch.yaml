@@ -32,9 +32,6 @@ prompt: prompts/sysarch.md.liquid
 context:
   - self.parent.handle
   - self.parent.decomposition -> resp.handle
-review:
-  prompt: prompts/review/sysarch.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

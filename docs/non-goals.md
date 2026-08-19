@@ -1378,6 +1378,7 @@ client cannot be called without being a dependency, a dependency is a
 §2.8 named decision visible in the same diff, and the `check:` line
 belongs in that diff. Revisit condition: none. This is the one half of
 §11's enforcement where the thing being added announces itself.
+
 ## No `domain_parent` replacement edge in the default bundle's architecture chain
 scope: system:platform_content, system:core_dsl
 

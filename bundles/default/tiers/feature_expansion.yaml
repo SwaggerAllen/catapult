@@ -28,9 +28,6 @@ executor:
 prompt: prompts/feature_expansion.md.liquid
 context:
   - input.project_doc
-review:
-  prompt: prompts/review/feature_expansion.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

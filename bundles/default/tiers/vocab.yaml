@@ -24,9 +24,6 @@ generator: llm
 prompt: prompts/vocab.md.liquid
 context:
   - self.parent.handle
-review:
-  prompt: prompts/review/vocab.md.liquid
-  grammar: schemas/review.xsd
 delivery:
   phase: generation
   agent_step: design

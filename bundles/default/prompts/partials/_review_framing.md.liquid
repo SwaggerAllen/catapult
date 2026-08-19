@@ -12,16 +12,25 @@ given — the same context the generation pass that produced it saw,
 plus this draft itself. You are not regenerating; you are judging.
 
 Output a single `<review>` element per `schemas/review.xsd`: a
-`verdict` attribute (`approve` or `revise`), a `<summary>`, and zero or
-more `<finding>` elements, each with a `severity` (`blocking` or
-`advisory`), a `<location>` (the element or attribute path inside the
-draft the finding is about), and a `<comment>`.
+`verdict` attribute (`approve` or `revise`), a `<summary>`, a
+`<score>` — an integer 0-100 — and zero or more `<finding>` elements,
+each with an `id` (short, unique within this review — `f1`, `f2`, …),
+a `severity` (`blocking` or `advisory`), a `<location>` (the element
+or attribute path inside the draft the finding is about), and a
+`<comment>`.
 
+* `<score>` buckets: 0-30 fundamental rework, 31-60 structural fixes,
+  61-85 minor refinements, 86-100 ready. Score what you actually read,
+  not what the verdict implies — a `revise` is not automatically
+  low-scoring, and an `approve` is not automatically high-scoring.
 * `revise` requires at least one `blocking` finding — a revise verdict
   with nothing blocking about it gives the next pass nothing to act on.
 * `approve` may still carry `advisory` findings; they are not
   read as revision demands, use them for improvements you noticed but
   that don't block this draft moving forward.
+* Every `id` must be unique within this review — it is what an
+  individual finding gets anchored to when it is projected as a PR
+  comment, and a reused id is ambiguous about which comment it names.
 * Ground every finding in the context you were given, not in a prior
   about what drafts like this "usually" contain. If a context section
   this checklist references is missing from your prompt, do not flag
