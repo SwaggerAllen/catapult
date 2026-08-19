@@ -1,0 +1,23 @@
+# The bug_fix flow's planning tier (v4 §8.2). No siege prompt exists
+# for this flow; authored fresh from the v4 bundle doc's prose
+# ("used to fix observed problems without disturbing the
+# architecture").
+tier: bug_fix_plan
+scope: singleton
+identity: id
+fields:
+  scope_summary: draft.scope
+  resolved: draft.resolved
+handle:
+  fields: [id, scope_summary, resolved]
+  fragments: []
+draft:
+  root_tag: bug-fix-plan
+  grammar: schemas/bug_fix_plan.xsd
+generator: llm
+prompt: flows/bug_fix/plan.md.liquid
+context:
+  - input.project_doc
+delivery:
+  phase: generation
+  agent_step: design

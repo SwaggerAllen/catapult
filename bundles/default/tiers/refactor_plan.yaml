@@ -1,0 +1,25 @@
+# The refactor flow's planning tier (v4 §8.2). No siege prompt exists
+# for this flow — the v4 bundle doc's own prose ("differs from
+# feature_request in scope: refactor doesn't add new functionality;
+# it reshapes how existing functionality is delivered") is the only
+# source, so this tier's prompt is authored fresh and kept small
+# rather than padded to match the feature_request flow's length.
+tier: refactor_plan
+scope: singleton
+identity: id
+fields:
+  scope_summary: draft.scope
+  resolved: draft.resolved
+handle:
+  fields: [id, scope_summary, resolved]
+  fragments: []
+draft:
+  root_tag: refactor-plan
+  grammar: schemas/refactor_plan.xsd
+generator: llm
+prompt: flows/refactor/plan.md.liquid
+context:
+  - input.project_doc
+delivery:
+  phase: generation
+  agent_step: design

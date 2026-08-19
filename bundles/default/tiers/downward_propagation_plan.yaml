@@ -1,0 +1,22 @@
+# The downward_propagation flow's planning tier (v4 §8.2 — "the
+# explicit version of what staling does implicitly"). No siege
+# prompt exists for this flow; authored fresh.
+tier: downward_propagation_plan
+scope: singleton
+identity: id
+fields:
+  scope_summary: draft.scope
+  resolved: draft.resolved
+handle:
+  fields: [id, scope_summary, resolved]
+  fragments: []
+draft:
+  root_tag: propagation-plan
+  grammar: schemas/downward_propagation_plan.xsd
+generator: llm
+prompt: flows/downward_propagation/plan.md.liquid
+context:
+  - input.project_doc
+delivery:
+  phase: generation
+  agent_step: design

@@ -1,0 +1,18 @@
+# v5 §4.5's load-bearing grain: a policy scoped through a
+# responsibility, not through resp *parentage* — the distinction is
+# the whole point (a policy_application edge, not a child_of).
+# Survives a sysarch re-decomposition because it points at the resp,
+# not at whichever comp currently fulfills it.
+edge: policy_scope_resp
+type: policy_application
+source: policy
+target: resp
+declared_in: policy.required # set at mint time from whichever draft minted
+# this policy (sysarch.draft.policies.policy[].required or
+# comparch.draft.policies.policy[].required — see policy_fanout /
+# policy_fanout_comp for which)
+cardinality:
+  source: { min: 0, max: 1 } # a policy scopes through at most one resp —
+  # project-global policies (v5 §4.5's first grain) omit <required>
+  # entirely and declare neither this edge nor policy_scope_comp
+  target: { min: 0 } # a resp may have zero or more policies applied

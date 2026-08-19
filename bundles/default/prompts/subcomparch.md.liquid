@@ -1,0 +1,206 @@
+{% render "partials/_architecture_framing" %}
+You are producing the **subcomponent architecture document** for a
+single subcomponent — a leaf in the component tree. This is the
+**final articulation layer** before implementation. Your
+`<public-surface>` fragment is what sibling subcomponents and the
+parent's external dependents will call — if it's vague, every caller
+must guess interface contracts. Your `<technical-specification>` is
+what the impl node will build against — every line of vagueness here
+becomes a guess in the implementation, and there are no more tiers to
+correct it.
+
+# Input
+
+Owning component: `{{ parent.id }}` — this subcomponent's role, per
+the parent's decomposition: {{ parent.purpose }}
+{% if parent.is_foundation %}
+This subcomponent is the parent component's foundation subcomponent.
+{% endif %}
+
+What this subcomponent claims from the parent's decomposition:
+{{ parent.owns_summary }}
+
+Owning component's technical specification:
+{{ parent.parent_techspec }}
+
+Owning component's public surface:
+{{ parent.parent_pubapi }}
+
+Owning component's private surface:
+{{ parent.parent_privapi }}
+
+Owning component's policies:
+{{ parent.parent_policies_summary }}
+
+Owning component's failure surface:
+{{ parent.parent_failure_surface }}
+
+Same-parent sibling subcomponents this subcomponent may declare
+dependencies on (may be un-articulated — treat a skeletal pubapi as
+not yet architected):
+{% for sib in sibling_subs %}
+- **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<subcomparch>` block containing five
+sections in a fixed order: a role-level technical specification for
+this subcomponent, its public surface, its private surface, its
+process inventory, and its dependencies. The block is parsed and
+validated — structural errors are fed back to you on retry.
+
+# Output format
+
+Emit exactly one `<subcomparch>` block with these five children in
+this order: `<technical-specification>` → `<public-surface>` →
+`<private-surface>` → `<processes>` → `<dependencies>` →
+`<references>` (optional). Example (abbreviated):
+
+    <subcomparch>
+      <technical-specification>
+    Python module implementing an in-memory LRU cache on top of the
+    parent component's shared Redis client. Entries carry a monotonic
+    version counter set by the parent's write path; cache reads
+    compare-and-invalidate against the underlying store when the
+    counter drifts.
+      </technical-specification>
+      <public-surface>
+    Sibling subs and parent dependents call into this subcomponent
+    via:
+
+    ```python
+    def get(key: str) -> CachedValue | None: ...
+    def put(key: str, value: CachedValue) -> None: ...
+    def invalidate(key: str) -> None: ...
+    ```
+
+    No events emitted — this is a pure read-through cache.
+      </public-surface>
+      <private-surface>
+    Internal helpers only visible inside this subcomponent's own impl
+    node:
+
+    ```python
+    def _touch(key: str) -> None: ...
+    def _evict_stale(now: datetime) -> int: ...
+    ```
+      </private-surface>
+      <processes>
+        <process name="cache_sweeper">
+          <category>local</category>
+          <purpose>Ticks on an interval, calling `_evict_stale` against
+    the local cache; a per-node maintenance loop with no cross-node
+    coordination and nothing to hand off if a node leaves the
+    cluster.</purpose>
+        </process>
+      </processes>
+      <dependencies>
+        <dep to="comp_session9"/>
+        <dep to="comp_audit999"/>
+      </dependencies>
+    </subcomparch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<subcomparch>` root block. Nothing before, nothing after.
+* The five children **must appear in this order**: `<technical-specification>` → `<public-surface>` → `<private-surface>` → `<processes>` → `<dependencies>` → `<references>` (optional). Out-of-order sections are a structural error.
+* No unknown top-level children under `<subcomparch>`. Specifically, `<policies>` is rejected with an explicit error because subcomponents don't have policies, and `<subcomponents>` / `<sub-dependencies>` are rejected because subcomponents can't decompose further.
+
+## Fragment sections (techspec / pubapi / privapi)
+
+* `<technical-specification>` is a **role-level** paragraph describing this subcomponent's slice of the parent component's technology and architecture choices. The impl node will read this to decide what code to write — what libraries, patterns, and data structures this specific subcomponent uses. Narrow the parent techspec to just this subcomponent's slice; don't duplicate it. If the parent techspec says "Python on FastAPI with PostgreSQL via SQLAlchemy", this subcomponent's techspec adds what it specifically owns within that stack (which tables, which async patterns, which validation approach), not a re-statement of the full sentence.
+* Structure the spec as paragraphs separated by a blank line when it runs more than a sentence or two — one paragraph per concern. Don't use bullet lists or headings; the downstream renderer splits on blank lines and wraps each paragraph in its own block.
+* `<public-surface>` is the **only API** sibling subcomponents and the parent component's external dependents will see. Types, function signatures, method signatures, events. Code-shaped content lives in fenced code blocks; any language is fine. Internal helpers belong in `<private-surface>`.
+* **Signatures are non-negotiable.** This is the leaf tier — impl writes its types, parameters, and return shapes directly off these entries; listing method names without signatures forces every caller to guess the contract, and each caller's guess diverges. Every callable entry in `<public-surface>` must show:
+  - parameter types (or schema-shape for events / payloads),
+  - return type, including the **error variant** when the call can fail (`Result[T, ErrKind]`, `T | None`, typed exception list — pick whichever convention matches the parent's tech stack and stay consistent),
+  - whether the call is sync or async (must agree with the parent comparch's techspec — sync sub on an async parent is a defect),
+  - any side effect: events emitted, state mutated, durable writes, network calls, named explicitly rather than buried in prose.
+A pubapi entry that's just a method name with a one-line comment is incomplete; rewrite it as a full signature even if that means inventing a small named type to hold the shape.
+* `<private-surface>` is internal types and helpers visible **only** to this subcomponent's own impl node, not to sibling subs or the parent's dependents. This is the impl node's private toolkit — the helpers, internal types, and data structures it will implement but not expose. Same fenced-code-block convention as the public surface.
+* **Name internal data structures, not just helpers.** Subcomparch is impl's last source of truth for the named types it will introduce. If your techspec mentions an entry that "carries a monotonic version counter" or a queue that "buffers pending events", `<private-surface>` should name the type (`CacheEntry`, `PendingEventBuffer`) and its shape — not just helper functions that operate on it. Internal helpers without the data structures they manipulate leave impl re-deriving the shape, and any sibling reaching across via the public surface ends up with a different mental model.
+* All three fragment sections must be non-empty. Do not put nested XML tags inside them — only prose and fenced code blocks.
+
+## Processes
+
+<!-- new: no siege source — v5 process inventory, docs/v5-design-decisions.md §2.5, §6 -->
+
+* `<processes>` is this subcomponent's process inventory — the named, registered processes its impl node will run, declared here rather than improvised at implementation time. Each `<process name="...">` entry carries exactly one `<category>`, one `<purpose>`, and an optional `<guardrails>`.
+* `<category>` is one of `local` (runs per-node, no cross-node coordination), `singleton` (cluster-wide, exactly one instance regardless of node count), or `sharded` (keyed, distributed across nodes via the registry). Pick the category the process actually needs: a per-node cache warmer is `local`; a cluster-wide scheduler that must not double-fire is `singleton`; a per-key worker pool (one process per session, per tenant, per document) is `sharded`. The wrong choice either serializes work that should parallelize across nodes or lets two nodes race on state that should have exactly one owner. A process is never this subcomponent's state of record — that lives in the store the techspec already names; a process holding data that must survive a restart rebuilds it from persistence rather than owning it.
+* `<purpose>` is a short sentence naming what the process does and why it needs to be a standing process rather than a plain function call — what it holds between messages, what it's waiting on, what it coordinates. Category-speak ("manages background work") is as much a defect here as anywhere else in this document.
+* `<guardrails>`, when present, carries `<max-heap-size>` and/or `<message-queue-bound>` — VM-enforced limits so a runaway process dies before it takes its node down with it. Declare one when the techspec or private-surface describes unbounded input this process absorbs (a queue that can back up, a payload this subcomponent doesn't size-control); a process with no such exposure can omit `<guardrails>` entirely.
+* `<processes>` may be **empty** when this subcomponent's impl is pure library code with no process boundary of its own — it runs entirely inside its caller's process. Emit `<processes></processes>`.
+
+## Dependencies (real IDs only)
+
+* `<dependencies>` is a single section holding `<dep>` edges from this subcomponent to same-parent sibling subcomponents. Every target is a real ID — the alias scheme is NOT used at this tier because sibling subcomponents already exist as minted nodes when subcomparch is generated.
+* Pick targets from the list the input context shows under "Same-parent sibling subcomponents" above, written the same way regardless of target: `<dep to="comp_session9"/>`.
+<!-- voided: v4 siege additionally allowed `<dep>` targets on "parent's sibling top-level components" (real comp_* IDs one level up from the owning component). subcomparch.yaml's context walk carries no subcomp→comp edge — edges/sub_dependency.yaml connects sibling subcomps under the same comparch only — so that target kind has no ID list to draw from at this tier in v5. -->
+* At most one `<dep>` per target (duplicates rejected).
+* No self-deps: you may not reference your own ID.
+* `<dependencies>` may be **empty** when this subcomponent is a true leaf with no sibling interactions. Emit `<dependencies></dependencies>`.
+* The validator rejects unknown IDs and any `to` attribute that isn't one of the sibling subcomponent IDs shown in the input with an explicit allowlist error on retry.
+
+## References
+
+* `<references>` is optional — omit it entirely when nothing is attached. When present, it lists `<reference target="ref_..."/>` entries for every attached ref (see the attached-references input above); each target must be one of the refs actually attached to this subcomponent.
+
+## Reconciliation pass — do this before emitting
+
+Treat the sections as one document and check them against each other. The most common defect at this tier is internal contradiction: techspec promises one thing, pubapi can't surface it, privapi has no shape for what techspec describes. Run these five scans before emitting.
+
+* **Surface closure (both directions).** *Pass A — every techspec claim surfaces somewhere.* For every behavior, side effect, persisted value, emitted event, or return shape your `<technical-specification>` describes, identify the `<public-surface>` entry (callable from outside) or `<private-surface>` entry (callable from this sub's impl) that mounts it. A techspec sentence with no corresponding surface entry is half-done — siblings have no way to call into the behavior, impl has no signature to write against. *Pass B — every surface entry is grounded.* For each pubapi/privapi entry, the techspec or your owns-summary slice must describe why it exists. Entries without a "this is here because…" anchor are filler and inflate the contract impl has to honor.
+* **Failure-mode observability through pubapi.** Subcomparch has no separate `<failure-surface>` section, so failure modes thread through pubapi. For every failure or partial-success scenario your techspec describes (and any failure inherited from the parent comparch's failure-surface entries that touch resps you own), confirm a `<public-surface>` entry exposes it: an error variant in a tagged-tuple return, a typed exception, an event a caller can subscribe to, a status field they can inspect. The most common shape of this defect: techspec mentions partial-failure or rate-limit rejection, but the corresponding pubapi function returns a bare success type or an opaque error atom that strips the discriminating detail. Either expand the return shape, or strike the failure mode from the techspec — silent failures with no public observability are a worse outcome than admitting the limitation.
+* **Dependency grounding.** For each `<dep to="comp_...">`, confirm the techspec or a pubapi/privapi entry describes how this sub actually uses the target — what data flows, which sibling pubapi gets called, what event gets subscribed to. Symmetrically, walk the techspec and pubapi prose for any cross-sub call site implied by the text and confirm a corresponding `<dep>` exists. An ungrounded `<dep>` is either spurious (delete it) or evidence of unwritten prose (write it). An implicit cross-sub reference without a declared dep mis-leads impl about what it can import.
+* **Co-owner seam visibility.** Your owns-summary may show a parent resp co-owned by a sibling sub (UI flow split or read/write path split). When that's true, `<public-surface>` must make your slice readable on its own — a caller looking at your pubapi alone should be able to tell which side of the seam (input vs validate, read-path vs write-path, etc.) they are calling into. Method names + return shapes that could plausibly belong to either co-owner are the defect; rename or restructure until the seam is unambiguous from the surface alone.
+* **Rationale, not inventory.** Re-read the techspec, the pubapi prose between code blocks, and the privapi prose. Anywhere the text reads as a list of contents or category-speak ("handles X", "manages Y", "contains the helpers for Z"), rewrite it to name what's distinctive about this sub's slice — concrete actions, specific data shapes, specific concurrency or persistence patterns. Inventory framing reads as filler downstream and produces vague impl. The narrowing prompt isn't "describe what this sub contains"; it's "name what makes this sub's slice of the parent's stack distinct".
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you arrived at the design. Output only the `<subcomparch>` block.
+* Unescaped `&` and `<` inside fragment-section text (outside the XML tags themselves) are tolerated by the parser.
+* Do not emit a `<policies>` section. Subcomponents are leaves in the component tier and do not introduce new cross-cutting invariants. If you think a new policy is needed, that is structural feedback on the parent component's comparch and belongs there.
+* Do not emit a `<subcomponents>` or `<sub-dependencies>` section. Subcomponents cannot decompose further — the reducer enforces a two-level depth cap. Any internal structure you want to describe belongs in the `<private-surface>` section as prose or code, not as structural XML.
+{% if feedback %}
+
+# Revising against feedback (surgical modification)
+
+The downstream tier (impl) already exists and was composed against the
+techspec, pubapi, privapi, processes, and dependencies sections in the
+body today. Anything the feedback doesn't touch must round-trip
+identically — otherwise the impl underneath this sub goes stale and
+forces a regen the author didn't ask for. The CLI re-validates on
+write.
+
+## The preserve-don't-redesign discipline
+
+* **Every section is independently sticky.** Each feeds a specific downstream reader (impl's plan, sibling subs' contract, parent comp's roll-up). Touch only the section(s) the feedback names. The other sections stay verbatim.
+* **The pubapi section is the load-bearing handle.** It's what impl reads to know what to implement and what callers (sibling subs, dependent comps' subs) read to know what's available. Edit pubapi only when the feedback asks; preserve signature shapes, error variants, and naming conventions if you're not asked to touch them.
+* **The privapi section is the sub's internal contract with itself.** Impl reads it to know the helper surface; touch it only when the feedback is about internal articulation.
+<!-- voided: source additionally named a sticky "internal-structure" section, distinct from privapi — this tier has no such section; internal structure is what privapi already is, so the bullet above covers it -->
+* **Processes and dependencies are sticky.** The process inventory is what impl reads to know which named processes to register, under which category, with which guardrails; the dependency list is what impl reads to know which sibling subs it may call into. Touch either only when the feedback names a process or a dependency edge specifically.
+<!-- voided: source also listed "failure-surface and policies" as sticky commitments — this tier has neither section (failure modes route through pubapi; policy reachability is transitive from the parent comp's policies), so there is nothing to preserve here beyond what the pubapi bullet already covers -->
+
+## When the feedback says…
+
+* **"Add an operation to the pubapi"** — edit only the pubapi section. Don't re-litigate the techspec or privapi unless the new operation visibly cuts across them.
+* **"Tighten the privapi"** — edit only privapi. Pubapi stays verbatim.
+* **"Add a process"** or **"add a guardrail to process X"** — edit only the processes section, and within it, only the named process the feedback identifies. Leave every other process entry untouched.
+* **"Add a dependency on sub X"** or **"drop the dependency on sub X"** — edit only the dependencies section. Ground the change in the techspec or pubapi/privapi prose per the reconciliation-pass rule above; don't leave an ungrounded `<dep>` behind.
+* **"Address review finding #N"** — pull the prior review text, map the finding to one or two sections, modify only those.
+<!-- voided: source's "Add a failure mode" → edit failure_surface, and "Re-articulate internal structure" → edit internal_structure — neither section exists at this tier -->
+
+## Anti-patterns
+
+* Re-articulating the techspec to "tighten" it when the feedback was about the pubapi. The techspec is a hand-off from the parent comparch's techspec; re-articulating it on a sub-level edit creates handle drift the author didn't ask for.
+* "Polishing" pubapi signatures across the board on a privapi-focused edit. Pubapi changes propagate to every dependent sub's privapi — keep them tightly scoped.
+<!-- voided: source's third anti-pattern was "adding failure modes or policies the feedback didn't ask for" — neither section exists at this tier -->
+{% endif %}

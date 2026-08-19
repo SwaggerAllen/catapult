@@ -1,0 +1,39 @@
+# v4 §1.3, re-expressed. Its own tier, not folded into resp (this
+# ticket's docs/non-goals.md carries the previous pass's collapse and
+# why it was wrong: one prompt per decomposition, and sysarch's
+# decomposition is a distinct cognitive act from requirements'
+# rotation). `scope: per(requirements)` for the same reason
+# requirements is per(feature_expansion) rather than singleton: it
+# gives sysarch a self.parent walk to requirements' handle, and —
+# critically — a walk along requirements' own resp_fanout edge to
+# read every minted resp as a collection (dsl-syntax.md §7:
+# cardinality-many walks yield collections). No `kind`/domain-
+# presentational split and no `<domain-parent>` section carried
+# forward: v5 §4.1 replaces that whole mechanism with the product/
+# backend/frontend split (seed-docs/README.md's second known delta) —
+# every backend component sysarch mints is simply a component.
+tier: sysarch
+scope: per(requirements)
+identity: id
+fields:
+  intro: draft.introduction
+  techspec: draft.techspec
+handle:
+  fields: [id, intro, techspec]
+  fragments: []
+draft:
+  root_tag: sysarch
+  grammar: schemas/sysarch.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/sysarch.md.liquid
+context:
+  - self.parent.handle
+  - self.parent.resp_fanout -> resp.handle
+review:
+  prompt: prompts/review/sysarch.md.liquid
+  grammar: schemas/review.xsd
+delivery:
+  phase: generation
+  agent_step: design

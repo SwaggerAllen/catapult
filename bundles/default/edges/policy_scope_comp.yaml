@@ -1,0 +1,20 @@
+# v5 §4.5's third grain: direct component links, reserved for
+# genuinely structural policies that don't make sense pinned to one
+# responsibility. New grammar, not a v4 port — siege's <policy>
+# element only ever names a resp id; the <structural/> marker this
+# ticket adds to schemas/sysarch.xsd and schemas/comparch.xsd (policy
+# itself has no draft/grammar of its own — it is a projection tier
+# minted from whichever of those two drafts declared it) is what a
+# policy declares instead of <required> to signal this grain.
+edge: policy_scope_comp
+type: policy_application
+source: policy
+target: comp
+declared_in: policy.structural # set at mint time when the minting
+# <policy> row carries a <structural/> marker instead of <required>;
+# the target is the declaring tier's own comp (comparch's self.parent
+# when comparch-minted; project-wide policies use policy_scope_resp
+# instead, since a project-global policy declares neither edge)
+cardinality:
+  source: { min: 0, max: 1 } # a policy scopes to at most one comp directly
+  target: { min: 0 } # a comp may have zero or more structural policies

@@ -1,0 +1,27 @@
+# The feature_request flow's planning tier (dsl-syntax.md §6's delta
+# tier — a flow's schema delta lives beside the base tiers, its prompt
+# under flows/<flow>/). Scope is `singleton` per open flow instance
+# (v5 has no "scaffold tier" node to range a per(X) scope over the
+# way v4's per(scaffold_tier) did — there is no minted tier standing
+# for "whichever tier this cascade is currently visiting"; recorded in
+# systems/platform_content.md), not a claim that only one feature
+# request may ever be open — a project opens a fresh flow instance,
+# and its own instance, per ticket, carries one plan node.
+tier: feature_request_plan
+scope: singleton
+identity: id
+fields:
+  resolved: draft.resolved
+handle:
+  fields: [id, resolved]
+  fragments: []
+draft:
+  root_tag: feature-request-plan
+  grammar: schemas/feature_request_plan.xsd
+generator: llm
+prompt: flows/feature_request/propose.md.liquid
+context:
+  - input.project_doc
+delivery:
+  phase: generation
+  agent_step: design

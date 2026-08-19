@@ -1,0 +1,20 @@
+review: ux-review
+after: generation                  # a gate's `after:` resolves only against
+                                    # the eleven system-status *kinds* or
+                                    # another declared gate's name
+                                    # (dsl-syntax.md §15.2-§15.3,
+                                    # Catapult.Dsl.Workflow's
+                                    # gate_after_problems/1) — never a
+                                    # display label like "Product design".
+                                    # The chain and workflow axes carry no
+                                    # compatibility check by design (§7.18),
+                                    # so this gate reviews whatever
+                                    # generation produced by the time a
+                                    # ticket reaches it, whether that is
+                                    # today's architecture-only chain or a
+                                    # future product-tier-first one.
+role: design
+depth: 0                           # top level only; nothing has fanned out
+                                    # this early in the sequence
+throwback: [queue]
+escalation: author

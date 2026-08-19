@@ -1,0 +1,26 @@
+# v5 restores `resp` as a tier (seed-docs/README.md, reversing v4 §2's
+# "a note on responsibilities" collapse). A projection tier — no
+# draft, no prompt — minted by requirements' resp_fanout, the same
+# join-target shape as comp/subcomp below: requirements does the
+# rotation work in one LLM pass and mints one addressable node per
+# atom, matching v4's own actual `<responsibility>` grammar (name +
+# feats, nothing else — seed-docs/siege-prompts/requirements.md's
+# rules are explicit that no other field belongs here). What "restored
+# as a tier" buys over v4's field-only version: sysarch's `fulfills`
+# edges and policy's `policy_scope_resp` edges get a real node to
+# target, so a resp survives a sysarch re-decomposition and a policy
+# scoped "through responsibilities" (v5 §4.5) survives a refactor
+# instead of being re-typed by hand.
+tier: resp
+scope: child_of(requirements)
+identity: id
+fields:
+  name: mint.name
+  feats: mint.feats
+handle:
+  fields: [id, name, feats]
+  fragments: []
+# No delivery: — nothing generates independently here. A resp node
+# materializes as part of requirements' own commit (the minting
+# tier's delivery event), the same as comp/subcomp below.
+generator: synthesis

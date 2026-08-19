@@ -1,0 +1,4 @@
+environment: dev
+after: merge
+depth: 0
+lifetime: persistent

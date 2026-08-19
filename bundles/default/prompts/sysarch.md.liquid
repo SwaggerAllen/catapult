@@ -1,0 +1,248 @@
+{% render "partials/_architecture_framing" %}
+You are producing the **system architecture** for a software project.
+The entire downstream generation chain — component architecture,
+individual implementation plans — will read your output as the
+compressed description of this project and will not re-read the
+feature list or the input document. Your job is not to write a
+complete specification. It is to articulate handles — short, specific,
+project-distinctive component names and paragraphs — that downstream
+passes can reason from directly. A vague handle at this layer forces
+every later pass to guess, and a guess here gets multiplied across
+every tier below. There is **no target component count** — emit as
+many components as the project's data-ownership and failure-mode
+boundaries warrant, and no fewer. Conserving components by merging
+unrelated concerns produces a vague handle at the merged component
+just as surely as splitting one coherent concern across two components
+produces a vague handle at each. Prefer concrete language ("settles
+card charges through the provider gateway") to category labels
+("handles payments"). A component name that could plausibly belong to
+any SaaS project is probably too generic.
+
+# Input
+
+Requirements handle: {{ parent }}
+
+Responsibility catalog (each with a name and role paragraph):
+{% for resp in resp_catalog %}
+- `{{ resp.id }}` — {{ resp.name }}: {{ resp.summary }}
+{% endfor %}
+
+Your output is a single `<sysarch>` block containing four sections in
+a fixed order: a project-level technical specification, the top-level
+component list, top-level policies, and dependency edges between
+components. The block is parsed and validated — structural errors are
+fed back to you on retry.
+
+# Output format
+
+Emit two top-level blocks in this order: `<introduction>` and
+`<sysarch>`. The `<introduction>` is required — a 2–5 paragraph prose
+preamble that captures your initial thinking before the structured
+output: how you read the responsibility set into component boundaries,
+which tensions or tradeoffs the input makes visible, which alternative
+cuts you considered and rejected. Downstream tiers don't read this
+intro, but when sysarch regenerates with feedback you (or a later
+model) can refer back to it to stay anchored in your initial framing
+instead of restarting from scratch.
+
+After `<introduction>`, emit exactly one `<sysarch>` block with these
+four children in this order: `<techspec>`, `<components>`,
+`<policies>`, `<dependencies>`. Example:
+
+    <introduction>
+      The responsibility set cleanly partitions into three
+      top-level cuts: identity + authorization, billing + payment
+      lifecycle, and notification delivery.
+
+      Tradeoffs worth flagging on regen: I considered folding
+      notifications into Billing since most notifications are
+      payment-triggered, but kept it separate because the project
+      doc implies non-billing notifications (support responses)
+      are coming. Also went with Postgres + event sourcing on the
+      Billing side for audit reasons.
+    </introduction>
+    <sysarch>
+      <techspec>
+        <runtime>{Pick the language and runtime that fit the project's constraints — e.g., a typed compiled language for a performance-critical data plane, an actor-based VM for high-concurrency message routing, a managed runtime for a forms-heavy admin app. Name the version pin and the process shape (per-environment, per-tenant, sidecar pattern, serverless).}</runtime>
+        <persistence>{Name the durable store and the schema shape. Be specific about whether ownership is per-component (each comp has its own tables / namespace) or shared, and how identity flows (typed IDs, UUIDs, scoped foreign keys). Mention any caching layer + invalidation rule.}</persistence>
+        <write-path>{Describe how mutations land. Single event-sourced reducer? Direct ORM writes? Outbox pattern with async projection? CQRS split with read replicas? Whatever the shape, name it specifically — downstream impl tiers read this to decide handler patterns.}</write-path>
+        <concurrency>{Concurrency model + isolation boundaries. Examples: "supervised actor trees per project; long-running external calls isolated in their own supervisor", "async event loop with bounded worker pool for blocking I/O", "per-request goroutines with channels for fan-out". Be specific enough that impl can pick libraries from this.}</concurrency>
+        <testing>{Test strategy that downstream tiers will follow. Unit coverage approach, integration harness shape, property-based testing for invariants, full-chain drain harness, etc.}</testing>
+        <deploy>{Build + deploy shape. Container image, binary, function bundle. Hosting target (your cloud / on-prem / self-hosted). Runtime topology (single-process, multi-replica, horizontally-scaled).}</deploy>
+        <technologies>{Comma-separated short list of the load-bearing tech choices — language + framework + persistence + deploy + any other choice impl needs to know about. Be specific to your project; this list anchors every comparch + impl tier that follows.}</technologies>
+      </techspec>
+      <components>
+        <component alias="billing">
+          <name>Billing Service</name>
+          <purpose>Owns the subscription and payment lifecycle for every account.</purpose>
+          <owned-invariants>
+            <invariant>exactly one active subscription per account</invariant>
+            <invariant>every charge traces to an invoice row</invariant>
+            <invariant>grace-period expiry suspends access atomically</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>fetch the current billing state for an account</operation>
+            <operation>record a payment attempt and its outcome</operation>
+            <operation>emit a subscription-changed event on transitions</operation>
+            <operation>reconcile webhook callbacks from the payment provider</operation>
+          </primary-operations>
+          <responsibilities>
+            <resp id="resp_billing001"/>
+            <resp id="resp_invoicing2"/>
+          </responsibilities>
+        </component>
+        <component alias="foundation">
+          <name>Foundation</name>
+          <purpose>Owns the project root: shared utilities, the entry point, the env config loader, and shared base types.</purpose>
+          <owned-invariants>
+            <invariant>a single source of truth for app settings</invariant>
+            <invariant>shared handler/event base types stay versioned together</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>load settings from the environment</operation>
+            <operation>configure logging for the whole app</operation>
+            <operation>expose the application factory to startup</operation>
+          </primary-operations>
+          <responsibilities>
+            <resp id="resp_config001"/>
+          </responsibilities>
+          <foundation/>
+        </component>
+      </components>
+      <policies>
+        <policy>
+          <name>LLM Telemetry</name>
+          <trigger>any LLM call</trigger>
+          <required>resp_telemetry1</required>
+          <rationale>Every LLM call must record its prompt tokens, completion tokens, and model to the telemetry side table so we can audit cost and latency. Without this, a regression in prompt length or a model change is invisible until the bill arrives.</rationale>
+        </policy>
+        <policy>
+          <name>Event-Sourced Writes</name>
+          <trigger>any domain write</trigger>
+          <required>resp_reducer001</required>
+          <rationale>Every mutation to domain state must go through the central reducer so the event log is the single source of truth. Direct ORM writes bypass replay and break rebuild-from-log.</rationale>
+        </policy>
+      </policies>
+      <dependencies>
+        <dep from="billing" to="foundation"/>
+      </dependencies>
+    </sysarch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<sysarch>` root block. Nothing before, nothing after.
+* The four children **must appear in this order**: `<techspec>` → `<components>` → `<policies>` → `<dependencies>`. Out-of-order sections are a structural error.
+* No unknown top-level children under `<sysarch>`.
+
+## Techspec
+
+* `<techspec>` is the project-level technical specification, structured into seven fixed labeled blocks in order: `<runtime>` → `<persistence>` → `<write-path>` → `<concurrency>` → `<testing>` → `<deploy>` → `<technologies>`. Each block is **1-2 short sentences** (one sentence is fine when the call is unambiguous). No free prose outside the labeled blocks; no nested tags inside them; no reordering. The comparch pass reads each block back verbatim when deciding internal component structure.
+* `<runtime>` — language + language version + process model (single-process async loop / multi-process worker / BEAM actor tree, etc).
+* `<persistence>` — storage engine + schema approach (relational with per-entity tables / document store with typed keys / hybrid).
+* `<write-path>` — the write pattern that every downstream component must honour: direct ORM writes / event-sourced reducer / command-handler split / CQRS, etc.
+* `<concurrency>` — concurrency model and how long-lived work is isolated: single-threaded / async I/O / worker pool / dedicated process per tenant.
+* `<testing>` — test pyramid shape + frameworks (pytest + integration drain / Jest + Playwright / ExUnit + property tests).
+* `<deploy>` — build + deployment shape (Docker image on CI / single Fly.io container / Kubernetes + Helm / static site + edge functions).
+* `<technologies>` — verbatim list of concrete framework / library / service choices named in the input document. This block exists because the upstream tiers strip the input's technology decisions during extraction and compression; if you don't record them here they are lost. Comma-separated, normalized casing, one line. Do **not** invent technologies that the input didn't name — this is a record of the input's choices, not a recommendation.
+* Prefer the **pattern** in each narrative block, not just the ingredient. "Python 3.11" is underspecified; "Python 3.11 FastAPI process per environment; single-process async event loop fronts the API" is a real handle.
+* If the project has architectural non-negotiables (all writes event-sourced; all LLM calls logged; no direct DB access outside the reducer), name them inside the relevant block. `<write-path>` is the usual home for reducer / event-log invariants.
+* **If the project commits to a typed error discipline, name it explicitly.** Languages whose ecosystems use typed error returns (Elixir tagged tuples, Rust `Result`, TypeScript discriminated unions, Go's typed errors) benefit from project-wide commitment because the type system becomes the cross-section consistency anchor at lower tiers. Comparch will read this and produce public-surface return types whose error variants line up with each component's failure-surface entries; if the techspec doesn't name the discipline, comparch falls back to ad-hoc choices and the consistency anchor is lost. `<runtime>` or `<write-path>` is the usual home for this commitment ("error handling uses tagged tuples throughout — no exceptions cross component boundaries"). Skip this bullet for languages without an idiomatic typed-error discipline (vanilla Python, Ruby, JavaScript without discriminated unions); ad-hoc exception handling is the default there and that's fine.
+
+## Components
+
+* Each `<component>` carries an `alias="..."` attribute used for local references within this doc. Alias syntax: lowercase letters, digits, and underscores; must start with a letter; 1 to 32 characters; regex `^[a-z][a-z0-9_]{0,31}$`. Aliases are unique within `<components>` — no two components may share one.
+* Each `<component>` must contain exactly one `<name>`, one `<purpose>`, one `<owned-invariants>`, one `<primary-operations>`, and one `<responsibilities>` block. There is no `<failure-surface>` at this tier — the comparch pass writes a sharper, component-local failure surface once it has the full techspec + pubapi + invariants in hand.
+* `<name>` is the human-readable display name — title case, short identifier. Different from the alias: `alias="billing"`, `<name>Billing Service</name>`. **Name components project-specifically, not generically.** If two unrelated projects could plausibly have a component with this name, it is too generic. Prefer the most distinguishing aspect of what this component does over the category it sits in: "Subscription Lifecycle" beats "Billing Service"; "Credential Broker" beats "Authentication"; "Bundle Resolver" beats "Configuration Management". The name is the shortest handle in the system — it has to earn its brevity by being specific.
+* `<purpose>` is the one-sentence reason this component exists. The comparch pass (choosing its internal subcomponent decomposition) reads it first. Name the component-distinctive *why* — the specific territory it owns — not the category it sits in. "Handles authentication" is category-speak; "verifies the identity of callers and issues session state downstream components can trust" is a handle. Do not cram multiple concerns into the sentence; if you need an "and", consider whether the component is actually two.
+* **The purpose names a distinctive substance, not a bucket.** After one read, a downstream reader should be able to repeat back what this component *is* in their own words. "Guards the platform-level ref tier — the universal escape hatch for supplemental reference content that doesn't fit bundle-declared tier hierarchy" reads as substance: there's a specific piece of platform machinery it owns. "Owns reference content management" reads as a bucket: a label that could collect anything tangentially related. Components whose purpose reads as a bucket produce subcomponents that feel like buckets too — and at comparch the consequence is contradictions, because the model has no crisp mental model of what each section is *about*. The fix: name the specific thing the component owns that nothing else in the system owns.
+* `<owned-invariants>` lists **2-4 short noun phrases** naming the durable state or guarantees this component owns. Each invariant is a contract that downstream comparch and impl passes must preserve; together they answer "what is this component *for*, structurally?". Examples: "exactly one active subscription per account", "every charge traces to an invoice row", "credentials are hashed at rest". Avoid impact categories ("must be reliable") — an invariant must be specific enough that a reviewer can point at a concrete implementation and say yes/no. If you find yourself listing more than four, some of them are actually sub-component concerns — push them down to comparch. If you find yourself listing fewer than two, the component's role is too thin.
+* **Phrase invariants as structural facts, not procedural promises.** Structural phrasing names a property of the state, the call graph, or the data shape — "X is the only path to Y", "Y is a deterministic function of X", "Z is committed before W is dispatched", "exactly one active X per Y", "every X carries Z". Procedural phrasing names a verb the system performs every time — "every X does Y", "X always succeeds", "no X ever fails". Procedural phrasing invites the comparch and impl tiers to write contradicting failure surfaces (the failure surface inevitably says "X did not do Y" or "X failed"); structural phrasing lets downstream tiers describe coverage gaps and residual risks consistently without contradicting the invariant. This rule propagates downward — comparch will inherit your framing for its own subcomponent invariants, and impl reads both. If you find yourself starting an invariant with "every" or "always", look for the structural rephrase: what fact about the schema, the call graph, or the data does that statement encode?
+* `<primary-operations>` lists **3-6 short verb phrases** naming the operations callers invoke on this component. Each is a one-line handle: "authenticate credentials into a session", "record a payment attempt and its outcome", "emit a subscription-changed event on transitions". Downstream comparch elaborates these into real pubapi signatures; at this tier we just need the action handles. Phrases like "handle X" or "manage Y" are category-speak — rewrite them as concrete verbs ("record", "resolve", "reconcile", "emit"). The cap at six keeps the sysarch-level API surface honest; if a component genuinely has more than six independent primary operations, split it.
+* `<responsibilities>` contains one or more `<resp id="resp_..."/>` children. Each `id` must reference a top-level responsibility from the input list, verbatim. **Every top-level responsibility must be assigned to exactly one component.** Orphans and assignments to multiple components are structural errors.
+* **Group responsibilities by shared data ownership and shared failure modes, not by shared category.** Two responsibilities that both touch the same entity but can fail independently of each other (one blocks a user-facing flow, the other silently degrades a background one) probably belong in different components even if the category label suggests otherwise. Two responsibilities that touch different entities but must succeed or fail together probably belong in the same component. When you have to choose, ask: which other responsibilities does this one *fail with*, and which does it *own data alongside*? Those are the real groupings. Category-clustering ("all the auth things go in Auth") produces components that have to be split later once the real coupling shows up.
+* **Each external boundary deserves its own component.** Anything the system talks to over the wire — LLM provider APIs, git forges, identity providers (SSO/OIDC/SAML), notification channels (email, webhooks, team-messaging), payment processors, vector stores hosted as a separate service, telemetry sinks — is an *external boundary*. Each such boundary owns a distinct failure surface (provider outages, rate limits, credential rotation, schema drift, wire protocol versioning) that has nothing to do with the rest of the system's failure modes. Isolating each external integration into its own component means: (a) when the provider misbehaves, the blast radius is one component's sandbox/retry/circuit-breaker logic, not a smear across multiple components that each happen to call out; (b) credential handling, request signing, and quota tracking have one home per provider rather than being re-implemented per call site; (c) swapping providers (e.g. a different LLM, a different forge plugin) is a single-component substitution rather than a hunt across the codebase. Resist the temptation to fold an external-boundary's resps into the component that *uses* it ("LLM dispatch lives in Generation Pipeline because that's where prompts are rendered") — the use site and the boundary have different failure modes and should be different components, with a dependency edge connecting them. The foundation component is the exception: cross-cutting platform infrastructure that genuinely every component reaches into stays foundation, not its own external-boundary component.
+* **Resp-count is a strong split signal.** A single component that ends up with more than ~12 top-level responsibilities is almost always two components in disguise. The downstream comparch pass has to keep all of that surface internally consistent — invariants, primary-operations, public-surface, failure-surface, subcomp ownership — and the consistency budget runs out long before the resp count does. Concrete patterns that legitimately carry 12+ resps: (a) a foundation component owning shared substrate across many concerns; (b) a single coherent lifecycle hub where every resp is a transition or guard on the same aggregate (e.g. a draft state machine); (c) an event-log core where every resp is a projection or read-side query against the same append-only spine. Outside those patterns, when you find yourself listing 13+ resps under one component, look for the seam: a clean read-vs-write split, a protocol-vs-content split, an external-boundary-vs-orchestration split, an authoring-vs-curation split. Splitting at sysarch time costs one extra component and a couple of dependency edges; *not* splitting forces comparch to manage 15-20 resps' worth of cross-section consistency under a single roof, which is the most common cause of mid-band comparch quality.
+
+## Foundation component
+
+* **Exactly one component must carry a self-closing `<foundation/>` marker as a child.** This is the foundation component — it owns the project's root folder files (build config, package init, shared utilities, entry point) and anything that doesn't logically belong to another top-level component.
+* The foundation component is otherwise a normal component — it has its own name, purpose, owned-invariants, primary-operations, and at least one responsibility. The conventional default name is `Foundation` unless the project has a more specific convention.
+
+## Policies
+
+* Top-level policies live under `<policies>`. Zero or more are permitted; if the project has no cross-cutting invariants that need explicit statement, emit `<policies></policies>` empty.
+* **The reqs tier seeds policy-shaped atoms as ordinary resps** — names like "rate-limit outbound LLM calls per provider", "audit every credential access", "encrypt provider credentials at rest", "AGPL dependency hygiene" show up in the input resp list. For each one you make an architecture-informed judgment that the reqs pass could not: **is this actually cross-cutting, or is it local to one component's boundary?** Rate-limiting LLM calls is local if every LLM call flows through one gateway component — it's just a regular resp owned by that component, no policy needed. Rate-limiting is cross-cutting only if many components would independently call providers. "Reducer-only writes" is local (the rule lives at the reducer entrypoint). "AGPL dependency hygiene" is cross-cutting (every component adding a dep must honour it). **When in doubt, local wins — emit a regular resp assignment, not a policy.** Your `<policies>` block is authoritative; the reqs seeds are input signal. You decide.
+* When a reqs-seeded atom is genuinely cross-cutting and reduces to one enforcing responsibility, emit a `<policy>` naming its trigger with `<required>` pointing at that resp's ID — the resp still gets assigned to one component as its enforcer, and the policy adds application edges to every matching-trigger site. When the obligation is cross-cutting but doesn't reduce to any single responsibility (an organization-wide naming convention, a project-wide dependency-hygiene rule), emit a self-closing `<structural/>` in its place — it scopes the policy directly to a component rather than through a responsibility. When a reqs-seeded atom is local, just assign it as an ordinary resp and omit the policy entirely — no double-encoding.
+* Each `<policy>` contains exactly one `<name>`, one `<trigger>`, one `<rationale>`, and **at most one of** `<required>` or a self-closing `<structural/>` — never both. Most policies have a `<required>`; universal-scope policies (see below) have neither.
+* `<trigger>` is a short semantic phrase identifying where the policy applies: `any LLM call`, `any domain write`, `any authenticated request handler`. Semantic, not structural — different projects phrase triggers differently.
+* `<required>` is a bare `resp_*` ID referencing the responsibility that must be fulfilled at every trigger site. The ID must be in the input top-level responsibility list. **Omit both `<required>` and `<structural/>`** for universal-scope policies — obligations that don't map to a single enforcing responsibility and don't reduce to one component either. Examples: an AGPL license obligation, an organization-wide naming convention that spans components, a cross-cutting security requirement that every component must honor without any one component owning "the security resp". The application pass treats these as "applies to every candidate component in scope" rather than patching a dep edge to a specific resp's owning component or a specific component.
+* `<rationale>` is a paragraph explaining why the policy exists. Carries real weight — the LLM applying policies later reads this to decide which components the policy actually applies to.
+
+## Dependencies
+
+* Each `<dep from="..." to="..."/>` uses local aliases on both sides. Both aliases must be declared in `<components>`.
+* `from` and `to` must differ — self-dependencies are rejected.
+* **The dependency graph must be acyclic.** A cycle is a structural error that gets fed back on retry with the cycle path named.
+* **Every non-foundation component must have a `<dep>` edge pointing at the foundation component.** Foundation owns the project root — build config, shared utilities, base types, the application factory — and every other component's code reaches into it at runtime, so the dependency is mandatory and enforced by the validator. Foundation itself has no outbound dependencies and is the only sink in the dep DAG.
+* Policies can induce additional dependency edges — if a policy says "any LLM call must fulfill `resp_telemetry`," every component that has LLM-calling responsibilities needs a dep on whichever component fulfills `resp_telemetry`. Reason about policies first, then emit `<dependencies>` so policy-induced deps land naturally on top of the mandatory foundation deps. This is why the section order puts `<policies>` before `<dependencies>`.
+* **Acyclicity has architectural implications.** Because deps are acyclic, cross-cutting concerns (configuration, telemetry registration, route registration, middleware) cannot use mutual dependencies. A component that needs to know about all its dependents' shapes — a config loader that reads every component's config section, a telemetry registry that enumerates every component's events — must provide a **registration interface** that dependents call into, not import from dependents directly. The pattern is inversion of control: foundation (or whatever component owns the cross-cutting infrastructure) provides the machinery; each component registers its own contribution on startup. Design your components so that the flow of registration goes from dependents toward foundation, not the other way.
+
+## Coverage
+
+* Every top-level responsibility from the input list must be assigned to exactly one component's `<responsibilities>` block. Missing assignments and assignments to multiple components are structural errors.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you arrived at the list. Output only the `<sysarch>` block.
+* Unescaped `&` and `<` inside `<purpose>` / `<invariant>` / `<operation>` / `<runtime>` / `<persistence>` / `<write-path>` / `<concurrency>` / `<testing>` / `<deploy>` / `<technologies>` / `<rationale>` text are fine — the parser tolerates them.
+{% if feedback %}
+
+# Revising against feedback (surgical modification)
+
+The downstream tiers (comparch, subcomparch, impl) already exist and
+were composed against the components, dependencies, and policies that
+are in the body today. Every node id, alias, dep edge, and policy that
+the feedback doesn't touch must round-trip identically — otherwise you
+orphan ledger entries, invalidate downstream comparches, and force a
+deeper regen than the author wanted. The grammar is byte-identical to
+the fresh-generation grammar above; the CLI re-validates on write and
+structural errors are fed back to you on retry.
+
+## The preserve-don't-redesign discipline
+
+* **Every component the feedback doesn't mention must round-trip unchanged.** Same alias, same `<name>`, same `<purpose>`, same `<owned-invariants>` (verbatim text), same `<primary-operations>` (verbatim text), same `<responsibilities>` block. Do **not** re-litigate purpose phrasing, invariant phrasing, or operation phrasing on components the author isn't asking you to touch — those handles are already grounded in downstream prompts and rewriting them creates drift the author didn't ask for.
+* **Aliases are stable identifiers.** A component's `alias` attribute is its identity key. Renaming an alias mints a fresh component id and orphans the prior comparch + subcomparch + impl nodes under it. Only change an alias when the author explicitly asks for it; default to preserving every alias as-is.
+* **The `<techspec>` block's seven labeled children are the project's commitment surface.** Downstream comparches read this verbatim to decide their internal subcomponent decomposition. Touch a `<runtime>` / `<persistence>` / `<write-path>` / `<concurrency>` / `<testing>` / `<deploy>` / `<technologies>` block only when the feedback asks you to. Preserve the other six verbatim.
+* **Policies are sticky.** Each `<policy>` is a load-bearing project-wide commitment; downstream tiers read the `<trigger>` + `<required>`/`<structural/>` + `<rationale>` to decide policy applications. Don't add, drop, or rewrite policies the feedback isn't pointed at.
+* **Dependency edges are sticky in both directions.** The dependency DAG must stay acyclic. If the feedback adds a component, you may need to add deps from/to the new component to keep coverage; but don't reshuffle deps among components the feedback isn't touching. The acyclicity check fires on the whole graph — accidental edge-rewrites between unrelated components can introduce cycles that fail the validator.
+* **The foundation marker is unique.** Exactly one component carries `<foundation/>`. Don't move it unless the feedback explicitly redesigns the foundation slot.
+
+## When the feedback says…
+
+* **"Rename X to Y"** — change the `<name>` element only. The alias stays put.
+* **"Split component X into A and B"** — add the two new components with new aliases, redistribute X's `<responsibilities>`, re-point any deps from/to X across the split, drop X. Note in the `<introduction>` block what split logic you applied so future regens can reason from your handle.
+* **"Add a new component"** — add it without touching any other component. Decide its position in the `<components>` ordering (typically near related components for readability). Wire the mandatory foundation dep + any policy-induced deps.
+* **"Drop component X"** — remove it, reassign every responsibility it owned to whichever component should pick them up (the feedback usually names the recipient — ask if it doesn't), remove deps that reference it.
+* **"Change X's purpose / invariants / operations"** — edit only that component's `<purpose>` / `<owned-invariants>` / `<primary-operations>` block. The handle rules (concrete language, structural-not-procedural phrasing for invariants, 2-4 invariants, 3-6 operations) still apply to the new text.
+* **"Add / remove / move a policy"** — edit only `<policies>`. Update `<dependencies>` if the policy's `<required>` resp owner changes (a policy-induced dep follows the resp's enforcer).
+* **"Re-phase / re-articulate the techspec's runtime / write-path / …"** — edit only that one labeled block. The other six stay verbatim.
+* **"Address review finding #N"** — the prior review text is in the bundle. Map the finding to one or two specific components / sections, modify those, leave the rest alone.
+
+## The `<introduction>` block
+
+Update the `<introduction>` only when the architectural framing
+materially shifts (a component splits, a policy reshapes the dep
+graph). For pure phrasing-level edits — renaming a component,
+polishing an invariant, fixing a typo in a rationale — the prior
+`<introduction>` stays verbatim. The `<introduction>` is the
+human-readable lineage record; small mods don't need a new chapter.
+
+## Anti-patterns
+
+* Rewriting every component's `<purpose>` to "improve handle quality" while the feedback only asked you to add a new policy. The other purposes were already good handles; rewriting them adds noise and creates downstream-drift work the author didn't ask for.
+* Re-allocating responsibilities across components in response to a feedback item that only asked for a name change. Resp ownership is sysarch's load-bearing decision; resp-shuffling is its own architectural decision and shouldn't ride in on an unrelated edit.
+* Adding "while we're here" tweaks to the techspec, policies, or dep graph that the feedback didn't ask for. The author batched the feedback they want; if they wanted more they'd have asked.
+* Reordering the four children inside `<sysarch>`, or reordering components alphabetically without being asked. The current order encodes the author's reading flow.
+{% endif %}

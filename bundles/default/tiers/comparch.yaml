@@ -1,0 +1,56 @@
+# v4 §1.5, re-expressed (seed-docs/siege-prompts/comparch.md is the
+# prose source; domain/presentational content stripped per v5 §4.1,
+# see sysarch.yaml). Decomposes: its <subcomponents> block mints one
+# subcomp per child (subcomponent_fanout) and its produces: writes
+# the five fragments onto self.parent — the comp, not onto the
+# children it just minted. v5 growth per
+# docs/v5-design-decisions.md §2.9/§2.16/§6: <permissions>,
+# <enforcement>, per-scope <implementation> (stub grade).
+tier: comparch
+scope: per(comp)
+identity: id
+fields:
+  decomposition_summary: draft.subcomponents
+handle:
+  fields: [id, decomposition_summary]
+  fragments: []
+draft:
+  root_tag: comparch
+  grammar: schemas/comparch.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/comparch.md.liquid
+context:
+  - self.parent.handle
+  - self.parent.fulfills -> resp.handle
+  - self.parent.dependency -> comp.handle.fragments[pubapi]
+  - self.parent.dependency -> comp.handle.fragments[failure_surface]
+  - self.comparch_ref -> ref.handle
+# No walk to `policy` here, and this is a recorded gap, not an
+# oversight: v5 §4.5's load-bearing grain scopes a policy *through a
+# responsibility* (policy_scope_resp: policy -> resp), and
+# dsl-syntax.md §7's context grammar is one hop only ("only one edge
+# before -> is legal" — lib/catapult/dsl/context_walk.ex). Reading
+# "policies that apply to me" from comparch would need two hops
+# (self.parent.fulfills -> resp, then resp's inbound policy_scope_resp
+# edges) or a denormalized edge this ticket does not invent. Direct,
+# comp-scoped policies (policy_scope_comp) are one hop and *are*
+# walkable, but wiring only that half would silently under-deliver the
+# grain the redirect called load-bearing, so neither is wired here.
+# The comparch prompt's own "applied policies" section documents this
+# as an open item rather than pretending a variable that is never
+# populated. Recorded in systems/platform_content.md.
+produces:
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
+  - fragment: { owner: self.parent, kind: policies, authored: draft.policies }
+  - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure_surface }
+review:
+  prompt: prompts/review/comparch.md.liquid
+  grammar: schemas/review.xsd
+delivery:
+  phase: generation
+  agent_step: design
+enforcement: []

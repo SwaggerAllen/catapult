@@ -1115,3 +1115,69 @@ recorded decision, and say so explicitly.
   §2.8 named decision visible in the same diff, and the `check:` line
   belongs in that diff. Revisit condition: none. This is the one half of
   §11's enforcement where the thing being added announces itself.
+- **No `domain_parent` replacement edge in the default bundle's
+  architecture chain** (ORC-84). v5 §4.1 replaces v4's domain/
+  presentational split — and `domain_parent`, the edge that let a
+  presentational comp read its domain parents' fan-in synthesis — with
+  the product/backend/frontend tier split; this ticket's chain is
+  backend-only, so nothing in its scope consumes a parent-link edge.
+  The tempting move is inventing one anyway "for symmetry" with v4's
+  five named edges. Refused: a frontend or product-tier parent-link
+  edge, if the eventual Phase 5 frontend architecture needs one, is
+  that phase's decision to make against tiers that actually exist by
+  then, not a placeholder wired against nothing today. Revisit
+  condition: Phase 5's frontend/product tiers landing with a real need
+  for a structural parent-link back to a backend component — at which
+  point the edge is argued against real consumers, not guessed at.
+- **No `per(scaffold_tier)`-style flow planning-tier fan-out** (ORC-84),
+  against v4's own flow shape (`catapult-default-bundle-v4-examples.md`
+  §2.1-2.6's `scope: per(scaffold_tier)`, one plan node per tier the
+  cascade visits). v5's closed scope-expression set
+  (`singleton | per(X) | child_of(X)`, dsl-syntax.md §3.1) has no tier
+  named `scaffold_tier` to range over — v4's version was informal
+  shorthand for "whichever tier this cascade instance is currently
+  touching," which has no minted-node counterpart in this bundle. Each
+  of this ticket's five flows mints one `singleton`-scoped planning
+  node per open flow instance instead. Revisit condition: a real
+  "current cascade position" tier construct landing in the core DSL,
+  which is core-vocabulary growth for `core_dsl` to decide, not a
+  content-porting ticket's to improvise around.
+- **No two-stage `assessment_plan` + `propagation_plan` split for
+  `upward_propagation`** (ORC-84), against v4's own shape
+  (`catapult-default-bundle-v4-examples.md` §2.5). Sequencing two
+  flow-scoped planning tiers — open the downstream one only after the
+  upstream one's regeneration lands — needs instance-level flow state
+  (has the upstream stage closed yet) that this ticket's own stated
+  scope excludes ("projection-time instance checks" is out of scope).
+  One combined `upward_propagation_plan` tier stands in for both.
+  Revisit condition: flow instance state becoming a real, checkable
+  loader or engine concept — at which point the two-stage split is
+  worth relitigating on its own merits, not smuggled in under a
+  content port.
+- **No `fragments.yaml` or `plan.yaml` as separate bundle files**
+  (ORC-84), against this same ticket's own Layout section, which names
+  both. Filed as a pipeline finding rather than quietly followed:
+  `Catapult.Dsl.Manifest` (the merged ORC-5 loader) reads `fragments:`
+  as an inline list inside `bundle.yaml` and has no parser for a
+  standalone `fragments.yaml` at all; `plan.yaml` has nothing left to
+  declare once v5 §6 drops the phase machinery it existed to compute,
+  and `dsl-syntax.md` §1's own canonical tree does not list one. The
+  loader as merged wins over the ticket's file list, per the same rule
+  that governs every other doc-vs-doc disagreement in this repo.
+  Revisit condition: none foreseeable for `plan.yaml` (there is no
+  phase concept left to give it content); for `fragments.yaml`, only a
+  future loader change that adds a standalone-file parser for it.
+- **No context walk wiring "policies applied to me through my
+  responsibilities" onto `comparch`** (ORC-84), against v5 §4.5's own
+  description of that grain as load-bearing. `dsl-syntax.md` §7's
+  context grammar is one hop only, and the through-responsibility grain
+  needs two (comp → resp via `fulfills`, then resp's *inbound*
+  `policy_scope_resp` edges, which a forward-only walk can't traverse
+  either). Wiring only the direct grain (`policy_scope_comp`, which
+  is one hop) was rejected too — it would silently under-deliver the
+  grain the redirect called load-bearing while looking complete.
+  Neither is wired; `comparch.yaml` names the gap in a comment and the
+  prompt's own "applied policies" section documents it rather than
+  reading a variable nothing populates. Revisit condition: a two-hop
+  context walk or a denormalized edge becoming real DSL surface, which
+  is `core_dsl` vocabulary growth, not this ticket's to invent.

@@ -1,0 +1,13 @@
+{% render "partials/_review_framing" %}
+
+Checklist for this tier:
+
+- Does this sub's tech choice match the parent comparch's technical specification given as context above? Flag drift in either direction — claiming Python on an Elixir project, claiming async where the parent says sync, claiming a typed-error union where the parent uses tagged tuples. The parent's techspec is the canonical ground truth for this subcomponent, not your prior about what "subs like this" usually use.
+<!-- voided: source also compared against `project_techspec`, the project-wide sysarch baseline — subcomparch's context walk has no route back to sysarch's techspec (subcomp.yaml carries parent_techspec, one hop up from comparch, but no project-wide copy the way comp.yaml's project_techspec field gives comparch's own review) -->
+- Are the parent comparch's policies, given as context above, honoured by this sub's surfaces? When this sub's code is a candidate site for a parent policy's trigger, the sub's prose should explicitly acknowledge the policy or name why it doesn't apply.
+- Are this sub's surfaces coherent with the parent's failure modes, given as context above? The parent named residual risks at the comparch tier; the sub's owned slice contributes to or guards them — surfaces that would silently mask a parent-named failure mode are drift.
+- Is the cut of pubapi vs. privapi principled, or is the public surface bloated with internals that no sibling actually needs? Flag pubapi entries that could be private without breaking sibling consumers.
+- Is the sub's scope (its role + what it actually builds via pubapi + privapi) coherent? Flag bundles of unrelated concerns inside one sub, and flag pubapi entries that don't map to any responsibility this sub claims.
+- Is the process inventory grounded — does each `<process>` entry's category (`local` / `singleton` / `sharded`) match what the techspec or private-surface actually describes about its coordination needs, and does any process holding data that must survive a restart rebuild it from persistence rather than owning it? Flag a process with no purpose distinct from a plain function call, and flag a missing guardrail where the techspec or private-surface describes unbounded input the process absorbs.
+- Are the declared `<dependencies>` minimal — only the siblings this sub actually calls — and grounded in the techspec or pubapi/privapi prose? Flag deps that aren't grounded in either.
+<!-- voided: source also checked deps against `project_dependencies`, the project-wide dependency graph, and allowed "parent-siblings" as a target kind — neither is reachable from this tier's context (see subcomparch.md.liquid's Dependencies section: same-parent sibling subcomponents only) -->

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v4 §1.1 (seed-docs/siege-prompts/feature_expansion.md), re-expressed.
+  The <vocabulary> block is narrowed from siege's version: siege embeds
+  a full <vocab-entry> (definition/disambiguation/see-also) per term
+  here; this bundle has this tier flag a candidate term only (name +
+  scope), and vocab's own tier (schemas/vocab.xsd) does the defining —
+  the same mint/articulate split every fanout in this bundle already
+  uses. Content delta recorded in systems/platform_content.md.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="TermScope">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="project"/>
+      <xs:enumeration value="feature"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Feature">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="intent" type="xs:string"/>
+      <xs:element name="implicit" minOccurs="0" maxOccurs="1">
+        <xs:complexType/>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Group">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="feature" type="Feature" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- A features block mixes standalone <feature> and <group> children
+       in author order; xs:choice with maxOccurs="unbounded" preserves
+       that rather than forcing groups first or last. -->
+  <xs:complexType name="Features">
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="feature" type="Feature"/>
+      <xs:element name="group" type="Group"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:complexType name="Term">
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="scope" type="TermScope" use="required"/>
+    <!-- required iff scope="feature"; a cross-field rule the loader's
+         instance-level checks enforce, not XSD alone (dsl-syntax.md
+         §13's split between load-time structure and projection-time
+         instance constraints). -->
+    <xs:attribute name="feature-name" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="Vocabulary">
+    <xs:sequence>
+      <xs:element name="term" type="Term" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="feature-expansion">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="introduction" type="xs:string"/>
+        <xs:element name="features" type="Features"/>
+        <xs:element name="vocabulary" type="Vocabulary" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

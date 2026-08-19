@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The bug_fix flow's planning-tier grammar. No siege source (v4
+     §8.2's prose is the only input) — kept small. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="bug-fix-plan">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="observed" type="xs:string"/>
+        <xs:element name="expected" type="xs:string"/>
+        <xs:element name="scope" type="xs:string"/>
+        <xs:element name="resolved" type="xs:boolean"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -1,0 +1,496 @@
+{% render "partials/_architecture_framing" %}
+You are producing the **architecture document** for a single component.
+This is the **last compression step** before implementation. Your
+`<public-surface>` fragment is the only thing dependent components
+will ever read about this component — if it's vague, every dependent
+must guess interface contracts, and guesses compound when multiple
+components depend on the same vague handle. Your
+`<technical-specification>` is what subcomponent arch docs will
+inherit and narrow, and what implementation nodes will read to choose
+libraries and patterns. Vagueness at this tier gets multiplied across
+every impl file under this component. The pressure on handle quality
+is highest here.
+
+**You also decompose the component**: each subcomponent declares which
+of the parent component's responsibilities it claims a slice of, and
+which specific feats of those responsibilities it handles. Aim for
+**single-owner**: each parent resp anchored by exactly one
+subcomponent. Multi-owner is allowed but reserved for one named
+pattern where the cooperation is real, not incidental — see
+`## The <owns> block` below.
+
+# Input
+
+Component handle: {{ parent }}
+
+Responsibilities this component fulfills:
+{% for resp in fulfills %}
+- `{{ resp.id }}` — {{ resp.name }}: {{ resp.summary }}
+{% endfor %}
+
+Sibling dependencies' public surfaces (may be un-articulated — treat a
+skeletal, sysarch-seed-shaped entry as not yet architected):
+{% for dep in dependencies %}
+- **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
+{% endfor %}
+
+Applied policies:
+{% for policy in applied_policies %}
+- **{{ policy.trigger }}**: {{ policy.required }} — {{ policy.rationale }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<comparch>` block containing ten
+sections in a fixed order: a role-level technical specification, the
+component's public surface, its private surface, the concrete failure
+surface this component can produce, the permission taxonomy it
+declares, the enforcement profiles it opts into, the policies it mints
+locally, its external dependencies, its subcomponent decomposition
+(with per-subcomp `<owns>` claims on parent resps + feat slices), and
+the dependency edges between subcomponents. The block is parsed and
+validated — structural errors are fed back to you on retry.
+
+# Output format
+
+Emit exactly one `<comparch>` block with these children in this order:
+`<technical-specification>` → `<public-surface>` → `<private-surface>`
+→ `<failure-surface>` → `<permissions>` → `<enforcement>` →
+`<policies>` → `<dependencies>` → `<subcomponents>` →
+`<sub-dependencies>` → `<references>` (optional). Example (abbreviated):
+
+    <comparch>
+      <technical-specification>
+    Python 3.11 on FastAPI. PostgreSQL via SQLAlchemy. Session
+    tokens are opaque UUID4 strings stored in the database, not
+    JWTs — refresh is a server-side lookup, not a cryptographic
+    operation. Credential hashing uses bcrypt with a work factor
+    pinned in config.
+      </technical-specification>
+      <public-surface>
+    The component exposes two call-sites to dependents:
+
+    ```python
+    def authenticate(credentials: Credentials) -> Session: ...
+    def resolve_session(token: str) -> Principal | None: ...
+    ```
+
+    Plus an event emitted on state changes:
+    `AuthenticationStateChanged(principal_id, kind)`.
+      </public-surface>
+      <private-surface>
+    Internal helpers not visible to sibling dependents:
+
+    ```python
+    def _verify_password(raw: str, stored_hash: str) -> bool: ...
+    def _rotate_stale_tokens(db: Session, cutoff: datetime) -> int: ...
+    ```
+      </private-surface>
+      <failure-surface>
+    Credential-verifier regression admits empty-hash matches and
+    lets any attacker sign in as any account (auth bypass); a bug
+    in session rotation issues duplicate active sessions for one
+    principal (silent identity-state divergence); session-store
+    writes bypassing the reducer corrupt the audit trail (log
+    drift, platform-integrity incident).
+      </failure-surface>
+      <permissions>
+        <permission name="auth.session.revoke">
+          <description>Revoke any active session, not just the caller's own.</description>
+        </permission>
+      </permissions>
+      <enforcement>
+        <profile name="codegen:restricted"/>
+      </enforcement>
+      <policies>
+        <policy>
+          <name>Failed Login Rate Limiting</name>
+          <trigger>any failed authentication attempt</trigger>
+          <required>resp_ratelim01</required>
+          <rationale>Brute-force attempts must bucket against
+    the same rate-limit sink every other protected endpoint uses.
+    Local to this component because the auth surface is where
+    failed attempts originate and the policy's required resp
+    has to be reachable from any site that can emit one.</rationale>
+        </policy>
+      </policies>
+      <dependencies>
+        <dep to="comp_audit999"/>
+        <dep to="comp_foundati"/>
+      </dependencies>
+      <subcomponents>
+        <subcomponent alias="session_store">
+          <name>SessionStore</name>
+          <purpose>Owns session rows and answers token lookups.</purpose>
+          <owned-invariants>
+            <invariant>every row has a single active principal</invariant>
+            <invariant>expired tokens are rotated on read</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>create a session for a principal</operation>
+            <operation>resolve a token into a session</operation>
+            <operation>rotate expired sessions</operation>
+          </primary-operations>
+          <responsibilities>Persists session state and serves token lookups for the
+    component's other subcomps and outside dependents.</responsibilities>
+          <owns>
+            <resp id="resp_session01">
+              <feat id="feat_authsess01"/>
+              <feat id="feat_authrefr02"/>
+            </resp>
+          </owns>
+          <implementation grade="real"/>
+        </subcomponent>
+        <subcomponent alias="credential_gate">
+          <name>CredentialGate</name>
+          <purpose>The single site that verifies plaintext credentials.</purpose>
+          <owned-invariants>
+            <invariant>raw credentials never leave this subcomponent</invariant>
+            <invariant>hash comparison uses constant-time equality</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>verify credentials and return a principal id</operation>
+            <operation>delegate session creation to the session store</operation>
+            <operation>emit a failed-auth event on mismatch</operation>
+          </primary-operations>
+          <responsibilities>Verifies plaintext credentials, hands off to SessionStore to mint
+    a session on success, emits failed-auth events on mismatch.</responsibilities>
+          <owns>
+            <resp id="resp_authn0001">
+              <feat id="feat_login0001"/>
+            </resp>
+            <resp id="resp_session01">
+              <feat id="feat_authsess01"/>
+            </resp>
+          </owns>
+          <implementation grade="real"/>
+        </subcomponent>
+        <subcomponent alias="foundation">
+          <name>AuthCore</name>
+          <purpose>Owns this component's root folder and shared base types.</purpose>
+          <owned-invariants>
+            <invariant>shared base types stay versioned together</invariant>
+            <invariant>one source of truth for component settings</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>load settings from the environment</operation>
+            <operation>configure logging for this component</operation>
+            <operation>expose shared base classes</operation>
+          </primary-operations>
+          <responsibilities>Component-internal plumbing — settings loader, logging config,
+    shared base classes. No parent resp claims.</responsibilities>
+          <owns/>
+          <implementation grade="real"/>
+          <foundation/>
+        </subcomponent>
+      </subcomponents>
+      <sub-dependencies>
+        <dep from="session_store" to="foundation"/>
+        <dep from="credential_gate" to="session_store"/>
+        <dep from="credential_gate" to="foundation"/>
+      </sub-dependencies>
+    </comparch>
+
+# Rules
+
+Cross-section consistency is the property that distinguishes a usable
+comparch from one impl will fight. The most common defect this tier
+produces is two sections that disagree — an `<invariant>` claiming "X
+never happens" alongside a `<failure-surface>` entry describing X
+happening, a techspec promising atomicity alongside a failure mode
+that requires non-atomicity, a public-surface return type that cannot
+express a failure the failure surface explicitly names, a
+primary-operation that no public or private surface entry mounts.
+Treat the sections as a single document throughout generation, not as
+independent sections you reconcile at the end. The rules below are
+written so that following each section's rules produces sections that
+already agree; the self-checks at the end are a final scan, not the
+place where consistency gets introduced.
+
+**Names create semantic obligations.** Every named identifier this
+comparch emits — subcomp name, type name, sum-type variant, field
+name, parameter name — advertises a contract the rest of the document
+must honour. A sum type called `blocking_reason :: :ready | :running |
+:throttled` is a contradiction; if `:ready` and `:running` aren't
+blocking scenarios the type is mis-named, and either rename it
+(`node_state`) or drop the non-blocking variants. A parameter called
+`highlight` claims the public surface threads it through to a
+rendering consumer; if the techspec and private surface never resolve
+it to anything, the parameter is a dead promise, and either wire it up
+or strike it. A subcomponent called `X Dispatcher` claims X is what it
+dispatches; if it orchestrates Y and dispatches Z, rename to match.
+Before emitting any named identifier, read it back as a contract: what
+does this name promise? Then verify the rest of the doc honours that
+promise. Names that overstate are the second-most-common contradiction
+shape after invariant overreach.
+
+**Type-shape parity across sections.** The dominant remaining
+contradiction shape after the invariant and naming rules is a section
+referencing a type whose actual definition in the public or private
+surface doesn't carry the fields or variants that section needs.
+Recurring examples:
+
+* The failure surface names "schema-version drift" as a failure mode but the `Validated` struct in the public surface has no `schema_version` field — there is no shape to detect what the failure surface promises.
+* A primary-operation says it returns a `Document` while the public surface returns an untyped map — the type referenced by the operation doesn't exist.
+* The private surface mentions a `:transient` error variant that the public-surface error union omits — the variant has no outbound path to callers.
+* A subcomponent's `<owned-invariants>` references a sequence number the projection schema in the public surface doesn't store — the invariant rests on a field that isn't there.
+* A failure-surface entry says the public API returns a typed error reason that the public surface's error union doesn't include — there is no way for a caller to discriminate it.
+
+Before writing the techspec, failure surface, or subcomponent
+operations, draft the public and private surfaces' types in your head —
+every record/struct's fields, every sum type's variants, every
+function's arity, every error union's members. Every later section's
+named reference must hit a type / field / variant from that draft. If a
+section needs a shape the surfaces don't provide, add it to the
+surface — don't reference a phantom shape and hope the impl tier
+reconciles it.
+
+**Sibling contract discipline.** Cross-component drift is the largest
+remaining defect class — comparches claim API calls on siblings the
+sibling never published, or silently drop dependencies the project
+sysarch named. Two checks against the sibling pubapi and declared
+dependency context above:
+
+*Use only what the sibling published.* When your techspec,
+primary-operations, owned-invariants, or sub responsibilities describe
+calling a sibling component, the operation you're calling must appear
+in that sibling's pubapi block. If the sibling's pubapi looks
+skeletal — terse role-level bullets, no typed signatures, matching the
+sysarch-mint seed shape rather than a real comparch's articulated
+public surface — treat the sibling as **un-articulated**. Either omit
+the specific call mechanics from your techspec, or explicitly name the
+dependency on the sibling's articulation (e.g., "depends on
+PermissionResolver exposing a grant-binding query — sibling is
+currently at the sysarch seed stage, this comparch's call shape is
+provisional pending that articulation"). Do not invent operations on
+the sibling's side because your comparch needs them. The reviewer will
+catch this as cross-component drift either way; surfacing the gap
+honestly is the higher-yield move because it tells the campaign which
+siblings need to land before this one is approval-ready.
+
+*Don't drop declared deps.* If the input names this comp as depending
+on another comp, the dep must appear in your `<dependencies>` block
+AND your techspec / primary-operations / private-surface must show
+*how* the call lands — not just that the relationship exists. A
+declared dep with no operational use is a sysarch-level claim your
+comparch silently rejected; either honour it (by routing some
+load-bearing concern through it) or surface the mismatch in the
+techspec ("sysarch names a dep on X, but this comparch finds no use
+for it; flagging for sysarch review"). The reviewer flags missing-dep
+usage as drift; either fix strengthens the artifact.
+
+## Structure
+
+* Emit **exactly one** `<comparch>` root block. Nothing before, nothing after.
+* The children **must appear in this order**: `<technical-specification>` → `<public-surface>` → `<private-surface>` → `<failure-surface>` → `<permissions>` → `<enforcement>` → `<policies>` → `<dependencies>` → `<subcomponents>` → `<sub-dependencies>` → `<references>` (omit entirely when nothing is attached). Out-of-order sections are a structural error.
+* No unknown top-level children under `<comparch>`.
+
+## Fragment sections (techspec / pubapi / privapi / failure-surface)
+
+* `<technical-specification>` is a **role-level** paragraph describing the component's technology and architecture choices. Subcomponent arch docs will inherit and narrow this techspec. Implementation nodes downstream will read it to choose the specific libraries, patterns, and configuration shapes they use. Be specific: the concurrency model, the persistence pattern, the error-handling strategy, the testing approach for this component. A techspec that says "Python on FastAPI" tells impl nothing about whether to use async handlers or sync, SQLAlchemy sessions or raw queries, exception handlers or result types. **No** per-subcomponent sequencing, no implementation walkthroughs. The techspec propagates downward only and does not get regenerated when child impls iterate.
+* Structure the spec as paragraphs separated by a blank line. Each paragraph addresses one concern — concurrency, persistence, error handling, testing. Don't use bullet lists or headings; the downstream renderer splits on blank lines and wraps each paragraph in its own block.
+* `<public-surface>` is the **only surface dependent components will ever read** about this component. Types, function signatures, method signatures, events. Code-shaped content lives in fenced code blocks; any language is fine. Dependents need: call shapes with approximate signatures, return types, error modes (what can fail and how the caller learns), side-effect boundaries (what state changes), and event contracts (what this component publishes that others might subscribe to). A public surface that says "exposes CRUD operations" forces every dependent to guess the actual shapes. Only surface that sibling components will call; internal helpers belong in `<private-surface>`.
+* `<private-surface>` is internal types and helpers visible to this component's own subcomponents, but **not** to sibling dependents. This is what subcomponent arch docs will use to understand the internal infrastructure they build on top of. Same fenced-code-block convention as the public surface.
+* `<failure-surface>` names the **residual risks that survive the component's invariants** — coverage gaps in checks the invariants describe, race windows that bound otherwise-strong guarantees, observable consequences of best-effort or eventually-consistent behavior, and concrete wrong-output shapes the type system cannot prevent. **Failure-surface entries are not violations of invariants.** If you find yourself writing one that contradicts an invariant or a techspec promise, fix one of them first — either the invariant is overclaiming and needs weakening, or the failure mode is fabricated. The two sections must agree.
+* Each entry names three things: (a) the **mechanism** that fails — what specific code path or interaction leaks the failure, not "the system fails"; (b) the **observable shape** — what return value, event, or state the caller sees that differs from intended, in the same terms as the public surface; (c) the **detection characteristic** — silent until runtime, surfaces immediately as a typed error, eventually consistent within window W, etc. Pack multiple distinct failure modes into one paragraph separated by semicolons. Good shape: "YAML parser silently coerces ambiguous values like bare on/off tokens, producing `{:ok, schema}` with corrupted fields invisible until downstream runtime behavior diverges." Bad: "service becomes unreliable", "data issues", "users affected".
+* **When the techspec commits to a typed error discipline** (Elixir tagged tuples, Rust `Result`, TypeScript discriminated unions, Go's typed errors), every entry in the failure surface must have a corresponding variant in the public-surface return type. The pubapi's error union becomes the consistency anchor: failure modes the type cannot express are silent failures, not residual risks. If you cannot find a matching variant, either add one to pubapi or strike the failure mode from the surface.
+* All four fragment sections must be non-empty. Do not put nested XML tags inside them — only prose and fenced code blocks.
+
+## Permissions and enforcement
+
+* `<permissions>` declares the permission taxonomy this component defines — zero or more `<permission name="...">` entries, each with a `<description>`. This is code, not data: role-to-permission bindings are a separate, data-side concern this grammar does not model. Name a permission only when this component's public surface actually gates an operation behind it; an unused permission is dead vocabulary.
+* `<enforcement>` names zero or more platform-defined `<profile name="...">` refs (`codegen: restricted`, `purity: replay_floor`, and whatever else the registry has installed). This is a closed vocabulary the extension registry enforces, not this grammar — the schema only shapes the reference. Emit `<enforcement></enforcement>` empty when the component opts into no profile.
+
+## Policies
+
+* `<policies>` is zero or more component-local `<policy>` entries. Each policy has exactly one `<name>`, one `<trigger>`, one `<rationale>`, and **at most one of** `<required>` or a self-closing `<structural/>`.
+* `<trigger>` is a short semantic phrase identifying the sites the policy applies to (e.g. "any LLM call", "any failed authentication attempt", "any outbound HTTP request").
+* `<required>` is a single `resp_*` ID. The allowed set is: (a) the top-level responsibilities assigned to this component, or (b) the pre-minted subresponsibilities this component owns. Cross-component resp references are not allowed — if a policy needs a resp that lives elsewhere, it's a top-level policy and belongs in the sysarch doc, not here. Use `<structural/>` instead of `<required>` for a component-local obligation that doesn't reduce to any single owned responsibility (e.g. a naming convention scoped to this component's own subtree). **Omit both** for universal-scope policies that every subcomponent in this component's subtree should honor without any single sub owning enforcement. The application pass then attaches the policy to every subcomp candidate in scope.
+* `<rationale>` is a paragraph explaining why the policy exists and why it's component-local rather than top-level. Carries weight in the policy application pass that runs after mint.
+* If the component has no cross-cutting invariants worth stating, emit an empty `<policies></policies>` block.
+
+## Dependencies (external)
+
+* `<dependencies>` lists the sibling top-level components this component reaches for, each as `<dep to="comp_XXXX"/>` with a real `comp_*` ID (not an alias). The allowed targets are the sibling components listed in the input context — do not invent IDs, do not reference yourself.
+* At most one `<dep>` per target; duplicates are rejected.
+* This is external-only: deps between subcomponents live in `<sub-dependencies>`, not here.
+
+## Subcomponents
+
+* Each `<subcomponent>` carries an `alias="..."` attribute used for local references in `<sub-dependencies>`. Alias syntax: lowercase letter first, then lowercase alphanumerics or underscores, 1-32 characters; regex `^[a-z][a-z0-9_]{0,31}$`. Aliases are unique within `<subcomponents>`.
+* Each `<subcomponent>` has exactly one `<name>`, one `<purpose>`, one `<owned-invariants>`, one `<primary-operations>`, one `<responsibilities>`, one `<owns>` block, and one `<implementation>` (§Stub grade below).
+* `<name>` is a short identifier — title case. **Match name specificity to responsibility specificity.** A subcomp with domain-specific invariants and operations gets a domain-specific name ("SessionStore", "CredentialGate", "PaymentReconciler"). A subcomp that is genuinely generic infrastructure — a registry of provider adapters, a gateway over external SaaS calls, a dispatcher routing to per-tier handlers — gets a structural name ("ProviderAdapterRegistry", "WebhookGateway", "DispatcherCore"). The anti-pattern is wrapping domain logic in a generic shell ("BillingManager" for payment-reconciliation logic, "AuthService" for credential-verification logic) — that hides what the subcomp actually owns. If your subcomp's invariants and operations name a specific domain concern, the name must too; if they name a generic plumbing concern, the name should reflect that plumbing role rather than dressing it up.
+* `<purpose>` is the one-sentence reason this subcomponent exists. The subcomparch pass reads it first when deciding the subcomponent's internal structure, and impl nodes read it to frame what code they're writing. Name the subcomponent-distinctive *why*, not the category. "The single site that verifies plaintext credentials" is a handle; "handles credentials" is category-speak. If you need an "and", consider whether the subcomponent is actually two.
+* `<owned-invariants>` lists **2-4 short noun phrases** naming the durable state or guarantees this subcomponent owns. Concrete enough that a reviewer can point at the impl and say yes/no. If you find yourself listing more than four, push the extras to implementation detail; if fewer than two, the subcomponent's role is too thin.
+* **Phrase invariants as structural facts, not procedural promises.** This is the single highest-leverage rule for this section. Procedural phrasing ("every X does Y", "X always succeeds", "no X ever happens") invites the failure surface to contradict the invariant. Structural phrasing ("X is the only path to Y", "Y is a deterministic function of X", "Z's content commits before W is dispatched", "the schema declares exactly title and body fields") lets the failure surface describe coverage gaps and residual risks without contradiction. The clearest tell: a structural invariant survives the question "what if a future code path skips this check?" — that scenario becomes a coverage gap in the structural commitment, not a contradiction. A procedural invariant collapses on the same question.
+
+  Worked example. *Procedural*: "every tool invocation checks the instigation guard before dispatching." The failure surface inevitably writes "a code path dispatches without calling the guard" — direct contradiction. *Structural rewrite*: "the instigation-guard module is the sole call path tool handlers traverse to reach mutation dispatch." Now the same failure-surface entry reads as a coverage gap in the call-graph design — consistent with the invariant.
+
+  More examples of the rephrase:
+
+  - "every credential decryption emits an audit event" → "the audit-emit primitive is on the only path through which decryption returns to the caller; calls that bypass it are rejected by the type system".
+  - "approving the same bootstrap content twice produces the same event sequence" → "mint is a pure deterministic function of approved content".
+  - "every LLM call records token telemetry" → "the gateway is the sole entry to provider APIs and runs telemetry recording inline before returning".
+
+  Good concrete invariants regardless of phrasing style: "raw credentials never leave this subcomponent" (structural — the boundary is a fact about the call graph), "hash comparison uses constant-time equality" (structural — a property of the implementation choice), "every row has a single active principal" (structural — a uniqueness property of the data).
+* **Code-level guarantees, not user-level promises.** Even with structural phrasing, an invariant overreaches when it states an outcome the implementation cannot actually enforce. "Every notification is always delivered" is an aspirational outcome — if dispatch goes through PubSub, which can drop messages, the code does not guarantee delivery. "Telemetry is complete for every call" is aspirational if the failure surface admits silently-dropped recordings. "Foundation is the sole query path to any data" is aspirational if a sibling subcomponent reads projection state directly. The right invariant names what the code enforces — the dispatch envelope, the typed primitive, the boundary check — and lets the user-level outcome live in `<primary-operations>` or the techspec where best-effort phrasing is appropriate. The diagnostic: every scenario the `<failure-surface>` lists must be expressible without contradicting any invariant. If a failure-mode contradicts an invariant, the invariant is overreaching — weaken it to describe the enforcement, not the outcome.
+* `<primary-operations>` lists **3-6 short verb phrases** naming the operations callers (sibling subcomponents or outside dependents) invoke on this subcomponent. Examples: "verify credentials and return a principal id", "rotate expired sessions". Downstream elaborates these into real pubapi signatures; at this tier we just need the action handles. No "handle X" / "manage Y" category verbs — rewrite as concrete actions.
+* `<responsibilities>` is **free-text prose** (one to three sentences) describing what this subcomp does. The subcomparch pass reads it as framing alongside the structured `<owns>` claims below. Write the prose so a reader can understand the subcomp's role without reading the rest of the doc.
+
+## Stub grade
+
+* Every `<subcomponent>` carries one `<implementation grade="real"|"stubbed"/>`. This is the doctrine that externally-gated scopes get a fully-designed contract over a deliberately hollow body rather than an improvised, undeclared shortcut: design the contract fully, type it opaquely, stub the implementation, declare the grade with its exit plan. An agent improvising a stub without the declaration is a prompt bug, not a judgment call.
+* `grade="stubbed"` requires `<swap>` (`transparent` | `migration` | `reset` — how the eventual real implementation replaces this one) and `<exit-plan>` (prose: what has to happen externally before the swap can land — a credential arriving, a partner API going live, a decision from outside this generation run). The lie must be loud: a stubbed subcomponent's contract, invariants, and failure surface describe the real thing it will become, not the stand-in.
+* `grade="real"` omits both — nothing about this subcomponent depends on an external timeline.
+
+## The `<owns>` block (parent-resp + feat-slice claims)
+
+This is where the structured decomposition lives. Each subcomp's
+`<owns>` block declares which of the parent component's **top-level
+responsibilities** this subcomp claims a slice of, and which specific
+**feats** of those resps it handles.
+
+Shape:
+
+    <owns>
+      <resp id="resp_payment01">
+        <feat id="feat_payment_v01"/>
+        <feat id="feat_3ds_chal01"/>
+      </resp>
+      <resp id="resp_invoice02">
+        <feat id="feat_invoice_v01"/>
+      </resp>
+    </owns>
+
+* Every `<resp id=...>` must match one of this component's **parent responsibilities** shown in the input list (the resps sysarch assigned to this comp via `fulfills`). No cross-component leaks; no invention; no renaming.
+* Every `<feat id=...>` inside a `<resp>` must be one of the feats tagged on that parent resp (shown in the input as bracketed ids next to each parent-resp row).
+* **Default is single-owner**: each parent resp gets one subcomp that anchors it. Multi-owner is legal but reserved for one specific pattern where the work genuinely splits along a seam. **Outside that pattern, do not double-claim a resp** — if you find yourself reaching for it, the decomposition axis is probably wrong; refactor the subcomp boundaries instead.
+* **The recognized multi-owner pattern is the read-path / write-path split**: a query-side subcomp (read path) and a mutation-side subcomp (write path) legitimately co-own the same parent resp because the same feat manifests on both sides of the data direction. The seam is "which direction does the data flow?". When you use this pattern, the read-side subcomp's `<responsibilities>` should say "read path for resp_X; co-owns with X_writer" and the write-side subcomp's prose should say the symmetric thing.
+* **No other multi-owner pattern is accepted by the prompt.** If your decomposition needs three subs claiming the same resp, or two subs claiming the same resp without the seam above, the validator may accept it but the reviewer will flag it and impl will be confused about who's accountable. Refactor instead.
+* **Empty `<owns/>` is legal** for foundation / internal plumbing subcomps that earn their keep structurally rather than by anchoring a parent resp (e.g., a settings loader, shared base types, a lock manager). Most subcomps will have non-empty `<owns>`; an empty block is a deliberate "this subcomp doesn't anchor any parent resp" signal.
+* **Coverage at the component level** (validator-enforced):
+  - **Every parent resp** assigned to this component must be claimed by ≥1 subcomp. A parent resp with no claimants is a coverage gap.
+  - **Every feat** tagged on a parent resp must be claimed by ≥1 subcomp that claims that resp. A feat with no owning subcomp under its parent resp is a coverage gap.
+* The structured `<owns>` block is what the validator and the mint handler read; the prose `<responsibilities>` block above is the human-facing framing.
+
+## Decomposition guidance
+
+Subcomp boundaries naturally split along **data/operation seams**: per
+persistence layer (writer / reader / cache), per operation kind (sync
+API / async worker), per concern (lock manager / idempotency tracker /
+event emitter). A "Billing" component might decompose into
+`payment_writer`, `settlement_reader`, `payment_cache`,
+`retry_scheduler`. Multi-owner is rare: the legitimate case is the
+**read-path / write-path split** above — query subcomp + mutation
+subcomp co-owning a resp because the same feat manifests on both sides
+of the data direction. A cross-cutting sub like `retry_scheduler`
+should anchor its own resps (retry-policy, dead-letter routing) rather
+than re-claim feats from payment-collection and invoice-delivery
+resps.
+
+If your decomposition's subcomp names sound like the parent
+component's name with a noun suffix ("BillingService" →
+`billing_writer`, `billing_reader`, `billing_cache"), that's usually a
+good sign. If they sound like generic buckets ("BillingHelpers",
+"BillingUtils"), that's usually a bad one — go back to the data/
+operation seam and name the subcomp after what it actually owns.
+
+## Foundation subcomponent
+
+* **Exactly one subcomponent must carry a self-closing `<foundation/>` marker.** This is the foundation subcomponent — it owns the component's root folder territory (package init, shared base types, config loader for the component's own config, cross-cutting utilities scoped to this component).
+* The foundation subcomponent is otherwise a normal subcomponent with its own name, purpose, owned-invariants, primary-operations, and at least one responsibility. **Do NOT name it `Foundation`.** That bare name is reserved for the project's top-level Foundation component, and reusing it as a subcomp name collides with the sibling-component roster every time this comparch's parent has Foundation as a sibling. The alias attribute (`alias="foundation"`) stays fine because aliases are local; the visible `<name>` must be component-specific. Use a name that reflects this subcomp's role inside the component — its substrate contribution (`AuthCore`, `BillingPlumbing`, `GraphSubstrate`), shared-types responsibility (`BillingSharedTypes`, `RuntimeShell`), or runtime concern (`BillingRuntime`, `AuthRuntimeBootstrap`). The name should still read as the component-internal catch-all; it just must not be the bare token "Foundation".
+
+## Sub-dependencies
+
+* `<sub-dependencies>` lists dependency edges between subcomponents within this component, each as `<dep from="ALIAS1" to="ALIAS2"/>` with local aliases on both sides. Both aliases must be declared in `<subcomponents>`.
+* `from` and `to` must differ — self-dependencies are rejected.
+* **The sub-dependency graph must be acyclic.** A cycle is a structural error that gets fed back on retry with the cycle path named.
+* **Every non-foundation subcomponent must have a `<dep to="FOUNDATION_ALIAS"/>` edge.** The foundation subcomponent owns the component's root folder territory and every other subcomponent's code reaches into it at runtime. This is enforced by the validator and mirrors the analogous rule for top-level components at the sysarch layer.
+
+## References
+
+* `<references>` is optional — omit it entirely when nothing is attached. When present, it lists `<reference target="ref_..."/>` entries for every attached ref (see the attached-references input above); each target must be one of the refs actually attached to this component.
+
+## Final-scan checklist before emitting
+
+The framing at the top of these rules and the section-specific rules
+above are written so that following them produces an artifact whose
+sections agree. Before you write the closing `</comparch>` tag, run
+this short final pass to catch any remaining gaps. If a scan finds a
+contradiction, fix the artifact — do not rationalize it.
+
+Parser-enforced violations don't need manual verification (the parser
+will reject and feed back on retry): declared sub-dependency cycles,
+private modules referenced by full module name in `<public-surface>`,
+missing parent-resp coverage when `<subcomponents>` is non-empty,
+per-resp feat-coverage gaps, foundation subcomponent missing or
+duplicated.
+
+The scans below are **not parser-enforced — they are where the
+most-cited defects in this tier live**:
+
+* **Cross-section consistency (highest-yield).** Re-read `<failure-surface>` against every `<invariant>` and every techspec promise (atomicity, ordering, single-frame render, no-truncation, single-event semantics). A failure mode that contradicts an invariant or a techspec promise means one of them is wrong — usually the invariant is procedurally phrased ("every X does Y") and needs the structural rephrase from the invariant rules above; sometimes the failure mode is fabricated. Same scan against public-surface return types: every failure mode must have a matching variant in the typed pubapi (when the techspec commits to a typed error discipline). A failure mode the public API cannot express is silent — fix by adding the variant or striking the entry.
+
+* **Surface closure — both directions.**
+
+  *Pass A — every public-surface element has an owner.* For every type, struct, event, function, and field in `<public-surface>`, identify the subcomp's primary-operation that produces or invokes it. Pubapi entries with no producer are dead or missing operation coverage. Every type named in a public-surface signature must be defined in public-surface itself, be a language primitive / stdlib type, or come from a declared external dependency. **Nothing in a public-surface signature may reference a type or struct from `<private-surface>`** — siblings would have to reach into your internals. Promote private types to public if load-bearing, otherwise rewrite the public reference using only already-public types. The parser catches the obvious version (private module names in public specs); your scan covers the indirect version (a public type whose field references a private struct).
+
+  *Pass B — every internal commitment surfaces somewhere.* For every invariant or primary-operation that names a side effect, response, event, or value (published, returned, persisted, dispatched), identify the public-surface or private-surface entry that mounts it. An operation claimed but not mounted on a surface is half-done. Symmetrically, every private-surface entry must back at least one primary-operation; private helpers with no operation reference shouldn't have a private-surface entry at all.
+
+* **Dependency grounding — external AND internal.**
+
+  *External:* For each `<dep to="comp_..."/>`, confirm the techspec or a primary-operation describes how this component actually uses the sibling — what data flows, which sibling pubapi gets called, what event gets subscribed to. Ungrounded external deps are spurious (delete) or evidence of unwritten prose (write).
+
+  *Internal:* For each `<sub-dependencies>` edge, confirm the source subcomp's primary-operations or responsibilities text describes calling into the target subcomp. **Symmetrically**, walk every subcomp's operations / invariants / responsibilities / purpose for cross-subcomp call sites implied by the prose; each one needs a declared `<dep from="A" to="B"/>` edge. Implicit cross-sub references without declared edges are rejected at parse time when they form a cycle (the validator unions implicit edges from subcomp-name mentions with declared edges before cycle detection); even cycle-free cases leave the coupling graph incomplete. Either declare the edge or rephrase the prose to remove the call reference.
+
+* **Single-owner default.** Re-read all `<owns>` blocks. Any parent resp claimed by more than one subcomp must fit the read/write path split pattern; otherwise refactor the subcomp boundaries.
+
+* **Rationale, not inventory.** For each subcomp's `<purpose>`, each `<invariant>`, each `<primary-operation>`, and the `<responsibilities>` prose, ask whether it names a distinctive *why* or a list of contents. Rewrite category-speak ("handles X", "manages Y", "aggregates Z", "contains W") into concrete actions and distinctive rationale. The foundation subcomp's purpose names the substrate role it plays, not its contents.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you arrived at the decomposition. Output only the `<comparch>` block.
+* Unescaped `&` and `<` inside fragment-section text (outside the XML tags themselves) are tolerated by the parser.
+{% if feedback %}
+
+# Revising against feedback (surgical modification)
+
+The downstream tiers (subcomparch, impl) already exist and were
+composed against the subcomponents, `<owns>` blocks, dependencies,
+pubapi, and failure surface that are in the body today. Every
+subcomponent alias, `<owns>` claim, dep edge, and section that the
+feedback doesn't touch must round-trip identically — otherwise you
+orphan ledger entries, invalidate downstream subcomparches and impls,
+and force a deeper regen than the author wanted. The CLI re-validates
+on write.
+
+## The preserve-don't-redesign discipline
+
+* **Every subcomponent the feedback doesn't mention must round-trip unchanged.** Same `alias` attribute, same `<name>`, same `<owns>` claims (verbatim, including the resp-and-feat-slice pairings), same foundation marker if present. Renaming an alias orphans the subcomparch + impl underneath it.
+* **The `<owns>` blocks are the comp's load-bearing decomposition decision.** Each `<owns>` claim names a parent resp (or a feat-slice within one) that the subcomponent is responsible for; downstream subcomparch + impl read these as their decomposition source. Edit a subcomponent's `<owns>` block only when the feedback asks you to move ownership; otherwise preserve every claim verbatim.
+* **Multi-owner discipline holds.** The same parent resp may be split across two subcomponents via the read/write-path pattern — that's intentional, not a bug. Preserve the existing split unless the feedback asks for a re-split.
+* **The content sections (techspec / pubapi / privapi / permissions / enforcement / policies / failure-surface) are sticky.** Each is read verbatim by downstream tiers. Touch only the section the feedback names. The pubapi section in particular is the *handle* downstream comps depend on; rewording it forces every dependent to revalidate against the new signatures.
+* **`<sub-dependencies>` is sticky.** A sub→sub dep edge inside this comp encodes a build-order constraint. The DAG over subs must stay acyclic. Don't reshuffle dep edges among subs the feedback isn't touching.
+* **Already-applied policies are sticky.** Preserve their treatment in `<policies>` unless the feedback explicitly drops one.
+
+## When the feedback says…
+
+* **"Rename subcomponent X to Y"** — change the `<name>` only. The alias stays.
+* **"Move responsibility R from sub A to sub B"** — edit only A's and B's `<owns>` blocks. Leave every other sub's ownership untouched. Re-articulate the affected subs' pubapi/privapi/etc. sections only if R's ownership shift visibly changes their surface — and only those subs' sections, in scope.
+* **"Add a new subcomponent"** — add it to `<subcomponents>` with a fresh alias, give it `<owns>` claims and an `<implementation>` grade, wire any needed `<sub-dependencies>` edges. Don't re-articulate other subs.
+* **"Drop subcomponent X"** — remove it, reassign its `<owns>` claims to other subs (the feedback usually says where; ask if not), drop `<sub-dependencies>` edges touching it.
+* **"Re-articulate the pubapi / privapi / failure-surface / policies / techspec section"** — edit only that one section. The others stay verbatim.
+* **"Address review finding #N"** — read the prior review text, map the finding to one or two specific subs or sections, modify only those.
+
+## Anti-patterns
+
+* Re-articulating every subcomponent's `<owns>` block to "tighten" them while the feedback only asked for a pubapi tweak. `<owns>` claims are the comp's grounded decomposition decision — touching them across the board re-shuffles ownership the author isn't questioning.
+* Reordering subs alphabetically (or by `<foundation/>`-first) when the feedback asks for a section edit. The current order is the author's articulation flow.
+* Rewriting the failure-surface or policies sections to "be more thorough" when the feedback didn't ask. Those sections are claimed-as-handled commitments; adding entries without an underlying change creates downstream-regen work.
+* Folding sibling-comp considerations into this comp's body. The bundle gives you sibling pubapis as context for *your* comp's pubapi shape — don't carry sibling handles into your comp's owned content.
+{% endif %}

@@ -1,0 +1,13 @@
+# v4 §7.2/§7.3: refs wired into comparch and below only. Attached via
+# the attach_reference write tool, which inserts a
+# <reference target="ref_id"/> row (v4's own mechanism, carried
+# forward); the loader doesn't check declared_in shape (§13 leaves
+# that to the engine), but the row is what this edge names.
+edge: comparch_ref
+type: reference
+source: comparch
+target: ref
+declared_in: comparch.draft.references.reference[].@target
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }

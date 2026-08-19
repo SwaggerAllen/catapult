@@ -1,0 +1,16 @@
+name: default
+version: "1.0.0"
+kind: chain
+extends: platform-elixir
+tiers: [tiers/*.yaml]
+edges: [edges/*.yaml]
+# Closed per bundle (dsl-syntax.md §2): every kind used in a handle:
+# or produces: below must appear here, and nowhere else authors one.
+# Not a separate fragments.yaml file — Catapult.Dsl.Manifest reads
+# `fragments:` as a bundle.yaml key (a plain list of kind names), and
+# the loader has no parser for a standalone fragments.yaml at all.
+# Recorded as a pipeline finding: the ticket's own Layout section
+# names `fragments.yaml # fragment kind registry` as a separate file,
+# which the merged loader (ORC-5) does not support.
+fragments: [techspec, pubapi, privapi, policies, failure_surface]
+flows: [flows/*/flow.yaml]

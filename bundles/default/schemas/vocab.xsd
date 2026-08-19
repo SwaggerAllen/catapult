@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  vocab's own drafting grammar — the full <vocab-entry> content siege's
+  feature_expansion.md emits inline; here it's this tier's own prompt's
+  job (feature_expansion.xsd's <term> only flags the candidate).
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="SeeAlso">
+    <xs:sequence>
+      <xs:element name="ref" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="vocab-entry">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="definition" type="xs:string"/>
+        <xs:element name="disambiguation" type="xs:string" minOccurs="0"/>
+        <xs:element name="see-also" type="SeeAlso" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

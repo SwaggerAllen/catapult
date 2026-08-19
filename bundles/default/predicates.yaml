@@ -1,0 +1,26 @@
+# Named predicates (dsl-syntax.md §8). The only slot this bundle's
+# declarations actually use is a flow's `completion:` — no tier or
+# edge here declares a `scope_filter`, `cardinality.when`, or edge
+# `constraint`, so there is nothing else to name.
+#
+# Each flow below mints exactly one planning-tier node (its own
+# `delta.tiers` entry) scoped `singleton` — one plan per open flow
+# instance — carrying a single `resolved` boolean the planning tier's
+# own commit sets once the plan's cascade/assessment is done. The
+# predicate language's `count(open_visit) == 0` shape from
+# seed-docs/catapult-default-bundle-v4-examples.md §2.1-2.6 does not
+# parse under this loader's actual grammar (lib/catapult/dsl/
+# predicate.ex): `count(<edge>) <cmp> <int>` counts instances along a
+# *declared edge* from the predicate's own binding, not an informal
+# "open visit" concept, and there is no `decomposed_by(...)`-style
+# function call in the grammar either. A plain field comparison over
+# the planning tier's own `resolved` field is the smallest predicate
+# that is both syntactically valid today and semantically checkable
+# without inventing engine-side "visit" state this ticket's scope
+# (dsl-syntax.md's loader, not the engine) doesn't own. Recorded as an
+# interpretation call in systems/platform_content.md.
+feature_request_complete: resolved == true
+refactor_complete: resolved == true
+bug_fix_complete: resolved == true
+downward_propagation_complete: resolved == true
+upward_propagation_complete: resolved == true

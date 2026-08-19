@@ -1,0 +1,14 @@
+# v4 §8.2's downward_propagation flow — the explicit version of what
+# staling already does implicitly (dsl-syntax.md's staling machinery
+# marks a downstream scope stale when its upstream context changes;
+# this flow drives that regeneration explicitly, scope by scope,
+# rather than leaving it to accumulate). Walk: downward_cascade.
+flow: downward_propagation
+delta:
+  tiers: [tiers/downward_propagation_plan.yaml]
+  edges: []
+walk: downward_cascade
+ticket:
+  entry: sysarch
+  labels: []
+completion: downward_propagation_complete

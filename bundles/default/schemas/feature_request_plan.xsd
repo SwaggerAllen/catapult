@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The feature_request flow's planning-tier grammar. Wraps
+  seed-docs/siege-prompts/propose_feature.md's single <feature> output
+  contract with the plan-level <resolved/> marker this bundle's
+  completion predicate (predicates.yaml's feature_request_complete)
+  reads.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Feature">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="intent" type="xs:string"/>
+      <xs:element name="implicit" minOccurs="0" maxOccurs="1">
+        <xs:complexType/>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="feature-request-plan">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="feature" type="Feature"/>
+        <xs:element name="resolved" type="xs:boolean"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

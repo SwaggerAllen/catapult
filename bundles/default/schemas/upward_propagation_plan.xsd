@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The upward_propagation flow's planning-tier grammar. v4 §8.2 gives
+     this flow two planning tiers (an upstream assessment_plan, a
+     downstream propagation_plan opened after the upstream re-
+     approves). Simplified here to one combined planning tier —
+     argued in systems/platform_content.md — since this bundle's
+     scope stops at the DSL loader (dsl-syntax.md's declaration
+     kinds), and a two-stage sequenced planning tier needs the
+     flow-instance state machine (which planning tier is currently
+     open, whether the upstream stage has closed) that this ticket's
+     scope explicitly excludes ("projection-time instance checks" is
+     out of scope). No siege source either way. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="upward-propagation-plan">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="argument" type="xs:string"/>
+        <xs:element name="upstream_scope" type="xs:string"/>
+        <xs:element name="downstream_scope" type="xs:string"/>
+        <xs:element name="resolved" type="xs:boolean"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

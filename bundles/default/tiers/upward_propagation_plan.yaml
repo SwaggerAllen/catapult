@@ -1,0 +1,23 @@
+# The upward_propagation flow's planning tier (v4 §8.2). Simplified
+# from v4's two-stage assessment_plan + propagation_plan to one
+# combined planning tier — see schemas/upward_propagation_plan.xsd's
+# header for the argued reason. No siege prompt exists for this flow.
+tier: upward_propagation_plan
+scope: singleton
+identity: id
+fields:
+  argument_summary: draft.argument
+  resolved: draft.resolved
+handle:
+  fields: [id, argument_summary, resolved]
+  fragments: []
+draft:
+  root_tag: upward-propagation-plan
+  grammar: schemas/upward_propagation_plan.xsd
+generator: llm
+prompt: flows/upward_propagation/plan.md.liquid
+context:
+  - input.project_doc
+delivery:
+  phase: generation
+  agent_step: design

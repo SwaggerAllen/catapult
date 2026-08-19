@@ -1,0 +1,14 @@
+# v4 §8.2's bug_fix flow. Walk: downward_cascade, anchored at
+# whichever tier the defect was observed at rather than at the top of
+# the chain — the flow visits the originating scope plus whatever
+# downstream regeneration the fix implies, without disturbing the
+# architecture above it.
+flow: bug_fix
+delta:
+  tiers: [tiers/bug_fix_plan.yaml]
+  edges: []
+walk: downward_cascade
+ticket:
+  entry: impl
+  labels: []
+completion: bug_fix_complete
