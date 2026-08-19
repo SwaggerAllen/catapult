@@ -2778,15 +2778,26 @@ and is not against a declared one, so it becomes an audit check.
   version while the *message* speaks in states, because the version
   is what is correct and the state is what the human needs to hear.
   Author's call: the rule as stated compares on status.
-- **What a passed gate pins** — the one piece status-as-approval does
-  not answer, and the sharper problem now that the approval *is* the
-  transition. A gate approves a version of an artifact; the ticket
+- ~~**What a passed gate pins**~~ **Resolved (ORC-84, ORC-6).** A
+  review is a tier (`reviews: <tier>`, `dsl-syntax.md` §3.3), 1:1
+  with the tier it reviews, its `context:` load-time-checked equal to
+  the reviewed tier's own. That equality is the pin: a review node
+  reads exactly the inputs its reviewed tier does, so §7.11's
+  staleness-is-derived machinery already covers it without
+  modification — a review node is stale precisely when the tier it
+  reviews would be, and nothing separate is ever recorded or compared
+  to know that. The original framing below is superseded, not wrong;
+  it asked for the gate to "record what it approved," and the answer
+  turned out to be that the review tier's own committed content,
+  read under the same context walk, already is that record.
+  ~~A gate approves a version of an artifact; the ticket
   then moves past it. When the artifact regenerates underneath, the
   ticket is already downstream and the judgment it carries is stale
   while nothing says so. §7.11's staleness-is-derived machinery is
   the natural home — a passed gate goes stale when what it approved
   does, and reopens — but the gate has to record what it approved for
-  that to be derivable at all.
+  that to be derivable at all.~~ `systems/engine.md` carries the
+  derivation; `docs/dsl-syntax.md` §3.3 carries the grammar.
 - **Staleness clocks under more writers.** `staleClaimGrace` measures
   from `max(Run.EndedAt, StateSince)`, so every state move resets it.
   More writers means more resets, and the constant (§7.13) was chosen

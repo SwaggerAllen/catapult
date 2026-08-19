@@ -977,3 +977,36 @@ counterpart, and that tier's contract text needing a check against
 backend-ownership vocabulary leaking in) and are worth porting on
 their own merits, not guessed at now against a split that doesn't
 exist yet.
+
+## No stored "approved version" field on a passed review
+scope: system:engine
+
+(ORC-6). A review tier's `context:` is load-time checked equal to the
+tier it reviews (`dsl-syntax.md` §3.3), which makes an explicit
+"this review approved commit N" field redundant before anyone writes
+one: the review node sits under the same staleness derivation (v5
+§7.11) as any other node, over the same inputs, so it goes stale
+exactly when the approval should be considered stale — no second
+field to keep in sync, and no place for that field to drift from the
+derivation it would duplicate. This closes v5 §7.16's former open
+item, "what a passed gate pins" (`systems/engine.md`). Revisit
+condition: a review whose `context:` legitimately diverges from its
+reviewed tier's — nothing in the DSL admits that today, the equality
+being a load-time check, so there is no live case to design a pinned
+field against.
+
+## No reducer read of `core_dsl`'s currently-loaded bundle
+scope: system:engine
+
+(ORC-6). The tempting shortcut — resolve an event's semantics against
+whatever bundle `core_dsl` has loaded right now, rather than folding
+the bundle-flip events into their own projection — breaks
+rebuild-from-zero byte-identity the moment a bundle has ever flipped
+(v5 §6/§7.19): replay would apply the newest semantics to old events
+instead of whatever was active when they were committed, so a rebuild
+after a cutover would diverge from the history that actually
+happened. `systems/engine.md` records the projection this ticket adds
+instead. Revisit condition: none — this is "the log is the source of
+truth" (`systems/engine.md`'s own first standing decision) applied to
+the reducer's own inputs, not a special case that might later prove
+unnecessary.
