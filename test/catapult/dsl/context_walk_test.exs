@@ -5,7 +5,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
 
   describe "self forms" do
     test "self alone" do
-      assert {:ok, %ContextWalk{source: :self, parent: false, edge: nil, projection: nil}} =
+      assert {:ok, %ContextWalk{source: :self, parent: false, hops: [], projection: nil}} =
                ContextWalk.parse("self")
     end
 
@@ -15,7 +15,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
     end
 
     test "self.parent.handle reads a projection with no edge walk" do
-      assert {:ok, %ContextWalk{source: :self, parent: true, edge: nil, projection: :handle}} =
+      assert {:ok, %ContextWalk{source: :self, parent: true, hops: [], projection: :handle}} =
                ContextWalk.parse("self.parent.handle")
     end
 
@@ -34,7 +34,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
               %ContextWalk{
                 source: :self,
                 parent: true,
-                edge: "fulfills",
+                hops: [%{edge: "fulfills", reversed?: false}],
                 target_tier: "resp",
                 projection: :handle
               }} =
@@ -44,7 +44,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
     test "self.parent.dependency -> target.handle.fragments[pubapi]" do
       assert {:ok,
               %ContextWalk{
-                edge: "dependency",
+                hops: [%{edge: "dependency", reversed?: false}],
                 target_tier: "target",
                 projection: {:fragments, "pubapi"}
               }} =
@@ -64,6 +64,60 @@ defmodule Catapult.Dsl.ContextWalkTest do
     test "more than one -> is an error" do
       assert {:error, reason} = ContextWalk.parse("self.a -> b.handle -> c.handle")
       assert reason =~ "more than one ->"
+    end
+  end
+
+  describe "hop chains and reversal (dsl-syntax.md §7.1)" do
+    test "a chain of more than one edge before -> is legal" do
+      assert {:ok,
+              %ContextWalk{
+                source: :self,
+                parent: true,
+                hops: [
+                  %{edge: "fulfills", reversed?: false},
+                  %{edge: "policy_application", reversed?: true}
+                ],
+                target_tier: "policy",
+                projection: :handle
+              }} =
+               ContextWalk.parse("self.parent.fulfills.policy_application~ -> policy.handle")
+    end
+
+    test "a single reversed hop" do
+      assert {:ok, %ContextWalk{hops: [%{edge: "policy_application", reversed?: true}]}} =
+               ContextWalk.parse("self.parent.policy_application~ -> policy.handle")
+    end
+
+    test "the trailing ~ is stripped from the edge name" do
+      assert {:ok, %ContextWalk{hops: [%{edge: "decomposition", reversed?: true}]}} =
+               ContextWalk.parse("self.decomposition~ -> sysarch.handle")
+    end
+  end
+
+  describe "all.<tier> forms (dsl-syntax.md §7.2)" do
+    test "all.<tier>.handle" do
+      assert {:ok, %ContextWalk{source: :all, target_tier: "vocab", projection: :handle}} =
+               ContextWalk.parse("all.vocab.handle")
+    end
+
+    test "all.<tier>.handle.fragments[<kind>]" do
+      assert {:ok,
+              %ContextWalk{
+                source: :all,
+                target_tier: "comp",
+                projection: {:fragments, "techspec"}
+              }} =
+               ContextWalk.parse("all.comp.handle.fragments[techspec]")
+    end
+
+    test "all.<tier> with a -> target is an error" do
+      assert {:error, reason} = ContextWalk.parse("all.vocab.handle -> resp.handle")
+      assert reason =~ "no -> target"
+    end
+
+    test "all with no tier is an error" do
+      assert {:error, reason} = ContextWalk.parse("all")
+      assert reason =~ "all.<tier>.<projection>"
     end
   end
 
@@ -92,6 +146,6 @@ defmodule Catapult.Dsl.ContextWalkTest do
 
   test "an unknown source is an error" do
     assert {:error, reason} = ContextWalk.parse("bogus.thing")
-    assert reason =~ "expected self, input or ticket"
+    assert reason =~ "expected self, input, ticket or all"
   end
 end

@@ -117,14 +117,18 @@ context-source kinds, and audit profiles.
   said so explicitly — "It lands mid-flight... the difference is that
   it reaches the branch as ticket direction the pass reads before it
   starts... the doc edit is this pass's to make." No loader tests
-  accompany it (the six plane-code files this ticket's design role may
-  touch were already stripped once by a prior review comment and stay
-  stripped — `lib/catapult/dsl/**` and `test/catapult/dsl/**` are this
-  ticket's own eventual dev pass, same as the four above), so
-  `bundles/default/` will not load cleanly against the merged loader
-  until that pass implements `reviews:`, exactly as the four earlier
-  additions don't either. Revisit condition: none — this *is* the
-  daylight the entry above asked for.
+  accompanied the design pass that added this paragraph (the six
+  plane-code files this ticket's design role may touch were already
+  stripped once by a prior review comment and stayed stripped —
+  `lib/catapult/dsl/**` and `test/catapult/dsl/**` were left for this
+  ticket's own dev pass, same as the four above). **Landed by that dev
+  pass**, alongside the four-item entry above (same commit): `reviews:`
+  is implemented in `Catapult.Dsl.Tier`/`Catapult.Dsl.Chain`, with
+  loader tests exercising it directly (`test/catapult/dsl/loader_test
+  .exs`); `bundles/default/` now loads clean end to end (25 tiers — 17
+  generation/projection plus 8 review — 6 edges, 5 flows, 2 workflow
+  gates). Revisit condition: none — this *is* the daylight the entry
+  above asked for.
 
 ## Initial vs target
 

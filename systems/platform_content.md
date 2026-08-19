@@ -359,11 +359,16 @@ loader tickets carry `system:core-dsl`.
   review's explicit "nothing in the review grammar gets trimmed," but
   neither actually existed in the shipped grammar until this pass
   found the gap while rewiring the eight tiers around it.
-  `dsl-syntax.md` §15.1's system-status table still does not carry
-  `critique` — an explicit, unchanged instruction from design review,
-  since the vocabulary has not shipped in the loader yet (same
-  accepted-gap shape as `cascade_visit` and the reversed context-walk
-  hop before their own loader support landed).
+  `dsl-syntax.md` §15.1's system-status table now carries `critique`
+  (added by a later pass on this same ticket, once the eight
+  `*_review.yaml` tiers below made `delivery: {phase: critique,
+  agent_step: critique}` real bundle content rather than a design
+  proposal) and this dev pass mirrors it into the loader's own closed
+  set — `Catapult.Dsl.SystemStatus.kinds/0` gains `:critique` between
+  `:generation` and `:fanout`, `agent_steps/0` gains `:critique`
+  between `:dev` and `:reconcile` — the same accepted-gap shape
+  `cascade_visit` and the reversed context-walk hop had before their
+  own loader support landed, now closed the same way.
 
 ## Initial vs target
 

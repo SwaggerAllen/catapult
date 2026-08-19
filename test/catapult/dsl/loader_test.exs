@@ -516,4 +516,390 @@ defmodule Catapult.Dsl.LoaderTest do
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
+
+  ## dsl-syntax.md §4.1 — instances:
+
+  test "instances: consolidates several source/target sites under one edge name", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/resp.yaml" => tier!("resp"),
+      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
+      "bundles/default/edges/decomposition.yaml" => """
+      edge: decomposition
+      type: fanout
+      instances:
+        - source: comparch
+          target: resp
+          declared_in: comparch.draft.resp[]
+          cardinality:
+            source: { min: 0 }
+            target: { min: 1, max: 1 }
+        - source: comparch
+          target: vocab
+          declared_in: comparch.draft.vocab[]
+          cardinality:
+            source: { min: 0 }
+            target: { min: 1, max: 1 }
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "instances: and the flat single-site shape are mutually exclusive", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/edges/dependency.yaml" => """
+      edge: dependency
+      type: dependency
+      source: comparch
+      target: comparch
+      declared_in: comparch.draft.dependencies
+      instances:
+        - source: comparch
+          target: comparch
+          declared_in: comparch.draft.dependencies
+          cardinality:
+            source: { min: 0 }
+            target: { min: 0 }
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "never both"))
+  end
+
+  test "an edge declaring neither an inline instance nor instances: is a load error", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/edges/dependency.yaml" => """
+      edge: dependency
+      type: dependency
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "neither an inline instance"))
+  end
+
+  test "a multi-instance edge's last hop disambiguates by the walk's own declared target", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/resp.yaml" => tier!("resp"),
+      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.decomposition -> vocab.handle
+      """,
+      "bundles/default/edges/decomposition.yaml" => """
+      edge: decomposition
+      type: fanout
+      instances:
+        - source: comparch
+          target: resp
+          declared_in: comparch.draft.resp[]
+          cardinality:
+            source: { min: 0 }
+            target: { min: 1, max: 1 }
+        - source: comparch
+          target: vocab
+          declared_in: comparch.draft.vocab[]
+          cardinality:
+            source: { min: 0 }
+            target: { min: 1, max: 1 }
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  ## dsl-syntax.md §7.1 — hop chains and reversal
+
+  test "a reversed hop matches the edge's target instead of its source", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/resp.yaml" => tier!("resp"),
+      "bundles/default/tiers/policy.yaml" => tier!("policy"),
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.fulfills.policy_application~ -> policy.handle
+      """,
+      "bundles/default/edges/fulfills.yaml" => """
+      edge: fulfills
+      type: reference
+      source: comparch
+      target: resp
+      declared_in: comparch.draft.resp_ref
+      cardinality:
+        source: { min: 1 }
+        target: { min: 1, max: 1 }
+      """,
+      "bundles/default/edges/policy_application.yaml" => """
+      edge: policy_application
+      type: policy_application
+      instances:
+        - source: policy
+          target: comparch
+          declared_in: policy.structural
+          cardinality:
+            source: { min: 0, max: 1 }
+            target: { min: 0 }
+        - source: policy
+          target: resp
+          declared_in: policy.required
+          cardinality:
+            source: { min: 0, max: 1 }
+            target: { min: 0 }
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a hop naming an edge with no instance on the required side is a load error", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/resp.yaml" => tier!("resp"),
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.fulfills~ -> resp.handle
+      """,
+      "bundles/default/edges/fulfills.yaml" => """
+      edge: fulfills
+      type: reference
+      source: comparch
+      target: resp
+      declared_in: comparch.draft.resp_ref
+      cardinality:
+        source: { min: 1 }
+        target: { min: 1, max: 1 }
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "does not include"))
+  end
+
+  ## dsl-syntax.md §7.2 — all.<tier>
+
+  test "all.<tier> reads every declared instance with no walker at all", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - all.vocab.handle
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "all.<tier> naming an undeclared tier is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - all.nonexistent.handle
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "\"nonexistent\", which is not declared"))
+  end
+
+  ## dsl-syntax.md §3.1 — cascade_visit
+
+  test "cascade_visit is a legal scope with no parent tier to check", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/plan.yaml" => """
+      tier: plan
+      scope: cascade_visit
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.chain.tiers["plan"].scope == {:cascade_visit}
+  end
+
+  ## dsl-syntax.md §3.3, §13 — review tiers
+
+  test "a valid review tier loads, sharing the reviewed tier's context", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.handle
+      delivery:
+        phase: generation
+        agent_step: design
+      """,
+      "bundles/default/tiers/comparch_review.yaml" => """
+      tier: comparch_review
+      reviews: comparch
+      generator: llm
+      prompt: prompts/review/comparch.md.liquid
+      grammar: schemas/review.xsd
+      context:
+        - self.handle
+      delivery:
+        phase: critique
+        agent_step: critique
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.chain.tiers["comparch_review"].reviews == "comparch"
+  end
+
+  test "reviews: naming an undeclared tier is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch_review.yaml" => """
+      tier: comparch_review
+      reviews: nonexistent
+      generator: llm
+      prompt: prompts/review/comparch.md.liquid
+      grammar: schemas/review.xsd
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "reviews \"nonexistent\" names a tier that is not declared")
+           )
+  end
+
+  test "a review tier's context must match the reviewed tier's own context", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      identity: id
+      generator: synthesis
+      handle:
+        fields: [id]
+      context:
+        - self.handle
+      """,
+      "bundles/default/tiers/comparch_review.yaml" => """
+      tier: comparch_review
+      reviews: comparch
+      generator: llm
+      prompt: prompts/review/comparch.md.liquid
+      grammar: schemas/review.xsd
+      context: []
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "context does not match reviewed tier \"comparch\"'s own context"
+             )
+           )
+  end
+
+  test "a review tier declaring scope: is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/tiers/comparch_review.yaml" => """
+      tier: comparch_review
+      reviews: comparch
+      scope: singleton
+      generator: llm
+      prompt: prompts/review/comparch.md.liquid
+      grammar: schemas/review.xsd
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "declares \"scope\", which a review tier")
+           )
+  end
+
+  defp tier!(name) do
+    """
+    tier: #{name}
+    scope: singleton
+    identity: id
+    generator: synthesis
+    handle:
+      fields: [id]
+    """
+  end
 end
