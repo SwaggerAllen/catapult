@@ -6,7 +6,7 @@
 flow: bug_fix
 delta:
   tiers: [tiers/bug_fix_plan.yaml]
-  edges: []
+  edges: [edges/plan_target.yaml]
 walk: downward_cascade
 ticket:
   entry: impl

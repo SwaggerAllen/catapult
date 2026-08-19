@@ -4,8 +4,8 @@
   shape — each <responsibility> is exactly one <name> and one <feats>
   block, "nothing else — the structure is the spec" (the source
   prompt's own words). What changed is downstream: each responsibility
-  now mints a resp node (edges/resp_fanout.yaml) rather than staying a
-  field here.
+  now mints a resp node (the `decomposition` edge's requirements->resp
+  instance, edges/decomposition.yaml) rather than staying a field here.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 

@@ -21,8 +21,15 @@ generator: llm
 prompt: prompts/impl.md.liquid
 context:
   - self.parent.handle
-  - self.parent.sub_dependency -> subcomp.handle.fragments[pubapi]
-  - self.impl_ref -> ref.handle
+  - self.parent.dependency -> subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
+  - all.feature_expansion.handle
+  # Stands in for v4's `self.related_features -> feature.handle`: v5
+  # mints no separate `feature` tier (docs/non-goals.md, vocab.yaml's
+  # own comment — a feature stays body content on feature_expansion,
+  # never a per-feature node `per(feature_id)` could name), so "the
+  # features this impl relates to" reduces to "the project's feature
+  # intent", which is feature_expansion's own singleton content.
 review:
   prompt: prompts/review/impl.md.liquid
   grammar: schemas/review.xsd

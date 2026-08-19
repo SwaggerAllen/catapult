@@ -149,9 +149,28 @@ stubbed | real` with `swap: transparent | migration | reset` (v5
 - `singleton` — one node per project.
 - `per(X)` — one node per node of tier X. `self.parent` is that node.
 - `child_of(X)` — nodes minted by X's fanout edge.
+- `cascade_visit` — one node per node a flow's own cascade walk visits
+  (§6's `walk: downward_cascade` / `up_then_down`), minted by the
+  engine as the walk proceeds rather than by a `child_of` fanout edge
+  read from a body. A tier at this scope has no fixed parent tier —
+  which node minted a given instance varies with where the cascade is
+  — so it carries no `self.parent` context walk; instead it reaches
+  the node it is currently planning for through a declared `synthesis`
+  edge (§4.1) and reads project-wide state through `all.<tier>` (§7).
+  Exists for exactly one purpose: a flow's planning tier, one plan per
+  visited scaffold node, closing the gap a `per(X)` scope can't (a
+  cascade visits nodes across several different tiers, and `per(X)`
+  names exactly one).
 
 **Delta from v4: the phased variants (`per(X) × phase`) are removed**
 with the phase machinery (v5 §6). There is no `phase` dimension.
+`cascade_visit` replaces v4's informal `per(scaffold_tier)` +
+`scope_filter: in_cascade_visit_set` (`seed-docs/catapult-default-
+bundle-v4-examples.md` §2.1-§2.6): v4's `scaffold_tier` was never a
+real tier `per(X)` could name — it meant "whichever tier the cascade
+is currently touching" — and `in_cascade_visit_set` was a platform-
+managed predicate with no counterpart in this loader's predicate
+language (§8). One real scope kind replaces both.
 
 ### 3.2 Generator types — closed set, extension-growable
 
@@ -195,12 +214,79 @@ must be **type-level acyclic** at load; `graph_constraint: acyclic`
 is additionally checked per-instance at projection time; `declared_in`
 paths parse against committed bodies.
 
+**`type: synthesis` is the one exception to that last rule.** Every
+other type's `declared_in` names a location in a committed draft body
+the reducer reads; a synthesis edge's instances have no such location
+— they are computed by the engine itself (a `cascade_visit`-scoped
+planning node's correspondence to the specific scaffold node it is
+currently planning for, §3.1, is the motivating case) at the same
+moment `mint.<name>` field values are (§3). `declared_in` stays a
+required, human-readable string on a synthesis edge — naming what the
+engine computes, not where it reads — for the same reason `policy`'s
+mint-time fields do (§3's closed note): unvalidated at load time
+exactly as a body path already is, but not therefore meaningless.
+
 **v5 rule:** navigation edges (product tier, screen→screen) are
 cyclic-legal reference edges and **must never appear in a readiness-
 bearing context walk** — the loader rejects a context entry that
 traverses an edge marked `navigation: true`.
 
-## 5. Fragments
+### 4.1 Multi-instance edges — `instances:`
+
+The shape above — one `source`/`target`/`declared_in`/`cardinality`
+inline — is the common case: one relationship, one site. Some
+relationships recur at several sites with **the same mechanism**: a
+fanout that mints children the identical way at more than one tier
+(`sysarch` mints `comp`, `comparch` mints `subcomp`,
+`feature_expansion` mints `vocab` — one *kind* of edge, three sites),
+or a dependency edge that means the same thing whether it links two
+`comp`s or two `subcomp`s. `instances:` names that relationship once
+and lists every site under it, instead of forcing a distinct edge name
+per site:
+
+```yaml
+edge: decomposition
+type: fanout
+instances:
+  - source: sysarch
+    target: comp
+    declared_in: sysarch.draft.components.component[]
+    cardinality:
+      source: { min: 1 }
+      target: { min: 1, max: 1 }
+  - source: comparch
+    target: subcomp
+    declared_in: comparch.draft.subcomponents.subcomponent[]
+    cardinality:
+      source: { min: 1 }
+      target: { min: 1, max: 1 }
+  - source: feature_expansion
+    target: vocab
+    declared_in: feature_expansion.draft.vocabulary.term[]
+    cardinality:
+      source: { min: 0 }
+      target: { min: 1, max: 1 }
+graph_constraint: [acyclic, no_self_loop]
+```
+
+`instances:` and the flat `source`/`target`/`declared_in`/
+`cardinality` form are **mutually exclusive** — an edge declares one
+instance inline, or several under `instances:`, never both, and never
+neither. `type`, `graph_constraint`, `consistency`, `navigation` and
+`constraint` sit above `instances:` and apply to every site: the
+mechanism is one thing even when it fires at several places in the
+tier graph. Every instance still contributes its own `{source,
+target}` pair to the **type-level acyclicity** check (§13) — the
+graph is over sites, not over edge names.
+
+A context walk (§7) still names the edge once (`.decomposition`,
+`.dependency`); the loader resolves which instance a given hop means
+by matching the walking tier against each instance's `source` (a
+reversed hop matches `target` instead — §7). When more than one
+instance could match — the same source fanning out to several
+different target tiers — the walk's own `-> <tier>.<projection>` on
+the *last* hop picks the one landing on that tier; only when no
+instance names that tier does the walk fail to resolve.
 
 Authored-only (no derived fragments — derived views are context
 walks). Declared in `bundle.yaml`'s closed vocabulary; written via
@@ -236,6 +322,58 @@ types the target and names what to read — `.handle`,
 yield collections; readiness requires **all** targets ready.
 Context is the only readiness signal.
 
+### 7.1 Hop chains and reversal
+
+**Delta from the loader as first merged (ORC-5): a walk may name more
+than one edge, and a hop may be reversed.** The original grammar
+capped a walk at exactly one `.<edge_name>` before `->`; that cap is
+what made a policy scoped **through a responsibility** — comp → resp
+(`.fulfills`) → policy (inbound `policy_application`) — inexpressible,
+since reaching it needs two hops and the second one runs against the
+edge's declared direction. Both restrictions are lifted:
+
+```
+self.parent.fulfills.policy_application~ -> policy.handle
+```
+
+Reads as: `self.parent` (the comp), `.fulfills` (forward — comp is
+`fulfills`'s declared `source`, land on the resp it names), then
+`.policy_application~` (**reversed** — the trailing `~` means the
+walker matches the edge's `target`, not its `source`, and the walk
+continues from whichever `source` instance matches: every policy
+whose `policy_application` instance targets this resp). Each hop is
+checked independently against the declared edge (or, for a
+multi-instance edge, against whichever instance actually matches —
+§4.1); a hop naming an edge with no instance on the required side is
+a load error, exactly as an unmatched single hop always was. A
+reversed hop never turns a `navigation: true` edge readiness-bearing
+— that check runs on every hop, not just a forward one.
+
+This is engine-side resolution the same way a forward hop always was:
+the loader's job is confirming the chain of edges is well-formed and
+reachable from the walking tier, not evaluating it against instance
+data (§13 checks cross-references, not runtime graph state).
+
+### 7.2 `all.<tier>` — every instance, no edge
+
+```yaml
+context:
+  - all.vocab.handle
+  - all.comp.handle.fragments[techspec]
+```
+
+Reads every declared instance of `<tier>` in the project, unfiltered
+by any relationship — no `self`, no edge, no walker to arrive from.
+Two cases want this: a genuinely flat pool with no single owning
+parent (`vocab`, `ref`, a project-global `policy` — v5 §4.5's first
+grain, which by construction has no `policy_application` edge for a
+graph walk to follow at all), and a `cascade_visit`-scoped planning
+tier that needs to see the whole component graph rather than one
+scoped slice of it (a `refactor` plan reasoning about which
+components a structural change touches). The tier named after `all.`
+must be declared; that is the entire cross-reference (§13) — unlike a
+self-hop's target, there is no walker to check it against.
+
 v5 additions:
 
 - **`input.<role>`** — reads the intake documents tagged with a
@@ -266,15 +404,34 @@ slots: `scope_filter`, `cardinality.when`, edge `constraint`, flow
 `completion`. Named predicates compose in `predicates.yaml`; no
 arithmetic, strings, or regex.
 
+**A `cascade_visit`-scoped tier's own name, as a universal-quantifier
+path root, means "every instance of this tier minted for the currently
+open flow instance."** `all(refactor_plan -> resolved)` — a flow's
+`completion:` predicate over its own planning tier, now that the tier
+mints one node per visited scaffold node (§3.1) rather than one
+singleton: completion is every visited node's plan resolved, not one
+node's. This is engine-side resolution exactly like every other path
+root in this language (`has_edge`'s edge name, `count`'s edge name):
+the loader checks the predicate parses (§13), not what "refactor_plan"
+resolves to at runtime.
+
 ## 9. Prompts
 
 Liquid (Solid). Variables: one per named context walk
 (cardinality-many walks iterate), `self`, `feedback`, `prior_review`,
-and — review prompts only — `draft`. Shared content via
-`{% render "partials/<name>" %}` (v5 §6: one source for shared
-framing across the six architecture tiers). Generation and review
-templates for a tier receive identical context plus `draft` — the
-per-tier triad invariant, enforced by the shared context-assembly
+and — review prompts only — `draft`. A variable's name is its target
+tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
+gets the same name as a self-hop entry landing on that tier. **Two or
+more context entries naming the same target tier combine into one
+collection for that tier's variable** rather than colliding — a tier
+can be reached more than one way (comparch reads `policy` through both
+a direct `policy_application~` hop and a `fulfills.policy_application~`
+hop, §7.1's worked example), and the prompt wants "every policy that
+applies to me," not one variable per path that produced it. Shared
+content via `{% render "partials/<name>" %}` (v5 §6: one source for
+shared framing across the six architecture tiers). Generation and
+review templates for a tier receive identical context plus `draft` —
+the per-tier triad invariant, enforced by the shared context-assembly
 path, not convention.
 
 ## 10. Grammars

@@ -1,0 +1,38 @@
+# v4 §7.2/§7.3: refs wired into comparch and below only. Attached via
+# the attach_reference write tool, which inserts a
+# <reference target="ref_id"/> row (v4's own mechanism, carried
+# forward) — the loader doesn't check declared_in shape (§13 leaves
+# that to the engine), but the row is what each instance names. Not
+# among this ticket's own five named edges (fulfills, dependency,
+# domain_parent, decomposition, policy_application) — ref attachment
+# is none of those: not a mint (decomposition), not a comp-fulfills-
+# resp binding (fulfills), not a policy scope grain
+# (policy_application). Named separately and consolidated the same
+# way (dsl-syntax.md §4.1's `instances:`) since it is one mechanism —
+# "a tier attaches a reference" — recurring at three sites. Previously
+# three files (comparch_ref, subcomparch_ref, impl_ref); recorded in
+# docs/non-goals.md as an argued deviation from the ticket's literal
+# five-name enumeration.
+edge: reference
+type: reference
+instances:
+  - source: comparch
+    target: ref
+    declared_in: comparch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: subcomparch
+    target: ref
+    declared_in: subcomparch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: impl
+    target: ref
+    declared_in: impl.draft.implementation.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }

@@ -6,7 +6,7 @@
 flow: downward_propagation
 delta:
   tiers: [tiers/downward_propagation_plan.yaml]
-  edges: []
+  edges: [edges/plan_target.yaml]
 walk: downward_cascade
 ticket:
   entry: sysarch

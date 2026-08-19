@@ -26,8 +26,8 @@ generator: llm
 prompt: prompts/subcomparch.md.liquid
 context:
   - self.parent.handle
-  - self.parent.sub_dependency -> subcomp.handle.fragments[pubapi]
-  - self.subcomparch_ref -> ref.handle
+  - self.parent.dependency -> subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
 produces:
   - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
   - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }

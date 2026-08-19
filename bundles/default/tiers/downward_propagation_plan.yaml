@@ -1,8 +1,13 @@
 # The downward_propagation flow's planning tier (v4 §8.2 — "the
 # explicit version of what staling does implicitly"). No siege
 # prompt exists for this flow; authored fresh.
+#
+# `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node this
+# flow's downward_cascade visits below the re-approved scope, resolved
+# via `self.plan_target` (edges/plan_target.yaml). Previously `scope:
+# singleton`; see docs/non-goals.md.
 tier: downward_propagation_plan
-scope: singleton
+scope: cascade_visit
 identity: id
 fields:
   scope_summary: draft.scope
@@ -16,7 +21,17 @@ draft:
 generator: llm
 prompt: flows/downward_propagation/plan.md.liquid
 context:
+  # No `ticket.findings` — not yet a registered context source
+  # (feature_request_plan.yaml's context: comment explains why); the
+  # re-approval's own change_summary (v4 §2.4's seed field) has no
+  # bundle-declarable home until that extension lands.
   - input.project_doc
+  - all.sysarch.handle
+  - all.comp.handle
+  - self.plan_target -> sysarch.handle
+  - self.plan_target -> comparch.handle
+  - self.plan_target -> subcomparch.handle
+  - self.plan_target -> impl.handle
 delivery:
   phase: generation
   agent_step: design

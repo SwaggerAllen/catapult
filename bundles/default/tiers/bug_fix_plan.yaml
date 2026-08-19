@@ -2,8 +2,30 @@
 # for this flow; authored fresh from the v4 bundle doc's prose
 # ("used to fix observed problems without disturbing the
 # architecture").
+#
+# `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node the
+# cascade visits, anchored at the ticket's own originating node.
+# v4's flow shape names that anchor explicitly (`walk_anchor:
+# ${seed.originating_scope}`, seed-docs/catapult-default-bundle-v4-
+# examples.md §2.3); v5 has no `seed:` block for a template to read a
+# ticket field from (Catapult.Dsl.Flow carries none — dropped with the
+# rest of v4's planning-tier machinery, docs/non-goals.md). The
+# resolution isn't a bundle declaration at all: `flows/bug_fix/
+# flow.yaml`'s `ticket.entry: impl` already names which *tier* a
+# bug_fix ticket opens against (dsl-syntax.md §6); which *node* a
+# given ticket instance is filed against is a plane fact about that
+# ticket (the artifact a report was made against), the same category
+# of fact every ticket in this pipeline already carries regardless of
+# flow, not additional flow.yaml syntax to invent. The engine anchors
+# the cascade there and mints this tier's `plan_target` instance
+# (edges/plan_target.yaml) from it — out of scope for this ticket to
+# build (projection-time instance behavior), but no longer an
+# undeliverable gap: the bundle declares everything an engine needs to
+# do it. No `sysarch` target here, unlike the other four plans — a
+# defect report names a specific artifact, never a project-wide
+# re-decomposition.
 tier: bug_fix_plan
-scope: singleton
+scope: cascade_visit
 identity: id
 fields:
   scope_summary: draft.scope
@@ -17,7 +39,15 @@ draft:
 generator: llm
 prompt: flows/bug_fix/plan.md.liquid
 context:
+  # No `ticket.findings` — not yet a registered context source
+  # (feature_request_plan.yaml's context: comment explains why); the
+  # defect report's own prose (observed/expected/reproduction) has no
+  # bundle-declarable home until that extension lands.
   - input.project_doc
+  - all.comp.handle
+  - self.plan_target -> comparch.handle
+  - self.plan_target -> subcomparch.handle
+  - self.plan_target -> impl.handle
 delivery:
   phase: generation
   agent_step: design

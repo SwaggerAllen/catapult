@@ -8,7 +8,7 @@
 flow: upward_propagation
 delta:
   tiers: [tiers/upward_propagation_plan.yaml]
-  edges: []
+  edges: [edges/plan_target.yaml]
 walk: up_then_down
 ticket:
   entry: comparch

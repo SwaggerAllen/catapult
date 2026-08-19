@@ -8,10 +8,11 @@
   four-child order (techspec -> components -> policies -> dependencies)
   otherwise carry forward unchanged.
 
-  Each <policy> may carry <required> (scopes through a resp,
-  policy_scope_resp) *or* <structural/> (scopes directly to the
-  declaring comp, policy_scope_comp) *or* neither (project-global,
-  no scope edge) — never both; enforced by the xs:choice below, not
+  Each <policy> may carry <required> (scopes through a resp — the
+  policy_application edge's policy->resp instance) *or* <structural/>
+  (scopes directly to the declaring comp — policy_application's
+  policy->comp instance) *or* neither (project-global, no scope edge)
+  — never both; enforced by the xs:choice below, not
   by a boolean flag, so the grammar itself rules out declaring both
   grains on one policy. New relative to siege's <required>-only
   grammar (v5 §4.5's third grain).

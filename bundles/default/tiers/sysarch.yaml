@@ -5,9 +5,10 @@
 # rotation). `scope: per(requirements)` for the same reason
 # requirements is per(feature_expansion) rather than singleton: it
 # gives sysarch a self.parent walk to requirements' handle, and —
-# critically — a walk along requirements' own resp_fanout edge to
-# read every minted resp as a collection (dsl-syntax.md §7:
-# cardinality-many walks yield collections). No `kind`/domain-
+# critically — a walk along requirements' own `decomposition` instance
+# (edges/decomposition.yaml) to read every minted resp as a collection
+# (dsl-syntax.md §7: cardinality-many walks yield collections). No
+# `kind`/domain-
 # presentational split and no `<domain-parent>` section carried
 # forward: v5 §4.1 replaces that whole mechanism with the product/
 # backend/frontend split (seed-docs/README.md's second known delta) —
@@ -30,7 +31,7 @@ executor:
 prompt: prompts/sysarch.md.liquid
 context:
   - self.parent.handle
-  - self.parent.resp_fanout -> resp.handle
+  - self.parent.decomposition -> resp.handle
 review:
   prompt: prompts/review/sysarch.md.liquid
   grammar: schemas/review.xsd

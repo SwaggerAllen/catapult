@@ -5,7 +5,7 @@
 flow: refactor
 delta:
   tiers: [tiers/refactor_plan.yaml]
-  edges: []
+  edges: [edges/plan_target.yaml]
 walk: downward_cascade
 ticket:
   entry: sysarch

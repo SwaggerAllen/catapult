@@ -1,7 +1,8 @@
 # v4 §1.1 (seed-docs/catapult-default-bundle-v4.md), re-expressed. The
 # chain's true root: the only tier reading raw input prose rather than
-# an upstream handle. Mints `vocab` candidates via vocab_fanout — see
-# vocab.yaml for why feature_expansion only flags a term (name +
+# an upstream handle. Mints `vocab` candidates via the `decomposition`
+# edge (edges/decomposition.yaml) — see vocab.yaml for why
+# feature_expansion only flags a term (name +
 # scope), rather than defining it, which is a content delta from
 # siege's feature_expansion.md (whose own <vocabulary> example emits
 # full definitions inline): the definition work moves to vocab's own

@@ -6,8 +6,10 @@ depth: 2                           # a ceiling, not a claim about today's
                                     # default bundle (never validated
                                     # against the chain's actual depth,
                                     # §13): the architecture chain fans out
-                                    # twice (sysarch's component_fanout,
-                                    # then comparch's subcomponent_fanout),
+                                    # twice (sysarch's decomposition into
+                                    # comp, then comparch's decomposition
+                                    # into subcomp — one edge name, two
+                                    # instances, edges/decomposition.yaml),
                                     # so 2 covers both levels this chain
                                     # produces without this gate needing an
                                     # edit if a future chain fans out less

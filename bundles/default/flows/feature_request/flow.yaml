@@ -6,7 +6,7 @@
 flow: feature_request
 delta:
   tiers: [tiers/feature_request_plan.yaml]
-  edges: []
+  edges: [edges/plan_target.yaml]
 walk: downward_cascade
 ticket:
   entry: feature_expansion

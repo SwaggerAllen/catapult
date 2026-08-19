@@ -58,6 +58,47 @@ context-source kinds, and audit profiles.
   unowned (repo-root, no system's map claimed it, not on
   `systems/README.md`'s unowned list either) — the gap this ticket's
   sketch closes.
+- **Four core-grammar growth events landed directly, not through the
+  extension registry** (ORC-84, design review): a fourth scope kind,
+  `cascade_visit` (§3.1 — one node per node a flow's own cascade walk
+  visits, for a planning tier, engine-minted rather than fanout-minted);
+  a context walk's hop chain lengthened from exactly one to any number,
+  plus a `~` suffix reversing a hop (§7.1 — walker matches the edge's
+  `target` instead of its `source`); a new context-walk source,
+  `all.<tier>.<projection>` (§7.2 — every declared instance of a tier,
+  no edge); and edges gaining an `instances:` list, several
+  source/target sites sharing one name and mechanism (§4.1). None of
+  these are extension points in the §9/§12 sense — annotation
+  namespaces, declaration kinds, generator types, context-source
+  *kinds*, enforcement profiles are all vocabulary the grammar
+  references, installed or not; these four are the grammar's own
+  productions (how many hops a walk may chain, what scope kinds exist
+  at all), which the extension registry has no callback for and was
+  never meant to carry. "The core is frozen; growth happens in
+  extensions" therefore doesn't route these anywhere — there is no
+  extension shaped to hold a scope kind. What actually governs a core
+  grammar change is the sentence right after: "a platform-versioned
+  event with a migration story." This entry is that story. All four
+  landed inside a content-porting ticket rather than a dedicated
+  `core_dsl` ticket because that ticket's own design review directed
+  it, in these words, after the first pass tried the alternative
+  (recording each gap as a non-goal) and was told that was the wrong
+  move: "a missing DSL construct is a `docs/dsl-syntax.md` proposal,
+  not a reason to ship the bundle without the capability" — the same
+  instruction this ticket had already given, and this pass had already
+  followed, for `mint.<name>` (§3's join-target field-source
+  addendum, landed the same way one pass earlier). Design review's
+  sign-off is the reviewed change; a dedicated ticket would be
+  re-litigating a decision already made in daylight, not making a new
+  one. Every addition is additive to the closed sets it extends (no
+  existing bundle content stops parsing) and ships with loader tests
+  (`test/catapult/dsl/context_walk_test.exs`,
+  `test/catapult/dsl/loader_test.exs`) exercising the new productions
+  directly, not only through `bundles/default/`'s own use of them.
+  Revisit condition: none for the mechanism split itself (extensions
+  still own vocabulary, core still owns grammar); a *fifth* grammar
+  growth event still wants the same daylight this one got, whether or
+  not another ticket happens to be carrying it.
 
 ## Initial vs target
 

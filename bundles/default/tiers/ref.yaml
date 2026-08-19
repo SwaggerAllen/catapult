@@ -7,9 +7,10 @@
 # or the dashboard — never minted by a fanout edge, so there is no
 # child_of(X) to declare. "Any parents and any children" (this
 # ticket's redirect §5) means no fanout mints it and no fanout it
-# mints; comparch_ref/subcomparch_ref/impl_ref (edges/*.yaml) are the
-# attachment surface, wired at comparch-and-below only, matching v4
-# §7's "refs are implementation detail" convention.
+# mints; edges/reference.yaml (comparch/subcomparch/impl, each its own
+# instance under dsl-syntax.md §4.1) is the attachment surface, wired
+# at comparch-and-below only, matching v4 §7's "refs are
+# implementation detail" convention.
 tier: ref
 scope: singleton
 identity: id

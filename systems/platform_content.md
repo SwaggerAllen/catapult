@@ -104,12 +104,15 @@ loader tickets carry `system:core-dsl`.
   folding it into resp asks one prompt to do two jobs (a previous
   ORC-7 pass made exactly this mistake and it is not repeated here).
   `comp`/`subcomp` are projection tiers (no draft, no prompt,
-  `generator: synthesis`), minted by `component_fanout`/
-  `subcomponent_fanout` from their parent decomposition's row. `resp`
-  gets the same treatment: v5 restores it as a real tier
+  `generator: synthesis`), minted by the `decomposition` edge's
+  sysarch→comp and comparch→subcomp instances (one edge name, several
+  sites sharing the mechanism — dsl-syntax.md §4.1's `instances:` form;
+  `edges/decomposition.yaml`) from their parent decomposition's row.
+  `resp` gets the same treatment: v5 restores it as a real tier
   (`seed-docs/README.md`'s first known delta) by minting one node per
-  atom `requirements` emits (`resp_fanout`), rather than leaving each
-  atom a field inside `requirements`' own body the way v4 did — what
+  atom `requirements` emits (`decomposition`'s requirements→resp
+  instance), rather than leaving each atom a field inside
+  `requirements`' own body the way v4 did — what
   restoring it as a tier buys is a stable target for `fulfills` and
   for a policy scoped "through responsibilities" (v5 §4.5) to survive
   a sysarch re-decomposition.
@@ -130,14 +133,14 @@ loader tickets carry `system:core-dsl`.
   this ticket's to guess at.
   **The `<owns>` block's un-fanned-out escape does not carry
   forward.** v4 let a comp with no natural subcomponent split skip
-  `subcomponent_fanout` entirely (impl attaching directly to the
-  comp); expressing that as a scope needs a union this ticket's closed
-  scope-expression set (`singleton | per(X) | child_of(X)`,
+  fanning out to subcomponents entirely (impl attaching directly to
+  the comp); expressing that as a scope needs a union this ticket's
+  closed scope-expression set (`singleton | per(X) | child_of(X)`,
   dsl-syntax.md §3.1) has no form for (`per(subcomp) OR per(comp where
-  count(subcomponents)==0)`). Dropped as a content simplification,
-  not carried forward silently: `subcomponent_fanout`'s `source: {min:
-  1}` cardinality makes every comp fan out into at least one
-  subcomponent.
+  count(subcomponents)==0)`). Dropped as a content simplification, not
+  carried forward silently: `decomposition`'s comparch→subcomp
+  instance declares `source: {min: 1}`, making every comp fan out into
+  at least one subcomponent.
 - **Fragment ownership is 5 kinds at `comp`, 3 at `subcomp`** (ORC-84,
   confirming the previous pass's own correct call — kept rather than
   re-litigated). `comp` owns `techspec`, `pubapi`, `privapi`,
@@ -153,55 +156,61 @@ loader tickets carry `system:core-dsl`.
   `handle.fragments:` and `produces:` actually name.
 - **`ref`/`vocab`/`policy` are flat pools, not singleton nodes**
   (v5 §4.5, ORC-84). `vocab` is `child_of(feature_expansion)`, minted
-  by `vocab_fanout` from the `<vocabulary>` block's flagged candidate
-  terms (name + scope, not a full definition — see the content-delta
-  entry below); `policy` is `child_of(sysarch)` with two fanout mints
-  (`policy_fanout` from sysarch's project-level `<policies>`,
-  `policy_fanout_comp` from comparch's component-local `<policies>` —
-  two fanout edges into one flat pool is legal under the loader as
-  implemented today, since `Catapult.Dsl.Tier`'s scope check only
-  requires `child_of(X)` to name a *declared* tier, not the sole edge
-  targeting it); `ref` is `scope: singleton`, read the same loose way
-  ("the pool", not "the one node") since `identity: id` over a literal
-  singleton would be meaningless and refs are things that accrete via
-  a write tool, never minted by a fanout edge at all. **`ref` may
-  attach anywhere, any parent, any child** — an author decision
-  loosening v4's "comparch and below" restriction to a general rule:
-  no per-use kinds, no special-case lifecycles. This pass wires the
-  attachment edges (`comparch_ref`, `subcomparch_ref`, `impl_ref`)
-  only where content is actually consumed today, matching v4's own
-  choice of sites — the looser rule is about the `ref` tier's own
-  shape carrying no restriction, not a mandate to pre-wire every tier
-  against a need nothing has yet.
+  by `decomposition`'s feature_expansion→vocab instance from the
+  `<vocabulary>` block's flagged candidate terms (name + scope, not a
+  full definition — see the content-delta entry below); `policy` is
+  `child_of(sysarch)` with two `decomposition` mints (sysarch→policy
+  from sysarch's project-level `<policies>`, comparch→policy from
+  comparch's component-local `<policies>` — two fanout instances into
+  one flat pool is legal under the loader as implemented today, since
+  `Catapult.Dsl.Tier`'s scope check only requires `child_of(X)` to
+  name a *declared* tier, not the sole edge targeting it); `ref` is
+  `scope: singleton`, read the same loose way ("the pool", not "the
+  one node") since `identity: id` over a literal singleton would be
+  meaningless and refs are things that accrete via a write tool, never
+  minted by a fanout edge at all. **`ref` may attach anywhere, any
+  parent, any child** — an author decision loosening v4's "comparch
+  and below" restriction to a general rule: no per-use kinds, no
+  special-case lifecycles. This pass wires the attachment sites
+  (`edges/reference.yaml`'s three instances — comparch, subcomparch,
+  impl, one edge name per dsl-syntax.md §4.1) only where content is
+  actually consumed today, matching v4's own choice of sites — the
+  looser rule is about the `ref` tier's own shape carrying no
+  restriction, not a mandate to pre-wire every tier against a need
+  nothing has yet. `reference` is not among this ticket's own named
+  five edges (`fulfills`, `dependency`, `domain_parent`,
+  `decomposition`, `policy_application`) — `docs/non-goals.md` records
+  why folding ref attachment into one of those five would misname the
+  mechanism rather than honor "same mechanism, one name."
   **Policy scoping is v5 §4.5's three grains, never `child_of(resp)`**:
   project-global (no scope edge — a `<policy>` with neither `<required>`
-  nor `<structural/>`), through-responsibilities
-  (`policy_scope_resp`, `policy -> resp` — the load-bearing grain,
-  since a policy bound to a resp survives a sysarch re-decomposition
-  instead of being re-typed by hand), and direct component links for
-  genuinely structural policies (`policy_scope_comp`, `policy ->
-  comp`, new grammar — siege's own `<policy>` element only ever names
-  a resp id via `<required>`; the `<structural/>` marker this pass
-  adds to `schemas/sysarch.xsd` and `schemas/comparch.xsd` is what a
-  policy declares instead, mutually exclusive with `<required>` by
-  the grammar's own `xs:choice`, never both). Both edges type
-  `policy_application`.
-  **Recorded gap: a component cannot read "policies applied to me
-  through my responsibilities" via a context walk.** `comparch`'s
-  `context:` (dsl-syntax.md §7) is one hop only
-  (`lib/catapult/dsl/context_walk.ex`: "only one edge before -> is
-  legal"); reading the through-responsibility grain from `comparch`
-  needs two (`self.parent.fulfills -> resp`, then `resp`'s *inbound*
-  `policy_scope_resp` edges — which context walks can't traverse
-  backward either, since a walk's declared source must match the
-  walker). Wiring only the direct grain (`policy_scope_comp`, which
-  *is* one hop) would silently under-deliver the grain the redirect
-  called load-bearing, so `comparch.yaml` wires neither and says so in
-  a comment; the prompt's own "applied policies" section documents
-  the gap rather than reading a variable nothing ever populates. Not
-  this ticket's to fix — a two-hop walk or a denormalized edge is new
-  DSL surface, and the mandate here is porting content against the
-  loader as merged, not growing it.
+  nor `<structural/>`, read via `all.policy` when a tier genuinely
+  needs the unscoped grain — dsl-syntax.md §7.2), through-
+  responsibilities (`policy_application`'s policy→resp instance — the
+  load-bearing grain, since a policy bound to a resp survives a
+  sysarch re-decomposition instead of being re-typed by hand), and
+  direct component links for genuinely structural policies
+  (`policy_application`'s policy→comp instance, new grammar — siege's
+  own `<policy>` element only ever names a resp id via `<required>`;
+  the `<structural/>` marker this pass adds to `schemas/sysarch.xsd`
+  and `schemas/comparch.xsd` is what a policy declares instead,
+  mutually exclusive with `<required>` by the grammar's own
+  `xs:choice`, never both). Both are instances of one
+  `policy_application` edge (dsl-syntax.md §4.1).
+  **The through-responsibility read is wired, not a recorded gap.**
+  An earlier pass here read `comparch`'s one-hop context grammar as
+  unable to reach it and left both grains unread rather than
+  under-deliver the load-bearing one; design review called that the
+  wrong response to a missing construct (`docs/non-goals.md` carries
+  the reversal). `dsl-syntax.md` §7.1's hop chains and reversed hops
+  (`.<edge>~`) are what changed: `comparch.yaml` now reads
+  `self.parent.policy_application~ -> policy.handle` (direct grain,
+  one reversed hop) and `self.parent.fulfills.policy_application~ ->
+  policy.handle` (through-responsibility grain, forward then
+  reversed), and both land in one `policy` collection (dsl-syntax.md
+  §9). No new edge was needed — `policy_application`'s two existing
+  instances already carry both grains in their declared direction;
+  reversal reads them backward at walk time.
 - **`mint.<name>` is the field source for every join-target tier**
   (`comp`, `subcomp`, `resp`, `policy`, and the mint-time identity
   fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in
@@ -233,27 +242,50 @@ loader tickets carry `system:core-dsl`.
   v4: ...the plan-change flow"). The other five carry no phase
   dependency in v4 either and are ported: four walk
   `downward_cascade`, `upward_propagation` walks `up_then_down` (the
-  one place this bundle uses the second walk primitive). Each flow
-  mints exactly one `singleton`-scoped planning-tier node
-  (`<flow>_plan`) rather than v4's `per(scaffold_tier)` — v5's closed
-  scope-expression set has no tier standing for "whichever tier this
-  cascade is currently visiting" the way v4's informal
-  `scaffold_tier` did, so a real per-visited-tier plan fan-out is not
-  expressible without inventing a tier this ticket has no mandate to
-  invent. `upward_propagation` is further simplified from v4's
-  two-stage `assessment_plan` + `propagation_plan` to one combined
-  planning tier, since sequencing two flow-scoped tiers needs
-  instance-level flow-state ("has the upstream stage closed yet") that
+  one place this bundle uses the second walk primitive).
+  `upward_propagation` is further simplified from v4's two-stage
+  `assessment_plan` + `propagation_plan` to one combined planning
+  tier, since sequencing two flow-scoped tiers needs instance-level
+  flow-state ("has the upstream stage closed yet") that
   "projection-time instance checks" (this ticket's own stated
-  out-of-scope) would have to supply. Each flow's completion predicate
-  is a plain `resolved == true` field check on its own planning tier
-  — the smallest predicate that is both syntactically valid under
-  `lib/catapult/dsl/predicate.ex`'s actual grammar and checkable
-  without engine-side "open visit" state that grammar has no primitive
-  for (v4's own `count(open_visit) == 0` / `count(decomposed_by(...)
-  where ...)` shapes do not parse under it at all — no `decomposed_by`
-  function call exists in the closed predicate language, and `count`
-  takes a bare declared edge name, not an expression).
+  out-of-scope) would have to supply — see `docs/non-goals.md`, which
+  is where that particular simplification still stands.
+
+  **Each flow's planning tier mints one `cascade_visit`-scoped node
+  per node the flow's cascade actually visits, not one `singleton`
+  node per open instance** (design review; `docs/non-goals.md` carries
+  the reversal in full). The first pass here read v5's closed scope
+  set as having no tier standing for "whichever tier this cascade is
+  currently visiting" the way v4's informal `scaffold_tier` did, and
+  concluded a real per-visited-node plan fan-out was inexpressible
+  without a `core_dsl` ticket's mandate. Design review rejected that
+  conclusion: a missing scope kind is a `dsl-syntax.md` proposal, the
+  same move already used for `mint.<name>`, not a reason to ship
+  without the capability. `cascade_visit` (dsl-syntax.md §3.1) is that
+  proposal, landed (`systems/core_dsl.md` records the grammar side);
+  every `<flow>_plan` tier uses it, and `edges/plan_target.yaml`
+  supplies the live pointer from a plan instance to the specific
+  scaffold node it is planning for — the "schema delta is where
+  plan→target lives, and it is empty" gap design review named,
+  closed. Completion follows the same shift: `all(<flow>_plan ->
+  resolved)` (`predicates.yaml`) reads "every visited node's plan has
+  resolved," the universal quantifier over the tier's own name as path
+  root (dsl-syntax.md §8's addendum) — not v4's `count(open_visit) ==
+  0` (still unparseable under `lib/catapult/dsl/predicate.ex`'s actual
+  grammar: no `open_visit` edge, no `decomposed_by(...)` call), and no
+  longer the single-node `resolved == true` this entry previously
+  described.
+
+  One gap remains open and is *not* a grammar question: no planning
+  tier reads `ticket.findings` (dsl-syntax.md §7's "ticket thread for
+  the scope", v5's replacement for v4's dropped `seed:` block) —
+  `lib/catapult/dsl/dialect.ex` registers no context-source extension
+  in either dialect yet, so declaring it fails load. `docs/non-goals.md`
+  records this as a `core_dsl` delivery-system dependency, not
+  something this pass can build. Every planning tier reads
+  `input.project_doc` instead today, which is the frozen original
+  intake, not the flow's own new prose.
+
   `feature_request`'s planning-tier prompt is
   `seed-docs/siege-prompts/propose_feature.md`, ported close to
   verbatim (real source, real content). The other four have no siege

@@ -159,7 +159,10 @@ defmodule Catapult.Dsl.Chain do
       end
 
     cardinality_slots =
-      for {name, edge} <- edges, when_expr = get_in(edge.cardinality, [:when]), when_expr do
+      for {name, edge} <- edges,
+          instance <- edge.instances,
+          when_expr = get_in(instance.cardinality, [:when]),
+          when_expr do
         predicate_problem(when_expr, named, "edge #{inspect(name)}'s cardinality.when")
       end
 
@@ -196,15 +199,23 @@ defmodule Catapult.Dsl.Chain do
 
   defp edge_endpoint_problems(edges, tiers) do
     for {name, edge} <- edges,
+        {instance, index} <- Enum.with_index(edge.instances, 1),
         side <- [:source, :target],
-        ref = Map.get(edge, side),
+        ref = Map.get(instance, side),
         ref && not Map.has_key?(tiers, ref) do
-      "edge #{inspect(name)}'s #{side} #{inspect(ref)} names a tier that is not declared"
+      "edge #{edge_label(edge, name, index)} #{side} #{inspect(ref)} names a tier that is not declared"
     end
   end
 
+  # Single-instance edges (the common case) keep the plain "edge X's"
+  # phrasing; only a multi-instance edge needs to say which instance,
+  # since its instances may disagree.
+  defp edge_label(%{instances: [_one]}, name, _index), do: "#{inspect(name)}'s"
+  defp edge_label(_edge, name, index), do: "#{inspect(name)}'s instance ##{index}'s"
+
   defp edge_acyclicity_problems(edges) do
-    pairs = for {_name, %{source: s, target: t}} <- edges, s && t, do: {s, t}
+    pairs =
+      for {_name, edge} <- edges, %{source: s, target: t} <- edge.instances, s && t, do: {s, t}
 
     if DslGraph.acyclic?(pairs) do
       []
@@ -248,7 +259,7 @@ defmodule Catapult.Dsl.Chain do
 
   defp self_reference?(raw) do
     case ContextWalk.parse(raw) do
-      {:ok, %ContextWalk{source: :self, edge: nil, target_tier: nil, projection: nil}} -> true
+      {:ok, %ContextWalk{source: :self, hops: [], target_tier: nil, projection: nil}} -> true
       _other -> false
     end
   end
@@ -268,7 +279,7 @@ defmodule Catapult.Dsl.Chain do
   end
 
   defp context_entry_problems(
-         %ContextWalk{source: :self, edge: nil},
+         %ContextWalk{source: :self, hops: []},
          _tier_name,
          _parent,
          _tiers,
@@ -278,25 +289,36 @@ defmodule Catapult.Dsl.Chain do
        do: []
 
   defp context_entry_problems(
-         %ContextWalk{source: :self, edge: edge, target_tier: target} = walk,
+         %ContextWalk{source: :self, hops: hops, target_tier: target} = walk,
          tier_name,
          parent,
          tiers,
          edges,
          _registry
-       ) do
+       )
+       when hops != [] do
     walker = if walk.parent, do: parent, else: tier_name
 
-    case Map.fetch(edges, edge) do
-      :error ->
-        [
-          "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} names edge #{inspect(edge)}, which is not declared"
-        ]
+    case walk_hops(hops, walker, edges, walk, tier_name) do
+      {:ok, _final_walker} -> target_problem(target, tiers, walk, tier_name)
+      {:error, problems} -> problems
+    end
+  end
 
-      {:ok, declared} ->
-        navigation_problem(declared, walk, tier_name) ++
-          walker_problem(declared, walker, walk, tier_name) ++
-          target_problem(target, tiers, walk, tier_name)
+  defp context_entry_problems(
+         %ContextWalk{source: :all, pool_tier: tier} = walk,
+         tier_name,
+         _parent,
+         tiers,
+         _edges,
+         _registry
+       ) do
+    if Map.has_key?(tiers, tier) do
+      []
+    else
+      [
+        "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} names all.#{tier}, which is not a declared tier"
+      ]
     end
   end
 
@@ -321,22 +343,113 @@ defmodule Catapult.Dsl.Chain do
 
   defp context_entry_problems(_walk, _tier_name, _parent, _tiers, _edges, _registry), do: []
 
-  defp navigation_problem(%{navigation: true}, walk, tier_name) do
+  # Walks a hop chain from `walker`, one edge at a time: a forward hop
+  # requires an instance whose `source` matches the current walker and
+  # continues from its `target`; a reversed hop (`.<edge>~`) requires an
+  # instance whose `target` matches and continues from its `source`.
+  # One edge NAME may carry several instances (`Catapult.Dsl.Edge`); any
+  # one of them matching the walker is a legal continuation — the bundle
+  # names the edge once, the loader picks the site. When several
+  # instances match the walker (an edge fanning one source out to many
+  # target tiers, e.g. a flow's plan reaching several possible scaffold
+  # kinds), the walk's own `-> <tier>.<projection>` on the *last* hop
+  # disambiguates: an instance landing on that tier is preferred over an
+  # arbitrary match, so the string the author wrote is the one honored.
+  defp walk_hops(hops, walker, edges, walk, tier_name) do
+    last_index = length(hops) - 1
+
+    hops
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, walker}, fn {hop, index}, {:ok, current} ->
+      prefer = if index == last_index, do: walk.target_tier
+      resolve_hop(Map.fetch(edges, hop.edge), hop, current, prefer, walk, tier_name)
+    end)
+  end
+
+  defp resolve_hop(:error, hop, _current, _prefer, walk, tier_name) do
+    {:halt,
+     {:error,
+      [
+        "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} names edge #{inspect(hop.edge)}, which is not declared"
+      ]}}
+  end
+
+  defp resolve_hop({:ok, declared}, hop, current, prefer, walk, tier_name) do
+    case navigation_problem(declared, hop, walk, tier_name) do
+      [] -> match_instance_or_error(declared, hop, current, prefer, walk, tier_name)
+      problems -> {:halt, {:error, problems}}
+    end
+  end
+
+  defp match_instance_or_error(declared, hop, current, prefer, walk, tier_name) do
+    case find_instance(declared.instances, current, hop.reverse, prefer) do
+      {:ok, next} ->
+        {:cont, {:ok, next}}
+
+      {:error, :no_candidates} ->
+        side = if hop.reverse, do: "target", else: "source"
+        reversed = if hop.reverse, do: " (reversed)", else: ""
+
+        {:halt,
+         {:error,
+          [
+            "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(hop.edge)}#{reversed}, none of whose instances has #{side} #{inspect(current)}"
+          ]}}
+
+      {:error, :no_preferred_match} ->
+        {:halt,
+         {:error,
+          [
+            "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(hop.edge)}, which has more than one instance matching #{inspect(current)} but none landing on #{inspect(prefer)}"
+          ]}}
+    end
+  end
+
+  defp find_instance(instances, walker, reverse?, prefer) do
+    candidates = Enum.filter(instances, &walker_side_matches?(&1, walker, reverse?))
+    pick_instance(candidates, reverse?, prefer)
+  end
+
+  # One candidate: take it, `prefer` or not — this is the single-
+  # instance edge's own long-standing looseness (a walk's `->` target
+  # was never checked for equality against the edge's actual target,
+  # only for existence as a declared tier — target_problem/2 below),
+  # preserved rather than newly tightened.
+  defp pick_instance([instance], reverse?, _prefer), do: {:ok, other_side(instance, reverse?)}
+
+  defp pick_instance([], _reverse?, _prefer), do: {:error, :no_candidates}
+
+  # More than one candidate is a genuine fan-out (one source, several
+  # target tiers, or the reverse) — the walk's own `prefer` (its final
+  # hop's `-> <tier>.<projection>`) is what disambiguates, and here,
+  # unlike the single-candidate case, a `prefer` that matches none of
+  # them is a real error rather than an arbitrary pick: silently
+  # landing on whichever candidate came first would resolve the walk
+  # to a tier the walk string never named.
+  defp pick_instance(candidates, reverse?, prefer) when prefer != nil do
+    case Enum.find(candidates, &(other_side(&1, reverse?) == prefer)) do
+      nil -> {:error, :no_preferred_match}
+      instance -> {:ok, other_side(instance, reverse?)}
+    end
+  end
+
+  defp pick_instance(candidates, reverse?, nil) do
+    {:ok, other_side(List.first(candidates), reverse?)}
+  end
+
+  defp walker_side_matches?(%{source: source}, walker, false), do: source == walker
+  defp walker_side_matches?(%{target: target}, walker, true), do: target == walker
+
+  defp other_side(%{target: target}, false), do: target
+  defp other_side(%{source: source}, true), do: source
+
+  defp navigation_problem(%{navigation: true}, hop, walk, tier_name) do
     [
-      "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(walk.edge)}, marked navigation: true — navigation edges are never readiness-bearing (dsl-syntax.md §4, §13)"
+      "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(hop.edge)}, marked navigation: true — navigation edges are never readiness-bearing (dsl-syntax.md §4, §13)"
     ]
   end
 
-  defp navigation_problem(_edge, _walk, _tier_name), do: []
-
-  defp walker_problem(%{source: source}, walker, walk, tier_name)
-       when not is_nil(walker) and source != walker do
-    [
-      "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(walk.edge)}, whose declared source is #{inspect(source)}, not #{inspect(walker)}"
-    ]
-  end
-
-  defp walker_problem(_edge, _walker, _walk, _tier_name), do: []
+  defp navigation_problem(_edge, _hop, _walk, _tier_name), do: []
 
   defp target_problem(nil, _tiers, _walk, _tier_name), do: []
 

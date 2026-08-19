@@ -3,24 +3,27 @@
 # edge here declares a `scope_filter`, `cardinality.when`, or edge
 # `constraint`, so there is nothing else to name.
 #
-# Each flow below mints exactly one planning-tier node (its own
-# `delta.tiers` entry) scoped `singleton` — one plan per open flow
-# instance — carrying a single `resolved` boolean the planning tier's
-# own commit sets once the plan's cascade/assessment is done. The
-# predicate language's `count(open_visit) == 0` shape from
-# seed-docs/catapult-default-bundle-v4-examples.md §2.1-2.6 does not
-# parse under this loader's actual grammar (lib/catapult/dsl/
-# predicate.ex): `count(<edge>) <cmp> <int>` counts instances along a
-# *declared edge* from the predicate's own binding, not an informal
-# "open visit" concept, and there is no `decomposed_by(...)`-style
-# function call in the grammar either. A plain field comparison over
-# the planning tier's own `resolved` field is the smallest predicate
-# that is both syntactically valid today and semantically checkable
-# without inventing engine-side "visit" state this ticket's scope
-# (dsl-syntax.md's loader, not the engine) doesn't own. Recorded as an
-# interpretation call in systems/platform_content.md.
-feature_request_complete: resolved == true
-refactor_complete: resolved == true
-bug_fix_complete: resolved == true
-downward_propagation_complete: resolved == true
-upward_propagation_complete: resolved == true
+# Every planning tier is now `cascade_visit`-scoped (dsl-syntax.md
+# §3.1) — one plan node per node its flow's cascade actually visits,
+# not one singleton plan per open flow instance. Completion is
+# therefore "every visited node's plan has resolved", expressed with
+# the universal quantifier over the tier's own name as path root
+# (dsl-syntax.md §8's addendum this pass adds): `all(<plan_tier> ->
+# resolved)`. This replaces both the previous singleton-tier reading
+# (`resolved == true`, correct only while there was exactly one plan
+# node to ask) and v4's own `count(open_visit) == 0`
+# (seed-docs/catapult-default-bundle-v4-examples.md §2.1-§2.6), which
+# still does not parse under this loader's grammar — `open_visit` was
+# never a declared edge or tier name, `count(<edge>) <cmp> <int>`
+# counts along a *declared edge*, and there is no `decomposed_by(...)`
+# function call in the grammar. `all(<tier> -> field)` is the smallest
+# predicate that is both syntactically valid today (lib/catapult/dsl/
+# predicate.ex) and says what completion actually means once the tier
+# is cascade_visit-scoped, without inventing engine-side "visit" state
+# this ticket's scope (dsl-syntax.md's loader, not the engine) doesn't
+# own. Recorded as an interpretation call in systems/platform_content.md.
+feature_request_complete: all(feature_request_plan -> resolved)
+refactor_complete: all(refactor_plan -> resolved)
+bug_fix_complete: all(bug_fix_plan -> resolved)
+downward_propagation_complete: all(downward_propagation_plan -> resolved)
+upward_propagation_complete: all(upward_propagation_plan -> resolved)

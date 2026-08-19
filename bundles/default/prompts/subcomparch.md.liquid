@@ -143,7 +143,7 @@ A pubapi entry that's just a method name with a one-line comment is incomplete; 
 
 * `<dependencies>` is a single section holding `<dep>` edges from this subcomponent to same-parent sibling subcomponents. Every target is a real ID — the alias scheme is NOT used at this tier because sibling subcomponents already exist as minted nodes when subcomparch is generated.
 * Pick targets from the list the input context shows under "Same-parent sibling subcomponents" above, written the same way regardless of target: `<dep to="comp_session9"/>`.
-<!-- voided: v4 siege additionally allowed `<dep>` targets on "parent's sibling top-level components" (real comp_* IDs one level up from the owning component). subcomparch.yaml's context walk carries no subcomp→comp edge — edges/sub_dependency.yaml connects sibling subcomps under the same comparch only — so that target kind has no ID list to draw from at this tier in v5. -->
+<!-- voided: v4 siege additionally allowed `<dep>` targets on "parent's sibling top-level components" (real comp_* IDs one level up from the owning component). subcomparch.yaml's context walk carries no subcomp→comp edge — edges/dependency.yaml's subcomp->subcomp instance connects sibling subcomps under the same comparch only — so that target kind has no ID list to draw from at this tier in v5. -->
 * At most one `<dep>` per target (duplicates rejected).
 * No self-deps: you may not reference your own ID.
 * `<dependencies>` may be **empty** when this subcomponent is a true leaf with no sibling interactions. Emit `<dependencies></dependencies>`.
