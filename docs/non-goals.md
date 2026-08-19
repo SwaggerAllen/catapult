@@ -5,1255 +5,1540 @@ by us first). Proposing one of these is not forbidden — but per
 orchestration's rule, do it knowing you are arguing against a
 recorded decision, and say so explicitly.
 
-- **No self-bootstrap.** Catapult is not built from its own doc
-  graph; orchestration delivers it (v5 §1.3). Reasons: the
-  self-modification crash risk (a bad deploy bricking the tool that
-  fixes it), the size mismatch (Catapult is smaller than its target
-  class, so self-hosting proves little), and the historical fact
-  that the byte-identity bootstrap requirement is much of why v4
-  never shipped. The sane residue: Catapult consumes the shared
-  components as an ordinary library user.
-- **No absorption of existing codebases.** Projects enter as fresh
-  scaffolds; documentation and tracker history seed the feature set;
-  code is regenerated. The platform's structure is narrow by design
-  and existing apps won't conform to it; an absorption mode is a
-  different product. (Author decision, Polyphony conversation.
-  Revisit condition: none foreseeable soon — "so far out of scope we
-  may as well not think about it.") Boundary sharpened at the mocks
-  pass: user-supplied mocks and design systems enter as **seed
-  evidence and pinned artifacts** (v5 §4.1, §5.4) — read, rendered,
-  designed against, never absorbed; business logic still
-  regenerates.
-- **No workflow interpreter in the DSL, no bundle-side code, no
-  Turing-complete predicates** (v5 §6, §7.10, §9). The plane's
-  Commanded aggregates are the semantics; declarations configure
-  them. Extensions are platform-shipped. This is a correctness
-  property the scheduler, audit, and security posture lean on.
-- **No per-project restructuring of the *automation* protocol** (v5
-  §7.10, §7.16). Projects bind tracker ids and tune marked
-  thresholds; the agent and queue states, and the graph connecting
-  them, are platform-fixed, because prompts, plane logic, and shared
-  vocabulary are all written against them. **Narrowed at §7.16 from a
-  flat "states and gates are platform-fixed":** review states — the
-  ones whose only job is routing a human — are *declared*, vary by
-  ticket type, and default to a UX review and an engineering review.
-  The entry's stated reason survives the narrowing intact, because
-  nothing dispatches from a review state and no prompt is written
-  against one. The admission rule that replaces the flat version:
-  **a state may be declared iff no plane logic branches on it.** We
-  fix the shape of the automation, not the shape of the
-  organization. What stays refused is a project rewiring the
-  automation graph itself.
-- ~~**No tracker product.**~~ **Reversed** (v5 §7.17). This entry
-  held that Linear was the working UI behind a Tracker port, that we
-  would build zero tracker UI, and it named the tell that would
-  reopen it: catching ourselves teaching the tracker state it cannot
-  hold. The tell arrived, repeatedly — an external state store
-  because the tracker cannot record *who* wrote a change; protocol
-  state riding in comments behind markers; an unmapped state halting
-  a sweep for hours; comment ordering contradicting its own API
-  contract; §7.16's stale-transition rejection undeliverable at the
-  point of action; and §7.16's declared review states needing to be
-  provisioned into a product that does not know what they mean.
-  **Catapult ships its own ticket UI to every user.** External
-  trackers become an add-on: an *outbound* projection of top-level
-  tickets only, for teams that must report into a larger org's
-  system. Inbound acceptance is not committed and, if it happens, is
-  a narrow explicit command surface rather than a write path. Kept
-  rather than deleted because the reversal is the record: this entry
-  named its own reopen condition and the condition came true, which
-  is the process working.
-- **No inbound write path from a mirrored tracker** (v5 §7.17) — the
-  live half of the entry above. Mirroring outward is a read model
-  leaving the building and is safe by construction. Accepting
-  arbitrary state changes back in reintroduces unmapped states,
-  last-write-wins and unattributable writes into a system that just
-  escaped them. Anything inbound is a §7.1 signal, validated like any
-  other, never a state change adopted on the tracker's word.
-- ~~**No dashboard-as-working-surface**~~ **Reversed with the tracker
-  reversal** (v5 §7.17). The entry held debugging and observation
-  only, with artifact review and ticket action living in Linear and
-  PRs; it cannot survive owning the tracker, because owning it is
-  precisely deciding that ticket action lives here. Two of its
-  carve-outs stand unchanged and were always in-bounds: settings and
-  onboarding (the bindings UI, v5 §7.10), and the configuration
-  surface — a composer that files graph-state changes as PRs and
-  never bypasses a gate.
-  **What replaces the line is not "anything goes".** Review comes
-  home where the native surface is *better*, not merely available,
-  and §7.17 records the two reasons it is: our docs diff per sentence
-  rather than per line, and the graph of tickets under a top-level
-  ticket is a view a general tracker cannot easily replicate. The
-  extent is settled in `docs/ui-spec.md`. The entry's real warning —
-  that a pipeline this deep generates constant temptation to grow UI
-  — is not retired by the reversal, and its **successor rule** is
-  `docs/ui-spec.md` §2: reads are projections and writes are
-  commands; **no screen introduces protocol vocabulary**; every
-  screen answers a named question or performs a protocol-defined
-  action. The middle one is the one to cite, because the temptation
-  never arrives as "build a tracker" — it arrives as "add one field
-  here", and a field here is vocabulary.
-- **Catapult never executes target-project code** (v4 §A.10.5
-  carried forward, sharpened): agent runs execute code in their own
-  CI/runner environments; the plane dispatches and observes but
-  never runs generated code in-process. The plane's blast radius is
-  its own.
-- **No concurrent authoring of artifact bodies** (v5 §7.16).
-  Narrowed, deliberately, from a former `No multi-writer projects`
-  entry — **small teams are supported**, and that entry contradicted
-  both §1's target class ("single-author / small teams") and §2.9's
-  identity component, which ships orgs, membership, invitations and
-  roles-as-data. It was inherited from v4 §A.0.1 commitment 4 rather
-  than decided here, and the narrowing is a reconciliation, not a
-  reversal. What remains out is what v4 actually carved out: two
-  people editing the same artifact body under merge semantics the
-  plane would have to invent. Bodies live in git, PRs already carry
-  those semantics, and the plane does not grow a second set.
-  Concurrent *action on the delivery protocol* — several people
-  holding a sign-off role, racing each other on transitions — is in,
-  and is optimistic concurrency (§7.16): first writer wins, a stale
-  `from` is rejected rather than applied.
-- **No experimentation/percentage-rollout flag machinery** (v5
-  §2.10): release flags, ops kill-switches, actor targeting — no
-  more. Machinery without a customer at this scale.
-- **No LiveView/React mixing within one frontend target** (v5 §1.4):
-  one product tier, one stack per target.
-- **No hand-maintained inventories**: no code inventory in systems
-  docs (the code is the inventory), no hand-written permission
-  matrices, no hand-written API docs where generation exists.
-  Documents that mirror code drift silently; every such document is
-  generated or absent.
-- **No second home for the reference instance's live facts.** App
-  name, region, public hostname, port, autodeploy, the migrate
-  PRE_DEPLOY job: `SETUP.md` §2 records them and nothing else
-  restates them. The README says the deployment exists, that
-  `/health` is the only served path, and points at §2 — nobody
-  opens a README to find a database cluster name, so the one home
-  is the file a reader is already in when the values matter.
-  (Author decision, ORC-40.) This is the entry above one level up
-  rather than a case of it: that rule is scoped to documents
-  mirroring *code*, and these are prose facts about a running
-  system, but the failure mode is identical and we have first-hand
-  evidence. ORC-2's README paragraph (`4a4aa91`) sourced the
-  deployment to `.do/app.yaml` one commit after `b5c878f` deleted
-  that file — the same paragraph, in its first week, citing
-  something that no longer existed. The next drift is a hostname or
-  a port, which a reader acts on. Corollary, and the reason no
-  check is added: **no doc-lint holding the two files in
-  agreement.** A lint is what a second copy needs; one home needs
-  nothing, and these facts leave the tree entirely at
-  open-sourcing, so the lint would be written to be deleted.
-  **Amended (ORC-29): the public hostname's home moves, it does not
-  multiply.** The live suite has to dereference that value and prose
-  cannot be dereferenced, so the hostname becomes
-  `config/test.exs`'s `:live_base_url` and §2 names the key where it
-  used to print the URL. Every other fact in §2 stays put. The
-  amendment is faithful to the reason rather than the letter: what
-  ORC-40 was written about is a stale copy nobody checks — a README
-  paragraph citing a file deleted one commit earlier — and a
-  hostname the live suite reads at every boundary is checked by
-  machine once a milestone, going red and naming itself when it
-  drifts. Prose never had that property. The rule the amendment
-  keeps: still one home, and a fact acquiring a code consumer moves
-  to where code can read it rather than getting a copy there.
-- **No vendored, pinned or freshness-checked copy of the advisory
-  database** (ORC-37). The obvious repair for `mix deps.audit`'s
-  fail-open — clone `mirego/elixir-security-advisories` ourselves,
-  assert it is non-empty and recent, fail the build otherwise — makes
-  us the maintainer of a fork of someone else's mirror of the GitHub
-  Advisory Database, with its refresh cadence as our build's
-  liveness dependency. The gate is bought far more cheaply by
-  sourcing the signal from Hex, which cannot report clean from a
-  fetch it did not make. Revisit condition: Hex's advisory feed
-  proving materially behind the GitHub database in practice, which
-  would be an argument for a real second source rather than for
-  babysitting this one.
-- **No `mix_audit` dependency in `components/substrate/`** (ORC-37).
-  Substrate is Apache-2.0 and ships into every generated project, so
-  each dependency it declares is one imposed on trees we don't own.
-  `mix hex.audit` is built into Hex and covers substrate's lockfile
-  for free; adding a package to obtain a weaker second opinion spends
-  other people's dependency budget to do it.
-- **No removal of `mix deps.audit` now that Hex covers the gate**
-  (ORC-37). Demoted is not deleted: it reads the GitHub Advisory
-  Database, which is a genuinely different source, and it earned its
-  place the day it armed by catching the postgrex advisory and
-  forcing the series bump (ORC-3). Two sources disagreeing is the
-  condition this ticket made legible, not a defect to resolve by
-  dropping one until the Hex feed is shown to dominate it.
-- **No cross-project reach in `mix catapult.audit` itself** (ORC-30).
-  The task's file globs stay rooted at the working directory. It is
-  not taught to descend into `components/**`, not given a `--path`,
-  and not taught to discover sibling mix projects, so that one run
-  covers the tree. Reason: the task is substrate code — Apache-2.0,
-  shipped into every generated project — and the layout of *this*
-  repository is not a fact it may hold. Two runs of a layout-ignorant
-  task beat one run of a task that knows where Catapult keeps its
-  components, because the second kind is what a customer inherits.
-  **The sanctioned form is the opposite end of the same wire:** a
-  `catapult.audit.all` alias in the *root* `mix.exs` that invokes the
-  task once per project (`cmd --cd components/substrate mix
-  catapult.audit`). That is AGPL plane code which never reaches a hex
-  consumer and whose job is precisely to know this project's own
-  layout, so it is in bounds and is not an exception to this entry —
-  the prohibition is on the *task* carrying the knowledge, never on
-  this repo carrying it. Do not delete the alias as a violation of
-  this line; it is the line's intended shape. The accepted
-  consequence is a standing decision in `systems/substrate.md`: the
-  conventions §2 gate set runs per mix project, and a new mix project
-  brings its own gate block. Revisit condition: enough mix projects
-  that the repeated block is itself what drifts — at which point the
-  answer is CI looping over discovered projects, still one
-  working-directory-rooted audit each, and still not a glob that
-  reaches.
-- **No `:live` tag on a test that doesn't cross a real network
-  boundary to a real external system** (ORC-29). The tag buys a seat
-  in the once-per-milestone suite and nothing else, so a `:live`
-  test that exercises the health plug in-process — or over a
-  listener this same job started — reproduces the empty gate this
-  ticket was filed about, one level in, and worse: `no-tests` at
-  least says nothing was checked, where a green run over a local
-  fixture claims the world was. If a test needs no deployed thing,
-  it belongs in the default suite, where its determinism is an asset
-  instead of a disguise.
-- **No `test/live/` directory** (ORC-29). Live tests sit beside the
-  system they exercise, under that system's file map, and the tag
-  alone decides the cadence. A directory is a second axis that can
-  disagree with the first, and one directory holding every system's
-  live tests would give a single file map a veto over every system's
-  tickets — the mutex collision the maps exist to prevent.
-- **No polling or retry-until-deployed in the live suite** (ORC-29).
-  Deploy detection is the plane's job and already exists (poll the
-  App Platform API, compare SHAs). A live check that waits out a
-  rollout is a second, slower deploy detector, and its long timeout
-  is exactly where a real outage hides. A bounded per-request
-  timeout is the whole budget.
-- **No asserting the deployed SHA equals this checkout's** (ORC-29).
-  Autodeploy fires on the merge to main and the boundary run follows
-  within minutes, so equality races the rollout and produces a flake
-  — and a flaky boundary signal costs more than the coverage it
-  would buy, which is the failure mode ORC-29 exists to stop. Assert
-  the SHA is stamped (not the `"dev"` fallback), which catches the
-  real defect — an image that never went through the build path —
-  without racing anything.
-- **No argv-sniffing in the `test` alias** (ORC-29). The tempting
-  version notices `--only live` and skips `ecto.create`/
-  `ecto.migrate` so the live-suite job needs no database, saving an
-  author-owned workflow edit. Rejected: that alias is what makes
-  `mix test` correct for every other run in the repo, and a version
-  that drops migrations on the strength of a flag fails silently and
-  in the one direction that matters — a suite passing against a
-  stale schema. The job gets CI's environment instead; the edit is
-  cheap and it is visible.
-- **No config-library dependency in `components/substrate/`, Vapor
-  included** (ORC-4). This is the third entry of the same shape and
-  the shape is now the rule: substrate is Apache-2.0 and ships into
-  every generated project, so a dependency it declares is one imposed
-  on trees we do not own. The measurement, because this one was an
-  open question rather than an instinct: `vapor 0.10.0`, released
-  2020-08-12 and the newest there is, declares `jason`, `norm`, `toml`
-  and `yaml_elixir` as ordinary runtime dependencies, so it would put
-  a TOML parser and a YAML parser into every generated release in
-  order to read environment variables — against three runtime
-  dependencies in substrate today. What remains of Vapor once the
-  casts, the aggregation, the store and the provenance keying are ours
-  (`systems/substrate.md` argues each) is `System.get_env/0`, so
-  substrate ships an environment source with no dependencies and the
-  plane runs that same source. **Not a ban on Vapor**, which is still
-  conventions §1's blessed answer and is still what a project reaching
-  for file, remote or non-string config should adopt — a ban on
-  substrate being the thing that decides that for everyone. Revisit
-  condition: config the environment genuinely cannot carry, in the
-  substrate itself rather than in one consumer, at which point the
-  port takes an adapter and this entry is what gets argued with.
-  **Sharpened at the second pass (ORC-4), because "the port takes an
-  adapter" was doing too much work:** the port's domain is flat,
-  string-valued named settings arriving over a transport other than
-  the environment, and that is what an adapter is for — a mounted
-  secrets file, a remote parameter store. A *structured* document,
-  with nesting and lists of maps, is not a config source in this
-  sense; it is content, and it belongs in `config/*.exs` or a real
-  document loader. Vapor is the right answer on that side of the
-  line and this port is the wrong one, so the revisit condition
-  splits: flat settings from a new transport are an adapter, and a
-  structured document is not a reason to argue with this entry at
-  all — it is a different problem that never wanted the config layer.
-- **No `.env` files** (ORC-4), against v5 §2.2, which sketched
-  per-component `.env` alongside prefixed env vars. A dotenv file
-  feeds environment variables to a process that reads the
-  environment; under the compile-time source selection in
-  `systems/substrate.md`, dev reads `config/dev.exs` instead, so
-  there is nothing for the file to feed. What it would add is an
-  untracked local file that changes behaviour — the "works on my
-  machine" surface, bought for an ergonomic gain over editing a
-  tracked config file that is close to zero. Revisit condition: a
-  developer needing a real secret locally that cannot be committed —
-  which is a keychain or a shell profile, not a feature of the config
-  layer.
-- **No runtime reconfiguration** (ORC-4). Config is read once, before
-  the root supervisor starts, and does not change until the next
-  boot: no watcher, no reload signal, no swapping a value on a running
-  node. Reason: a value that can change under a running process is a
-  value every reader must re-read and no reader can hold, which is a
-  distributed-systems problem bought in exchange for redeploying —
-  and this platform's deploy model is one environment, autodeploy on
-  green, so the redeploy is the cheap thing here. It is also the same
-  boundary the flag-machinery entry above draws: the cases that
-  actually want live change are kill switches and rollouts, and those
-  are named non-goals, not features waiting for a config watcher.
-  Load-once is what makes `:persistent_term` correct and what lets the
-  boot report be the only report. **Amended at the second pass (ORC-4)
-  with where the cost actually sits,** since design review asked what
-  happens if a remote source ever wants watch semantics: not in the
-  port. `Config.Source.load/2` is a pull, a remote fits it unchanged,
-  and push would arrive as an `@optional_callbacks watch: 2` that the
-  shipped sources decline — one module and one line. The reason this
-  entry stands is the *accessor*: a value that can change is a value
-  no caller may hold, and holding it is what `:persistent_term`
-  write-once buys. Whoever argues with this line is therefore arguing
-  for a re-validation path that can reject an update without killing
-  the node, a rule for readers holding stale values, and atomicity
-  across values that must change together — three decisions, not a
-  callback. Naming them is the point: the port stays cheap to grow so
-  that the expensive half is the half being debated.
-- **No per-test or per-process config overrides** (ORC-4). The test
-  fake is seeded once, statically, and offers no
-  `put_config(pid, key, value)` — no process-dictionary scoping, no
-  ownership tree in the shape of the Ecto sandbox. Reason: a value
-  that varies per test case is an argument wearing config's clothes,
-  and the honest fix is the function taking it. The dishonest fix is
-  the one being ruled out here, because it costs shared mutable state
-  under `async: true` — the flake class conventions §9 calls a
-  protocol requirement to avoid, since two CI reds escalate to a
-  human. Revisit condition: a boundary export whose behaviour must
-  genuinely differ by a declared config value within one suite, where
-  passing it as an argument would distort the production signature.
-  That case is real enough to name; it has not appeared yet, and
-  building the machinery before it does would mean building the
-  sandbox's hardest feature on speculation.
-- **No per-key lookup on the config source port — no `fetch/1`, no
-  `get/2`, no `all/0`** (ORC-4, second pass). `Config.Source.load/2`
-  takes every declared name in one call and returns what it found;
-  the obvious alternative, a source answering one key at a time, is
-  ruled out here so the next pass does not reach for it as the
-  simpler shape. It is simpler only for the environment.
-  `System.get_env/1` per key is free; a file or remote source asked
-  per key must either re-read and re-parse its whole document N times
-  with no guarantee the N reads saw one document, or cache behind the
-  layer's back in a store the boot report cannot see, or become a
-  process whose lifecycle a two-callback port does not model. Each of
-  those is discovered *after* someone has written the adapter, which
-  is the wrong time. `all/0` is out for a different reason and a
-  firmer one: a source free to volunteer names nobody declared lets
-  values into the system behind the registry, and the registry being
-  load-bearing rather than descriptive is the entire ticket. Revisit
-  condition: none foreseeable — a source that cannot answer `load/2`
-  cannot answer `fetch/1` either.
-- **No layering or precedence chain of config sources** (ORC-4, second
-  pass). The layer takes one source, chosen at compile time, not an
-  ordered list. This is not an oversight to be repaired by the pass
-  that first wants two: Vapor's loader `Map.merge`s provider results,
-  so two providers offering one name silently pick a winner, and that
-  is cited in `systems/substrate.md` as a reason not to depend on it —
-  writing the same behaviour ourselves would be the same defect with
-  our name on it. The case that will eventually ask for this is
-  legitimate and predictable (secrets from a mounted file, everything
-  else from the environment), so the revisit condition is written in
-  advance rather than left open: layering arrives as per-declaration
-  source selection, or as an ordered list **whose overlaps are a
-  reported problem in the boot report**, and never as a merge. A
-  precedence rule that resolves an overlap quietly is the same class
-  of bug as two components claiming one queue, and this platform fails
-  the build on that.
-- **No `docs/0` callback, and no `cli/0` row in the roster yet**
-  (ORC-22). Both are named in v5 §2.2 and both are deliberately
-  outside the registry roster, for different reasons. `docs/` is a
-  directory whose path derives from the slug (conventions §3): there
-  is nothing to declare, nothing that can collide, and a callback
-  returning a path the spine already fixes would be a derivation
-  written twice — the failure the spine table exists to prevent.
-  `cli/0` is `api_surface/0`'s shape with an escript composer instead
-  of a router, and it stays out on a narrower argument than the one
-  this ticket is built on: the retrofit cost ORC-22 pays down is the
-  cost of components having already declared their names *somewhere
-  else*, and no component can declare a CLI command anywhere today
-  because there is no escript to declare it to. Nothing shadows it,
-  so nothing is being deferred except a table row. Revisit condition
-  for `cli/0`: the escript, at which point it is one row and this
-  entry is what says the wait was priced rather than forgotten.
-- **No prose data-classification field on `externals/0`** (ORC-22),
-  against v5 §2.2's word "note". The field's entire payoff is a
-  grouping — the generated "what does this app talk to" page is a
-  compliance inventory and, in the hosted shape, a customer's egress
-  inventory — and free text cannot be grouped, filtered, or checked,
-  so a note would leave the audit with a column it can only print.
-  The vocabulary is four atoms with highest-applicable-wins
-  (`systems/substrate.md`), and credentials are not among them
-  because every adapter sends one and a class every entry carries
-  separates nothing. Revisit condition: a real external that none of
-  the four describes — which is an argument for a fifth atom, an
-  entry rather than a debate, and never for reopening the closed
-  vocabulary itself.
-- **No `policies/0` scope glob that leaves the working directory**
-  (ORC-22). Absolute paths and `..` segments are a reported problem
-  in the declaration, not a discipline anyone has to remember. This
-  is the shape-level guard on the ORC-30 entry above: that entry
-  stops `mix catapult.audit` from being taught where this repository
-  keeps its components, and a registration surface accepting
-  `../../lib/**` would walk the same reach back in through the front
-  door while the task's own globs stayed innocent — worse, because it
-  would arrive as customer-authored data rather than as a diff to the
-  task. Revisit condition: none. A check needing to see another
-  project is a check registered in that project.
-- **No default version on an `events/0` entry, and no bare-atom form**
-  (ORC-22). The obvious convenience — accept `:project_created` and
-  mean version 1 — is ruled out here so the next pass does not add it
-  as an ergonomic win. An unversioned event is the exact state v5
-  §2.4's upcasting discipline exists to prevent, and a default makes
-  the *first* version the one fact absent from the diff, which is the
-  version every later upcaster is written against. The shape is free
-  to fix now because nothing declares an event until the engine does,
-  and it will never be free again. Revisit condition: none — this is
-  the cheap half of the ES cliff, and the expensive half is what
-  happens if it is skipped.
-- **No `@optional_callbacks` on the component behaviour** (ORC-22).
-  Every registry callback keeps an overridable empty default instead.
-  Incremental adoption is what the default already buys; optional
-  callbacks buy the same thing and charge the composer a
-  `function_exported?/3` guard at every call site, so an aggregation
-  that is total today becomes one that can silently skip a component.
-  "Declared nothing" and "does not implement" is a distinction with
-  no consumer, and the composer reporting every problem at once is
-  the property being protected. Revisit condition: a callback whose
-  empty default is a *meaningful* claim rather than an absence —
-  which would be a callback that should have been two.
-- **No `import Plug.Conn` beside `import Plug.Test` in a test module
-  that calls nothing from it** (ORC-38). The deprecation being paid
-  off names its own replacement — "Please use `import Plug.Test` and
-  `import Plug.Conn` directly instead" — and `Plug.Test.__using__/1`
-  does expand to exactly those two lines, so the mechanical
-  translation is the one the compiler asks for and the one the next
-  pass will reach for. It is wrong at both call sites here: neither
-  health test calls a `Plug.Conn` function — they build a conn with
-  `conn/2` and read `status`, `resp_body` and `halted` off the struct
-  — so the second import is unused, and Elixir says so, in the same
-  place and at the same volume (`warning: unused import Plug.Conn`,
-  measured on both files before this was written). A warning traded
-  for a warning delivers nothing of what the ticket was filed for,
-  which was the recurrence and not the deprecation. The rule, stated
-  once so it survives the next test file the compiler gives the same
-  advice to: translate the `use` into the imports the module actually
-  exercises. Today that is `import Plug.Test` alone, and both suites
-  then run warning-free. Revisit condition: none, and none is needed
-  — a test that calls `put_req_header/3` or any other `Plug.Conn`
-  function adds the import as an ordinary consequence of using it,
-  and this entry is only the reason it is not there before then.
-- **No Credo-hosted platform checks, and no Credo in a generated
-  tree** (ORC-21), against v5 §2.14, which adopted "AST-grade custom
-  Credo checks" by name. The grade is adopted; the host is not, and
-  the reason is mechanical rather than preferential. `Credo.Check` is
-  a `__using__` macro, so a check module compiles only where Credo is
-  loadable, and Mix loads a dependency's own children with
-  `env: :prod` (`Mix.Dep.Loader`) — so substrate's `only: [:dev,
-  :test]` Credo never reaches a consumer, and a check shipped in
-  `lib/` would fail to compile in every tree that adopted it. Buying
-  the host means either a Credo dependency imposed on trees we do not
-  own — the fourth entry of that shape in this file — or a fourth mix
-  project and a second package on the release train, and both are
-  spent on IDE surfacing. `policies/0` + `Catapult.Audit.Check` is the
-  inheritance mechanism, it shipped in ORC-22, and a second one would
-  give `catapult:allow` two implementations. Revisit condition, and it
-  is cheap by construction: a project that wants editor surfacing
-  writes a `Credo.Check` delegating to `run/1`. That is a wrapper, in
-  the project that wants it, and no check logic moves — which is why
-  the report format (`path:line: message`) is part of the contract.
-- **No compile-connected cap anywhere a ticket can edit it** (ORC-21).
-  Not `config/*.exs`, not a module attribute in the audit, not a
-  checked-in baseline file: `mix xref graph --label compile-connected
-  --fail-above N` is stock and already exits 1, so the only question
-  is where N lives, and the pipeline answers it. An agent that adds a
-  compile dependency can raise a cap that sits in the tree, in the
-  same commit that made it necessary, with a plausible sentence in the
-  PR body — and a ratchet the ratcheting party can turn is not a
-  ratchet. `qualityGates` is author-owned, which is what makes v5
-  §2.14's "may never rise without a reviewed change" literal. The
-  accepted cost is that lowering it is also an author edit, including
-  on the runs where a refactor earned the lower number. Revisit
-  condition: none while agents write the diffs — this entry is about
-  who holds the number, and that does not change with scale.
-- **No `system_monitor`-based mailbox guardrail, and no kill grade for
-  a full mailbox** (ORC-21), against v5 §2.5's "the BEAM itself
-  enforces them", which is true of the heap bound and false of the
-  queue bound. Verified rather than assumed:
-  `erlang:process_flag(:max_message_queue_len, _)` raises `badarg` —
-  there is no such flag — and `:erlang.system_monitor/2` is node-wide,
-  notify-only, and singular, so setting one discards the previous
-  settings and any dependency reaching for `long_gc` disables our
-  guardrail without a word. A check whose failure mode is silence is
-  the shape this repo has already refused twice. The mailbox threshold
-  is sampled and reported (`systems/observability.md`); killing is
-  rejected separately and on its own merits, since a process that is
-  behind is usually the only thing holding the work. Revisit
-  condition: a per-process, VM-enforced queue bound appearing in OTP —
-  at which point the field changes grade rather than the decision
-  changing shape.
-- **No `spawn_opt` threading by the composer** (ORC-21). VM guardrails
-  are applied by the process in `init/1` and *checked* by the
-  composer, never injected into a child spec's start call. A process
-  flag can only be set from inside its own process — `process_flag/3`
-  covers `save_calls` and nothing else — so the only external route is
-  `spawn_opt`, which requires the composer to know the option
-  conventions of start functions it did not write, and has no answer
-  at all for a child whose `start_link` takes no options. That is the
-  same defect as a shipped task knowing this repository's layout, one
-  level in: generic composition machinery holding specific knowledge
-  about things it composes. Revisit condition: none — declared↔applied
-  is the check shape the platform already uses twice.
-- **The audit never runs another gate, and never detects one by
-  directory name** (ORC-21). v5 §2.14 arms Sobelow on Phoenix-bearing
-  projects; the audit's part is to *report the missing gate*, not to
-  shell out to it. A task that invokes other tools swallows their exit
-  codes and their output formatting and becomes a meta-runner, while
-  `qualityGates` and `ci.yml` are already where a gate is one line
-  somebody can read. The second half is the ORC-30 rule applied to a
-  new check: the predicate is `:phoenix` in the dependency tree, never
-  "`catapult_web` exists", because a directory name is this repo's
-  layout and the task ships into projects whose spine puts their web
-  layer elsewhere. Revisit condition: none for the layout half. For
-  the first half, a gate with no other home would be an argument — and
-  it would be an argument for giving it a home, not for the audit
-  growing a runner.
-- **No taint analysis for secret config values** (ORC-21). v5 §2.2
-  asks that secret-flagged values never appear in logs or error
-  payloads, and the tempting reading is a static check that follows a
-  value from the accessor to a `Logger` call. It is not built: a value
-  bound to a variable, put in a map, or passed to a helper is out of
-  reach of any check that is also free of false positives, and a
-  redaction check that misses is worse than none because it is
-  reported as coverage. The wrapper type is what holds the property
-  everywhere at once — a redacting `Inspect`, an explicit unwrap — and
-  the audit keeps only the exact, one-hop residue: an unwrap inside a
-  logging call. Revisit condition: none. If the wrapper is ever found
-  insufficient the answer is a narrower unwrap surface, not a deeper
-  analysis.
-- **No license check that decides *which* projects to check by
-  reading the tree** (ORC-16), against the ticket's own words — "for
-  every mix project under `components/`". That is the cross-project
-  reach two entries' worth of argument already rules out, arriving
-  through a new door: a task that walks `components/*` knows where
-  this repository keeps its components, and it ships into customer
-  trees where that glob means nothing and where a permissive-deps
-  requirement is not Catapult's to impose. The sanctioned form is a
-  declaration the project makes about itself — `package: [licenses:
-  [...]]`, checked when it names something the allowlist contains,
-  inert when it names nothing (`systems/substrate.md`). That delivers
-  the ticket's stated scope as a property: the plane declares no
-  package, so its dependencies are never checked, with no exclusion
-  list for anyone to maintain. The property that makes it safe rather
-  than merely tidy is that the arming declaration is one hex already
-  demands — `mix hex.build` refuses a package with no `licenses`,
-  measured — so nothing that ships can forget it. Revisit condition:
-  none. A shipped artifact that cannot say what it is licensed under
-  has a bigger problem than the audit.
-  **Amended at the second pass (ORC-16): a second declaration joins
-  it, and the entry gets stronger rather than weaker.** Design review
-  changed the premise — `components/*` will hold components that are
-  not open source, so the directory no longer even describes the
-  shipped layer — and the answer is `licensing/0` on the component
-  (`distribution:` and `license:`), read alongside the project's
-  `package:`. Both remain declarations and neither is a path, which is
-  what this entry is about. The reason both are needed is measured and
-  is the sharpest argument the entry has: `components/substrate`
-  declares no components at all, so a check armed only by component
-  class would read the one tree ORC-16 was filed about, find no
-  subject, and report clean. Two declarations, no glob.
-  **Third pass, for the phrase above that has since acquired a second
-  reading:** "checked when it names something the allowlist contains"
-  means the project's own list, not a platform-wide one, now that the
-  list is data each project states. Arming and standard are separate
-  facts — the declarations decide *whether* a tree is checked, the
-  list decides *against what* — and a project that arms the check
-  while stating no list is inert with a census line, per the entry
-  further down. Neither of them became a path.
-- **No exception mechanism on the license check — no ignore list, no
-  `catapult:allow`, no per-dependency waiver** (ORC-16). The obvious
-  symmetry is with `ignore_advisories` a few entries up, and the
-  symmetry is false: an advisory is imposed on us by the world and
-  frequently has no action until an upstream we do not control cuts a
-  release, whereas nobody imposes a dependency on anyone. It is the
-  one supply-chain fact that is entirely our own choice, so the fix
-  for a copyleft dependency in the shipped layer is not taking it,
-  and a waiver could only ever be spent breaking the rule
-  `LICENSING.md` calls the single most important one in it. This is
-  the same line `external: true` draws — an escape exists where an
-  outside party imposes a name on us and nowhere else. The overrides
-  file is not a hole in this: it supplies a *license*, read by a human
-  out of a package's own LICENSE, and that license is then checked
-  like any other, so an override naming `GPL-3.0-only` fails the build
-  exactly as the metadata would have. Revisit condition: a dependency
-  genuinely worth an exception is worth replacing instead; if one ever
-  is not, the argument belongs in `LICENSING.md` as a change to the
-  policy, in daylight, never in the audit as a way around it.
-  **Amended at the third pass (ORC-16), and the amendment is the
-  entry's own sentence taken seriously.** Design review reversed half
-  of what the second pass wrote here: the *allowlist* is data each
-  project states in its `mix.exs`, and Catapult's five identifiers are
-  a default value rather than the rule (`systems/substrate.md`). That
-  is not the hole this entry refuses, and the two are worth reading
-  together precisely because they are the same keyword list. "This
-  dependency is copyleft and we accept it anyway" is a **waiver** —
-  per-dependency, argued once and inherited forever, read only by
-  whoever added it — and is still refused, with nothing above weakened.
-  "Our list of acceptable licenses is not yours" is a **policy
-  difference**: stated once, applied uniformly to every dependency in
-  the tree, and reviewable as a policy. The check acquires a different
-  subject; it does not switch off. The reason it had to become
-  configurable is this entry's own logic pointed at ourselves —
-  `Catapult.Audit.License` ships into every generated project, so five
-  identifiers compiled into it is Catapult's legal position imposed on
-  a codebase nobody here has read, which is the same imposition
-  this file refuses when the subject is a dependency substrate
-  declares. The line, stated once so the next pass does not have to
-  re-derive it: a project may say what terms are acceptable in its
-  tree, and may never say that one package is measured against nothing.
-- **No normalization table for license spellings, and no inference
-  from LICENSE file text** (ORC-16). Matching is exact SPDX
-  identifiers; anything else is unrecognized and therefore a problem,
-  resolved by an override entry a reviewer reads. The cost is
-  measured and, once the class rules landed, zero on this tree:
-  `cowboy_telemetry` declares `["Apache 2.0"]`, which no amount of
-  being obviously fine makes an SPDX identifier — but it is a plane
-  dependency, and the plane is a public-licensed service and therefore
-  unchecked, so no override exists on landing. The near-miss is kept
-  here as the illustration it always was. The cheaper fix is refused
-  because its failures run silent and in the permissive
-  direction. A table that maps "Apache 2" teaches its next
-  reader that near-misses are handled, and the next near-miss is a
-  string like `GPL-2.0-with-classpath-exception`, whose distance from
-  `GPL-2.0-only` is the entire question the check exists to ask. Text
-  inference is the same defect with a bigger surface: a fuzzy match
-  over prose, deciding a legal question, with no line in the diff
-  where a human agreed. Revisit condition: none — an override costs
-  one line and one reading, and the readings are rare by construction
-  (zero in the checked closure today).
-  **Amended (ORC-74): an explicit `SPDX-License-Identifier:` line is
-  now read, and this entry's refusal survives intact because that line
-  is a declaration, not prose.** The rung ladder's third rung matches
-  one line's own syntax — a fixed marker, a single token, no internal
-  whitespace — and does not resolve at all if the file has none, more
-  than one, or a value that isn't a bare token (`systems/substrate.md`).
-  It never turns "Apache License, Version 2.0…" into `Apache-2.0`; the
-  distinction this entry draws is exactly the one that makes the new
-  rung safe. **The `cowboy_telemetry` illustration above changed
-  meaning underneath it, and is worth reading again with that in
-  mind:** the ladder now tries hex metadata before `overrides:`, so a
-  dependency whose metadata parses to *something* — `["Apache 2.0"]`
-  included — resolves at rung 1 and never reaches the override rung at
-  all. An override can no longer correct a present-but-unrecognized
-  metadata value, only supply one where metadata, a component's own
-  `licensing/0`, and an SPDX line in its LICENSE all came up empty. Had
-  `cowboy_telemetry` ever needed checking, this document's older
-  illustration — "the mechanism exists because the first one will be a
-  sentence in a diff" — would no longer be true of it; the sentence in
-  the diff is now a line in the project's own `allow:` list, which is
-  what this entry already argues is the correct home for a spelling the
-  project is willing to name outright, never a table.
-- **No per-file license headers, for now** (ORC-16, carrying the
-  ticket's own deferral so it is not re-proposed as the obvious
-  adjacent win). The inventory check answers what the *dependencies*
-  impose; what carries attribution for our own files — headers in
-  every source file, or a `NOTICE` file at each project root — is a
-  separate decision with a real cost either way, and taking it now
-  would mean stamping thousands of lines against a posture counsel
-  has not reviewed. Revisit condition, and it is dated rather than
-  open: the repository opening to outside contributions, which is
-  when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
-  attribution question has to be answered anyway.
-- **No fourth distribution class and no `proprietary:` flag beside the
-  license** (ORC-16). `distribution/0`'s vocabulary stays the three the
-  review named — `:distributed`, `:service`, `:internal` — and the
-  "ours versus proprietary" split the `:service` rules turn on is read
-  off the declared identifier instead: SPDX already spells "no listed
-  license applies" as `LicenseRef-<id>`. A `:proprietary_service`
-  class, or a boolean riding alongside, would be a second place to
-  state a fact the identifier already states, and two places that can
-  disagree is how a check ends up enforcing the wrong rule with
-  complete confidence. It also keeps the vocabulary describing *how
-  code reaches people*, which is what obligations key on and what makes
-  the three classes legible to someone who has never heard of
-  Catapult's business model — the property the review picked them for.
-  Revisit condition: a real licensing consequence that turns on
-  something other than conveyance, network use or neither, which would
-  be a fourth way code reaches people rather than a fourth adjective
-  for the same three.
-- **No licensing verdict at boot, and no allowlist inside the
-  composer** (ORC-16). The composer validates that `licensing/0` is
-  well-formed, exactly as it does every other declaration and for the
-  same reason (it needs no environment); it never holds the allowlist
-  and never decides whether a license passes. Reason: the composer runs
-  at boot as well as under the audit, so an allowlist there means a
-  production node refusing to start because a transitive dependency's
-  license string is unrecognized — a catastrophic response to a
-  question with no runtime consequence at all. The severity that fits a
-  legal fact is CI red. This is not a claim that the check is
-  unimportant; it is a claim that the failure has to land where a human
-  is already reading, not where a deploy is already halfway out.
-  Revisit condition: none. There is no license question whose answer
-  changes what a running node should do. (The check does not hold the
-  allowlist either, for an unrelated reason — see the entry on
-  `Catapult.Audit.License` below. The composer does not hold it because
-  it runs at boot; the check does not hold it because it ships into
-  other people's projects.)
-- **No `licensing/0` row in the registry roster table** (ORC-16),
-  against the obvious consistency argument, and this entry exists
-  because that argument is a good one. The table is one row per
-  *name-claiming* registry, and its `:claim` and `:identity` columns
-  are the reason it exists: two components declaring `Apache-2.0` is
-  the ordinary case rather than a collision, so a licensing row would
-  carry two empty columns and the fold over `rows/0` would need to skip
-  it — the `function_exported?/3` guard the no-optional-callbacks entry
-  refused, arriving as a table row instead of a callback. The shape
-  does not fit either: a keyword list *is* a list of two-tuples, so a
-  table-driven aggregator reads one declaration as two entries. It sits
-  beside `config/0` on `config/0`'s own recorded criterion — a
-  consumer, and error messages worth their specificity. Revisit
-  condition: a second declaration of this shape, at which point the
-  argument is for a small table of component-scalar facts and never for
-  folding them into the claims table.
-- **No defaulted distribution class for a component that declares
-  none** (ORC-16). Defaulting to `:distributed` is the safe direction
-  for the dependency half and is ruled out anyway, because the pair
-  cannot be half-defaulted — there is no license a component "probably"
-  carries, and a defaulted class paired with an absent identifier makes
-  the component's self-check a verdict about nothing. The deciding
-  reason is the other one: a default makes every project's audit print
-  a policy verdict nobody asserted, which is a check that passed
-  without checking anything, and removing exactly that from the ladder
-  is the ticket. An undeclared component is reported instead, at audit
-  time, alongside every other structural absence — not at compile time,
-  since the overridable empty default stays (`errors/0`'s required
-  `remedy:` is the same treatment). Revisit condition: none. A
-  component whose author will not say who receives it is the case the
-  check was built for, not a case for the check to guess at.
-- **No per-component attribution of dependencies** (ORC-16). The check
-  does not try to work out which component pulled `plug` in, and a
-  project's dependency policy is instead the strictest among every
-  subject it composes. Reason: mix has no per-component dependency
-  declarations, so any attribution would be a call-graph guess made
-  offline, and its errors would run in the permissive direction — the
-  one direction this check may not fail in. The shared-tree fact is
-  also simply true: every dependency in a project is available to every
-  component in it, whatever brought it in. Revisit condition: a real
-  per-component dependency declaration in the language, which is not a
-  thing mix has and not a thing to build here.
-- **No allowlist inside `Catapult.Audit.License`, and no default policy
-  applied to a project that states none** (ORC-16, third pass). The
-  check ships into every generated project and carries the *rule* — how
-  code reaches people, which classes are checked, and for which reason
-  — while the list of acceptable SPDX identifiers is data the project
-  states in its own `mix.exs`. A constant in the module is the same
-  mistake as the path rule one level in: it holds a fact about the
-  world outside the package, in a package that runs everywhere. The
-  second half matters more and is easier to lose: a project that states
-  no list is **inert with a census line saying so**, never held to
-  Catapult's five by default. A default would make every project's
-  audit print a policy verdict nobody asserted, which is the
-  undeclared-component ruling in this same ticket and the same
-  sentence — and the honest reading of a silent green run would be that
-  a legal question about someone else's codebase was answered by us.
-  The sane starting value still exists; it is emitted as literal data
-  into a generated project's `mix.exs` by `bundles/platform-elixir`
-  (`systems/platform_content.md`), which is the place a project's files
-  come from, and never as a call back into a shipped module that
-  resolves it. Revisit condition: none for the constant. The inert
-  state is worth watching — if generated projects turn out to lose the
-  block routinely, the answer is the generator asserting it, never the
-  check assuming it.
-- **No allowlist keyed by distribution class within one mix project**
-  (ORC-16, third pass), against design review's own wording ("the
-  allowlist per class is data the project states") and recorded here
-  because reversing it is a one-line change if the author wants it.
-  Dependencies are a mix project's fact — one lockfile, one `deps/`,
-  one working directory — which is the entire reason `package:` arms
-  the check. A list per class leaves a project composing a
-  `:distributed` component and a proprietary `:service` one resolving
-  to the *intersection* of two lists over one shared tree, which turns
-  strictest-wins from a total order into a merge whose result is
-  written in no file and citable in no report. That is the same defect
-  as merging config sources, refused for the config layer above and
-  refused here for the same reason. What stays per class is the *reason* a tree is checked and
-  the report line that prints it. A project genuinely needing two
-  policies needs two dependency trees, which is two mix projects, which
-  is what it already had to be. Revisit condition: a single mix project
-  with a legitimate reason to hold subjects under different lists —
-  which would be an argument that the check's subject is not the
-  project, and would want answering there rather than by adding a
-  keyed map.
-- **No classification of a license identifier as copyleft** (ORC-16,
-  third pass). The check answers two questions about an identifier —
-  is it spelled `LicenseRef-*`, and is it on the project's list — and
-  infers nothing else; there is no third bucket and no small table of
-  copyleft identifiers to produce one. This removed a row from the
-  second pass's table (*public copyleft, conveyed → unchecked*), which
-  was true about obligations and undecidable in code: the residue of a
-  project-stated list is not copyleft, it is whatever that project did
-  not write down, and reading it as copyleft leaves the tree
-  **unchecked** — an inference in the permissive direction, which is
-  the one direction this check may not fail in. It is the same refusal
-  as the normalization table above, arriving where it is
-  tempting to think we would be guessing about ourselves rather than
-  about a stranger's package. Conveying under copyleft deliberately is
-  still expressible and is now better expressed: put the identifier on
-  the project's own list, and dependencies are checked against a list
-  containing it — which catches `GPL-2.0-only` inside an
-  `AGPL-3.0-only` work, a real incompatibility the dropped row passed
-  in silence. Revisit condition: none. Every use anyone proposed for a
-  copyleft bucket is served by the project's list saying so out loud.
-- **No dataflow inference for a computed config key, and no reading a
-  dynamic `fetch!/2` as a wildcard** (ORC-48). The declared↔read check
-  joins two literal atoms — the accessor's own slug and key — and a call
-  it cannot join is reported at its call site rather than resolved.
-  Chasing the value of a variable back to its binding is the shape the
-  secret rule already refused one registry over, for the same reason: a
-  shallow analysis pretending to be a guarantee. The cheaper alternative
-  is the one worth naming, because it is what the next pass will reach
-  for — treat `fetch!(:foundation, key)` as reading *everything*
-  `:foundation` declares, so nothing false-positives. That is a whole
-  slug's worth of coverage switched off by a call that says so nowhere,
-  in a check whose entire subject is dead declarations; the silence is
-  the defect, not the strictness. Reporting the unjoinable call keeps
-  the run red and names the cause, which is the same trade as reporting
-  an unparseable file instead of skipping it. Revisit condition: a
-  legitimate computed read, which would be an argument for a second
-  accessor that declares what it may reach, never for the check
-  guessing.
-- **No `catapult:allow` escape on either direction of the config
-  declared↔read check** (ORC-48). `Catapult.Audit.Declarations` already
-  refuses the tag for what it reports — the escape excuses a *line* the
-  parser found, and a dead declaration is the absence of one — and the
-  unjoinable-read direction does name a line, so the exception has to be
-  refused on its own merits rather than inherited. It is: an allow tag
-  on an unjoinable read would silently re-arm the false-dead report the
-  suppression exists to prevent, so the tag would quiet one line by
-  making another line lie, and the lying line's advice is *delete this
-  declaration* against a value the boot requires. Both remedies are one
-  line and always available — delete the declaration, or spell the key —
-  which is the condition under which this repo has consistently declined
-  to build an escape. Revisit condition: none. An escape here is a way
-  to keep dead configuration forever, which is the thing being checked.
-- **No reader-identity rule on config reads — the check does not police
-  *who* reads a key** (ORC-48), against ORC-4's own phrasing ("a
-  component reading a key it did not declare"), narrowed out loud rather
-  than quietly. Two reasons, and the second would stand alone. The
-  mechanical one: deciding that a call site belongs to a component means
-  a path→component map inside `mix catapult.audit`, which is the layout
-  knowledge this file refuses at that task's front door — worse here
-  than in the `components/*` case, because a generated project's spine
-  puts its components wherever it likes and the map would be wrong
-  rather than merely absent. The substantive one: `Catapult.Config
-  .fetch!/2` takes a slug *precisely* so a reader can name a value it
-  does not own, `Catapult.Repo` reading `:foundation`'s database URL is
-  the tree's own example, and whether a cross-component read is
-  acceptable coupling is a boundary question with a boundary compiler
-  already answering it. The check keeps the half that is a registry
-  fact: a key nobody declared. Revisit condition: none foreseeable —
-  ownership of a *call site* is not a fact the config registry holds.
-- **No widening the audit's scope to `deps/**` to find a shipped
-  component's readers** (ORC-48). The declared↔read check reports a
-  declaration as dead only when the declaring component's own source is
-  inside the scope it is auditing, and the obvious repair for the
-  resulting blind spot — sweep the dependencies too, so a package's
-  declarations are checked against the package's code — is refused. It
-  makes every project's audit an audit of its dependencies' internals,
-  it scales with the closure rather than with the tree somebody wrote,
-  and it produces findings whose only available remedy is a PR to
-  someone else's repository. The package's own CI is where its
-  declarations meet its own `lib/`, which is exactly where this check
-  already runs, once per mix project. Revisit condition: none. A
-  component's declarations are checked in the project that compiles
-  them, and every project compiles its own.
-- **No exemption list on the boundary-apps check — no ignore entry, no
-  `catapult:allow`, no per-application waiver** (ORC-50). Three kinds
-  of application are outside the completeness requirement and every one
-  of them is *derived*, so no name is written and none can be spent:
-  `:boundary` itself (`Boundary.Checker.check_external_dep?/3` opens by
-  excluding it), applications contributing no `Elixir.*` modules
-  (`Boundary.Mix.app_modules/1` filters them out, so no list entry can
-  restrain a call into one), and path deps (read off `:path` in the dep
-  options; naming one reproduces ORC-21's defect at twelve forbidden
-  references and a red build, measured). This is the same line ORC-16
-  drew for licenses: nobody imposes a dependency on us, so the fix for
-  an unchecked application is naming it, and a waiver could only ever
-  be spent restoring the fail-open the check exists to close. Revisit
-  condition: none. A fourth exclusion would have to be a fourth
-  *mechanical* fact about what Boundary can restrain, discovered the
-  way these three were, and it would arrive as a derivation rather than
-  as a list.
-- **No derived apps list inside `mix.exs`'s `boundary/0`** (ORC-50),
-  which is the tempting one-line version of this ticket: compute the
-  closure at project-config time and there is nothing left to forget.
-  Rejected on three counts, in increasing order of weight. It runs on
-  every mix invocation including `deps.get`, before the compiled `.app`
-  files the closure reads exist. It is plane-local, so a generated
-  project — whose `mix.exs` comes from `bundles/platform-elixir` and
-  whose list drifts the same way — inherits nothing. And it deletes the
-  artifact review acts on: the list is the one place a human reads
-  which applications are constrained, and a derivation bug would narrow
-  it silently and in the permissive direction, which is the failure
-  this ticket was filed about wearing the fix's clothes. The check is
-  the loud half and the declaration is the readable half.
-- **No plane-local test in place of a shipped check** (ORC-50). An
-  ExUnit case in `test/catapult/` reading `Mix.Project.config()` would
-  hold this property for this repository at a fraction of the cost, and
-  it is refused for what it does not do: every project `mix
-  catapult.audit` ships into has the same list and the same drift, and
-  a test in the plane's suite reaches none of them. The second reason
-  is the census — the ticket's actual complaint is that the fail-open
-  has no tell, and a passing test is not a tell, where a line on stdout
-  of every green run naming what was checked and what could not be is.
-  A test asserts; the audit reports. Revisit condition: none — the
-  check has unit tests in substrate's suite, which is the assertion
-  half, in the project that owns the code.
-- **No sharing of `Catapult.Audit.License`'s dependency closure**
-  (ORC-50), against the obvious reuse argument, and recorded because
-  the argument is a good one and someone will make it again. The two
-  walks answer different questions from different sources: the license
-  closure is *what a consumer would fetch*, read out of publishers'
-  `hex_metadata.config`, and it deliberately stops at a path dep
-  because a path dep is another mix project audited in its own right;
-  the boundary closure is *what this build can reach*, read out of
-  compiled `.app` files, and it must descend into a path dep because
-  the plane's `lib/` reaches `:plug` and `:telemetry` only through
-  `components/substrate`. Unifying them would import the license
-  walk's path-dep exclusion into a check whose whole subject is
-  applications nothing constrains — a hole one level in, in the
-  permissive direction. Revisit condition: none foreseeable; two
-  answers to two questions is the correct count, and the day they
-  agree by coincidence is not the day to merge them.
-- **No demand that dev- or test-scope applications appear in the
-  boundary apps list** (ORC-50). The check's subject stops at what a
-  `:prod` build resolves, and the residue is closed already rather than
-  accepted: the release image builds with `mix deps.get --only prod`
-  under `MIX_ENV=prod` (`Dockerfile`), so a `lib/` module calling
-  `Credo` or `MixAudit` fails to compile there whether or not anything
-  is named. Extending the demand would put build tools into a list
-  whose readability is its purpose, in exchange for a property the
-  release build already enforces. Naming one anyway stays legal — `:req`
-  is `only: :test` and is named deliberately — because the rule is
-  coverage of the floor, never equality with it. Revisit condition: a
-  test-scope application the *shipped* tree can reach, which would mean
-  the release build stopped being the thing that decides what ships.
-- **No `package:` block on the root `mix.exs`, and never one added to
-  arm the license check** (ORC-51). The obvious symmetry with
-  `components/substrate` — which states `package: [licenses:
-  ["Apache-2.0"]]` precisely *because* that is the arming — is a trap
-  here, and the measurement is why it is worth an entry rather than an
-  instinct: adding `package: [licenses: ["AGPL-3.0-only"]]` beside the
-  plane's policy makes `subjects/1` count the project itself as a
-  `:distributed` subject, arms the entire plane closure with the reason
-  "a recipient would inherit terms nobody offered them", and fails on
-  exactly one dependency — `cowboy_telemetry`, whose `["Apache 2.0"]`
-  is not an SPDX identifier. One override line from green is what makes
-  it dangerous; a wall of failures would have been self-correcting.
-  What the block asserts is false: `package:` means somebody fetches
-  this, the plane is published nowhere, and an untrue claim about
-  conveyance is not a cheap way to buy coverage — it is the check
-  enforcing the shipped-layer rule, with the shipped-layer reason, on a
-  tree nothing ships out of, which `systems/substrate.md` already names
-  as wrong rather than conservative. `licensing/0` on the plane's
-  components is the whole arming the plane needs, and it deliberately
-  arms nothing. Revisit condition: the plane genuinely being published
-  as a package, which would be a different product than the one
-  `LICENSING.md` describes.
-- **No minimal one-identifier `allow:` list on a project whose check is
-  unarmed** (ORC-51). A plane stating `licensing: [allow:
-  ["AGPL-3.0-only"]]` places its own subject, prints the same
-  `unchecked` census, and is exactly as green today as the six-entry
-  list — so the shorter one looks like the honest one, and the "no
-  hand-maintained inventories" rule looks like it applies. It does not:
-  the list is a policy statement about acceptable terms, not a mirror
-  of anything in the tree. The cost lands entirely on the day some
-  subject in the project first arms the check, and it is measured:
-  against Catapult's five plus `AGPL-3.0-only`, the plane's closure
-  produces one problem; against `["AGPL-3.0-only"]` alone, one per
-  dependency. That is a licensing policy written under time pressure,
-  inside a diff that had another purpose and whose author will supply
-  the reasons the list gets. Revisit condition: none. A list is stated
-  once and read whenever the check arms; writing it while nothing is at
-  stake is the only time it is cheap.
-- **No `:internal` distribution class for the plane** (ORC-51). The
-  reading that gets there is not silly — the plane conveys nothing, we
-  operate it, and `:internal` is described as build tooling and ops
-  scripts where "practically nothing triggers" — so it is refused in
-  writing. The plane is reached over a network by people who are not
-  its operator, which is the sole case `:service` exists to name and
-  the entire reason `LICENSING.md` chose AGPL-3.0-only over plain GPL:
-  §13 is the provision that makes copyleft mean anything for this shape
-  of program. Declaring `:internal` would assert that §13 does not
-  reach the one program it was chosen for. It is also the failure mode
-  the declaration model accepts in exchange for dropping the path rule
-  — a wrong class is wrong *in public* — so being wrong here is worse
-  than being silent, which is what this ticket's whole ladder argument
-  rests on. Revisit condition: none while Catapult is offered as a
-  hosted product.
-- **No SPDX boolean-expression parsing in the license-file rung, and no
-  fourth or fifth filename added to its fixed list** (ORC-74). The rung
-  that reads a git dependency's own LICENSE file (`systems/substrate.md`)
-  matches one line's declared syntax — a fixed marker, a single bare
-  token — and stops there on purpose. `MIT OR Apache-2.0` is a real,
-  formal SPDX license expression and not prose, so refusing to parse it
-  looks like the inconsistency the moment someone hits it; it is refused
-  anyway, because `AND`/`OR`/`WITH`/parens is a small grammar with
-  precedence rules, and a small grammar shipped into every generated
-  project to save one human reading one LICENSE file is the same trade
-  the no-normalization entry above already declined for prose, arriving
-  through a more sympathetic door. A file using it does not resolve at
-  this rung, exactly as a file with two plain declarations does not, and
-  `overrides:` is one line away. The filename list — `LICENSE`,
-  `LICENSE.md`, `LICENSE.txt`, `COPYING`, first found, others never
-  consulted — is closed for the same reason `licensing/0`'s known opts
-  and `licensing:`'s known keys are: a fifth name quietly added the day
-  some dependency's file happens to be spelled differently is exactly
-  the drift a closed, exact list exists to refuse. Revisit condition: a
-  real dependency in a checked closure whose license file uses a name or
-  an expression outside this rung's reach, read and argued in the same
-  diff that widens it — never a guess at what the next one might be.
-- **No cross-rung reconciliation anywhere in the license resolution
-  ladder** (ORC-74), stated once because the ladder applies it at three
-  different seams and a future pass should recognize the shape rather
-  than re-derive it each time it appears. Hex metadata and a component's
-  own `licensing/0` are never cross-checked against each other; two
-  modules in one git-fetched dependency answering `licensing/0`
-  differently resolve nothing rather than averaging or preferring one;
-  two `SPDX-License-Identifier:` lines in one LICENSE file resolve
-  nothing for the identical reason. In every case the fix is a human
-  reading the disagreement and recording an `overrides:` entry, never
-  the check picking a winner. The order among the four rungs is the
-  same rule at the top level: first to answer wins, and nothing below
-  is consulted once something above has — including `overrides:`
-  itself, which no longer runs a race against hex metadata (see the
-  amendment to the entry above). Revisit condition: none — a check that
-  reconciles disagreeing sources is a check asserting a fact nobody
-  checked, which is the defect this whole module exists to refuse.
-- **No destination-detecting model-call check — nothing reads a URL,
-  a hostname or a provider name out of an HTTP call's arguments**
-  (ORC-52). The sentence this ticket retired promised "an audit check
-  for the Erlang ones", and the natural reading is a check that finds a
-  *model call*. It is refused because it cannot be built honestly: at
-  AST grade the call is `:httpc.request(:post, {url, ...}, [], [])` and
-  whether `url` reaches a model provider is data, decided at runtime and
-  normally read from configuration. Matching a provider hostname in a
-  literal catches a spelling nobody writes and reports clean on every
-  real instance of the thing the check is named after — a check that
-  passed without checking anything, which is what this ticket was filed
-  about, reintroduced by its own fix. Chasing `url` back to its binding
-  is the third request for dataflow inference in this file, and it gets
-  the answer the secret-taint entry and the computed-config-key entry
-  got: a shallow analysis reported as a guarantee is worse than a stated
-  gap. What is built instead bans the *transport* — no plane module
-  calls a pure Erlang HTTP client (`systems/foundation.md`) — which is
-  decidable, broader than §11, and exact. Revisit condition: none. The
-  destination is not a static fact and no amount of check will make it
-  one.
-- **No Erlang-egress ban in `components/substrate/`, in
-  `@platform_checks` or hosted there under another name** (ORC-52). The
-  audit's platform set is inherited by every project that runs the task
-  at all, and "the plane makes no model calls" is a *plane* rule:
-  conventions §11's second bullet has generated projects making model
-  calls through the LLM adapter, so a package-wide egress ban would fail
-  the audit of a project doing exactly what the platform told it to do.
-  Hosting the module there unregistered fails on the other axis this
-  file has used four times — the list of banned modules is
-  Catapult's policy, and a policy compiled into a package that ships
-  into trees we do not own is the `Catapult.Audit.License` allowlist
-  mistake one registry over. Substrate ships the mechanism
-  (`Catapult.Audit.Check`, `Catapult.Audit.Source`, the `policies/0`
-  row) and a project states its own ban with it; a project inherits the
-  ability, not the ban. Revisit condition: a ban true of every project
-  that adopts the substrate, which this one is not by construction.
-- **No transport-layer ban — `:gen_tcp`, `:ssl`, `:socket` and friends
-  stay off the banned list** (ORC-52). The obvious objection to banning
-  named HTTP clients is that a determined module can open a socket and
-  write the request bytes itself, and the objection is correct and does
-  not change the answer. Those applications are what Postgres, the
-  clustering transport and every other legitimate connection ride on, so
-  banning them means an escape tag at every real call site, and a ban
-  escaped everywhere is a ban nobody reads. The trade is also asymmetric
-  in the direction that decides it: a plane module reaching a provider
-  through `:httpc` is a mistake somebody makes, while one hand-rolling
-  HTTP over `:gen_tcp` is a deliberate evasion, and no audit check in
-  this repo is built to stop an author who is trying. Revisit condition:
-  none. The named list grows by reviewed diff when a real client is
-  missing from it; that is a different move from descending a layer.
-- **No milestone-gating for the Erlang egress ban** (ORC-52), against
-  the filing ticket's own suggestion that Phase 4 or Phase 6 would be a
-  reasonable home for the check. Recorded because it is the reasonable-
-  sounding move and it is wrong for a mechanical reason worth keeping:
-  `:inets` ships with OTP, so `:httpc` needs no dependency and will
-  never appear in a `mix.exs` or `mix.lock` diff. There is no arming
-  moment for anyone to notice — that is *why* it is the residue the
-  compile grade leaves — so "wait until it has something to catch" is
-  waiting for a signal that cannot arrive, and the practical result is
-  a doc that promises a gate for two phases, which is the state this
-  ticket exists to end. ORC-21's argument for arming the boundary app
-  list before there were boundaries to constrain applies unchanged: the
-  run is green today, so the diff is a module and a registration rather
-  than a cleanup of everything written in between. Revisit condition:
-  none.
-- **No catalogue of the ecosystem's HTTP clients to close the Elixir
-  half** (ORC-52). `check: [apps: [...]]` checks the applications it
-  names, so an Elixir HTTP client added as a dependency is unchecked
-  until it is named there — a real residue, corrected into
-  `systems/foundation.md`'s sentence rather than left implied. The
-  tempting closure is a check that knows `:tesla`, `:finch`, `:mint`,
-  `:httpoison` and the rest, reports one present in the closure and
-  absent from the list, and it is refused: its coverage is a list of
-  the world maintained by us, its failure mode is silence for every
-  client not on it, and silence is what this ticket was filed about. The
-  existing mechanism is better than the check would be — an Elixir
-  client cannot be called without being a dependency, a dependency is a
-  §2.8 named decision visible in the same diff, and the `check:` line
-  belongs in that diff. Revisit condition: none. This is the one half of
-  §11's enforcement where the thing being added announces itself.
-- **No `domain_parent` replacement edge in the default bundle's
-  architecture chain** (ORC-84). v5 §4.1 replaces v4's domain/
-  presentational split — and `domain_parent`, the edge that let a
-  presentational comp read its domain parents' fan-in synthesis — with
-  the product/backend/frontend tier split; this ticket's chain is
-  backend-only, so nothing in its scope consumes a parent-link edge.
-  The tempting move is inventing one anyway "for symmetry" with v4's
-  five named edges. Refused: a frontend or product-tier parent-link
-  edge, if the eventual Phase 5 frontend architecture needs one, is
-  that phase's decision to make against tiers that actually exist by
-  then, not a placeholder wired against nothing today. Revisit
-  condition: Phase 5's frontend/product tiers landing with a real need
-  for a structural parent-link back to a backend component — at which
-  point the edge is argued against real consumers, not guessed at.
-- ~~**No `per(scaffold_tier)`-style flow planning-tier fan-out**~~
-  **Reversed** (ORC-84, design review). The original entry recorded
-  `singleton`-scoped planning tiers as the answer, reasoning that v5's
-  closed scope set had no way to express "one node per node the
-  cascade visits" and that inventing one was `core_dsl` vocabulary
-  growth outside a content-porting ticket's remit. Design review named
-  this the wrong move in as many words: "a missing DSL construct is a
-  `docs/dsl-syntax.md` proposal, not a reason to ship the bundle
-  without the capability" — the same instruction this ticket already
-  gave for `mint.<name>`, generalized. `docs/dsl-syntax.md` §3.1 now
-  declares `cascade_visit`, a fourth scope kind ("one node per node a
-  flow's own cascade walk visits"), and every planning tier
-  (`tiers/*_plan.yaml`) uses it. The revisit condition in the original
-  entry — "a real cascade-position tier construct landing in the core
-  DSL" — is what happened; the entry stays as the record that the
-  first answer was wrong and named its own correction condition
-  accurately, not as a decision still in force. `edges/plan_target.yaml`
-  (a `type: synthesis` edge, dsl-syntax.md §4.1's `instances:` form)
-  supplies the plan→target pointer design review also asked for; its
-  own header names the reasoning. See also the `ticket.findings` entry
-  below this one, added the same pass — a still-open gap in the same
-  neighborhood, argued rather than routed around.
-- **No two-stage `assessment_plan` + `propagation_plan` split for
-  `upward_propagation`** (ORC-84), against v4's own shape
-  (`catapult-default-bundle-v4-examples.md` §2.5). Sequencing two
-  flow-scoped planning tiers — open the downstream one only after the
-  upstream one's regeneration lands — needs instance-level flow state
-  (has the upstream stage closed yet) that this ticket's own stated
-  scope excludes ("projection-time instance checks" is out of scope).
-  One combined `upward_propagation_plan` tier stands in for both.
-  Revisit condition: flow instance state becoming a real, checkable
-  loader or engine concept — at which point the two-stage split is
-  worth relitigating on its own merits, not smuggled in under a
-  content port.
-- **No `fragments.yaml` or `plan.yaml` as separate bundle files**
-  (ORC-84), against this same ticket's own Layout section, which names
-  both. Filed as a pipeline finding rather than quietly followed:
-  `Catapult.Dsl.Manifest` (the merged ORC-5 loader) reads `fragments:`
-  as an inline list inside `bundle.yaml` and has no parser for a
-  standalone `fragments.yaml` at all; `plan.yaml` has nothing left to
-  declare once v5 §6 drops the phase machinery it existed to compute,
-  and `dsl-syntax.md` §1's own canonical tree does not list one. The
-  loader as merged wins over the ticket's file list, per the same rule
-  that governs every other doc-vs-doc disagreement in this repo.
-  Revisit condition: none foreseeable for `plan.yaml` (there is no
-  phase concept left to give it content); for `fragments.yaml`, only a
-  future loader change that adds a standalone-file parser for it.
-- ~~**No context walk wiring "policies applied to me through my
-  responsibilities" onto `comparch`**~~ **Reversed** (ORC-84, design
-  review). Same shape as the `cascade_visit` reversal above and the
-  same review comment: recording the gap and calling it `core_dsl`'s
-  to invent was the wrong response to a missing construct, when the
-  right one — already demonstrated by `mint.<name>` — is proposing the
-  syntax. `dsl-syntax.md` §7.1 now allows a context walk to chain more
-  than one hop and to reverse a hop (`.<edge>~`, walker matches the
-  edge's `target` instead of its `source`); `comparch.yaml` wires both
-  the direct grain (`self.parent.policy_application~ -> policy.handle`)
-  and the through-responsibility grain
-  (`self.parent.fulfills.policy_application~ -> policy.handle`), and
-  §9 gains the rule that two entries landing on the same target tier
-  combine into one collection rather than colliding. The mechanism
-  needed no new edge: `policy_application`'s existing two instances
-  (policy→comp, policy→resp — dsl-syntax.md §4.1) already carry both
-  grains in the declared direction; reversal is a read-time walk
-  operation over them, not a new graph edge, so the type-level
-  acyclicity check (§13) sees nothing new. This entry stays as the
-  record of the wrong first answer, per this file's own discipline —
-  see the `cascade_visit` entry above for the fuller version of that
-  reasoning, which applies here unchanged.
-- **`edges/` is six files, not the five this ticket names** (ORC-84,
-  design review). Design review's remaining complaint — "still 14
-  files... it should just be done" — is addressed by
-  `dsl-syntax.md` §4.1's new `instances:` form: one edge name now
-  covers every site sharing its mechanism (`decomposition` folds in
-  six former fanout files — the three the ticket's own text names
-  plus `resp`'s and both of `policy`'s mint sources, since "the
-  mechanism is the same" argument the ticket makes for the first three
-  applies identically to the rest; `dependency` folds in two;
-  `policy_application` folds in two), landing at six files:
-  `fulfills`, `dependency`, `decomposition`, `policy_application`,
-  `reference`, `plan_target`. Two are not among the ticket's named
-  five. `reference` (comparch/subcomparch/impl attaching a `ref`) was
-  never named — the ticket's five-edge list is `fulfills`,
-  `dependency`, `domain_parent`, `decomposition`, `policy_application`,
-  and ref attachment is structurally none of those: not a mint
-  (`decomposition`'s sites are all fanout), not the comp↔resp binding
-  (`fulfills`), not a policy scope grain (`policy_application`).
-  Folding it into any of the other four to hit the literal count would
-  misname the mechanism rather than honor it, which is the actual
-  instruction in "the mechanism is the same" — same mechanism, one
-  name; different mechanism, a different one, whatever the count comes
-  to. `plan_target` is new — see the `cascade_visit` entry above; a
-  flow's planning tier needs a live pointer to what it's planning for,
-  which is a fact this ticket's redirect explicitly asked to be
-  fixed, not a fact the original five could be stretched to carry.
-  Revisit condition: none — this is the honest count once "same
-  mechanism, several sites" is applied consistently rather than
-  partially, not a target still being chased.
-- **No `ticket.findings` wired onto any planning tier** (ORC-84). Every
-  `cascade_visit`-scoped plan (`tiers/*_plan.yaml`) wants the ticket's
-  own prose — a feature request's description, a defect report's
-  observed/expected behavior — and `dsl-syntax.md` §7 already
-  documents `ticket.findings` as exactly that: "validation findings +
-  ticket thread for the scope, available to flow planning tiers only."
-  Wiring it was tried and reverted for a reason distinct from the two
-  reversals above: this is not a missing *grammar* construct
-  (`ticket.findings` already parses and is already spec'd) but a
-  missing *registration* — it is an extension-provided context source
-  (§12), and `lib/catapult/dsl/dialect.ex` says outright that neither
-  the `design` nor `runtime` dialect registers any extension yet
-  ("context sources arrive with the delivery system... a promise that
-  they are populated today" is the one this file's own words deny).
-  Declaring it in a tier's `context:` fails load with "which is not
-  installed" — measured, not assumed. Unlike `cascade_visit` and the
-  reversed hop, there is no syntax to propose here: the syntax exists
-  and is correct; what's missing is a platform module implementing
-  `Catapult.Dsl.Extension`'s `context_sources/0` callback and
-  registering `"findings"`, which is `core_dsl`'s delivery-system
-  milestone (`systems/core_dsl.md`'s Initial vs Target split) — plane
-  extension code, not bundle content, and squarely outside what a
-  content-porting ticket may build unprompted (the same boundary that
-  keeps this ticket from writing the engine that actually walks a
-  cascade). `input.project_doc` — the frozen original intake — is what
-  every plan tier reads instead today; it is not the flow's own new
-  prose, and every plan tier's `context:` says so in a comment rather
-  than silently standing in for it. Revisit condition: the delivery
-  system's context-source extension landing, at which point this is a
-  one-line addition to five already-shaped `context:` lists.
+**Schema** (orchestration's `nonasks` parser). One entry per `## `
+heading; `scope:` is the line immediately under it — a blank line
+between them makes it prose and the entry silently goes universal.
+Scopes are the mutex labels, comma-separated, or `universal`. Everything
+above the first heading is preamble and is never inlined into a prompt,
+so this note is free. Name every system a refusal touches rather than
+the closest one: an extra name costs a pass one paragraph, a missing one
+hides the refusal from the pass that would have broken it.
+
+## No self-bootstrap
+scope: universal
+
+Catapult is not built from its own doc
+graph; orchestration delivers it (v5 §1.3). Reasons: the
+self-modification crash risk (a bad deploy bricking the tool that
+fixes it), the size mismatch (Catapult is smaller than its target
+class, so self-hosting proves little), and the historical fact
+that the byte-identity bootstrap requirement is much of why v4
+never shipped. The sane residue: Catapult consumes the shared
+components as an ordinary library user.
+
+## No absorption of existing codebases
+scope: universal
+
+Projects enter as fresh
+scaffolds; documentation and tracker history seed the feature set;
+code is regenerated. The platform's structure is narrow by design
+and existing apps won't conform to it; an absorption mode is a
+different product. (Author decision, Polyphony conversation.
+Revisit condition: none foreseeable soon — "so far out of scope we
+may as well not think about it.") Boundary sharpened at the mocks
+pass: user-supplied mocks and design systems enter as **seed
+evidence and pinned artifacts** (v5 §4.1, §5.4) — read, rendered,
+designed against, never absorbed; business logic still
+regenerates.
+
+## No workflow interpreter in the DSL, no bundle-side code, no Turing-complete predicates
+scope: system:core_dsl, system:platform_content
+
+(v5 §6, §7.10, §9). The plane's
+Commanded aggregates are the semantics; declarations configure
+them. Extensions are platform-shipped. This is a correctness
+property the scheduler, audit, and security posture lean on.
+
+## No per-project restructuring of the *automation* protocol
+scope: universal
+
+(v5
+§7.10, §7.16). Projects bind tracker ids and tune marked
+thresholds; the agent and queue states, and the graph connecting
+them, are platform-fixed, because prompts, plane logic, and shared
+vocabulary are all written against them. **Narrowed at §7.16 from a
+flat "states and gates are platform-fixed":** review states — the
+ones whose only job is routing a human — are *declared*, vary by
+ticket type, and default to a UX review and an engineering review.
+The entry's stated reason survives the narrowing intact, because
+nothing dispatches from a review state and no prompt is written
+against one. The admission rule that replaces the flat version:
+**a state may be declared iff no plane logic branches on it.** We
+fix the shape of the automation, not the shape of the
+organization. What stays refused is a project rewiring the
+automation graph itself.
+
+## ~~No tracker product.~~
+scope: system:dashboard, system:delivery
+
+**Reversed** (v5 §7.17). This entry
+held that Linear was the working UI behind a Tracker port, that we
+would build zero tracker UI, and it named the tell that would
+reopen it: catching ourselves teaching the tracker state it cannot
+hold. The tell arrived, repeatedly — an external state store
+because the tracker cannot record *who* wrote a change; protocol
+state riding in comments behind markers; an unmapped state halting
+a sweep for hours; comment ordering contradicting its own API
+contract; §7.16's stale-transition rejection undeliverable at the
+point of action; and §7.16's declared review states needing to be
+provisioned into a product that does not know what they mean.
+**Catapult ships its own ticket UI to every user.** External
+trackers become an add-on: an *outbound* projection of top-level
+tickets only, for teams that must report into a larger org's
+system. Inbound acceptance is not committed and, if it happens, is
+a narrow explicit command surface rather than a write path. Kept
+rather than deleted because the reversal is the record: this entry
+named its own reopen condition and the condition came true, which
+is the process working.
+
+## No inbound write path from a mirrored tracker
+scope: system:delivery, system:dashboard
+
+(v5 §7.17) — the
+live half of the entry above. Mirroring outward is a read model
+leaving the building and is safe by construction. Accepting
+arbitrary state changes back in reintroduces unmapped states,
+last-write-wins and unattributable writes into a system that just
+escaped them. Anything inbound is a §7.1 signal, validated like any
+other, never a state change adopted on the tracker's word.
+
+## ~~No dashboard-as-working-surface~~
+scope: system:dashboard
+
+**Reversed with the tracker
+reversal** (v5 §7.17). The entry held debugging and observation
+only, with artifact review and ticket action living in Linear and
+PRs; it cannot survive owning the tracker, because owning it is
+precisely deciding that ticket action lives here. Two of its
+carve-outs stand unchanged and were always in-bounds: settings and
+onboarding (the bindings UI, v5 §7.10), and the configuration
+surface — a composer that files graph-state changes as PRs and
+never bypasses a gate.
+**What replaces the line is not "anything goes".** Review comes
+home where the native surface is *better*, not merely available,
+and §7.17 records the two reasons it is: our docs diff per sentence
+rather than per line, and the graph of tickets under a top-level
+ticket is a view a general tracker cannot easily replicate. The
+extent is settled in `docs/ui-spec.md`. The entry's real warning —
+that a pipeline this deep generates constant temptation to grow UI
+— is not retired by the reversal, and its **successor rule** is
+`docs/ui-spec.md` §2: reads are projections and writes are
+commands; **no screen introduces protocol vocabulary**; every
+screen answers a named question or performs a protocol-defined
+action. The middle one is the one to cite, because the temptation
+never arrives as "build a tracker" — it arrives as "add one field
+here", and a field here is vocabulary.
+
+## Catapult never executes target-project code
+scope: universal
+
+(v4 §A.10.5
+carried forward, sharpened): agent runs execute code in their own
+CI/runner environments; the plane dispatches and observes but
+never runs generated code in-process. The plane's blast radius is
+its own.
+
+## No concurrent authoring of artifact bodies
+scope: system:engine, system:dashboard
+
+(v5 §7.16).
+Narrowed, deliberately, from a former `No multi-writer projects`
+entry — **small teams are supported**, and that entry contradicted
+both §1's target class ("single-author / small teams") and §2.9's
+identity component, which ships orgs, membership, invitations and
+roles-as-data. It was inherited from v4 §A.0.1 commitment 4 rather
+than decided here, and the narrowing is a reconciliation, not a
+reversal. What remains out is what v4 actually carved out: two
+people editing the same artifact body under merge semantics the
+plane would have to invent. Bodies live in git, PRs already carry
+those semantics, and the plane does not grow a second set.
+Concurrent *action on the delivery protocol* — several people
+holding a sign-off role, racing each other on transitions — is in,
+and is optimistic concurrency (§7.16): first writer wins, a stale
+`from` is rejected rather than applied.
+
+## No experimentation/percentage-rollout flag machinery
+scope: system:substrate, system:platform_content
+
+(v5
+§2.10): release flags, ops kill-switches, actor targeting — no
+more. Machinery without a customer at this scale.
+
+## No LiveView/React mixing within one frontend target
+scope: system:client_ts, system:platform_content
+
+(v5 §1.4):
+one product tier, one stack per target.
+
+## No hand-maintained inventories
+scope: universal
+
+: no code inventory in systems
+docs (the code is the inventory), no hand-written permission
+matrices, no hand-written API docs where generation exists.
+Documents that mirror code drift silently; every such document is
+generated or absent.
+
+## No second home for the reference instance's live facts
+scope: universal
+
+App
+name, region, public hostname, port, autodeploy, the migrate
+PRE_DEPLOY job: `SETUP.md` §2 records them and nothing else
+restates them. The README says the deployment exists, that
+`/health` is the only served path, and points at §2 — nobody
+opens a README to find a database cluster name, so the one home
+is the file a reader is already in when the values matter.
+(Author decision, ORC-40.) This is the entry above one level up
+rather than a case of it: that rule is scoped to documents
+mirroring *code*, and these are prose facts about a running
+system, but the failure mode is identical and we have first-hand
+evidence. ORC-2's README paragraph (`4a4aa91`) sourced the
+deployment to `.do/app.yaml` one commit after `b5c878f` deleted
+that file — the same paragraph, in its first week, citing
+something that no longer existed. The next drift is a hostname or
+a port, which a reader acts on. Corollary, and the reason no
+check is added: **no doc-lint holding the two files in
+agreement.** A lint is what a second copy needs; one home needs
+nothing, and these facts leave the tree entirely at
+open-sourcing, so the lint would be written to be deleted.
+**Amended (ORC-29): the public hostname's home moves, it does not
+multiply.** The live suite has to dereference that value and prose
+cannot be dereferenced, so the hostname becomes
+`config/test.exs`'s `:live_base_url` and §2 names the key where it
+used to print the URL. Every other fact in §2 stays put. The
+amendment is faithful to the reason rather than the letter: what
+ORC-40 was written about is a stale copy nobody checks — a README
+paragraph citing a file deleted one commit earlier — and a
+hostname the live suite reads at every boundary is checked by
+machine once a milestone, going red and naming itself when it
+drifts. Prose never had that property. The rule the amendment
+keeps: still one home, and a fact acquiring a code consumer moves
+to where code can read it rather than getting a copy there.
+
+## No vendored, pinned or freshness-checked copy of the advisory database
+scope: system:substrate, system:foundation
+
+(ORC-37). The obvious repair for `mix deps.audit`'s
+fail-open — clone `mirego/elixir-security-advisories` ourselves,
+assert it is non-empty and recent, fail the build otherwise — makes
+us the maintainer of a fork of someone else's mirror of the GitHub
+Advisory Database, with its refresh cadence as our build's
+liveness dependency. The gate is bought far more cheaply by
+sourcing the signal from Hex, which cannot report clean from a
+fetch it did not make. Revisit condition: Hex's advisory feed
+proving materially behind the GitHub database in practice, which
+would be an argument for a real second source rather than for
+babysitting this one.
+
+## No `mix_audit` dependency in `components/substrate/`
+scope: system:substrate
+
+(ORC-37).
+Substrate is Apache-2.0 and ships into every generated project, so
+each dependency it declares is one imposed on trees we don't own.
+`mix hex.audit` is built into Hex and covers substrate's lockfile
+for free; adding a package to obtain a weaker second opinion spends
+other people's dependency budget to do it.
+
+## No removal of `mix deps.audit` now that Hex covers the gate
+scope: system:substrate, system:foundation
+
+
+(ORC-37). Demoted is not deleted: it reads the GitHub Advisory
+Database, which is a genuinely different source, and it earned its
+place the day it armed by catching the postgrex advisory and
+forcing the series bump (ORC-3). Two sources disagreeing is the
+condition this ticket made legible, not a defect to resolve by
+dropping one until the Hex feed is shown to dominate it.
+
+## No cross-project reach in `mix catapult.audit` itself
+scope: system:substrate
+
+(ORC-30).
+The task's file globs stay rooted at the working directory. It is
+not taught to descend into `components/**`, not given a `--path`,
+and not taught to discover sibling mix projects, so that one run
+covers the tree. Reason: the task is substrate code — Apache-2.0,
+shipped into every generated project — and the layout of *this*
+repository is not a fact it may hold. Two runs of a layout-ignorant
+task beat one run of a task that knows where Catapult keeps its
+components, because the second kind is what a customer inherits.
+**The sanctioned form is the opposite end of the same wire:** a
+`catapult.audit.all` alias in the *root* `mix.exs` that invokes the
+task once per project (`cmd --cd components/substrate mix
+catapult.audit`). That is AGPL plane code which never reaches a hex
+consumer and whose job is precisely to know this project's own
+layout, so it is in bounds and is not an exception to this entry —
+the prohibition is on the *task* carrying the knowledge, never on
+this repo carrying it. Do not delete the alias as a violation of
+this line; it is the line's intended shape. The accepted
+consequence is a standing decision in `systems/substrate.md`: the
+conventions §2 gate set runs per mix project, and a new mix project
+brings its own gate block. Revisit condition: enough mix projects
+that the repeated block is itself what drifts — at which point the
+answer is CI looping over discovered projects, still one
+working-directory-rooted audit each, and still not a glob that
+reaches.
+
+## No `:live` tag on a test that doesn't cross a real network boundary to a real external system
+scope: universal
+
+(ORC-29). The tag buys a seat
+in the once-per-milestone suite and nothing else, so a `:live`
+test that exercises the health plug in-process — or over a
+listener this same job started — reproduces the empty gate this
+ticket was filed about, one level in, and worse: `no-tests` at
+least says nothing was checked, where a green run over a local
+fixture claims the world was. If a test needs no deployed thing,
+it belongs in the default suite, where its determinism is an asset
+instead of a disguise.
+
+## No `test/live/` directory
+scope: universal
+
+(ORC-29). Live tests sit beside the
+system they exercise, under that system's file map, and the tag
+alone decides the cadence. A directory is a second axis that can
+disagree with the first, and one directory holding every system's
+live tests would give a single file map a veto over every system's
+tickets — the mutex collision the maps exist to prevent.
+
+## No polling or retry-until-deployed in the live suite
+scope: universal
+
+(ORC-29).
+Deploy detection is the plane's job and already exists (poll the
+App Platform API, compare SHAs). A live check that waits out a
+rollout is a second, slower deploy detector, and its long timeout
+is exactly where a real outage hides. A bounded per-request
+timeout is the whole budget.
+
+## No asserting the deployed SHA equals this checkout's
+scope: universal
+
+(ORC-29).
+Autodeploy fires on the merge to main and the boundary run follows
+within minutes, so equality races the rollout and produces a flake
+— and a flaky boundary signal costs more than the coverage it
+would buy, which is the failure mode ORC-29 exists to stop. Assert
+the SHA is stamped (not the `"dev"` fallback), which catches the
+real defect — an image that never went through the build path —
+without racing anything.
+
+## No argv-sniffing in the `test` alias
+scope: universal
+
+(ORC-29). The tempting
+version notices `--only live` and skips `ecto.create`/
+`ecto.migrate` so the live-suite job needs no database, saving an
+author-owned workflow edit. Rejected: that alias is what makes
+`mix test` correct for every other run in the repo, and a version
+that drops migrations on the strength of a flag fails silently and
+in the one direction that matters — a suite passing against a
+stale schema. The job gets CI's environment instead; the edit is
+cheap and it is visible.
+
+## No config-library dependency in `components/substrate/`, Vapor included
+scope: system:substrate, system:foundation
+
+(ORC-4). This is the third entry of the same shape and
+the shape is now the rule: substrate is Apache-2.0 and ships into
+every generated project, so a dependency it declares is one imposed
+on trees we do not own. The measurement, because this one was an
+open question rather than an instinct: `vapor 0.10.0`, released
+2020-08-12 and the newest there is, declares `jason`, `norm`, `toml`
+and `yaml_elixir` as ordinary runtime dependencies, so it would put
+a TOML parser and a YAML parser into every generated release in
+order to read environment variables — against three runtime
+dependencies in substrate today. What remains of Vapor once the
+casts, the aggregation, the store and the provenance keying are ours
+(`systems/substrate.md` argues each) is `System.get_env/0`, so
+substrate ships an environment source with no dependencies and the
+plane runs that same source. **Not a ban on Vapor**, which is still
+conventions §1's blessed answer and is still what a project reaching
+for file, remote or non-string config should adopt — a ban on
+substrate being the thing that decides that for everyone. Revisit
+condition: config the environment genuinely cannot carry, in the
+substrate itself rather than in one consumer, at which point the
+port takes an adapter and this entry is what gets argued with.
+**Sharpened at the second pass (ORC-4), because "the port takes an
+adapter" was doing too much work:** the port's domain is flat,
+string-valued named settings arriving over a transport other than
+the environment, and that is what an adapter is for — a mounted
+secrets file, a remote parameter store. A *structured* document,
+with nesting and lists of maps, is not a config source in this
+sense; it is content, and it belongs in `config/*.exs` or a real
+document loader. Vapor is the right answer on that side of the
+line and this port is the wrong one, so the revisit condition
+splits: flat settings from a new transport are an adapter, and a
+structured document is not a reason to argue with this entry at
+all — it is a different problem that never wanted the config layer.
+
+## No `.env` files
+scope: system:foundation
+
+(ORC-4), against v5 §2.2, which sketched
+per-component `.env` alongside prefixed env vars. A dotenv file
+feeds environment variables to a process that reads the
+environment; under the compile-time source selection in
+`systems/substrate.md`, dev reads `config/dev.exs` instead, so
+there is nothing for the file to feed. What it would add is an
+untracked local file that changes behaviour — the "works on my
+machine" surface, bought for an ergonomic gain over editing a
+tracked config file that is close to zero. Revisit condition: a
+developer needing a real secret locally that cannot be committed —
+which is a keychain or a shell profile, not a feature of the config
+layer.
+
+## No runtime reconfiguration
+scope: system:foundation
+
+(ORC-4). Config is read once, before
+the root supervisor starts, and does not change until the next
+boot: no watcher, no reload signal, no swapping a value on a running
+node. Reason: a value that can change under a running process is a
+value every reader must re-read and no reader can hold, which is a
+distributed-systems problem bought in exchange for redeploying —
+and this platform's deploy model is one environment, autodeploy on
+green, so the redeploy is the cheap thing here. It is also the same
+boundary the flag-machinery entry above draws: the cases that
+actually want live change are kill switches and rollouts, and those
+are named non-goals, not features waiting for a config watcher.
+Load-once is what makes `:persistent_term` correct and what lets the
+boot report be the only report. **Amended at the second pass (ORC-4)
+with where the cost actually sits,** since design review asked what
+happens if a remote source ever wants watch semantics: not in the
+port. `Config.Source.load/2` is a pull, a remote fits it unchanged,
+and push would arrive as an `@optional_callbacks watch: 2` that the
+shipped sources decline — one module and one line. The reason this
+entry stands is the *accessor*: a value that can change is a value
+no caller may hold, and holding it is what `:persistent_term`
+write-once buys. Whoever argues with this line is therefore arguing
+for a re-validation path that can reject an update without killing
+the node, a rule for readers holding stale values, and atomicity
+across values that must change together — three decisions, not a
+callback. Naming them is the point: the port stays cheap to grow so
+that the expensive half is the half being debated.
+
+## No per-test or per-process config overrides
+scope: system:foundation
+
+(ORC-4). The test
+fake is seeded once, statically, and offers no
+`put_config(pid, key, value)` — no process-dictionary scoping, no
+ownership tree in the shape of the Ecto sandbox. Reason: a value
+that varies per test case is an argument wearing config's clothes,
+and the honest fix is the function taking it. The dishonest fix is
+the one being ruled out here, because it costs shared mutable state
+under `async: true` — the flake class conventions §9 calls a
+protocol requirement to avoid, since two CI reds escalate to a
+human. Revisit condition: a boundary export whose behaviour must
+genuinely differ by a declared config value within one suite, where
+passing it as an argument would distort the production signature.
+That case is real enough to name; it has not appeared yet, and
+building the machinery before it does would mean building the
+sandbox's hardest feature on speculation.
+
+## No per-key lookup on the config source port — no `fetch/1`, no `get/2`, no `all/0`
+scope: system:foundation
+
+(ORC-4, second pass). `Config.Source.load/2`
+takes every declared name in one call and returns what it found;
+the obvious alternative, a source answering one key at a time, is
+ruled out here so the next pass does not reach for it as the
+simpler shape. It is simpler only for the environment.
+`System.get_env/1` per key is free; a file or remote source asked
+per key must either re-read and re-parse its whole document N times
+with no guarantee the N reads saw one document, or cache behind the
+layer's back in a store the boot report cannot see, or become a
+process whose lifecycle a two-callback port does not model. Each of
+those is discovered *after* someone has written the adapter, which
+is the wrong time. `all/0` is out for a different reason and a
+firmer one: a source free to volunteer names nobody declared lets
+values into the system behind the registry, and the registry being
+load-bearing rather than descriptive is the entire ticket. Revisit
+condition: none foreseeable — a source that cannot answer `load/2`
+cannot answer `fetch/1` either.
+
+## No layering or precedence chain of config sources
+scope: system:foundation
+
+(ORC-4, second
+pass). The layer takes one source, chosen at compile time, not an
+ordered list. This is not an oversight to be repaired by the pass
+that first wants two: Vapor's loader `Map.merge`s provider results,
+so two providers offering one name silently pick a winner, and that
+is cited in `systems/substrate.md` as a reason not to depend on it —
+writing the same behaviour ourselves would be the same defect with
+our name on it. The case that will eventually ask for this is
+legitimate and predictable (secrets from a mounted file, everything
+else from the environment), so the revisit condition is written in
+advance rather than left open: layering arrives as per-declaration
+source selection, or as an ordered list **whose overlaps are a
+reported problem in the boot report**, and never as a merge. A
+precedence rule that resolves an overlap quietly is the same class
+of bug as two components claiming one queue, and this platform fails
+the build on that.
+
+## No `docs/0` callback, and no `cli/0` row in the roster yet
+scope: system:foundation, system:substrate
+
+
+(ORC-22). Both are named in v5 §2.2 and both are deliberately
+outside the registry roster, for different reasons. `docs/` is a
+directory whose path derives from the slug (conventions §3): there
+is nothing to declare, nothing that can collide, and a callback
+returning a path the spine already fixes would be a derivation
+written twice — the failure the spine table exists to prevent.
+`cli/0` is `api_surface/0`'s shape with an escript composer instead
+of a router, and it stays out on a narrower argument than the one
+this ticket is built on: the retrofit cost ORC-22 pays down is the
+cost of components having already declared their names *somewhere
+else*, and no component can declare a CLI command anywhere today
+because there is no escript to declare it to. Nothing shadows it,
+so nothing is being deferred except a table row. Revisit condition
+for `cli/0`: the escript, at which point it is one row and this
+entry is what says the wait was priced rather than forgotten.
+
+## No prose data-classification field on `externals/0`
+scope: system:foundation
+
+(ORC-22),
+against v5 §2.2's word "note". The field's entire payoff is a
+grouping — the generated "what does this app talk to" page is a
+compliance inventory and, in the hosted shape, a customer's egress
+inventory — and free text cannot be grouped, filtered, or checked,
+so a note would leave the audit with a column it can only print.
+The vocabulary is four atoms with highest-applicable-wins
+(`systems/substrate.md`), and credentials are not among them
+because every adapter sends one and a class every entry carries
+separates nothing. Revisit condition: a real external that none of
+the four describes — which is an argument for a fifth atom, an
+entry rather than a debate, and never for reopening the closed
+vocabulary itself.
+
+## No `policies/0` scope glob that leaves the working directory
+scope: system:substrate, system:foundation
+
+
+(ORC-22). Absolute paths and `..` segments are a reported problem
+in the declaration, not a discipline anyone has to remember. This
+is the shape-level guard on the ORC-30 entry above: that entry
+stops `mix catapult.audit` from being taught where this repository
+keeps its components, and a registration surface accepting
+`../../lib/**` would walk the same reach back in through the front
+door while the task's own globs stayed innocent — worse, because it
+would arrive as customer-authored data rather than as a diff to the
+task. Revisit condition: none. A check needing to see another
+project is a check registered in that project.
+
+## No default version on an `events/0` entry, and no bare-atom form
+scope: system:engine, system:foundation
+
+
+(ORC-22). The obvious convenience — accept `:project_created` and
+mean version 1 — is ruled out here so the next pass does not add it
+as an ergonomic win. An unversioned event is the exact state v5
+§2.4's upcasting discipline exists to prevent, and a default makes
+the *first* version the one fact absent from the diff, which is the
+version every later upcaster is written against. The shape is free
+to fix now because nothing declares an event until the engine does,
+and it will never be free again. Revisit condition: none — this is
+the cheap half of the ES cliff, and the expensive half is what
+happens if it is skipped.
+
+## No `@optional_callbacks` on the component behaviour
+scope: system:foundation, system:substrate
+
+(ORC-22).
+Every registry callback keeps an overridable empty default instead.
+Incremental adoption is what the default already buys; optional
+callbacks buy the same thing and charge the composer a
+`function_exported?/3` guard at every call site, so an aggregation
+that is total today becomes one that can silently skip a component.
+"Declared nothing" and "does not implement" is a distinction with
+no consumer, and the composer reporting every problem at once is
+the property being protected. Revisit condition: a callback whose
+empty default is a *meaningful* claim rather than an absence —
+which would be a callback that should have been two.
+
+## No `import Plug.Conn` beside `import Plug.Test` in a test module that calls nothing from it
+scope: universal
+
+(ORC-38). The deprecation being paid
+off names its own replacement — "Please use `import Plug.Test` and
+`import Plug.Conn` directly instead" — and `Plug.Test.__using__/1`
+does expand to exactly those two lines, so the mechanical
+translation is the one the compiler asks for and the one the next
+pass will reach for. It is wrong at both call sites here: neither
+health test calls a `Plug.Conn` function — they build a conn with
+`conn/2` and read `status`, `resp_body` and `halted` off the struct
+— so the second import is unused, and Elixir says so, in the same
+place and at the same volume (`warning: unused import Plug.Conn`,
+measured on both files before this was written). A warning traded
+for a warning delivers nothing of what the ticket was filed for,
+which was the recurrence and not the deprecation. The rule, stated
+once so it survives the next test file the compiler gives the same
+advice to: translate the `use` into the imports the module actually
+exercises. Today that is `import Plug.Test` alone, and both suites
+then run warning-free. Revisit condition: none, and none is needed
+— a test that calls `put_req_header/3` or any other `Plug.Conn`
+function adds the import as an ordinary consequence of using it,
+and this entry is only the reason it is not there before then.
+
+## No Credo-hosted platform checks, and no Credo in a generated tree
+scope: system:substrate, system:foundation
+
+(ORC-21), against v5 §2.14, which adopted "AST-grade custom
+Credo checks" by name. The grade is adopted; the host is not, and
+the reason is mechanical rather than preferential. `Credo.Check` is
+a `__using__` macro, so a check module compiles only where Credo is
+loadable, and Mix loads a dependency's own children with
+`env: :prod` (`Mix.Dep.Loader`) — so substrate's `only: [:dev,
+:test]` Credo never reaches a consumer, and a check shipped in
+`lib/` would fail to compile in every tree that adopted it. Buying
+the host means either a Credo dependency imposed on trees we do not
+own — the fourth entry of that shape in this file — or a fourth mix
+project and a second package on the release train, and both are
+spent on IDE surfacing. `policies/0` + `Catapult.Audit.Check` is the
+inheritance mechanism, it shipped in ORC-22, and a second one would
+give `catapult:allow` two implementations. Revisit condition, and it
+is cheap by construction: a project that wants editor surfacing
+writes a `Credo.Check` delegating to `run/1`. That is a wrapper, in
+the project that wants it, and no check logic moves — which is why
+the report format (`path:line: message`) is part of the contract.
+
+## No compile-connected cap anywhere a ticket can edit it
+scope: universal
+
+(ORC-21).
+Not `config/*.exs`, not a module attribute in the audit, not a
+checked-in baseline file: `mix xref graph --label compile-connected
+--fail-above N` is stock and already exits 1, so the only question
+is where N lives, and the pipeline answers it. An agent that adds a
+compile dependency can raise a cap that sits in the tree, in the
+same commit that made it necessary, with a plausible sentence in the
+PR body — and a ratchet the ratcheting party can turn is not a
+ratchet. `qualityGates` is author-owned, which is what makes v5
+§2.14's "may never rise without a reviewed change" literal. The
+accepted cost is that lowering it is also an author edit, including
+on the runs where a refactor earned the lower number. Revisit
+condition: none while agents write the diffs — this entry is about
+who holds the number, and that does not change with scale.
+
+## No `system_monitor`-based mailbox guardrail, and no kill grade for a full mailbox
+scope: system:foundation, system:observability
+
+(ORC-21), against v5 §2.5's "the BEAM itself
+enforces them", which is true of the heap bound and false of the
+queue bound. Verified rather than assumed:
+`erlang:process_flag(:max_message_queue_len, _)` raises `badarg` —
+there is no such flag — and `:erlang.system_monitor/2` is node-wide,
+notify-only, and singular, so setting one discards the previous
+settings and any dependency reaching for `long_gc` disables our
+guardrail without a word. A check whose failure mode is silence is
+the shape this repo has already refused twice. The mailbox threshold
+is sampled and reported (`systems/observability.md`); killing is
+rejected separately and on its own merits, since a process that is
+behind is usually the only thing holding the work. Revisit
+condition: a per-process, VM-enforced queue bound appearing in OTP —
+at which point the field changes grade rather than the decision
+changing shape.
+
+## No `spawn_opt` threading by the composer
+scope: system:foundation
+
+(ORC-21). VM guardrails
+are applied by the process in `init/1` and *checked* by the
+composer, never injected into a child spec's start call. A process
+flag can only be set from inside its own process — `process_flag/3`
+covers `save_calls` and nothing else — so the only external route is
+`spawn_opt`, which requires the composer to know the option
+conventions of start functions it did not write, and has no answer
+at all for a child whose `start_link` takes no options. That is the
+same defect as a shipped task knowing this repository's layout, one
+level in: generic composition machinery holding specific knowledge
+about things it composes. Revisit condition: none — declared↔applied
+is the check shape the platform already uses twice.
+
+## The audit never runs another gate, and never detects one by directory name
+scope: system:substrate
+
+(ORC-21). v5 §2.14 arms Sobelow on Phoenix-bearing
+projects; the audit's part is to *report the missing gate*, not to
+shell out to it. A task that invokes other tools swallows their exit
+codes and their output formatting and becomes a meta-runner, while
+`qualityGates` and `ci.yml` are already where a gate is one line
+somebody can read. The second half is the ORC-30 rule applied to a
+new check: the predicate is `:phoenix` in the dependency tree, never
+"`catapult_web` exists", because a directory name is this repo's
+layout and the task ships into projects whose spine puts their web
+layer elsewhere. Revisit condition: none for the layout half. For
+the first half, a gate with no other home would be an argument — and
+it would be an argument for giving it a home, not for the audit
+growing a runner.
+
+## No taint analysis for secret config values
+scope: system:foundation, system:substrate
+
+(ORC-21). v5 §2.2
+asks that secret-flagged values never appear in logs or error
+payloads, and the tempting reading is a static check that follows a
+value from the accessor to a `Logger` call. It is not built: a value
+bound to a variable, put in a map, or passed to a helper is out of
+reach of any check that is also free of false positives, and a
+redaction check that misses is worse than none because it is
+reported as coverage. The wrapper type is what holds the property
+everywhere at once — a redacting `Inspect`, an explicit unwrap — and
+the audit keeps only the exact, one-hop residue: an unwrap inside a
+logging call. Revisit condition: none. If the wrapper is ever found
+insufficient the answer is a narrower unwrap surface, not a deeper
+analysis.
+
+## No license check that decides *which* projects to check by reading the tree
+scope: system:substrate
+
+(ORC-16), against the ticket's own words — "for
+every mix project under `components/`". That is the cross-project
+reach two entries' worth of argument already rules out, arriving
+through a new door: a task that walks `components/*` knows where
+this repository keeps its components, and it ships into customer
+trees where that glob means nothing and where a permissive-deps
+requirement is not Catapult's to impose. The sanctioned form is a
+declaration the project makes about itself — `package: [licenses:
+[...]]`, checked when it names something the allowlist contains,
+inert when it names nothing (`systems/substrate.md`). That delivers
+the ticket's stated scope as a property: the plane declares no
+package, so its dependencies are never checked, with no exclusion
+list for anyone to maintain. The property that makes it safe rather
+than merely tidy is that the arming declaration is one hex already
+demands — `mix hex.build` refuses a package with no `licenses`,
+measured — so nothing that ships can forget it. Revisit condition:
+none. A shipped artifact that cannot say what it is licensed under
+has a bigger problem than the audit.
+**Amended at the second pass (ORC-16): a second declaration joins
+it, and the entry gets stronger rather than weaker.** Design review
+changed the premise — `components/*` will hold components that are
+not open source, so the directory no longer even describes the
+shipped layer — and the answer is `licensing/0` on the component
+(`distribution:` and `license:`), read alongside the project's
+`package:`. Both remain declarations and neither is a path, which is
+what this entry is about. The reason both are needed is measured and
+is the sharpest argument the entry has: `components/substrate`
+declares no components at all, so a check armed only by component
+class would read the one tree ORC-16 was filed about, find no
+subject, and report clean. Two declarations, no glob.
+**Third pass, for the phrase above that has since acquired a second
+reading:** "checked when it names something the allowlist contains"
+means the project's own list, not a platform-wide one, now that the
+list is data each project states. Arming and standard are separate
+facts — the declarations decide *whether* a tree is checked, the
+list decides *against what* — and a project that arms the check
+while stating no list is inert with a census line, per the entry
+further down. Neither of them became a path.
+
+## No exception mechanism on the license check — no ignore list, no `catapult:allow`, no per-dependency waiver
+scope: system:substrate
+
+(ORC-16). The obvious
+symmetry is with `ignore_advisories` a few entries up, and the
+symmetry is false: an advisory is imposed on us by the world and
+frequently has no action until an upstream we do not control cuts a
+release, whereas nobody imposes a dependency on anyone. It is the
+one supply-chain fact that is entirely our own choice, so the fix
+for a copyleft dependency in the shipped layer is not taking it,
+and a waiver could only ever be spent breaking the rule
+`LICENSING.md` calls the single most important one in it. This is
+the same line `external: true` draws — an escape exists where an
+outside party imposes a name on us and nowhere else. The overrides
+file is not a hole in this: it supplies a *license*, read by a human
+out of a package's own LICENSE, and that license is then checked
+like any other, so an override naming `GPL-3.0-only` fails the build
+exactly as the metadata would have. Revisit condition: a dependency
+genuinely worth an exception is worth replacing instead; if one ever
+is not, the argument belongs in `LICENSING.md` as a change to the
+policy, in daylight, never in the audit as a way around it.
+**Amended at the third pass (ORC-16), and the amendment is the
+entry's own sentence taken seriously.** Design review reversed half
+of what the second pass wrote here: the *allowlist* is data each
+project states in its `mix.exs`, and Catapult's five identifiers are
+a default value rather than the rule (`systems/substrate.md`). That
+is not the hole this entry refuses, and the two are worth reading
+together precisely because they are the same keyword list. "This
+dependency is copyleft and we accept it anyway" is a **waiver** —
+per-dependency, argued once and inherited forever, read only by
+whoever added it — and is still refused, with nothing above weakened.
+"Our list of acceptable licenses is not yours" is a **policy
+difference**: stated once, applied uniformly to every dependency in
+the tree, and reviewable as a policy. The check acquires a different
+subject; it does not switch off. The reason it had to become
+configurable is this entry's own logic pointed at ourselves —
+`Catapult.Audit.License` ships into every generated project, so five
+identifiers compiled into it is Catapult's legal position imposed on
+a codebase nobody here has read, which is the same imposition
+this file refuses when the subject is a dependency substrate
+declares. The line, stated once so the next pass does not have to
+re-derive it: a project may say what terms are acceptable in its
+tree, and may never say that one package is measured against nothing.
+
+## No normalization table for license spellings, and no inference from LICENSE file text
+scope: system:substrate
+
+(ORC-16). Matching is exact SPDX
+identifiers; anything else is unrecognized and therefore a problem,
+resolved by an override entry a reviewer reads. The cost is
+measured and, once the class rules landed, zero on this tree:
+`cowboy_telemetry` declares `["Apache 2.0"]`, which no amount of
+being obviously fine makes an SPDX identifier — but it is a plane
+dependency, and the plane is a public-licensed service and therefore
+unchecked, so no override exists on landing. The near-miss is kept
+here as the illustration it always was. The cheaper fix is refused
+because its failures run silent and in the permissive
+direction. A table that maps "Apache 2" teaches its next
+reader that near-misses are handled, and the next near-miss is a
+string like `GPL-2.0-with-classpath-exception`, whose distance from
+`GPL-2.0-only` is the entire question the check exists to ask. Text
+inference is the same defect with a bigger surface: a fuzzy match
+over prose, deciding a legal question, with no line in the diff
+where a human agreed. Revisit condition: none — an override costs
+one line and one reading, and the readings are rare by construction
+(zero in the checked closure today).
+**Amended (ORC-74): an explicit `SPDX-License-Identifier:` line is
+now read, and this entry's refusal survives intact because that line
+is a declaration, not prose.** The rung ladder's third rung matches
+one line's own syntax — a fixed marker, a single token, no internal
+whitespace — and does not resolve at all if the file has none, more
+than one, or a value that isn't a bare token (`systems/substrate.md`).
+It never turns "Apache License, Version 2.0…" into `Apache-2.0`; the
+distinction this entry draws is exactly the one that makes the new
+rung safe. **The `cowboy_telemetry` illustration above changed
+meaning underneath it, and is worth reading again with that in
+mind:** the ladder now tries hex metadata before `overrides:`, so a
+dependency whose metadata parses to *something* — `["Apache 2.0"]`
+included — resolves at rung 1 and never reaches the override rung at
+all. An override can no longer correct a present-but-unrecognized
+metadata value, only supply one where metadata, a component's own
+`licensing/0`, and an SPDX line in its LICENSE all came up empty. Had
+`cowboy_telemetry` ever needed checking, this document's older
+illustration — "the mechanism exists because the first one will be a
+sentence in a diff" — would no longer be true of it; the sentence in
+the diff is now a line in the project's own `allow:` list, which is
+what this entry already argues is the correct home for a spelling the
+project is willing to name outright, never a table.
+
+## No per-file license headers, for now
+scope: universal
+
+(ORC-16, carrying the
+ticket's own deferral so it is not re-proposed as the obvious
+adjacent win). The inventory check answers what the *dependencies*
+impose; what carries attribution for our own files — headers in
+every source file, or a `NOTICE` file at each project root — is a
+separate decision with a real cost either way, and taking it now
+would mean stamping thousands of lines against a posture counsel
+has not reviewed. Revisit condition, and it is dated rather than
+open: the repository opening to outside contributions, which is
+when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
+attribution question has to be answered anyway.
+
+## No fourth distribution class and no `proprietary:` flag beside the license
+scope: system:substrate, system:registry
+
+(ORC-16). `distribution/0`'s vocabulary stays the three the
+review named — `:distributed`, `:service`, `:internal` — and the
+"ours versus proprietary" split the `:service` rules turn on is read
+off the declared identifier instead: SPDX already spells "no listed
+license applies" as `LicenseRef-<id>`. A `:proprietary_service`
+class, or a boolean riding alongside, would be a second place to
+state a fact the identifier already states, and two places that can
+disagree is how a check ends up enforcing the wrong rule with
+complete confidence. It also keeps the vocabulary describing *how
+code reaches people*, which is what obligations key on and what makes
+the three classes legible to someone who has never heard of
+Catapult's business model — the property the review picked them for.
+Revisit condition: a real licensing consequence that turns on
+something other than conveyance, network use or neither, which would
+be a fourth way code reaches people rather than a fourth adjective
+for the same three.
+
+## No licensing verdict at boot, and no allowlist inside the composer
+scope: system:foundation, system:substrate
+
+(ORC-16). The composer validates that `licensing/0` is
+well-formed, exactly as it does every other declaration and for the
+same reason (it needs no environment); it never holds the allowlist
+and never decides whether a license passes. Reason: the composer runs
+at boot as well as under the audit, so an allowlist there means a
+production node refusing to start because a transitive dependency's
+license string is unrecognized — a catastrophic response to a
+question with no runtime consequence at all. The severity that fits a
+legal fact is CI red. This is not a claim that the check is
+unimportant; it is a claim that the failure has to land where a human
+is already reading, not where a deploy is already halfway out.
+Revisit condition: none. There is no license question whose answer
+changes what a running node should do. (The check does not hold the
+allowlist either, for an unrelated reason — see the entry on
+`Catapult.Audit.License` below. The composer does not hold it because
+it runs at boot; the check does not hold it because it ships into
+other people's projects.)
+
+## No `licensing/0` row in the registry roster table
+scope: system:registry, system:substrate
+
+(ORC-16),
+against the obvious consistency argument, and this entry exists
+because that argument is a good one. The table is one row per
+*name-claiming* registry, and its `:claim` and `:identity` columns
+are the reason it exists: two components declaring `Apache-2.0` is
+the ordinary case rather than a collision, so a licensing row would
+carry two empty columns and the fold over `rows/0` would need to skip
+it — the `function_exported?/3` guard the no-optional-callbacks entry
+refused, arriving as a table row instead of a callback. The shape
+does not fit either: a keyword list *is* a list of two-tuples, so a
+table-driven aggregator reads one declaration as two entries. It sits
+beside `config/0` on `config/0`'s own recorded criterion — a
+consumer, and error messages worth their specificity. Revisit
+condition: a second declaration of this shape, at which point the
+argument is for a small table of component-scalar facts and never for
+folding them into the claims table.
+
+## No defaulted distribution class for a component that declares none
+scope: system:substrate, system:registry
+
+(ORC-16). Defaulting to `:distributed` is the safe direction
+for the dependency half and is ruled out anyway, because the pair
+cannot be half-defaulted — there is no license a component "probably"
+carries, and a defaulted class paired with an absent identifier makes
+the component's self-check a verdict about nothing. The deciding
+reason is the other one: a default makes every project's audit print
+a policy verdict nobody asserted, which is a check that passed
+without checking anything, and removing exactly that from the ladder
+is the ticket. An undeclared component is reported instead, at audit
+time, alongside every other structural absence — not at compile time,
+since the overridable empty default stays (`errors/0`'s required
+`remedy:` is the same treatment). Revisit condition: none. A
+component whose author will not say who receives it is the case the
+check was built for, not a case for the check to guess at.
+
+## No per-component attribution of dependencies
+scope: system:substrate, system:registry
+
+(ORC-16). The check
+does not try to work out which component pulled `plug` in, and a
+project's dependency policy is instead the strictest among every
+subject it composes. Reason: mix has no per-component dependency
+declarations, so any attribution would be a call-graph guess made
+offline, and its errors would run in the permissive direction — the
+one direction this check may not fail in. The shared-tree fact is
+also simply true: every dependency in a project is available to every
+component in it, whatever brought it in. Revisit condition: a real
+per-component dependency declaration in the language, which is not a
+thing mix has and not a thing to build here.
+
+## No allowlist inside `Catapult.Audit.License`, and no default policy applied to a project that states none
+scope: system:substrate
+
+(ORC-16, third pass). The
+check ships into every generated project and carries the *rule* — how
+code reaches people, which classes are checked, and for which reason
+— while the list of acceptable SPDX identifiers is data the project
+states in its own `mix.exs`. A constant in the module is the same
+mistake as the path rule one level in: it holds a fact about the
+world outside the package, in a package that runs everywhere. The
+second half matters more and is easier to lose: a project that states
+no list is **inert with a census line saying so**, never held to
+Catapult's five by default. A default would make every project's
+audit print a policy verdict nobody asserted, which is the
+undeclared-component ruling in this same ticket and the same
+sentence — and the honest reading of a silent green run would be that
+a legal question about someone else's codebase was answered by us.
+The sane starting value still exists; it is emitted as literal data
+into a generated project's `mix.exs` by `bundles/platform-elixir`
+(`systems/platform_content.md`), which is the place a project's files
+come from, and never as a call back into a shipped module that
+resolves it. Revisit condition: none for the constant. The inert
+state is worth watching — if generated projects turn out to lose the
+block routinely, the answer is the generator asserting it, never the
+check assuming it.
+
+## No allowlist keyed by distribution class within one mix project
+scope: system:substrate
+
+
+(ORC-16, third pass), against design review's own wording ("the
+allowlist per class is data the project states") and recorded here
+because reversing it is a one-line change if the author wants it.
+Dependencies are a mix project's fact — one lockfile, one `deps/`,
+one working directory — which is the entire reason `package:` arms
+the check. A list per class leaves a project composing a
+`:distributed` component and a proprietary `:service` one resolving
+to the *intersection* of two lists over one shared tree, which turns
+strictest-wins from a total order into a merge whose result is
+written in no file and citable in no report. That is the same defect
+as merging config sources, refused for the config layer above and
+refused here for the same reason. What stays per class is the *reason* a tree is checked and
+the report line that prints it. A project genuinely needing two
+policies needs two dependency trees, which is two mix projects, which
+is what it already had to be. Revisit condition: a single mix project
+with a legitimate reason to hold subjects under different lists —
+which would be an argument that the check's subject is not the
+project, and would want answering there rather than by adding a
+keyed map.
+
+## No classification of a license identifier as copyleft
+scope: system:substrate
+
+(ORC-16,
+third pass). The check answers two questions about an identifier —
+is it spelled `LicenseRef-*`, and is it on the project's list — and
+infers nothing else; there is no third bucket and no small table of
+copyleft identifiers to produce one. This removed a row from the
+second pass's table (*public copyleft, conveyed → unchecked*), which
+was true about obligations and undecidable in code: the residue of a
+project-stated list is not copyleft, it is whatever that project did
+not write down, and reading it as copyleft leaves the tree
+**unchecked** — an inference in the permissive direction, which is
+the one direction this check may not fail in. It is the same refusal
+as the normalization table above, arriving where it is
+tempting to think we would be guessing about ourselves rather than
+about a stranger's package. Conveying under copyleft deliberately is
+still expressible and is now better expressed: put the identifier on
+the project's own list, and dependencies are checked against a list
+containing it — which catches `GPL-2.0-only` inside an
+`AGPL-3.0-only` work, a real incompatibility the dropped row passed
+in silence. Revisit condition: none. Every use anyone proposed for a
+copyleft bucket is served by the project's list saying so out loud.
+
+## No dataflow inference for a computed config key, and no reading a dynamic `fetch!/2` as a wildcard
+scope: system:foundation, system:substrate
+
+(ORC-48). The declared↔read check
+joins two literal atoms — the accessor's own slug and key — and a call
+it cannot join is reported at its call site rather than resolved.
+Chasing the value of a variable back to its binding is the shape the
+secret rule already refused one registry over, for the same reason: a
+shallow analysis pretending to be a guarantee. The cheaper alternative
+is the one worth naming, because it is what the next pass will reach
+for — treat `fetch!(:foundation, key)` as reading *everything*
+`:foundation` declares, so nothing false-positives. That is a whole
+slug's worth of coverage switched off by a call that says so nowhere,
+in a check whose entire subject is dead declarations; the silence is
+the defect, not the strictness. Reporting the unjoinable call keeps
+the run red and names the cause, which is the same trade as reporting
+an unparseable file instead of skipping it. Revisit condition: a
+legitimate computed read, which would be an argument for a second
+accessor that declares what it may reach, never for the check
+guessing.
+
+## No `catapult:allow` escape on either direction of the config declared↔read check
+scope: system:foundation, system:substrate
+
+(ORC-48). `Catapult.Audit.Declarations` already
+refuses the tag for what it reports — the escape excuses a *line* the
+parser found, and a dead declaration is the absence of one — and the
+unjoinable-read direction does name a line, so the exception has to be
+refused on its own merits rather than inherited. It is: an allow tag
+on an unjoinable read would silently re-arm the false-dead report the
+suppression exists to prevent, so the tag would quiet one line by
+making another line lie, and the lying line's advice is *delete this
+declaration* against a value the boot requires. Both remedies are one
+line and always available — delete the declaration, or spell the key —
+which is the condition under which this repo has consistently declined
+to build an escape. Revisit condition: none. An escape here is a way
+to keep dead configuration forever, which is the thing being checked.
+
+## No reader-identity rule on config reads — the check does not police *who* reads a key
+scope: system:foundation, system:substrate
+
+(ORC-48), against ORC-4's own phrasing ("a
+component reading a key it did not declare"), narrowed out loud rather
+than quietly. Two reasons, and the second would stand alone. The
+mechanical one: deciding that a call site belongs to a component means
+a path→component map inside `mix catapult.audit`, which is the layout
+knowledge this file refuses at that task's front door — worse here
+than in the `components/*` case, because a generated project's spine
+puts its components wherever it likes and the map would be wrong
+rather than merely absent. The substantive one: `Catapult.Config
+.fetch!/2` takes a slug *precisely* so a reader can name a value it
+does not own, `Catapult.Repo` reading `:foundation`'s database URL is
+the tree's own example, and whether a cross-component read is
+acceptable coupling is a boundary question with a boundary compiler
+already answering it. The check keeps the half that is a registry
+fact: a key nobody declared. Revisit condition: none foreseeable —
+ownership of a *call site* is not a fact the config registry holds.
+
+## No widening the audit's scope to `deps/
+scope: system:substrate
+
+` to find a shipped
+component's readers** (ORC-48). The declared↔read check reports a
+declaration as dead only when the declaring component's own source is
+inside the scope it is auditing, and the obvious repair for the
+resulting blind spot — sweep the dependencies too, so a package's
+declarations are checked against the package's code — is refused. It
+makes every project's audit an audit of its dependencies' internals,
+it scales with the closure rather than with the tree somebody wrote,
+and it produces findings whose only available remedy is a PR to
+someone else's repository. The package's own CI is where its
+declarations meet its own `lib/`, which is exactly where this check
+already runs, once per mix project. Revisit condition: none. A
+component's declarations are checked in the project that compiles
+them, and every project compiles its own.
+
+## No exemption list on the boundary-apps check — no ignore entry, no `catapult:allow`, no per-application waiver
+scope: system:foundation, system:substrate
+
+(ORC-50). Three kinds
+of application are outside the completeness requirement and every one
+of them is *derived*, so no name is written and none can be spent:
+`:boundary` itself (`Boundary.Checker.check_external_dep?/3` opens by
+excluding it), applications contributing no `Elixir.*` modules
+(`Boundary.Mix.app_modules/1` filters them out, so no list entry can
+restrain a call into one), and path deps (read off `:path` in the dep
+options; naming one reproduces ORC-21's defect at twelve forbidden
+references and a red build, measured). This is the same line ORC-16
+drew for licenses: nobody imposes a dependency on us, so the fix for
+an unchecked application is naming it, and a waiver could only ever
+be spent restoring the fail-open the check exists to close. Revisit
+condition: none. A fourth exclusion would have to be a fourth
+*mechanical* fact about what Boundary can restrain, discovered the
+way these three were, and it would arrive as a derivation rather than
+as a list.
+
+## No derived apps list inside `mix.exs`'s `boundary/0`
+scope: system:foundation
+
+(ORC-50),
+which is the tempting one-line version of this ticket: compute the
+closure at project-config time and there is nothing left to forget.
+Rejected on three counts, in increasing order of weight. It runs on
+every mix invocation including `deps.get`, before the compiled `.app`
+files the closure reads exist. It is plane-local, so a generated
+project — whose `mix.exs` comes from `bundles/platform-elixir` and
+whose list drifts the same way — inherits nothing. And it deletes the
+artifact review acts on: the list is the one place a human reads
+which applications are constrained, and a derivation bug would narrow
+it silently and in the permissive direction, which is the failure
+this ticket was filed about wearing the fix's clothes. The check is
+the loud half and the declaration is the readable half.
+
+## No plane-local test in place of a shipped check
+scope: system:substrate
+
+(ORC-50). An
+ExUnit case in `test/catapult/` reading `Mix.Project.config()` would
+hold this property for this repository at a fraction of the cost, and
+it is refused for what it does not do: every project `mix
+catapult.audit` ships into has the same list and the same drift, and
+a test in the plane's suite reaches none of them. The second reason
+is the census — the ticket's actual complaint is that the fail-open
+has no tell, and a passing test is not a tell, where a line on stdout
+of every green run naming what was checked and what could not be is.
+A test asserts; the audit reports. Revisit condition: none — the
+check has unit tests in substrate's suite, which is the assertion
+half, in the project that owns the code.
+
+## No sharing of `Catapult.Audit.License`'s dependency closure
+scope: system:substrate
+
+
+(ORC-50), against the obvious reuse argument, and recorded because
+the argument is a good one and someone will make it again. The two
+walks answer different questions from different sources: the license
+closure is *what a consumer would fetch*, read out of publishers'
+`hex_metadata.config`, and it deliberately stops at a path dep
+because a path dep is another mix project audited in its own right;
+the boundary closure is *what this build can reach*, read out of
+compiled `.app` files, and it must descend into a path dep because
+the plane's `lib/` reaches `:plug` and `:telemetry` only through
+`components/substrate`. Unifying them would import the license
+walk's path-dep exclusion into a check whose whole subject is
+applications nothing constrains — a hole one level in, in the
+permissive direction. Revisit condition: none foreseeable; two
+answers to two questions is the correct count, and the day they
+agree by coincidence is not the day to merge them.
+
+## No demand that dev- or test-scope applications appear in the boundary apps list
+scope: system:foundation
+
+(ORC-50). The check's subject stops at what a
+`:prod` build resolves, and the residue is closed already rather than
+accepted: the release image builds with `mix deps.get --only prod`
+under `MIX_ENV=prod` (`Dockerfile`), so a `lib/` module calling
+`Credo` or `MixAudit` fails to compile there whether or not anything
+is named. Extending the demand would put build tools into a list
+whose readability is its purpose, in exchange for a property the
+release build already enforces. Naming one anyway stays legal — `:req`
+is `only: :test` and is named deliberately — because the rule is
+coverage of the floor, never equality with it. Revisit condition: a
+test-scope application the *shipped* tree can reach, which would mean
+the release build stopped being the thing that decides what ships.
+
+## No `package:` block on the root `mix.exs`, and never one added to arm the license check
+scope: system:substrate
+
+(ORC-51). The obvious symmetry with
+`components/substrate` — which states `package: [licenses:
+["Apache-2.0"]]` precisely *because* that is the arming — is a trap
+here, and the measurement is why it is worth an entry rather than an
+instinct: adding `package: [licenses: ["AGPL-3.0-only"]]` beside the
+plane's policy makes `subjects/1` count the project itself as a
+`:distributed` subject, arms the entire plane closure with the reason
+"a recipient would inherit terms nobody offered them", and fails on
+exactly one dependency — `cowboy_telemetry`, whose `["Apache 2.0"]`
+is not an SPDX identifier. One override line from green is what makes
+it dangerous; a wall of failures would have been self-correcting.
+What the block asserts is false: `package:` means somebody fetches
+this, the plane is published nowhere, and an untrue claim about
+conveyance is not a cheap way to buy coverage — it is the check
+enforcing the shipped-layer rule, with the shipped-layer reason, on a
+tree nothing ships out of, which `systems/substrate.md` already names
+as wrong rather than conservative. `licensing/0` on the plane's
+components is the whole arming the plane needs, and it deliberately
+arms nothing. Revisit condition: the plane genuinely being published
+as a package, which would be a different product than the one
+`LICENSING.md` describes.
+
+## No minimal one-identifier `allow:` list on a project whose check is unarmed
+scope: system:substrate
+
+(ORC-51). A plane stating `licensing: [allow:
+["AGPL-3.0-only"]]` places its own subject, prints the same
+`unchecked` census, and is exactly as green today as the six-entry
+list — so the shorter one looks like the honest one, and the "no
+hand-maintained inventories" rule looks like it applies. It does not:
+the list is a policy statement about acceptable terms, not a mirror
+of anything in the tree. The cost lands entirely on the day some
+subject in the project first arms the check, and it is measured:
+against Catapult's five plus `AGPL-3.0-only`, the plane's closure
+produces one problem; against `["AGPL-3.0-only"]` alone, one per
+dependency. That is a licensing policy written under time pressure,
+inside a diff that had another purpose and whose author will supply
+the reasons the list gets. Revisit condition: none. A list is stated
+once and read whenever the check arms; writing it while nothing is at
+stake is the only time it is cheap.
+
+## No `:internal` distribution class for the plane
+scope: system:substrate, system:registry
+
+(ORC-51). The
+reading that gets there is not silly — the plane conveys nothing, we
+operate it, and `:internal` is described as build tooling and ops
+scripts where "practically nothing triggers" — so it is refused in
+writing. The plane is reached over a network by people who are not
+its operator, which is the sole case `:service` exists to name and
+the entire reason `LICENSING.md` chose AGPL-3.0-only over plain GPL:
+§13 is the provision that makes copyleft mean anything for this shape
+of program. Declaring `:internal` would assert that §13 does not
+reach the one program it was chosen for. It is also the failure mode
+the declaration model accepts in exchange for dropping the path rule
+— a wrong class is wrong *in public* — so being wrong here is worse
+than being silent, which is what this ticket's whole ladder argument
+rests on. Revisit condition: none while Catapult is offered as a
+hosted product.
+
+## No SPDX boolean-expression parsing in the license-file rung, and no fourth or fifth filename added to its fixed list
+scope: system:substrate
+
+(ORC-74). The rung
+that reads a git dependency's own LICENSE file (`systems/substrate.md`)
+matches one line's declared syntax — a fixed marker, a single bare
+token — and stops there on purpose. `MIT OR Apache-2.0` is a real,
+formal SPDX license expression and not prose, so refusing to parse it
+looks like the inconsistency the moment someone hits it; it is refused
+anyway, because `AND`/`OR`/`WITH`/parens is a small grammar with
+precedence rules, and a small grammar shipped into every generated
+project to save one human reading one LICENSE file is the same trade
+the no-normalization entry above already declined for prose, arriving
+through a more sympathetic door. A file using it does not resolve at
+this rung, exactly as a file with two plain declarations does not, and
+`overrides:` is one line away. The filename list — `LICENSE`,
+`LICENSE.md`, `LICENSE.txt`, `COPYING`, first found, others never
+consulted — is closed for the same reason `licensing/0`'s known opts
+and `licensing:`'s known keys are: a fifth name quietly added the day
+some dependency's file happens to be spelled differently is exactly
+the drift a closed, exact list exists to refuse. Revisit condition: a
+real dependency in a checked closure whose license file uses a name or
+an expression outside this rung's reach, read and argued in the same
+diff that widens it — never a guess at what the next one might be.
+
+## No cross-rung reconciliation anywhere in the license resolution ladder
+scope: system:substrate
+
+(ORC-74), stated once because the ladder applies it at three
+different seams and a future pass should recognize the shape rather
+than re-derive it each time it appears. Hex metadata and a component's
+own `licensing/0` are never cross-checked against each other; two
+modules in one git-fetched dependency answering `licensing/0`
+differently resolve nothing rather than averaging or preferring one;
+two `SPDX-License-Identifier:` lines in one LICENSE file resolve
+nothing for the identical reason. In every case the fix is a human
+reading the disagreement and recording an `overrides:` entry, never
+the check picking a winner. The order among the four rungs is the
+same rule at the top level: first to answer wins, and nothing below
+is consulted once something above has — including `overrides:`
+itself, which no longer runs a race against hex metadata (see the
+amendment to the entry above). Revisit condition: none — a check that
+reconciles disagreeing sources is a check asserting a fact nobody
+checked, which is the defect this whole module exists to refuse.
+
+## No destination-detecting model-call check — nothing reads a URL, a hostname or a provider name out of an HTTP call's arguments
+scope: system:substrate, system:generation, system:llm
+
+
+(ORC-52). The sentence this ticket retired promised "an audit check
+for the Erlang ones", and the natural reading is a check that finds a
+*model call*. It is refused because it cannot be built honestly: at
+AST grade the call is `:httpc.request(:post, {url, ...}, [], [])` and
+whether `url` reaches a model provider is data, decided at runtime and
+normally read from configuration. Matching a provider hostname in a
+literal catches a spelling nobody writes and reports clean on every
+real instance of the thing the check is named after — a check that
+passed without checking anything, which is what this ticket was filed
+about, reintroduced by its own fix. Chasing `url` back to its binding
+is the third request for dataflow inference in this file, and it gets
+the answer the secret-taint entry and the computed-config-key entry
+got: a shallow analysis reported as a guarantee is worse than a stated
+gap. What is built instead bans the *transport* — no plane module
+calls a pure Erlang HTTP client (`systems/foundation.md`) — which is
+decidable, broader than §11, and exact. Revisit condition: none. The
+destination is not a static fact and no amount of check will make it
+one.
+
+## No Erlang-egress ban in `components/substrate/`, in `@platform_checks` or hosted there under another name
+scope: system:substrate
+
+(ORC-52). The
+audit's platform set is inherited by every project that runs the task
+at all, and "the plane makes no model calls" is a *plane* rule:
+conventions §11's second bullet has generated projects making model
+calls through the LLM adapter, so a package-wide egress ban would fail
+the audit of a project doing exactly what the platform told it to do.
+Hosting the module there unregistered fails on the other axis this
+file has used four times — the list of banned modules is
+Catapult's policy, and a policy compiled into a package that ships
+into trees we do not own is the `Catapult.Audit.License` allowlist
+mistake one registry over. Substrate ships the mechanism
+(`Catapult.Audit.Check`, `Catapult.Audit.Source`, the `policies/0`
+row) and a project states its own ban with it; a project inherits the
+ability, not the ban. Revisit condition: a ban true of every project
+that adopts the substrate, which this one is not by construction.
+
+## No transport-layer ban — `:gen_tcp`, `:ssl`, `:socket` and friends stay off the banned list
+scope: system:substrate
+
+(ORC-52). The obvious objection to banning
+named HTTP clients is that a determined module can open a socket and
+write the request bytes itself, and the objection is correct and does
+not change the answer. Those applications are what Postgres, the
+clustering transport and every other legitimate connection ride on, so
+banning them means an escape tag at every real call site, and a ban
+escaped everywhere is a ban nobody reads. The trade is also asymmetric
+in the direction that decides it: a plane module reaching a provider
+through `:httpc` is a mistake somebody makes, while one hand-rolling
+HTTP over `:gen_tcp` is a deliberate evasion, and no audit check in
+this repo is built to stop an author who is trying. Revisit condition:
+none. The named list grows by reviewed diff when a real client is
+missing from it; that is a different move from descending a layer.
+
+## No milestone-gating for the Erlang egress ban
+scope: system:substrate
+
+(ORC-52), against
+the filing ticket's own suggestion that Phase 4 or Phase 6 would be a
+reasonable home for the check. Recorded because it is the reasonable-
+sounding move and it is wrong for a mechanical reason worth keeping:
+`:inets` ships with OTP, so `:httpc` needs no dependency and will
+never appear in a `mix.exs` or `mix.lock` diff. There is no arming
+moment for anyone to notice — that is *why* it is the residue the
+compile grade leaves — so "wait until it has something to catch" is
+waiting for a signal that cannot arrive, and the practical result is
+a doc that promises a gate for two phases, which is the state this
+ticket exists to end. ORC-21's argument for arming the boundary app
+list before there were boundaries to constrain applies unchanged: the
+run is green today, so the diff is a module and a registration rather
+than a cleanup of everything written in between. Revisit condition:
+none.
+
+## No catalogue of the ecosystem's HTTP clients to close the Elixir half
+scope: system:substrate, system:generation
+
+(ORC-52). `check: [apps: [...]]` checks the applications it
+names, so an Elixir HTTP client added as a dependency is unchecked
+until it is named there — a real residue, corrected into
+`systems/foundation.md`'s sentence rather than left implied. The
+tempting closure is a check that knows `:tesla`, `:finch`, `:mint`,
+`:httpoison` and the rest, reports one present in the closure and
+absent from the list, and it is refused: its coverage is a list of
+the world maintained by us, its failure mode is silence for every
+client not on it, and silence is what this ticket was filed about. The
+existing mechanism is better than the check would be — an Elixir
+client cannot be called without being a dependency, a dependency is a
+§2.8 named decision visible in the same diff, and the `check:` line
+belongs in that diff. Revisit condition: none. This is the one half of
+§11's enforcement where the thing being added announces itself.
+## No `domain_parent` replacement edge in the default bundle's architecture chain
+scope: system:platform_content, system:core_dsl
+
+(ORC-84). v5 §4.1 replaces v4's domain/
+presentational split — and `domain_parent`, the edge that let a
+presentational comp read its domain parents' fan-in synthesis — with
+the product/backend/frontend tier split; this ticket's chain is
+backend-only, so nothing in its scope consumes a parent-link edge.
+The tempting move is inventing one anyway "for symmetry" with v4's
+five named edges. Refused: a frontend or product-tier parent-link
+edge, if the eventual Phase 5 frontend architecture needs one, is
+that phase's decision to make against tiers that actually exist by
+then, not a placeholder wired against nothing today. Revisit
+condition: Phase 5's frontend/product tiers landing with a real need
+for a structural parent-link back to a backend component — at which
+point the edge is argued against real consumers, not guessed at.
+
+## ~~No `per(scaffold_tier)`-style flow planning-tier fan-out~~
+scope: system:platform_content, system:core_dsl
+
+**Reversed** (ORC-84, design review). The original entry recorded
+`singleton`-scoped planning tiers as the answer, reasoning that v5's
+closed scope set had no way to express "one node per node the
+cascade visits" and that inventing one was `core_dsl` vocabulary
+growth outside a content-porting ticket's remit. Design review named
+this the wrong move in as many words: "a missing DSL construct is a
+`docs/dsl-syntax.md` proposal, not a reason to ship the bundle
+without the capability" — the same instruction this ticket already
+gave for `mint.<name>`, generalized. `docs/dsl-syntax.md` §3.1 now
+declares `cascade_visit`, a fourth scope kind ("one node per node a
+flow's own cascade walk visits"), and every planning tier
+(`tiers/*_plan.yaml`) uses it. The revisit condition in the original
+entry — "a real cascade-position tier construct landing in the core
+DSL" — is what happened; the entry stays as the record that the
+first answer was wrong and named its own correction condition
+accurately, not as a decision still in force. `edges/plan_target.yaml`
+(a `type: synthesis` edge, dsl-syntax.md §4.1's `instances:` form)
+supplies the plan→target pointer design review also asked for; its
+own header names the reasoning. See also the `ticket.findings` entry
+below this one, added the same pass — a still-open gap in the same
+neighborhood, argued rather than routed around.
+
+## No two-stage `assessment_plan` + `propagation_plan` split for `upward_propagation`
+scope: system:platform_content, system:core_dsl
+
+(ORC-84), against v4's own shape
+(`catapult-default-bundle-v4-examples.md` §2.5). Sequencing two
+flow-scoped planning tiers — open the downstream one only after the
+upstream one's regeneration lands — needs instance-level flow state
+(has the upstream stage closed yet) that this ticket's own stated
+scope excludes ("projection-time instance checks" is out of scope).
+One combined `upward_propagation_plan` tier stands in for both.
+Revisit condition: flow instance state becoming a real, checkable
+loader or engine concept — at which point the two-stage split is
+worth relitigating on its own merits, not smuggled in under a
+content port.
+
+## No `fragments.yaml` or `plan.yaml` as separate bundle files
+scope: system:platform_content, system:core_dsl
+
+(ORC-84), against this same ticket's own Layout section, which names
+both. Filed as a pipeline finding rather than quietly followed:
+`Catapult.Dsl.Manifest` (the merged ORC-5 loader) reads `fragments:`
+as an inline list inside `bundle.yaml` and has no parser for a
+standalone `fragments.yaml` at all; `plan.yaml` has nothing left to
+declare once v5 §6 drops the phase machinery it existed to compute,
+and `dsl-syntax.md` §1's own canonical tree does not list one. The
+loader as merged wins over the ticket's file list, per the same rule
+that governs every other doc-vs-doc disagreement in this repo.
+Revisit condition: none foreseeable for `plan.yaml` (there is no
+phase concept left to give it content); for `fragments.yaml`, only a
+future loader change that adds a standalone-file parser for it.
+
+## ~~No context walk wiring "policies applied to me through my responsibilities" onto `comparch`~~
+scope: system:platform_content, system:core_dsl
+
+**Reversed** (ORC-84, design
+review). Same shape as the `cascade_visit` reversal above and the
+same review comment: recording the gap and calling it `core_dsl`'s
+to invent was the wrong response to a missing construct, when the
+right one — already demonstrated by `mint.<name>` — is proposing the
+syntax. `dsl-syntax.md` §7.1 now allows a context walk to chain more
+than one hop and to reverse a hop (`.<edge>~`, walker matches the
+edge's `target` instead of its `source`); `comparch.yaml` wires both
+the direct grain (`self.parent.policy_application~ -> policy.handle`)
+and the through-responsibility grain
+(`self.parent.fulfills.policy_application~ -> policy.handle`), and
+§9 gains the rule that two entries landing on the same target tier
+combine into one collection rather than colliding. The mechanism
+needed no new edge: `policy_application`'s existing two instances
+(policy→comp, policy→resp — dsl-syntax.md §4.1) already carry both
+grains in the declared direction; reversal is a read-time walk
+operation over them, not a new graph edge, so the type-level
+acyclicity check (§13) sees nothing new. This entry stays as the
+record of the wrong first answer, per this file's own discipline —
+see the `cascade_visit` entry above for the fuller version of that
+reasoning, which applies here unchanged.
+
+## `edges/` is six files, not the five this ticket names
+scope: system:platform_content
+
+(ORC-84,
+design review). Design review's remaining complaint — "still 14
+files... it should just be done" — is addressed by
+`dsl-syntax.md` §4.1's new `instances:` form: one edge name now
+covers every site sharing its mechanism (`decomposition` folds in
+six former fanout files — the three the ticket's own text names
+plus `resp`'s and both of `policy`'s mint sources, since "the
+mechanism is the same" argument the ticket makes for the first three
+applies identically to the rest; `dependency` folds in two;
+`policy_application` folds in two), landing at six files:
+`fulfills`, `dependency`, `decomposition`, `policy_application`,
+`reference`, `plan_target`. Two are not among the ticket's named
+five. `reference` (comparch/subcomparch/impl attaching a `ref`) was
+never named — the ticket's five-edge list is `fulfills`,
+`dependency`, `domain_parent`, `decomposition`, `policy_application`,
+and ref attachment is structurally none of those: not a mint
+(`decomposition`'s sites are all fanout), not the comp↔resp binding
+(`fulfills`), not a policy scope grain (`policy_application`).
+Folding it into any of the other four to hit the literal count would
+misname the mechanism rather than honor it, which is the actual
+instruction in "the mechanism is the same" — same mechanism, one
+name; different mechanism, a different one, whatever the count comes
+to. `plan_target` is new — see the `cascade_visit` entry above; a
+flow's planning tier needs a live pointer to what it's planning for,
+which is a fact this ticket's redirect explicitly asked to be
+fixed, not a fact the original five could be stretched to carry.
+Revisit condition: none — this is the honest count once "same
+mechanism, several sites" is applied consistently rather than
+partially, not a target still being chased.
+
+## No `ticket.findings` wired onto any planning tier
+scope: system:platform_content, system:core_dsl
+
+(ORC-84). Every
+`cascade_visit`-scoped plan (`tiers/*_plan.yaml`) wants the ticket's
+own prose — a feature request's description, a defect report's
+observed/expected behavior — and `dsl-syntax.md` §7 already
+documents `ticket.findings` as exactly that: "validation findings +
+ticket thread for the scope, available to flow planning tiers only."
+Wiring it was tried and reverted for a reason distinct from the two
+reversals above: this is not a missing *grammar* construct
+(`ticket.findings` already parses and is already spec'd) but a
+missing *registration* — it is an extension-provided context source
+(§12), and `lib/catapult/dsl/dialect.ex` says outright that neither
+the `design` nor `runtime` dialect registers any extension yet
+("context sources arrive with the delivery system... a promise that
+they are populated today" is the one this file's own words deny).
+Declaring it in a tier's `context:` fails load with "which is not
+installed" — measured, not assumed. Unlike `cascade_visit` and the
+reversed hop, there is no syntax to propose here: the syntax exists
+and is correct; what's missing is a platform module implementing
+`Catapult.Dsl.Extension`'s `context_sources/0` callback and
+registering `"findings"`, which is `core_dsl`'s delivery-system
+milestone (`systems/core_dsl.md`'s Initial vs Target split) — plane
+extension code, not bundle content, and squarely outside what a
+content-porting ticket may build unprompted (the same boundary that
+keeps this ticket from writing the engine that actually walks a
+cascade). `input.project_doc` — the frozen original intake — is what
+every plan tier reads instead today; it is not the flow's own new
+prose, and every plan tier's `context:` says so in a comment rather
+than silently standing in for it. Revisit condition: the delivery
+system's context-source extension landing, at which point this is a
+one-line addition to five already-shaped `context:` lists.
