@@ -696,176 +696,236 @@ logging call. Revisit condition: none. If the wrapper is ever found
 insufficient the answer is a narrower unwrap surface, not a deeper
 analysis.
 
-## No license check that decides *which* projects to check by reading the tree
+## The license check has no escape hatches
 scope: system:substrate
 
-(ORC-16), against the ticket's own words — "for
-every mix project under `components/`". That is the cross-project
-reach two entries' worth of argument already rules out, arriving
-through a new door: a task that walks `components/*` knows where
-this repository keeps its components, and it ships into customer
-trees where that glob means nothing and where a permissive-deps
-requirement is not Catapult's to impose. The sanctioned form is a
-declaration the project makes about itself — `package: [licenses:
-[...]]`, checked when it names something the allowlist contains,
-inert when it names nothing (`systems/substrate.md`). That delivers
-the ticket's stated scope as a property: the plane declares no
-package, so its dependencies are never checked, with no exclusion
-list for anyone to maintain. The property that makes it safe rather
-than merely tidy is that the arming declaration is one hex already
-demands — `mix hex.build` refuses a package with no `licenses`,
-measured — so nothing that ships can forget it. Revisit condition:
-none. A shipped artifact that cannot say what it is licensed under
-has a bigger problem than the audit.
-**Amended at the second pass (ORC-16): a second declaration joins
-it, and the entry gets stronger rather than weaker.** Design review
-changed the premise — `components/*` will hold components that are
-not open source, so the directory no longer even describes the
-shipped layer — and the answer is `licensing/0` on the component
-(`distribution:` and `license:`), read alongside the project's
-`package:`. Both remain declarations and neither is a path, which is
-what this entry is about. The reason both are needed is measured and
-is the sharpest argument the entry has: `components/substrate`
-declares no components at all, so a check armed only by component
-class would read the one tree ORC-16 was filed about, find no
-subject, and report clean. Two declarations, no glob.
-**Third pass, for the phrase above that has since acquired a second
-reading:** "checked when it names something the allowlist contains"
-means the project's own list, not a platform-wide one, now that the
-list is data each project states. Arming and standard are separate
-facts — the declarations decide *whether* a tree is checked, the
-list decides *against what* — and a project that arms the check
-while stating no list is inert with a census line, per the entry
-further down. Neither of them became a path.
+The rule ships in the check; the allowlist is data each project states
+in its own `mix.exs`. Four holes are refused together because they are
+one hole approached from four sides.
 
-## No exception mechanism on the license check — no ignore list, no `catapult:allow`, no per-dependency waiver
+**No ignore list, no `catapult:allow`, no per-dependency waiver.** The
+symmetry with `ignore_advisories` is false: an advisory is imposed on
+us by the world and frequently has no action until an upstream we do
+not control cuts a release, whereas nobody imposes a dependency on
+anyone. It is the one supply-chain fact that is entirely our own
+choice, so the fix for a copyleft dependency in the shipped layer is
+not taking it, and a waiver could only ever be spent breaking the rule
+`LICENSING.md` calls the single most important one in it. This is the
+same line `external: true` draws — an escape exists where an outside
+party imposes a name on us and nowhere else. `overrides:` is not a
+hole in this: it supplies a *license*, read by a human out of a
+package's own LICENSE, and that license is then checked like any
+other, so an override naming `GPL-3.0-only` fails the build exactly as
+the metadata would have.
+
+**No allowlist constant inside `Catapult.Audit.License`.** The check
+ships into every generated project and carries the *rule* — how code
+reaches people, which classes are checked, and why. A constant in the
+module holds a fact about the world outside the package, in a package
+that runs everywhere. The sane starting value still exists; it is
+emitted as literal data into a generated project's `mix.exs` by
+`bundles/platform-elixir`, which is where a project's files come from,
+and never as a call back into a shipped module that resolves it.
+
+**No default policy for a project that states none.** Such a project
+is inert, with a census line saying so, never held to Catapult's
+identifiers by default. A default makes every project's audit print a
+policy verdict nobody asserted, and the honest reading of a silent
+green run would be that a legal question about someone else's codebase
+was answered by us.
+
+**No allowlist keyed by distribution class within one mix project.**
+Dependencies are a mix project's fact — one lockfile, one `deps/`, one
+working directory — which is the entire reason `package:` arms the
+check. A list per class leaves a project composing a `:distributed`
+component and a proprietary `:service` one resolving to the
+*intersection* of two lists over one shared tree, which turns
+strictest-wins from a total order into a merge whose result is written
+in no file and citable in no report. A project genuinely needing two
+policies needs two dependency trees, which is two mix projects. What
+stays per class is the *reason* a tree is checked and the report line
+that prints it.
+
+**No minimal one-identifier list on a project whose check is unarmed.**
+It looks like the honest minimum and is not: the list is a policy
+statement about acceptable terms, not a mirror of anything in the
+tree. The cost lands entirely the day some subject first arms the
+check, and it is measured — against a full list the plane's closure
+produces one problem; against a single identifier, one per dependency.
+That is a licensing policy written under time pressure, inside a diff
+that had another purpose.
+
+Revisit condition: a dependency genuinely worth an exception is worth
+replacing instead. If one ever is not, the argument belongs in
+`LICENSING.md` as a change to the policy, in daylight, never in the
+audit as a way around it.
+
+## Licensing subjects are declared, never discovered
+scope: system:substrate, system:registry
+
+What gets checked, and under which class, is what a project or
+component declares about itself. Nothing is read off the tree, and
+nothing is defaulted.
+
+**No check that decides which projects to check by walking paths.** A
+task that walks `components/*` knows where this repository keeps its
+components, and it ships into customer trees where that glob means
+nothing and where a permissive-deps requirement is not Catapult's to
+impose. The sanctioned form is a declaration the project makes about
+itself — `package: [licenses: [...]]`, checked when it names something
+the allowlist contains, inert when it names nothing — read alongside a
+component's own `licensing/0` (`distribution:` and `license:`). What
+makes that safe rather than merely tidy is that the arming declaration
+is one hex already demands: `mix hex.build` refuses a package with no
+`licenses`, so nothing that ships can forget it.
+
+**No defaulted distribution class.** The pair cannot be half-defaulted
+— there is no license a component "probably" carries, and a defaulted
+class paired with an absent identifier makes the component's
+self-check a verdict about nothing. The deciding reason is the other
+one: a default makes every project's audit print a policy verdict
+nobody asserted. An undeclared component is reported instead, at audit
+time, alongside every other structural absence.
+
+**The class vocabulary is closed at three** — `:distributed`,
+`:service`, `:internal`. The "ours versus proprietary" split the
+`:service` rules turn on is read off the declared identifier instead:
+SPDX already spells "no listed license applies" as `LicenseRef-<id>`.
+A fourth class, or a `proprietary:` boolean riding alongside, would be
+a second place to state a fact the identifier already states, and two
+places that can disagree is how a check ends up enforcing the wrong
+rule with complete confidence. The three describe *how code reaches
+people*, which is what obligations key on.
+
+Two rulings about the plane specifically, each decided rather than
+derived from the above:
+
+**No `package:` block on the root `mix.exs`, and never one added to
+arm the check.** The symmetry with `components/substrate` — which
+states `package: [licenses: ["Apache-2.0"]]` precisely *because* that
+is the arming — is a trap. Adding one beside the plane's policy makes
+`subjects/1` count the project itself as a `:distributed` subject,
+arms the entire plane closure, and fails on exactly one dependency.
+One override line from green is what makes it dangerous; a wall of
+failures would have been self-correcting. And what the block asserts
+is false: `package:` means somebody fetches this, and the plane is
+published nowhere.
+
+**No `:internal` class for the plane.** The reading that gets there is
+not silly — the plane conveys nothing and we operate it — so it is
+refused in writing. The plane is reached over a network by people who
+are not its operator, which is the sole case `:service` exists to name
+and the entire reason `LICENSING.md` chose AGPL-3.0-only over plain
+GPL: §13 is the provision that makes copyleft mean anything for this
+shape of program. Declaring `:internal` would assert that §13 does not
+reach the one program it was chosen for.
+
+Revisit conditions: for the class vocabulary, a real licensing
+consequence that turns on something other than conveyance, network use
+or neither — a fourth way code reaches people rather than a fourth
+adjective for the same three. For the plane's `package:` block, the
+plane genuinely being published as a package, which would be a
+different product than `LICENSING.md` describes.
+
+## Identifiers match exactly; every rung resolves or abstains, and none reconcile
 scope: system:substrate
 
-(ORC-16). The obvious
-symmetry is with `ignore_advisories` a few entries up, and the
-symmetry is false: an advisory is imposed on us by the world and
-frequently has no action until an upstream we do not control cuts a
-release, whereas nobody imposes a dependency on anyone. It is the
-one supply-chain fact that is entirely our own choice, so the fix
-for a copyleft dependency in the shipped layer is not taking it,
-and a waiver could only ever be spent breaking the rule
-`LICENSING.md` calls the single most important one in it. This is
-the same line `external: true` draws — an escape exists where an
-outside party imposes a name on us and nowhere else. The overrides
-file is not a hole in this: it supplies a *license*, read by a human
-out of a package's own LICENSE, and that license is then checked
-like any other, so an override naming `GPL-3.0-only` fails the build
-exactly as the metadata would have. Revisit condition: a dependency
-genuinely worth an exception is worth replacing instead; if one ever
-is not, the argument belongs in `LICENSING.md` as a change to the
-policy, in daylight, never in the audit as a way around it.
-**Amended at the third pass (ORC-16), and the amendment is the
-entry's own sentence taken seriously.** Design review reversed half
-of what the second pass wrote here: the *allowlist* is data each
-project states in its `mix.exs`, and Catapult's five identifiers are
-a default value rather than the rule (`systems/substrate.md`). That
-is not the hole this entry refuses, and the two are worth reading
-together precisely because they are the same keyword list. "This
-dependency is copyleft and we accept it anyway" is a **waiver** —
-per-dependency, argued once and inherited forever, read only by
-whoever added it — and is still refused, with nothing above weakened.
-"Our list of acceptable licenses is not yours" is a **policy
-difference**: stated once, applied uniformly to every dependency in
-the tree, and reviewable as a policy. The check acquires a different
-subject; it does not switch off. The reason it had to become
-configurable is this entry's own logic pointed at ourselves —
-`Catapult.Audit.License` ships into every generated project, so five
-identifiers compiled into it is Catapult's legal position imposed on
-a codebase nobody here has read, which is the same imposition
-this file refuses when the subject is a dependency substrate
-declares. The line, stated once so the next pass does not have to
-re-derive it: a project may say what terms are acceptable in its
-tree, and may never say that one package is measured against nothing.
+Matching is exact SPDX identifiers. Anything else is unrecognized and
+therefore a problem, resolved by an `overrides:` entry a reviewer
+reads.
 
-## No normalization table for license spellings, and no inference from LICENSE file text
-scope: system:substrate
+**No normalization table for license spellings.** `cowboy_telemetry`
+declares `["Apache 2.0"]`, which no amount of being obviously fine
+makes an SPDX identifier — the near-miss is kept here as the
+illustration it has always been. A table that maps "Apache 2" teaches
+its next reader that near-misses are handled, and the next near-miss
+is a string like `GPL-2.0-with-classpath-exception`, whose distance
+from `GPL-2.0-only` is the entire question the check exists to ask.
 
-(ORC-16). Matching is exact SPDX
-identifiers; anything else is unrecognized and therefore a problem,
-resolved by an override entry a reviewer reads. The cost is
-measured and, once the class rules landed, zero on this tree:
-`cowboy_telemetry` declares `["Apache 2.0"]`, which no amount of
-being obviously fine makes an SPDX identifier — but it is a plane
-dependency, and the plane is a public-licensed service and therefore
-unchecked, so no override exists on landing. The near-miss is kept
-here as the illustration it always was. The cheaper fix is refused
-because its failures run silent and in the permissive
-direction. A table that maps "Apache 2" teaches its next
-reader that near-misses are handled, and the next near-miss is a
-string like `GPL-2.0-with-classpath-exception`, whose distance from
-`GPL-2.0-only` is the entire question the check exists to ask. Text
-inference is the same defect with a bigger surface: a fuzzy match
-over prose, deciding a legal question, with no line in the diff
-where a human agreed. Revisit condition: none — an override costs
-one line and one reading, and the readings are rare by construction
-(zero in the checked closure today).
-**Amended (ORC-74): an explicit `SPDX-License-Identifier:` line is
-now read, and this entry's refusal survives intact because that line
-is a declaration, not prose.** The rung ladder's third rung matches
-one line's own syntax — a fixed marker, a single token, no internal
-whitespace — and does not resolve at all if the file has none, more
-than one, or a value that isn't a bare token (`systems/substrate.md`).
-It never turns "Apache License, Version 2.0…" into `Apache-2.0`; the
-distinction this entry draws is exactly the one that makes the new
-rung safe. **The `cowboy_telemetry` illustration above changed
-meaning underneath it, and is worth reading again with that in
-mind:** the ladder now tries hex metadata before `overrides:`, so a
-dependency whose metadata parses to *something* — `["Apache 2.0"]`
-included — resolves at rung 1 and never reaches the override rung at
-all. An override can no longer correct a present-but-unrecognized
-metadata value, only supply one where metadata, a component's own
-`licensing/0`, and an SPDX line in its LICENSE all came up empty. Had
-`cowboy_telemetry` ever needed checking, this document's older
-illustration — "the mechanism exists because the first one will be a
-sentence in a diff" — would no longer be true of it; the sentence in
-the diff is now a line in the project's own `allow:` list, which is
-what this entry already argues is the correct home for a spelling the
-project is willing to name outright, never a table.
+**No inference from LICENSE file prose** — a fuzzy match over prose,
+deciding a legal question, with no line in the diff where a human
+agreed. An explicit `SPDX-License-Identifier:` line *is* read, and the
+refusal survives intact, because that line is a declaration rather
+than prose: a fixed marker, a single bare token, no internal
+whitespace. A file with none, with more than one, or with a value that
+is not a bare token does not resolve at that rung at all.
+
+**No boolean-expression parsing.** `MIT OR Apache-2.0` is a real,
+formal SPDX expression and not prose, so refusing to parse it looks
+like an inconsistency the moment someone hits it. It is refused
+anyway: `AND`/`OR`/`WITH`/parens is a small grammar with precedence
+rules, and shipping one into every generated project to save one human
+reading one LICENSE file is the same trade already declined for prose,
+arriving through a more sympathetic door.
+
+**The filename list is closed** — `LICENSE`, `LICENSE.md`,
+`LICENSE.txt`, `COPYING`, first found, others never consulted. A fifth
+name quietly added the day some dependency's file happens to be spelled
+differently is exactly the drift a closed, exact list exists to refuse.
+
+**No cross-rung reconciliation, at any of the three seams the ladder
+has.** Hex metadata and a component's own `licensing/0` are never
+cross-checked against each other; two modules in one git-fetched
+dependency answering `licensing/0` differently resolve nothing rather
+than averaging or preferring one; two `SPDX-License-Identifier:` lines
+in one file resolve nothing for the identical reason. The order among
+the rungs is the same rule at the top level: first to answer wins, and
+nothing below is consulted once something above has. In every case the
+fix is a human reading the disagreement and recording an override,
+never the check picking a winner.
+
+Revisit condition: a real dependency in a checked closure whose license
+file uses a name or an expression outside this rung's reach, read and
+argued in the same diff that widens it — never a guess at what the next
+one might be.
+
+## The check infers nothing beyond the identifier
+scope: system:substrate, system:registry
+
+Two questions are asked about an identifier — is it spelled
+`LicenseRef-*`, and is it on the project's list. Nothing else is
+inferred, in either of the two directions that tempt.
+
+**No classification of an identifier as copyleft.** There is no third
+bucket and no small table of copyleft identifiers to produce one. The
+residue of a project-stated list is not copyleft; it is whatever that
+project did not write down, and reading it as copyleft leaves the tree
+**unchecked** — an inference in the permissive direction, the one
+direction this check may not fail in. Conveying under copyleft
+deliberately is still expressible and better expressed: put the
+identifier on the project's own list, and dependencies are checked
+against a list containing it, which catches `GPL-2.0-only` inside an
+`AGPL-3.0-only` work.
+
+**No per-component attribution of dependencies.** The check does not
+try to work out which component pulled `plug` in; a project's policy
+is the strictest among every subject it composes. mix has no
+per-component dependency declarations, so any attribution would be a
+call-graph guess made offline, and its errors would run permissive
+too. The shared-tree fact is also simply true: every dependency in a
+project is available to every component in it, whatever brought it in.
+
+Revisit condition: a real per-component dependency declaration in the
+language, which is not a thing mix has and not a thing to build here.
 
 ## No per-file license headers, for now
 scope: universal
 
-(ORC-16, carrying the
-ticket's own deferral so it is not re-proposed as the obvious
-adjacent win). The inventory check answers what the *dependencies*
-impose; what carries attribution for our own files — headers in
-every source file, or a `NOTICE` file at each project root — is a
-separate decision with a real cost either way, and taking it now
-would mean stamping thousands of lines against a posture counsel
-has not reviewed. Revisit condition, and it is dated rather than
-open: the repository opening to outside contributions, which is
-when `LICENSING.md`'s `LICENSE` texts and CLA land and when the
-attribution question has to be answered anyway.
-
-## No fourth distribution class and no `proprietary:` flag beside the license
-scope: system:substrate, system:registry
-
-(ORC-16). `distribution/0`'s vocabulary stays the three the
-review named — `:distributed`, `:service`, `:internal` — and the
-"ours versus proprietary" split the `:service` rules turn on is read
-off the declared identifier instead: SPDX already spells "no listed
-license applies" as `LicenseRef-<id>`. A `:proprietary_service`
-class, or a boolean riding alongside, would be a second place to
-state a fact the identifier already states, and two places that can
-disagree is how a check ends up enforcing the wrong rule with
-complete confidence. It also keeps the vocabulary describing *how
-code reaches people*, which is what obligations key on and what makes
-the three classes legible to someone who has never heard of
-Catapult's business model — the property the review picked them for.
-Revisit condition: a real licensing consequence that turns on
-something other than conveyance, network use or neither, which would
-be a fourth way code reaches people rather than a fourth adjective
-for the same three.
+Deferred at ORC-16, carrying the ticket's own deferral so it is not
+re-proposed as the obvious adjacent win. The inventory check answers
+what the *dependencies* impose; what carries attribution for our own
+files — headers in every source file, or a `NOTICE` file at each
+project root — is a separate decision with a real cost either way,
+and taking it now would mean stamping thousands of lines against a
+posture counsel has not reviewed. Revisit condition, and it is dated
+rather than open: the repository opening to outside contributions,
+which is when `LICENSING.md`'s `LICENSE` texts and CLA land and when
+the attribution question has to be answered anyway.
 
 ## No licensing verdict at boot, and no allowlist inside the composer
 scope: system:foundation, system:substrate
 
-(ORC-16). The composer validates that `licensing/0` is
+Decided at ORC-16. The composer validates that `licensing/0` is
 well-formed, exactly as it does every other declaration and for the
 same reason (it needs no environment); it never holds the allowlist
 and never decides whether a license passes. Reason: the composer runs
@@ -878,137 +938,30 @@ unimportant; it is a claim that the failure has to land where a human
 is already reading, not where a deploy is already halfway out.
 Revisit condition: none. There is no license question whose answer
 changes what a running node should do. (The check does not hold the
-allowlist either, for an unrelated reason — see the entry on
-`Catapult.Audit.License` below. The composer does not hold it because
-it runs at boot; the check does not hold it because it ships into
-other people's projects.)
+allowlist either, for an unrelated reason — see "The license check has
+no escape hatches" above. The composer does not hold it because it
+runs at boot; the check does not hold it because it ships into other
+people's projects.)
 
 ## No `licensing/0` row in the registry roster table
 scope: system:registry, system:substrate
 
-(ORC-16),
-against the obvious consistency argument, and this entry exists
-because that argument is a good one. The table is one row per
-*name-claiming* registry, and its `:claim` and `:identity` columns
-are the reason it exists: two components declaring `Apache-2.0` is
-the ordinary case rather than a collision, so a licensing row would
-carry two empty columns and the fold over `rows/0` would need to skip
-it — the `function_exported?/3` guard the no-optional-callbacks entry
-refused, arriving as a table row instead of a callback. The shape
-does not fit either: a keyword list *is* a list of two-tuples, so a
-table-driven aggregator reads one declaration as two entries. It sits
-beside `config/0` on `config/0`'s own recorded criterion — a
-consumer, and error messages worth their specificity. Revisit
-condition: a second declaration of this shape, at which point the
-argument is for a small table of component-scalar facts and never for
-folding them into the claims table.
-
-## No defaulted distribution class for a component that declares none
-scope: system:substrate, system:registry
-
-(ORC-16). Defaulting to `:distributed` is the safe direction
-for the dependency half and is ruled out anyway, because the pair
-cannot be half-defaulted — there is no license a component "probably"
-carries, and a defaulted class paired with an absent identifier makes
-the component's self-check a verdict about nothing. The deciding
-reason is the other one: a default makes every project's audit print
-a policy verdict nobody asserted, which is a check that passed
-without checking anything, and removing exactly that from the ladder
-is the ticket. An undeclared component is reported instead, at audit
-time, alongside every other structural absence — not at compile time,
-since the overridable empty default stays (`errors/0`'s required
-`remedy:` is the same treatment). Revisit condition: none. A
-component whose author will not say who receives it is the case the
-check was built for, not a case for the check to guess at.
-
-## No per-component attribution of dependencies
-scope: system:substrate, system:registry
-
-(ORC-16). The check
-does not try to work out which component pulled `plug` in, and a
-project's dependency policy is instead the strictest among every
-subject it composes. Reason: mix has no per-component dependency
-declarations, so any attribution would be a call-graph guess made
-offline, and its errors would run in the permissive direction — the
-one direction this check may not fail in. The shared-tree fact is
-also simply true: every dependency in a project is available to every
-component in it, whatever brought it in. Revisit condition: a real
-per-component dependency declaration in the language, which is not a
-thing mix has and not a thing to build here.
-
-## No allowlist inside `Catapult.Audit.License`, and no default policy applied to a project that states none
-scope: system:substrate
-
-(ORC-16, third pass). The
-check ships into every generated project and carries the *rule* — how
-code reaches people, which classes are checked, and for which reason
-— while the list of acceptable SPDX identifiers is data the project
-states in its own `mix.exs`. A constant in the module is the same
-mistake as the path rule one level in: it holds a fact about the
-world outside the package, in a package that runs everywhere. The
-second half matters more and is easier to lose: a project that states
-no list is **inert with a census line saying so**, never held to
-Catapult's five by default. A default would make every project's
-audit print a policy verdict nobody asserted, which is the
-undeclared-component ruling in this same ticket and the same
-sentence — and the honest reading of a silent green run would be that
-a legal question about someone else's codebase was answered by us.
-The sane starting value still exists; it is emitted as literal data
-into a generated project's `mix.exs` by `bundles/platform-elixir`
-(`systems/platform_content.md`), which is the place a project's files
-come from, and never as a call back into a shipped module that
-resolves it. Revisit condition: none for the constant. The inert
-state is worth watching — if generated projects turn out to lose the
-block routinely, the answer is the generator asserting it, never the
-check assuming it.
-
-## No allowlist keyed by distribution class within one mix project
-scope: system:substrate
-
-
-(ORC-16, third pass), against design review's own wording ("the
-allowlist per class is data the project states") and recorded here
-because reversing it is a one-line change if the author wants it.
-Dependencies are a mix project's fact — one lockfile, one `deps/`,
-one working directory — which is the entire reason `package:` arms
-the check. A list per class leaves a project composing a
-`:distributed` component and a proprietary `:service` one resolving
-to the *intersection* of two lists over one shared tree, which turns
-strictest-wins from a total order into a merge whose result is
-written in no file and citable in no report. That is the same defect
-as merging config sources, refused for the config layer above and
-refused here for the same reason. What stays per class is the *reason* a tree is checked and
-the report line that prints it. A project genuinely needing two
-policies needs two dependency trees, which is two mix projects, which
-is what it already had to be. Revisit condition: a single mix project
-with a legitimate reason to hold subjects under different lists —
-which would be an argument that the check's subject is not the
-project, and would want answering there rather than by adding a
-keyed map.
-
-## No classification of a license identifier as copyleft
-scope: system:substrate
-
-(ORC-16,
-third pass). The check answers two questions about an identifier —
-is it spelled `LicenseRef-*`, and is it on the project's list — and
-infers nothing else; there is no third bucket and no small table of
-copyleft identifiers to produce one. This removed a row from the
-second pass's table (*public copyleft, conveyed → unchecked*), which
-was true about obligations and undecidable in code: the residue of a
-project-stated list is not copyleft, it is whatever that project did
-not write down, and reading it as copyleft leaves the tree
-**unchecked** — an inference in the permissive direction, which is
-the one direction this check may not fail in. It is the same refusal
-as the normalization table above, arriving where it is
-tempting to think we would be guessing about ourselves rather than
-about a stranger's package. Conveying under copyleft deliberately is
-still expressible and is now better expressed: put the identifier on
-the project's own list, and dependencies are checked against a list
-containing it — which catches `GPL-2.0-only` inside an
-`AGPL-3.0-only` work, a real incompatibility the dropped row passed
-in silence. Revisit condition: none. Every use anyone proposed for a
-copyleft bucket is served by the project's list saying so out loud.
+Decided at ORC-16 against the obvious consistency argument, and this
+entry exists because that argument is a good one. The table is one
+row per *name-claiming* registry, and its `:claim` and `:identity`
+columns are the reason it exists: two components declaring
+`Apache-2.0` is the ordinary case rather than a collision, so a
+licensing row would carry two empty columns and the fold over
+`rows/0` would need to skip it — the `function_exported?/3` guard
+the no-optional-callbacks entry refused, arriving as a table row
+instead of a callback. The shape does not fit either: a keyword list
+*is* a list of two-tuples, so a table-driven aggregator reads one
+declaration as two entries. It sits beside `config/0` on
+`config/0`'s own recorded criterion — a consumer, and error messages
+worth their specificity. Revisit condition: a second declaration of
+this shape, at which point the argument is for a small table of
+component-scalar facts and never for folding them into the claims
+table.
 
 ## No dataflow inference for a computed config key, and no reading a dynamic `fetch!/2` as a wildcard
 scope: system:foundation, system:substrate
@@ -1142,22 +1095,21 @@ half, in the project that owns the code.
 ## No sharing of `Catapult.Audit.License`'s dependency closure
 scope: system:substrate
 
-
-(ORC-50), against the obvious reuse argument, and recorded because
-the argument is a good one and someone will make it again. The two
-walks answer different questions from different sources: the license
-closure is *what a consumer would fetch*, read out of publishers'
+Against the obvious reuse argument, and recorded because the argument
+is a good one and someone will make it again. The two walks answer
+different questions from different sources: the license closure is
+*what a consumer would fetch*, read out of publishers'
 `hex_metadata.config`, and it deliberately stops at a path dep
 because a path dep is another mix project audited in its own right;
 the boundary closure is *what this build can reach*, read out of
 compiled `.app` files, and it must descend into a path dep because
 the plane's `lib/` reaches `:plug` and `:telemetry` only through
-`components/substrate`. Unifying them would import the license
-walk's path-dep exclusion into a check whose whole subject is
-applications nothing constrains — a hole one level in, in the
-permissive direction. Revisit condition: none foreseeable; two
-answers to two questions is the correct count, and the day they
-agree by coincidence is not the day to merge them.
+`components/substrate`. Unifying them would import the license walk's
+path-dep exclusion into a check whose whole subject is applications
+nothing constrains — a hole one level in, in the permissive
+direction. Revisit condition: none foreseeable; two answers to two
+questions is the correct count, and the day they agree by coincidence
+is not the day to merge them.
 
 ## No demand that dev- or test-scope applications appear in the boundary apps list
 scope: system:foundation
@@ -1174,114 +1126,6 @@ is `only: :test` and is named deliberately — because the rule is
 coverage of the floor, never equality with it. Revisit condition: a
 test-scope application the *shipped* tree can reach, which would mean
 the release build stopped being the thing that decides what ships.
-
-## No `package:` block on the root `mix.exs`, and never one added to arm the license check
-scope: system:substrate
-
-(ORC-51). The obvious symmetry with
-`components/substrate` — which states `package: [licenses:
-["Apache-2.0"]]` precisely *because* that is the arming — is a trap
-here, and the measurement is why it is worth an entry rather than an
-instinct: adding `package: [licenses: ["AGPL-3.0-only"]]` beside the
-plane's policy makes `subjects/1` count the project itself as a
-`:distributed` subject, arms the entire plane closure with the reason
-"a recipient would inherit terms nobody offered them", and fails on
-exactly one dependency — `cowboy_telemetry`, whose `["Apache 2.0"]`
-is not an SPDX identifier. One override line from green is what makes
-it dangerous; a wall of failures would have been self-correcting.
-What the block asserts is false: `package:` means somebody fetches
-this, the plane is published nowhere, and an untrue claim about
-conveyance is not a cheap way to buy coverage — it is the check
-enforcing the shipped-layer rule, with the shipped-layer reason, on a
-tree nothing ships out of, which `systems/substrate.md` already names
-as wrong rather than conservative. `licensing/0` on the plane's
-components is the whole arming the plane needs, and it deliberately
-arms nothing. Revisit condition: the plane genuinely being published
-as a package, which would be a different product than the one
-`LICENSING.md` describes.
-
-## No minimal one-identifier `allow:` list on a project whose check is unarmed
-scope: system:substrate
-
-(ORC-51). A plane stating `licensing: [allow:
-["AGPL-3.0-only"]]` places its own subject, prints the same
-`unchecked` census, and is exactly as green today as the six-entry
-list — so the shorter one looks like the honest one, and the "no
-hand-maintained inventories" rule looks like it applies. It does not:
-the list is a policy statement about acceptable terms, not a mirror
-of anything in the tree. The cost lands entirely on the day some
-subject in the project first arms the check, and it is measured:
-against Catapult's five plus `AGPL-3.0-only`, the plane's closure
-produces one problem; against `["AGPL-3.0-only"]` alone, one per
-dependency. That is a licensing policy written under time pressure,
-inside a diff that had another purpose and whose author will supply
-the reasons the list gets. Revisit condition: none. A list is stated
-once and read whenever the check arms; writing it while nothing is at
-stake is the only time it is cheap.
-
-## No `:internal` distribution class for the plane
-scope: system:substrate, system:registry
-
-(ORC-51). The
-reading that gets there is not silly — the plane conveys nothing, we
-operate it, and `:internal` is described as build tooling and ops
-scripts where "practically nothing triggers" — so it is refused in
-writing. The plane is reached over a network by people who are not
-its operator, which is the sole case `:service` exists to name and
-the entire reason `LICENSING.md` chose AGPL-3.0-only over plain GPL:
-§13 is the provision that makes copyleft mean anything for this shape
-of program. Declaring `:internal` would assert that §13 does not
-reach the one program it was chosen for. It is also the failure mode
-the declaration model accepts in exchange for dropping the path rule
-— a wrong class is wrong *in public* — so being wrong here is worse
-than being silent, which is what this ticket's whole ladder argument
-rests on. Revisit condition: none while Catapult is offered as a
-hosted product.
-
-## No SPDX boolean-expression parsing in the license-file rung, and no fourth or fifth filename added to its fixed list
-scope: system:substrate
-
-(ORC-74). The rung
-that reads a git dependency's own LICENSE file (`systems/substrate.md`)
-matches one line's declared syntax — a fixed marker, a single bare
-token — and stops there on purpose. `MIT OR Apache-2.0` is a real,
-formal SPDX license expression and not prose, so refusing to parse it
-looks like the inconsistency the moment someone hits it; it is refused
-anyway, because `AND`/`OR`/`WITH`/parens is a small grammar with
-precedence rules, and a small grammar shipped into every generated
-project to save one human reading one LICENSE file is the same trade
-the no-normalization entry above already declined for prose, arriving
-through a more sympathetic door. A file using it does not resolve at
-this rung, exactly as a file with two plain declarations does not, and
-`overrides:` is one line away. The filename list — `LICENSE`,
-`LICENSE.md`, `LICENSE.txt`, `COPYING`, first found, others never
-consulted — is closed for the same reason `licensing/0`'s known opts
-and `licensing:`'s known keys are: a fifth name quietly added the day
-some dependency's file happens to be spelled differently is exactly
-the drift a closed, exact list exists to refuse. Revisit condition: a
-real dependency in a checked closure whose license file uses a name or
-an expression outside this rung's reach, read and argued in the same
-diff that widens it — never a guess at what the next one might be.
-
-## No cross-rung reconciliation anywhere in the license resolution ladder
-scope: system:substrate
-
-(ORC-74), stated once because the ladder applies it at three
-different seams and a future pass should recognize the shape rather
-than re-derive it each time it appears. Hex metadata and a component's
-own `licensing/0` are never cross-checked against each other; two
-modules in one git-fetched dependency answering `licensing/0`
-differently resolve nothing rather than averaging or preferring one;
-two `SPDX-License-Identifier:` lines in one LICENSE file resolve
-nothing for the identical reason. In every case the fix is a human
-reading the disagreement and recording an `overrides:` entry, never
-the check picking a winner. The order among the four rungs is the
-same rule at the top level: first to answer wins, and nothing below
-is consulted once something above has — including `overrides:`
-itself, which no longer runs a race against hex metadata (see the
-amendment to the entry above). Revisit condition: none — a check that
-reconciles disagreeing sources is a check asserting a fact nobody
-checked, which is the defect this whole module exists to refuse.
 
 ## No destination-detecting model-call check — nothing reads a URL, a hostname or a provider name out of an HTTP call's arguments
 scope: system:substrate, system:generation, system:llm
