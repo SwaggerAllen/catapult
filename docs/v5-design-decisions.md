@@ -3215,6 +3215,94 @@ environments would attach to top-level tickets only. That is not a
 special case; it is `deploy` at depth `0`, and it stops needing its
 own rule.
 
+**The chain's own auto-review had nowhere to run — `critique`.** A
+chain tier may declare a `review:` block (prompt, grammar,
+`required:`) — siege's `review_comparch.md` and its siblings, one per
+LLM tier, and the whole reason the per-tier triad invariant is worded
+as "generation and review receive identical context plus `draft`".
+The loader parses it. Nothing could schedule it: `delivery:` gives a
+tier exactly one `phase:` and one `agent_step:`, so a tier that
+generates *and* reviews had one slot for two agent runs. The v4
+bundles carry this per tier and the v5 workflow design missed the use
+case outright — the review sequence was designed for *human* gates
+declared on the workflow axis, and an agent critiquing its own tier's
+draft is neither a human gate nor a generation.
+
+**`validating`/`validate` is not its home**, though the names invite
+it. That status is post-deploy verification with the ball on the
+plane, and that step is §7.11's repair loop; both sit after `deploy`.
+A tier's auto-review reads a freshly produced design artifact. Same
+word, opposite end of the lifecycle, different subject — folding them
+together would conflate "did the shipped thing work" with "is this
+draft any good."
+
+**Resolution: `critique`, a system status and an agent step, derived
+positionally.** The platform wraps every generation step —
+`queue → generation → ⟨critique⟩` — and the critique slot
+materializes only if that tier declares a `review:` block. The name
+is deliberately not "review": the workflow axis already spends that
+word on human gates (§15.2's `review:` key), and one word for both an
+agent's critique and a person's sign-off is the collision that has
+cost this project time before.
+
+This does not leak across the axis. The slot is derived from
+*position plus the tier's own declaration*, never from a chain naming
+a workflow declaration — the identical derivation this section
+already uses for gates. It is also symmetric with `queue`, which is
+already a platform-provided wrapper nobody declares.
+
+**It is a second dispatched run, and it reads committed state.** Not
+a phase inside the generation run: a critique whose output lived only
+in an agent transcript would be invisible to the plane, so nothing
+could show it, act on it, or count it. It runs against the current
+state of the ticket's PR. The cost is honest — a tier declaring a
+review doubles its dispatches, which is a real draw on §7.12.1's
+per-instance concurrency cap.
+
+**Its output is comments, not a committed artifact — a deliberate
+break from v4.** The v4 bundles commit `review.md` beside `body.md`
+and give tier declarations a `review_path:` next to `body_path:`.
+v5 does not port that. A critique decline should be structurally
+identical to a human decline, so that regeneration feedback has **one**
+mechanism rather than two: §7.4's decline harvesting already buckets
+review comments by artifact span and threads them as regen feedback,
+and the critique agent's findings are the same shape arriving from a
+different author. Two paths into regeneration would drift.
+
+**The review grammar survives the move; only the storage changes.**
+The run's output is still validated against the platform-wide review
+grammar at the commit path — it is projected into comments rather
+than written to a file. Two of its fields become load-bearing rather
+than decorative: `<score>` (0-100, v4's buckets: 0-30 fundamental
+rework, 31-60 structural, 61-85 minor, 86-100 ready) is what a
+threshold predicate reads, and each `<finding id="...">` is what
+becomes one anchored comment. The score lands in the log with the
+run's result event, which is where a threshold or a cycle count is
+answerable from. **Corollary for the port: `review_path:` is not
+carried forward** — a fourth v4→v5 delta beyond the three
+`seed-docs/README.md` enumerates, and one a faithful port would
+otherwise reproduce correctly and wrongly.
+
+**Position and loop.** Critique sits immediately after its generation
+step and before every workflow gate, so the default shape is one
+generation → critique → generation cycle before a human sees
+anything. It therefore has **no throwback semantics**: there is no
+passed gate downstream of it to reopen, and this section's all-reopen
+rule never engages. `required: false` means the slot is visited and
+the verdict recorded without gating the exit; `required: true` gates
+it.
+
+**Wanted later, not now: threshold passing.** A draft leaves
+`critique` on a score bar or after a bounded number of cycles rather
+than after exactly one pass. The grammar already carries the field
+this needs, so it is a scheduler decision rather than a content one.
+
+Scheduling — where `critique` sits in the dispatch machinery and how
+a cycle terminates — lands with the workflow-bundle work, not with
+the chain port. The port only has to carry the per-tier `review:`
+declarations and the platform-wide review grammar, both of which it
+already does.
+
 ---
 
 ## 8. Parked / open items
