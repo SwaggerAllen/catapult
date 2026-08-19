@@ -1,38 +1,41 @@
+# v4 §1.7, re-expressed (seed-docs/siege-prompts/subcomparch.md).
+# produces: writes onto self.parent — the subcomp (this ticket's
+# redirect §3). Only three fragments, not five: siege's own
+# subcomparch grammar has no <policies> or <failure-surface> section
+# at all — policy reachability is transitive from comp-level policies
+# (v4 §5.2) so a subcomp mints no policies of its own, and failure
+# modes route through pubapi's typed return shapes instead of a
+# separate section ("Failure-mode observability through pubapi" in
+# the source prompt). Recorded in systems/platform_content.md as a
+# deliberate 3-vs-5 fragment-ownership split between comp and subcomp,
+# since the ticket's fragment vocabulary is a closed set of 5 kinds
+# but not every kind is owned at every scope that fragments exist on.
+# v5 growth (docs/v5-design-decisions.md §2.5, §6): a process
+# inventory.
 tier: subcomparch
-scope: child_of(comparch)         # minted by comparch's subcomponent_fanout
+scope: per(subcomp)
 identity: id
 fields:
-  name: draft.@name
-  techspec: draft.techspec
+  role_summary: draft.technical_specification
 handle:
-  fields: [id, name]
-  fragments: [techspec, privapi]
+  fields: [id, role_summary]
+  fragments: []
 draft:
   root_tag: subcomparch
   grammar: schemas/subcomparch.xsd
 generator: llm
 prompt: prompts/subcomparch.md.liquid
-executor:
-  effort: max
 context:
-  - self.parent.handle                          # the owning comparch:
-                                                  # techspec, pubapi
-  - self.parent.fulfills -> resp.handle          # what this component (and
-                                                  # so this subcomponent)
-                                                  # is on the hook for
-  - self.parent.handle.fragments[policies]       # policies scoped to the
-                                                  # owning component
-  - self.parent.subcomponent_fanout -> subcomparch.handle.fragments[privapi]
-                                                  # sibling subcomponents'
-                                                  # private surface
+  - self.parent.handle
+  - self.parent.sub_dependency -> subcomp.handle.fragments[pubapi]
+  - self.subcomparch_ref -> ref.handle
 produces:
-  - fragment: { owner: self, kind: techspec, authored: draft.techspec }
-  - fragment: { owner: self, kind: privapi, authored: draft.privapi }
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
 review:
   prompt: prompts/review/subcomparch.md.liquid
   grammar: schemas/review.xsd
-  required: true
 delivery:
-  phase: Architecting
+  phase: generation
   agent_step: design
-enforcement: []

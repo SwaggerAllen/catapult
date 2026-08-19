@@ -1,0 +1,17 @@
+# v4 §2.2's within-comp half — comparch's own <sub-dependencies> block.
+# A distinct edge (not a second instance of "dependency") because a
+# fanout-minted tier's declared_in path is scoped to one parent's
+# draft at a time (comparch.draft here vs sysarch.draft above), and
+# an edge name is unique across the union — subcomp -> subcomp,
+# naturally scoped to siblings under the same comparch instance since
+# each dep is declared inside that one comparch's own draft.
+edge: sub_dependency
+type: dependency
+source: subcomp
+target: subcomp
+declared_in: comparch.draft.sub_dependencies.dep[]
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }
+graph_constraint: [acyclic, no_self_loop]
+consistency: eventual

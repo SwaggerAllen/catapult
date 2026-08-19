@@ -1,0 +1,8 @@
+edge: subcomparch_ref
+type: reference
+source: subcomparch
+target: ref
+declared_in: subcomparch.draft.references.reference[].@target
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }

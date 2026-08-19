@@ -1,0 +1,29 @@
+# v4 §1.4 "join target", carried forward as-is (docs/non-goals.md
+# reverses the previous pass's collapse of this tier into comparch).
+# Projection tier: no draft, no prompt: content lives entirely in the
+# fragments comparch writes onto self.parent (comparch.yaml's
+# produces:). `mint.*` fields are set when sysarch's component_fanout
+# mints this node from its own <components> row (dsl-syntax.md §3 has
+# no documented field source for a join-target tier; the addendum
+# this ticket adds there names `mint.<field>` for exactly this case —
+# see the diff to docs/dsl-syntax.md). `project_techspec` and
+# `project_policies_summary` are the one exception to "content lives
+# in fragments written by comparch": a plain-string copy of sysarch's
+# own techspec/policies, made at the same mint moment, because
+# dsl-syntax.md's context walks are one hop and comparch (per(comp))
+# has no other route back to its grandparent sysarch's content
+# without a back-edge that would cycle against component_fanout.
+# Recorded in systems/platform_content.md.
+tier: comp
+scope: child_of(sysarch)
+identity: id
+fields:
+  name: mint.name
+  purpose: mint.purpose
+  is_foundation: mint.is_foundation
+  project_techspec: mint.project_techspec
+  project_policies_summary: mint.project_policies_summary
+handle:
+  fields: [id, name, purpose, is_foundation, project_techspec, project_policies_summary]
+  fragments: [techspec, pubapi, privapi, policies, failure_surface]
+generator: synthesis

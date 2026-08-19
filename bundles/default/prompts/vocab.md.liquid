@@ -1,43 +1,32 @@
-{% render "partials/_architecture_framing", tier_label: "a vocab entry", downstream_reader: "every document comparch-and-below that reaches for this term instead of restating its own definition" %}
+{% render "partials/_architecture_framing" %}
 
-## What you have
+You are defining one project vocabulary term. feature_expansion
+flagged this term as needing a project-specific definition — your job
+is to write that definition so every tier downstream stays consistent
+about what this word means, instead of each one re-coining it.
 
-**Responsibility catalog (resp):**
-{{ resp }}
+# Term
 
-**Project doc:**
-{{ project_doc }}
+Name: {{ parent.name }}
+Scope: {{ parent.term_scope }}{% if parent.feature_name %} (feature: {{ parent.feature_name }}){% endif %}
 
-resp seeded this vocab entry because it could already see a naming
-collision risk from the intake; walk the catalog above for that risk
-before writing anything. This tier is not a dictionary exercise —
-padding it with terms that never actually collide costs the graph a
-review finding, not a convenience.
+# Output format
 
-## Why this tier exists
+Emit a single `<vocab-entry>` with, in order: `<definition>` (required
+— non-empty prose, no nested tags), `<disambiguation>` (optional but
+strongly encouraged whenever the project-specific meaning diverges
+from a common one — a "not to be confused with" note that directly
+counteracts the generic meaning a reader would otherwise assume), and
+`<see-also>` (optional — `<ref name="..."/>` entries naming other
+vocabulary terms in this project).
 
-A vocab entry exists to prevent two documents naming the same concept
-differently, or two different concepts sharing the same name. That is
-the only job it does. Write it because a term is genuinely ambiguous
-across responsibilities, or because different documents are likely to
-describe the same thing in their own words, or because a piece of
-project-specific domain vocabulary would otherwise get a generic,
-misleading reading — not because the word appeared somewhere and
-seemed worth recording.
+# Rules
 
-## What to produce
-
-**`<definition>`** — the one true wording every other document should
-converge on. Write it precise enough to settle a naming disagreement
-on its own: if two engineers reading only the definition could still
-argue about whether something counts as this term, it hasn't done its
-job. This is the standing sentence a later document points to, not a
-description of what the term is for.
-
-**`<alias>`** (zero or more) — the other names a reviewer or an agent
-working from a different document might actually reach for instead of
-the term you chose, so the graph stays searchable under all of them
-while `<definition>` remains the wording to standardize on. List only
-spellings and near-synonyms likely to actually get typed elsewhere; an
-alias list padded with unlikely variants is noise, and an empty list
-is correct when there's genuinely nothing else anyone would call this.
+* Write the definition as if for a reader encountering this term for
+  the first time in a downstream tier's prompt — specific enough to
+  actually disambiguate, not a restatement of the term itself.
+* If the term has no genuinely divergent meaning from its common
+  usage, say so plainly in `<disambiguation>` rather than inventing a
+  distinction that isn't there — or omit `<disambiguation>` entirely.
+* `<see-also>` references only terms that already exist; do not invent
+  cross-references to terms this project hasn't defined.

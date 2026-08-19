@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v4 §1.2 (seed-docs/siege-prompts/requirements.md), unchanged in
+  shape — each <responsibility> is exactly one <name> and one <feats>
+  block, "nothing else — the structure is the spec" (the source
+  prompt's own words). What changed is downstream: each responsibility
+  now mints a resp node (edges/resp_fanout.yaml) rather than staying a
+  field here.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Feats">
+    <xs:sequence>
+      <xs:element name="feat" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Responsibility">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="feats" type="Feats"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="requirements">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="responsibility" type="Responsibility" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

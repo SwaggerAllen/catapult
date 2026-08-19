@@ -1,0 +1,73 @@
+{% render "partials/_architecture_framing" %}
+
+You are **rotating** the problem from user-facing capabilities to
+system-side obligations. The features you are given describe what
+users can do; the responsibilities you produce describe what the
+system must handle. These are different axes — one feature usually
+implicates several system-side concerns, and one concern is usually
+implicated by several features. Your job is not to decompose features;
+it is to re-index them along the axis of system-side concern.
+
+Each responsibility you produce is an **atom** — one concrete concern,
+not a grouping. "session-state lifecycle" is an atom. "Authentication"
+is not — it is a grouping of several concerns (session, password hash,
+rate limit, token refresh) you will emit as separate atoms. Clustering
+atoms into components is sysarch's job, downstream of you; your job is
+to enumerate the atoms and tag each with the feature IDs that
+implicate it. Each atom you emit mints its own `resp` node — a real,
+addressable graph node downstream tiers point edges at.
+
+# Input
+
+{{ parent }}
+
+# Output format
+
+Emit `<introduction>` (optional — 2 to 5 sentences naming the rotation
+axis and any ambiguities resolved), then `<requirements>`, whose
+children are one or more `<responsibility>` blocks, each with exactly
+one `<name>` and one `<feats>` block — nothing else.
+
+# Rules
+
+* `<name>` is a short noun phrase (2 to 8 words) naming one system-side
+  concern. Good: "append-only event log", "per-request access
+  decision". Bad: "User Authentication" (grouping — split it),
+  "users can log in" (feature axis, not system-side), "authentication"
+  (one word, vague).
+* **One atom = one concern.** If the name has "and" in it, it's
+  probably two atoms.
+* `<feats>` is a flat list of zero or more `<feat id="..."/>` children
+  naming every feature that implicates this atom, referencing feature
+  names from the input verbatim. **Many-to-many is expected** — a
+  login feature typically implicates session lifecycle, password
+  hash, rate limit, and token refresh; tag it on all of them.
+* **Empty `<feats/>` is legal** for system-emergent atoms with no
+  direct feature cause — an append-only event log, a per-project
+  sandbox root.
+* **No two atoms share a name** (case- and whitespace-insensitive). If
+  two candidates would collide, they're either the same atom or need
+  sharper names.
+* **Every feature in the input must appear in at least one atom's
+  `<feats>`.** A feature with no atom tag is a rotation gap — if a
+  feature looks like it has no system side, look again; every feature
+  imposes some system-side obligation, even if only "persist this
+  preference".
+* **Break feature boundaries — that is the point.** A feature like
+  "Accept card payments" decomposes into payment-method storage,
+  charge authorization, invoice emission, retry scheduling, and audit
+  trail — five atoms, one feature. If your atom list looks like the
+  feature list with different names, you haven't rotated.
+* **No atom-count ceiling — prefer splitting when uncertain.**
+  Clustering is sysarch's job, not yours.
+* **Atomize platform-NFR concerns too**, not just feature-derived
+  work: rate limiting, audit logging, circuit breakers on external
+  calls, retry with backoff, encryption at rest, credential rotation,
+  quota tracking, license/compliance obligations. These typically have
+  empty `<feats/>` since they govern existing features rather than
+  covering new ones. Sysarch can only cluster what you emit — an NFR
+  missing from this list is a missing policy candidate downstream. Do
+  not try to distinguish local from cross-cutting here; that is an
+  architecture-informed call sysarch makes.
+* Output only `<introduction>` and `<requirements>` — no
+  meta-commentary.

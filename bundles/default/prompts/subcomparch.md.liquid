@@ -1,65 +1,97 @@
-{% render "partials/_architecture_framing", tier_label: "the subcomponent architecture tier (subcomparch)", downstream_reader: "impl generation for this subcomponent, and sibling subcomponents in the same component that read this subcomponent's privapi fragment for consistency" %}
+{% render "partials/_architecture_framing" %}
 
-## What you have
+You are producing the **subcomponent architecture document** for a
+single subcomponent — a leaf in the component tree, the final
+articulation layer before implementation. Your `<public-surface>` is
+what sibling subcomponents and the parent's external dependents will
+call. Your `<technical-specification>` is what the implementation
+document builds against — every line of vagueness here becomes a
+guess in the implementation, and there are no more design tiers to
+correct it.
 
-**Owning component (comparch — techspec, pubapi):**
-{{ parent }}
+# Input
 
-**Responsibilities the owning component is on the hook for:**
-{{ fulfills }}
+Subcomponent (this comparch's row for it, plus what comparch already
+narrowed onto it): {{ parent }}
 
-**Policies scoped to the owning component:**
-{{ policies }}
+Sibling subcomponents' public surfaces: {{ sibling_pubapi }}
 
-**Sibling subcomponents' private surfaces:**
-{{ siblings }}
+Attached references: {{ refs }}
 
-You are one subcomponent inside `{{ parent }}` — read its `<techspec>`
-for why the component is shaped this way and its `<pubapi>` for the
-contract you're collectively holding up from underneath. `{{ siblings }}`
-exists so you don't duplicate a surface a sibling already exposes, or
-name something the same concept two different ways.
+# Output format
 
-## What to produce
+Emit `<subcomparch>` with these children, in this fixed order:
+`<technical-specification>` → `<public-surface>` → `<private-surface>`
+→ `<processes>` → `<dependencies>` → `<references>` (optional). No
+`<policies>` or `<failure-surface>` — subcomponents don't mint policies
+(comp-level policies already reach a subcomponent transitively) and
+don't carry a separate failure surface (thread failure modes through
+`<public-surface>`'s typed returns instead — see the reconciliation
+scan below).
 
-**`<techspec>`** — this subcomponent's design argument: what slice of
-the owning component's responsibility it carries, and why the split
-between this subcomponent and its siblings falls where it does. Impl
-reads this to decide how to implement, so name the actual internal
-shape — data owned, collaborators called, not a restatement of the
-slug.
+## Fragment sections
 
-**`<privapi>`** — this subcomponent's surface toward its *siblings
-inside the same component*. This is never the component's public
-boundary — that's the owning comparch's `<pubapi>`, already decided and
-not yours to restate or leak around. If what you're describing is
-actually the thing external callers reach, you've drawn the boundary in
-the wrong place; either it belongs in the parent's `<pubapi>` or it
-isn't public at all.
+* `<technical-specification>` — narrow the parent comp's techspec to
+  just this subcomponent's slice; do not restate it. If the parent
+  says "PostgreSQL via Ecto", this subcomponent's techspec adds which
+  tables and which query patterns it specifically owns.
+* `<public-surface>` — **signatures are non-negotiable.** This is the
+  leaf tier; implementation writes types and return shapes directly
+  off these entries. Every callable needs parameter types, a return
+  type including the error variant when the call can fail, whether
+  it's sync or async (must agree with the parent's techspec), and any
+  side effect named explicitly.
+* `<private-surface>` — **name internal data structures, not just
+  helpers.** This is implementation's last source of truth for the
+  named types it will introduce; if the techspec mentions a value
+  that "carries a version counter", name the type and its shape here.
 
-**`<process_inventory>`** (optional) — every named process this
-subcomponent registers under `processes/0`, each with a `category`
-(`local | singleton | sharded`) and a `<rationale>` that argues the
-choice, not just states it. This element exists specifically so
-placement is designed and reviewed here, not improvised at impl time
-(v5 §2.5) — "singleton, because it coordinates cluster state no node
-should duplicate" is a rationale; "singleton" restated as a sentence is
-not. Add `<max_heap_size>` / `<message_queue_alarm_len>` only where a
-process has a real reason to need a VM-enforced ceiling — a runaway
-mailbox is a plausible failure mode for this specific process, not a
-box to check.
+All three fragment sections are non-empty; prose and fenced code
+blocks only.
 
-**`<store>`** (optional, but present whenever this subcomponent *is*
-`Comp.Store`) — every component always has exactly one persistence
-subcomponent (v5 §2.4, no size floor); if this is it, describe
-`<schemas>` as the actual tables/schemas and the function-shaped
-queries this store exports — never generic CRUD. "get, list, update"
-is a repository description, not a store design; name the queries a
-caller actually needs (`fetch_active_for_owner/1`, not `get/1`). Add
-`<grade>` (`bare_log | commanded_aggregate`) only if this store belongs
-to the event-sourced family (v5 §2.4) — a plain Ecto-backed store omits
-it entirely.
+## Processes
 
-If this subcomponent is not the store, omit `<store>` — don't describe
-persistence you don't own; that's drift into a sibling's territory the
-next reviewer has to untangle.
+`<processes>` lists zero or more `<process name="...">` with
+`<category>` (`local` | `singleton` | `sharded`), `<purpose>`, and
+optional `<guardrails>` (`<max-heap-size>`, `<message-queue-bound>`).
+Name every long-lived or registered process this subcomponent's
+implementation will need — placement is designed and reviewed here,
+not improvised at implementation time. A subcomponent with no
+processes of its own (the common case) emits `<processes></processes>`
+empty.
+
+## Dependencies
+
+`<dependencies>` holds `<dep to="..."/>` edges to same-parent sibling
+subcomponents or the parent's sibling top-level components, using real
+ids from the input context — no aliases (both kinds already exist as
+minted nodes by the time this tier runs). At most one per target; no
+self-deps; may be empty for a true leaf.
+
+## References
+
+`<references>` (optional) lists `<reference target="ref_id"/>` for any
+of the attached references above this subcomparch draws on.
+
+# Reconciliation pass — before emitting
+
+* **Surface closure.** Every behavior, side effect, or return shape
+  the techspec describes has a corresponding public- or
+  private-surface entry; every surface entry is grounded in something
+  the techspec or owns-summary explains.
+* **Failure-mode observability through pubapi.** For every failure or
+  partial-success scenario the techspec describes, confirm a
+  public-surface entry exposes it — an error variant, a typed
+  exception, an inspectable status field. A pubapi function returning
+  a bare success type while the techspec admits partial failure is
+  the most common shape of this defect.
+* **Dependency grounding.** Every `<dep>` is used somewhere in the
+  techspec or a surface entry; every cross-comp call the prose implies
+  has a declared `<dep>`.
+* **Rationale, not inventory.** Rewrite category-speak into what makes
+  this subcomponent's slice distinct.
+
+# Meta-rules
+
+Do not include commentary about what you are doing. Output only the
+`<subcomparch>` block.

@@ -1,0 +1,35 @@
+# v4 §1.1 (seed-docs/catapult-default-bundle-v4.md), re-expressed. The
+# chain's true root: the only tier reading raw input prose rather than
+# an upstream handle. Mints `vocab` candidates via vocab_fanout — see
+# vocab.yaml for why feature_expansion only flags a term (name +
+# scope), rather than defining it, which is a content delta from
+# siege's feature_expansion.md (whose own <vocabulary> example emits
+# full definitions inline): the definition work moves to vocab's own
+# prompt so this tier does one job (extraction) and vocab does the
+# other (defining), matching the mint/articulate split every other
+# fanout in this bundle already uses. Recorded in
+# systems/platform_content.md.
+tier: feature_expansion
+scope: singleton
+identity: id
+fields:
+  intro: draft.introduction
+  features_summary: draft.features
+handle:
+  fields: [id, intro, features_summary]
+  fragments: []
+draft:
+  root_tag: feature-expansion
+  grammar: schemas/feature_expansion.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/feature_expansion.md.liquid
+context:
+  - input.project_doc
+review:
+  prompt: prompts/review/feature_expansion.md.liquid
+  grammar: schemas/review.xsd
+delivery:
+  phase: generation
+  agent_step: design

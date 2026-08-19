@@ -1,73 +1,35 @@
-{% render "partials/_review_framing", tier_label: "the component architecture tier (comparch)", downstream_reader: "subcomparch and impl generation for this component, plus every comparch that declares a dependency edge onto this one" %}
+{% render "partials/_review_framing" %}
 
-## Context the draft was written from
+# Draft
 
-**Responsibility catalog (resp):**
-{{ resp }}
-
-**Ref pool:**
-{{ refs }}
-
-**Vocabulary pool:**
-{{ vocabulary }}
-
-**Policies scoped to this component:**
-{{ policies }}
-
-**Dependency targets' pubapi/failure_surface:**
-{{ dependencies }}
-
-**Draft under review:**
 {{ draft }}
 
-## What to check
+# Checklist
 
-**Is `<pubapi>` actually thin?** Read every entry for logic that isn't
-a pass-through — branching, computation, or a decision that a caller
-can't already make from the arguments it passed. Any such logic is
-drift by construction (v5 §4.4): it gives external callers behavior
-internal callers don't get, and no test at the boundary catches it
-because there's no boundary test that isolates the API layer from what
-it wraps. Name the exact `<pubapi>` sentence that reads like a
-computation, not a wrapper.
-
-**Does `<fulfills>` actually hold?** For each `<responsibility ref="...">`
-cited, check the responsibility's statement against `<techspec>` and
-`<pubapi>` — does this component's design actually satisfy it, or is
-the citation aspirational? A component fulfilling nothing, or citing a
-responsibility it doesn't come close to satisfying, is a gap the next
-tier inherits blind.
-
-**Every `<dependency>`'s consistency choice.** Default is `eventual`
-(v5 §2.6); `transactional` is the declared exception and needs a real
-cross-component invariant behind it — not "it'd be simpler" or "these
-feel related." For each `<dependency consistency="transactional">`,
-demand the specific invariant that breaks under eventual consistency.
-If the draft can't name one, it should default to eventual.
-
-**Is a declared `<implementation grade="stubbed">` honest and exited?**
-Check that `<deferral_argument>` names a real external gate (not just
-"not built yet" — that's an ordinary scope cut, not a stub), and that
-if `swap` isn't `transparent`, `<exit_data_plan>` says what happens to
-stub-era data. A stub with no exit plan for a non-transparent swap is
-exactly the undocumented-migration gap v5 §2.16 exists to prevent —
-flag it as blocking, not advisory.
-
-**Are permissions on every mutating export?** Cross-reference
-`<pubapi>` against `<permissions>`: every export that mutates state
-needs a permission atom guarding it (v5 §2.9, deny-by-default). An
-export that clearly writes but has no corresponding permission is a
-finding, not a style note — it's the exact gap the audit's
-dead-permission/undeclared-atom check exists to catch, surfaced earlier
-where it's cheaper to fix.
-
-**`<enforcement>` and `<processes>` restraint.** An enforcement profile
-or a component-grain process declared without a specific reason padding
-the draft toward looking thorough is worth a finding too — most
-components declare neither.
-
-Return a `<review verdict="approve|revise">` with a `<summary>` and one
-`<finding severity="blocking|advisory">` per issue — each `<location>`
-naming the exact element/attribute (a `<dependency to="...">`, the
-`<pubapi>` sentence, the missing `<permission>`), each `<comment>`
-saying what a passing version would contain.
+- Is the subcomponent decomposition axis right (task / data /
+  workflow) for this component's work? Is the depth right — right-
+  sized subs, not one giant sub or a thousand tiny ones?
+- Are cross-cutting concerns bundled into a single sub (fine) or
+  duplicated across siblings (not fine)?
+- Do the component's choices align with the project-wide techspec and
+  policies dumped in the parent context above? Tech-stack drift is the
+  most common failure mode — flag specific modules or libraries that
+  don't belong.
+- **Sibling contract drift** — the largest remaining defect class.
+  Invented sibling APIs: an operation this draft describes calling
+  that doesn't appear in the sibling's pubapi input (unless that
+  sibling is un-articulated, in which case don't flag a phantom-API
+  finding — note the sibling needs articulation instead). Dropped
+  declared deps: a dependency implied by the project's dependency
+  graph but absent from `<dependencies>`, or present but never
+  operationally used.
+- Is the split between public and private surface principled, or is
+  the public surface bloated with internal detail?
+- Does every subcomponent declare `<implementation grade="...">`, and
+  is a `stubbed` grade's `<swap>` and `<exit-plan>` actually filled
+  in, not boilerplate?
+- Are `<permissions>` and `<enforcement>` entries grounded in this
+  component's own techspec/failure surface, or asserted without
+  justification?
+- Is the foundation subcomponent's decomposition exhaustive (no nested
+  foundations)?

@@ -1,52 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  impl — one per subcomponent (per(subcomparch)). Unphased: the total end
-  state of the subcomponent's implementation, not a per-ticket slice (v5
-  §6). <tests> is normative (dsl-syntax.md §10, v5 §2.8): named test
-  descriptions are reconciliation's acceptance criteria, so this is the
-  one element every impl doc must not skip.
+  v4 §1.8 (seed-docs/siege-prompts/impl.md), with the phase dimension
+  dropped (docs/v5-design-decisions.md §6 — "Dropped from v4: the
+  phase machinery"; siege's own §Phasing rules do not carry forward).
+
+  <tests> is new grammar, authored fresh — v5 §2.8/§6 makes it
+  normative ("named test descriptions are the acceptance criteria;
+  reconciliation checks the named tests exist and pass"), and there is
+  nothing to port: siege's impl.md has no test section at all. At
+  least one named test is required for the same reason the doctrine
+  states it plainly — an impl doc with zero named tests gives
+  reconciliation nothing to check, which is the gap this element
+  closes.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-  <xs:complexType name="TestEntry">
-    <xs:sequence>
-      <xs:element name="acceptance" type="xs:string"/>          <!--
-             what passing this test demonstrates, in the reader's terms —
-             reconciliation checks the named test exists and passes, not
-             that this prose is honored, so the name and the acceptance
-             text are what a human is trusting -->
-    </xs:sequence>
-    <xs:attribute name="name" type="xs:string" use="required"/>  <!--
-           the literal ExUnit test name/description this maps to -->
-    <xs:attribute name="kind" use="optional" default="example">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="example"/>
-          <xs:enumeration value="property"/>                     <!--
-                 required alongside example for the ES store family
-                 (v5 §2.4): replay-determinism, idempotency,
-                 round-trip -->
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
+  <xs:complexType name="Test">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
   </xs:complexType>
 
-  <xs:element name="impl">
+  <xs:complexType name="Tests">
+    <xs:sequence>
+      <xs:element name="test" type="Test" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="References">
+    <xs:sequence>
+      <xs:element name="reference" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="target" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="implementation">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="summary" type="xs:string"/>
-        <xs:element name="approach" type="xs:string"/>            <!--
-               the implementation notes proper: data flow, algorithms,
-               integration points within the subcomponent's own privapi
-               and its dependencies' pubapis -->
-        <xs:element name="tests">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="test" type="TestEntry"
-                          minOccurs="1" maxOccurs="unbounded"/>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
+        <xs:element name="behavior" type="xs:string"/>
+        <xs:element name="invariants" type="xs:string"/>
+        <xs:element name="sequencing" type="xs:string"/>
+        <xs:element name="edge-cases" type="xs:string"/>
+        <xs:element name="tests" type="Tests"/>
+        <xs:element name="references" type="References" minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

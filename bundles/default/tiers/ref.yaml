@@ -1,33 +1,32 @@
+# v5 §4.5 (carrying v4 §1.13 forward): the deliberate escape hatch,
+# stays general — no per-use kinds, no special-case lifecycles. Flat
+# pool, not literally one node: `scope: singleton` is read the same
+# loose way as vocab/policy (docs/non-goals.md), since `identity: id`
+# over one node is meaningless and refs are explicitly things that
+# accrete over a project's life via the create_reference write tool
+# or the dashboard — never minted by a fanout edge, so there is no
+# child_of(X) to declare. "Any parents and any children" (this
+# ticket's redirect §5) means no fanout mints it and no fanout it
+# mints; comparch_ref/subcomparch_ref/impl_ref (edges/*.yaml) are the
+# attachment surface, wired at comparch-and-below only, matching v4
+# §7's "refs are implementation detail" convention.
 tier: ref
-scope: child_of(resp)             # minted by resp's ref_fanout; a flat,
-                                   # ad hoc-growable pool (v5 §4.5) rather
-                                   # than a per-component tier — the one
-                                   # deliberate escape hatch, kept general
+scope: singleton
 identity: id
 fields:
-  slug: draft.@slug
-  kind: draft.@kind
+  title: draft.title
   body: draft.body
 handle:
-  fields: [id, slug, kind]
+  fields: [id, title, body]
+  fragments: []
 draft:
-  root_tag: ref
+  root_tag: reference
   grammar: schemas/ref.xsd
 generator: llm
 prompt: prompts/ref.md.liquid
-executor:
-  effort: max
-context:
-  - input.project_doc
-  - input.mocks                                 # user-supplied mocks and
-                                                  # design systems ride refs
-                                                  # as delivery-time visual
-                                                  # guidance (v5 §4.1, §4.5)
 review:
   prompt: prompts/review/ref.md.liquid
   grammar: schemas/review.xsd
-  required: true
 delivery:
-  phase: Architecting
+  phase: generation
   agent_step: design
-enforcement: []

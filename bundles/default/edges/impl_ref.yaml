@@ -1,0 +1,8 @@
+edge: impl_ref
+type: reference
+source: impl
+target: ref
+declared_in: impl.draft.implementation.references.reference[].@target
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }

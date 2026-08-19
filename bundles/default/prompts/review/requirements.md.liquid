@@ -1,0 +1,27 @@
+{% render "partials/_review_framing" %}
+
+# Draft
+
+{{ draft }}
+
+# Checklist
+
+- Is the axis right? Atoms should be system-side concerns, not user
+  outcomes and not UI/backend splits — flag atoms that still read as
+  features ("Accept card payments") or as sibling pairs that belong to
+  sysarch instead.
+- Is any atom doing too much? Flag names that pack multiple concerns
+  together ("review routing, notification, and SLA") — these should
+  have been split.
+- Are system-emergent atoms named? Flag absences: an append-only event
+  log, a pure reducer entrypoint, a per-project sandbox — these
+  typically have no direct feature cause but belong in the list with
+  empty `<feats/>`.
+- **Are platform-NFR concerns atomized?** Rate limiting, audit
+  logging, retry with backoff, encryption at rest, credential
+  rotation, quota tracking, license/compliance obligations. Name
+  specific absences rather than flagging generically — if the project
+  processes payments, "audit every credential access" should be in
+  the list; if it calls an LLM, "rate-limit outbound LLM calls per
+  provider" should be.
+- Is every feature covered by at least one atom's `<feats>`?

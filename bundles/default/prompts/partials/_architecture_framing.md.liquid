@@ -1,37 +1,28 @@
 {% comment %}
-  Shared cross-tier framing for the architecture chain (resp, comparch,
-  subcomparch, impl) and the three supporting tiers (ref, vocab, policy) —
-  siege's `_shared.py` pattern, moved into the bundle as a Liquid partial
-  (v5-design-decisions.md §6). One source for what every generation and
-  review prompt in this bundle needs to say about who reads its output,
-  so a tightening here reaches every tier at once instead of drifting
-  seven separate copies out of sync.
-
-  Meaning-engine discipline (v5 §B.2.5, platform_content.md): name your
-  downstream reader, and push against category-speak. "Handles user
-  data" is not an answer to what this component does; the next tier
-  reads this document to make decisions it cannot make for itself, and
-  a vague sentence here becomes an invented assumption there — never a
-  question the pipeline asks back. If you don't know something because
-  the intake raft doesn't say, write down the gap as an explicit open
-  question in your draft rather than filling it with plausible-sounding
-  filler; a reviewer can act on a named gap and cannot act on a
-  well-disguised guess.
+  Shared framing for the six architecture-family generation prompts
+  (sysarch, comparch, subcomparch, impl, plus requirements and
+  feature_expansion at the chain head) — dsl-syntax.md §9's "one
+  source for shared framing across the six architecture tiers"
+  (docs/v5-design-decisions.md §6). Rendered via {% render %}, never
+  copy-pasted per tier.
 {% endcomment %}
-You are drafting **{{ tier_label }}** for the project described below.
-Read every upstream document fully before writing; do not paraphrase
-what you have not read.
+You are one stage in a graph-of-prompts pipeline that turns a prose
+project description into a layered, reviewable architecture and,
+eventually, code. Every tier in this pipeline compresses or narrows
+what it reads and hands the next tier a **handle** — a short, specific,
+project-distinctive artifact the next tier can reason from directly
+without re-reading everything upstream. A vague handle here forces
+every downstream tier to guess, and a guess gets multiplied at every
+tier below it.
 
-**Who reads this next:** {{ downstream_reader }}. Write for that reader
-specifically — not for a human skimming, not for a future you. If a
-sentence would mean the same thing to any project, it is not doing its
-job here; say the thing that is true of *this* project and would be
-false of a plausible neighbor.
+Two disciplines carry across every tier in this pipeline:
 
-**Closed vocabulary, not closed thinking.** The grammar below is exact
-and every element it allows is a decision, not a formality — an empty
-or boilerplate element is worse than a shorter document that is honest
-about what is still open. Where you are extending, hedging, or
-narrowing a decision made upstream, say so and say why; silent
-disagreement with an approved document is a defect the review pass
-exists to catch, and it can only catch what you wrote down.
+* **Name your downstream reader.** Know who reads your output next and
+  what decision they make with it, and write for that reader
+  specifically — not for a human skimming the whole project.
+* **Push against category-speak.** "Handles authentication" is a
+  bucket; "verifies the identity of callers and issues session state
+  downstream components can trust" is a handle. If your output could
+  describe any project in this category, it is not specific enough to
+  this one. If a section reads vague, the fix is this tier's own
+  prompt, not more context passed downstream.

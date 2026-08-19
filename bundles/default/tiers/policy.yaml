@@ -1,43 +1,30 @@
+# v4 §1.11, re-scoped per v5 §4.5's three grains (this ticket's
+# redirect §5): project-global (no scope edge), through-responsibilities
+# (policy_scope_resp — the load-bearing grain, since a policy bound to
+# a resp survives a sysarch re-decomposition), and direct component
+# links for genuinely structural policies (policy_scope_comp). Never
+# child_of(resp) — the redirect is explicit that parenting by resp
+# would be wrong even though scoping through it is right.
+#
+# `child_of(sysarch)` names sysarch as the tier this pool's scope is
+# validated against, but two fanout edges mint into it —
+# policy_fanout (sysarch's project-level <policies>) and
+# policy_fanout_comp (comparch's component-local <policies>). Nothing
+# in dsl-syntax.md's closed scope vocabulary expresses "child of
+# either of these two tiers", and lib/catapult/dsl/tier.ex's
+# scope_problems check only verifies child_of(X) names a *declared*
+# tier — it does not require X to be the sole edge targeting this
+# tier, so two fanout edges into one flat pool is legal under the
+# loader as implemented today. Recorded here rather than left
+# implicit, per this ticket's own instruction to name interpretations.
 tier: policy
-scope: child_of(resp)             # minted by resp's policy_fanout — seeded
-                                   # by the intake distillation and grown by
-                                   # tickets thereafter (v5 §4.5); a policy
-                                   # node's own draft is what does the
-                                   # scoping, via the two policy_scope_*
-                                   # edges it may declare
+scope: child_of(sysarch)
 identity: id
 fields:
-  slug: draft.@slug
-  grade: draft.@grade             # prose | test | audit | runtime
-  mutability: draft.@mutability   # fixed | tunable | optional
-  statement: draft.statement
+  name: mint.name
+  trigger: mint.trigger
+  rationale: mint.rationale
 handle:
-  fields: [id, slug, grade, mutability]
-  fragments: [policies]
-draft:
-  root_tag: policy
-  grammar: schemas/policy.xsd
-generator: llm
-prompt: prompts/policy.md.liquid
-executor:
-  effort: max
-context:
-  - self.parent.handle                          # resp: what the policy is
-                                                  # standing a decision
-                                                  # against or for
-  - input.project_doc
-produces:
-  # Project-global policies declare neither policy_scope_* edge (both
-  # min:0) and staple nothing — every fragment entry below is empty for
-  # them, which is the "no scope, no attachment" case working by absence
-  # rather than by a third mechanism.
-  - fragment: { owner: self.policy_scope_resp, kind: policies, authored: draft.statement }
-  - fragment: { owner: self.policy_scope_comp, kind: policies, authored: draft.statement }
-review:
-  prompt: prompts/review/policy.md.liquid
-  grammar: schemas/review.xsd
-  required: true
-delivery:
-  phase: Architecting
-  agent_step: design
-enforcement: []
+  fields: [id, name, trigger, rationale]
+  fragments: []
+generator: synthesis

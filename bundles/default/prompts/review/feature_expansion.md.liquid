@@ -1,0 +1,20 @@
+{% render "partials/_review_framing" %}
+
+# Draft
+
+{{ draft }}
+
+# Checklist
+
+- Is the granularity right-sized for this project? Expansion too fine
+  causes downstream fan-out; too coarse loses detail requirements
+  needs.
+- Is the feature axis the right decomposition of the product? If the
+  input suggests a different natural axis (workflow, persona, data
+  domain), name it.
+- Are any features actually sysarch concerns ("storage layer", "API
+  gateway") or implementation details ("use Redis") that should be
+  rephrased as user-visible capabilities?
+- If a `<vocabulary>` block is present, does each `<term>` genuinely
+  need defining project-specifically, or is it padding? Is
+  `feature-name` present and correct on every `scope="feature"` term?

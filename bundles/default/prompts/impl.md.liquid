@@ -1,79 +1,74 @@
-{% render "partials/_architecture_framing", tier_label: "the implementation tier (impl)", downstream_reader: "the dev agent that implements this subcomponent from this document end to end, and reconciliation, which mechanically checks that every test named in <tests> exists and passes" %}
+{% render "partials/_architecture_framing" %}
 
-## What you have
+You are authoring the **implementation document** for a single leaf in
+the component tree — the last articulation layer before code
+territory. Your downstream reader translates your prose into a
+concrete list of code changes; you describe what happens and what must
+hold, not code itself.
 
-**This subcomponent (subcomparch — techspec, privapi):**
-{{ subcomponent }}
+Unphased: this is the whole subcomponent's end state in one document,
+not one slice of it (docs/v5-design-decisions.md §6 drops the phase
+machinery entirely).
 
-**Owning component (comparch — techspec, pubapi):**
-{{ component }}
+# Input
 
-**Policies scoped to the owning component:**
-{{ policies }}
+Subcomponent (its own techspec, public and private surface):
+{{ parent }}
 
-**Responsibilities the owning component is on the hook for:**
-{{ fulfills }}
+Dependencies' public surfaces: {{ dep_pubapi }}
 
-**Dependencies' pubapi and failure_surface:**
-{{ dependencies }}
+Attached references: {{ refs }}
 
-This document is the **total end state** of this subcomponent's
-implementation — unphased (v5 §6). You are not describing the next
-ticket's slice; you are describing what the subcomponent looks like
-when it is completely built, and delivery will slice tickets against
-this document later. Don't hedge toward a partial build because the
-work will be delivered incrementally — that's a delivery concern, not
-a design one.
+# Output format
 
-## What to produce
+Emit `<implementation>` with these children, in this fixed order:
+`<behavior>` → `<invariants>` → `<sequencing>` → `<edge-cases>` →
+`<tests>` → `<references>` (optional). Each of the first four is
+non-empty prose — plain paragraphs, or short bulleted lists inside the
+prose where they help readability; no fenced code blocks, code
+generation is not this tier's job.
 
-**`<summary>`** — one paragraph: what this subcomponent does when it's
-finished, in terms of the responsibility it carries. Not a restatement
-of `<techspec>` — the reader wants the one-paragraph orientation before
-the detail.
+* `<behavior>` — what the leaf does at runtime: the operations, the
+  persistent state they touch, the side effects they produce. If a
+  caller invokes a method on this leaf's public surface, this section
+  makes clear what happens step by step.
+* `<invariants>` — what must hold, before and after any operation:
+  data-shape invariants, ownership rules, referential constraints,
+  state-machine preconditions.
+* `<sequencing>` — ordering: which operations must precede which,
+  which are idempotent, which run in background tasks vs
+  synchronously.
+* `<edge-cases>` — failure, empty, race, and boundary conditions and
+  this leaf's handling of each. "It panics" is a valid answer; "we
+  don't handle that" is not — if you're not handling something, say so
+  and state the assumption that makes it safe.
 
-**`<approach>`** — the actual implementation notes: data flow,
-algorithms, and the integration points. Be specific about *how* this
-subcomponent calls its dependencies — name the functions in
-`{{ dependencies }}`'s pubapi you're actually calling, and how you
-handle what their `failure_surface` says can go wrong. Be specific
-about how siblings reach this subcomponent through `{{ subcomponent }}`'s
-own `<privapi>`. Do not invent a capability a dependency's pubapi
-doesn't have, and do not describe integration through some other
-component's internals — you only get their pubapi and failure_surface,
-never their implementation.
+## Tests
 
-**`<tests>`** — this is normative, not documentation (v5 §2.8): named
-test descriptions here *are* reconciliation's acceptance criteria.
-Reconciliation checks that a test with this exact name exists and
-passes; it does not re-read your prose to see if the spirit was
-honored. So:
+`<tests>` holds one or more `<test name="...">` elements, each a short
+prose description of what the named test proves. These are the
+acceptance criteria reconciliation checks against the landed code —
+name tests specific enough that "does this test exist and pass" is a
+mechanical check, not a judgment call. Cover the behavior, the stated
+invariants, and the named edge cases; a `<tests>` block with fewer
+tests than `<edge-cases>` has named conditions is under-specified.
 
-- Every `<test name="...">` names the literal ExUnit test description
-  it maps to — write it the way it will actually appear in the test
-  file, not a paraphrase.
-- `<acceptance>` says what passing this test demonstrates, in the
-  reader's terms — what behavior a human should trust exists once this
-  is green. "Tests the update function" is not acceptance criteria;
-  "an update from a non-owner is rejected with a permission error, and
-  the record is unchanged" is.
-- Test at the boundary — through this subcomponent's own export module
-  (`<privapi>`) or, where the test is exercising the whole component,
-  through `{{ component }}`'s `<pubapi>`. Internal-only tests are the
-  exception, not the default (v5 §2.8): they churn on every structural
-  change even when behavior held, which is exactly the cost AI refactor
-  flows can't absorb.
-- Cover structurally, not by line count: every export this subcomponent
-  or its store touches should have at least one test naming it,
-  including the failure paths named in `{{ dependencies }}`'s
-  failure_surface.
-- No network, no wall clock, no unseeded randomness in a test body —
-  injected clock, seeded randomness, fakes for anything external (v5
-  §2.8). A test that can't run offline and deterministically isn't a
-  test reconciliation can trust on every merge.
-- `kind="property"` is required alongside `kind="example"` (default)
-  wherever this subcomponent is the event-sourced store family:
-  replay-determinism, idempotency/double-delivery, and upcaster
-  round-trip are not optional extras there — they're the family's
-  actual testing floor (v5 §2.4). Example tests supplement; they never
-  substitute for the property.
+## References
+
+`<references>` (optional) lists `<reference target="ref_id"/>` for any
+of the attached references above this implementation draws on.
+
+# Style
+
+* Name specific types, operations, and failure modes when they're
+  project-distinctive; avoid language that could describe any module.
+* Don't restate the parent subcomponent's public surface — the plan
+  reads that separately. Focus on what this leaf internally does and
+  guarantees.
+* Don't describe sibling leaves or the parent's other subcomponents;
+  if you need to reference them, name the dependency's public surface
+  and leave their internals to their own implementation document.
+* Keep it proportionate to the leaf's complexity — a simple cache
+  wrapper doesn't need the same word count as a session-management
+  engine.
+* Unescaped `&` and `<` in prose are fine.

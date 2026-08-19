@@ -1,50 +1,16 @@
-{% render "partials/_review_framing", tier_label: "a ref", downstream_reader: "every comparch, subcomparch, and impl node that attaches this ref via a reference edge (refs are consumed comparch-and-below)" %}
+{% render "partials/_review_framing" %}
 
-## Context the draft was written from
+# Draft
 
-**Project doc:**
-{{ project_doc }}
-
-**Mocks:**
-{{ mocks }}
-
-**Draft under review:**
 {{ draft }}
 
-## What to check
+# Checklist
 
-**Does this belong in the ref tier at all.** The escape hatch stays
-narrow by review discipline as much as by grammar (v5 §4.5). If the
-draft's `<body>` is really a technical decision, it belongs in
-comparch or subcomparch; if it's really a standing rule, it belongs in
-policy; if it's really naming and defining a term, it belongs in
-vocab. A ref that is a dedicated tier's content wearing a `kind`
-attribute is a blocking finding — name which tier it actually belongs
-to.
-
-**Is `kind` the closest honest fit.** Check `runbook`, `style_guide`,
-`impl_guide`, `app_prompt`, and `mocks` before accepting `other` — a
-draft that reaches for `other` when a specific kind plainly applies
-has left the next reader to open the body just to find out what it
-is.
-
-**Has the body stayed general.** The grammar allows only `<body>` —
-no sub-tags, no per-kind structure. Flag any invented internal
-structure (a private heading scheme, a format that only makes sense
-for one kind) as the accretion v5 §4.5 warns against.
-
-**If `kind="mocks"`, check the extraction discipline.** Mock content
-is evidence, not something to transcribe. A body that reads like a
-verbatim copy of mock code or markup rather than a description or
-reference is a blocking finding — the fresh-scaffold rule is being
-violated at the source. Separately, check whether the body only
-describes the happy path the mock shows: a `mocks` ref that doesn't
-propose the missing empty, error, loading, and denied states has left
-the negative-space work undone, even if what it does describe is
-accurate.
-
-Return a `<review verdict="approve|revise">` with a `<summary>` and
-one `<finding severity="blocking|advisory">` per issue — each
-`<location>` naming the attribute or the body region at fault, and
-each `<comment>` saying what's wrong and what a passing version would
-contain.
+- Is this genuinely implementation detail (runbook, spec, technology
+  guide), or does it actually restate an architectural decision that
+  belongs in sysarch/comparch instead?
+- Is the title specific enough that a downstream author scanning a
+  list of attached refs would recognize this one without opening it?
+- If expanded from a seed, does the body stay within what the seed
+  actually implied, or did the expansion invent scope?
+- Do `<see-also>` references point at refs that actually exist?

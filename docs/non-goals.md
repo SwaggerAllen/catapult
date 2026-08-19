@@ -1116,52 +1116,60 @@ recorded decision, and say so explicitly.
   belongs in that diff. Revisit condition: none. This is the one half of
   §11's enforcement where the thing being added announces itself.
 - **No separate node-minting tiers between resp and comparch, or
-  between comparch and subcomparch** (ORC-7), against v5 §5.1's own
-  naming of the backend family as five tiers —
-  `comp/comparch/subcomp/subcomparch/impl_backend` — and against
-  dsl-syntax.md §3's own worked example, which walks `self.parent`
-  from a tier declared `scope: per(comp)`. The literal five-tier
-  reading was tried first and abandoned: a join-target tier (no
-  `draft:`, per §3's "omit entirely for join-target tiers") still
-  needs to carry the name and kind a downstream `comparch` reads as
-  `self.parent.<field>`, and the only source for those scalars is the
-  fanout edge's own declared row on the *minting* tier's draft — a
-  `fields:` source dsl-syntax.md never documents (§3's `fields:`
-  examples are all `draft.*`). Inventing one here would mean this
-  bundle's content depends on DSL mechanics the normative syntax
-  reference doesn't define, which is a worse failure than diverging
-  from one illustrative example's tier-name choice: a bundle that
-  "loads cleanly under docs/dsl-syntax.md" (this ticket's own bar)
-  cannot lean on syntax that document doesn't have. So `comparch` is
-  `child_of(resp)` directly and `subcomparch` is `child_of(comparch)`
-  directly — the mint and the draft are one tier, the same shape §4.3
-  already uses for screens (minting and drafting in one tier, no
-  separate screen-node kind). Revisit condition: the DSL core loader
-  (core_dsl, blocked on a separate ticket per this ticket's own
-  framing) settling a real field-source syntax for join-target tiers
-  — at which point splitting `comp`/`subcomp` back out buys precise
-  per-node identity independent of the drafted content, which is a
-  real property this collapse gives up. Until then, the collapse is
-  the honest reading of a syntax reference that doesn't yet support
-  the alternative.
-- **No separate `sysarch` tier in the default bundle's architecture
-  chain, for now** (ORC-7). v5 §4.1's chain placement (`… requirements
-  → sysarch → …`) and §4.1's "just let sysarch read screens" aside
-  both name a system-architecture tier distinct from `resp`, sitting
-  between the product tier's requirements and the per-component
-  `comparch` fanout. This ticket's scope is the backend architecture
-  chain only — screens, journeys and requirements are Phase 5 (v5
-  build-plan) and don't exist in this bundle yet — so there is nothing
-  upstream of `resp` for a separate `sysarch` tier to read, and
-  splitting "what must this system do" from "how is it decomposed
-  into components" into two tiers with only each other for context
-  would be two nodes doing one job. `resp`'s draft therefore carries
-  both the responsibility catalog and the `<components>` fanout list
-  that `sysarch` would otherwise own. Revisit condition: Phase 5's
-  product tier landing. At that point `resp` most likely splits back
-  into a `requirements`-reading `sysarch` proper, fed by
-  `screens`/`journeys` per v5 §4.1's acyclicity argument (backend
-  depends on what users can do, routed through resp → feat →
-  journey/screen) — this is named now precisely so that pass doesn't
-  have to rediscover that the split was deferred on purpose rather
-  than never considered.
+  between comparch and subcomparch, and no separate `sysarch` tier**
+  (ORC-7, first pass) — **reversed on the second pass.** These two
+  entries stood only on the branch that wrote them, were never merged,
+  and are recorded here purely so neither is re-proposed: `sysarch` is
+  its own tier and `comp`/`subcomp` are projection tiers minted by
+  fanout, exactly what v5 §5.1's five-tier backend family names. The
+  first pass's stated blocker — no documented `fields:` source for a
+  join-target tier — was real, and is answered rather than routed
+  around: `docs/dsl-syntax.md` §3 now names `mint.<name>` for exactly
+  this case (`systems/platform_content.md`).
+- **No minted `feat` tier.** `seed-docs/README.md` names exactly three
+  v4→v5 deltas (resp restored; fanin/domain-presentational replaced;
+  the product tier inserted) and features becoming first-class minted
+  nodes isn't one of them — features stay `feature_expansion` body
+  content, referenced downstream by name, precisely as v4 already did.
+  Recorded because this ticket's own redirect comment reads, on one
+  pass, as implying the opposite ("v5 treats feat as a node kind...
+  this only works because §4 puts the feature tier back — the two are
+  one correction") — a reasonable misreading given `docs/
+  v5-design-decisions.md` line 1102's "resp → feat → journey/screen"
+  phrasing, but `seed-docs/README.md`'s enumerated list is the
+  authoritative delta count and doesn't include it. Revisit condition:
+  a real need to attach an edge to one feature specifically, which
+  `vocab`'s plain `feature_name` field (name-reference, not an edge)
+  doesn't cover — at which point a minted `feat` tier is a graph-
+  identity upgrade with a real justification, not a default.
+- **No "un-fanned-out" escape on `comparch`.** v4 lets a component
+  choose zero subcomponents, with `impl` attaching directly to it
+  instead. Dropped: the DSL's closed scope vocabulary
+  (`singleton | per(X) | child_of(X)`, one X) has no union form for
+  "`per(subcomp)` *or* `per(comp) where count(subcomponents)=0)`", and
+  inventing one outside `docs/dsl-syntax.md` would repeat the exact
+  mistake the entry above reverses — a syntax gap papered over by
+  collapsing structure instead of naming the gap in the syntax
+  reference. Every component decomposes into at least one subcomponent
+  in this bundle (`edges/subcomponent_fanout.yaml`'s source
+  cardinality is `min: 1`). Revisit condition: a real DSL union-scope
+  form, or the toy-seed pass hitting a small component genuinely
+  strained by mandatory decomposition — an argued case, not a
+  convenience.
+- **`subcomparch` produces three fragments onto its subcomp
+  (techspec, pubapi, privapi), not the full five.** `comparch` writes
+  all five fragment kinds onto its comp; `subcomparch` does not also
+  write `policies` or `failure_surface` onto its subcomp, even though
+  the bundle's fragment vocabulary (`bundle.yaml`) declares all five
+  as one closed set. This looks like an oversight next to comparch's
+  symmetry and isn't one:
+  `seed-docs/siege-prompts/subcomparch.md`'s actual grammar has no
+  `<policies>` or `<failure-surface>` section at all — it explicitly
+  rejects a `<policies>` element ("subcomponents don't have policies")
+  and routes failure modes through `<public-surface>`'s typed returns
+  instead, and policy reachability is already transitive from
+  comp-level policies (v4 §5.2), so a subcomp minting its own adds a
+  second copy of the same fact. Revisit condition: none foreseeable —
+  a fragment kind is closed vocabulary at the *bundle* level, and
+  "every kind on every scope" was never a rule the bundle's fragment
+  section (`docs/dsl-syntax.md` §5) states.

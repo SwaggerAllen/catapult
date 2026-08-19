@@ -1,0 +1,25 @@
+{% render "partials/_review_framing" %}
+
+# Draft
+
+{{ draft }}
+
+# Checklist
+
+- Is the component decomposition axis the right one (task / domain /
+  workflow)? Flag forced or unnatural groupings.
+- Do components have coherent responsibilities (one axis of work), or
+  do they bundle unrelated concerns?
+- Are the labeled techspec blocks each specific enough that a
+  downstream tier can act on them? Flag thin or filler blocks.
+- Does `<technologies>` faithfully record the concrete choices named
+  in the input? Flag invented technologies or missing ones.
+- Are cross-cutting concerns handled as policies or the foundation
+  component, rather than duplicated across several components?
+- Is the foundation component genuinely foundational, or a dumping
+  ground?
+- Does every policy declare exactly one of `<required>` or
+  `<structural/>`, or neither — never both? Is a `<structural/>`
+  policy genuinely structural, or does it actually reduce to one
+  responsibility and belong on `<required>` instead?
+- Is every responsibility assigned to exactly one component?

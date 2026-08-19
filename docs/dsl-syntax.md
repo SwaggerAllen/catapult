@@ -99,7 +99,14 @@ executor:                         # optional; how the generation runs
 context:                          # ordered edge-walk expressions (§7)
   - self.parent.handle
   - self.parent.fulfills -> resp.handle
-  - self.parent.dependency -> target.handle.fragments[pubapi]
+  - self.parent.dependency -> comp.handle.fragments[pubapi]
+                                  # the walk's target names a real tier
+                                  # in the loaded union — "target" above
+                                  # is illustrative prose for "whichever
+                                  # tier the edge in question resolves
+                                  # to", not a literal name a bundle may
+                                  # write; the loader looks up exactly
+                                  # the tier named after "->" (§13)
 produces:                         # fragments this draft writes on other nodes
   - fragment: { owner: self.parent, kind: techspec, authored: draft.techspec }
 review:                           # optional; presence enables the review pass
@@ -114,6 +121,22 @@ delivery:                         # extension-provided namespace (§12)
                                   # sequence, and never a gate or environment
 enforcement: []                   # extension-provided profiles, e.g. [codegen: restricted]
 ```
+
+**A join-target tier's `fields:` source from `mint.<name>`, not
+`draft.<name>`.** A tier with no `draft:` has no body of its own to
+project scalars from, but it still needs a field source the way any
+other tier does — a comp minting `kind` from the sysarch row that
+named it, a subcomp minting `name` from the comparch row that named
+it. `mint.<name>` names that source: the value the minting fanout
+edge's `declared_in:` row carried for this node, or (when the value
+is inherited rather than row-local — a comp copying its grandparent
+sysarch's project-wide techspec, one hop further than a single context
+walk can reach, dsl-syntax.md §7) a plain copy made at the same mint
+moment from the minting instance's own handle. Both are engine-side
+resolution, exactly as unvalidated at load time as a `draft.<name>`
+path already is (§13 checks cross-references, not path semantics);
+naming the convention here is so two bundle authors, or one bundle
+read twice, agree on what a join-target tier's `fields:` values mean.
 
 Per-scope attributes that appear in *body* declarations rather than
 tier files (they vary per node, not per tier): `implementation:

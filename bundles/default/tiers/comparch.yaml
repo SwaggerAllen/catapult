@@ -1,47 +1,44 @@
+# v4 §1.5, re-expressed (seed-docs/siege-prompts/comparch.md is the
+# prose source; domain/presentational content stripped per v5 §4.1,
+# see sysarch.yaml). Decomposes: its <subcomponents> block mints one
+# subcomp per child (subcomponent_fanout) and its produces: writes
+# the five fragments onto self.parent — the comp, not onto the
+# children it just minted (this ticket's redirect §3, confirmed
+# against v4 §1.5/§3.2/examples over §3.1's contradicting bullet).
+# v5 growth per docs/v5-design-decisions.md §2.9/§2.16/§6:
+# <permissions>, <enforcement>, per-scope <implementation> (stub
+# grade).
 tier: comparch
-scope: child_of(resp)             # minted by resp's component_fanout edge
-scope_filter: is_domain           # read-model/infra-kind components (v5
-                                   # §2.4's store family, templated rather
-                                   # than designed) skip the LLM pass here;
-                                   # platform-elixir's template generator
-                                   # tiers cover them (§6's `template` type)
+scope: per(comp)
 identity: id
 fields:
-  name: draft.@name
-  kind: draft.@kind
-  techspec: draft.techspec
+  decomposition_summary: draft.subcomponents
 handle:
-  fields: [id, name, kind]
-  fragments: [techspec, pubapi, privapi, failure_surface]
+  fields: [id, decomposition_summary]
+  fragments: []
 draft:
   root_tag: comparch
   grammar: schemas/comparch.xsd
 generator: llm
-prompt: prompts/comparch.md.liquid
 executor:
   effort: max
+prompt: prompts/comparch.md.liquid
 context:
-  - self.parent.handle                          # resp: the responsibility
-                                                  # catalog this component
-                                                  # decomposes
-  - self.parent.ref_fanout -> ref.handle
-  - self.parent.vocab_fanout -> vocab.handle
-  - self.handle.fragments[policies]              # policy nodes scoped to
-                                                  # this component staple
-                                                  # their content here via
-                                                  # their own produces: —
-                                                  # see tiers/policy.yaml
-  - self.dependency -> target.handle.fragments[pubapi, failure_surface]
+  - self.parent.handle
+  - self.parent.fulfills -> resp.handle
+  - self.parent.dependency -> comp.handle.fragments[pubapi]
+  - self.parent.dependency -> comp.handle.fragments[failure_surface]
+  - self.comparch_ref -> ref.handle
 produces:
-  - fragment: { owner: self, kind: techspec, authored: draft.techspec }
-  - fragment: { owner: self, kind: pubapi, authored: draft.pubapi }
-  - fragment: { owner: self, kind: privapi, authored: draft.privapi }
-  - fragment: { owner: self, kind: failure_surface, authored: draft.failure_surface }
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
+  - fragment: { owner: self.parent, kind: policies, authored: draft.policies }
+  - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure_surface }
 review:
   prompt: prompts/review/comparch.md.liquid
   grammar: schemas/review.xsd
-  required: true
 delivery:
-  phase: Architecting
+  phase: generation
   agent_step: design
 enforcement: []

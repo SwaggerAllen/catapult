@@ -1,0 +1,130 @@
+{% render "partials/_architecture_framing" %}
+
+You are producing the **system architecture** for a software project.
+The entire downstream chain — subcomponent architecture, individual
+implementation plans — reads your output as the compressed description
+of this project and does not re-read the feature list or the input
+document. Your job is not to write a complete specification; it is to
+articulate handles that downstream passes can reason from directly. A
+vague handle here forces every later pass to guess, and the guess
+multiplies at every tier below. There is no target component count —
+emit as many components as the project's data-ownership and
+failure-mode boundaries warrant, no fewer. Conserving components by
+merging unrelated concerns produces a vague handle at the merged
+component just as surely as splitting one coherent concern across two
+components produces a vague handle at each.
+
+# Input
+
+Responsibility catalog: {{ resp_catalog }}
+
+Project framing: {{ parent }}
+
+# Output format
+
+Emit `<introduction>` (required — 2 to 5 paragraphs: how you read the
+responsibility set into component boundaries, tensions the input makes
+visible, alternative cuts you considered and rejected), then
+`<sysarch>` with four children in this fixed order: `<techspec>`,
+`<components>`, `<policies>`, `<dependencies>`.
+
+## Techspec
+
+Seven fixed labeled blocks, in order: `<runtime>`, `<persistence>`,
+`<write-path>`, `<concurrency>`, `<testing>`, `<deploy>`,
+`<technologies>`. Each is 1 to 2 short sentences — no free prose
+outside the labeled blocks, no nested tags, no reordering. Comparch
+reads each block back verbatim when deciding internal component
+structure, so prefer the **pattern** over the ingredient: "Elixir
+1.17, Phoenix, one BEAM node per environment; all mutations flow
+through a central Commanded reducer" is a real handle, "Elixir on
+Phoenix" is not. `<technologies>` is a verbatim record of the concrete
+choices the input document actually named — do not invent
+technologies the input didn't name, and do not lose the ones it did.
+If the project's ecosystem has an idiomatic typed-error discipline
+(tagged tuples, `Result`, discriminated unions), name the commitment
+explicitly in `<runtime>` or `<write-path>` — comparch's failure
+surface will anchor to it.
+
+## Components
+
+Each `<component alias="...">` (lowercase, digits, underscores;
+`^[a-z][a-z0-9_]{0,31}$`, unique) has exactly one `<name>`, `<purpose>`,
+`<owned-invariants>` (2 to 4 short structural — not procedural — noun
+phrases: "X is the only path to Y", not "every X does Y", since
+procedural phrasing invites comparch's failure surface to directly
+contradict it), `<primary-operations>` (3 to 6 concrete verb phrases;
+"handle X" is category-speak, rewrite as "record", "resolve",
+"reconcile"), and `<responsibilities>` (one or more `<resp id="..."/>`
+referencing this input's resp catalog verbatim). **Every top-level
+responsibility must be assigned to exactly one component** — orphans
+and multi-assignment are structural errors.
+
+**Group responsibilities by shared data ownership and shared failure
+modes, not by shared category.** Two responsibilities that touch the
+same entity but fail independently probably belong in different
+components even if a category label suggests otherwise. **Each
+external boundary deserves its own component** — anything the system
+talks to over the wire (an LLM provider, an identity provider, a
+payment processor) owns a distinct failure surface (outages, rate
+limits, credential rotation) that has nothing to do with the rest of
+the system's failure modes; isolating it means the blast radius of a
+provider misbehaving is one component's sandbox, not a smear across
+several. **Resp-count is a strong split signal** — a component with
+more than roughly 12 top-level responsibilities is almost always two
+components in disguise, unless it's a foundation, a single coherent
+state-machine hub, or an append-only projection core.
+
+**Exactly one component carries a self-closing `<foundation/>`
+marker** — the project root: shared utilities, the entry point, the
+env config loader, base types. It is otherwise an ordinary component
+with its own name, purpose, invariants, operations, and at least one
+responsibility.
+
+`<name>` is title case and project-specific — if two unrelated
+projects could plausibly have a component with this name, it's too
+generic. `<purpose>` is the one-sentence reason this component exists;
+name the distinctive substance it owns, not a bucket. After one read,
+a downstream reader should be able to repeat back what this component
+*is* in their own words.
+
+## Policies
+
+Zero or more `<policy>`, each with `<name>`, `<trigger>` (a short
+semantic phrase: "any LLM call", "any domain write"), then **exactly
+one** of `<required>resp_id</required>` (scopes through the named
+responsibility — the load-bearing grain: this policy survives a
+future re-decomposition because it points at what the system does,
+not at which component currently does it) or a self-closing
+`<structural/>` (scopes directly to a component — reserved for
+obligations that genuinely don't reduce to any one responsibility,
+e.g. an organization-wide naming convention), or **neither** (project-
+global — an obligation every component must honor, with no single
+enforcing site), then `<rationale>` (a paragraph — this carries real
+weight, since the policy-application pass reads it to decide which
+components a project-global or structural policy actually reaches).
+
+The responsibility catalog above may already flag policy-shaped atoms
+(names like "rate-limit outbound LLM calls per provider", "audit every
+credential access") — for each, make the architecture-informed call
+requirements couldn't: is this cross-cutting, or local to one
+component's boundary? Rate-limiting is local if every call flows
+through one gateway component; it's cross-cutting only if many
+components independently call out. **When in doubt, local wins** —
+assign it as an ordinary responsibility, not a policy.
+
+## Dependencies
+
+Each `<dep from="..." to="..."/>` uses component aliases; `from` and
+`to` differ (self-dependencies rejected); the graph is acyclic.
+**Every non-foundation component depends on foundation.** Policies can
+induce dependencies — if a policy requires `resp_telemetry`, every
+component with LLM-calling responsibilities needs a dep on whichever
+component fulfills it; reason about policies before emitting
+dependencies so policy-induced deps land naturally on top of the
+mandatory foundation deps.
+
+# Meta-rules
+
+Do not include commentary about what you are doing. Output only
+`<introduction>` and `<sysarch>`.

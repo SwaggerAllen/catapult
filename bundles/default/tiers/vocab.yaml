@@ -1,32 +1,32 @@
+# v4 §1.12 + v5's flat-pool reading (docs/non-goals.md, this ticket).
+# child_of(feature_expansion), not v4's singleton/per(feature_id) pair —
+# per(feature_id) is not an expressible scope (per(X) takes a tier, and
+# there is no minted feature tier — seed-docs/README.md names exactly
+# three v4→v5 deltas and a minted feature tier isn't one of them, so
+# features stay body content on feature_expansion, referenced by name).
+# A feature-local entry instead carries a plain `feature_name` field —
+# data, not an edge — set at mint time from the same <vocabulary> row
+# a project-level entry comes from. One pool either way.
 tier: vocab
-scope: child_of(resp)             # minted by resp's vocab_fanout; same flat
-                                   # pool shape as ref — a shared glossary
-                                   # entry is exactly the kind of graph
-                                   # content v4's supporting tiers held and
-                                   # no dedicated tier models on its own
+scope: child_of(feature_expansion)
 identity: id
 fields:
-  term: draft.@term
-  definition: draft.definition
+  name: mint.name
+  term_scope: mint.term_scope
+  feature_name: mint.feature_name
 handle:
-  fields: [id, term]
+  fields: [id, name, term_scope, feature_name]
+  fragments: []
 draft:
-  root_tag: vocab
+  root_tag: vocab-entry
   grammar: schemas/vocab.xsd
 generator: llm
 prompt: prompts/vocab.md.liquid
-executor:
-  effort: max
 context:
-  - self.parent.handle                          # resp: the responsibility
-                                                  # catalog the glossary
-                                                  # gives shared names to
-  - input.project_doc
+  - self.parent.handle
 review:
   prompt: prompts/review/vocab.md.liquid
   grammar: schemas/review.xsd
-  required: true
 delivery:
-  phase: Architecting
+  phase: generation
   agent_step: design
-enforcement: []

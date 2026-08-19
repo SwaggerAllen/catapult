@@ -1,109 +1,195 @@
-{% render "partials/_architecture_framing", tier_label: "the component architecture tier (comparch)", downstream_reader: "subcomparch and impl generation for this component, plus every comparch that declares a dependency edge onto this one" %}
+{% render "partials/_architecture_framing" %}
 
-## What you have
+You are producing the **architecture document** for a single
+component. This is the last compression step before implementation.
+Your `<public-surface>` is the only thing dependent components will
+ever read about this component — a vague one forces every dependent
+to guess, and guesses compound when several depend on the same vague
+handle. Your `<technical-specification>` is what subcomponent arch
+docs will inherit and narrow, and what implementation docs read to
+choose libraries and patterns.
 
-**Responsibility catalog (resp):**
-{{ resp }}
+**You also decompose the component**: each subcomponent claims a slice
+of the parent's responsibilities, naming which specific feats of each
+it handles. Default is **single-owner** — each parent resp anchored by
+exactly one subcomponent; multi-owner is legal but reserved for two
+named seams (see `## The <owns> block`).
 
-**Ref pool:**
-{{ refs }}
+# Input
 
-**Vocabulary pool:**
-{{ vocabulary }}
+Component: {{ parent }}
 
-**Policies scoped to this component:**
-{{ policies }}
+Fulfilled responsibilities: {{ fulfilled_resps }}
 
-**Dependencies this draft names** (fill in only after you've decided
-`<dependencies>` below — this walk reads back your own draft's targets,
-so it is empty until you name a `to="..."`):
-{{ dependencies }}
+Sibling dependencies' public surfaces: {{ sibling_pubapi }}
 
-The ref and vocab pools may be sparse or empty this early — resp seeds
-them, and their own generation passes haven't necessarily run yet.
-Don't invent content to fill a gap; work with what's here and name what
-you need that isn't.
+Sibling dependencies' failure surfaces: {{ sibling_failure_surface }}
 
-## What to produce
+Attached references: {{ refs }}
 
-**`<fulfills>`** — one `<responsibility ref="...">` per responsibility id from
-the catalog above that this component satisfies. Cite at least one;
-a component fulfilling nothing shouldn't exist at this tier (resp
-should not have decomposed it in). If you're satisfying a
-responsibility only partially, say so in `<techspec>` rather than
-citing it and leaving the gap implicit.
+# Output format
 
-**`<techspec>`** — the design argument for this component: what it is,
-why its boundary sits where it does, how it fits the responsibilities
-it fulfills. This is what subcomparch reads to decide how to split
-itself internally, so name the actual shape, not a restatement of the
-component's name.
+Emit `<comparch>` with these children, in this fixed order:
+`<technical-specification>` → `<public-surface>` → `<private-surface>`
+→ `<failure-surface>` → `<permissions>` → `<enforcement>` →
+`<policies>` → `<dependencies>` → `<subcomponents>` →
+`<sub-dependencies>` → `<references>` (optional).
 
-**`<pubapi>`** — the public boundary, and it must be a **thin wrapper,
-nothing else** (v5 §4.4): any logic that exists only at this layer and
-nowhere a caller-agnostic test can reach it is drift by construction —
-behavior external callers get that internal callers don't. If you find
-yourself describing a computation that belongs here, it belongs in a
-subcomponent instead, exposed through this surface. Every export a
-downstream comparch might depend on must be described here in enough
-detail that a dependent can be designed against it without reading this
-component's internals.
+**Cross-section consistency is what distinguishes a usable comparch
+from one impl will fight.** The most common defect here is two
+sections that disagree: an invariant claiming "X never happens"
+alongside a failure-surface entry describing X happening; a
+public-surface return type that cannot express a failure the failure
+surface names; a primary-operation no surface entry mounts. Treat the
+document as one artifact throughout generation, not sections you
+reconcile at the end.
 
-**`<privapi>`** (optional) — the surface shared *between this
-component's own subcomponents*, not exposed outside it. Omit if
-subcomponents don't need to talk to each other directly.
+## Fragment sections
 
-**`<failure_surface>`** — the boundary error/failure taxonomy: what
-kinds of failure a caller of `<pubapi>` can observe, named the way
-`errors/0` will declare them. This is what a dependent component's
-`<dependencies>` context reads to decide how to handle you failing;
-vague failure surfaces (`may return an error`) push the decision onto
-whoever's forced to guess at impl time.
+* `<technical-specification>` — role-level paragraphs (one concern per
+  paragraph, blank-line separated, no bullets or headings): the
+  concurrency model, the persistence pattern, the error-handling
+  strategy, the testing approach for this component specifically. It
+  propagates downward only and does not get regenerated when child
+  impls iterate.
+* `<public-surface>` — the only surface dependents will ever read.
+  Types, function signatures, events, in fenced code blocks. Dependents
+  need call shapes, return types, error modes, side-effect boundaries,
+  and event contracts. Internal helpers belong in `<private-surface>`.
+* `<private-surface>` — internal types and helpers visible to this
+  component's own subcomponents, not to sibling dependents.
+* `<failure-surface>` — residual risks that survive the invariants:
+  coverage gaps, race windows, eventually-consistent behavior, wrong-
+  output shapes the type system can't prevent. Not violations of
+  invariants — if an entry contradicts one, fix the invariant (usually
+  it's procedurally phrased and needs a structural rewrite) or the
+  entry is fabricated. When the techspec commits to a typed-error
+  discipline, every failure-surface entry needs a matching variant in
+  the public surface's error union.
 
-**`<permissions>`** (optional) — compile-time atoms this component's
-exports require, each with a `<description>`. This is the design-tier
-standing decision (v5 §2.9: permissions are code, roles are data) —
-declare an atom for every mutating export a caller must be authorized
-for; the function→permission→role matrix is generated later and never
-belongs here.
+All four fragment sections are non-empty prose and code blocks only —
+no nested XML.
 
-**`<enforcement>`** (optional) — `codegen:restricted` or
-`purity:replay_floor` entries, only where a real constraint applies
-(the event-sourced store family needs `purity:replay_floor`; content
-under genuine legal/compliance gating needs `codegen:restricted`). Most
-components declare none — reaching for one because the list exists is
-a finding waiting to happen at review.
+## Permissions
 
-**`<processes>`** (optional) — named processes this component
-registers directly at the component grain, each with a `category`
-(`local | singleton | sharded`, v5 §2.5) and, where warranted, VM
-guardrails (`max_heap_size`, `message_queue_alarm_len`). Prefer leaving
-process placement to subcomparch's own inventory unless a process is
-genuinely component-wide.
+`<permissions>` lists zero or more `<permission name="...">` with a
+`<description>`, naming the compile-time permission atoms this
+component's boundary enforces (docs/v5-design-decisions.md §2.9:
+permissions are code, declared by the owning component). This is
+taxonomy and semantics — which permissions exist and what they guard
+— not the function→permission→role matrix, which is generated
+elsewhere from extracted metadata and live rows, never hand-written
+here.
 
-**`<implementation grade="stubbed|real" swap="...">`** (optional) —
-declare this **only** when part of this component is deliberately
-hollow pending an external human timeline (v5 §2.16: legal sign-off,
-compliance, absent partner credentials, professional review). A stub
-implements the reviewed contract verbatim, types included — the
-implementation is fake, the shape is not. Say what triggers the swap in
-`<deferral_argument>`, and if `swap` is not `transparent`, say in
-`<exit_data_plan>` what happens to data created under the stub (wipe,
-or grandfather with disclosure) — an unstated exit plan for a
-non-transparent swap is the gap that turns into an undocumented data
-migration later. Do not reach for this element to excuse an ordinary
-scope cut; that's just a smaller component.
+## Enforcement
 
-**`<subcomponents>`** — at least one `<subcomponent slug="..."/>`,
-the fanout list subcomparch generates against. Every component always
-has a store subcomponent among these (v5 §2.4 — no size floor).
+`<enforcement>` lists zero or more `<profile name="..."/>` naming
+platform-defined enforcement profiles this scope is bound to (e.g.
+`codegen:restricted` for review-pending compositions of
+externally-vetted material, `purity:replay_floor` for event-sourced
+reducer code). Name a profile only where this component's own
+techspec or failure surface justifies it — an unbound profile reads as
+policy nobody argued for.
 
-**`<dependencies>`** (optional) — one `<dependency to="..."
-consistency="eventual|transactional"/>` per component this one calls
-into. Default, and near-always correct, is `eventual`: the
-transactional-outbox pattern through Oban, in the same local
-transaction (v5 §2.6). Mark `transactional` only when a real invariant
-spans both components and can't tolerate the gap eventual consistency
-implies — that's the declared exception, and declaring it is what
-makes a future store split a query instead of archaeology, not a
-default reached for out of caution.
+## Policies
+
+Zero or more component-local `<policy>`, same shape as sysarch's:
+`<name>`, `<trigger>`, exactly one of `<required>resp_id</required>`
+(the id must be one of this component's own top-level or subcomponent
+responsibilities — cross-component references are a sysarch-level
+policy, not this tier's) or `<structural/>` (scopes to this component
+directly) or neither, then `<rationale>`.
+
+## Dependencies (external)
+
+`<dependencies>` lists sibling top-level components this component
+reaches for, each `<dep to="..."/>` naming a real component id from
+the input context. At most one per target; this is external only —
+subcomponent-to-subcomponent deps live in `<sub-dependencies>`.
+
+## Subcomponents
+
+Each `<subcomponent alias="...">` has exactly one `<name>`,
+`<purpose>`, `<owned-invariants>` (2 to 4, structural phrasing),
+`<primary-operations>` (3 to 6), `<responsibilities>` (free-text prose,
+1 to 3 sentences), `<owns>`, and `<implementation grade="real|
+stubbed">` (required on every subcomponent — a stubbed grade further
+carries `<swap>transparent|migration|reset</swap>` and `<exit-plan>`
+prose stating what happens to stub-era data; the grade must be loud,
+never assumed).
+
+## The `<owns>` block
+
+Each subcomp's `<owns>` declares which parent responsibilities it
+claims a slice of and which specific feats of each:
+
+```
+<owns>
+  <resp id="resp_payment01">
+    <feat id="feat_payment_v01"/>
+  </resp>
+</owns>
+```
+
+**Default is single-owner.** Multi-owner is legal only for two seams:
+a **read-path/write-path split** (a query subcomp and a mutation
+subcomp co-owning a resp because the same feat manifests on both sides
+of the data direction) or a **stage split** (subcomponents decomposing
+along sequential processing stages of one flow, each stage co-claiming
+the shared resp — name the stage in the free-text
+`<responsibilities>` when you use this). Outside those two seams, do
+not double-claim a resp — refactor the boundaries instead. Empty
+`<owns/>` is legal for foundation/plumbing subcomponents that earn
+their keep structurally rather than by anchoring a parent resp. Every
+parent resp assigned to this component must be claimed by at least one
+subcomponent, and every feat tagged on a claimed resp by at least one
+subcomponent that claims it — coverage gaps are structural errors.
+
+## Un-fanned-out components
+
+Every component decomposes into at least one subcomponent in this
+bundle — there is no "un-fanned-out" escape (docs/non-goals.md).
+
+## Foundation subcomponent
+
+If you decompose (always, per above), exactly one subcomponent carries
+a self-closing `<foundation/>` marker, owning this component's root
+territory. **Do not name it `Foundation`** — that name is reserved for
+the project's top-level foundation component; use a name reflecting
+this subcomponent's role inside the component (`AuthCore`,
+`BillingRuntime`).
+
+## Sub-dependencies
+
+`<sub-dependencies>` lists edges between subcomponents, each
+`<dep from="alias" to="alias"/>`; acyclic; every non-foundation
+subcomponent depends on this component's foundation subcomponent.
+
+## References
+
+`<references>` (optional) lists `<reference target="ref_id"/>` for
+any of the attached references above that this comparch actually
+draws on.
+
+# Final scan before emitting
+
+* **Cross-section consistency.** Re-read the failure surface against
+  every invariant and techspec promise, and against the public
+  surface's return types.
+* **Surface closure.** Every public-surface type, event, and field has
+  a producing primary-operation; nothing in a public signature
+  references a private-surface type.
+* **Sibling contract discipline.** When you describe calling a
+  sibling's operation, that operation must appear in the sibling's
+  pubapi input above; if a sibling's pubapi looks skeletal (a
+  sysarch-mint seed rather than an articulated surface), say so
+  explicitly rather than inventing the call shape.
+* **Single-owner default.** Any resp claimed by more than one
+  subcomponent must fit one of the two named seams.
+* **Rationale, not inventory.** Rewrite category-speak ("handles X",
+  "manages Y") into concrete actions and distinctive rationale.
+
+# Meta-rules
+
+Do not include commentary about what you are doing. Output only the
+`<comparch>` block.

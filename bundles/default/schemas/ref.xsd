@@ -1,31 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  ref — the one deliberate escape hatch (v5 §4.5), kept general on
-  purpose: no per-kind sub-grammars beyond the closed `kind` vocabulary
-  used for classification, no per-use lifecycles.
--->
+<!-- v4 §1.13 (v5 §4.5 carries it forward unchanged in shape). -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-  <xs:simpleType name="RefKind">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="runbook"/>
-      <xs:enumeration value="style_guide"/>
-      <xs:enumeration value="impl_guide"/>
-      <xs:enumeration value="app_prompt"/>
-      <xs:enumeration value="mocks"/>
-      <xs:enumeration value="other"/>
-    </xs:restriction>
-  </xs:simpleType>
+  <xs:complexType name="SeeAlso">
+    <xs:sequence>
+      <xs:element name="ref" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="target" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
 
-  <xs:element name="ref">
+  <xs:element name="reference">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="body" type="xs:string"/>    <!-- free-form; this
-               tier is general on purpose (v5 §4.5) — no dedicated
-               sub-structure beyond `kind`'s classification -->
+        <xs:element name="title" type="xs:string"/>
+        <xs:element name="body" type="xs:string"/>
+        <xs:element name="see-also" type="SeeAlso" minOccurs="0"/>
       </xs:sequence>
-      <xs:attribute name="slug" type="xs:string" use="required"/>
-      <xs:attribute name="kind" type="RefKind" use="required"/>
     </xs:complexType>
   </xs:element>
 

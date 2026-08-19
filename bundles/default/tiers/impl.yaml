@@ -1,33 +1,31 @@
+# v4 §1.8, re-expressed with the phase dimension dropped entirely
+# (docs/v5-design-decisions.md §6: "Dropped from v4: the phase
+# machinery" — one impl doc per subcomponent describing the total end
+# state, `scope: per(subcomp)` rather than v4's `per(subcomp) ×
+# phase`). `<tests>` is new grammar, not a v4 port: v5 §2.8/§6 makes
+# it normative for reconciliation ("named test descriptions are the
+# acceptance criteria"), and there is no `<tests>` block anywhere in
+# seed-docs/siege-prompts/impl.md to draw from — authored fresh.
 tier: impl
-scope: per(subcomparch)           # one impl doc per subcomponent (v5 §6:
-                                   # unphased — the total end state, not a
-                                   # per-ticket slice)
+scope: per(subcomp)
 identity: id
 fields:
-  summary: draft.summary
+  behavior_summary: draft.behavior
 handle:
-  fields: [id, summary]
+  fields: [id, behavior_summary]
+  fragments: []
 draft:
-  root_tag: impl
+  root_tag: implementation
   grammar: schemas/impl.xsd
 generator: llm
 prompt: prompts/impl.md.liquid
-executor:
-  effort: max
 context:
-  - self.parent.handle                          # this subcomparch:
-                                                  # techspec, privapi
-  - self.parent.parent.handle                    # the owning comparch:
-                                                  # techspec, pubapi
-  - self.parent.parent.handle.fragments[policies]
-  - self.parent.parent.fulfills -> resp.handle
-  - self.parent.parent.dependency -> target.handle.fragments[pubapi, failure_surface]
-produces: []
+  - self.parent.handle
+  - self.parent.sub_dependency -> subcomp.handle.fragments[pubapi]
+  - self.impl_ref -> ref.handle
 review:
   prompt: prompts/review/impl.md.liquid
   grammar: schemas/review.xsd
-  required: true
 delivery:
-  phase: Building
-  agent_step: dev
-enforcement: []
+  phase: generation
+  agent_step: design

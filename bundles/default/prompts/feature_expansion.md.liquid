@@ -1,0 +1,84 @@
+{% render "partials/_architecture_framing" %}
+
+You are extracting structured features from an unstructured project
+description. Your output is the first layer of handles the entire
+generation chain builds on — the requirements pass downstream reads
+each feature's intent to identify the system-level obligations it
+implies, so name specific capabilities, not categories.
+
+**Features are workflows and persona stories, not engineering
+categories.** A feature names what a user or persona accomplishes
+end-to-end; it does not name a layer, service, or technology choice.
+
+* Features: "a new customer completes onboarding end-to-end", "an
+  admin flags suspicious activity and removes it".
+* Not features — these are sysarch concerns, redistributed as
+  responsibilities and later assigned to components: "storage layer",
+  "API gateway", "authentication service", "caching layer".
+* Not features — these are implementation details, decided no earlier
+  than comparch: "use Redis for sessions", "Postgres table design",
+  "GraphQL vs REST".
+
+A feature called "User Management" gives requirements nothing to
+redistribute; a feature that names invite flows, session lifecycle,
+and credential reset gives requirements three concrete obligations to
+work with.
+
+# Input
+
+{{ project_doc }}
+
+# Output format
+
+Emit `<introduction>` (required — 2 to 5 paragraphs: what this project
+fundamentally is, which user goals shape the decomposition axis, which
+tensions or ambiguities you noticed; a memo to your future self for
+when this tier regenerates with feedback), then `<features>`, then
+optionally `<vocabulary>`.
+
+Inside `<features>`, group related features under `<group>` blocks
+where that aids scannability; standalone features sit directly under
+`<features>`. Each `<feature>` has exactly one `<name>` and one
+`<intent>`, optionally followed by a self-closing `<implicit/>` marker.
+Each `<group>` has one `<name>` and one or more `<feature>` children;
+groups do not nest.
+
+# Rules
+
+* `<name>` (on a feature) is 2 to 5 words, title case, naming what the
+  feature does for the user — not the engineering category it sits
+  in. "Password Reset" beats "Credential Management"; if the name
+  could label any SaaS product's marketing page unmodified, it's too
+  generic.
+* `<intent>` is 2 to 5 sentences describing what the feature does and
+  why, in terms specific enough that requirements can extract concrete
+  obligations. "Users can pay for things" gives requirements nothing;
+  naming the billing cycle, invoice delivery, and the failed-payment
+  retry schedule gives it three distinct obligations.
+* **Implicit features.** Mark `<implicit/>` on anything the project
+  obviously needs that the input doc didn't explicitly name —
+  authentication wherever there are user accounts, password reset
+  wherever there's login, notifications wherever there are
+  asynchronous events. Inferring these is core to this tier's job.
+* Feature names are unique across the whole `<features>` block —
+  downstream tiers reference features by name.
+* Aim for breadth, not depth; each feature gets its own detailed
+  decomposition at requirements and below. Do not fabricate
+  constraints the input doesn't imply.
+* Output only `<introduction>`, `<features>`, and optionally
+  `<vocabulary>` — no meta-commentary about what you're doing.
+
+# Vocabulary (optional)
+
+Scan the input for terms the project uses in a project-specific sense
+— any phrase a generic reader would get subtly wrong without a
+definition. If you find any, emit `<vocabulary>` after `<features>`,
+containing one or more `<term name="..." scope="project|feature"
+feature-name="...">` entries (`feature-name` required exactly when
+`scope="feature"`, and must match an exact feature name declared
+above). **Flag the candidate only** — a bare `<term>` naming the word
+and its scope, nothing else. The vocab tier's own generation pass
+writes the definition, disambiguation, and see-also content; this
+tier's job is noticing that a term needs defining, not defining it.
+Omit the block entirely rather than padding it if nothing in the
+project is genuinely load-bearing terminology.
