@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v4 §1.7 (seed-docs/siege-prompts/subcomparch.md). Deliberately only
+  three sections carried forward as fragment-bearing (technical-
+  specification, public-surface, private-surface) — no <policies>
+  (siege's own grammar rejects it: "subcomponents don't have
+  policies"; v4 §5.2's transitive reachability already covers a
+  subcomp from its comp's policies) and no <failure-surface> (siege
+  routes failure modes through pubapi's typed return shapes instead —
+  "Subcomparch has no separate <failure-surface> section", its own
+  reconciliation-pass rules).
+
+  v5 growth (docs/v5-design-decisions.md §2.5, §6), authored fresh —
+  no process-inventory section exists anywhere in siege's corpus:
+  <processes>, so named-process placement (:local | :singleton |
+  :sharded) and optional VM guardrails are designed and reviewed here
+  rather than improvised at impl time.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Dependencies">
+    <xs:sequence>
+      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="ProcessCategory">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="local"/>
+      <xs:enumeration value="singleton"/>
+      <xs:enumeration value="sharded"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Guardrails">
+    <xs:sequence>
+      <xs:element name="max-heap-size" type="xs:string" minOccurs="0"/>
+      <xs:element name="message-queue-bound" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Process">
+    <xs:sequence>
+      <xs:element name="category" type="ProcessCategory"/>
+      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="guardrails" type="Guardrails" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Processes">
+    <xs:sequence>
+      <xs:element name="process" type="Process" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="References">
+    <xs:sequence>
+      <xs:element name="reference" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="target" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="subcomparch">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="technical-specification" type="xs:string"/>
+        <xs:element name="public-surface" type="xs:string"/>
+        <xs:element name="private-surface" type="xs:string"/>
+        <xs:element name="processes" type="Processes"/>
+        <xs:element name="dependencies" type="Dependencies"/>
+        <xs:element name="references" type="References" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

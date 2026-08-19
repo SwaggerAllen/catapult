@@ -1,0 +1,9 @@
+name: default-flow
+version: "1.0.0"
+kind: workflow
+# No extends: — this bundle *is* the platform workflow layer: the default
+# review sequence and the default deploy environments. A project overlays
+# it with its own extends: default-flow the day it wants a third review or
+# a per-ticket-type variant; nothing here assumes that day has come.
+gates: [gates/*.yaml]
+environments: [environments/*.yaml]

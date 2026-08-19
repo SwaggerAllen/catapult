@@ -2,15 +2,24 @@ defmodule Catapult.Dsl.Tier do
   @moduledoc """
   One `tiers/<tier>.yaml` declaration (dsl-syntax.md §3): scope,
   identity, fields, handle, draft grammar, generator, prompt, executor
-  hints, context walks, produced fragments, review, and the
-  extension-provided `delivery:` / `enforcement:` annotations.
+  hints, context walks, produced fragments, and the extension-provided
+  `delivery:` / `enforcement:` annotations. Or, when it carries
+  `reviews: <tier>` instead (§3.3), a **review tier**: a much smaller
+  declaration whose scope and cardinality are the reviewed tier's own
+  by construction, so `scope:`, `identity:`, `handle:`, `fields:`,
+  `draft:` and `produces:` are never restated there, and it carries a
+  new field a generation tier does not — a top-level `grammar:` (the
+  platform-wide review grammar, §10), since it has no `draft:` to nest
+  one under.
 
   `parse/2` is structural only — every field's own shape, and the
   closed sets §3.1/§3.2 fix (`scope`, `generator`). Cross-references
   (does `scope`'s tier exist, does a context walk's edge exist, is a
   fragment kind in the bundle's closed vocabulary, does `delivery:`
-  resolve against the platform vocabulary) need the rest of the bundle
-  in view and are `Catapult.Dsl.Bundle`'s job (dsl-syntax.md §13).
+  resolve against the platform vocabulary, does `reviews:` name a real
+  tier, does a review tier's `context:` match the reviewed tier's) need
+  the rest of the bundle in view and are `Catapult.Dsl.Chain`'s job
+  (dsl-syntax.md §13).
   """
 
   alias Catapult.Dsl.ContextWalk
@@ -26,8 +35,9 @@ defmodule Catapult.Dsl.Tier do
     :draft,
     :prompt,
     :executor,
-    :review,
     :delivery,
+    :reviews,
+    :grammar,
     fields: %{},
     handle_fields: [],
     handle_fragments: [],
@@ -39,7 +49,8 @@ defmodule Catapult.Dsl.Tier do
     extra: %{}
   ]
 
-  @type scope :: {:singleton} | {:per, String.t()} | {:child_of, String.t()}
+  @type scope ::
+          {:singleton} | {:per, String.t()} | {:child_of, String.t()} | {:cascade_visit}
 
   @type t :: %__MODULE__{
           name: String.t(),
@@ -57,8 +68,9 @@ defmodule Catapult.Dsl.Tier do
           executor: map() | nil,
           context: [ContextWalk.t()],
           produces: [map()],
-          review: map() | nil,
           delivery: %{phase: String.t(), agent_step: String.t()} | nil,
+          reviews: String.t() | nil,
+          grammar: String.t() | nil,
           enforcement: [String.t()],
           extra: %{String.t() => term()}
         }
@@ -66,16 +78,44 @@ defmodule Catapult.Dsl.Tier do
   @identities ~w(id alias name)
   @generators ~w(llm git_commit synthesis webhook external template)
   @core_keys ~w(tier scope scope_filter identity fields handle draft generator prompt
-                executor context produces review delivery enforcement)
+                executor context produces delivery enforcement)
+
+  # dsl-syntax.md §3.3: everything a generation tier declares that a
+  # review tier's cardinality/scope-by-construction makes redundant, and
+  # that this loader therefore rejects outright rather than silently
+  # ignoring — restating any of them is a second place for the reviewed
+  # tier's own scope to drift out of step.
+  @review_forbidden ~w(scope scope_filter identity fields handle draft produces)
+  @review_keys ~w(tier reviews generator prompt grammar executor context delivery enforcement)
 
   @doc "Parses one tier declaration from its YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
   def parse(file, %{} = raw) do
     where = "tier declaration #{file}"
     {name, name_problems} = Fields.require_string(raw, "tier", where)
-
     tier_where = if name, do: "tier #{inspect(name)} (#{file})", else: where
 
+    case Map.fetch(raw, "reviews") do
+      {:ok, reviews} when is_binary(reviews) and reviews != "" ->
+        parse_review_tier(file, raw, name, reviews, tier_where, name_problems)
+
+      {:ok, other} ->
+        {:error,
+         name_problems ++
+           ["#{tier_where} \"reviews\" is #{inspect(other)}, expected a non-empty string"]}
+
+      :error ->
+        parse_generation_tier(file, raw, name, tier_where, name_problems)
+    end
+  end
+
+  def parse(file, other) do
+    {:error, ["tier declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
+  end
+
+  ## Generation tiers — the ordinary case
+
+  defp parse_generation_tier(file, raw, name, tier_where, name_problems) do
     {scope, scope_problems} = parse_scope(raw, tier_where)
     {scope_filter, sf_problems} = Fields.optional_string(raw, "scope_filter", tier_where)
 
@@ -94,7 +134,6 @@ defmodule Catapult.Dsl.Tier do
     {executor, _ex_problems} = Fields.optional_map(raw, "executor", tier_where)
     {context, context_problems} = parse_context(raw, tier_where)
     {produces, produces_problems} = parse_produces(raw, tier_where)
-    {review, review_problems} = parse_review(raw, tier_where)
     {delivery, delivery_problems} = parse_delivery(raw, tier_where)
 
     {enforcement, enforcement_problems} =
@@ -116,7 +155,6 @@ defmodule Catapult.Dsl.Tier do
         prompt_problems ++
         context_problems ++
         produces_problems ++
-        review_problems ++
         delivery_problems ++
         enforcement_problems ++
         unknown
@@ -139,7 +177,6 @@ defmodule Catapult.Dsl.Tier do
          executor: executor,
          context: context,
          produces: produces,
-         review: review,
          delivery: delivery,
          enforcement: enforcement,
          extra: extra
@@ -149,11 +186,60 @@ defmodule Catapult.Dsl.Tier do
     end
   end
 
-  def parse(file, other) do
-    {:error, ["tier declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
+  ## Review tiers — dsl-syntax.md §3.3
+
+  defp parse_review_tier(file, raw, name, reviews, tier_where, name_problems) do
+    forbidden =
+      for key <- @review_forbidden, Map.has_key?(raw, key) do
+        "#{tier_where} declares #{inspect(key)}, which a review tier " <>
+          "(reviews: #{inspect(reviews)}) may not carry (dsl-syntax.md §3.3)"
+      end
+
+    {generator, generator_problems} =
+      Fields.optional_one_of(raw, "generator", @generators, tier_where, "llm")
+
+    {prompt, prompt_problems} = parse_prompt(raw, generator, tier_where)
+    {grammar, grammar_problems} = Fields.require_string(raw, "grammar", tier_where)
+    {executor, _ex_problems} = Fields.optional_map(raw, "executor", tier_where)
+    {context, context_problems} = parse_context(raw, tier_where)
+    {delivery, delivery_problems} = parse_delivery(raw, tier_where)
+
+    {enforcement, enforcement_problems} =
+      Fields.optional_string_list(raw, "enforcement", tier_where)
+
+    unknown = Fields.unknown_keys(raw, @review_keys, tier_where)
+
+    problems =
+      name_problems ++
+        forbidden ++
+        generator_problems ++
+        prompt_problems ++
+        grammar_problems ++
+        context_problems ++
+        delivery_problems ++
+        enforcement_problems ++
+        unknown
+
+    if problems == [] do
+      {:ok,
+       %__MODULE__{
+         name: name,
+         file: file,
+         reviews: reviews,
+         generator: generator,
+         prompt: prompt,
+         grammar: grammar,
+         executor: executor,
+         context: context,
+         delivery: delivery,
+         enforcement: enforcement
+       }}
+    else
+      {:error, problems}
+    end
   end
 
-  ## scope (§3.1) — singleton | per(X) | child_of(X)
+  ## scope (§3.1) — singleton | per(X) | child_of(X) | cascade_visit
 
   defp parse_scope(raw, where) do
     case Fields.require_string(raw, "scope", where) do
@@ -163,6 +249,7 @@ defmodule Catapult.Dsl.Tier do
   end
 
   defp parse_scope_value("singleton", _where), do: {{:singleton}, []}
+  defp parse_scope_value("cascade_visit", _where), do: {{:cascade_visit}, []}
 
   defp parse_scope_value(value, where) do
     case Regex.run(~r/\A(per|child_of)\(([a-z0-9_]+)\)\z/, value) do
@@ -174,7 +261,9 @@ defmodule Catapult.Dsl.Tier do
 
       nil ->
         {nil,
-         ["#{where} scope #{inspect(value)} is not singleton, per(<tier>), or child_of(<tier>)"]}
+         [
+           "#{where} scope #{inspect(value)} is not singleton, per(<tier>), child_of(<tier>), or cascade_visit"
+         ]}
     end
   end
 
@@ -218,7 +307,7 @@ defmodule Catapult.Dsl.Tier do
     end
   end
 
-  ## draft: — omitted entirely for join-target tiers
+  ## draft: — omitted entirely for join-target tiers and review tiers
 
   defp parse_draft(raw, where) do
     case Fields.optional_map(raw, "draft", where) do
@@ -323,34 +412,11 @@ defmodule Catapult.Dsl.Tier do
      ["#{where}'s produces entry #{inspect(other)} is not {fragment: {owner, kind, authored}}"]}
   end
 
-  ## review: — optional; presence enables the review pass
-
-  defp parse_review(raw, where) do
-    case Fields.optional_map(raw, "review", where) do
-      {nil, problems} ->
-        {nil, problems}
-
-      {review, []} ->
-        rw = "#{where}'s review"
-        {prompt, pp} = Fields.require_string(review, "prompt", rw)
-        {grammar, gp} = Fields.require_string(review, "grammar", rw)
-        {required, reqp} = Fields.optional_boolean(review, "required", rw, false)
-        unknown = Fields.unknown_keys(review, ["prompt", "grammar", "required"], rw)
-        problems = pp ++ gp ++ reqp ++ unknown
-
-        if problems == [] do
-          {%{prompt: prompt, grammar: grammar, required: required}, []}
-        else
-          {nil, problems}
-        end
-    end
-  end
-
   ## delivery: — dsl-syntax.md §3, §11, §13; v5 §7.10's "an unknown phase
   ## or agent step is a load error" and §11's "platform-fixed vocabulary
   ## only". Structural shape only here — actual membership in
   ## Catapult.Dsl.SystemStatus's closed sets is a bundle-level
-  ## cross-reference (Catapult.Dsl.Bundle), same as every other §13 check.
+  ## cross-reference (Catapult.Dsl.Chain), same as every other §13 check.
 
   defp parse_delivery(raw, where) do
     case Fields.optional_map(raw, "delivery", where) do

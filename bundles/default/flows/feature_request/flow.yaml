@@ -1,0 +1,14 @@
+# v4 §8.2's feature_request flow. Walk: downward_cascade, since a new
+# feature's obligations flow forward from feature_expansion through
+# every tier the addition touches — the same direction ordinary
+# scaffolding already runs in, just re-opened at the top instead of
+# run once end-to-end.
+flow: feature_request
+delta:
+  tiers: [tiers/feature_request_plan.yaml]
+  edges: [edges/plan_target.yaml]
+walk: downward_cascade
+ticket:
+  entry: feature_expansion
+  labels: []
+completion: feature_request_complete

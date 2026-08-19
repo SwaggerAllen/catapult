@@ -1,0 +1,30 @@
+# v5 §4.5 (carrying v4 §1.13 forward): the deliberate escape hatch,
+# stays general — no per-use kinds, no special-case lifecycles. Flat
+# pool, not literally one node: `scope: singleton` is read the same
+# loose way as vocab/policy (docs/non-goals.md), since `identity: id`
+# over one node is meaningless and refs are explicitly things that
+# accrete over a project's life via the create_reference write tool
+# or the dashboard — never minted by a fanout edge, so there is no
+# child_of(X) to declare. "Any parents and any children" (this
+# ticket's redirect §5) means no fanout mints it and no fanout it
+# mints; edges/reference.yaml (comparch/subcomparch/impl, each its own
+# instance under dsl-syntax.md §4.1) is the attachment surface, wired
+# at comparch-and-below only, matching v4 §7's "refs are
+# implementation detail" convention.
+tier: ref
+scope: singleton
+identity: id
+fields:
+  title: draft.title
+  body: draft.body
+handle:
+  fields: [id, title, body]
+  fragments: []
+draft:
+  root_tag: reference
+  grammar: schemas/ref.xsd
+generator: llm
+prompt: prompts/ref.md.liquid
+delivery:
+  phase: generation
+  agent_step: design

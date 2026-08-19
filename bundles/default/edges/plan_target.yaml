@@ -1,0 +1,160 @@
+# The plan→target edge design review asked for: "the schema delta is
+# where plan→target lives, and it is empty" — this file is what fills
+# it. Every `cascade_visit`-scoped planning tier (tiers/*_plan.yaml)
+# needs a live pointer to the specific scaffold node its own instance
+# is currently planning for; that pointer cannot be a body path (a
+# cascade-visit node is minted by the flow's own walk, not by reading
+# a fanout list out of a draft — the same reason `mint.<name>`
+# exists for fanout-minted join targets, one mechanism further out).
+# `declared_in` on every instance below says so rather than pretending
+# a body location: the value is set at the same moment the engine
+# mints the visit node, from the walk's own current position.
+#
+# One edge name, `instances:` (dsl-syntax.md §4.1) covering every
+# planning tier against every LLM-generated ("scaffold") tier it might
+# reasonably reach — `comp`/`subcomp` are excluded on purpose: they are
+# projection tiers with no prompt of their own (tiers/comp.yaml,
+# tiers/subcomp.yaml), so a cascade never "regenerates" one directly,
+# only the comparch/subcomparch that mints it. `type: synthesis`
+# (dsl-syntax.md §4's closed type vocabulary) — the correspondence is
+# computed by the engine at mint time, not authored in any committed
+# body, which is exactly what that type is for.
+edge: plan_target
+type: synthesis
+
+instances:
+  - source: feature_request_plan
+    target: sysarch
+    declared_in: feature_request_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: feature_request_plan
+    target: comparch
+    declared_in: feature_request_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: feature_request_plan
+    target: subcomparch
+    declared_in: feature_request_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: feature_request_plan
+    target: impl
+    declared_in: feature_request_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+
+  - source: refactor_plan
+    target: sysarch
+    declared_in: refactor_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: refactor_plan
+    target: comparch
+    declared_in: refactor_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: refactor_plan
+    target: subcomparch
+    declared_in: refactor_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: refactor_plan
+    target: impl
+    declared_in: refactor_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+
+  # bug_fix omits sysarch: a defect report's originating_scope is a
+  # specific artifact (dsl-syntax.md §6's ticket.entry names impl for
+  # this flow), never a project-wide re-decomposition.
+  - source: bug_fix_plan
+    target: comparch
+    declared_in: bug_fix_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: bug_fix_plan
+    target: subcomparch
+    declared_in: bug_fix_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: bug_fix_plan
+    target: impl
+    declared_in: bug_fix_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+
+  - source: downward_propagation_plan
+    target: sysarch
+    declared_in: downward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: downward_propagation_plan
+    target: comparch
+    declared_in: downward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: downward_propagation_plan
+    target: subcomparch
+    declared_in: downward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: downward_propagation_plan
+    target: impl
+    declared_in: downward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+
+  # upward_propagation's up_then_down walk (dsl-syntax.md §6) can land
+  # anywhere from feature_expansion down, on either leg.
+  - source: upward_propagation_plan
+    target: feature_expansion
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: upward_propagation_plan
+    target: requirements
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: upward_propagation_plan
+    target: sysarch
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: upward_propagation_plan
+    target: comparch
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: upward_propagation_plan
+    target: subcomparch
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }
+  - source: upward_propagation_plan
+    target: impl
+    declared_in: upward_propagation_plan.cascade_target
+    cardinality:
+      source: { min: 1, max: 1 }
+      target: { min: 0 }

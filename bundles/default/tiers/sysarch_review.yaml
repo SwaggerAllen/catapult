@@ -1,0 +1,18 @@
+# docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
+# a nested block on sysarch.yaml. `reviews: sysarch` fixes this
+# review's scope and cardinality to sysarch's own (per(requirements),
+# 1:1) — not restated, dsl-syntax.md §3.3. `context:` is the same set
+# of walks as sysarch's own, checked at load time (§13) rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# and are never context: entries.
+tier: sysarch_review
+reviews: sysarch
+generator: llm
+prompt: prompts/review/sysarch.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+  - self.parent.decomposition -> resp.handle
+delivery:
+  phase: critique
+  agent_step: critique

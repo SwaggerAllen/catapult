@@ -138,6 +138,7 @@ defmodule Catapult.Dsl.Chain do
       predicate_slot_problems(tiers, edges, flows, named_predicates) ++
       edge_endpoint_problems(edges, tiers) ++
       edge_acyclicity_problems(edges) ++
+      review_tier_problems(tiers) ++
       Enum.flat_map(tiers, fn {_name, tier} ->
         tier_reference_problems(tier, tiers, edges, fragments, registry)
       end) ++
@@ -159,7 +160,10 @@ defmodule Catapult.Dsl.Chain do
       end
 
     cardinality_slots =
-      for {name, edge} <- edges, when_expr = get_in(edge.cardinality, [:when]), when_expr do
+      for {name, edge} <- edges,
+          instance <- edge.instances,
+          when_expr = get_in(instance, [:cardinality, :when]),
+          when_expr do
         predicate_problem(when_expr, named, "edge #{inspect(name)}'s cardinality.when")
       end
 
@@ -196,15 +200,15 @@ defmodule Catapult.Dsl.Chain do
 
   defp edge_endpoint_problems(edges, tiers) do
     for {name, edge} <- edges,
-        side <- [:source, :target],
-        ref = Map.get(edge, side),
-        ref && not Map.has_key?(tiers, ref) do
+        instance <- edge.instances,
+        {side, ref} <- [{:source, instance.source}, {:target, instance.target}],
+        not Map.has_key?(tiers, ref) do
       "edge #{inspect(name)}'s #{side} #{inspect(ref)} names a tier that is not declared"
     end
   end
 
   defp edge_acyclicity_problems(edges) do
-    pairs = for {_name, %{source: s, target: t}} <- edges, s && t, do: {s, t}
+    pairs = for {_name, edge} <- edges, %{source: s, target: t} <- edge.instances, do: {s, t}
 
     if DslGraph.acyclic?(pairs) do
       []
@@ -216,10 +220,46 @@ defmodule Catapult.Dsl.Chain do
     end
   end
 
+  ## Review tiers (dsl-syntax.md §3.3, §13): `reviews:` names a
+  ## declared tier, and the review tier's own `context:` is exactly the
+  ## same set of walks as the reviewed tier's — the per-tier triad
+  ## invariant (§9), checked rather than trusted.
+
+  defp review_tier_problems(tiers) do
+    for {name, %{reviews: reviews} = tier} <- tiers, not is_nil(reviews) do
+      review_reference_problems(name, tier, reviews, tiers)
+    end
+    |> List.flatten()
+  end
+
+  defp review_reference_problems(name, _tier, reviewed_name, tiers)
+       when not is_map_key(tiers, reviewed_name) do
+    [
+      "tier #{inspect(name)}'s reviews #{inspect(reviewed_name)} names a tier that is not declared"
+    ]
+  end
+
+  defp review_reference_problems(name, tier, reviewed_name, tiers) do
+    reviewed = Map.fetch!(tiers, reviewed_name)
+    own = MapSet.new(tier.context, & &1.raw)
+    theirs = MapSet.new(reviewed.context, & &1.raw)
+
+    if MapSet.equal?(own, theirs) do
+      []
+    else
+      diff = MapSet.symmetric_difference(own, theirs) |> MapSet.to_list() |> Enum.sort()
+
+      [
+        "tier #{inspect(name)}'s context does not match reviewed tier #{inspect(reviewed_name)}'s " <>
+          "own context (dsl-syntax.md §3.3) — differing entries: #{inspect(diff)}"
+      ]
+    end
+  end
+
   defp tier_reference_problems(tier, tiers, edges, fragments, registry) do
     fragment_kind_problems(tier, fragments) ++
       produces_problems(tier, fragments) ++
-      context_problems(tier, tier.name, tiers, edges, registry) ++
+      context_problems(tier, tiers, edges, registry) ++
       delivery_problems(tier) ++
       enforcement_problems(tier, registry)
   end
@@ -248,28 +288,44 @@ defmodule Catapult.Dsl.Chain do
 
   defp self_reference?(raw) do
     case ContextWalk.parse(raw) do
-      {:ok, %ContextWalk{source: :self, edge: nil, target_tier: nil, projection: nil}} -> true
+      {:ok, %ContextWalk{source: :self, hops: [], target_tier: nil, projection: nil}} -> true
       _other -> false
     end
   end
 
-  defp context_problems(tier, tier_name, tiers, edges, registry) do
-    parent_tier =
-      case tier.scope do
-        {:per, ref} -> ref
-        {:child_of, ref} -> ref
-        _other -> nil
-      end
+  ## context: (§7, §7.1, §7.2) — walker resolution. A review tier has no
+  ## scope of its own (§3.3): `self`/`self.parent` inside its `context:`
+  ## resolve exactly as they do for the tier it reviews, since the
+  ## underlying node is the same one, so the walker basis is the
+  ## reviewed tier's name/parent rather than the review tier's own.
+
+  defp context_problems(tier, tiers, edges, registry) do
+    {walker_name, parent_tier} = walker_basis(tier, tiers)
 
     Enum.flat_map(
       tier.context,
-      &context_entry_problems(&1, tier_name, parent_tier, tiers, edges, registry)
+      &context_entry_problems(&1, tier.name, walker_name, parent_tier, tiers, edges, registry)
     )
   end
 
+  defp walker_basis(%{reviews: reviews}, tiers) when not is_nil(reviews) do
+    case Map.fetch(tiers, reviews) do
+      {:ok, reviewed} -> {reviews, parent_tier_of(reviewed)}
+      # Unresolvable reviews: already reported by review_tier_problems/1.
+      :error -> {reviews, nil}
+    end
+  end
+
+  defp walker_basis(tier, _tiers), do: {tier.name, parent_tier_of(tier)}
+
+  defp parent_tier_of(%{scope: {:per, ref}}), do: ref
+  defp parent_tier_of(%{scope: {:child_of, ref}}), do: ref
+  defp parent_tier_of(_tier), do: nil
+
   defp context_entry_problems(
-         %ContextWalk{source: :self, edge: nil},
-         _tier_name,
+         %ContextWalk{source: :self, hops: []},
+         _message_name,
+         _walker_name,
          _parent,
          _tiers,
          _edges,
@@ -278,31 +334,37 @@ defmodule Catapult.Dsl.Chain do
        do: []
 
   defp context_entry_problems(
-         %ContextWalk{source: :self, edge: edge, target_tier: target} = walk,
-         tier_name,
+         %ContextWalk{source: :self, hops: hops, target_tier: target} = walk,
+         message_name,
+         walker_name,
          parent,
          tiers,
          edges,
          _registry
+       )
+       when hops != [] do
+    walker = if walk.parent, do: parent, else: walker_name
+
+    hop_chain_problems(walk, message_name, walker, hops, target, edges) ++
+      target_problem(target, tiers, walk, message_name)
+  end
+
+  defp context_entry_problems(
+         %ContextWalk{source: :all, target_tier: target} = walk,
+         message_name,
+         _walker_name,
+         _parent,
+         tiers,
+         _edges,
+         _registry
        ) do
-    walker = if walk.parent, do: parent, else: tier_name
-
-    case Map.fetch(edges, edge) do
-      :error ->
-        [
-          "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} names edge #{inspect(edge)}, which is not declared"
-        ]
-
-      {:ok, declared} ->
-        navigation_problem(declared, walk, tier_name) ++
-          walker_problem(declared, walker, walk, tier_name) ++
-          target_problem(target, tiers, walk, tier_name)
-    end
+    target_problem(target, tiers, walk, message_name)
   end
 
   defp context_entry_problems(
          %ContextWalk{source: :ticket, ticket_source: source} = walk,
-         tier_name,
+         message_name,
+         _walker_name,
          _parent,
          _tiers,
          _edges,
@@ -312,40 +374,129 @@ defmodule Catapult.Dsl.Chain do
       []
     else
       [
-        "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} names context source " <>
+        "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} names context source " <>
           "#{inspect("ticket." <> source)}, which is not installed (§12: an annotation against an " <>
           "uninstalled extension is a load error naming the missing extension)"
       ]
     end
   end
 
-  defp context_entry_problems(_walk, _tier_name, _parent, _tiers, _edges, _registry), do: []
+  defp context_entry_problems(
+         _walk,
+         _message_name,
+         _walker_name,
+         _parent,
+         _tiers,
+         _edges,
+         _registry
+       ),
+       do: []
 
-  defp navigation_problem(%{navigation: true}, walk, tier_name) do
+  # Walks the hop chain from `walker`, checking each hop's edge is
+  # declared and has an instance on the required side (§7.1: a
+  # reversed hop matches the edge's `target` instead of its `source`).
+  # `Catapult.Dsl.Edge`'s `instances:` form (§4.1) means more than one
+  # instance can share a hop's required side; only the *last* hop's own
+  # declared target type disambiguates among them — every earlier hop
+  # just needs some instance on the required side.
+  defp hop_chain_problems(walk, message_name, walker, hops, target_tier, edges) do
+    last_index = length(hops) - 1
+
+    {problems, _final_walker} =
+      hops
+      |> Enum.with_index()
+      |> Enum.reduce({[], walker}, fn {hop, index}, {problems, current} ->
+        {hop_problems, next_walker} =
+          resolve_hop(walk, message_name, current, hop, index == last_index, target_tier, edges)
+
+        {problems ++ hop_problems, next_walker}
+      end)
+
+    problems
+  end
+
+  defp resolve_hop(walk, message_name, walker, hop, last?, target_tier, edges) do
+    case Map.fetch(edges, hop.edge) do
+      :error ->
+        {
+          [
+            "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} names edge " <>
+              "#{inspect(hop.edge)}, which is not declared"
+          ],
+          walker
+        }
+
+      {:ok, declared} ->
+        resolve_hop_against(walk, message_name, walker, hop, declared, last?, target_tier)
+    end
+  end
+
+  defp resolve_hop_against(walk, message_name, walker, hop, declared, last?, target_tier) do
+    nav = navigation_problem(declared, walk, message_name, hop.edge)
+    matches = matching_instances(declared, hop.reversed?, walker)
+    wanted = if last?, do: target_tier
+    candidates = if wanted, do: filter_landing(matches, hop.reversed?, wanted), else: matches
+
+    cond do
+      candidates != [] ->
+        {nav, landing_tier(hd(candidates), hop.reversed?)}
+
+      matches == [] ->
+        side = if hop.reversed?, do: "target", else: "source"
+        reversal = if hop.reversed?, do: " (reversed)", else: ""
+
+        {
+          nav ++
+            [
+              "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} traverses edge " <>
+                "#{inspect(hop.edge)}#{reversal}, whose declared #{side} does not include #{inspect(walker)}"
+            ],
+          walker
+        }
+
+      true ->
+        {
+          nav ++
+            [
+              "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} traverses edge " <>
+                "#{inspect(hop.edge)}, but no matching instance lands on #{inspect(wanted)}"
+            ],
+          walker
+        }
+    end
+  end
+
+  defp matching_instances(%Edge{instances: instances}, false, walker) do
+    Enum.filter(instances, &(&1.source == walker))
+  end
+
+  defp matching_instances(%Edge{instances: instances}, true, walker) do
+    Enum.filter(instances, &(&1.target == walker))
+  end
+
+  defp filter_landing(instances, reversed?, wanted) do
+    Enum.filter(instances, &(landing_tier(&1, reversed?) == wanted))
+  end
+
+  defp landing_tier(%{target: t}, false), do: t
+  defp landing_tier(%{source: s}, true), do: s
+
+  defp navigation_problem(%Edge{navigation: true}, walk, message_name, edge_name) do
     [
-      "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(walk.edge)}, marked navigation: true — navigation edges are never readiness-bearing (dsl-syntax.md §4, §13)"
+      "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(edge_name)}, marked navigation: true — navigation edges are never readiness-bearing (dsl-syntax.md §4, §13)"
     ]
   end
 
-  defp navigation_problem(_edge, _walk, _tier_name), do: []
+  defp navigation_problem(_edge, _walk, _message_name, _edge_name), do: []
 
-  defp walker_problem(%{source: source}, walker, walk, tier_name)
-       when not is_nil(walker) and source != walker do
-    [
-      "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(walk.edge)}, whose declared source is #{inspect(source)}, not #{inspect(walker)}"
-    ]
-  end
+  defp target_problem(nil, _tiers, _walk, _message_name), do: []
 
-  defp walker_problem(_edge, _walker, _walk, _tier_name), do: []
-
-  defp target_problem(nil, _tiers, _walk, _tier_name), do: []
-
-  defp target_problem(target, tiers, walk, tier_name) do
+  defp target_problem(target, tiers, walk, message_name) do
     if Map.has_key?(tiers, target) do
       []
     else
       [
-        "tier #{inspect(tier_name)}'s context walk #{inspect(walk.raw)} targets tier #{inspect(target)}, which is not declared"
+        "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} targets tier #{inspect(target)}, which is not declared"
       ]
     end
   end

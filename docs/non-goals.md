@@ -1378,3 +1378,219 @@ client cannot be called without being a dependency, a dependency is a
 §2.8 named decision visible in the same diff, and the `check:` line
 belongs in that diff. Revisit condition: none. This is the one half of
 §11's enforcement where the thing being added announces itself.
+
+## No `domain_parent` replacement edge in the default bundle's architecture chain
+scope: system:platform_content, system:core_dsl
+
+(ORC-84). v5 §4.1 replaces v4's domain/
+presentational split — and `domain_parent`, the edge that let a
+presentational comp read its domain parents' fan-in synthesis — with
+the product/backend/frontend tier split; this ticket's chain is
+backend-only, so nothing in its scope consumes a parent-link edge.
+The tempting move is inventing one anyway "for symmetry" with v4's
+five named edges. Refused: a frontend or product-tier parent-link
+edge, if the eventual Phase 5 frontend architecture needs one, is
+that phase's decision to make against tiers that actually exist by
+then, not a placeholder wired against nothing today. Revisit
+condition: Phase 5's frontend/product tiers landing with a real need
+for a structural parent-link back to a backend component — at which
+point the edge is argued against real consumers, not guessed at.
+
+## ~~No `per(scaffold_tier)`-style flow planning-tier fan-out~~
+scope: system:platform_content, system:core_dsl
+
+**Reversed** (ORC-84, design review). The original entry recorded
+`singleton`-scoped planning tiers as the answer, reasoning that v5's
+closed scope set had no way to express "one node per node the
+cascade visits" and that inventing one was `core_dsl` vocabulary
+growth outside a content-porting ticket's remit. Design review named
+this the wrong move in as many words: "a missing DSL construct is a
+`docs/dsl-syntax.md` proposal, not a reason to ship the bundle
+without the capability" — the same instruction this ticket already
+gave for `mint.<name>`, generalized. `docs/dsl-syntax.md` §3.1 now
+declares `cascade_visit`, a fourth scope kind ("one node per node a
+flow's own cascade walk visits"), and every planning tier
+(`tiers/*_plan.yaml`) uses it. The revisit condition in the original
+entry — "a real cascade-position tier construct landing in the core
+DSL" — is what happened; the entry stays as the record that the
+first answer was wrong and named its own correction condition
+accurately, not as a decision still in force. `edges/plan_target.yaml`
+(a `type: synthesis` edge, dsl-syntax.md §4.1's `instances:` form)
+supplies the plan→target pointer design review also asked for; its
+own header names the reasoning. See also the `ticket.findings` entry
+below this one, added the same pass — a still-open gap in the same
+neighborhood, argued rather than routed around.
+
+## No two-stage `assessment_plan` + `propagation_plan` split for `upward_propagation`
+scope: system:platform_content, system:core_dsl
+
+(ORC-84), against v4's own shape
+(`catapult-default-bundle-v4-examples.md` §2.5). Sequencing two
+flow-scoped planning tiers — open the downstream one only after the
+upstream one's regeneration lands — needs instance-level flow state
+(has the upstream stage closed yet) that this ticket's own stated
+scope excludes ("projection-time instance checks" is out of scope).
+One combined `upward_propagation_plan` tier stands in for both.
+Revisit condition: flow instance state becoming a real, checkable
+loader or engine concept — at which point the two-stage split is
+worth relitigating on its own merits, not smuggled in under a
+content port.
+
+## No `fragments.yaml` or `plan.yaml` as separate bundle files
+scope: system:platform_content, system:core_dsl
+
+(ORC-84), against this same ticket's own Layout section, which names
+both. Filed as a pipeline finding rather than quietly followed:
+`Catapult.Dsl.Manifest` (the merged ORC-5 loader) reads `fragments:`
+as an inline list inside `bundle.yaml` and has no parser for a
+standalone `fragments.yaml` at all; `plan.yaml` has nothing left to
+declare once v5 §6 drops the phase machinery it existed to compute,
+and `dsl-syntax.md` §1's own canonical tree does not list one. The
+loader as merged wins over the ticket's file list, per the same rule
+that governs every other doc-vs-doc disagreement in this repo.
+Revisit condition: none foreseeable for `plan.yaml` (there is no
+phase concept left to give it content); for `fragments.yaml`, only a
+future loader change that adds a standalone-file parser for it.
+
+## ~~No context walk wiring "policies applied to me through my responsibilities" onto `comparch`~~
+scope: system:platform_content, system:core_dsl
+
+**Reversed** (ORC-84, design
+review). Same shape as the `cascade_visit` reversal above and the
+same review comment: recording the gap and calling it `core_dsl`'s
+to invent was the wrong response to a missing construct, when the
+right one — already demonstrated by `mint.<name>` — is proposing the
+syntax. `dsl-syntax.md` §7.1 now allows a context walk to chain more
+than one hop and to reverse a hop (`.<edge>~`, walker matches the
+edge's `target` instead of its `source`); `comparch.yaml` wires both
+the direct grain (`self.parent.policy_application~ -> policy.handle`)
+and the through-responsibility grain
+(`self.parent.fulfills.policy_application~ -> policy.handle`), and
+§9 gains the rule that two entries landing on the same target tier
+combine into one collection rather than colliding. The mechanism
+needed no new edge: `policy_application`'s existing two instances
+(policy→comp, policy→resp — dsl-syntax.md §4.1) already carry both
+grains in the declared direction; reversal is a read-time walk
+operation over them, not a new graph edge, so the type-level
+acyclicity check (§13) sees nothing new. This entry stays as the
+record of the wrong first answer, per this file's own discipline —
+see the `cascade_visit` entry above for the fuller version of that
+reasoning, which applies here unchanged.
+
+## `edges/` is six files, not the five this ticket names
+scope: system:platform_content
+
+(ORC-84,
+design review). Design review's remaining complaint — "still 14
+files... it should just be done" — is addressed by
+`dsl-syntax.md` §4.1's new `instances:` form: one edge name now
+covers every site sharing its mechanism (`decomposition` folds in
+six former fanout files — the three the ticket's own text names
+plus `resp`'s and both of `policy`'s mint sources, since "the
+mechanism is the same" argument the ticket makes for the first three
+applies identically to the rest; `dependency` folds in two;
+`policy_application` folds in two), landing at six files:
+`fulfills`, `dependency`, `decomposition`, `policy_application`,
+`reference`, `plan_target`. Two are not among the ticket's named
+five. `reference` (comparch/subcomparch/impl attaching a `ref`) was
+never named — the ticket's five-edge list is `fulfills`,
+`dependency`, `domain_parent`, `decomposition`, `policy_application`,
+and ref attachment is structurally none of those: not a mint
+(`decomposition`'s sites are all fanout), not the comp↔resp binding
+(`fulfills`), not a policy scope grain (`policy_application`).
+Folding it into any of the other four to hit the literal count would
+misname the mechanism rather than honor it, which is the actual
+instruction in "the mechanism is the same" — same mechanism, one
+name; different mechanism, a different one, whatever the count comes
+to. `plan_target` is new — see the `cascade_visit` entry above; a
+flow's planning tier needs a live pointer to what it's planning for,
+which is a fact this ticket's redirect explicitly asked to be
+fixed, not a fact the original five could be stretched to carry.
+Revisit condition: none — this is the honest count once "same
+mechanism, several sites" is applied consistently rather than
+partially, not a target still being chased.
+
+## No `ticket.findings` wired onto any planning tier
+scope: system:platform_content, system:core_dsl
+
+(ORC-84). Every
+`cascade_visit`-scoped plan (`tiers/*_plan.yaml`) wants the ticket's
+own prose — a feature request's description, a defect report's
+observed/expected behavior — and `dsl-syntax.md` §7 already
+documents `ticket.findings` as exactly that: "validation findings +
+ticket thread for the scope, available to flow planning tiers only."
+Wiring it was tried and reverted for a reason distinct from the two
+reversals above: this is not a missing *grammar* construct
+(`ticket.findings` already parses and is already spec'd) but a
+missing *registration* — it is an extension-provided context source
+(§12), and `lib/catapult/dsl/dialect.ex` says outright that neither
+the `design` nor `runtime` dialect registers any extension yet
+("context sources arrive with the delivery system... a promise that
+they are populated today" is the one this file's own words deny).
+Declaring it in a tier's `context:` fails load with "which is not
+installed" — measured, not assumed. Unlike `cascade_visit` and the
+reversed hop, there is no syntax to propose here: the syntax exists
+and is correct; what's missing is a platform module implementing
+`Catapult.Dsl.Extension`'s `context_sources/0` callback and
+registering `"findings"`, which is `core_dsl`'s delivery-system
+milestone (`systems/core_dsl.md`'s Initial vs Target split) — plane
+extension code, not bundle content, and squarely outside what a
+content-porting ticket may build unprompted (the same boundary that
+keeps this ticket from writing the engine that actually walks a
+cascade). `input.project_doc` — the frozen original intake — is what
+every plan tier reads instead today; it is not the flow's own new
+prose, and every plan tier's `context:` says so in a comment rather
+than silently standing in for it. Revisit condition: the delivery
+system's context-source extension landing, at which point this is a
+one-line addition to five already-shaped `context:` lists.
+
+## No ownership-vocabulary-leak self-check or domain/presentational decision test carried into `sysarch.md.liquid`
+scope: system:platform_content
+
+(ORC-84, rework). Siege's sysarch carries two techniques alongside the
+domain/presentational subject matter the `domain_parent` entry above
+already voids: a **decision test** ("if you deleted this component,
+would the system lose state or business logic, or a way to expose
+state/events to outsiders?") for sorting a component into `<kind>`,
+and a **self-check** for `<owned-invariants>` / `<primary-operations>`
+text that watches for ownership words (`persist`, `atomically`,
+`commit`, `transaction`, `event log`, `consistency`, `concurrent
+write`) leaking into a presentational component's contract, on the
+theory that vocabulary belongs on the domain parent instead. Both are
+void for the same reason the `domain_parent` edge is, not a separate
+one: each technique's whole logic depends on two components sharing
+one graph with two different vocabularies — one that owns state and
+one that fronts it to outsiders — and this ticket's chain has only the
+first. There is no presentational component anywhere in scope for
+either technique to sort into or police against.
+
+The named anti-pattern list and the wrong/right worked-example pairs
+generalize past the void and are ported into `sysarch.md.liquid`'s
+naming and purpose rules, because a generic shell name and a purpose
+that parrots a larger scope are naming and framing failures any
+component can commit, backend or not. These two techniques don't
+generalize the same way: a decision test needs two categories to sort
+between, and a vocabulary-leak check needs a *different* component's
+contract for the vocabulary to have leaked from. Comparch's
+subcomponents don't have that split either — they divide along
+data/operation seams (writer / reader / cache) that are all equally
+"domain" in v4's vocabulary, so a subcomponent's invariant claiming
+"commits atomically" is never leaking someone else's ownership
+vocabulary, because there is no non-owning role for it to have leaked
+from. Inventing a same-shaped check there would be a plausible-sounding
+guess, not a port — no tier in the current chain has the two-sided
+structure either technique is checking, and comparch.md.liquid already
+carries its own, stronger mechanisms for the underlying worry (a
+subcomponent's contract text making a claim it doesn't back): "Names
+create semantic obligations" and the "Rationale, not inventory" final
+scan both catch category-speak and unbacked claims without needing a
+presentational/domain split to check against.
+
+Revisit condition: the same one the `domain_parent` entry above names
+— Phase 5's frontend/product tiers landing with a real backend/frontend
+split at some tier. At that point both techniques have a concrete site
+again (a frontend-facing tier classifying against its backend
+counterpart, and that tier's contract text needing a check against
+backend-ownership vocabulary leaking in) and are worth porting on
+their own merits, not guessed at now against a split that doesn't
+exist yet.

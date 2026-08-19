@@ -1,0 +1,17 @@
+# docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
+# a nested block on vocab.yaml. `reviews: vocab` fixes this review's
+# scope and cardinality to vocab's own (child_of(feature_expansion),
+# 1:1) — not restated, dsl-syntax.md §3.3. `context:` is the same set
+# of walks as vocab's own, checked at load time (§13) rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# and are never context: entries.
+tier: vocab_review
+reviews: vocab
+generator: llm
+prompt: prompts/review/vocab.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+delivery:
+  phase: critique
+  agent_step: critique

@@ -1,8 +1,8 @@
 defmodule Catapult.Dsl.SystemStatus do
   @moduledoc """
   The platform-fixed vocabulary both bundle axes reference and neither
-  declares (dsl-syntax.md §15.1, v5 §7.18-§7.19): the eleven system
-  statuses and the five agent steps. Referenced by a chain's `delivery:`
+  declares (dsl-syntax.md §15.1, v5 §7.18-§7.19): the twelve system
+  statuses and the six agent steps. Referenced by a chain's `delivery:`
   block (`phase:` against `kinds/0`, `agent_step:` against
   `agent_steps/0`) and by a workflow's `gates/<gate>.yaml` /
   `environments/<env>.yaml` `after:` predecessor (§15.2, §15.4).
@@ -13,11 +13,12 @@ defmodule Catapult.Dsl.SystemStatus do
   table, never a registry.
   """
 
-  @typedoc "One of the eleven fixed system-status kinds."
+  @typedoc "One of the twelve fixed system-status kinds."
   @type kind ::
           :backlog
           | :queue
           | :generation
+          | :critique
           | :fanout
           | :checks
           | :merge
@@ -30,13 +31,14 @@ defmodule Catapult.Dsl.SystemStatus do
   @typedoc "Who holds the ball while a ticket sits at a status of this kind."
   @type ball :: :author | :plane | :agent | :world | :varies
 
-  @typedoc "One of the five fixed agent steps a chain's `delivery.agent_step` may name."
-  @type agent_step :: :design | :dev | :reconcile | :validate | :boundary
+  @typedoc "One of the six fixed agent steps a chain's `delivery.agent_step` may name."
+  @type agent_step :: :design | :dev | :critique | :reconcile | :validate | :boundary
 
   @statuses [
     {:backlog, :author},
     {:queue, :plane},
     {:generation, :agent},
+    {:critique, :agent},
     {:fanout, :plane},
     {:checks, :world},
     {:merge, :agent},
@@ -47,13 +49,13 @@ defmodule Catapult.Dsl.SystemStatus do
     {:terminal, nil}
   ]
 
-  @agent_steps [:design, :dev, :reconcile, :validate, :boundary]
+  @agent_steps [:design, :dev, :critique, :reconcile, :validate, :boundary]
 
-  @doc "The eleven system-status kinds, in the order dsl-syntax.md §15.1 declares them."
+  @doc "The twelve system-status kinds, in the order dsl-syntax.md §15.1 declares them."
   @spec kinds() :: [kind()]
   def kinds, do: Enum.map(@statuses, &elem(&1, 0))
 
-  @doc "Whether `name` is one of the eleven fixed system-status kinds."
+  @doc "Whether `name` is one of the twelve fixed system-status kinds."
   @spec kind?(term()) :: boolean()
   def kind?(name), do: name in kinds()
 
@@ -61,11 +63,11 @@ defmodule Catapult.Dsl.SystemStatus do
   @spec ball(kind()) :: ball() | nil
   def ball(kind), do: Keyword.fetch!(@statuses, kind)
 
-  @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
+  @doc "The six fixed agent steps a chain's `delivery.agent_step` may name."
   @spec agent_steps() :: [agent_step()]
   def agent_steps, do: @agent_steps
 
-  @doc "Whether `name` is one of the five fixed agent steps."
+  @doc "Whether `name` is one of the six fixed agent steps."
   @spec agent_step?(term()) :: boolean()
   def agent_step?(name), do: name in @agent_steps
 

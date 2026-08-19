@@ -99,13 +99,16 @@ executor:                         # optional; how the generation runs
 context:                          # ordered edge-walk expressions (§7)
   - self.parent.handle
   - self.parent.fulfills -> resp.handle
-  - self.parent.dependency -> target.handle.fragments[pubapi]
+  - self.parent.dependency -> comp.handle.fragments[pubapi]
+                                  # the walk's target names a real tier
+                                  # in the loaded union — "target" above
+                                  # is illustrative prose for "whichever
+                                  # tier the edge in question resolves
+                                  # to", not a literal name a bundle may
+                                  # write; the loader looks up exactly
+                                  # the tier named after "->" (§13)
 produces:                         # fragments this draft writes on other nodes
   - fragment: { owner: self.parent, kind: techspec, authored: draft.techspec }
-review:                           # optional; presence enables the review pass
-  prompt: prompts/review/comparch.md.liquid
-  grammar: schemas/review.xsd
-  required: false                 # true gates approval on review commit
 delivery:                         # extension-provided namespace (§12)
   phase: generation                # a §15.1 system-status kind — platform-
   agent_step: design              # fixed vocabulary only (§11): statuses,
@@ -114,6 +117,22 @@ delivery:                         # extension-provided namespace (§12)
                                   # sequence, and never a gate or environment
 enforcement: []                   # extension-provided profiles, e.g. [codegen: restricted]
 ```
+
+**A join-target tier's `fields:` source is `mint.<name>`, not
+`draft.<name>`.** A tier with no `draft:` has no body of its own to
+project scalars from, but it still needs a field source the way any
+other tier does — a comp minting `kind` from the sysarch row that
+named it, a subcomp minting `name` from the comparch row that named
+it. `mint.<name>` names that source: the value the minting fanout
+edge's `declared_in:` row carried for this node, or (when the value
+is inherited rather than row-local — a comp copying its grandparent
+sysarch's project-wide techspec, one hop further than a single context
+walk can reach, §7 below) a plain copy made at the same mint moment
+from the minting instance's own handle. Both are engine-side
+resolution, exactly as unvalidated at load time as a `draft.<name>`
+path already is (§13 checks cross-references, not path semantics);
+naming the convention here is so two bundle authors, or one bundle
+read twice, agree on what a join-target tier's `fields:` values mean.
 
 Per-scope attributes that appear in *body* declarations rather than
 tier files (they vary per node, not per tier): `implementation:
@@ -126,9 +145,28 @@ stubbed | real` with `swap: transparent | migration | reset` (v5
 - `singleton` — one node per project.
 - `per(X)` — one node per node of tier X. `self.parent` is that node.
 - `child_of(X)` — nodes minted by X's fanout edge.
+- `cascade_visit` — one node per node a flow's own cascade walk visits
+  (§6's `walk: downward_cascade` / `up_then_down`), minted by the
+  engine as the walk proceeds rather than by a `child_of` fanout edge
+  read from a body. A tier at this scope has no fixed parent tier —
+  which node minted a given instance varies with where the cascade is
+  — so it carries no `self.parent` context walk; instead it reaches
+  the node it is currently planning for through a declared `synthesis`
+  edge (§4.1) and reads project-wide state through `all.<tier>` (§7).
+  Exists for exactly one purpose: a flow's planning tier, one plan per
+  visited scaffold node, closing the gap a `per(X)` scope can't (a
+  cascade visits nodes across several different tiers, and `per(X)`
+  names exactly one).
 
 **Delta from v4: the phased variants (`per(X) × phase`) are removed**
 with the phase machinery (v5 §6). There is no `phase` dimension.
+`cascade_visit` replaces v4's informal `per(scaffold_tier)` +
+`scope_filter: in_cascade_visit_set` (`seed-docs/catapult-default-
+bundle-v4-examples.md` §2.1-§2.6): v4's `scaffold_tier` was never a
+real tier `per(X)` could name — it meant "whichever tier the cascade
+is currently touching" — and `in_cascade_visit_set` was a platform-
+managed predicate with no counterpart in this loader's predicate
+language (§8). One real scope kind replaces both.
 
 ### 3.2 Generator types — closed set, extension-growable
 
@@ -138,6 +176,57 @@ resolves from the component registry at the pinned version; requires
 `package:` and optional `options:` per v5 §3.4) and **`template`**
 (deterministic scaffold; requires `template:` path; slots filled from
 context walks; no LLM call, same grammar validation).
+
+### 3.3 Review tiers — `reviews: <tier>`
+
+A review is a tier, not a nested block on the tier it reviews (v5
+§7.19, revised). Declared like any other tier, with one addition and
+several omissions:
+
+```yaml
+tier: comparch_review
+reviews: comparch                 # marks this a review tier for `comparch`;
+                                  # scope, identity and cardinality are
+                                  # comparch's, 1:1, and are never restated
+generator: llm
+prompt: prompts/review/comparch.md.liquid
+grammar: schemas/review.xsd       # the platform-wide review grammar (§10)
+context:                          # must equal comparch's own context: below —
+  - self.parent.handle            # a load-time check (§13), not the shared
+  - self.parent.fulfills -> resp.handle   # assembly-path convention this
+  - self.parent.dependency -> comp.handle.fragments[pubapi]  # replaces
+  - self.reference -> ref.handle
+delivery:
+  phase: critique                 # a §15.1 system-status kind, same rule
+  agent_step: critique            # as any other tier's delivery: (§11)
+```
+
+**No `scope:`, `identity:`, `handle:`, `fields:`, `draft:` or
+`produces:`.** A review's cardinality and position are the reviewed
+tier's by construction — `reviews: comparch` fully determines them, so
+restating `scope:` would only be a second place for it to drift out of
+step — and a review tier exposes nothing downstream: no committed
+body, no handle another tier's context walk could target
+(`docs/v5-design-decisions.md` §7.19). `self.parent` inside a review
+tier's own `context:` resolves exactly as it does for the reviewed
+tier, since the underlying node is the same one.
+
+**`context:` is restated and checked, not inherited silently.** The
+review tier declares its own `context:` list; the loader verifies it
+is the same set of walks as the reviewed tier's own `context:` (§13).
+This is what makes the per-tier triad invariant ("generation and
+review receive identical context plus `draft`", §9) a load-time
+property instead of a runtime discipline living in shared assembly
+code. `draft` and `prior_review` are never `context:` entries — they
+are template variables supplied automatically to a review tier's
+prompt (§9), exactly as before.
+
+**Never named from the workflow axis.** A workflow bundle may disable
+the critique slot that follows a given generation status, but only by
+naming the status (`critique`) — platform-fixed vocabulary, per §11 —
+never by naming a review tier (`comparch_review`). Naming one from a
+workflow declaration is the identical cross-axis leak §11 already
+forbids for gates and generation tiers.
 
 ## 4. Edge declarations
 
@@ -172,12 +261,79 @@ must be **type-level acyclic** at load; `graph_constraint: acyclic`
 is additionally checked per-instance at projection time; `declared_in`
 paths parse against committed bodies.
 
+**`type: synthesis` is the one exception to that last rule.** Every
+other type's `declared_in` names a location in a committed draft body
+the reducer reads; a synthesis edge's instances have no such location
+— they are computed by the engine itself (a `cascade_visit`-scoped
+planning node's correspondence to the specific scaffold node it is
+currently planning for, §3.1, is the motivating case) at the same
+moment `mint.<name>` field values are (§3). `declared_in` stays a
+required, human-readable string on a synthesis edge — naming what the
+engine computes, not where it reads — for the same reason `policy`'s
+mint-time fields do (§3's closed note): unvalidated at load time
+exactly as a body path already is, but not therefore meaningless.
+
 **v5 rule:** navigation edges (product tier, screen→screen) are
 cyclic-legal reference edges and **must never appear in a readiness-
 bearing context walk** — the loader rejects a context entry that
 traverses an edge marked `navigation: true`.
 
-## 5. Fragments
+### 4.1 Multi-instance edges — `instances:`
+
+The shape above — one `source`/`target`/`declared_in`/`cardinality`
+inline — is the common case: one relationship, one site. Some
+relationships recur at several sites with **the same mechanism**: a
+fanout that mints children the identical way at more than one tier
+(`sysarch` mints `comp`, `comparch` mints `subcomp`,
+`feature_expansion` mints `vocab` — one *kind* of edge, three sites),
+or a dependency edge that means the same thing whether it links two
+`comp`s or two `subcomp`s. `instances:` names that relationship once
+and lists every site under it, instead of forcing a distinct edge name
+per site:
+
+```yaml
+edge: decomposition
+type: fanout
+instances:
+  - source: sysarch
+    target: comp
+    declared_in: sysarch.draft.components.component[]
+    cardinality:
+      source: { min: 1 }
+      target: { min: 1, max: 1 }
+  - source: comparch
+    target: subcomp
+    declared_in: comparch.draft.subcomponents.subcomponent[]
+    cardinality:
+      source: { min: 1 }
+      target: { min: 1, max: 1 }
+  - source: feature_expansion
+    target: vocab
+    declared_in: feature_expansion.draft.vocabulary.term[]
+    cardinality:
+      source: { min: 0 }
+      target: { min: 1, max: 1 }
+graph_constraint: [acyclic, no_self_loop]
+```
+
+`instances:` and the flat `source`/`target`/`declared_in`/
+`cardinality` form are **mutually exclusive** — an edge declares one
+instance inline, or several under `instances:`, never both, and never
+neither. `type`, `graph_constraint`, `consistency`, `navigation` and
+`constraint` sit above `instances:` and apply to every site: the
+mechanism is one thing even when it fires at several places in the
+tier graph. Every instance still contributes its own `{source,
+target}` pair to the **type-level acyclicity** check (§13) — the
+graph is over sites, not over edge names.
+
+A context walk (§7) still names the edge once (`.decomposition`,
+`.dependency`); the loader resolves which instance a given hop means
+by matching the walking tier against each instance's `source` (a
+reversed hop matches `target` instead — §7). When more than one
+instance could match — the same source fanning out to several
+different target tiers — the walk's own `-> <tier>.<projection>` on
+the *last* hop picks the one landing on that tier; only when no
+instance names that tier does the walk fail to resolve.
 
 Authored-only (no derived fragments — derived views are context
 walks). Declared in `bundle.yaml`'s closed vocabulary; written via
@@ -213,6 +369,58 @@ types the target and names what to read — `.handle`,
 yield collections; readiness requires **all** targets ready.
 Context is the only readiness signal.
 
+### 7.1 Hop chains and reversal
+
+**Delta from the loader as first merged (ORC-5): a walk may name more
+than one edge, and a hop may be reversed.** The original grammar
+capped a walk at exactly one `.<edge_name>` before `->`; that cap is
+what made a policy scoped **through a responsibility** — comp → resp
+(`.fulfills`) → policy (inbound `policy_application`) — inexpressible,
+since reaching it needs two hops and the second one runs against the
+edge's declared direction. Both restrictions are lifted:
+
+```
+self.parent.fulfills.policy_application~ -> policy.handle
+```
+
+Reads as: `self.parent` (the comp), `.fulfills` (forward — comp is
+`fulfills`'s declared `source`, land on the resp it names), then
+`.policy_application~` (**reversed** — the trailing `~` means the
+walker matches the edge's `target`, not its `source`, and the walk
+continues from whichever `source` instance matches: every policy
+whose `policy_application` instance targets this resp). Each hop is
+checked independently against the declared edge (or, for a
+multi-instance edge, against whichever instance actually matches —
+§4.1); a hop naming an edge with no instance on the required side is
+a load error, exactly as an unmatched single hop always was. A
+reversed hop never turns a `navigation: true` edge readiness-bearing
+— that check runs on every hop, not just a forward one.
+
+This is engine-side resolution the same way a forward hop always was:
+the loader's job is confirming the chain of edges is well-formed and
+reachable from the walking tier, not evaluating it against instance
+data (§13 checks cross-references, not runtime graph state).
+
+### 7.2 `all.<tier>` — every instance, no edge
+
+```yaml
+context:
+  - all.vocab.handle
+  - all.comp.handle.fragments[techspec]
+```
+
+Reads every declared instance of `<tier>` in the project, unfiltered
+by any relationship — no `self`, no edge, no walker to arrive from.
+Two cases want this: a genuinely flat pool with no single owning
+parent (`vocab`, `ref`, a project-global `policy` — v5 §4.5's first
+grain, which by construction has no `policy_application` edge for a
+graph walk to follow at all), and a `cascade_visit`-scoped planning
+tier that needs to see the whole component graph rather than one
+scoped slice of it (a `refactor` plan reasoning about which
+components a structural change touches). The tier named after `all.`
+must be declared; that is the entire cross-reference (§13) — unlike a
+self-hop's target, there is no walker to check it against.
+
 v5 additions:
 
 - **`input.<role>`** — reads the intake documents tagged with a
@@ -243,27 +451,53 @@ slots: `scope_filter`, `cardinality.when`, edge `constraint`, flow
 `completion`. Named predicates compose in `predicates.yaml`; no
 arithmetic, strings, or regex.
 
+**A `cascade_visit`-scoped tier's own name, as a universal-quantifier
+path root, means "every instance of this tier minted for the currently
+open flow instance."** `all(refactor_plan -> resolved)` — a flow's
+`completion:` predicate over its own planning tier, now that the tier
+mints one node per visited scaffold node (§3.1) rather than one
+singleton: completion is every visited node's plan resolved, not one
+node's. This is engine-side resolution exactly like every other path
+root in this language (`has_edge`'s edge name, `count`'s edge name):
+the loader checks the predicate parses (§13), not what "refactor_plan"
+resolves to at runtime.
+
 ## 9. Prompts
 
 Liquid (Solid). Variables: one per named context walk
 (cardinality-many walks iterate), `self`, `feedback`, `prior_review`,
-and — review prompts only — `draft`. Shared content via
-`{% render "partials/<name>" %}` (v5 §6: one source for shared
-framing across the six architecture tiers). Generation and review
-templates for a tier receive identical context plus `draft` — the
-per-tier triad invariant, enforced by the shared context-assembly
-path, not convention.
+and — review prompts only — `draft`. A variable's name is its target
+tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
+gets the same name as a self-hop entry landing on that tier. **Two or
+more context entries naming the same target tier combine into one
+collection for that tier's variable** rather than colliding — a tier
+can be reached more than one way (comparch reads `policy` through both
+a direct `policy_application~` hop and a `fulfills.policy_application~`
+hop, §7.1's worked example), and the prompt wants "every policy that
+applies to me," not one variable per path that produced it. Shared
+content via `{% render "partials/<name>" %}` (v5 §6: one source for
+shared framing across the six architecture tiers). Generation and
+review templates for a tier receive identical context plus `draft` —
+the per-tier triad invariant. `draft` (and `prior_review`) are
+supplied automatically by the shared context-assembly path; that a
+review tier's own declared `context:` matches the reviewed tier's is
+a load-time check instead (§3.3, §13).
 
 ## 10. Grammars
 
 Body grammars are XML-fragmented markdown validated per tier
 (`draft.root_tag` + XSD), at commit time, atomically — validation
 failure is typed feedback, never a half-committed state. The review
-grammar is platform-wide (v4 §B.3.2's `<review>` shape). v5 grammar
-growth (the productions, not the prose): comparch carries
-`<permissions>`, `<enforcement>`, per-scope `<implementation>`;
-subcomparch carries the process inventory; impl's `<tests>` block is
-normative for reconciliation.
+grammar is platform-wide (v4 §B.3.2's `<review>` shape) and the same
+file backs every review tier's `grammar:` (§3.3): `<intro>`, an
+integer `<score>` (0-100, v4's buckets), and zero or more
+`<finding id="...">` — the `id` is what a comment gets anchored under
+when the finding is projected into the PR rather than committed as a
+file (`docs/v5-design-decisions.md` §7.19). v5 grammar growth (the
+productions, not the prose): comparch carries `<permissions>`,
+`<enforcement>`, per-scope `<implementation>`; subcomparch carries the
+process inventory; impl's `<tests>` block is normative for
+reconciliation.
 
 ## 11. `extends:` — content layering
 
@@ -326,6 +560,18 @@ values validated against the protocol vocabulary; navigation edges
 absent from readiness walks; `extends:` acyclic. A bundle that loads
 is a bundle the engine can run; only instance-level constraints
 (dependency cycles, cardinality counts) wait for projection time.
+
+Added with review tiers (§3.3, `docs/v5-design-decisions.md` §7.19):
+
+- `reviews:` names a tier declared in the same loaded union — the
+  same cross-reference rule as an edge endpoint or a fragment kind;
+- a review tier's `context:` is the same set of walks as the tier it
+  reviews — the triad invariant, checked rather than trusted; a
+  review tier declaring a walk its reviewed tier doesn't (or missing
+  one it does) is a load error naming the mismatch;
+- a review tier carries no `scope:`, `draft:` or `produces:` — a
+  review tier declaring any of them is a load error, since a review's
+  cardinality is `reviews:`'s and it commits nothing (§3.3).
 
 Added with the two axes and the declarable protocol surface (v5
 §7.16, §7.18):
@@ -393,7 +639,12 @@ three assume the chain and workflow bundles are a matched pair; they
 are not, and composability with no shared vocabulary is the property
 being protected (v5 §7.18). And a **second bundle system** for
 delivery configuration (v5 §9, §7.18 — one language, two document
-kinds).
+kinds). On a review tier specifically (§3.3): **`review_path:`**
+(v4's paired `body_path:`/`review_path:`, `docs/v5-design-decisions.md`
+§7.19 — a review projects to comments, never a committed file) and
+**a per-tier `required:` gating flag** (dropped with the nested
+`review:` block it lived on; threshold-based gating is a parked
+scheduler item, §7.19, not bundle content).
 
 ## 15. Workflow declarations
 
@@ -415,6 +666,7 @@ when a workflow cutover removes the status it was parked at (v5 §6,
 | `backlog` | committed to nothing yet | author |
 | `queue` | committed, awaiting dispatch capacity | plane |
 | `generation` | an agent run producing artifacts | agent |
+| `critique` | an agent run reviewing a freshly produced draft | agent |
 | `fanout` | children in flight; progress rolls up | plane |
 | `checks` | CI running against produced work | world |
 | `merge` | reconciliation into the parent branch | agent |
@@ -448,9 +700,10 @@ makes them replaceable.
 
 **Agent steps**, the other half of what a chain's `delivery:` block
 may name (§3): `design` (produces a design-graph artifact for a
-tier), `dev` (implements a child scope), `reconcile`, `validate`
-(§7.11's repair loop), `boundary` (the milestone pass). Adding one is
-a platform change, reviewed as one.
+tier), `dev` (implements a child scope), `critique` (the review pass
+over a freshly produced draft), `reconcile`, `validate` (§7.11's
+repair loop), `boundary` (the milestone pass). Adding one is a
+platform change, reviewed as one.
 
 ### 15.2 `gates/<gate>.yaml` — a review status
 

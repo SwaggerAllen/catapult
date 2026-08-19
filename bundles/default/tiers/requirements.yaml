@@ -1,0 +1,35 @@
+# v4 §1.2, re-expressed against v5's restored `resp` tier
+# (seed-docs/README.md): requirements still performs the
+# features→responsibilities rotation, but each atom it emits is now
+# minted as its own `resp` node (via the `decomposition` edge,
+# edges/decomposition.yaml) rather than staying a field inside this
+# tier's own body. `scope: per(feature_expansion)` rather than
+# `singleton` — both read as "exactly one instance" (feature_expansion
+# is itself a singleton), but only per(X) gives this tier a
+# self.parent walk back to feature_expansion's handle. (An
+# `all.feature_expansion.handle` read, dsl-syntax.md §7.2, would reach
+# the same content without per(X) — added this pass, after this
+# substitution was already the working pattern; per(X) still wins here
+# since requirements genuinely has one parent, not a flat pool to
+# read.) Recorded in systems/platform_content.md; the same
+# substitution repeats at sysarch.
+tier: requirements
+scope: per(feature_expansion)
+identity: id
+fields:
+  intro: draft.introduction
+handle:
+  fields: [id, intro]
+  fragments: []
+draft:
+  root_tag: requirements
+  grammar: schemas/requirements.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/requirements.md.liquid
+context:
+  - self.parent.handle
+delivery:
+  phase: generation
+  agent_step: design

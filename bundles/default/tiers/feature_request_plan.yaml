@@ -1,0 +1,50 @@
+# The feature_request flow's planning tier (dsl-syntax.md §6's delta
+# tier — a flow's schema delta lives beside the base tiers, its prompt
+# under flows/<flow>/). `scope: cascade_visit` (dsl-syntax.md §3.1) —
+# one plan per node the flow's own downward_cascade actually visits,
+# not one singleton plan per open flow instance: a feature request
+# that touches sysarch, three comparchs and two impls needs six plans,
+# each reasoning about its own node, not one node trying to hold an
+# opinion about all six. `self.plan_target` (edges/plan_target.yaml)
+# is the live pointer to which specific node this instance is
+# planning for — engine-minted at the same moment the visit node
+# itself is, since there is no body location to read it from (see
+# that file's own header). Previously `scope: singleton`; see
+# docs/non-goals.md for why that was the wrong call and what changed.
+tier: feature_request_plan
+scope: cascade_visit
+identity: id
+fields:
+  resolved: draft.resolved
+handle:
+  fields: [id, resolved]
+  fragments: []
+draft:
+  root_tag: feature-request-plan
+  grammar: schemas/feature_request_plan.xsd
+generator: llm
+prompt: flows/feature_request/propose.md.liquid
+context:
+  # `ticket.findings` (dsl-syntax.md §7's v5 addition — the closest
+  # thing this language has to v4's dropped `seed:` block, since it
+  # names "ticket thread for the scope") is not wired here: it is an
+  # extension-provided context source (§12), and neither dialect
+  # registers one yet (lib/catapult/dsl/dialect.ex — "context sources
+  # arrive with the delivery system", a later core_dsl milestone, not
+  # this ticket's). Using it now would fail load. `input.project_doc`
+  # is what remains available — the frozen original intake, not the
+  # feature request's own new prose, which has no bundle-declarable
+  # home until that extension lands. Recorded in docs/non-goals.md.
+  - input.project_doc
+  - all.sysarch.handle
+  - all.comp.handle
+  # Project-wide visibility: a plan reasoning about where a feature's
+  # obligations land needs to see the whole component graph, not just
+  # the one node it is currently visiting (dsl-syntax.md §7.2).
+  - self.plan_target -> sysarch.handle
+  - self.plan_target -> comparch.handle
+  - self.plan_target -> subcomparch.handle
+  - self.plan_target -> impl.handle
+delivery:
+  phase: generation
+  agent_step: design

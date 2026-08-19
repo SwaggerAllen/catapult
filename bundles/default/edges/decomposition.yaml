@@ -1,0 +1,59 @@
+# v4 §1's fanout mechanism, consolidated under one name per this
+# ticket's own instruction ("decomposition covers sysarch→comp,
+# comparch→subcomp and feature_expansion→vocab — the mechanism is the
+# same") and generalized to every fanout-minted pool in this chain:
+# resp (requirements' rotation), and policy's two mint sources
+# (sysarch's project-level <policies>, comparch's component-local
+# <policies> — policy.yaml already documents why two fanout sources
+# into one flat pool is legal). Six sites, one mechanism, one file —
+# dsl-syntax.md §4.1's `instances:` form. Previously six files
+# (component_fanout, subcomponent_fanout, vocab_fanout, resp_fanout,
+# policy_fanout, policy_fanout_comp); see docs/non-goals.md for why
+# `instances:` didn't exist until this pass and what changed.
+edge: decomposition
+type: fanout
+instances:
+  - source: sysarch
+    target: comp
+    declared_in: sysarch.draft.components.component[]
+    cardinality:
+      source: { min: 1 } # v4 §4.1: every project has ≥1 foundation component
+      target: { min: 1, max: 1 } # every comp has exactly one mint
+
+  - source: comparch
+    target: subcomp
+    declared_in: comparch.draft.subcomponents.subcomponent[]
+    cardinality:
+      source: { min: 1 } # every comp decomposes into ≥1 subcomponent — v4's
+      # "un-fanned-out" escape (a comp with zero subcomps, impl attached
+      # directly) needs a scope union this ticket's closed set has no
+      # form for; dropped as a content simplification (docs/non-goals.md)
+      target: { min: 1, max: 1 } # every subcomp has exactly one mint
+
+  - source: feature_expansion
+    target: vocab
+    declared_in: feature_expansion.draft.vocabulary.term[]
+    cardinality:
+      source: { min: 0 } # a project may name no project-specific terms
+      target: { min: 1, max: 1 } # every vocab entry has exactly one mint
+
+  - source: requirements
+    target: resp
+    declared_in: requirements.draft.responsibility[]
+    cardinality:
+      source: { min: 1 } # every project has at least one responsibility
+      target: { min: 1, max: 1 } # every resp has exactly one mint
+
+  - source: sysarch
+    target: policy
+    declared_in: sysarch.draft.policies.policy[]
+    cardinality:
+      source: { min: 0 } # a project may have no project-level policies
+      target: { min: 1, max: 1 } # every policy has exactly one mint
+
+  - source: comparch
+    target: policy
+    declared_in: comparch.draft.policies.policy[]
+    cardinality:
+      source: { min: 0 } # a component may have no local policies
+      target: { min: 1, max: 1 } # every policy has exactly one mint

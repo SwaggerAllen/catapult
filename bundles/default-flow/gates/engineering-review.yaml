@@ -1,0 +1,23 @@
+review: engineering-review
+after: ux-review                   # sequential; two reviews may not share
+                                    # an `after:` (dsl-syntax.md §15.3)
+role: engineering
+depth: 2                           # a ceiling, not a claim about today's
+                                    # default bundle (never validated
+                                    # against the chain's actual depth,
+                                    # §13): the architecture chain fans out
+                                    # twice (sysarch's decomposition into
+                                    # comp, then comparch's decomposition
+                                    # into subcomp — one edge name, two
+                                    # instances, edges/decomposition.yaml),
+                                    # so 2 covers both levels this chain
+                                    # produces without this gate needing an
+                                    # edit if a future chain fans out less
+throwback: [generation, ux-review] # `generation` and `ux-review` are both
+                                    # earlier than this gate in the
+                                    # effective sequence (§15.3) — a
+                                    # display label like "Architecting"
+                                    # is not declarable vocabulary and
+                                    # fails load (Workflow.gate_throwback_
+                                    # problems/1)
+escalation: author

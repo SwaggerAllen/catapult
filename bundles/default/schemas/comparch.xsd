@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v4 §1.5 (seed-docs/siege-prompts/comparch.md), domain/presentational
+  stripped (see sysarch.xsd's header). Section order carries forward:
+  technical-specification -> public-surface -> private-surface ->
+  failure-surface -> policies -> dependencies -> subcomponents ->
+  sub-dependencies.
+
+  v5 growth (docs/v5-design-decisions.md §2.9, §2.16, §6), authored
+  fresh — none of these three exist in siege's grammar:
+    - <permissions>: the permission taxonomy this component declares
+      (§2.9 — code, not data; roles are a separate, data-side concern
+      this grammar does not model).
+    - <enforcement>: zero or more platform-defined profile refs
+      (`codegen: restricted`, `purity: replay_floor`, ...) — a closed
+      vocabulary the *registry* enforces (dsl-syntax.md §12), not this
+      schema; the schema only shapes the reference.
+    - <implementation> on each <subcomponent>: the stub-grade
+      declaration (§2.16). Required, not optional — "the lie must be
+      loud" is the source document's own words, and an omittable
+      element is exactly the silent-stub shape that doctrine forbids.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Invariants">
+    <xs:sequence>
+      <xs:element name="invariant" type="xs:string" minOccurs="2" maxOccurs="4"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Operations">
+    <xs:sequence>
+      <xs:element name="operation" type="xs:string" minOccurs="3" maxOccurs="6"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Permission">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Permissions">
+    <xs:sequence>
+      <xs:element name="permission" type="Permission" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Enforcement">
+    <xs:sequence>
+      <xs:element name="profile" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="ImplementationGrade">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="real"/>
+      <xs:enumeration value="stubbed"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Swap">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="transparent"/>
+      <xs:enumeration value="migration"/>
+      <xs:enumeration value="reset"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- swap/exit-plan required iff grade="stubbed" — a cross-field rule
+       left to instance-level validation (dsl-syntax.md §13), same as
+       feature_expansion.xsd's scope="feature" ↔ feature-name pairing. -->
+  <xs:complexType name="Implementation">
+    <xs:sequence>
+      <xs:element name="swap" type="Swap" minOccurs="0"/>
+      <xs:element name="exit-plan" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="grade" type="ImplementationGrade" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Policy">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="trigger" type="xs:string"/>
+      <xs:choice minOccurs="0" maxOccurs="1">
+        <xs:element name="required" type="xs:string"/>
+        <xs:element name="structural">
+          <xs:complexType/>
+        </xs:element>
+      </xs:choice>
+      <xs:element name="rationale" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Policies">
+    <xs:sequence>
+      <xs:element name="policy" type="Policy" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Dependencies">
+    <xs:sequence>
+      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RespOwns">
+    <xs:sequence>
+      <xs:element name="feat" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Owns">
+    <xs:sequence>
+      <xs:element name="resp" type="RespOwns" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="References">
+    <xs:sequence>
+      <xs:element name="reference" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="target" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Subcomponent">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="owned-invariants" type="Invariants"/>
+      <xs:element name="primary-operations" type="Operations"/>
+      <xs:element name="responsibilities" type="xs:string"/>
+      <xs:element name="owns" type="Owns"/>
+      <xs:element name="implementation" type="Implementation"/>
+      <xs:element name="foundation" minOccurs="0" maxOccurs="1">
+        <xs:complexType/>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="alias" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Subcomponents">
+    <xs:sequence>
+      <xs:element name="subcomponent" type="Subcomponent" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SubDependencies">
+    <xs:sequence>
+      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="from" type="xs:string" use="required"/>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="comparch">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="technical-specification" type="xs:string"/>
+        <xs:element name="public-surface" type="xs:string"/>
+        <xs:element name="private-surface" type="xs:string"/>
+        <xs:element name="failure-surface" type="xs:string"/>
+        <xs:element name="permissions" type="Permissions"/>
+        <xs:element name="enforcement" type="Enforcement"/>
+        <xs:element name="policies" type="Policies"/>
+        <xs:element name="dependencies" type="Dependencies"/>
+        <xs:element name="subcomponents" type="Subcomponents"/>
+        <xs:element name="sub-dependencies" type="SubDependencies"/>
+        <xs:element name="references" type="References" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

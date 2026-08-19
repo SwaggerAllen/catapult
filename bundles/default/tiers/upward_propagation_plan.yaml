@@ -1,0 +1,42 @@
+# The upward_propagation flow's planning tier (v4 §8.2). Simplified
+# from v4's two-stage assessment_plan + propagation_plan to one
+# combined planning tier — see schemas/upward_propagation_plan.xsd's
+# header for the argued reason. No siege prompt exists for this flow.
+#
+# `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node
+# either leg of this flow's `up_then_down` walk visits, resolved via
+# `self.plan_target` (edges/plan_target.yaml), which is why this is
+# the one plan tier reaching all the way to `feature_expansion` and
+# `requirements`: the upward leg can land anywhere below the root.
+# Previously `scope: singleton`; see docs/non-goals.md.
+tier: upward_propagation_plan
+scope: cascade_visit
+identity: id
+fields:
+  argument_summary: draft.argument
+  resolved: draft.resolved
+handle:
+  fields: [id, argument_summary, resolved]
+  fragments: []
+draft:
+  root_tag: upward-propagation-plan
+  grammar: schemas/upward_propagation_plan.xsd
+generator: llm
+prompt: flows/upward_propagation/plan.md.liquid
+context:
+  # No `ticket.findings` — not yet a registered context source
+  # (feature_request_plan.yaml's context: comment explains why); the
+  # downstream argument's own target_argument prose (v4 §2.5's seed
+  # field) has no bundle-declarable home until that extension lands.
+  - input.project_doc
+  - all.sysarch.handle
+  - all.comp.handle
+  - self.plan_target -> feature_expansion.handle
+  - self.plan_target -> requirements.handle
+  - self.plan_target -> sysarch.handle
+  - self.plan_target -> comparch.handle
+  - self.plan_target -> subcomparch.handle
+  - self.plan_target -> impl.handle
+delivery:
+  phase: generation
+  agent_step: design

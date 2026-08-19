@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The platform-wide review grammar (v4 §B.3.2's <review> shape, dsl-syntax.md
+  §10, §3.3). One schema backs every review tier's `grammar:` — the triad
+  invariant (§9 of dsl-syntax.md) means a review prompt receives the same
+  context as the tier it reviews plus `draft`, so what comes back is
+  structurally the same shape everywhere: a verdict, a 0-100 score a
+  threshold predicate can read (docs/v5-design-decisions.md §7.19's
+  buckets: 0-30 fundamental rework, 31-60 structural, 61-85 minor, 86-100
+  ready), and the findings that justify it — each individually addressable
+  by `id`, since a review's output is projected into anchored PR comments
+  rather than committed as a file, and the id is what a comment anchors to.
+
+  A `revise` verdict with zero <finding> elements is a load error at the
+  grammar level (minOccurs="1" on the sequence's finding branch is gated
+  by the verdict below via the loader's cross-field check, not by XSD
+  alone — the schema keeps findings optional so an `approve` may carry
+  none; the loader is what refuses an empty-handed `revise`).
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:simpleType name="Verdict">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="approve"/>
+      <xs:enumeration value="revise"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Score">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="100"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Severity">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="blocking"/>
+      <xs:enumeration value="advisory"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Finding">
+    <xs:sequence>
+      <xs:element name="location" type="xs:string"/>   <!-- element/attr path
+                                                              in the draft
+                                                              being reviewed -->
+      <xs:element name="comment" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>   <!-- anchors
+                                                                       the
+                                                                       projected
+                                                                       PR
+                                                                       comment -->
+    <xs:attribute name="severity" type="Severity" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="review">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="summary" type="xs:string"/>
+        <xs:element name="score" type="Score"/>
+        <xs:element name="finding" type="Finding" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="verdict" type="Verdict" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

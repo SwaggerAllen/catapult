@@ -1,0 +1,39 @@
+# v4 §1.6 "join target", carried forward (docs/non-goals.md). Same
+# shape as comp one level down: minted by comparch's `decomposition`
+# edge (edges/decomposition.yaml) from a <subcomponent> row, content
+# lives in the (three, not five — see subcomparch.yaml) fragments
+# subcomparch writes onto self.parent. `parent_*` fields mirror the
+# comp-level fragments comparch already wrote (mint-time copy, same
+# reasoning as comp.yaml's project_techspec: subcomparch and impl are
+# both per(subcomp), one hop from this node, and a live reversed walk
+# back to comp buys nothing over a plain scalar for content that only
+# changes on a re-decomposition, which re-mints subcomp anyway).
+tier: subcomp
+scope: child_of(comparch)
+identity: id
+fields:
+  name: mint.name
+  purpose: mint.purpose
+  is_foundation: mint.is_foundation
+  owns_summary: mint.owns_summary
+  parent_techspec: mint.parent_techspec
+  parent_pubapi: mint.parent_pubapi
+  parent_privapi: mint.parent_privapi
+  parent_policies_summary: mint.parent_policies_summary
+  parent_failure_surface: mint.parent_failure_surface
+handle:
+  fields:
+    [
+      id,
+      name,
+      purpose,
+      is_foundation,
+      owns_summary,
+      parent_techspec,
+      parent_pubapi,
+      parent_privapi,
+      parent_policies_summary,
+      parent_failure_surface,
+    ]
+  fragments: [techspec, pubapi, privapi]
+generator: synthesis

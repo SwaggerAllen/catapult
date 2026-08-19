@@ -1,0 +1,32 @@
+# v4 §1.11, re-scoped per v5 §4.5's three grains: project-global (no
+# scope edge, read via `all.policy` — dsl-syntax.md §7.2), through-
+# responsibilities (`policy_application`'s policy->resp instance — the
+# load-bearing grain, since a policy bound to a resp survives a
+# sysarch re-decomposition, reached by comparch via a reversed hop
+# through `fulfills` — dsl-syntax.md §7.1), and direct component links
+# for genuinely structural policies (`policy_application`'s
+# policy->comp instance). Never child_of(resp) — the grain is an edge
+# (policy_application, reachability through fulfills), not parentage.
+#
+# `child_of(sysarch)` names sysarch as the tier this pool's scope is
+# validated against, but two `decomposition` instances mint into it
+# (edges/decomposition.yaml) — sysarch's project-level <policies> and
+# comparch's component-local <policies>. Nothing in dsl-syntax.md's
+# closed scope vocabulary expresses "child of either of these two
+# tiers", and lib/catapult/dsl/tier.ex's scope_problems check only
+# verifies child_of(X) names a *declared* tier — it does not require X
+# to be the sole edge targeting this tier, so two fanout instances into
+# one flat pool is legal under the loader as implemented today.
+# Recorded here rather than left implicit, per this ticket's own
+# instruction to name interpretations.
+tier: policy
+scope: child_of(sysarch)
+identity: id
+fields:
+  name: mint.name
+  trigger: mint.trigger
+  rationale: mint.rationale
+handle:
+  fields: [id, name, trigger, rationale]
+  fragments: []
+generator: synthesis

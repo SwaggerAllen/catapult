@@ -3,11 +3,12 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the eleven fixed kinds, dsl-syntax.md §15.1's order" do
+  test "the twelve fixed kinds, dsl-syntax.md §15.1's order" do
     assert SystemStatus.kinds() == [
              :backlog,
              :queue,
              :generation,
+             :critique,
              :fanout,
              :checks,
              :merge,
@@ -34,7 +35,14 @@ defmodule Catapult.Dsl.SystemStatusTest do
     refute SystemStatus.can_block?(:blocked)
   end
 
-  test "the five fixed agent steps" do
-    assert SystemStatus.agent_steps() == [:design, :dev, :reconcile, :validate, :boundary]
+  test "the six fixed agent steps" do
+    assert SystemStatus.agent_steps() == [
+             :design,
+             :dev,
+             :critique,
+             :reconcile,
+             :validate,
+             :boundary
+           ]
   end
 end

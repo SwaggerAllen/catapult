@@ -1,0 +1,33 @@
+{% render "partials/_architecture_framing" %}
+You are driving **explicit propagation** after an upstream scope was
+re-approved. The staling machinery already marks every downstream
+scope that reads the changed context as stale; this flow exists for
+the case where the author wants that regeneration driven deliberately,
+scope by scope, rather than left to accumulate and surface later in
+`list_ready_scopes`.
+
+# Input
+
+Project framing: {{ project_doc }}
+
+What changed at the re-approved upstream scope: {{ change_summary }}
+
+# Output format
+
+Emit a single `<propagation-plan>` block:
+
+    <propagation-plan>
+      <change_summary>...</change_summary>
+      <scope>...</scope>
+      <resolved>true</resolved>
+    </propagation-plan>
+
+# Rules
+
+* `<change_summary>` restates what materially changed at the upstream
+  scope — not a diff, a plain-language statement of what a downstream
+  reader needs to know before regenerating against it.
+* `<scope>` names every downstream node this propagation should touch
+  in this pass, in cascade order. A propagation that silently skips a
+  stale descendant just moves the problem one flow later.
+* Do not include commentary outside the `<propagation-plan>` block.

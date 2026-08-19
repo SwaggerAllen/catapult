@@ -1,0 +1,42 @@
+# v5 §4.5's three grains, minus the project-global one (which by
+# construction declares neither edge and is read instead via
+# `all.policy` — dsl-syntax.md §7.2): direct component links
+# (structural policies with no natural responsibility to pin to) and
+# through-responsibility (the load-bearing grain — a policy bound to a
+# resp survives a sysarch re-decomposition). One edge NAME
+# (dsl-syntax.md §4.1's `instances:`), because both are the same
+# mechanism ("a policy applies to X") with a different target tier;
+# this ticket's edges section names `policy_application` as a single
+# edge, and the loader's instances: form is what makes that literal.
+# Previously two files (policy_scope_comp, policy_scope_resp).
+#
+# A context walk reaches both grains from comparch/comp by walking
+# this edge *backward* (dsl-syntax.md §7.1's `~` reversal): the policy
+# is the authoring side (it names its own target at mint time, via
+# <required> or <structural> — see policy.yaml), so a comp/comparch
+# reading "policies that apply to me" walks the edge against its
+# declared direction, which is exactly what `~` is for.
+edge: policy_application
+type: policy_application
+instances:
+  - source: policy
+    target: comp
+    declared_in: policy.structural # set at mint time when the minting
+    # <policy> row carries a <structural/> marker instead of <required>;
+    # the target is the declaring tier's own comp (comparch's self.parent
+    # when comparch-minted; project-wide policies use the other instance
+    # instead, since a project-global policy declares neither instance)
+    cardinality:
+      source: { min: 0, max: 1 } # a policy scopes to at most one comp directly
+      target: { min: 0 } # a comp may have zero or more structural policies
+
+  - source: policy
+    target: resp
+    declared_in: policy.required # set at mint time from whichever draft
+    # minted this policy (sysarch.draft.policies.policy[].required or
+    # comparch.draft.policies.policy[].required — see decomposition.yaml)
+    cardinality:
+      source: { min: 0, max: 1 } # a policy scopes through at most one resp —
+      # project-global policies (v5 §4.5's first grain) omit <required>
+      # entirely and declare neither this instance nor the comp one above
+      target: { min: 0 } # a resp may have zero or more policies applied

@@ -33,7 +33,7 @@ state outright. That finding is what this directory answers.
 
 **Where these documents and `docs/v5-design-decisions.md` disagree,
 v5 wins** — that is the whole point of there being a v5. These are
-inputs to a decision, not the decision. Three differences are known
+inputs to a decision, not the decision. Four differences are known
 and load-bearing, so that a reader does not mistake them for
 oversights:
 
@@ -51,6 +51,17 @@ oversights:
 - **The product tier.** v4 starts at `feature_expansion` →
   `requirements`. v5 §4.1 inserts `journeys` and `screens` between
   them. The v4 chain head is not superseded — it is extended.
+- **`review_path:` is not carried forward.** v4's per-tier grammars
+  and prompts assume review is a distinct pass whose own output lands
+  somewhere the chain can name. `docs/v5-design-decisions.md` §7.19
+  (landed after `catapult-spec-v4.md` §B.2 was drawn against) makes a
+  tier's auto-review a **system status and agent step**, run as a
+  second dispatched agent reading the PR's already-committed state,
+  producing **comments, not a committed artifact** — there is nothing
+  for a `review_path:` to point at. Per-tier review (dsl-syntax.md
+  §3.3 — its own tier, `reviews: <tier>`, not v4's nested block) and
+  the platform-wide review grammar (`<score>`, each `<finding id>` —
+  v4 §B.3.2) carry forward unchanged; only the path concept is void.
 
 ## Licensing
 

@@ -1,0 +1,48 @@
+{% render "partials/_architecture_framing" %}
+You are elaborating a single **vocabulary entry** for the project
+glossary. `feature_expansion` flagged this term as one downstream
+tiers need a consistent, disambiguated meaning for; your job is to
+write that meaning once, here, so every later tier reads the same
+definition instead of re-coining the term.
+
+# Input
+
+Project framing: {{ parent }}
+
+Term: `{{ mint.name }}` (scope: {{ mint.term_scope }}{% if mint.feature_name %}, feature: {{ mint.feature_name }}{% endif %})
+
+# Output format
+
+Emit a single `<vocab-entry>` block:
+
+    <vocab-entry>
+      <definition>...</definition>
+      <disambiguation>...</disambiguation>   <!-- optional -->
+      <see-also>
+        <ref name="..."/>                    <!-- optional, repeated -->
+      </see-also>
+    </vocab-entry>
+
+# Rules
+
+* `<definition>` is required — one to three sentences giving this
+  term's meaning **as this project uses it**, specific enough to
+  disambiguate from the word's common usage. "A session is a login"
+  isn't a handle a downstream tier can build on; "the server-side
+  record binding a principal to a set of active grants, not the
+  HTTP-layer cookie that carries its token" is.
+* `<disambiguation>` is optional — add it only when this term
+  collides with common usage or with a nearby project term; omit it
+  when the definition alone is already unambiguous.
+* `<see-also>` is optional — zero or more `<ref name="..."/>` entries,
+  each naming another vocab entry by its term name (not an id). Name
+  only terms this entry's meaning genuinely depends on or is
+  routinely confused with; don't pad the list.
+* Do not include commentary outside the `<vocab-entry>` block.
+{% if feedback %}
+
+# Revising against feedback
+
+This term's definition is a handle downstream tiers already depend
+on — preserve everything the feedback doesn't ask you to change.
+{% endif %}

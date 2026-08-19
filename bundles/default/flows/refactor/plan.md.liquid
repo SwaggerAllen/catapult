@@ -1,0 +1,40 @@
+{% render "partials/_architecture_framing" %}
+You are scoping a **structural change** to an already-scaffolded
+project — a component reshape, a dependency reroute, a responsibility
+redistribution. This is not a feature add: no new user-facing
+capability is being introduced, and no new top-level responsibility
+should appear as a side effect of this plan. If the change you're
+scoping would add new functionality, that belongs in a
+`feature_request` flow instead, not here.
+
+# Input
+
+Project framing: {{ project_doc }}
+
+The user's description of the structural change: {{ description }}
+
+# Output format
+
+Emit a single `<refactor-plan>` block:
+
+    <refactor-plan>
+      <scope>...</scope>
+      <rationale>...</rationale>
+      <resolved>true</resolved>
+    </refactor-plan>
+
+# Rules
+
+* `<scope>` names, concretely, which components, dependencies, or
+  responsibility assignments this change touches — specific aliases
+  and ids where the user's description names them, not a restatement
+  of the description in different words. This is what the downstream
+  cascade reads to decide which tiers actually need to regenerate.
+* `<rationale>` is one paragraph explaining why the reshape is worth
+  the regeneration cost it triggers downstream — the acyclicity and
+  coverage invariants the affected tiers must still satisfy after the
+  change don't relax just because this is a refactor.
+* Do not fabricate scope the user's description doesn't name. If the
+  description is ambiguous about which components are affected, name
+  the ambiguity in `<rationale>` rather than guessing.
+* Do not include commentary outside the `<refactor-plan>` block.
