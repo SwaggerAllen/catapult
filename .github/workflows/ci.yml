@@ -112,8 +112,8 @@ jobs:
           mix catapult.audit
           mix test
 
-      # DESIGN §9's three checks (mutex, doc lint, class) via
-      # `pipeline audit`. Self-arming: it skips with a notice until the
+      # DESIGN §9's four checks (mutex, doc lint, class, design
+      # ownership) via `pipeline audit`. Self-arming: it skips with a notice until the
       # PIPELINE_REPO_TOKEN secret exists (set at hookup, SETUP.md §4)
       # and the branch carries a ticket key — pre-pipeline PRs have
       # neither. The key parses from head_ref, never GITHUB_REF_NAME:
@@ -141,7 +141,7 @@ jobs:
       # Linear (the class check reads both), so it needs the key here —
       # the stubs README's recipe omits this and the first armed run
       # died on it before checking anything.
-      - name: pipeline audit (mutex, doc lint, class)
+      - name: pipeline audit (mutex, doc lint, class, design ownership)
         if: steps.audit_gate.outputs.run == 'true'
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
@@ -149,5 +149,17 @@ jobs:
           BASE="origin/main...HEAD"
           git diff --name-only "$BASE" > /tmp/changed
           git diff --diff-filter=A --name-only "$BASE" > /tmp/added
+          # What the design agent wrote, and only that. Both agents'
+          # commits ride one branch and dev may amend design-owned files
+          # on discovery (DESIGN §5), so the plain diff cannot say whose
+          # a path was. Two-dot here against three-dot above, and the
+          # difference is not cosmetic: "which commits are on this
+          # branch" is a different question from "what did the branch
+          # change", and git log's three-dot form is a symmetric
+          # difference that would drag main's own commits in.
+          git log --format=%H --author=pipeline-design-agent origin/main..HEAD \
+            | xargs -r -n1 git show --name-only --format= \
+            | sort -u > /tmp/design
           pipeline audit --changed-files /tmp/changed --added-files /tmp/added \
+            --design-files /tmp/design \
             --ticket "${{ steps.audit_gate.outputs.key }}"
