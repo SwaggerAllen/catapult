@@ -1543,3 +1543,54 @@ prose, and every plan tier's `context:` says so in a comment rather
 than silently standing in for it. Revisit condition: the delivery
 system's context-source extension landing, at which point this is a
 one-line addition to five already-shaped `context:` lists.
+
+## No ownership-vocabulary-leak self-check or domain/presentational decision test carried into `sysarch.md.liquid`
+scope: system:platform_content
+
+(ORC-84, rework). Siege's sysarch carries two techniques alongside the
+domain/presentational subject matter the `domain_parent` entry above
+already voids: a **decision test** ("if you deleted this component,
+would the system lose state or business logic, or a way to expose
+state/events to outsiders?") for sorting a component into `<kind>`,
+and a **self-check** for `<owned-invariants>` / `<primary-operations>`
+text that watches for ownership words (`persist`, `atomically`,
+`commit`, `transaction`, `event log`, `consistency`, `concurrent
+write`) leaking into a presentational component's contract, on the
+theory that vocabulary belongs on the domain parent instead. Both are
+void for the same reason the `domain_parent` edge is, not a separate
+one: each technique's whole logic depends on two components sharing
+one graph with two different vocabularies — one that owns state and
+one that fronts it to outsiders — and this ticket's chain has only the
+first. There is no presentational component anywhere in scope for
+either technique to sort into or police against.
+
+The named anti-pattern list and the wrong/right worked-example pairs
+generalize past the void and are ported into `sysarch.md.liquid`'s
+naming and purpose rules, because a generic shell name and a purpose
+that parrots a larger scope are naming and framing failures any
+component can commit, backend or not. These two techniques don't
+generalize the same way: a decision test needs two categories to sort
+between, and a vocabulary-leak check needs a *different* component's
+contract for the vocabulary to have leaked from. Comparch's
+subcomponents don't have that split either — they divide along
+data/operation seams (writer / reader / cache) that are all equally
+"domain" in v4's vocabulary, so a subcomponent's invariant claiming
+"commits atomically" is never leaking someone else's ownership
+vocabulary, because there is no non-owning role for it to have leaked
+from. Inventing a same-shaped check there would be a plausible-sounding
+guess, not a port — no tier in the current chain has the two-sided
+structure either technique is checking, and comparch.md.liquid already
+carries its own, stronger mechanisms for the underlying worry (a
+subcomponent's contract text making a claim it doesn't back): "Names
+create semantic obligations" and the "Rationale, not inventory" final
+scan both catch category-speak and unbacked claims without needing a
+presentational/domain split to check against.
+
+Revisit condition: the same one the `domain_parent` entry above names
+— Phase 5's frontend/product tiers landing with a real backend/frontend
+split at some tier. At that point both techniques have a concrete site
+again (a frontend-facing tier classifying against its backend
+counterpart, and that tier's contract text needing a check against
+backend-ownership vocabulary leaking in) and are worth porting on
+their own merits, not guessed at now against a split that doesn't
+exist yet.
