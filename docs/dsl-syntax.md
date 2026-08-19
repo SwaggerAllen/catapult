@@ -666,6 +666,7 @@ when a workflow cutover removes the status it was parked at (v5 §6,
 | `backlog` | committed to nothing yet | author |
 | `queue` | committed, awaiting dispatch capacity | plane |
 | `generation` | an agent run producing artifacts | agent |
+| `critique` | an agent run reviewing a freshly produced draft | agent |
 | `fanout` | children in flight; progress rolls up | plane |
 | `checks` | CI running against produced work | world |
 | `merge` | reconciliation into the parent branch | agent |
@@ -699,9 +700,10 @@ makes them replaceable.
 
 **Agent steps**, the other half of what a chain's `delivery:` block
 may name (§3): `design` (produces a design-graph artifact for a
-tier), `dev` (implements a child scope), `reconcile`, `validate`
-(§7.11's repair loop), `boundary` (the milestone pass). Adding one is
-a platform change, reviewed as one.
+tier), `dev` (implements a child scope), `critique` (the review pass
+over a freshly produced draft), `reconcile`, `validate` (§7.11's
+repair loop), `boundary` (the milestone pass). Adding one is a
+platform change, reviewed as one.
 
 ### 15.2 `gates/<gate>.yaml` — a review status
 
