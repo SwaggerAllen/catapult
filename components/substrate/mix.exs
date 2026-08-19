@@ -36,7 +36,7 @@ defmodule Catapult.Substrate.MixProject do
   # compiled into `Catapult.Audit.License`: that module ships into every
   # generated project, and five identifiers inside it would be Catapult's
   # legal position imposed on codebases nobody here has read
-  # (docs/non-goals.md). A generated project gets these five written
+  # (systems/substrate.md). A generated project gets these five written
   # literally into its own mix.exs by `bundles/platform-elixir`
   # (systems/platform_content.md); substrate is not a generated project,
   # so it states them by hand.

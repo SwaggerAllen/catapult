@@ -12,7 +12,7 @@ defmodule Catapult.Config.Source do
   lifecycle a two-callback port does not model. There is no `all/0`
   either, and that one is firmer: a source free to volunteer names
   nobody declared puts values into the system behind the registry's
-  back, and the registry is the product (docs/non-goals.md).
+  back, and the registry is the product (systems/substrate.md).
 
   `opts` is the source's own settings, which cannot themselves come from
   the config layer — reading a config value to decide where config

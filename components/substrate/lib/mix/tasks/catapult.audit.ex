@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   The globs are rooted at the working directory and stay that way: this
   task ships into every generated project, so the layout of any one tree
-  is not a fact it may hold (docs/non-goals.md). Auditing a repo with
+  is not a fact it may hold (systems/substrate.md). Auditing a repo with
   more than one mix project means running it once per project — at the
   root of this one, `mix catapult.audit.all` does exactly that.
 

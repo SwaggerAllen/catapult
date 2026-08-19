@@ -56,7 +56,7 @@ defmodule Catapult.Audit.Declarations do
 
   The package's own CI is where its declarations meet its own `lib/`,
   which is exactly where this check already runs — once per mix project,
-  and never across the dependency closure (docs/non-goals.md).
+  and never across the dependency closure (systems/substrate.md).
   """
 
   alias Catapult.Audit.Source

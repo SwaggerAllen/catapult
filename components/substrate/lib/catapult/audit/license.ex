@@ -141,7 +141,7 @@ defmodule Catapult.Audit.License do
        one, or a value that is not a single bare token (no `OR`, `AND`,
        `WITH`, no parenthesis) does not resolve here — this rung parses
        a declaration, never identifies a license from prose, which is
-       the whole of why it is safe (`docs/non-goals.md`).
+       the whole of why it is safe (`systems/substrate.md`).
     4. `overrides:` — unchanged in shape, reached only once the first
        three came up empty. It can no longer *correct* a metadata value
        that parsed to something (rung 1 already answered), only *supply*
@@ -570,7 +570,7 @@ defmodule Catapult.Audit.License do
   # dependency's own LICENSE file — a *third-party* git dependency's
   # rung, since it declares no `licensing/0` for rung 2 to read.
   # Parses one line's own declared syntax; never identifies a license
-  # from prose (docs/non-goals.md).
+  # from prose (systems/substrate.md).
   @license_files ~w(LICENSE LICENSE.md LICENSE.txt COPYING)
 
   defp license_file_licenses(deps_path, app) do

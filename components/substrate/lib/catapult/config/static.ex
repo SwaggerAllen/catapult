@@ -31,7 +31,7 @@ defmodule Catapult.Config.Static do
 
   There is no `put/3` and no per-test override: a value that varies per
   test case is an argument wearing config's clothes, and the honest fix
-  is the function taking it (docs/non-goals.md).
+  is the function taking it (systems/substrate.md).
   """
 
   @behaviour Catapult.Config.Source

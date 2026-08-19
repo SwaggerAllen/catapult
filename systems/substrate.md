@@ -218,9 +218,10 @@ seeds release task.
   shape is what enforces it.** An entry names a check module and the
   scope it applies to; a glob that is absolute or climbs out with `..`
   is a reported problem, not a convention someone remembers.
-  `docs/non-goals.md` ruled out teaching `mix catapult.audit` where
-  this repository keeps its components, and a registration surface that
-  accepted `../../lib/**` would walk that reach back in through the
+  The gate-set decision below rules out teaching `mix catapult.audit`
+  where this repository keeps its components, and a registration
+  surface that accepted `../../lib/**` would walk that reach back in
+  through the
   front door while the task's own globs stayed innocent. Each mix
   project composes its own check set and runs the audit in its own
   directory; registration composes checks without touching that, which
@@ -520,6 +521,20 @@ seeds release task.
   fake living there is a fake every generated project has to write
   again — and writing it again is exactly how a test ends up reading
   real env, which is the rule the fake exists to keep.
+
+  **It is seeded once, statically, and offers no
+  `put_config(pid, key, value)`** — no process-dictionary scoping and
+  no ownership tree in the shape of the Ecto sandbox. A value that
+  varies per test case is an argument wearing config's clothes, and
+  the honest fix is the function taking it; the dishonest one costs
+  shared mutable state under `async: true`, which is the flake class
+  conventions §9 calls a protocol requirement to avoid, since two CI
+  reds escalate to a human. The case that would reopen this is a
+  boundary export whose behaviour must genuinely differ by a declared
+  config value within one suite, where passing it as an argument would
+  distort the production signature — real enough to name, and not yet
+  seen, which is why the sandbox's hardest feature is not built on
+  speculation.
 - **Vapor is not a substrate dependency.** The ticket's open question,
   answered against the placement this doc previously assumed (see
   *Depends on*). Measured rather than asserted: `vapor 0.10.0` — the
@@ -593,8 +608,8 @@ seeds release task.
   **The invoker that names both projects lives in the root
   `mix.exs`,** as a `catapult.audit.all` alias running
   `catapult.audit` and then `cmd --cd components/substrate mix
-  catapult.audit`. This is not the cross-project reach ruled out in
-  `docs/non-goals.md` and the distinction is the point: the shipped
+  catapult.audit`. This is not the cross-project reach ruled out
+  above and the distinction is the point: the shipped
   task stays cwd-rooted and layout-ignorant, while knowledge of
   where *this* repo keeps its components sits in this repo's own
   `mix.exs` — AGPL plane code that never reaches a hex consumer and
@@ -732,8 +747,9 @@ seeds release task.
   forget — `mix hex.build` in `components/substrate` today exits
   `Missing metadata fields: description, licenses, links`.
 
-  **What neither of them is, is a path.** `docs/non-goals.md` rules out
-  teaching this task where *this* repository keeps its components, and
+  **What neither of them is, is a path.** The gate-set decision above
+  rules out teaching this task where *this* repository keeps its
+  components, and
   ORC-16's own "for every mix project under `components/`" is that
   reach in its purest form. Since the review it is not even a true
   description of the tree: `components/*` will hold components that are
@@ -1054,6 +1070,22 @@ seeds release task.
   `external: true` draws, for the same reason: an escape exists where
   an outside party imposes something on us, and nowhere else.
 
+  **Nor is a minimal one-identifier `allow:` list the honest minimum
+  on a project whose check is unarmed.** A plane stating
+  `licensing: [allow: ["AGPL-3.0-only"]]` places its own subject,
+  prints the same `unchecked` census and is exactly as green today as
+  the full list, so the shorter one looks like the one that claims
+  less — and the no-hand-maintained-inventories rule looks like it
+  applies. It does not: the list is a policy statement about
+  acceptable terms, not a mirror of anything in the tree. The cost
+  lands entirely on the day some subject first arms the check, and it
+  is measured — against Catapult's five plus `AGPL-3.0-only` the
+  plane's closure produces one problem; against `["AGPL-3.0-only"]`
+  alone, one per dependency. That is a licensing policy written under
+  time pressure inside a diff that had another purpose. A list is
+  stated once and read whenever the check arms; writing it while
+  nothing is at stake is the only time it is cheap.
+
   **Licenses match as exact SPDX identifiers, with no normalization
   table and no reading of LICENSE text.** The cost is measured and, as
   of this pass, zero: every dependency in substrate's checked closure
@@ -1129,8 +1161,14 @@ seeds release task.
      is a single token — no internal whitespace, so no `OR`, `AND`,
      `WITH` or parenthesis — resolves to that token. A file with zero
      such lines, two or more, or one whose value is not a single token
-     does not resolve at this rung (`docs/non-goals.md` records the
-     boolean-expression refusal specifically). Nothing here reads a
+     does not resolve at this rung. `MIT OR Apache-2.0` is refused
+     deliberately and not by oversight: it is a real, formal SPDX
+     expression rather than prose, so declining to parse it reads as
+     an inconsistency the moment somebody hits one. `AND`/`OR`/`WITH`
+     and parentheses are a small grammar with precedence rules, and
+     shipping one into every generated project to save one human
+     reading one LICENSE file is the trade already declined for prose,
+     arriving through a more sympathetic door. Nothing here reads a
      LICENSE file's prose: the rung matches one line's own declared
      syntax and stops if it can't, never inferring what a paragraph of
      legal text means — the same distinction the no-normalization entry
@@ -1141,7 +1179,7 @@ seeds release task.
      so it silently corrects a present-but-unrecognized hex metadata
      value — the `nearly` fixture in `license_test.exs`, standing in for
      the real case this repo has measured, `cowboy_telemetry`'s
-     `["Apache 2.0"]` (`docs/non-goals.md`'s no-normalization entry).
+     `["Apache 2.0"]` (the no-normalization decision above).
      Under first-match-wins, rung 1 already answers for that dependency
      — a non-empty `licenses` list is a resolution whether or not any
      entry is a recognized identifier — so rung 4 is never reached for
@@ -1169,10 +1207,11 @@ seeds release task.
   missing or malformed `licensing/0` is still `undeclared_problems/1`'s
   concern for a component in the auditing project's own list, and a
   *dependency's* malformed `licensing/0` is that dependency's own
-  `mix catapult.audit` run's problem to report, per the no-widened-scope
-  entry `docs/non-goals.md` already holds for ORC-48 — never re-diagnosed
-  by a consumer). Rung 2's disagreeing modules and rung 3's disagreeing
-  declaration lines both refuse to average, vote, or prefer one. And the
+  `mix catapult.audit` run's problem to report — never re-diagnosed by
+  a consumer, for the reason the declared↔read check settles below:
+  the audit's scope is never widened to `deps/`). Rung 2's disagreeing
+  modules and rung 3's disagreeing declaration lines both refuse to
+  average, vote, or prefer one. And the
   rung order itself is the top-level instance: first to answer wins,
   nothing below is consulted once something above has — `overrides:`
   included, which no longer races hex metadata for a dependency it used
@@ -1219,6 +1258,21 @@ seeds release task.
   reason ORC-37 existed. Offline throughout: `:file.consult/1` over
   files `deps.get --check-locked` has already placed, so conventions
   §9's no-network rule reaches the audit without an exception.
+
+  **This walk is not shared with `Catapult.Audit.BoundaryApps`**, and
+  the obvious reuse argument is recorded rather than left to be made
+  again. The two closures answer different questions from different
+  sources: this one is *what a consumer would fetch*, read out of
+  publishers' `hex_metadata.config`, and it stops at a path dep
+  because a path dep is another mix project audited in its own right;
+  the boundary closure is *what this build can reach*, read out of
+  compiled `.app` files, and it must descend into a path dep because
+  the plane's `lib/` reaches `:plug` and `:telemetry` only through
+  `components/substrate`. Unifying them imports this walk's path-dep
+  exclusion into a check whose whole subject is applications nothing
+  constrains — a hole one level in, in the permissive direction. Two
+  answers to two questions is the correct count, and the day they
+  agree by coincidence is not the day to merge them.
 - **The check is a built-in of the task, in its own module, and is not
   a `Catapult.Audit.Check`** (ORC-16). `Catapult.Audit.License` holds
   the table, the closure and the report, because the audit is a check
@@ -1350,8 +1404,9 @@ build work at all.
   directory name.** §2.14's shorthand — arms "when `catapult_web`
   appears" — names a path in *this* repo, and a shipped, cwd-rooted
   task may not hold that fact any more than it may know where this repo
-  keeps its components (`docs/non-goals.md`). A generated project puts
-  its web layer wherever its own spine says; the dependency is the
+  keeps its components (the gate-set decision above). A generated
+  project puts its web layer wherever its own spine says; the
+  dependency is the
   thing that is true in all of them.
 - **The two VM guardrails are not one grade, and the registry should
   stop implying they are.** §2.5 says the BEAM enforces both. It
@@ -1542,7 +1597,8 @@ build work at all.
       one level in — the list of banned modules is Catapult's
       policy, and a policy compiled into a package that ships into
       trees we do not own is the `Catapult.Audit.License` allowlist
-      mistake, one registry over (`docs/non-goals.md`).
+      mistake, one registry over (the predicate-is-ours decision
+      above).
 
   The one thing `externals/0` still owes the audit needs no new field:
   an entry's `adapter:` and `fake:` must declare a behaviour in common.
@@ -1565,6 +1621,18 @@ build work at all.
   declining silently (ORC-16) — arriving a third time with no
   equivalent tell, so it gets the same treatment: a check, and a census
   line on every green run saying what the tell would have said.
+
+  **A plane-local test is not the cheap version of this.** An ExUnit
+  case in the plane's `test/catapult/` reading `Mix.Project.config()`
+  would hold the property for that one repository at a fraction of the
+  cost, and it is refused for what it does not do: every project this
+  task ships into has the same list and the same drift, and a test in
+  one plane's suite reaches none of them. The census is the second
+  reason — the complaint is that the fail-open has no tell, and a
+  passing test is not a tell where a line on stdout of every green run
+  naming what was checked and what could not be is. A test asserts;
+  the audit reports. The assertion half exists too, as unit tests in
+  this package's own suite, which is the project that owns the code.
 
   **The subject is what a `:prod` build can reach, and it is computed
   rather than listed.** Seed from the project's own `deps` that survive
@@ -1728,7 +1796,8 @@ used.
   glob is already this task's only definition of *code this project
   audits*, so the discriminator is the one fact the task is allowed to
   hold — the same reason sobelow's predicate is `:phoenix` in the tree
-  rather than `catapult_web` on disk (`docs/non-goals.md`). Measured on
+  rather than `catapult_web` on disk (the missing-gate decision
+  above). Measured on
   the pinned toolchain rather than assumed: `Catapult.Foundation` reports
   `<cwd>/lib/catapult/foundation.ex` and the path-dep'd `Catapult.Config`
   reports `<cwd>/components/substrate/lib/catapult/config.ex`, which
@@ -1777,7 +1846,7 @@ used.
   *a key nobody declared*, out loud, because the strict reading needs a
   path→component map and this task may never hold one — the audit
   learning which files belong to which component is the layout knowledge
-  `docs/non-goals.md` refuses at the task's front door. It is also the
+  the gate-set decision refuses at the task's front door. It is also the
   right narrowing on the merits: `fetch!/2` takes a slug precisely so a
   reader can name a value it does not own, `Catapult.Repo` is the tree's
   own example, and whether that coupling is acceptable is a boundary

@@ -6,7 +6,7 @@ import Config
 # reads the environment, and this one does not — the values live in the
 # file a developer edits, under review, with no untracked local file to
 # explain when someone's machine behaves differently from everyone
-# else's (docs/non-goals.md).
+# else's (systems/substrate.md).
 #
 # A seeded value is a string, like any value from any source: dev then
 # exercises the same declared cast the deployment does. Seeding

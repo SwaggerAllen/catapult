@@ -127,7 +127,7 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
   imposed on codebases nobody here has read. A project that states no
   list has *declined* the check and every run says so on stdout;
   there is no per-dependency waiver, and none is coming
-  (`docs/non-goals.md`). What the check honestly claims is that no
+  (`systems/substrate.md`). What the check honestly claims is that no
   dependency in a checked tree **declares** terms nobody accepted —
   hex metadata is the publisher's own assertion, and the counsel pass
   below is what verification would mean.

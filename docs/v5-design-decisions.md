@@ -3510,6 +3510,61 @@ already does.
 
 ---
 
+
+- **A bundle-authoring surface** (direction favored, not committed;
+  **out of the current spec, and deliberately not a non-goal**).
+  An earlier draft had it — v2 §A.11.6: "because the bundle is a typed
+  graph, it visualizes directly: tiers as boxes, edges as labeled
+  arrows with crow's-foot cardinality, predicates as badges opening an
+  expression builder", with bundle diffs rendering as diagram diffs,
+  "which makes bundle governance workable without reading YAML."
+  v5 dropped it without recording why, which is the actual gap: it is
+  absent from `docs/ui-spec.md` §6's deliberately-absent list, so
+  nothing says whether it was rejected or forgotten. It was forgotten.
+
+  **The rationale is the DSL's own premise.** Customization is why the
+  DSL exists rather than hard-coded chain logic. If customizing
+  requires learning YAML, that premise is half-delivered — the
+  capability ships and the audience for it doesn't. People will
+  hand-edit prompts to build their own differentiation whether or not
+  it is advisable, and that demand *is* the demand the DSL was built
+  to serve; refusing it a surface does not remove it, it just routes
+  it through a text editor with no guardrails.
+
+  **Two surfaces, not one, and they should not be conflated.**
+  *Structural* editing — tiers, edges, gates, environments — is a form
+  over a declaration, a solved shape. Half of it is already specified
+  rather than designed: `systems/dashboard.md`'s configuration prong
+  is "forms generated from declarations, save files a change through
+  the normal entry machinery, review stays in the PR", and
+  `ui-spec.md`'s `workflow` screen is read-only precisely because it
+  "routes editing to `configuration`". So the workflow axis is a
+  build. The chain axis — tiers, edges, and above all prompts — has no
+  screen and no mechanism.
+
+  *Prose* editing is the hard half and wants a different surface.
+  **Navigating to a prompt from the UI is worth having early and is
+  not the same as editing one**; reading is cheap and the reachability
+  is what makes the bundle feel like part of the product rather than a
+  file tree. But **the prompt revision surface plugs into the harness
+  (§10.2), not into a configuration form.** The evidence is this
+  repo's own: two passes over the default bundle destroyed 76% of the
+  prompt corpus by word count while believing they were improving it,
+  and the only thing that caught it was counting against a vendored
+  original. That safeguard is not expressible as a save button. A
+  prompt edit wants a scored campaign against a pinned baseline, which
+  is what the harness already is.
+
+  **AI-assisted editing of the YAML is out of scope and explicitly not
+  ruled out** — recorded so nobody files it as a non-goal later. Once
+  the visualization exists it is a small lift, and the graph is the
+  part that has to be right first.
+
+  Revisit condition: **the first customer.** Nice-to-have while the
+  only bundle authors are engineers who wrote the DSL; mandatory the
+  moment non-engineers are expected to participate in workflow
+  construction, which is the point at which "learn the configuration
+  DSL" stops being an acceptable answer.
 ## 9. One DSL: core and extensions
 
 **The commitment: a single DSL with a frozen core and codified
@@ -3656,6 +3711,23 @@ adapter). Budgets are campaign-scoped by construction:
 dispatch-count caps for agent campaigns (§7.12.1's budget
 machinery), adapter metering for completion campaigns — a run
 without a cap is a config error, not a choice.
+
+**Campaigns key off files and bundle commit shas, not only tier
+names.** The cohort machinery samples *scopes* by tier, which answers
+"how does this tier's prompt score" and not the two questions a prompt
+revision surface (§8) has to ask: score the variants of *this file*,
+and what changed between *these two bundle states*. A bundle sha is
+the addressable unit for the second — a prompt's score is only
+meaningful against the bundle it ran under, and "the prompt at the
+time" is otherwise unrecoverable once the file moves on. Cheap to
+build in, expensive to retrofit onto a corpus of campaign results
+already keyed the other way.
+
+**Whole-flow campaigns are wanted, beyond single-prompt ones.** A
+flow's quality is not the sum of its tiers' scores — the failure this
+chain actually produces is a handoff that degrades across tiers, each
+of which scores acceptably alone. Not scoped here; recorded so the
+campaign model is not designed in a way that forecloses it.
 
 Open (also in §8): the exact runtime-dialect boundary, and whether
 the app-facing harness mode ships with runtime v1 or follows.

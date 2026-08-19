@@ -62,7 +62,7 @@ loader tickets carry `system:core-dsl`.
   resolves them, which would put the constant back inside the check
   with an extra hop and leave a project unable to read what it is being
   held to. A project that edits the list is not evading a gate, it is
-  stating a policy — the distinction `docs/non-goals.md` records
+  stating a policy — the distinction `systems/substrate.md` records
   against the per-dependency waiver, which stays refused.
 
   Nothing here exists yet: `bundles/` arrives in Phase 3 and the check

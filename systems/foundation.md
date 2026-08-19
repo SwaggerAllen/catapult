@@ -144,6 +144,20 @@ reached only through their APIs per v5 §2.4).
   decision is what makes each of them a `deps:` line instead of a
   migration.
 
+  **The list is written, never derived** (ORC-50). Computing the
+  closure inside `boundary/0` at project-config time is the tempting
+  one-line version — nothing left to forget — and it fails on three
+  counts, in increasing weight. It runs on every mix invocation
+  including `deps.get`, before the compiled `.app` files the closure
+  reads exist. It is plane-local, so a generated project — whose
+  `mix.exs` comes from `bundles/platform-elixir` and whose list drifts
+  the same way — inherits nothing. And it deletes the artifact review
+  acts on: the list is the one place a human reads which applications
+  are constrained, and a derivation bug would narrow it silently and
+  in the permissive direction, which is the failure this ticket was
+  filed about wearing the fix's clothes. The check is the loud half;
+  the declaration is the readable half.
+
   **What it does not cover, so the gap is not mistaken for coverage:**
   Boundary documents that calls to `:elixir`, `:boundary` and pure
   Erlang applications cannot be restrained, so `:httpc` reaching a
@@ -273,6 +287,21 @@ reached only through their APIs per v5 §2.4).
   sanctioned use in this tree today — a tag covering no violation is
   itself reported, so an unused one prunes itself.
 
+  **The transport layer stays off the list** — `:gen_tcp`, `:ssl`,
+  `:socket` and friends. The obvious objection to banning named HTTP
+  clients is that a determined module can open a socket and write the
+  request bytes itself; the objection is correct and does not change
+  the answer. Those applications are what Postgres, the clustering
+  transport and every other legitimate connection ride on, so banning
+  them means an escape tag at every real call site, and a ban escaped
+  everywhere is a ban nobody reads. The trade is asymmetric in the
+  direction that decides it: a plane module reaching a provider
+  through `:httpc` is a mistake somebody makes, while one hand-rolling
+  HTTP over `:gen_tcp` is a deliberate evasion, and no check in this
+  repo is built to stop an author who is trying. The named list grows
+  by reviewed diff when a real client is missing from it; that is a
+  different move from descending a layer.
+
   **It is plane code**, at `Catapult.Foundation.Policies.ErlangHttp`,
   registered through foundation's `policies/0` against the
   working-directory-rooted scope every registered check takes. It may
@@ -284,7 +313,7 @@ reached only through their APIs per v5 §2.4).
   platform told it to. Being AGPL plane code is exactly what makes
   holding Catapult's own policy correct here, the same way
   `catapult.audit.all` is the sanctioned home for knowing this repo's
-  layout (`docs/non-goals.md`).
+  layout (`systems/substrate.md`).
 
   **Now, rather than at a milestone where it has something to catch.**
   The ticket offered Phase 4 and Phase 6 as homes, and both are wrong
@@ -382,7 +411,8 @@ reached only through their APIs per v5 §2.4).
   for the *proprietary-`:service`* reason — AGPL §13 obliging an offer
   of source to our own users — an AGPL dependency would pass a check
   whose entire reason is that it must not. That is one-list-per-project
-  behaving exactly as recorded (`docs/non-goals.md`), and the guard is
+  behaving exactly as recorded (`systems/substrate.md`), and the guard
+  is
   the decision below rather than a second list keyed by class.
 - **Every subject in the root project is `:service` under
   `AGPL-3.0-only`; a subject that is not belongs in another mix
@@ -399,7 +429,8 @@ reached only through their APIs per v5 §2.4).
   (`LICENSING.md`), and `components/*` are their own mix projects with
   their own lockfiles and their own `allow:` lists. A hosted-tier
   proprietary `:service` component under `LicenseRef-*` is its own mix
-  project too, for the reason `docs/non-goals.md` records: dependencies
+  project too, for the reason `systems/substrate.md` records:
+  dependencies
   are a mix project's fact, and a project needing two policies needs
   two dependency trees. So the day something in the plane's own tree
   wants a different class is the day it is not in the plane's own tree.
