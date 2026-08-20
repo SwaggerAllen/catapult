@@ -131,6 +131,30 @@ loader tickets carry `system:core-dsl`.
   parent-link edge (if one turns out to be needed) is Phase 5's
   decision when the frontend tiers it would serve actually land, not
   this ticket's to guess at.
+
+  **Siege's two sysarch techniques go with it, and are not reinvented
+  one level down.** The `<kind>` decision test ("would deleting this
+  component lose state or business logic, or a way to expose them to
+  outsiders?") and the ownership-vocabulary self-check (watching for
+  `persist`, `atomically`, `commit`, `transaction`, `event log`
+  leaking into a presentational component's contract) both need two
+  components in one graph with two vocabularies — one owning state,
+  one fronting it. This chain has only the first, so the decision test
+  has nothing to sort between and the leak check has no other contract
+  to have leaked from. Comparch's subcomponents are not that split
+  either: they divide on data/operation seams (writer, reader, cache)
+  that are all equally domain, so a subcomponent claiming "commits
+  atomically" is not borrowing someone else's ownership vocabulary —
+  there is no non-owning role for it to borrow from. A same-shaped
+  check built there would be a guess wearing a port's clothes, and the
+  worry underneath it — contract text making a claim it does not back
+  — already has stronger mechanisms in `comparch.md.liquid`: "Names
+  create semantic obligations" and the "Rationale, not inventory"
+  final scan. What *did* generalize is ported rather than dropped: the
+  named anti-pattern list and the wrong/right worked examples live in
+  `sysarch.md.liquid`'s naming and purpose rules, since a generic
+  shell name and a purpose that parrots a larger scope are failures
+  any component can commit, backend or not.
   **The `<owns>` block's un-fanned-out escape does not carry
   forward.** v4 let a comp with no natural subcomponent split skip
   fanning out to subcomponents entirely (impl attaching directly to
