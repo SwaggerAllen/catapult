@@ -8,19 +8,6 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
 
-  # Every id this module writes is namespaced to it. Async modules
-  # share one `engine_nodes` table and the Ecto sandbox isolates
-  # visibility, not row locks — two modules upserting the same primary
-  # key each take a lock the other waits on, and Postgres kills one
-  # with `ERROR 40P01 deadlock_detected`. Seen in CI, seed-dependent,
-  # and it had nothing to do with the diff that tripped it. Tests
-  # within a module run sequentially, so a per-module prefix is the
-  # whole of the fix.
-  @ns "ready_scopes"
-
-  defp nid(nil), do: nil
-  defp nid(id), do: @ns <> ":" <> id
-
   defp walk!(raw) do
     {:ok, walk} = ContextWalk.parse(raw)
     walk
@@ -30,19 +17,19 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
   defp node!(id, tier, opts) do
     Store.upsert_node(%{
-      id: nid(id),
+      id: id,
       project_id: "p1",
       tier: tier,
       scope_key: Keyword.get(opts, :scope_key, %{}),
-      parent_node_id: nid(Keyword.get(opts, :parent_node_id)),
+      parent_node_id: Keyword.get(opts, :parent_node_id),
       status: Keyword.get(opts, :status, :absent),
-      current_draft_id: nid(Keyword.get(opts, :current_draft_id))
+      current_draft_id: Keyword.get(opts, :current_draft_id)
     })
   end
 
   defp draft!(id, node_id, opts \\ []) do
     Store.insert_draft(%{
-      id: nid(id),
+      id: id,
       project_id: "p1",
       node_id: node_id,
       body_sha: "sha",
@@ -87,7 +74,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "comparch")
-    assert candidate.parent_node_id == nid("sysarch")
+    assert candidate.parent_node_id == "sysarch"
   end
 
   test "per(X) candidate is not ready when its own parent is not yet approved" do
@@ -130,7 +117,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "comp")
-    assert candidate.id == nid("comp1")
+    assert candidate.id == "comp1"
   end
 
   test "a review tier is never ready (dsl-syntax.md §3.3 — no draft: of its own)" do
@@ -167,12 +154,12 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       node!("resp1", "resp", scope_key: %{"n" => "resp1"})
 
       Store.insert_edge(%{
-        id: "fulfills|" <> nid("sysarch") <> "|" <> nid("resp1"),
+        id: "fulfills|sysarch|resp1",
         project_id: "p1",
         edge_name: "fulfills",
         type: :reference,
-        source_node_id: nid("sysarch"),
-        target_node_id: nid("resp1")
+        source_node_id: "sysarch",
+        target_node_id: "resp1"
       })
 
       chain =
@@ -188,7 +175,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
         ])
 
       assert [candidate] = ReadyScopes.ready(chain, "p1", "sysarch")
-      assert candidate.id == nid("sysarch")
+      assert candidate.id == "sysarch"
     end
 
     test "a named predicate in Chain.predicates resolves the same way an inline one does" do
@@ -226,13 +213,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
     test "a reviewed tier's node with a current draft and no review is ready to review" do
       node!("comp1", "comp", status: :drafted, current_draft_id: "draft1")
-      draft!("draft1", nid("comp1"))
+      draft!("draft1", "comp1")
 
       chain =
         chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
 
       assert [candidate] = ReadyScopes.ready_review(chain, "p1", "comp_review")
-      assert candidate.id == nid("comp1")
+      assert candidate.id == "comp1"
     end
 
     test "a node with no current draft is not ready to review" do
@@ -244,12 +231,12 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
     test "a node whose current draft already has a review is not ready to review again" do
       node!("comp1", "comp", status: :drafted, current_draft_id: "draft1")
-      draft!("draft1", nid("comp1"))
+      draft!("draft1", "comp1")
 
       Store.insert_review(%{
-        id: nid("review1"),
+        id: "review1",
         project_id: "p1",
-        draft_id: nid("draft1"),
+        draft_id: "draft1",
         score: 90,
         findings: [],
         body_sha: "sha",
@@ -267,7 +254,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       node =
         node!("comp1", "comp",
-          scope_key: %{"per" => nid("sysarch")},
+          scope_key: %{"per" => "sysarch"},
           parent_node_id: "sysarch"
         )
 
@@ -291,7 +278,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       assert [%{walk: "self.parent.handle", satisfied: false, targets: [target]}] =
                report.blocking
 
-      assert target.node_id == nid("sysarch")
+      assert target.node_id == "sysarch"
       assert target.status == :drafted
     end
 
@@ -300,7 +287,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       node =
         node!("comp1", "comp",
-          scope_key: %{"per" => nid("sysarch")},
+          scope_key: %{"per" => "sysarch"},
           parent_node_id: "sysarch"
         )
 
