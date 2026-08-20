@@ -59,24 +59,20 @@ defmodule Catapult.Engine do
 
   @impl Catapult.Component
   def children do
-    # The event store module is only a supervised child under the
-    # persistent adapter (dev/prod, `config/{dev,prod}.exs`) — test
-    # runs `Commanded.EventStore.Adapters.InMemory`, which starts its
-    # own process as part of `Catapult.Engine.Application`'s own
-    # supervision tree instead (v5 §2.4's env-switched adapter).
-    case event_store_adapter() do
-      Commanded.EventStore.Adapters.EventStore ->
-        [Catapult.Engine.EventStore, Catapult.Engine.Application, Catapult.Engine.Projector]
-
-      _other ->
-        [Catapult.Engine.Application, Catapult.Engine.Projector]
-    end
-  end
-
-  defp event_store_adapter do
-    :catapult
-    |> Application.get_env(Catapult.Engine.Application, [])
-    |> Keyword.get(:event_store, [])
-    |> Keyword.get(:adapter)
+    # `Catapult.Engine.EventStore` is deliberately absent, in every
+    # environment: the Commanded adapter starts it. Its `child_spec/2`
+    # pops `event_store:` out of the configured keyword list and
+    # returns `[{event_store, config}]`, so the module is already a
+    # child of this application's own supervision tree — under its own
+    # module name, since nothing passes a `name:` to disambiguate.
+    # Listing it here as well started it twice under one registered
+    # name: the composer's start won, the adapter's returned
+    # `{:error, {:already_started, _}}`, and the Commanded supervisor
+    # took the boot down with it. Only the persistent adapter reaches
+    # that path — test runs `Commanded.EventStore.Adapters.InMemory`,
+    # which has no such child — so the whole suite passed while every
+    # deploy crash-looped (`event_store.ex`'s own moduledoc had it
+    # right; this function disagreed with it).
+    [Catapult.Engine.Application, Catapult.Engine.Projector]
   end
 end
