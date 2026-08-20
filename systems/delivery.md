@@ -24,7 +24,8 @@ teams reporting into a larger org's system, with no inbound write
 path (`docs/non-goals.md`) — and it is a product feature, not a
 dependency of the loop.
 
-**There is no cutover, because there is nothing to cut over from.**
+**There is no tracker cutover, because there is nothing to cut over
+from.**
 The reversal landed before any tracker integration was written, so
 the plane never acquires one. Orchestration builds Catapult and
 orchestration uses Linear; that is a different system running a
