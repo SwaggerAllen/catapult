@@ -35,6 +35,7 @@ defmodule Catapult.Engine.EventStore do
      config
      |> Keyword.merge(Secret.unwrap(Config.fetch!(:foundation, :database_url)))
      |> Keyword.put(:schema, "eventstore")
+     |> Keyword.put(:pool_size, Config.fetch!(:engine, :event_store_pool_size))
      # Commanded's own serializer (its moduledoc's own recommendation):
      # it round-trips the versioned event structs this component
      # emits, including their atom-keyed fields, which the library's

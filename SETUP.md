@@ -90,6 +90,18 @@ The facts a future session needs, recorded as facts:
   environment at all. `DATABASE_URL` keeps its name because App
   Platform injects it: it is the one declaration flagged
   `external: true`.
+- **The cluster allows 22 connections, and that is a budget three
+  pools share** (ORC-6's deploy failed on it): `Catapult.Repo`
+  (`FOUNDATION_POOL_SIZE`), the event store's own Postgrex pool
+  (`ENGINE_EVENT_STORE_POOL_SIZE`), and one connection each for
+  Oban's and the event store's notification listeners. Two of those
+  totals are live at once during a rolling deploy, and the PRE_DEPLOY
+  migrator adds its own two against the instance still being
+  replaced, so the sizing rule is **2 × (both pools + 2) ≤ 19**,
+  leaving the cluster's maintenance reserve alone. Both are set to
+  **3** on the instance; the code defaults are 10, which is right for
+  a database that is not this one. Raising the plan raises the
+  number, which is why it lives here and not in a comment.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
