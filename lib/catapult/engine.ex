@@ -15,6 +15,23 @@ defmodule Catapult.Engine do
   def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
 
   @impl Catapult.Component
+  def config do
+    [
+      # The event store runs its own Postgrex pool, separate from
+      # `Catapult.Repo`'s, against the same database (its `init/1`).
+      # Declared rather than left to the library's default because the
+      # connection budget is shared and finite (SETUP.md §2 records
+      # the reference instance's limit and the sizing that follows
+      # from it) and an inherited default is a number nobody chose
+      # competing for it. An instance
+      # tunable, so it comes from the environment
+      # (`systems/foundation.md`'s build-shape/instance-shape line),
+      # with the same default `FOUNDATION_POOL_SIZE` carries.
+      {:event_store_pool_size, "ENGINE_EVENT_STORE_POOL_SIZE", cast: :integer, default: "10"}
+    ]
+  end
+
+  @impl Catapult.Component
   def events, do: Events.registry()
 
   @impl Catapult.Component
