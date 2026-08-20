@@ -28,7 +28,7 @@ defmodule Catapult.Foundation do
       # spine check can stay armed for the two below.
       {:database_url, "DATABASE_URL",
        cast: &__MODULE__.cast_database_url/1, secret: true, external: true},
-      {:pool_size, "FOUNDATION_POOL_SIZE", cast: :integer, default: "10"},
+      {:pool_size, "FOUNDATION_POOL_SIZE", cast: :integer, default: "2"},
       # Deliberately not PORT: this is the app's HTTP listener (the
       # health endpoint). App Platform routes public traffic to 8080 and
       # that isn't changeable in its UI, so 8080 is the default and this
