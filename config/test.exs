@@ -13,9 +13,21 @@ database_url =
     "#{System.get_env("PGPASSWORD", "catapult")}@" <>
     "#{System.get_env("PGHOST", "localhost")}/catapult_test"
 
-config :catapult,
-       :config_source,
-       {Catapult.Config.Static, %{"DATABASE_URL" => database_url}}
+# The pool sizes are seeded here for the same reason, and they are
+# deliberately *not* the declared defaults: those are sized for the one
+# managed cluster this code deploys to, whose whole limit is 22
+# (SETUP.md §2). The test database is a container with `max_connections
+# 100` and the sandbox checks out a connection per async test process,
+# so the production ceiling has no authority over this suite — seeding
+# them keeps the two independent instead of coupling every test run's
+# concurrency to a deployment's constraint.
+config_seed = %{
+  "DATABASE_URL" => database_url,
+  "FOUNDATION_POOL_SIZE" => "10",
+  "ENGINE_EVENT_STORE_POOL_SIZE" => "10"
+}
+
+config :catapult, :config_source, {Catapult.Config.Static, config_seed}
 
 # The sandbox pool is genuinely a harness switch and not a connection
 # parameter: it selects what this build starts, which is the line

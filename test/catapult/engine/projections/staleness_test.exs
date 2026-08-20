@@ -7,6 +7,19 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   alias Catapult.Engine.Projections.Staleness
   alias Catapult.Engine.Store
 
+  # Every id this module writes is namespaced to it. Async modules
+  # share one `engine_nodes` table and the Ecto sandbox isolates
+  # visibility, not row locks — two modules upserting the same primary
+  # key each take a lock the other waits on, and Postgres kills one
+  # with `ERROR 40P01 deadlock_detected`. Seen in CI, seed-dependent,
+  # and it had nothing to do with the diff that tripped it. Tests
+  # within a module run sequentially, so a per-module prefix is the
+  # whole of the fix.
+  @ns "staleness"
+
+  defp nid(nil), do: nil
+  defp nid(id), do: @ns <> ":" <> id
+
   defp walk!(raw) do
     {:ok, walk} = ContextWalk.parse(raw)
     walk
@@ -18,11 +31,11 @@ defmodule Catapult.Engine.Projections.StalenessTest do
 
   defp node!(id, tier, opts) do
     Store.upsert_node(%{
-      id: id,
+      id: nid(id),
       project_id: "p1",
       tier: tier,
       scope_key: Keyword.get(opts, :scope_key, %{}),
-      parent_node_id: Keyword.get(opts, :parent_node_id),
+      parent_node_id: nid(Keyword.get(opts, :parent_node_id)),
       status: Keyword.get(opts, :status, :approved),
       committed_sequence: Keyword.get(opts, :committed_sequence)
     })
@@ -55,12 +68,12 @@ defmodule Catapult.Engine.Projections.StalenessTest do
     comp = node!("comp", "comp", committed_sequence: 5)
 
     Store.insert_edge(%{
-      id: "fulfills|comp|resp",
+      id: nid("fulfills|comp|resp"),
       project_id: "p1",
       edge_name: "fulfills",
       type: :reference,
-      source_node_id: "comp",
-      target_node_id: "resp"
+      source_node_id: nid("comp"),
+      target_node_id: nid("resp")
     })
 
     assert Staleness.stale?(chain, comp)
@@ -78,12 +91,12 @@ defmodule Catapult.Engine.Projections.StalenessTest do
     comp = node!("comp", "comp", committed_sequence: 5)
 
     Store.insert_edge(%{
-      id: "fulfills|comp|resp",
+      id: nid("fulfills|comp|resp"),
       project_id: "p1",
       edge_name: "fulfills",
       type: :reference,
-      source_node_id: "comp",
-      target_node_id: "resp"
+      source_node_id: nid("comp"),
+      target_node_id: nid("resp")
     })
 
     refute Staleness.stale?(chain, comp)
