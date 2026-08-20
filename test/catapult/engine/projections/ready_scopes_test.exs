@@ -33,7 +33,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       project_id: "p1",
       tier: tier,
       scope_key: Keyword.get(opts, :scope_key, %{}),
-      parent_node_id: Keyword.get(opts, :parent_node_id),
+      parent_node_id: nid(Keyword.get(opts, :parent_node_id)),
       status: Keyword.get(opts, :status, :absent)
     })
   end
