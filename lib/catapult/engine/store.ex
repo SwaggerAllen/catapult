@@ -37,13 +37,14 @@ defmodule Catapult.Engine.Store do
   @spec upsert_node(map()) :: Node.t()
   def upsert_node(attrs) do
     id = Map.fetch!(attrs, :id)
+    project_id = Map.fetch!(attrs, :project_id)
     replace = Map.keys(Map.delete(attrs, :id))
 
-    %Node{id: id}
+    %Node{id: id, project_id: project_id}
     |> Ecto.Changeset.change(attrs)
     |> Repo.insert!(
       on_conflict: {:replace, replace},
-      conflict_target: :id
+      conflict_target: [:project_id, :id]
     )
   end
 
@@ -62,13 +63,18 @@ defmodule Catapult.Engine.Store do
     end
   end
 
-  @spec get_node(binary()) :: Node.t() | nil
-  def get_node(id), do: Repo.get(Node, id)
+  @doc "A node is addressed by `(project_id, id)` — a bare id is not unique across projects (ORC-87)."
+  @spec get_node(binary(), binary()) :: Node.t() | nil
+  def get_node(project_id, id), do: Repo.get_by(Node, project_id: project_id, id: id)
 
   @doc "Marks an existing node approved (`DraftApproved`) — an update, not an upsert: the row already exists."
-  @spec approve_node(binary()) :: :ok
-  def approve_node(id) do
-    Repo.update_all(from(n in Node, where: n.id == ^id), set: [status: :approved])
+  @spec approve_node(binary(), binary()) :: :ok
+  def approve_node(project_id, id) do
+    Repo.update_all(
+      from(n in Node, where: n.project_id == ^project_id and n.id == ^id),
+      set: [status: :approved]
+    )
+
     :ok
   end
 
@@ -100,20 +106,30 @@ defmodule Catapult.Engine.Store do
     |> Ecto.Changeset.change(attrs)
     |> Repo.insert!(
       on_conflict: :nothing,
-      conflict_target: [:edge_name, :source_node_id, :target_node_id]
+      conflict_target: [:project_id, :edge_name, :source_node_id, :target_node_id]
     )
   end
 
   @doc "Every edge instance walking forward from `node_id` along `edge_name` (dsl-syntax.md §7)."
-  @spec edges_from(binary(), String.t()) :: [Edge.t()]
-  def edges_from(node_id, edge_name) do
-    Repo.all(from e in Edge, where: e.source_node_id == ^node_id and e.edge_name == ^edge_name)
+  @spec edges_from(binary(), binary(), String.t()) :: [Edge.t()]
+  def edges_from(project_id, node_id, edge_name) do
+    Repo.all(
+      from e in Edge,
+        where:
+          e.project_id == ^project_id and e.source_node_id == ^node_id and
+            e.edge_name == ^edge_name
+    )
   end
 
   @doc "Every edge instance walking reversed from `node_id` along `edge_name` (§7.1's `~` suffix)."
-  @spec edges_to(binary(), String.t()) :: [Edge.t()]
-  def edges_to(node_id, edge_name) do
-    Repo.all(from e in Edge, where: e.target_node_id == ^node_id and e.edge_name == ^edge_name)
+  @spec edges_to(binary(), binary(), String.t()) :: [Edge.t()]
+  def edges_to(project_id, node_id, edge_name) do
+    Repo.all(
+      from e in Edge,
+        where:
+          e.project_id == ^project_id and e.target_node_id == ^node_id and
+            e.edge_name == ^edge_name
+    )
   end
 
   @doc """
@@ -121,9 +137,9 @@ defmodule Catapult.Engine.Store do
   language's unrestricted `reaches/2` walk (dsl-syntax.md §8), which
   names no edge the way `has_edge`/`count`/a context-walk hop do.
   """
-  @spec edges_from(binary()) :: [Edge.t()]
-  def edges_from(node_id) do
-    Repo.all(from e in Edge, where: e.source_node_id == ^node_id)
+  @spec edges_from(binary(), binary()) :: [Edge.t()]
+  def edges_from(project_id, node_id) do
+    Repo.all(from e in Edge, where: e.project_id == ^project_id and e.source_node_id == ^node_id)
   end
 
   ## Fragments
@@ -132,7 +148,7 @@ defmodule Catapult.Engine.Store do
   def insert_fragment(attrs) do
     %Fragment{}
     |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(on_conflict: :nothing, conflict_target: :id)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
   end
 
   @spec fragments(binary(), String.t()) :: [Fragment.t()]
@@ -146,11 +162,11 @@ defmodule Catapult.Engine.Store do
   def insert_draft(attrs) do
     %Draft{}
     |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(on_conflict: :nothing, conflict_target: :id)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
   end
 
-  @spec get_draft(binary()) :: Draft.t() | nil
-  def get_draft(id), do: Repo.get(Draft, id)
+  @spec get_draft(binary(), binary()) :: Draft.t() | nil
+  def get_draft(project_id, id), do: Repo.get_by(Draft, project_id: project_id, id: id)
 
   @spec set_draft_status(binary(), :approved | :discarded) :: :ok
   def set_draft_status(id, status) do
@@ -164,7 +180,7 @@ defmodule Catapult.Engine.Store do
   def insert_review(attrs) do
     %Review{}
     |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(on_conflict: :nothing, conflict_target: :id)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
   end
 
   @spec reviews_for_draft(binary()) :: [Review.t()]
@@ -178,7 +194,7 @@ defmodule Catapult.Engine.Store do
   def insert_flow(attrs) do
     %Flow{}
     |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(on_conflict: :nothing, conflict_target: :id)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
   end
 
   @spec complete_flow(binary(), integer()) :: :ok
@@ -190,8 +206,8 @@ defmodule Catapult.Engine.Store do
     :ok
   end
 
-  @spec get_flow(binary()) :: Flow.t() | nil
-  def get_flow(id), do: Repo.get(Flow, id)
+  @spec get_flow(binary(), binary()) :: Flow.t() | nil
+  def get_flow(project_id, id), do: Repo.get_by(Flow, project_id: project_id, id: id)
 
   ## Active bundle versions — the ninth projection
 
@@ -199,7 +215,7 @@ defmodule Catapult.Engine.Store do
   def flip_active_bundle_version(attrs) do
     %ActiveBundleVersion{}
     |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(on_conflict: :nothing, conflict_target: :id)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
   end
 
   @doc """

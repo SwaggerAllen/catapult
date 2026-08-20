@@ -43,7 +43,9 @@ defmodule Catapult.Engine.Projections.ContextResolver do
   end
 
   defp parent_of(%Node{parent_node_id: nil}), do: nil
-  defp parent_of(%Node{parent_node_id: id}), do: Store.get_node(id)
+
+  defp parent_of(%Node{project_id: project_id, parent_node_id: id}),
+    do: Store.get_node(project_id, id)
 
   # Each hop fans a set of "current" walkers out to the next set,
   # following the edge forward (source -> target) or reversed (§7.1's
@@ -58,11 +60,15 @@ defmodule Catapult.Engine.Projections.ContextResolver do
     end)
   end
 
-  defp landings(%{edge: edge_name, reversed?: false}, %Node{id: id}) do
-    id |> Store.edges_from(edge_name) |> Enum.map(&Store.get_node(&1.target_node_id))
+  defp landings(%{edge: edge_name, reversed?: false}, %Node{project_id: project_id, id: id}) do
+    project_id
+    |> Store.edges_from(id, edge_name)
+    |> Enum.map(&Store.get_node(project_id, &1.target_node_id))
   end
 
-  defp landings(%{edge: edge_name, reversed?: true}, %Node{id: id}) do
-    id |> Store.edges_to(edge_name) |> Enum.map(&Store.get_node(&1.source_node_id))
+  defp landings(%{edge: edge_name, reversed?: true}, %Node{project_id: project_id, id: id}) do
+    project_id
+    |> Store.edges_to(id, edge_name)
+    |> Enum.map(&Store.get_node(project_id, &1.source_node_id))
   end
 end

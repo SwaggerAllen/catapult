@@ -10,7 +10,7 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   caller.
 
   A path segment is always an edge name walked forward from the anchor
-  (`Store.edges_from/2`) — the predicate grammar has no `~` reversal,
+  (`Store.edges_from/3`) — the predicate grammar has no `~` reversal,
   unlike a context walk's hops. The final segment of a `field`/compare
   path is read off the landed node(s)' own `fields` map; multiple
   landings take the first rather than fan a scalar comparison out
@@ -53,10 +53,10 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   end
 
   def eval({:field, path}, node), do: truthy?(field_value(path, node))
-  def eval({:has_edge, edge}, node), do: Store.edges_from(node.id, edge) != []
+  def eval({:has_edge, edge}, node), do: Store.edges_from(node.project_id, node.id, edge) != []
 
   def eval({:count, edge, cmp, n}, node) do
-    compare(cmp, length(Store.edges_from(node.id, edge)), n)
+    compare(cmp, length(Store.edges_from(node.project_id, node.id, edge)), n)
   end
 
   def eval({:exists, path, predicate}, node) do
@@ -96,9 +96,9 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   defp walk([], node), do: [node]
 
   defp walk([edge | rest], node) do
-    node.id
-    |> Store.edges_from(edge)
-    |> Enum.map(&Store.get_node(&1.target_node_id))
+    node.project_id
+    |> Store.edges_from(node.id, edge)
+    |> Enum.map(&Store.get_node(node.project_id, &1.target_node_id))
     |> Enum.reject(&is_nil/1)
     |> Enum.flat_map(&walk(rest, &1))
   end
@@ -119,32 +119,32 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   ## reaches(a, b, via: [...]) — self-anchored, breadth-first
 
   defp reaches?(%Node{tier: from_tier} = node, from_tier, to_tier, via) do
-    bfs(MapSet.new([node.id]), [node], to_tier, via)
+    bfs(node.project_id, MapSet.new([node.id]), [node], to_tier, via)
   end
 
   defp reaches?(_node, _from_tier, _to_tier, _via), do: false
 
-  defp bfs(_visited, [], _to_tier, _via), do: false
+  defp bfs(_project_id, _visited, [], _to_tier, _via), do: false
 
-  defp bfs(visited, [current | rest], to_tier, via) do
+  defp bfs(project_id, visited, [current | rest], to_tier, via) do
     neighbors =
       current.id
-      |> outgoing(via)
+      |> outgoing(project_id, via)
       |> Enum.map(& &1.target_node_id)
       |> Enum.reject(&MapSet.member?(visited, &1))
-      |> Enum.map(&Store.get_node/1)
+      |> Enum.map(&Store.get_node(project_id, &1))
       |> Enum.reject(&is_nil/1)
 
     if Enum.any?(neighbors, &(&1.tier == to_tier)) do
       true
     else
       visited = Enum.reduce(neighbors, visited, &MapSet.put(&2, &1.id))
-      bfs(visited, rest ++ neighbors, to_tier, via)
+      bfs(project_id, visited, rest ++ neighbors, to_tier, via)
     end
   end
 
-  defp outgoing(node_id, []), do: Store.edges_from(node_id)
+  defp outgoing(node_id, project_id, []), do: Store.edges_from(project_id, node_id)
 
-  defp outgoing(node_id, edge_names),
-    do: Enum.flat_map(edge_names, &Store.edges_from(node_id, &1))
+  defp outgoing(node_id, project_id, edge_names),
+    do: Enum.flat_map(edge_names, &Store.edges_from(project_id, node_id, &1))
 end

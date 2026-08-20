@@ -1,14 +1,6 @@
 defmodule Catapult.Engine.ReducerTest do
   use Catapult.DataCase, async: true
 
-  # Node ids here are prefixed for the same reason the projection
-  # tests namespace theirs: `Reducer.apply/2` writes `id: event.node_id`
-  # straight into `engine_nodes`, whose primary key is that id alone —
-  # so a bare "sysarch" collides with every other async module using
-  # the name, and the sandbox isolates visibility rather than row
-  # locks. The distinct `project_id` per test does not help; the
-  # primary key does not include it.
-
   import Ecto.Query
 
   alias Catapult.Engine.Events.ActiveBundleFlipped
@@ -39,8 +31,8 @@ defmodule Catapult.Engine.ReducerTest do
     [
       %DraftCommitted{
         project_id: project_id,
-        node_id: "reducer:sysarch",
-        tier: "reducer:sysarch",
+        node_id: "sysarch",
+        tier: "sysarch",
         scope_key: %{},
         draft_id: "draft-sysarch-1",
         body_sha: "sha-sysarch-1",
@@ -49,33 +41,33 @@ defmodule Catapult.Engine.ReducerTest do
         fields: %{"name" => "root"},
         mints: [
           %{
-            node_id: "reducer:comp1",
+            node_id: "comp1",
             tier: "comp",
-            scope_key: %{"name" => "reducer:comp1"},
+            scope_key: %{"name" => "comp1"},
             edge_name: "decomposition",
             edge_type: :fanout
           },
           %{
-            node_id: "reducer:comp2",
+            node_id: "comp2",
             tier: "comp",
-            scope_key: %{"name" => "reducer:comp2"},
+            scope_key: %{"name" => "comp2"},
             edge_name: "decomposition",
             edge_type: :fanout
           }
         ],
         edges: [],
-        produces: [%{owner_node_id: "reducer:sysarch", kind: "techspec", content: "spec text"}]
+        produces: [%{owner_node_id: "sysarch", kind: "techspec", content: "spec text"}]
       },
       %DraftCommitted{
         project_id: project_id,
-        node_id: "reducer:comp1",
+        node_id: "comp1",
         tier: "comp",
-        scope_key: %{"name" => "reducer:comp1"},
-        parent_node_id: "reducer:sysarch",
+        scope_key: %{"name" => "comp1"},
+        parent_node_id: "sysarch",
         draft_id: "draft-comp1-1",
         body_sha: "sha-comp1-1",
         committed_at: @committed_at,
-        fields: %{"name" => "reducer:comp1"}
+        fields: %{"name" => "comp1"}
       },
       %ReviewWritten{
         project_id: project_id,
@@ -85,23 +77,23 @@ defmodule Catapult.Engine.ReducerTest do
         findings: [%{"id" => "f1", "message" => "looks good"}],
         kind: :ai
       },
-      %DraftApproved{project_id: project_id, node_id: "reducer:comp1", draft_id: "draft-comp1-1"},
+      %DraftApproved{project_id: project_id, node_id: "comp1", draft_id: "draft-comp1-1"},
       %DraftCommitted{
         project_id: project_id,
-        node_id: "reducer:comp2",
+        node_id: "comp2",
         tier: "comp",
-        scope_key: %{"name" => "reducer:comp2"},
-        parent_node_id: "reducer:sysarch",
+        scope_key: %{"name" => "comp2"},
+        parent_node_id: "sysarch",
         draft_id: "draft-comp2-1",
         body_sha: "sha-comp2-1",
         committed_at: @committed_at,
-        fields: %{"name" => "reducer:comp2"}
+        fields: %{"name" => "comp2"}
       },
       %FlowOpened{
         project_id: project_id,
         flow_id: "flow-1",
         flow_name: "capability",
-        entry_node_id: "reducer:sysarch",
+        entry_node_id: "sysarch",
         ticket_ref: "TICKET-1"
       },
       %FlowCompleted{project_id: project_id, flow_id: "flow-1"},
@@ -215,29 +207,29 @@ defmodule Catapult.Engine.ReducerTest do
       project_id = "draft-commit-project"
       apply_all(scenario(project_id), project_id)
 
-      sysarch = Store.get_node("reducer:sysarch")
+      sysarch = Store.get_node(project_id, "sysarch")
       assert sysarch.status == :drafted
       assert sysarch.fields == %{"name" => "root"}
       assert sysarch.committed_sequence == 1
 
-      comp1 = Store.get_node("reducer:comp1")
-      assert comp1.parent_node_id == "reducer:sysarch"
+      comp1 = Store.get_node(project_id, "comp1")
+      assert comp1.parent_node_id == "sysarch"
       # comp1's own draft (event 2) landed after the mint (event 1), so
       # its final status is :approved (event 4), not the mint's :absent.
       assert comp1.status == :approved
 
-      comp2 = Store.get_node("reducer:comp2")
-      assert comp2.parent_node_id == "reducer:sysarch"
+      comp2 = Store.get_node(project_id, "comp2")
+      assert comp2.parent_node_id == "sysarch"
       assert comp2.status == :drafted
 
-      edges = Store.edges_from("reducer:sysarch", "decomposition")
+      edges = Store.edges_from(project_id, "sysarch", "decomposition")
       assert length(edges) == 2
       assert Enum.all?(edges, &(&1.type == :fanout))
 
-      [fragment] = Store.fragments("reducer:sysarch", "techspec")
+      [fragment] = Store.fragments("sysarch", "techspec")
       assert fragment.content == "spec text"
-      assert fragment.author_node_id == "reducer:sysarch"
-      assert fragment.author_tier == "reducer:sysarch"
+      assert fragment.author_node_id == "sysarch"
+      assert fragment.author_tier == "sysarch"
     end
   end
 
@@ -246,7 +238,7 @@ defmodule Catapult.Engine.ReducerTest do
       project_id = "approve-project"
       apply_all(scenario(project_id), project_id)
 
-      draft = Store.get_draft("draft-comp1-1")
+      draft = Store.get_draft(project_id, "draft-comp1-1")
       assert draft.status == :approved
     end
 
@@ -256,7 +248,7 @@ defmodule Catapult.Engine.ReducerTest do
       Reducer.apply(
         %DraftCommitted{
           project_id: project_id,
-          node_id: "reducer:n1",
+          node_id: "n1",
           tier: "comp",
           scope_key: %{},
           draft_id: "d1",
@@ -269,15 +261,15 @@ defmodule Catapult.Engine.ReducerTest do
       Reducer.apply(
         %DraftDiscarded{
           project_id: project_id,
-          node_id: "reducer:n1",
+          node_id: "n1",
           draft_id: "d1",
           reason: "wrong shape"
         },
         %{stream_version: 2}
       )
 
-      assert Store.get_draft("d1").status == :discarded
-      assert Store.get_node("reducer:n1").status == :drafted
+      assert Store.get_draft(project_id, "d1").status == :discarded
+      assert Store.get_node(project_id, "n1").status == :drafted
     end
   end
 

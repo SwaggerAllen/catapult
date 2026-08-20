@@ -5,19 +5,6 @@ defmodule Catapult.Engine.Projections.ContextResolverTest do
   alias Catapult.Engine.Projections.ContextResolver
   alias Catapult.Engine.Store
 
-  # Every id this module writes is namespaced to it. Async modules
-  # share one `engine_nodes` table and the Ecto sandbox isolates
-  # visibility, not row locks — two modules upserting the same primary
-  # key each take a lock the other waits on, and Postgres kills one
-  # with `ERROR 40P01 deadlock_detected`. Seen in CI, seed-dependent,
-  # and it had nothing to do with the diff that tripped it. Tests
-  # within a module run sequentially, so a per-module prefix is the
-  # whole of the fix.
-  @ns "context_resolver"
-
-  defp nid(nil), do: nil
-  defp nid(id), do: @ns <> ":" <> id
-
   defp walk!(raw) do
     {:ok, walk} = ContextWalk.parse(raw)
     walk
@@ -25,11 +12,11 @@ defmodule Catapult.Engine.Projections.ContextResolverTest do
 
   defp node!(id, tier, opts \\ []) do
     Store.upsert_node(%{
-      id: nid(id),
+      id: id,
       project_id: Keyword.get(opts, :project_id, "p1"),
       tier: tier,
       scope_key: Keyword.get(opts, :scope_key, %{}),
-      parent_node_id: nid(Keyword.get(opts, :parent_node_id)),
+      parent_node_id: Keyword.get(opts, :parent_node_id),
       status: Keyword.get(opts, :status, :absent)
     })
   end
@@ -60,12 +47,12 @@ defmodule Catapult.Engine.Projections.ContextResolverTest do
       resp = node!("resp", "resp")
 
       Store.insert_edge(%{
-        id: nid("fulfills|comp|resp"),
+        id: "fulfills|comp|resp",
         project_id: "p1",
         edge_name: "fulfills",
         type: :reference,
-        source_node_id: nid("comp"),
-        target_node_id: nid("resp")
+        source_node_id: "comp",
+        target_node_id: "resp"
       })
 
       assert {:ok, [^resp]} = ContextResolver.resolve(walk!("self.fulfills -> resp.handle"), comp)
@@ -77,12 +64,12 @@ defmodule Catapult.Engine.Projections.ContextResolverTest do
       resp = node!("resp", "resp")
 
       Store.insert_edge(%{
-        id: nid("policy_application|policy|resp"),
+        id: "policy_application|policy|resp",
         project_id: "p1",
         edge_name: "policy_application",
         type: :policy_application,
-        source_node_id: nid("policy"),
-        target_node_id: nid("resp")
+        source_node_id: "policy",
+        target_node_id: "resp"
       })
 
       assert {:ok, [^policy]} =
