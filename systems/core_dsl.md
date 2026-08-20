@@ -129,6 +129,20 @@ context-source kinds, and audit profiles.
   generation/projection plus 8 review — 6 edges, 5 flows, 2 workflow
   gates). Revisit condition: none — this *is* the daylight the entry
   above asked for.
+- **`Chain.t()` carries its resolved `predicates.yaml` map forward**
+  (ORC-8, named here because the reactive scheduler is the first
+  runtime consumer). `Chain.build/3` already resolves and validates
+  every named predicate a bundle's four slots (`scope_filter`,
+  `cardinality.when`, an edge `constraint`, a flow `completion`,
+  dsl-syntax.md §8) reference — then discards the map once load-time
+  validation passes. Nothing downstream can evaluate a `scope_filter`
+  reference against live graph state without it; re-parsing
+  `predicates.yaml` independently would double-implement this system's
+  own load path and risk drifting from what the loader actually
+  validated. The fix is a field, not a second reader: `Chain.t()` gains
+  `predicates: %{String.t() => Predicate.t()}`, populated from the
+  value `build/3` already computes. `systems/engine.md` records the
+  runtime-evaluator decision this field exists to serve.
 
 ## Initial vs target
 

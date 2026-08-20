@@ -116,6 +116,16 @@ defmodule Catapult.Engine.Store do
     Repo.all(from e in Edge, where: e.target_node_id == ^node_id and e.edge_name == ^edge_name)
   end
 
+  @doc """
+  Every edge instance leaving `node_id`, any name — the predicate
+  language's unrestricted `reaches/2` walk (dsl-syntax.md §8), which
+  names no edge the way `has_edge`/`count`/a context-walk hop do.
+  """
+  @spec edges_from(binary()) :: [Edge.t()]
+  def edges_from(node_id) do
+    Repo.all(from e in Edge, where: e.source_node_id == ^node_id)
+  end
+
   ## Fragments
 
   @spec insert_fragment(map()) :: Fragment.t()
@@ -213,5 +223,26 @@ defmodule Catapult.Engine.Store do
       end
 
     Repo.one(query)
+  end
+
+  ## Project enumeration — the sweeper's own (systems/engine.md)
+
+  @doc """
+  Every project id with at least one row anywhere in the engine store —
+  the sweeper's own enumeration, walked serially rather than fanned out
+  (`Catapult.Engine.Sweeper`). No `projects` table exists here (no
+  system owns that concept yet); this is the union of every table that
+  already carries `project_id`, which is every project the engine has
+  ever heard from.
+  """
+  @spec list_project_ids() :: [binary()]
+  def list_project_ids do
+    [
+      from(n in Node, distinct: true, select: n.project_id),
+      from(f in Flow, distinct: true, select: f.project_id),
+      from(v in ActiveBundleVersion, distinct: true, select: v.project_id)
+    ]
+    |> Enum.flat_map(&Repo.all/1)
+    |> Enum.uniq()
   end
 end

@@ -1,6 +1,7 @@
 defmodule Catapult.Dsl.LoaderTest do
   use ExUnit.Case, async: true
 
+  alias Catapult.Dsl.Chain
   alias Catapult.Dsl.Fixture
   alias Catapult.Dsl.Loader
   alias Catapult.Dsl.SystemStatus
@@ -13,6 +14,41 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, loaded} = Loader.load(dir)
     assert %{"comparch" => _tier} = loaded.chain.tiers
     assert %{"product-review" => _gate} = loaded.workflow.gates
+  end
+
+  test "Chain.predicates carries predicates.yaml forward for the engine's runtime evaluator",
+       %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default/predicates.yaml" => """
+      is_domain: kind == domain
+      """,
+      "bundles/default/tiers/comparch.yaml" => """
+      tier: comparch
+      scope: singleton
+      scope_filter: is_domain
+      identity: id
+      fields:
+        name: draft.name
+      handle:
+        fields: [id, name]
+        fragments: [techspec]
+      draft:
+        root_tag: comparch
+        grammar: schemas/comparch.xsd
+      generator: llm
+      prompt: prompts/comparch.md.liquid
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert {:ok, predicate} = Chain.resolve_predicate(loaded.chain, "is_domain")
+    assert predicate == Map.fetch!(loaded.chain.predicates, "is_domain")
+
+    # An inline expression not registered in predicates.yaml parses
+    # fresh rather than failing for want of a name.
+    assert {:ok, _predicate} = Chain.resolve_predicate(loaded.chain, "has_edge(fulfills)")
   end
 
   test "reports catapult.yaml missing", %{tmp_dir: dir} do

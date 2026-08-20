@@ -22,15 +22,35 @@ defmodule Catapult.Dsl.Chain do
   alias Catapult.Dsl.Yaml
 
   @enforce_keys [:name]
-  defstruct [:name, tiers: %{}, edges: %{}, flows: %{}, fragments: []]
+  defstruct [:name, tiers: %{}, edges: %{}, flows: %{}, fragments: [], predicates: %{}]
 
   @type t :: %__MODULE__{
           name: String.t(),
           tiers: %{String.t() => Tier.t()},
           edges: %{String.t() => Edge.t()},
           flows: %{String.t() => Flow.t()},
-          fragments: [String.t()]
+          fragments: [String.t()],
+          predicates: %{String.t() => Predicate.t()}
         }
+
+  @doc """
+  Resolves a predicate-language slot's raw string (dsl-syntax.md §8) —
+  `scope_filter`, `cardinality.when`, an edge `constraint`, a flow
+  `completion` — against this bundle's own `predicates.yaml`: a
+  registered name wins, an inline expression parses fresh. The same
+  two-step `build/3` already runs at load time to validate every slot;
+  this is that step exposed as a value instead of only a pass/fail,
+  because a runtime evaluator (`Catapult.Engine.Projections
+  .PredicateEvaluator`) needs the resolved AST, not a validation
+  verdict (`systems/core_dsl.md`, ORC-8).
+  """
+  @spec resolve_predicate(t(), String.t()) :: {:ok, Predicate.t()} | {:error, String.t()}
+  def resolve_predicate(%__MODULE__{predicates: named}, raw) do
+    case Map.fetch(named, raw) do
+      {:ok, predicate} -> {:ok, predicate}
+      :error -> Predicate.parse(raw)
+    end
+  end
 
   @doc "Loads and validates the chain bundle named `name` under `bundles_root`."
   @spec load(String.t(), String.t(), Registry.t()) :: {:ok, t()} | {:error, [String.t()]}
@@ -95,7 +115,8 @@ defmodule Catapult.Dsl.Chain do
            tiers: tier_map,
            edges: edge_map,
            flows: flow_map,
-           fragments: fragments
+           fragments: fragments,
+           predicates: named_predicates
          }}
       else
         {:error, Enum.uniq(problems)}
