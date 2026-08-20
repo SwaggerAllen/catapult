@@ -977,3 +977,28 @@ counterpart, and that tier's contract text needing a check against
 backend-ownership vocabulary leaking in) and are worth porting on
 their own merits, not guessed at now against a split that doesn't
 exist yet.
+
+## ~~No stored "approved version" field on a passed review~~
+scope: system:engine
+
+**Relocated (ORC-6, design rework).** This entry answered the wrong
+object — it read v5 §7.16's "what a passed gate pins" as the
+chain-axis review tier, and §7.19 exempts that object from staleness
+treatment by name (no throwback semantics, no committed artifact), so
+there was never a field to refuse in the first place. `systems/
+engine.md`'s review-tier bullet now carries the actual finding, and
+§7.16's item is restored open, correctly scoped to the workflow gate
+it names. A `scope:` naming exactly this one system was also the tell
+that this belonged in `engine.md` rather than here, independent of the
+mis-scoping. Kept as a struck entry rather than deleted, per this
+file's own discipline, so a later pass doesn't wonder where it went.
+
+## ~~No reducer read of `core_dsl`'s currently-loaded bundle~~
+scope: system:engine
+
+**Relocated (ORC-6, design rework).** `systems/engine.md`'s bundle-
+semantics-resolution bullet already states this refusal in the same
+breath as the decision it is the negative half of; a second copy here
+was drift risk with no reader it served that the owning doc didn't
+already reach. Kept as a struck entry rather than deleted, per this
+file's own discipline.

@@ -123,10 +123,15 @@ defmodule Catapult.MixProject do
       default: [
         check: [
           apps: [
+            :commanded,
+            :commanded_eventstore_adapter,
             :db_connection,
             :decimal,
             :ecto,
             :ecto_sql,
+            :eventstore,
+            :fsm,
+            :gen_stage,
             :jason,
             :libgraph,
             :mime,
@@ -136,6 +141,7 @@ defmodule Catapult.MixProject do
             :plug_crypto,
             :postgrex,
             :req,
+            :telemetry_registry,
             :yaml_elixir
           ]
         ]
@@ -171,6 +177,17 @@ defmodule Catapult.MixProject do
       # this promotes an existing lock entry to a direct runtime dep
       # rather than introducing a new supply-chain leaf.
       {:yaml_elixir, "~> 2.12"},
+      # Event-sourcing machinery (conventions §1's blessed list; v5
+      # §2.4 — "Commanded is the blessed event-sourcing machinery for
+      # target apps... the control plane already runs it" from ORC-6
+      # on): the aggregate/router/application layer, its Postgres event
+      # store adapter, and the store itself (systems/engine.md). The
+      # env-switched adapter (`Commanded.EventStore.Adapters.InMemory`
+      # for dev/test, this pair for prod) ships inside `commanded`
+      # itself, so no third dependency is needed for that half.
+      {:commanded, "~> 1.4"},
+      {:commanded_eventstore_adapter, "~> 1.4"},
+      {:eventstore, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
@@ -214,11 +231,25 @@ defmodule Catapult.MixProject do
       ],
       # Infra migrations live in priv/repo/migrations_infra (the
       # foundation's file map); per-store paths compose in as stores
-      # land (conventions §6).
-      "ecto.setup": ["ecto.create", "ecto.migrate --migrations-path priv/repo/migrations_infra"],
+      # land (conventions §6) — the engine's own tables are the first
+      # of those, at the default `priv/repo/migrations` Ecto already
+      # looks in without a `--migrations-path` override.
+      #
+      # The second `ecto.migrate` is a `cmd`, a genuinely separate `mix`
+      # process, not a second in-VM `Mix.Task.run` call: Mix only runs a
+      # given task once per invocation and silently no-ops a repeat
+      # call to the *same task name* even with different arguments
+      # (measured — the plain second form left `priv/repo/migrations`
+      # unmigrated and every engine test failed on a missing table).
+      "ecto.setup": [
+        "ecto.create",
+        "ecto.migrate --migrations-path priv/repo/migrations_infra",
+        "cmd mix ecto.migrate"
+      ],
       test: [
         "ecto.create --quiet",
         "ecto.migrate --quiet --migrations-path priv/repo/migrations_infra",
+        "cmd mix ecto.migrate --quiet",
         "test"
       ]
     ]

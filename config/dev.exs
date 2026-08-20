@@ -22,3 +22,16 @@ config :catapult,
         }}
 
 config :catapult, serve_health: true
+
+# The persistent adapter, same as prod: dev runs against a real
+# Postgres-backed event store so the reducer/replay path it exercises is
+# the one that ships (v5 §2.4 — "identical aggregates either way", not
+# identical *stores*). `Catapult.Engine.EventStore`'s own connection
+# settings are assembled from foundation's already-declared
+# `:database_url` at boot (its own `init/1`, same seam as
+# `Catapult.Repo.init/2`), not re-declared here.
+config :catapult, Catapult.Engine.Application,
+  event_store: [
+    adapter: Commanded.EventStore.Adapters.EventStore,
+    event_store: Catapult.Engine.EventStore
+  ]

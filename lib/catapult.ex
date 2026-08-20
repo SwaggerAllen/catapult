@@ -49,7 +49,24 @@ defmodule Catapult do
       # YAML parsing for bundle content, and libgraph for the type-level
       # acyclicity checks §13 requires at load time.
       Graph,
-      YamlElixir
+      YamlElixir,
+      # The ES store family's machinery (v5 §2.4, systems/engine.md):
+      # Commanded itself, its Postgres event store adapter, the
+      # underlying EventStore library, and their own transitive
+      # dependencies that contribute Elixir modules a `:prod` build can
+      # reach (`fsm`, `gen_stage`, `telemetry_registry` — mix.exs's own
+      # boundary apps list names the same set, for the same reason).
+      Commanded,
+      Commanded.EventStore.Adapters.EventStore,
+      EventStore,
+      Fsm,
+      GenStage,
+      TelemetryRegistry,
+      # `@derive Jason.Encoder` on every versioned event struct
+      # (Commanded's serializer needs it for the persistent adapter) —
+      # `jason` is already a runtime dep, this is its first direct
+      # reference from plane code.
+      Jason.Encoder
     ],
     exports: []
 end

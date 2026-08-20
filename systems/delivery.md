@@ -71,6 +71,25 @@ design gates pass.
   ships the gate/PR/harvest slice of the same modules the full
   machinery grows into; no throwaway scaffolding that Phase 7
   rewrites.
+- **Blocked-ticket re-resolution across a workflow cutover is
+  delivery's join, over engine's projection** (v5 §7.19; `core_dsl
+  .md`'s §6 cutover). When a bundle flip retires the workflow
+  sequence a blocked ticket's origin status belonged to, delivery
+  re-resolves it: (a) the most recent status the ticket held that
+  still exists in the new sequence, failing that (b) the status after
+  the most recent *system status* it reached. (b) always terminates —
+  system statuses are platform-fixed, the one part of a ticket's
+  history no bundle change can delete. The join reads two logs and
+  owns only one of them: the ticket's own status history is delivery's
+  projection, and the active-bundle-version timeline is
+  `systems/engine.md`'s ninth projection (current version + the
+  sequence it became current, two rows per project) — delivery reads
+  that rather than re-deriving its own copy, on the same boundary as
+  everywhere else in this doc (engine is state of record, delivery is
+  the protocol interpreting it). Target (Phase 7), alongside the rest
+  of the workflow-bundle machinery this needs to have a subject at
+  all — there is no declared workflow sequence to cut over from
+  before then.
 
 ## Initial vs target
 
