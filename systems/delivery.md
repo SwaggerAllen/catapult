@@ -44,6 +44,38 @@ design gates pass.
   with the port; the sim-style test ring runs the whole protocol
   offline. This is the porting model (v5 §7.13): snapshot→actions
   purity maps near-1:1 onto a Commanded process manager.
+- **The host port's second operation resets a bound repo's fixture
+  content; it does not touch generated artifacts** (ORC-10). A bound
+  repo has to carry a `workflow_dispatch` file before GitHub will
+  accept a dispatch to it at all, and no role in this pipeline has a
+  route to author a file inside a *different* repository — that repo
+  is out of every agent's reach by construction, not by refusal. So
+  the plane writes it there instead: the toy seed's per-role input
+  documents and `.github/workflows/catapult-dispatch.yml` live as
+  fixtures in *this* repo, reviewed like any other file, and `reset`
+  overwrites the bound repo's contents from them. `HostPort` gains
+  this as a second callback alongside `dispatch_run/1`, and the fake
+  implements it too, so the offline chain test exercises the same
+  reset path rather than a live-only mechanism — the same "fake is
+  scope, not test scaffolding" rule `systems/generation.md` states for
+  the dispatch call. What reset does *not* do: generated artifacts
+  still land only through `Dispatch`'s result-report path into the
+  plane's own store, never written to the bound repo, and reset does
+  not make `input.<role>` resolve — that's intake, Phase 4
+  (`docs/non-goals.md`'s ORC-10 entry). What it buys today is an
+  author and a rebuild path for a fixture repo, not test determinism
+  or seeded generation content.
+- **`DELIVERY_GITHUB_TOKEN` gains `Contents: read and write`, pulled
+  forward rather than newly spent** (ORC-10). Phase 4's
+  feature-lifecycle PR management already needs contents-write on a
+  bound repo regardless of this ticket; reset draws on that same
+  grant early instead of inventing a second one. The grant is global —
+  one config value, not one per project binding — so it reaches every
+  bound repo the moment it's set. Acceptable for a test repo the
+  author owns; not fixed here. `lib/catapult/delivery.ex`'s own config
+  comment already names the GitHub App installation token as the
+  shape that scopes this per-repo, and that stays the answer — ORC-10
+  doesn't owe it.
 - **Ticket state is a projection; the event log is the authority**
   (v5 §7.1). Unchanged by owning the tracker — if anything sharpened,
   since the surface and the authority now agree. Human actions arrive
@@ -111,8 +143,13 @@ under this doc's own file map; **what serves it does not**
 a second path on foundation's existing health listener, reached
 through an `api_surface/0` declaration rather than a router of this
 system's own, because the general composed router waits for
-dashboard's Phase 4/7 web layer. Feature-lifecycle PR management and
-decline harvesting are unaffected and still open at Phase 4. Target
+dashboard's Phase 4/7 web layer. **Narrowed again at ORC-10**: the
+repo-reset operation above, and the `Contents: read and write` grant
+it draws on, land with it — a second sliver of Phase 4's host port
+pulled into Phase 3 for the same reason the first one was, because the
+milestone boundary test needs it now. Feature-lifecycle PR management
+and decline harvesting proper are unaffected and still open at Phase
+4. Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound
