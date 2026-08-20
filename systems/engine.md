@@ -27,6 +27,120 @@ them.
   query answers "ready now" and "ready at sequence T," and there is
   no in-memory pending-set to corrupt. Fast path via PubSub;
   sweeper as the convergence floor.
+- **"Write the ready_scopes row" (v4 §A.2.7's rule 3) is a PubSub
+  broadcast, never a table write** — the same "never materialized"
+  standing decision below applies to the scheduler's own output, not
+  only to the query it wraps. On each trigger the scheduler re-runs
+  `Catapult.Engine.Projections.ReadyScopes.ready/3` (rules 1 and 2)
+  for the tiers the trigger could have affected and broadcasts the
+  resulting `(tier, scope)` pairs on `engine:ready_scopes:<project_id>`
+  (naming spine, `Catapult.Engine.Topics`, conventions §3). The
+  scheduler holds no memory of what it last broadcast — diffing
+  against a remembered ready-set to announce only deltas would be
+  exactly the in-memory pending-set the state-driven doctrine refuses
+  to grow, so it re-announces liberally instead: every event that
+  could plausibly move readiness (draft committed, draft approved,
+  bundle flipped) re-triggers the query and the broadcast fires
+  unconditionally on that trigger, whether or not the ready set
+  actually changed. The payload is a hint, never an authority: a
+  consumer re-validates before acting on it (§7.1's validate-or-revert
+  discipline, applied to an internal signal the same as an external
+  one), which is also why the broadcast needs no de-duplication of its
+  own — whatever a consumer does with a ready pair is idempotent on
+  its own side regardless of how many times the pair gets announced.
+- **The scheduler dispatches to no component by name.** Generation and
+  delivery both land after this ticket in the build order
+  (`docs/build-plan.md` Phase 3/4), so the scheduler cannot call an
+  enqueue function that doesn't exist yet and must not be built to
+  assume one particular shape for a consumer that hasn't landed.
+  "The engine writes it; generation and delivery consume it" (below)
+  is a claim about which side owns the *readiness signal* — engine,
+  exclusively, which is what makes "nothing else initiates work" true
+  — not about the engine performing generation's or delivery's own
+  outbox insert. When each consumer lands, its own ticket names the
+  cross-component edge, and conventions §7's pattern ("insert the job
+  through the target's exported enqueue function inside the local
+  transaction") applies on *its* side of the subscription, not this
+  one's.
+- **Review-tier dispatch is a second, simpler readiness rule, not an
+  extension of the context-walk one.** `ReadyScopes.ready/3` filters
+  review tiers out entirely (`generation_tier?/1`) because §7.19
+  already settled their dispatch: fired one cycle after the tier they
+  review commits, unconditionally — no context walk of their own to
+  gate on. Left unaddressed, that exclusion would make review dispatch
+  bypass `ready_scopes` altogether, which is exactly the "nothing else
+  initiates work" invariant this ticket exists to hold. The
+  scheduler's enumeration therefore carries two rules feeding one
+  signal: a tier's own context-walk readiness for generation tiers, and
+  "the reviewed tier's current draft has no review yet" (already
+  answerable via `Store.reviews_for_draft/1`) for review tiers — both
+  land on the same broadcast, so a consumer never has to know which
+  rule produced a given pair.
+- **`scope_filter` is evaluated where readiness is, and answers a
+  different question than the context walk does.** A node failing its
+  tier's `scope_filter` is not a candidate at all — it never appears in
+  enumeration, which is distinct from appearing and being not-yet-ready.
+  Evaluation is a new engine-side predicate evaluator, beside
+  `ContextResolver` and built on the same `Store` edge/node primitives,
+  because a `scope_filter` predicate (`has_edge`, `count`, `exists`,
+  `all`/`any`, `reaches`) needs live graph state the same way a context
+  walk does. Built as the shared home for the predicate language's
+  other three slots (`cardinality.when`, an edge `constraint`, a flow
+  `completion`, `dsl-syntax.md` §8) when their own tickets land, not a
+  one-off for this slot alone.
+- **Explain-why is `ReadyScopes`'s own second query, not a parallel
+  implementation.** "What is blocking this scope"
+  (`systems/dashboard.md`'s naming) reuses `candidates/2` and the same
+  per-walk resolution `ready?/2` already does, replacing the boolean
+  fold with a structured report: which context-walk entry is unmet,
+  and for each of its resolved targets, its current status. Built
+  beside readiness because both read the same candidate/target
+  machinery — a second traversal implementation is the drift risk, not
+  the convenience.
+- **Navigation edges get no second check in the engine.**
+  `Catapult.Dsl.Chain` already refuses to load a context walk that
+  traverses a `navigation: true` edge (dsl-syntax.md §4, §13) — the
+  readiness and explain-why queries walk only what the loader already
+  proved is readiness-bearing, and add no redundant edge-kind filter of
+  their own. Restated here because a query written defensively
+  (checking a property its input already guarantees) is exactly the
+  kind of drift-prone duplication `core_dsl.md`'s "all validation at
+  load time where possible" standing decision exists to prevent.
+- **Creation is not dispatchability, and the engine needs no new node
+  status to hold that line.** `Reducer.apply_mint/2` already lands a
+  minted child at `status: :absent` the moment its parent's draft names
+  it (v5 §7.10's "children are created when the plan node names them"),
+  and an `:absent` node's readiness is exactly its declared `context:`,
+  evaluated the same as any other node's — nothing about having just
+  been minted makes it a special case. A bundle wanting a child gated
+  on its parent's workflow gates points that child tier's context at a
+  walk the parent's review/approval flow actually resolves through
+  (the node's own `:approved` status, set only once its review tier's
+  chain-axis pass lands); the gating is therefore a bundle-content
+  decision, not an engine mechanism, and no `:pre_queue` node status is
+  introduced to duplicate what the context walk already expresses.
+  §7.2's child-blocks-parent (completion) and any future
+  `openBlockerFor`-style check are delivery's concerns over the ticket
+  tree, not this system's over the node graph, and the readiness query
+  never treats a node's children as a precondition of that node's own
+  readiness — only its declared `context:` is.
+- **Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings
+  surface, same mechanism as every other marked threshold) — enough
+  headroom that a burst of events doesn't turn the convergence floor
+  into a second fast path, short enough that a lost PubSub message
+  (process crash, netsplit) is invisible within one dispatch cycle in
+  practice. **`staleClaimGrace` (§7.16's still-open item) is not this
+  constant** — it measures ticket-claim staleness on the delivery/
+  tracker side (`max(Run.EndedAt, StateSince)`), a different clock for
+  a different job, noted so the two are not conflated by a later pass
+  reaching for "the scheduler's timer" and finding two candidates.
+  §7.16's item stands exactly as recorded; nothing here resolves it.
+- **The scheduler process declares `:local` placement** (v5 §2.5).
+  Readiness recomputation is a pure, stateless read and its broadcast
+  is idempotent on the consuming end, so redundant per-node computation
+  costs cycles, not correctness — cluster-wide coordination
+  (`:singleton`/`:sharded`, Horde) buys nothing here and is not spent.
+  Registered via `processes/0` like any other named process.
 - **Purity floors are absolute in this system**: no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
   inject at the command edge. Enforced by the substrate's call-graph
