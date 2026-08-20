@@ -135,12 +135,93 @@ them.
   a different job, noted so the two are not conflated by a later pass
   reaching for "the scheduler's timer" and finding two candidates.
   §7.16's item stands exactly as recorded; nothing here resolves it.
-- **The scheduler process declares `:local` placement** (v5 §2.5).
-  Readiness recomputation is a pure, stateless read and its broadcast
-  is idempotent on the consuming end, so redundant per-node computation
-  costs cycles, not correctness — cluster-wide coordination
-  (`:singleton`/`:sharded`, Horde) buys nothing here and is not spent.
-  Registered via `processes/0` like any other named process.
+  **A tick walks its projects serially, not fanned out.** `Catapult
+  .Repo`'s pool is a shared, finite budget, not this ticket's alone to
+  spend — SETUP.md §2 sizes it (`FOUNDATION_POOL_SIZE=4`) against the
+  projector's writes, Oban's workers as queues land, the health check,
+  *and* this sweep together, on the one reference cluster this code
+  deploys to. `Task.async_stream`'s default width
+  (`System.schedulers_online`) is the idiomatic move and the wrong one
+  here: on a run of any real size it alone can reach for more
+  connections than the pool holds, ahead of a request the pool exists
+  to serve. One project at a time keeps a tick's own footprint at a
+  single checked-out connection regardless of how many projects exist,
+  which is affordable at 30s cadence because a readiness query is
+  cheap and the floor's whole job is convergence, not speed. Revisit
+  condition: a measured tick duration exceeding the cadence at real
+  project counts — the fix then is a bounded width stated as a number
+  here, never the default.
+- **The sweeper is a distinct registered process and declares
+  `:singleton` placement, the same kind `engine_projector` already
+  uses** (v5 §2.5) — not, as first sketched, `:local`. The fast path
+  is not a second process to place: "on each trigger the scheduler
+  re-runs `ReadyScopes.ready/3` ... and broadcasts" (above) rides
+  inside `Catapult.Engine.Projector.handle/2`, which already runs
+  cluster-wide singleton by construction (a Commanded event handler
+  subscription is consumed once, in order, or replay guarantees break)
+  — so the fast path was never a placement question and this bullet is
+  only ever about the timer loop. `:local` was argued on
+  redundant-computation grounds alone (a stateless read costs cycles,
+  not correctness, if every node repeats it) without pricing what
+  "every node" costs against a pool sized in the single digits: a
+  rolling deploy runs two full instances briefly, and `:local` turns
+  one sweep into two, against the same budget the paragraph above
+  already spends down to one connection per tick. `:singleton` removes
+  the doubling by construction — one sweeper cluster-wide, like the
+  projector beside it — rather than accepting it and arguing the size
+  is fine; the two processes now share one placement rule for one
+  reason (each must run exactly once, not once per node) instead of
+  each defending a different number. Registered via `processes/0`
+  like any other named process.
+- **Every table in the engine store keys by `(project_id, id)`, not
+  `id` alone** — a decision this ticket settles rather than hands
+  back, because `ReadyScopes.ready(chain, project_id, tier)` is the
+  first thing to query `engine_nodes` *by project*, and the answer
+  changes which index shape is even correct. ORC-6's migration fixed
+  the id column's *type* at `:string` rather than `:binary_id`
+  deliberately, to leave the id *scheme* open ("a deterministic,
+  content-addressed slug is an equally legal id") — but it fixed the
+  *primary key* to `id` alone in the same migration, which only one of
+  the two legal schemes actually supports. A caller-supplied string
+  being unique across every project the plane will ever build is not a
+  constraint anyone picks on purpose; `scope_key` and `handle` are
+  already how a node is addressed *within* a project
+  (`dsl-syntax.md` §3), and nothing about the command edge or a
+  bundle's own vocabulary promises more than that. The evidence
+  agrees: four `async: true` test modules deadlocked on shared bare
+  ids (`"sysarch"`, `"comp1"`, `"n1"`) before this pass, on nothing
+  more than ordinary human-readable names two authors independently
+  reached for; the fix that landed (per-module id prefixing) makes the
+  suite pass without saying whether two real projects can collide the
+  same way, because it works around the schema rather than correcting
+  it.
+
+  So the key moves to `(project_id, id)`, and `engine_nodes
+  .parent_node_id`'s self-reference becomes a composite foreign key
+  against the same pair. The same shape recurs on every sibling table
+  this migration created (`engine_edges`, `engine_fragments`,
+  `engine_drafts`, `engine_reviews`, `engine_flows`,
+  `engine_active_bundle_versions`): each keys by a caller-supplied
+  `id` alone today (an edge's `"fulfills|comp|resp"`, a draft's
+  `"draft-comp1-1"`, a bundle flip's `event.flip_id`), built the same
+  way from the same project-scoped vocabulary, so each carries the
+  identical collision risk whether or not a test has tripped over it
+  yet. `engine_edges`, `engine_fragments`, `engine_drafts` and
+  `engine_flows` each hold a `references(:engine_nodes, ...)` on a
+  single column (source/target, owner/author, node_id, entry_node_id);
+  `engine_reviews` holds one on `engine_drafts.id` instead. Every one
+  of those stops being a legal foreign key the moment the table it
+  points at gains a key column — so a fix confined to `engine_nodes`
+  alone does not migrate cleanly: it composite-keys the whole store in
+  one migration, or the foreign keys don't resolve. This is not a
+  broadening of this ticket's scope: `priv/repo/migrations/**` is
+  already this doc's mapped path (ORC-6) and every one of these
+  tables is already this ticket's file to touch — it is what
+  "composite key" turns out to mean once the foreign keys are followed
+  to their source. Writing the migration and updating every call site
+  that reads a node by id alone (`Store.get_node/1` included) is
+  dev's, as with every decision in this doc; this pass settles the
+  shape, not the diff.
 - **Purity floors are absolute in this system**: no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
   inject at the command edge. Enforced by the substrate's call-graph
