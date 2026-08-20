@@ -31,12 +31,30 @@ defmodule Catapult.Engine do
       # code has is the one SETUP.md §2 describes, so a default that
       # needs an environment variable set before a deploy can succeed
       # is a default that has failed at the one job it has.
-      {:event_store_pool_size, "ENGINE_EVENT_STORE_POOL_SIZE", cast: :integer, default: "2"}
+      {:event_store_pool_size, "ENGINE_EVENT_STORE_POOL_SIZE", cast: :integer, default: "2"},
+      # Where the reactive scheduler (`Catapult.Engine.Scheduler`, via
+      # the projector's fast path and `Catapult.Engine.Sweeper`) loads
+      # a `Catapult.Dsl.Chain` from — a directory containing
+      # `catapult.yaml` and `bundles/`. Defaults to the reference
+      # deployment's own layout (both live at this repo's root, the
+      # same single project `topology: single` already assumes); a
+      # real per-project bundle root is a not-yet-built concern this
+      # ticket does not invent (`systems/engine.md`).
+      {:bundles_root, "ENGINE_BUNDLES_ROOT", cast: :string, default: "."},
+      # The sweeper's cadence (v5 §7.10's bindings surface, `tunable`
+      # per `systems/engine.md`): enough headroom that a burst of
+      # events doesn't turn the convergence floor into a second fast
+      # path, short enough that a lost PubSub message is invisible in
+      # practice.
+      {:sweeper_interval_ms, "ENGINE_SWEEPER_INTERVAL_MS", cast: :integer, default: "30000"}
     ]
   end
 
   @impl Catapult.Component
   def events, do: Events.registry()
+
+  @impl Catapult.Component
+  def pubsub_topics, do: [:ready_scopes]
 
   @impl Catapult.Component
   def policies do
@@ -54,7 +72,15 @@ defmodule Catapult.Engine do
 
   @impl Catapult.Component
   def processes do
-    [{:engine_projector, :singleton}]
+    [
+      {:engine_projector, :singleton},
+      # `:singleton`, the same kind `engine_projector` already uses —
+      # not `:local`: a rolling deploy's brief two-instance overlap
+      # must run one sweeper cluster-wide, not two, against the same
+      # finite connection budget the sweeper's own moduledoc prices
+      # (`systems/engine.md`).
+      {:engine_sweeper, :singleton}
+    ]
   end
 
   @impl Catapult.Component
@@ -73,6 +99,6 @@ defmodule Catapult.Engine do
     # which has no such child — so the whole suite passed while every
     # deploy crash-looped (`event_store.ex`'s own moduledoc had it
     # right; this function disagreed with it).
-    [Catapult.Engine.Application, Catapult.Engine.Projector]
+    [Catapult.Engine.Application, Catapult.Engine.Projector, Catapult.Engine.Sweeper]
   end
 end
