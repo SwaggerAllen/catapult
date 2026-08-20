@@ -58,6 +58,18 @@ and validation logic and must not fork it.
   visible-log territory). Pool adapter: plane-minted per-dispatch
   tokens over the dispatch channel. **Rendered context never
   contains bindings or credentials.**
+- **The endpoint's listener is foundation's, not a second one this
+  system stands up** (design review finding, ORC-9): `systems
+  /foundation.md` records where context-fetch and result-report are
+  actually served — a second path on the existing health listener,
+  composed from generation's and delivery's `api_surface/0`
+  declarations, ahead of the general router that will eventually
+  absorb them — and why it isn't dashboard's router yet. This ticket
+  carries `system:foundation` alongside `system:generation` and
+  `system:delivery` for exactly that reason: the handler logic (OIDC
+  validation, run correlation, context/result payloads) stays here and
+  in delivery's file map; foundation owns only the listener it answers
+  on.
 - **Run-result reporting is that same authenticated callback, not a
   marker comment** (ORC-9's open question, resolved): the
   result-report call reuses the identical OIDC bearer settled in the
@@ -89,12 +101,23 @@ and validation logic and must not fork it.
   tool's stderr to say why, which cannot honor "limit-class failures
   only" — so until it exposes a structured signal (the CLI's JSON
   output mode is the candidate), the Actions adapter dispatches with
-  **no failover**: a run failure fails the run outright rather than
-  silently retrying a real bug against the second credential.
-  Failover activates the moment the harness's classification exists,
-  with no change on this system's side — the contract absorbs it.
-  This is a gap to close upstream, not a reason to build a parallel
-  classifier here.
+  **no failover**, enforced the only way it can be against a harness
+  that fails over on any non-zero exit by itself (design review
+  finding, ORC-9): **the adapter sends one credential, not the pair.**
+  The bindings `tunable`'s order still exists and still decides which
+  one — its first-ordered entry is the sole model-credential dispatch
+  input the harness receives; the second slot is read from bindings
+  same as always but withheld from the dispatch payload, so there is
+  nothing for the shipped harness's blind failover to reach for even
+  though it would try. A run failure therefore fails the run outright,
+  which is what "no failover" actually has to mean given a harness
+  that cannot be told not to. The day the harness's classification
+  lands, the adapter starts sending the tunable's full ordered pair
+  instead of its head — a one-line change on this system's side, not a
+  new decision, because the contract (v5 §7.12.1's model-credential
+  pair, order from the tunable) was already built for two; it was only
+  ever the transport withholding the second slot. This is a gap to
+  close upstream, not a reason to build a parallel classifier here.
 - **Model credentials are a pair with limit-class failover** (v5
   §7.12.1): the runner harness accepts `ANTHROPIC_API_KEY` and/or
   `CLAUDE_CODE_OAUTH_TOKEN` — customer-side secrets the plane never
@@ -122,8 +145,44 @@ and validation logic and must not fork it.
   opposed to a failure that clears on redispatch — is `Blocked` with a
   named reason (§7.15), never a further retry: the readiness query
   cannot distinguish "will succeed next window" from "never fits in a
-  window," so the executor counts consecutive limit-class failures per
-  scope and hands that distinction to a human once it repeats.
+  window," so the executor answers that with a query, not a counter —
+  **the count is derived from the log, never held** (design review
+  finding, ORC-9, resolving the apparent conflict with the invariant
+  just stated). Every limit-class run failure is its own event, on the
+  scope's node, in generation's own `events/0` (a new entry this
+  ticket adds), landing in the same per-project stream engine's
+  `draft_committed` already writes to — one aggregate per project, not
+  one per system. The derivation walks the log backward from now to
+  the node's most recent `draft_committed` (or the log's start, if
+  none), counting limit-class failure events since. `Blocked` fires
+  once that count repeats past one. This satisfies the invariant
+  rather than contradicting it: "no memory across dispatches" is a
+  claim about the *dispatched run*, which still re-renders its context
+  walk and starts clean every time — the count lives once, in the
+  plane's log, the same place every other derived answer in this
+  system already lives (`systems/engine.md`'s "no in-memory
+  pending-set" doctrine, one layer down), not in a table row or an
+  Oban attempt counter. The rejected alternative is concrete enough to
+  name the reason it's wrong: an Oban attempt count is scoped to one
+  job, and the uniqueness key that turns a re-announced ready scope
+  into one dispatch (above) is held only for the scope's in-flight
+  window — once that window closes, a redispatch is a *new* job
+  starting its attempt count at zero, so the very mechanism that
+  dedups dispatch would silently reset the failure count it would have
+  to hold. The log has no such window.
+- **ORC-87 confirmed rather than assumed, and this design carries its
+  consequences forward.** The Oban uniqueness key the first §7.15
+  invariant leans on, `{project_id, tier, scope_key}`, matches the
+  unique index ORC-87 actually landed on `engine_nodes`
+  (`(project_id, tier, scope_key)`) — `scope_key` is unique only
+  within a project and a tier, exactly the granularity the dedup key
+  needs and no finer than the table itself already enforces, so
+  nothing about the key changes. Everything this executor commits —
+  drafts, and the run-outcome events the bullet above adds — writes
+  with `(project_id, id)` from the start, through `Store`'s
+  post-ORC-87 shape (`get_node/2`, `edges_from/3`, `approve_node/2`
+  all take `project_id` now); no new bare-id `Store` call site is
+  introduced here for ORC-87 to have to find and thread later.
 - **The agent-port fake is scope, not test scaffolding** (the same
   standing decision `systems/llm.md` makes for the runtime's provider
   fake, made here for the same reason): canned bodies through the real
@@ -151,5 +210,6 @@ kept clean.
 ## Depends on
 
 engine (ready_scopes, commands), core_dsl (grammars, walks),
-delivery (host port, dispatch, run correlation),
+delivery (host port, dispatch, run correlation), foundation (serves
+the dispatch-facing host port endpoint on its listener),
 platform_content (the prompts).

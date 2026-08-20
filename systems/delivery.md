@@ -104,7 +104,14 @@ validation, run correlation, and its in-memory fake — lands in Phase
 the rest of this system. It is one seam with two consumers arriving
 at different times, not two ports: the slice generation needs now is
 a subset of the same host port this doc already claims, not a
-parallel one this ticket invents. Feature-lifecycle PR management and
+parallel one this ticket invents. The handler logic for that slice —
+OIDC validation, run correlation, context/result payloads — lives
+under this doc's own file map; **what serves it does not**
+(`systems/foundation.md`'s design review finding): the endpoint rides
+a second path on foundation's existing health listener, reached
+through an `api_surface/0` declaration rather than a router of this
+system's own, because the general composed router waits for
+dashboard's Phase 4/7 web layer. Feature-lifecycle PR management and
 decline harvesting are unaffected and still open at Phase 4. Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
@@ -113,8 +120,9 @@ mirror in place of the Linear adapter.
 
 ## Depends on
 
-substrate, engine (state of record), generation (the chain whose
-progress it projects), core_dsl (the workflow bundle's declared
-statuses and environments, v5 §7.18-§7.19), dashboard (the work
-surface — a hard dependency, since nothing else renders the loop).
-Req for the GitHub client.
+substrate, engine (state of record), foundation (serves the
+dispatch-facing host port endpoint on its listener), generation (the
+chain whose progress it projects), core_dsl (the workflow bundle's
+declared statuses and environments, v5 §7.18-§7.19), dashboard (the
+work surface — a hard dependency, since nothing else renders the
+loop). Req for the GitHub client.

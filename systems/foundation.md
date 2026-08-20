@@ -452,6 +452,51 @@ reached only through their APIs per v5 §2.4).
   facts are the same fact: nobody git-deps the plane, so the plane's
   declaration is never itself a resolution subject, and a component
   that *is* one would want reading in ORC-74's terms rather than these.
+- **The dispatch-facing host port endpoint is a second path on the
+  existing health listener, not a new listener — and not
+  `api_surface/0`'s general composed router either, yet** (ORC-9's
+  design review: the finding that the ticket's callback needed a
+  listener it never named). `Catapult.HealthEndpoint`'s moduledoc says
+  "nothing else is served here," true the day it was written and false
+  the moment GitHub-hosted runners need a public target for the host
+  port's context-fetch and result-report calls (`systems
+  /generation.md`, `systems/delivery.md`; v5 §7.12.1's OIDC seam) — a
+  target that has to share port 8080, the one public port this
+  instance exposes (`SETUP.md` §2). Two things are true at once and
+  the design has to hold both: `api_surface/0` (`systems/substrate.md`)
+  is exactly the registry built for a component to declare a route,
+  but its composer "waits for a web layer" that doesn't exist until
+  dashboard's Phase 4/7 (`systems/dashboard.md`) — no router to hand
+  the declaration to yet, in Phase 3. So generation and delivery still
+  register their two routes through `api_surface/0` — ordinary use of
+  a substrate registry the plane exercises the same way it exercises
+  its own shipped config source, which gets the routes
+  collision-checked and shaped like every other route this platform
+  will ever declare — but what consumes the registration in Phase 3 is
+  not dashboard's future router. It is a small path-dispatching plug
+  this system composes in `lib/catapult/application.ex`, in place of
+  mounting `Catapult.HealthEndpoint` directly: `/health` keeps its own
+  404-everything-else behavior on its own path, a second path forwards
+  to delivery's handler (`lib/catapult/delivery/**`, since OIDC
+  validation, run correlation and context/result handling *are* the
+  host port, not a foundation concern), and both sit behind one
+  ordinary runtime plug dispatch — no macro or behaviour coupling, so
+  the compile-connected cap (`--fail-above 0`, above) is untouched.
+  When dashboard's router lands and absorbs `api_surface/0`
+  generically, this listener's hand-wiring is what gets deleted, not
+  the registration underneath it.
+
+  This is why `systems/generation.md` and `systems/delivery.md` both
+  carry `system:foundation` alongside their own labels: this doc's
+  mapped `application.ex`/`health_endpoint.ex` is where the change
+  lands, and an undeclared touch is a mutex nobody took.
+
+  **Two facts stop being true the moment this ships, and neither file
+  is design's to edit**: `SETUP.md` §2's "`/health` is the only served
+  path," and the README's matching line. Flagged here so the
+  implementing diff updates both in the same change — the failure mode
+  `docs/non-goals.md`'s "no second home for the reference instance's
+  live facts" entry exists to catch, one document over.
 
 ## The live suite
 
