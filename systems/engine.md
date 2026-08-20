@@ -268,6 +268,27 @@ them.
   every table, closes this table's gap for free; there is no second
   index here to widen.
 
+  **`engine_drafts` carries the same class of second key, and this
+  audit's first pass missed it** — corrected here rather than left to
+  stand: `engine_drafts_one_pending_per_node` is a partial unique
+  index on bare `node_id` (`where: status = 'pending'`), enforcing "at
+  most one pending draft per node" project-globally rather than per
+  project, the identical shape to the `engine_edges` gap above. Two
+  projects each minting a node with the same id, each calling
+  `Store.insert_draft/1` to open a pending draft for it: the first
+  succeeds, the second raises `Ecto.ConstraintError` on this index,
+  unhandled — worse than the `engine_edges` case, because
+  `insert_draft/1`'s `on_conflict: :nothing` names
+  `conflict_target: [:project_id, :id]` as its arbiter, which
+  suppresses conflict on the primary key alone and does nothing for a
+  separate unique index the same insert also violates. Widened to
+  `(project_id, node_id)` in the same migration, same shape as the
+  edges fix. The audit that closes this section is per-table, not
+  per-index: every non-project-scoped unique index has to be found,
+  and `engine_edges` and `engine_fragments` being checked first did
+  not mean the remaining five tables carried none — `engine_drafts`
+  did.
+
   **The call sites this migration strands, and the shape of their
   fix.** This ticket's own list — `Store.get_node/1`,
   `Store.edges_from/2`, `Store.approve_node/1`,

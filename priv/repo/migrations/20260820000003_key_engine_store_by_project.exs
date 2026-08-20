@@ -23,6 +23,17 @@ defmodule Catapult.Repo.Migrations.KeyEngineStoreByProject do
   # it upserts on its own `id` — so the primary-key widening alone
   # closes its gap.
   #
+  # `engine_drafts` carries a second natural key too:
+  # `engine_drafts_one_pending_per_node`, the partial unique index on
+  # bare `node_id` (`where: status = 'pending'`) enforcing "at most one
+  # pending draft per node". Project-global today, the same shape as
+  # `engine_edges`' gap — two projects each minting a node with the
+  # same id can each hold a pending draft for it, and the second
+  # `Store.insert_draft/1` call collides on this index (its
+  # `conflict_target: [:project_id, :id]` names a different arbiter
+  # and does not suppress it). Widened to `(project_id, node_id)` in
+  # the same migration, same reasoning as the edges fix.
+  #
   # `up`/`down` rather than `change`: dropping a primary or foreign key
   # constraint by name is not something Ecto can auto-reverse (it does
   # not record the dropped definition), so `change/0` would raise on
@@ -69,12 +80,34 @@ defmodule Catapult.Repo.Migrations.KeyEngineStoreByProject do
 
     drop unique_index(:engine_edges, [:edge_name, :source_node_id, :target_node_id])
 
-    create unique_index(:engine_edges, [:project_id, :edge_name, :source_node_id, :target_node_id],
+    create unique_index(
+             :engine_edges,
+             [:project_id, :edge_name, :source_node_id, :target_node_id],
              name: @edges_natural_key_index
+           )
+
+    drop unique_index(:engine_drafts, [:node_id],
+           where: "status = 'pending'",
+           name: :engine_drafts_one_pending_per_node
+         )
+
+    create unique_index(:engine_drafts, [:project_id, :node_id],
+             where: "status = 'pending'",
+             name: :engine_drafts_one_pending_per_node
            )
   end
 
   def down do
+    drop unique_index(:engine_drafts, [:project_id, :node_id],
+           where: "status = 'pending'",
+           name: :engine_drafts_one_pending_per_node
+         )
+
+    create unique_index(:engine_drafts, [:node_id],
+             where: "status = 'pending'",
+             name: :engine_drafts_one_pending_per_node
+           )
+
     drop unique_index(:engine_edges, [:project_id, :edge_name, :source_node_id, :target_node_id],
            name: @edges_natural_key_index
          )
