@@ -90,22 +90,36 @@ The facts a future session needs, recorded as facts:
   environment at all. `DATABASE_URL` keeps its name because App
   Platform injects it: it is the one declaration flagged
   `external: true`.
-- **The cluster allows 22 connections, and that is a budget three
-  pools share** (ORC-6's deploy failed on it): `Catapult.Repo`
-  (`FOUNDATION_POOL_SIZE`), the event store's own Postgrex pool
-  (`ENGINE_EVENT_STORE_POOL_SIZE`), and one connection each for
-  Oban's and the event store's notification listeners. Two of those
-  totals are live at once during a rolling deploy, and the PRE_DEPLOY
-  migrator adds its own two against the instance still being
-  replaced, so the sizing rule is **2 × (both pools + 2) ≤ 19**,
-  leaving the cluster's maintenance reserve alone. Both default to
-  **2** in code and need no environment variable to be correct here.
-  A first attempt sized them from the environment and left the code
-  defaults at 10 — which meant merging the fix re-broke the deploy on
-  its own, because the only deployment this code has is this one.
-  Raise either with its variable when load justifies it. Raising the
-  plan raises the ceiling, which is why the ceiling lives here and
-  not in a comment.
+- **The cluster allows 22 connections, and that is a budget four
+  consumers share**: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
+  event store's own Postgrex pool (`ENGINE_EVENT_STORE_POOL_SIZE`),
+  and one connection each for Oban's and the event store's
+  notification listeners. Two full instances are live at once during
+  a rolling deploy, so the ceiling is a *cutover* number:
+
+      peak = 2 × (both pools + 2)
+
+  The PRE_DEPLOY migrator's own two land before the new instance
+  starts, overlapping only the instance being replaced, so they are
+  never the peak. Keep the peak under **19**, leaving the cluster's
+  maintenance reserve alone — the Overview graph is the authority on
+  both the limit and live usage, and beats this arithmetic if they
+  disagree.
+- **Set on the instance: `FOUNDATION_POOL_SIZE=4`,
+  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 16. Deliberately
+  asymmetric: the Repo serves the projector's writes, Oban's workers
+  as queues land, the health check and the scheduler's readiness
+  sweep, while the event store's pool serves appends and subscription
+  reads that are low-concurrency in a plane this size. An even 3/3 is
+  the same peak with the headroom in the quieter place. **4/4 is 20
+  and 5/5 is 24** — the second is over the raw limit, and the first
+  leaves nothing for a reserve.
+- **Both default to `2` in code**, so a deploy is correct with neither
+  variable set. That matters more than it looks: a first attempt sized
+  them from the environment alone and left the code defaults at 10,
+  which meant merging the fix re-broke the deploy on its own. The only
+  deployment this code has is this one. Raising the plan raises the
+  ceiling, which is why the ceiling lives here and not in a comment.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
