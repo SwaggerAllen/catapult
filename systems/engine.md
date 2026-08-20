@@ -66,19 +66,25 @@ them.
   flow walks and the plane's out-of-band ticket filing. No stale
   flag is ever written, and no pending work attaches to nodes;
   pending work is always a ticket.
-- **A passed review gate's pin is the ordinary staleness rule applied
-  to the review node itself — closing v5 §7.16's open item.**
-  `dsl-syntax.md` §3.3 (ORC-84) settled the grammar half: a review is
-  a tier (`reviews: <tier>`), 1:1 with the tier it reviews, its own
-  `context:` load-time-checked equal to the reviewed tier's. That
-  equality *is* the pin — a review node reads exactly the inputs its
-  reviewed tier does, so it is one more node under the rule above:
-  stale precisely when the tier it reviews would be, with no separate
-  "approved version" field ever recorded or compared. §7.19's
-  all-reopen-on-throwback reads this derivation directly rather than
-  diffing stored approval state. Recorded here because engine is
-  where the derivation actually runs; `v5-design-decisions.md` §7.16
-  is amended alongside this doc to stop calling it open.
+- **A review tier needs no staleness treatment — but this does not
+  close v5 §7.16's open item, which names a different object.** §7.16
+  asks what a passed *workflow* gate pins ("Approval is a status, and
+  review states are declared"); `dsl-syntax.md` §3.3 (ORC-84)'s
+  `reviews: <tier>` is the chain axis, and §7.19 draws the line
+  explicitly: a review tier is dispatched immediately after the
+  generation tier it reviews, one cycle, and "has no throwback
+  semantics: there is no passed gate downstream of it to reopen." A
+  review tier also declares no `draft:` and no committed artifact, so
+  there is nothing for §7.11's staleness derivation to anchor on even
+  if it wanted to run. So a review tier is simply never consulted by
+  the derivation, in either direction — not stale, not pinned, not
+  reopened, and no "approved version" field is ever needed for one.
+  §7.16's item stays open (restored at `v5-design-decisions.md`
+  §7.16): a workflow gate is declared delivery-bundle vocabulary, not
+  an engine node, so what it pins is delivery's to design when
+  workflow gates land (`systems/delivery.md`'s Phase 7), over
+  whatever this system's node/staleness projections already expose —
+  not this ticket's to answer.
 - **Snapshot cadence and stream partitioning carry the v4 defaults
   forward, unmoved.** Stream partitioning: one EventStore stream per
   project, the Commanded aggregate identity being the project id (v4
@@ -100,8 +106,16 @@ them.
 Initial (Phase 3): event log, reducer for the design dialect's event
 set, core projections — including the active-bundle-version
 projection above, decided now though no cutover exists yet to
-exercise it — scheduler + sweeper. Target: flow instances, staleness
-provenance, snapshots, replay tooling surfaced in the dashboard.
+exercise it — scheduler + sweeper, and the EventStore infrastructure
+migration this needs to run at all. That migration's path,
+`priv/repo/migrations_infra/**`, is `systems/foundation.md`'s mapped
+file, not this doc's (this doc's own map above stops at
+`lib/catapult/engine/**` and `test/catapult/engine/**`) — the need is
+engine's, the file is foundation's, so this ticket carries
+`system:foundation` alongside `system:engine`, matching
+`foundation.md`'s own Initial-vs-target note that the migration lands
+"with engine." Target: flow instances, staleness provenance,
+snapshots, replay tooling surfaced in the dashboard.
 
 ## Depends on
 

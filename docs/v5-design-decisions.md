@@ -2778,7 +2778,7 @@ and is not against a declared one, so it becomes an audit check.
   version while the *message* speaks in states, because the version
   is what is correct and the state is what the human needs to hear.
   Author's call: the rule as stated compares on status.
-- ~~**What a passed gate pins**~~ **Resolved (ORC-84, ORC-6).** A
+- **What a passed gate pins.** ~~**Resolved (ORC-84, ORC-6).** A
   review is a tier (`reviews: <tier>`, `dsl-syntax.md` §3.3), 1:1
   with the tier it reviews, its `context:` load-time-checked equal to
   the reviewed tier's own. That equality is the pin: a review node
@@ -2789,15 +2789,36 @@ and is not against a declared one, so it becomes an audit check.
   to know that. The original framing below is superseded, not wrong;
   it asked for the gate to "record what it approved," and the answer
   turned out to be that the review tier's own committed content,
-  read under the same context walk, already is that record.
-  ~~A gate approves a version of an artifact; the ticket
+  read under the same context walk, already is that record.~~
+  **Mis-resolved (ORC-6, corrected).** That answered the wrong
+  object. `reviews: <tier>` is the chain axis; this item names the
+  declared *workflow* gate this section itself defines above
+  ("Approval is a status, and review states are declared"). §7.19
+  draws exactly this line: a throwback reopening "the two approvals
+  before it" names workflow gates, and separately exempts a review
+  *tier* by name — "It therefore has no throwback semantics: there is
+  no passed gate downstream of it to reopen" — and a review tier
+  declares no committed artifact, so there is nothing for the
+  derivation to anchor on regardless. What the ORC-6 pass actually
+  found, correctly, is not the answer to this item but a reason it
+  never engages with a different object: a review tier needs no
+  staleness treatment at all. `systems/engine.md` records that
+  finding. This item is open again, unchanged:
+
+  A gate approves a version of an artifact; the ticket
   then moves past it. When the artifact regenerates underneath, the
   ticket is already downstream and the judgment it carries is stale
   while nothing says so. §7.11's staleness-is-derived machinery is
   the natural home — a passed gate goes stale when what it approved
   does, and reopens — but the gate has to record what it approved for
-  that to be derivable at all.~~ `systems/engine.md` carries the
-  derivation; `docs/dsl-syntax.md` §3.3 carries the grammar.
+  that to be derivable at all. A direction, not a decision: the plane
+  already logs the transition command with its actor (this section,
+  above), so an approval event carries a sequence and the node it
+  approved has a latest-commit sequence — "did what this gate
+  approved change" may be answerable as a log join rather than a
+  stored field. Whether that holds is a workflow-gate design
+  question, for whenever gates are declared (`systems/delivery.md`'s
+  Phase 7), not this ticket's to settle.
 - **Staleness clocks under more writers.** `staleClaimGrace` measures
   from `max(Run.EndedAt, StateSince)`, so every state move resets it.
   More writers means more resets, and the constant (§7.13) was chosen
