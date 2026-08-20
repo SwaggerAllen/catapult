@@ -10,6 +10,7 @@ defmodule Catapult.Dsl do
   use Catapult.Component, slug: :dsl
 
   alias Catapult.Dsl.Error
+  alias Catapult.Dsl.Grammar
   alias Catapult.Dsl.Loader
 
   @impl Catapult.Component
@@ -46,5 +47,19 @@ defmodule Catapult.Dsl do
       {:error, :bundle, problems} ->
         {:error, Error.new(:dsl_bundle_invalid, problems: problems)}
     end
+  end
+
+  @doc """
+  Validates `body` against the grammar named by `root_tag` +
+  `grammar_path` for `bundle_name` under `bundles_root` (dsl-syntax.md
+  §10). See `Catapult.Dsl.Grammar.validate/5`. One validator source:
+  generation's commit path and engine's own commit-time rejection call
+  this rather than two implementations that could drift
+  (`systems/core_dsl.md`).
+  """
+  @spec validate_draft(String.t(), String.t(), String.t(), String.t(), String.t()) ::
+          :ok | {:error, Grammar.failure()}
+  defexport validate_draft(bundles_root, bundle_name, root_tag, grammar_path, body) do
+    Grammar.validate(bundles_root, bundle_name, root_tag, grammar_path, body)
   end
 end

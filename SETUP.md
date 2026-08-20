@@ -69,10 +69,14 @@ The facts a future session needs, recorded as facts:
 
 - App `catapult`, region `sfo`; app id is in
   `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
-  `:live_base_url` key in `config/test.exs` — `/health` is the only
-  served path. The hostname's home moved there when the `:live`
-  suite acquired a code consumer for it (ORC-29): prose cannot be
-  dereferenced, and a value the boundary suite reads once a
+  `:live_base_url` key in `config/test.exs`. **`/health` is no longer
+  the only served path** (ORC-9): a second path, `/dispatch/*`, serves
+  the agent-dispatch host port's context-fetch/result-report calls
+  (`systems/generation.md`, `systems/delivery.md`), both behind
+  `Catapult.Foundation.DispatchPlug`'s hand-wired dispatch rather than
+  a general router. The hostname's home moved to `:live_base_url` when
+  the `:live` suite acquired a code consumer for it (ORC-29): prose
+  cannot be dereferenced, and a value the boundary suite reads once a
   milestone goes red and names itself when it drifts, which is the
   property this section could never have. Still one home, not two
   (`docs/non-goals.md` records the amendment to ORC-40's rule).

@@ -109,4 +109,42 @@ defmodule Catapult.Dsl.Extends do
   def fragment_vocabulary(layers) do
     layers |> Enum.flat_map(fn {_dir, manifest} -> manifest.fragments end) |> Enum.uniq()
   end
+
+  @doc """
+  Resolves and loads the `extends:` chain for the bundle `bundle_name`
+  under `bundles_root` directly — the same load `Catapult.Dsl.Chain
+  .load/3` does internally, exposed for callers that need the layer
+  list itself rather than a built `Chain.t()` (schema/prompt file
+  resolution: `Catapult.Dsl.Grammar`, `Catapult.Generation
+  .ContextAssembly`).
+  """
+  @spec load_layers(String.t(), String.t()) :: {:ok, [layer()]} | {:error, term()}
+  def load_layers(bundles_root, bundle_name) do
+    dir = Path.join(bundles_root, bundle_name)
+    manifest_path = Path.join(dir, "bundle.yaml")
+
+    with {:ok, raw} <- Yaml.read(manifest_path),
+         {:ok, manifest} <- Manifest.parse(manifest_path, raw) do
+      chain(bundles_root, dir, manifest)
+    end
+  end
+
+  @doc """
+  A bundle-relative content path (a prompt, a schema — anything a
+  tier names by path rather than by declaration), resolved
+  specific-first across `layers`: the leaf bundle's own copy of a
+  file wins, and a file the leaf never copies (the platform-wide
+  review grammar, living only in its base layer) still resolves —
+  "same-path files replace" (dsl-syntax.md §11) applied to referenced
+  content the same way it already applies to tier/edge/flow files.
+  """
+  @spec resolve_content_path([layer()], String.t()) :: String.t() | nil
+  def resolve_content_path(layers, relative_path) do
+    layers
+    |> Enum.reverse()
+    |> Enum.find_value(fn {layer_dir, _manifest} ->
+      candidate = Path.join(layer_dir, relative_path)
+      if File.regular?(candidate), do: candidate
+    end)
+  end
 end

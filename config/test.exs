@@ -24,7 +24,18 @@ database_url =
 config_seed = %{
   "DATABASE_URL" => database_url,
   "FOUNDATION_POOL_SIZE" => "10",
-  "ENGINE_EVENT_STORE_POOL_SIZE" => "10"
+  "ENGINE_EVENT_STORE_POOL_SIZE" => "10",
+  # The default suite drives the whole chain offline through the fake
+  # host port (conventions §9) — never Actions, never a real JWKS
+  # fetch. `DELIVERY_GITHUB_TOKEN` still needs a value: `Catapult.Config
+  # .load!/2` loads every declared value at boot regardless of whether
+  # this env exercises it, the same way `DATABASE_URL` is seeded for
+  # every test even though most tests never touch `Catapult.Repo`
+  # directly.
+  "DELIVERY_GITHUB_TOKEN" => "test-token",
+  "DELIVERY_HOST_PORT_ADAPTER" => "fake",
+  "DELIVERY_OIDC_JWKS_AUTOSTART" => "false",
+  "GENERATION_CLOCK" => "fake"
 }
 
 config :catapult, :config_source, {Catapult.Config.Static, config_seed}

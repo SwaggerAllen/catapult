@@ -125,23 +125,34 @@ defmodule Catapult.MixProject do
           apps: [
             :commanded,
             :commanded_eventstore_adapter,
+            :date_time_parser,
             :db_connection,
             :decimal,
             :ecto,
             :ecto_sql,
             :eventstore,
+            :finch,
             :fsm,
             :gen_stage,
+            :hpax,
             :jason,
+            :joken,
+            :joken_jwks,
+            :jose,
             :libgraph,
             :mime,
+            :mint,
+            :nimble_options,
+            :nimble_pool,
             :oban,
             :plug,
             :plug_cowboy,
             :plug_crypto,
             :postgrex,
             :req,
+            :solid,
             :telemetry_registry,
+            :tesla,
             :yaml_elixir
           ]
         ]
@@ -151,7 +162,12 @@ defmodule Catapult.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :runtime_tools],
+      # `:xmerl` (OTP-shipped) backs `Catapult.Dsl.Grammar`'s root_tag +
+      # XSD validation (dsl-syntax.md §10) — no Hex dependency needed,
+      # and, like `:httpc`, a pure Erlang application Boundary cannot
+      # restrain (`systems/foundation.md`), so it carries no `boundary:
+      # default: check: apps:` entry.
+      extra_applications: [:logger, :runtime_tools, :xmerl],
       mod: {Catapult.Application, []}
     ]
   end
@@ -191,12 +207,22 @@ defmodule Catapult.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
-      # The blessed HTTP client (conventions §1), named as a decision in
-      # systems/foundation.md rather than ported in silently. `only:
-      # :test` while the `:live` suite is its only consumer; the
-      # constraint widens the day the first external adapter (Tracker,
-      # Host, Deploy) lands in Phase 3.
-      {:req, "~> 0.7", only: :test}
+      # The blessed HTTP client (conventions §1). Was `only: :test`
+      # (the `:live` suite's own dependency) until the first external
+      # adapter landed — ORC-9's Actions adapter, which is that adapter
+      # (`systems/foundation.md`'s own note that the constraint widens
+      # "the day the first external adapter (Tracker, Host, Deploy)
+      # lands"). Now an ordinary runtime dep.
+      {:req, "~> 0.7"},
+      # Liquid templates (conventions §1's blessed choice for prompt
+      # rendering; `dsl-syntax.md` §9, `systems/generation.md`) — named
+      # in ORC-9's own scope text ("Liquid/Solid, ordered walks").
+      {:solid, "~> 1.3"},
+      # JWT + JWKS verification for GitHub Actions OIDC (v5 §7.12.1: "JWT
+      # + JWKS verification is stock Elixir machinery (joken/joken_jwks-
+      # grade), not custom crypto") — named in ORC-9's own scope text.
+      {:joken, "~> 2.6"},
+      {:joken_jwks, "~> 1.7"}
     ]
   end
 

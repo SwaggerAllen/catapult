@@ -65,8 +65,27 @@ defmodule Catapult do
       # `@derive Jason.Encoder` on every versioned event struct
       # (Commanded's serializer needs it for the persistent adapter) —
       # `jason` is already a runtime dep, this is its first direct
-      # reference from plane code.
-      Jason.Encoder
+      # reference from plane code. `Jason` itself (encode!/decode) is
+      # the host port's own wire format (`Catapult.Delivery.Dispatch`).
+      Jason,
+      Jason.Encoder,
+      # The host port's Actions adapter (ORC-9, systems/delivery.md):
+      # the blessed HTTP client, `only: :test` no longer (mix.exs).
+      Req,
+      # GitHub Actions OIDC verification (ORC-9, v5 §7.12.1): stock
+      # joken/joken_jwks machinery, no custom crypto
+      # (`Catapult.Delivery.Oidc`).
+      Joken,
+      Joken.Config,
+      Joken.Hooks,
+      Joken.Signer,
+      JokenJwks,
+      JokenJwks.DefaultStrategyTemplate,
+      JokenJwks.SignerMatchStrategy,
+      # Liquid prompt rendering (ORC-9, `dsl-syntax.md` §9): context
+      # assembly's own templating library (`Catapult.Generation
+      # .ContextAssembly`).
+      Solid
     ],
     exports: []
 end

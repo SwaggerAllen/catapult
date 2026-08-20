@@ -25,6 +25,7 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.FlipActiveBundle
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.WriteReview
   alias Catapult.Engine.Events.ActiveBundleFlipped
   alias Catapult.Engine.Events.DraftApproved
@@ -33,6 +34,7 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.ReviewWritten
+  alias Catapult.Engine.Events.RunFailed
 
   defstruct project_id: nil, nodes: %{}, flows: %{}
 
@@ -133,6 +135,19 @@ defmodule Catapult.Engine.Aggregate do
     }
   end
 
+  def execute(%__MODULE__{}, %RecordRunFailure{} = cmd) do
+    %RunFailed{
+      project_id: cmd.project_id,
+      node_id: cmd.node_id,
+      tier: cmd.tier,
+      scope_key: cmd.scope_key,
+      run_id: cmd.run_id,
+      reason: cmd.reason,
+      occurred_at: cmd.occurred_at,
+      actor_id: cmd.actor_id
+    }
+  end
+
   def execute(%__MODULE__{}, %FlipActiveBundle{} = cmd) do
     %ActiveBundleFlipped{
       project_id: cmd.project_id,
@@ -176,6 +191,7 @@ defmodule Catapult.Engine.Aggregate do
 
   def apply(%__MODULE__{} = agg, %ReviewWritten{}), do: agg
   def apply(%__MODULE__{} = agg, %ActiveBundleFlipped{}), do: agg
+  def apply(%__MODULE__{} = agg, %RunFailed{}), do: agg
 
   defp mint_placeholders(nodes, mints) do
     Enum.reduce(mints, nodes, fn mint, acc ->

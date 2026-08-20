@@ -18,7 +18,9 @@ config :catapult,
        {Catapult.Config.Static,
         %{
           "DATABASE_URL" => "ecto://catapult:catapult@localhost/catapult_dev",
-          "FOUNDATION_HEALTH_PORT" => "4000"
+          "FOUNDATION_HEALTH_PORT" => "4000",
+          "DELIVERY_GITHUB_TOKEN" => "dev-token",
+          "DELIVERY_HOST_PORT_ADAPTER" => "fake"
         }}
 
 config :catapult, serve_health: true
