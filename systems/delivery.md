@@ -97,7 +97,16 @@ design gates pass.
 Initial (Phase 4): the host port + fakes; feature lifecycle through
 the two gates; PR + harvesting; lifecycle projected into the plane's
 own read models, which the work surface renders — there is no third
-party in this path. Target (Phase 7): the whole of v5 §7,
+party in this path. **Narrowed at ORC-9**: the host port's
+dispatch-facing slice — context-fetch, result-report, OIDC
+validation, run correlation, and its in-memory fake — lands in Phase
+3 with the generation executor (`systems/generation.md`), ahead of
+the rest of this system. It is one seam with two consumers arriving
+at different times, not two ports: the slice generation needs now is
+a subset of the same host port this doc already claims, not a
+parallel one this ticket invents. Feature-lifecycle PR management and
+decline harvesting are unaffected and still open at Phase 4. Target
+(Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound
 mirror in place of the Linear adapter.
