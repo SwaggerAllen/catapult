@@ -31,6 +31,7 @@ defmodule Catapult.Engine.Reducer do
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.ReviewWritten
+  alias Catapult.Engine.Events.RunFailed
   alias Catapult.Engine.Store
 
   @doc "Folds one event into the projection tables. `metadata` carries the recorded event's own `stream_version`."
@@ -111,6 +112,16 @@ defmodule Catapult.Engine.Reducer do
 
     :ok
   end
+
+  # No projection table: `Catapult.Engine.Projections.RunFailures`
+  # derives the limit-class failure count directly from the raw stream
+  # (`Commanded.EventStore.stream_forward/2`), never from a materialized
+  # row — the same "projections are derived and disposable" doctrine
+  # every other query in this module's sibling projections already
+  # follows, applied to a fact that has no natural home in `nodes`/
+  # `drafts` (it is neither a node's current status nor a stored
+  # artifact).
+  def apply(%RunFailed{}, _metadata), do: :ok
 
   def apply(%ActiveBundleFlipped{} = event, metadata) do
     Store.flip_active_bundle_version(%{

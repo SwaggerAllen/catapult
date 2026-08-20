@@ -28,6 +28,7 @@ defmodule Catapult.Engine.Router do
   alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.FlipActiveBundle
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.WriteReview
 
   @aggregate Module.concat([Catapult, Engine, Aggregate])
@@ -42,7 +43,8 @@ defmodule Catapult.Engine.Router do
       ApproveDraft,
       DiscardDraft,
       WriteReview,
-      FlipActiveBundle
+      FlipActiveBundle,
+      RecordRunFailure
     ],
     to: @aggregate
   )

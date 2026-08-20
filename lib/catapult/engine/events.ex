@@ -22,6 +22,7 @@ defmodule Catapult.Engine.Events do
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.ReviewWritten
   alias Catapult.Engine.Events.ReviewWrittenV1
+  alias Catapult.Engine.Events.RunFailed
 
   @doc "The `events/0` registry entries."
   @spec registry() :: [{atom(), pos_integer()}]
@@ -34,7 +35,8 @@ defmodule Catapult.Engine.Events do
       {:draft_discarded, 1},
       {:review_written, 1},
       {:review_written, 2},
-      {:active_bundle_flipped, 1}
+      {:active_bundle_flipped, 1},
+      {:run_failed, 1}
     ]
   end
 
@@ -48,4 +50,5 @@ defmodule Catapult.Engine.Events do
   def module(:review_written, 1), do: ReviewWrittenV1
   def module(:review_written, 2), do: ReviewWritten
   def module(:active_bundle_flipped, 1), do: ActiveBundleFlipped
+  def module(:run_failed, 1), do: RunFailed
 end
