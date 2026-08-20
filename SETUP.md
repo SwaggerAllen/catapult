@@ -124,6 +124,36 @@ The facts a future session needs, recorded as facts:
   which meant merging the fix re-broke the deploy on its own. The only
   deployment this code has is this one. Raising the plan raises the
   ceiling, which is why the ceiling lives here and not in a comment.
+- **`DELIVERY_GITHUB_TOKEN` — the plane's own GitHub token, set as an
+  App Platform environment variable, encrypted.** Declared by delivery
+  with no default (`lib/catapult/delivery.ex`), so a build without it
+  fails at boot with the config report naming it — which is how ORC-9's
+  first deploy failed. It is **not** an Actions secret: the plane reads
+  it through the config layer at boot, so it belongs beside the other
+  instance values here rather than in §3.
+
+  **Scope it needs, derived from the one call that uses it.**
+  `Catapult.Delivery.HostPort.Actions` makes exactly one request —
+  `POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches`.
+  Nothing reads runs back (correlation rides the `run_key` dispatch
+  input and the OIDC callback), so a fine-grained token with
+  **Actions: Read and write** plus the mandatory **Metadata: Read** is
+  the whole of it. Classic tokens want `repo`, since the target repos
+  are private — prefer fine-grained, as with `DISPATCH_TOKEN`.
+
+  **The footgun is the repository list, and it is §1's footgun again.**
+  The owner and name come from the *project binding*, not from this
+  repo — the plane dispatches into whatever repository a project is
+  bound to. So the token's repository list has to include every bound
+  project's repo, and **binding a new project is a second act on this
+  token that nothing will remind you about**: a dispatch to a repo
+  outside the list fails at the API, not at boot, and only once that
+  project first has a ready scope.
+
+  Two companions have defaults and need setting only to override:
+  `DELIVERY_DISPATCH_WORKFLOW_FILE` (`catapult-dispatch.yml`) and
+  `DELIVERY_DISPATCH_REF` (`main`) — both resolved against the *target*
+  repository, not this one.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
