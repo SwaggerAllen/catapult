@@ -877,3 +877,38 @@ than silently standing in for it. Revisit condition: the delivery
 system's context-source extension landing, at which point this is a
 one-line addition to five already-shaped `context:` lists.
 
+## No toy-seed tier or draft asserted to reflect an `input.<role>` document
+scope: system:engine, system:generation
+
+(ORC-10.) `Catapult.Engine.Projections.ContextResolver.resolve/2`
+returns `{:error, :unsupported}` for every `input.<role>` and
+`ticket.<source>` walk, without exception — not just the
+`ticket.findings` case the entry above names, and not just roles
+other than `project_doc`: **every** `input.*` walk, `project_doc`
+included, resolves this way today. `Catapult.Generation
+.ContextAssembly` folds that `:unsupported` into an empty context
+rather than an error (`{:error, :unsupported} -> []`), which matches
+dsl-syntax.md §7.2's "a role with no documents never blocks
+readiness" by coincidence of shape, not by that rule's actual
+reason — the walk isn't reporting an empty role, resolution for the
+whole source is simply not built (intake/raft storage is Phase 4's).
+Net effect, verified by reading rather than assumed: no tier's
+rendered prompt and no committed draft can be shown, today, to
+reflect the content of any input-role document, `project_doc`
+included.
+
+This bears directly on ORC-10's toy seed, which asks for input
+documents "in every registered role, including `non_goals`." Those
+documents belong in the toy project's raft as content for the
+eventual intake pass to read — real seed evidence, not a prop — but
+neither the offline chain test (the agent-port fake) nor the `:live`
+one may assert that a generated tier's body was shaped by them, or
+that `non_goals` in particular reached a policy node: there is no
+mechanism yet by which that could be true. What the toy seed *can*
+prove today is the graph-native chain — `self`/`self.parent`/`all.*`
+walks, every tier reachable from `comparch` down through `impl`, at
+least one instance of every edge type — which is the whole of what
+`ContextResolver` resolves. Revisit condition: intake/raft storage
+landing (Phase 4), at which point `input.<role>` resolves for real
+and the toy seed's raft stops being inert.
+
