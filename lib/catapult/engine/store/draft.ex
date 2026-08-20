@@ -10,11 +10,13 @@ defmodule Catapult.Engine.Store.Draft do
 
   use Ecto.Schema
 
-  @primary_key {:id, :string, autogenerate: false}
+  # Composite primary key `(project_id, id)` (ORC-87, systems/engine.md).
+  @primary_key false
   @foreign_key_type :string
 
   schema "engine_drafts" do
-    field :project_id, :string
+    field :id, :string, primary_key: true
+    field :project_id, :string, primary_key: true
     belongs_to :node, Catapult.Engine.Store.Node
     field :body_sha, :string
     field :committed_sequence, :integer

@@ -10,11 +10,14 @@ defmodule Catapult.Engine.Store.Node do
 
   use Ecto.Schema
 
-  @primary_key {:id, :string, autogenerate: false}
+  # Composite primary key `(project_id, id)` — a node id is a
+  # per-project slug, not globally unique (ORC-87, systems/engine.md).
+  @primary_key false
   @foreign_key_type :string
 
   schema "engine_nodes" do
-    field :project_id, :string
+    field :id, :string, primary_key: true
+    field :project_id, :string, primary_key: true
     field :tier, :string
     field :scope_key, :map, default: %{}
     belongs_to :parent, __MODULE__, foreign_key: :parent_node_id

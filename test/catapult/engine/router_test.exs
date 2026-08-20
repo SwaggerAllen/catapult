@@ -45,7 +45,7 @@ defmodule Catapult.Engine.RouterTest do
 
     assert :ok = Router.dispatch(cmd, consistency: :strong)
 
-    flow = Store.get_flow("flow-1")
+    flow = Store.get_flow(project_id, "flow-1")
     assert flow.project_id == project_id
     assert flow.status == :open
   end

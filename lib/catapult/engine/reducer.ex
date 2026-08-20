@@ -89,7 +89,7 @@ defmodule Catapult.Engine.Reducer do
 
   def apply(%DraftApproved{} = event, _metadata) do
     Store.set_draft_status(event.draft_id, :approved)
-    Store.approve_node(event.node_id)
+    Store.approve_node(event.project_id, event.node_id)
     :ok
   end
 

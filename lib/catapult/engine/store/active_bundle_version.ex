@@ -12,10 +12,12 @@ defmodule Catapult.Engine.Store.ActiveBundleVersion do
 
   use Ecto.Schema
 
-  @primary_key {:id, :string, autogenerate: false}
+  # Composite primary key `(project_id, id)` (ORC-87, systems/engine.md).
+  @primary_key false
 
   schema "engine_active_bundle_versions" do
-    field :project_id, :string
+    field :id, :string, primary_key: true
+    field :project_id, :string, primary_key: true
     field :axis, Ecto.Enum, values: [:chain, :workflow]
     field :bundle_name, :string
     field :version, :string

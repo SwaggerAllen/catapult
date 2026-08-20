@@ -9,11 +9,13 @@ defmodule Catapult.Engine.Store.Fragment do
 
   use Ecto.Schema
 
-  @primary_key {:id, :string, autogenerate: false}
+  # Composite primary key `(project_id, id)` (ORC-87, systems/engine.md).
+  @primary_key false
   @foreign_key_type :string
 
   schema "engine_fragments" do
-    field :project_id, :string
+    field :id, :string, primary_key: true
+    field :project_id, :string, primary_key: true
     belongs_to :owner, Catapult.Engine.Store.Node, foreign_key: :owner_node_id
     field :kind, :string
     field :content, :string
