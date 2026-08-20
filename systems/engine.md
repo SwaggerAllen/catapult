@@ -2,6 +2,7 @@
 paths:
   - lib/catapult/engine/**
   - test/catapult/engine/**
+  - priv/repo/migrations/**
 ---
 
 # engine
@@ -116,6 +117,30 @@ engine's, the file is foundation's, so this ticket carries
 `foundation.md`'s own Initial-vs-target note that the migration lands
 "with engine." Target: flow instances, staleness provenance,
 snapshots, replay tooling surfaced in the dashboard.
+
+**ORC-6's own diff stops short of the scheduler and sweeper**, despite
+both being named Initial above. The ticket's own scope paragraph
+enumerates "the Commanded application, per-project aggregates and the
+event log, the reducer generic over bundle semantics, and the
+universal projections" and names none of the reactive-runtime pieces;
+`ready_scopes` and staleness land as this ticket's `Catapult.Engine
+.Projections.ReadyScopes`/`.Staleness` — pure queries against current
+projections, exactly the "state-driven" shape the scheduler standing
+decision above describes — so a later ticket's scheduler process has
+something to call rather than something to build from scratch. Filed
+here rather than silently: this is a deviation from this doc's own
+Initial line, argued for in ORC-6's hand-back.
+
+**The engine's own store tables live at `priv/repo/migrations/**`**,
+added to this doc's file map by the same ticket. Distinct from
+`priv/repo/migrations_infra/**` (foundation's, for EventStore/Oban):
+these are ordinary per-store domain tables (`engine_nodes`,
+`engine_edges`, ... — conventions §6), and `priv/repo/migrations` is
+Ecto's own default path, so nothing but foundation's is under
+`_infra`. `staleness` and `ready_scopes` are deliberately absent from
+that migration and from any table: both are pure queries
+(`Catapult.Engine.Projections.Staleness`/`.ReadyScopes`), never
+materialized, per this doc's own standing decision above.
 
 ## Depends on
 

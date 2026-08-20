@@ -28,6 +28,16 @@ config :catapult, Oban, repo: Catapult.Repo, testing: :manual
 
 config :catapult, serve_health: false
 
+# The in-memory adapter (v5 §2.4's env-switched half): the default
+# suite runs the domain offline, with no event store schema to reset
+# between async tests. One test (`event_store_test.exs`) starts a
+# second, dynamically-named application instance against the real
+# Postgres-backed adapter to prove the migration and the adapter wiring
+# genuinely work — that test opts itself out of the sandbox rather than
+# every other engine test paying for it.
+config :catapult, Catapult.Engine.Application,
+  event_store: [adapter: Commanded.EventStore.Adapters.InMemory]
+
 # The reference instance's public base URL: the `:live` suite's one
 # target (systems/foundation.md). Test config rather than config.exs on
 # purpose — prod code must not be able to read the app's own public URL,
