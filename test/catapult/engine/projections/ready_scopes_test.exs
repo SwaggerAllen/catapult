@@ -7,6 +7,19 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
 
+  # Every id this module writes is namespaced to it. Async modules
+  # share one `engine_nodes` table and the Ecto sandbox isolates
+  # visibility, not row locks — two modules upserting the same primary
+  # key each take a lock the other waits on, and Postgres kills one
+  # with `ERROR 40P01 deadlock_detected`. Seen in CI, seed-dependent,
+  # and it had nothing to do with the diff that tripped it. Tests
+  # within a module run sequentially, so a per-module prefix is the
+  # whole of the fix.
+  @ns "ready_scopes"
+
+  defp nid(nil), do: nil
+  defp nid(id), do: @ns <> ":" <> id
+
   defp walk!(raw) do
     {:ok, walk} = ContextWalk.parse(raw)
     walk
@@ -16,7 +29,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
   defp node!(id, tier, opts) do
     Store.upsert_node(%{
-      id: id,
+      id: nid(id),
       project_id: "p1",
       tier: tier,
       scope_key: Keyword.get(opts, :scope_key, %{}),
@@ -61,7 +74,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "comparch")
-    assert candidate.parent_node_id == "sysarch"
+    assert candidate.parent_node_id == nid("sysarch")
   end
 
   test "per(X) candidate is not ready when its own parent is not yet approved" do
@@ -104,7 +117,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "comp")
-    assert candidate.id == "comp1"
+    assert candidate.id == nid("comp1")
   end
 
   test "a review tier is never ready (dsl-syntax.md §3.3 — no draft: of its own)" do
