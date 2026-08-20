@@ -26,8 +26,12 @@ defmodule Catapult.Engine do
       # competing for it. An instance
       # tunable, so it comes from the environment
       # (`systems/foundation.md`'s build-shape/instance-shape line),
-      # with the same default `FOUNDATION_POOL_SIZE` carries.
-      {:event_store_pool_size, "ENGINE_EVENT_STORE_POOL_SIZE", cast: :integer, default: "10"}
+      # with the same default `FOUNDATION_POOL_SIZE` carries — and
+      # that default is small on purpose: the only deployment this
+      # code has is the one SETUP.md §2 describes, so a default that
+      # needs an environment variable set before a deploy can succeed
+      # is a default that has failed at the one job it has.
+      {:event_store_pool_size, "ENGINE_EVENT_STORE_POOL_SIZE", cast: :integer, default: "2"}
     ]
   end
 

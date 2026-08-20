@@ -98,10 +98,14 @@ The facts a future session needs, recorded as facts:
   totals are live at once during a rolling deploy, and the PRE_DEPLOY
   migrator adds its own two against the instance still being
   replaced, so the sizing rule is **2 × (both pools + 2) ≤ 19**,
-  leaving the cluster's maintenance reserve alone. Both are set to
-  **3** on the instance; the code defaults are 10, which is right for
-  a database that is not this one. Raising the plan raises the
-  number, which is why it lives here and not in a comment.
+  leaving the cluster's maintenance reserve alone. Both default to
+  **2** in code and need no environment variable to be correct here.
+  A first attempt sized them from the environment and left the code
+  defaults at 10 — which meant merging the fix re-broke the deploy on
+  its own, because the only deployment this code has is this one.
+  Raise either with its variable when load justifies it. Raising the
+  plan raises the ceiling, which is why the ceiling lives here and
+  not in a comment.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
