@@ -1,0 +1,18 @@
+<subcomparch>
+  <technical-specification>A single ETS-backed lookup process wrapping a Postgres-backed links table, with one named process serving all reads.</technical-specification>
+  <public-surface>lookup(short_code) -&gt; {:ok, target_url} | :not_found</public-surface>
+  <private-surface>Internal ETS table naming and refresh cadence.</private-surface>
+  <processes>
+    <process name="lookup_engine_server">
+      <category>singleton</category>
+      <purpose>Serves every lookup call from one place, so the ETS table has one writer.</purpose>
+      <guardrails>
+        <max-heap-size>50MB</max-heap-size>
+      </guardrails>
+    </process>
+  </processes>
+  <dependencies/>
+  <references>
+    <reference target="ref"/>
+  </references>
+</subcomparch>

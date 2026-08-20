@@ -1,0 +1,70 @@
+<comparch>
+  <technical-specification>Redirector is a single lookup path over an ETS-cached, Postgres-backed link table, split into a foundation lookup engine and a cache layer in front of it.</technical-specification>
+  <public-surface>resolve(short_code) -&gt; {:ok, target_url} | :not_found; record_click(short_code) -&gt; :ok</public-surface>
+  <private-surface>Internal cache invalidation on link creation/retirement; nothing else calls into it directly.</private-surface>
+  <failure-surface>A cache miss falls through to Postgres; a target being unreachable never fails the redirect itself, only the caller's own follow-through.</failure-surface>
+  <permissions>
+    <permission name="read_links">
+      <description>Read link rows to resolve a short code.</description>
+    </permission>
+  </permissions>
+  <enforcement/>
+  <policies>
+    <policy>
+      <name>No blocking calls in the redirect path</name>
+      <trigger>Any change to the resolve/1 call path.</trigger>
+      <structural/>
+      <rationale>Redirect is the hot path every other tool depends on; a blocking call here becomes everyone else's latency.</rationale>
+    </policy>
+  </policies>
+  <dependencies/>
+  <subcomponents>
+    <subcomponent alias="lookup_engine">
+      <name>LookupEngine</name>
+      <purpose>The authoritative short-code-to-target lookup over Postgres.</purpose>
+      <owned-invariants>
+        <invariant>A lookup for an unknown code returns :not_found, never an error.</invariant>
+        <invariant>A lookup never blocks on a click-count write.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Look up a short code's target.</operation>
+        <operation>Record a click against a short code.</operation>
+        <operation>Report a code as retired once its link is gone.</operation>
+      </primary-operations>
+      <responsibilities>Owns the redirect resolution responsibility end to end.</responsibilities>
+      <owns>
+        <resp id="redirect_resolution">
+          <feat id="fast-lookup"/>
+          <feat id="click-recording"/>
+        </resp>
+      </owns>
+      <implementation grade="real"/>
+      <foundation/>
+    </subcomponent>
+    <subcomponent alias="cache_layer">
+      <name>CacheLayer</name>
+      <purpose>An in-memory front for lookup_engine's hot codes.</purpose>
+      <owned-invariants>
+        <invariant>A cache entry is never served past its link's own retirement.</invariant>
+        <invariant>A cache miss always falls through, never returns :not_found on its own word.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Serve a cached lookup.</operation>
+        <operation>Invalidate an entry on retirement.</operation>
+        <operation>Fall through to lookup_engine on a miss.</operation>
+      </primary-operations>
+      <responsibilities>Speeds up lookup_engine's own responsibility; owns none of its own.</responsibilities>
+      <owns/>
+      <implementation grade="stubbed">
+        <swap>transparent</swap>
+        <exit-plan>Remove the cache layer entirely; lookup_engine alone still satisfies every invariant, just slower.</exit-plan>
+      </implementation>
+    </subcomponent>
+  </subcomponents>
+  <sub-dependencies>
+    <dep from="cache_layer" to="lookup_engine"/>
+  </sub-dependencies>
+  <references>
+    <reference target="ref"/>
+  </references>
+</comparch>

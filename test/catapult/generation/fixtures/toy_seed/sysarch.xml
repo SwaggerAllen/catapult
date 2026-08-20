@@ -1,0 +1,58 @@
+<sysarch>
+  <introduction>Two components: a hot redirect path and a colder link-administration path.</introduction>
+  <techspec>
+    <runtime>Elixir/OTP, one BEAM node per environment.</runtime>
+    <persistence>Postgres - links and click counts.</persistence>
+    <write-path>Link creation writes synchronously; click counts increment inline on redirect.</write-path>
+    <concurrency>One process per request; no shared mutable state beyond the database.</concurrency>
+    <testing>ExUnit, sandboxed Postgres, no network.</testing>
+    <deploy>Single managed instance, autodeploy on merge to main.</deploy>
+    <technologies>Elixir, Phoenix, Postgres.</technologies>
+  </techspec>
+  <components>
+    <component alias="redirector">
+      <name>Redirector</name>
+      <purpose>Resolve a short code to its target and record the click.</purpose>
+      <owned-invariants>
+        <invariant>A short code, once minted, never resolves to a different target.</invariant>
+        <invariant>A redirect is recorded even when the target is unreachable.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Resolve a short code to its target URL.</operation>
+        <operation>Record a click against a short code.</operation>
+        <operation>Report 404 for an unknown or retired code.</operation>
+      </primary-operations>
+      <responsibilities>
+        <resp id="redirect_resolution"/>
+      </responsibilities>
+      <foundation/>
+    </component>
+    <component alias="link_admin">
+      <name>LinkAdmin</name>
+      <purpose>Validate targets, mint short codes, and let owners retire links.</purpose>
+      <owned-invariants>
+        <invariant>No two live links share a short code.</invariant>
+        <invariant>Retiring a link is immediate, not soft-deleted.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Validate a target URL.</operation>
+        <operation>Mint a new short code for a validated target.</operation>
+        <operation>Retire an existing link.</operation>
+      </primary-operations>
+      <responsibilities>
+        <resp id="link_creation"/>
+      </responsibilities>
+    </component>
+  </components>
+  <policies>
+    <policy>
+      <name>Immutable short codes</name>
+      <trigger>A short code is minted.</trigger>
+      <required>redirect_resolution</required>
+      <rationale>A stable link is the entire value proposition - reassigning a code silently breaks every place it was ever shared.</rationale>
+    </policy>
+  </policies>
+  <dependencies>
+    <dep from="link_admin" to="redirector"/>
+  </dependencies>
+</sysarch>

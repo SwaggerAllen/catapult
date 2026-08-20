@@ -1,0 +1,13 @@
+<implementation>
+  <behavior>lookup_engine_server holds an ETS table keyed by short code, refreshed from Postgres on link creation and retirement; lookup/1 reads ETS directly.</behavior>
+  <invariants>A lookup for a retired code returns :not_found within one write of the retirement landing.</invariants>
+  <sequencing>Table refresh happens synchronously inside the same transaction that creates or retires a link, before the caller's write returns.</sequencing>
+  <edge-cases>A lookup racing a concurrent retirement sees either the old or the new state, never a torn read - ETS's own atomicity covers it.</edge-cases>
+  <tests>
+    <test name="resolves a live short code">Create a link, look it up, assert the target URL matches.</test>
+    <test name="404s a retired short code">Create then retire a link, look it up, assert :not_found.</test>
+  </tests>
+  <references>
+    <reference target="ref"/>
+  </references>
+</implementation>

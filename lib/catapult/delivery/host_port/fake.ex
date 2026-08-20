@@ -67,4 +67,22 @@ defmodule Catapult.Delivery.HostPort.Fake do
       before dispatching (conventions §9's fake, driven by the caller's own fixture).
       """
   end
+
+  # There is no in-process bound repo for the fake to overwrite — the
+  # whole point of the fake is that nothing here reaches the network
+  # (`systems/delivery.md`'s ORC-10 entry). What the offline chain test
+  # actually exercises by calling this is the *shape*: both adapters
+  # answer to the same two-callback port, so a caller driving the reset
+  # step ahead of dispatch — the sequence a live run needs — takes the
+  # identical path through the fake, with nothing conditioned on which
+  # adapter is configured.
+  @impl Catapult.Delivery.HostPort
+  def reset_repo(project_id, files) do
+    Logger.info(
+      "fake host port reset (no-op): project_id=#{project_id} files=#{inspect(Map.keys(files))}",
+      component: :delivery
+    )
+
+    :ok
+  end
 end

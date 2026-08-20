@@ -31,8 +31,14 @@ config_seed = %{
   # .load!/2` loads every declared value at boot regardless of whether
   # this env exercises it, the same way `DATABASE_URL` is seeded for
   # every test even though most tests never touch `Catapult.Repo`
-  # directly.
-  "DELIVERY_GITHUB_TOKEN" => "test-token",
+  # directly. Overridable, same shape as `database_url`/`live_base_url`
+  # above and below: the `:live` chain test calls
+  # `Catapult.Delivery.HostPort.Actions` directly, against the real
+  # bound fixture repo, and that needs the operator's real token —
+  # supplied by the live-suite job's own environment, read once at boot
+  # (`systems/foundation.md`'s "the instance's shape comes from the
+  # environment"), never a second config source switched on the tag.
+  "DELIVERY_GITHUB_TOKEN" => System.get_env("DELIVERY_GITHUB_TOKEN", "test-token"),
   "DELIVERY_HOST_PORT_ADAPTER" => "fake",
   "DELIVERY_OIDC_JWKS_AUTOSTART" => "false",
   "GENERATION_CLOCK" => "fake"

@@ -32,6 +32,59 @@ defmodule Catapult.Delivery.HostPort.Actions do
   alias Catapult.Config.Secret
   alias Catapult.Delivery.Store
 
+  @doc """
+  Overwrites `files` (repo-relative path => content) on `project_id`'s
+  bound repo via GitHub's Contents API — fixture content only, never a
+  generated artifact (`Catapult.Delivery.HostPort`'s own moduledoc).
+  Each file is its own request: read the current blob sha if the file
+  already exists (a create and an update are different calls under
+  this API), then write. One file's failure does not roll back an
+  earlier one — a re-run of `reset_repo/2` is the recovery, the same
+  idempotent-retry shape `systems/delivery.md`'s "intent → idempotent
+  effect" bullet already asks of every outbound act in this system.
+  """
+  @impl Catapult.Delivery.HostPort
+  def reset_repo(project_id, files) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      put_all_files(binding, files)
+    end
+  end
+
+  defp put_all_files(binding, files) do
+    Enum.reduce_while(files, :ok, fn {path, content}, :ok ->
+      case put_file(binding, path, content) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp put_file(binding, path, content) do
+    url = contents_url(binding, path)
+    auth = {:bearer, Secret.unwrap(Config.fetch!(:delivery, :github_token))}
+    headers = [{"accept", "application/vnd.github+json"}]
+
+    sha =
+      case Req.get(url, auth: auth, headers: headers) do
+        {:ok, %{status: 200, body: %{"sha" => sha}}} -> sha
+        {:ok, _not_found_or_other} -> nil
+        {:error, _reason} -> nil
+      end
+
+    body = %{message: "catapult: reset fixture — #{path}", content: Base.encode64(content)}
+    body = if sha, do: Map.put(body, :sha, sha), else: body
+
+    case Req.put(url, auth: auth, headers: headers, json: body) do
+      {:ok, %{status: status}} when status in 200..299 -> :ok
+      {:ok, resp} -> {:error, {:reset_failed, path, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:reset_failed, path, reason}}
+    end
+  end
+
+  defp contents_url(binding, path) do
+    "https://api.github.com/repos/#{binding.repo_owner}/#{binding.repo_name}/contents/#{path}"
+  end
+
   @impl Catapult.Delivery.HostPort
   def dispatch_run(request) do
     with {:ok, binding} <- fetch_binding(request.project_id),

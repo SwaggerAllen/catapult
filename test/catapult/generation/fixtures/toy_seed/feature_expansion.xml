@@ -1,0 +1,16 @@
+<feature-expansion>
+  <introduction>Signpost is an internal link-shortening service: turn a long URL into a stable short code, and turn a short code back into a redirect.</introduction>
+  <features>
+    <group>
+      <name>Core</name>
+      <feature>
+        <name>Redirect resolution</name>
+        <intent>Resolve a short code to its target URL and record the click, even when the target itself is unreachable.</intent>
+      </feature>
+      <feature>
+        <name>Link administration</name>
+        <intent>Validate a target URL, mint a short code, and let an owner retire a link later.</intent>
+      </feature>
+    </group>
+  </features>
+</feature-expansion>
