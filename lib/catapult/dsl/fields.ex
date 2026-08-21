@@ -159,6 +159,37 @@ defmodule Catapult.Dsl.Fields do
     end
   end
 
+  @typedoc "A fan-out ceiling: one depth, or `{first, rest}` (dsl-syntax.md §7.19's pair)."
+  @type depth :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}
+
+  @doc """
+  A `depth:` field (dsl-syntax.md §13): a non-negative integer, or a
+  2-element list of non-negative integers (`[first, rest]`, §7.19) —
+  the same grammar checked the same way on a gate, an environment and
+  `critique.yaml` (§15.2, §15.4, §15.5). Omitted defaults to `0`.
+  """
+  @spec depth(map(), String.t()) :: {depth(), problems()}
+  def depth(map, where) do
+    case Map.fetch(map, "depth") do
+      :error ->
+        {0, []}
+
+      {:ok, value} when is_integer(value) and value >= 0 ->
+        {value, []}
+
+      {:ok, [first, rest]}
+      when is_integer(first) and first >= 0 and is_integer(rest) and
+             rest >= 0 ->
+        {{first, rest}, []}
+
+      {:ok, value} ->
+        {0,
+         [
+           "#{where} depth is #{inspect(value)}, expected a non-negative integer or a list of exactly two non-negative integers"
+         ]}
+    end
+  end
+
   @doc "Every key in `map` outside `known`, as an unknown-field problem list."
   @spec unknown_keys(map(), [String.t()], String.t()) :: problems()
   def unknown_keys(map, known, where) do

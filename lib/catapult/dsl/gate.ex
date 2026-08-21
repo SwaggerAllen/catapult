@@ -32,7 +32,7 @@ defmodule Catapult.Dsl.Gate do
           after: String.t(),
           role: String.t() | nil,
           ticket_types: :all | [String.t()],
-          depth: non_neg_integer(),
+          depth: Fields.depth(),
           throwback: [String.t()],
           escalation: String.t() | nil
         }
@@ -49,7 +49,7 @@ defmodule Catapult.Dsl.Gate do
     {after_, after_problems} = Fields.require_string(raw, "after", gate_where)
     {role, role_problems} = Fields.require_string(raw, "role", gate_where)
     {ticket_types, tt_problems} = parse_ticket_types(raw, gate_where)
-    {depth, depth_problems} = parse_depth(raw, gate_where)
+    {depth, depth_problems} = Fields.depth(raw, gate_where)
     {throwback, tb_problems} = Fields.optional_string_list(raw, "throwback", gate_where)
     {escalation, esc_problems} = Fields.require_string(raw, "escalation", gate_where)
 
@@ -90,19 +90,6 @@ defmodule Catapult.Dsl.Gate do
     case Fields.optional_string_list(raw, "ticket_types", where) do
       {[], []} -> if Map.has_key?(raw, "ticket_types"), do: {[], []}, else: {:all, []}
       {values, problems} -> {values, problems}
-    end
-  end
-
-  defp parse_depth(raw, where) do
-    case Map.fetch(raw, "depth") do
-      :error ->
-        {0, []}
-
-      {:ok, value} when is_integer(value) and value >= 0 ->
-        {value, []}
-
-      {:ok, value} ->
-        {0, ["#{where} depth is #{inspect(value)}, expected a non-negative integer"]}
     end
   end
 end

@@ -20,7 +20,7 @@ defmodule Catapult.Dsl.Environment do
           file: String.t(),
           after: String.t(),
           promote_from: String.t() | nil,
-          depth: non_neg_integer(),
+          depth: Fields.depth(),
           lifetime: String.t()
         }
 
@@ -36,7 +36,7 @@ defmodule Catapult.Dsl.Environment do
 
     {after_, after_problems} = Fields.require_string(raw, "after", env_where)
     {promote_from, pf_problems} = Fields.optional_string(raw, "promote_from", env_where)
-    {depth, depth_problems} = parse_depth(raw, env_where)
+    {depth, depth_problems} = Fields.depth(raw, env_where)
 
     {lifetime, lifetime_problems} =
       Fields.optional_one_of(raw, "lifetime", @lifetimes, env_where, "persistent")
@@ -64,18 +64,5 @@ defmodule Catapult.Dsl.Environment do
 
   def parse(file, other) do
     {:error, ["environment declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
-  end
-
-  defp parse_depth(raw, where) do
-    case Map.fetch(raw, "depth") do
-      :error ->
-        {0, []}
-
-      {:ok, value} when is_integer(value) and value >= 0 ->
-        {value, []}
-
-      {:ok, value} ->
-        {0, ["#{where} depth is #{inspect(value)}, expected a non-negative integer"]}
-    end
   end
 end
