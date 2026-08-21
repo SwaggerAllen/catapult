@@ -891,7 +891,8 @@ rather than an error (`{:error, :unsupported} -> []`), which matches
 dsl-syntax.md §7.2's "a role with no documents never blocks
 readiness" by coincidence of shape, not by that rule's actual
 reason — the walk isn't reporting an empty role, resolution for the
-whole source is simply not built (intake/raft storage is Phase 4's).
+whole source is simply not built (intake/raft storage is Phase 5's,
+ORC-12).
 Net effect, verified by reading rather than assumed: no tier's
 rendered prompt and no committed draft can be shown, today, to
 reflect the content of any input-role document, `project_doc`
@@ -908,7 +909,7 @@ mechanism yet by which that could be true. What the toy seed *can*
 prove today is the graph-native chain — `self`/`self.parent`/`all.*`
 walks, every tier reachable from `comparch` down through `impl`, at
 least one instance of every edge type — which is the whole of what
-`ContextResolver` resolves. Revisit condition: intake/raft storage
-landing (Phase 4), at which point `input.<role>` resolves for real
-and the toy seed's raft stops being inert.
+`ContextResolver` resolves. Revisit condition: ORC-12 (Phase 5's
+intake/raft storage) landing, at which point `input.<role>` resolves
+for real and the toy seed's raft stops being inert.
 
