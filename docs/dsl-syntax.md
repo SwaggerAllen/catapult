@@ -598,7 +598,10 @@ Added with the two axes and the declarable protocol surface (v5
   exceeding a chain's actual fan-out applies at the levels that exist
   and is not an error: erroring would make the workflow's depth a
   claim about the chain's decomposition, which is the cross-axis
-  coupling §11 forbids (v5 §7.19);
+  coupling §11 forbids (v5 §7.19). Its *shape* is checked, since
+  nothing downstream can: a `depth:` is a non-negative integer or a
+  list of exactly two of them (§15.2), and any other spelling is a
+  load error;
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
@@ -714,9 +717,12 @@ after: product-review           # predecessor: a system status or another
 role: design                    # who signs off; identity holds the
                                 #   holders, bindings the reviewers: map
 ticket_types: [feature]         # which types visit it; omitted = all
-depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
-                                #   top level only. A maximum, never
-                                #   validated against the chain.
+depth: [2, 0]                   # fan-out depth (v5 §7.19); omitted = 0.
+                                #   `[first, rest]` — the first pass
+                                #   through this gate, then every later
+                                #   one. A bare integer is both. A
+                                #   maximum, never validated against the
+                                #   chain.
 throwback: [product-design]     # exits it may reject to; each must be
                                 #   earlier in the effective sequence
 escalation: author              # policy; human gates are author-owned
@@ -725,6 +731,29 @@ escalation: author              # policy; human gates are author-owned
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
+
+**`depth:` is human review's knob, and only human review's.** A gate
+is a human sign-off (`escalation: author`), and a human normally
+reads the top level: **depth 0 is the rule for a gate, not merely its
+default.** Automatic critique needs no such setting and has none — it
+is a chain-axis review tier (`reviews: <tier>`, `phase: critique`,
+§3.3), so it runs at every node of the tier it reviews and its
+coverage is the chain's own fan-out, declared nowhere. Reasoning
+about how deep a chain decomposes in order to pick a gate's `depth:`
+is arguing the other axis' case, and §11's cross-axis rule is what
+that reasoning runs into.
+
+**The one case that is not depth 0 is the first pass**, which is why
+`depth:` accepts a two-element list. Scaffolding a graph from a seed
+has no reviewed prior graph to trust, so the author does want eyes on
+what fanned out; every later pass over that graph is ordinary ticket
+work against artifacts a human has already read, and goes back to the
+top level. `[2, 0]` says exactly that. **The selector is positional,
+never a named pass** — the grammar has no vocabulary for "the
+scaffolding flow," and giving it one would put a chain-side concept
+into a workflow declaration. "First" means the first time this gate
+is reached for the project at all, not the first time on a given
+ticket and not the pass before a throwback sends it back.
 
 ### 15.3 Ordering, and why `after:` is a reference
 

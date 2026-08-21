@@ -3242,6 +3242,31 @@ is precisely the cross-axis coupling §7.18 removed. Depth is a number
 rather than a name, which is the whole reason it can scope without
 coupling.
 
+**Which review gets depth, and which does not.** A declared review
+status is a *human* sign-off, and a human normally reads the top
+level, so **depth 0 is the rule for a gate rather than merely its
+default**. The chain's automatic critique is the thing that wants
+coverage at every level, and it already has it without a knob: it is
+a review tier on the chain axis, so it runs at every node of the tier
+it reviews and its reach is the chain's own fan-out. Picking a gate's
+depth by reasoning about how far a chain decomposes — "the
+architecture chain fans out twice, so 2" — is arguing the automatic
+reviewer's case in the human reviewer's declaration, and lands
+straight in the cross-axis coupling §7.18 removed. (The worked
+example above puts `code review` at 1. It is illustrating the
+filtering mechanism across levels, not setting this policy.)
+
+**The exception is the first pass, so a gate's depth may be a pair.**
+Scaffolding a graph from a seed has no reviewed prior graph to trust,
+and the author does want eyes on what fanned out; every later pass
+runs against artifacts a human has already read and returns to the
+top level. `depth: [2, 0]` says the first traversal of this gate for
+the project, then every later one — **positional, never a named
+pass**, because naming "the scaffolding flow" in a workflow
+declaration is the same cross-axis leak by another route. A bare
+integer still means both, so nothing already declared changes
+meaning.
+
 **One special case disappears into this.** §7.18 said per-PR
 environments would attach to top-level tickets only. That is not a
 special case; it is `deploy` at depth `0`, and it stops needing its
