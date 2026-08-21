@@ -405,7 +405,7 @@ loader tickets carry `system:core-dsl`.
   comes out with it; nothing about the gate's `after:`/
   `throwback:`/`role:` changes. Second: `bundles/default-flow`
   declares no `critique.yaml` today, and under §7.19's opt-in
-  decision that means the default chain's six review tiers ship
+  decision that means the default chain's eight review tiers ship
   inert the moment the loader gains the new form — silently, since
   an absent file is not a load error. Recommended content, following
   the pair's own worked argument (the project's first traversal

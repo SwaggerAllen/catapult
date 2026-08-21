@@ -3422,7 +3422,7 @@ addition, exactly the shape a gate or an environment already takes,
 and it never needs to un-declare anything a lower layer holds.
 Consequence, stated because it is not free: `bundles/default-flow`
 declares no `critique.yaml` today, so the day this form ships, the
-default chain's six review tiers stop being merely unscheduled (true
+default chain's eight review tiers stop being merely unscheduled (true
 since the tier-ification decision above) and start being a workflow
 that has been asked, plainly, whether it wants them, and has not yet
 answered. Answering that is bundle content, not this decision;
