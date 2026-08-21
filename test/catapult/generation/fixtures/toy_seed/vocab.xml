@@ -1,0 +1,4 @@
+<vocab-entry>
+  <definition>A short, generated identifier that resolves to a target URL - the thing a redirect link is built from.</definition>
+  <disambiguation>Not the target URL itself, and not a custom/vanity string - every short code is minted, never chosen (see this project's non_goals.md).</disambiguation>
+</vocab-entry>

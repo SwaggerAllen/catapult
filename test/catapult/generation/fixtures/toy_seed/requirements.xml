@@ -1,0 +1,17 @@
+<requirements>
+  <introduction>Signpost's responsibilities, rotated from its two features.</introduction>
+  <responsibility>
+    <name>Redirect resolution</name>
+    <feats>
+      <feat id="fast-lookup"/>
+      <feat id="click-recording"/>
+    </feats>
+  </responsibility>
+  <responsibility>
+    <name>Link creation</name>
+    <feats>
+      <feat id="target-validation"/>
+      <feat id="code-minting"/>
+    </feats>
+  </responsibility>
+</requirements>

@@ -1,0 +1,89 @@
+# Fixture, not a live workflow file (ORC-10): reviewed here, in the
+# plane's own repo, and pushed verbatim to the bound fixture repo
+# (SwaggerAllen/catapult-test) by `Catapult.Delivery.HostPort`'s
+# `reset_repo/2` — never placed at a real `.github/workflows/**` path
+# in *this* repo, because that path is author-owned by GitHub's own
+# rule (no `workflow` scope on an agent's push token) regardless of
+# what the file inside it is for (`systems/README.md`).
+#
+# This is the target project's half of the dispatch-facing host port
+# (`systems/generation.md`, `systems/delivery.md`; v5 §7.12.1):
+# GitHub Actions triggers this on `workflow_dispatch`, it fetches the
+# rendered context from the plane over an OIDC-authenticated call,
+# runs the pinned runner harness with the named model credential, and
+# reports the result back the same way. The exact harness invocation
+# (action reference, inputs) is orchestration's own pinned dependency
+# (`systems/generation.md`: "not a second implementation in this
+# repo") and is not settled anywhere in this repo as of ORC-10 — the
+# steps below are what's actually known (the OIDC contract, the two
+# endpoints, the inputs a dispatch carries) with the harness step
+# named as a placeholder rather than guessed at. See
+# `docs/chain-runbook.md` for how this fits into a hand-driven run.
+name: catapult-dispatch
+run-name: "catapult dispatch: ${{ inputs.run_key }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_key:
+        description: The plane-minted run correlation id
+        required: true
+        type: string
+      credential_name:
+        description: >-
+          Which of this repo's own model-credential secrets to use
+          (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY) — the plane
+          names the credential, never its value (v5 §7.12.1).
+        required: true
+        type: string
+
+permissions:
+  id-token: write # GitHub's own OIDC token — what authenticates every
+  # call back to the plane below (systems/generation.md's OIDC bullet)
+  contents: read
+
+env:
+  CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app # SETUP.md §2 / config/test.exs's :live_base_url
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an OIDC token for the plane's audience
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('catapult')
+            core.setSecret(token)
+            core.setOutput('token', token)
+
+      - name: Fetch the rendered context
+        id: context
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
+            -o context.json
+
+      # Placeholder: invoke the pinned runner harness here with
+      # context.json's `prompt`, the credential named by
+      # `inputs.credential_name` (read from this repo's own secrets,
+      # never the plane's), and capture its committed body + status.
+      # `systems/generation.md`'s ORC-9 entry: today's shipped harness
+      # fails over on any non-zero exit, so this adapter sends exactly
+      # one credential — there is nothing here for a blind failover to
+      # reach for even though it would try.
+      - name: Run the agent (harness invocation not yet pinned — ORC-10)
+        run: |
+          echo "::warning::catapult-dispatch.yml's harness step is a placeholder — see this file's own header comment."
+          exit 1
+
+      - name: Report the result
+        if: always()
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"status":"other_failure","reason":"harness not yet pinned (ORC-10 fixture placeholder)"}' \
+            "$CATAPULT_BASE_URL/dispatch/report/${{ inputs.run_key }}"
