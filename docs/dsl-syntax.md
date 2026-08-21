@@ -600,8 +600,8 @@ Added with the two axes and the declarable protocol surface (v5
   claim about the chain's decomposition, which is the cross-axis
   coupling §11 forbids (v5 §7.19). Its *shape* is checked, since
   nothing downstream can: a `depth:` is a non-negative integer or a
-  list of exactly two of them (§15.2), and any other spelling is a
-  load error;
+  list of exactly two of them (§15.2), wherever it is declared, and
+  any other spelling is a load error;
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
@@ -701,6 +701,39 @@ loop. The two bolded statuses are the platform workflow layer's
 default review declarations, not system statuses — which is what
 makes them replaceable.
 
+**A status carries a depth, and the tier-to-status mapping is what
+makes that a selector.** `delivery:` gives a tier exactly one
+`phase:`, and many tiers name the same one: in the default chain
+`sysarch`, `comparch` and `subcomparch` all declare `phase:
+generation`, and their three review tiers all declare `phase:
+critique`. A tier's level is never declared — it falls out of the
+decomposition edges (`per(requirements)` is level 0, `per(comp)` 1,
+`per(subcomp)` 2) — so a depth on a status includes the tiers at or
+above that level and excludes the rest, **without the workflow ever
+naming a tier**. That is the same non-coupling `after:` relies on,
+applied to coverage instead of position.
+
+**`critique` is where this bites, and it is the auto-review knob.**
+The chain declares review tiers; the workflow decides how much of
+that review actually runs. Removing `critique` skips **all** of them;
+a depth on it runs only the review tiers at or above that level —
+`critique` at 1 gives `sysarch_review` and `comparch_review` and not
+`subcomparch_review`. This is the mechanism §3.3's "a workflow bundle
+may disable the critique slot ... only by naming the status" already
+points at, generalized from on/off to a depth, and it is why a
+review tier needs no declaration of its own on the workflow side:
+the status it names is the handle.
+
+**The declaration form for a system status' depth does not exist
+yet.** §15.2 and §15.4 cover a gate's and an environment's; a
+platform-fixed kind has no file to carry one, which is the gap this
+paragraph names rather than closes. Note the distinction it has to
+respect when it lands: configuring a fixed kind's participation is
+not *declaring* a status, and §15.1's "declarable by neither axis"
+stays exactly as strict — no bundle mints a kind, and the anchor set
+a blocked ticket re-resolves against is unchanged whatever depth is
+set.
+
 **Agent steps**, the other half of what a chain's `delivery:` block
 may name (§3): `design` (produces a design-graph artifact for a
 tier), `dev` (implements a child scope), `critique` (the review pass
@@ -732,16 +765,14 @@ Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
 
-**`depth:` is human review's knob, and only human review's.** A gate
-is a human sign-off (`escalation: author`), and a human normally
-reads the top level: **depth 0 is the rule for a gate, not merely its
-default.** Automatic critique needs no such setting and has none — it
-is a chain-axis review tier (`reviews: <tier>`, `phase: critique`,
-§3.3), so it runs at every node of the tier it reviews and its
-coverage is the chain's own fan-out, declared nowhere. Reasoning
-about how deep a chain decomposes in order to pick a gate's `depth:`
-is arguing the other axis' case, and §11's cross-axis rule is what
-that reasoning runs into.
+**A gate is a human sign-off, and a human normally reads the top
+level: depth 0 is the rule for a gate rather than merely its
+default.** Picking a gate's depth by reasoning about how far a chain
+decomposes — "the architecture chain fans out twice, so 2" — is
+reasoning about the *other* axis' coverage inside this declaration,
+and §11's cross-axis rule is what that runs into. The status whose
+depth genuinely tracks the chain's decomposition is `critique`, and
+it carries its own (§15.1).
 
 **The one case that is not depth 0 is the first pass**, which is why
 `depth:` accepts a two-element list. Scaffolding a graph from a seed
@@ -751,9 +782,10 @@ work against artifacts a human has already read, and goes back to the
 top level. `[2, 0]` says exactly that. **The selector is positional,
 never a named pass** — the grammar has no vocabulary for "the
 scaffolding flow," and giving it one would put a chain-side concept
-into a workflow declaration. "First" means the first time this gate
+into a workflow declaration. "First" means the first time this status
 is reached for the project at all, not the first time on a given
-ticket and not the pass before a throwback sends it back.
+ticket and not the pass before a throwback sends it back. The
+spelling is the same wherever a depth is declared, gate or status.
 
 ### 15.3 Ordering, and why `after:` is a reference
 

@@ -3242,30 +3242,55 @@ is precisely the cross-axis coupling §7.18 removed. Depth is a number
 rather than a name, which is the whole reason it can scope without
 coupling.
 
-**Which review gets depth, and which does not.** A declared review
-status is a *human* sign-off, and a human normally reads the top
-level, so **depth 0 is the rule for a gate rather than merely its
-default**. The chain's automatic critique is the thing that wants
-coverage at every level, and it already has it without a knob: it is
-a review tier on the chain axis, so it runs at every node of the tier
-it reviews and its reach is the chain's own fan-out. Picking a gate's
-depth by reasoning about how far a chain decomposes — "the
-architecture chain fans out twice, so 2" — is arguing the automatic
-reviewer's case in the human reviewer's declaration, and lands
-straight in the cross-axis coupling §7.18 removed. (The worked
-example above puts `code review` at 1. It is illustrating the
+**Human review and auto-review both get depth, and they want
+opposite values.** A declared review status is a *human* sign-off,
+and a human normally reads the top level, so **depth 0 is the rule
+for a gate rather than merely its default**. `critique` is the
+status whose depth genuinely tracks the chain's decomposition, and
+setting a *gate's* depth by reasoning about how far a chain fans
+out — "the architecture chain fans out twice, so 2" — is arguing the
+auto-reviewer's case inside the human reviewer's declaration. (The
+worked example above puts `code review` at 1. It is illustrating the
 filtering mechanism across levels, not setting this policy.)
+
+**Depth on `critique` is the auto-review knob, and the many-to-one
+tier→status mapping is what lets it select without naming.** A tier
+declares exactly one `phase:` and many tiers name the same one: in
+the default chain `sysarch`, `comparch` and `subcomparch` all declare
+`generation`, and their three review tiers all declare `critique`.
+Level is derived from the decomposition edges rather than declared,
+so `critique` at depth 1 runs `sysarch_review` and `comparch_review`
+and not `subcomparch_review` — **and the workflow never names a
+tier**, which is the same non-coupling that made depth a number
+instead of a name in the first place. Removing `critique` skips every
+review tier at once. This generalizes what this section already said
+one paragraph on — that "a workflow disabling the critique slot after
+a given generation status is how a workflow turns review off" — from
+on/off to a depth, and it is why a review tier needs nothing declared
+for it on the workflow side: the status it names is the handle.
+
+**What is still missing is the declaration form.** §15.2 gives a gate
+its depth and §15.4 gives an environment its own; a platform-fixed
+kind has no file to carry one, so "disable the critique slot" is
+asserted here and in `dsl-syntax.md` §3.3 and is declarable nowhere.
+Whatever closes that must keep the line §7.18 draws: configuring a
+fixed kind's participation is not *declaring* a status, so no bundle
+mints a kind and the anchor set a blocked ticket re-resolves against
+is unchanged at any depth.
 
 **The exception is the first pass, so a gate's depth may be a pair.**
 Scaffolding a graph from a seed has no reviewed prior graph to trust,
 and the author does want eyes on what fanned out; every later pass
 runs against artifacts a human has already read and returns to the
-top level. `depth: [2, 0]` says the first traversal of this gate for
-the project, then every later one — **positional, never a named
+top level. `depth: [2, 0]` says the first traversal of that status
+for the project, then every later one — **positional, never a named
 pass**, because naming "the scaffolding flow" in a workflow
 declaration is the same cross-axis leak by another route. A bare
 integer still means both, so nothing already declared changes
-meaning.
+meaning. The spelling is one spelling: it reads the same on a gate,
+on an environment, and on `critique`, which is the status most likely
+to want it — a seed pass wants its fan-out critiqued, and later
+ticket work over reviewed artifacts does not.
 
 **One special case disappears into this.** §7.18 said per-PR
 environments would attach to top-level tickets only. That is not a
