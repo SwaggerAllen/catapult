@@ -221,12 +221,20 @@ code. `draft` and `prior_review` are never `context:` entries — they
 are template variables supplied automatically to a review tier's
 prompt (§9), exactly as before.
 
-**Never named from the workflow axis.** A workflow bundle may disable
-the critique slot that follows a given generation status, but only by
-naming the status (`critique`) — platform-fixed vocabulary, per §11 —
-never by naming a review tier (`comparch_review`). Naming one from a
-workflow declaration is the identical cross-axis leak §11 already
-forbids for gates and generation tiers.
+**Never named from the workflow axis.** A workflow bundle turns the
+critique slot that follows a given generation status *on* by
+declaring it — `critique.yaml` (§15.5) — never by naming a review
+tier (`comparch_review`): the declaration references the
+platform-fixed status (`critique`) by its one fixed path, never a
+bundle's own tier. Naming a review tier from a workflow declaration
+is the identical cross-axis leak §11 already forbids for gates and
+generation tiers. **Revised at ORC-92:** an earlier reading of this
+paragraph had the direction backward — critique present by default,
+disabled by naming it — which is not what actually happens: no
+workflow bundle in this repo declares anything about critique today,
+and that silence means "off," not "on and undeclared." §15.5 settles
+it explicitly: absent a `critique.yaml`, no critique tier runs at
+all; declaring one is what turns it on, at the depth it names.
 
 ## 4. Edge declarations
 
@@ -599,6 +607,27 @@ Added with the two axes and the declarable protocol surface (v5
   and is not an error: erroring would make the workflow's depth a
   claim about the chain's decomposition, which is the cross-axis
   coupling §11 forbids (v5 §7.19);
+- **a `depth:` value is a non-negative integer, or a list of exactly
+  two non-negative integers** (§7.19's `[first, rest]` pair) — on a
+  gate, an environment, or `critique.yaml` (§15.5) alike, one grammar
+  checked the same way at all three sites; any other spelling is a
+  load error naming the offending value and the file it came from
+  (v5 §7.19, ORC-92). The never-validated-against-the-chain rule
+  above is unaffected: a pair's two positions are still ceilings,
+  never claims checked against the chain's actual fan-out;
+- **`critique.yaml` (§15.5) is optional, singular and
+  structural-only at load time**, the same shape as `bundle.yaml`
+  itself: at most one per loaded workflow bundle (`extends:` layers
+  it by §11's same-path replace, never additively), unknown keys
+  rejected, `depth:` validated by the rule above and defaulting to
+  `0` when omitted. Its presence in the loaded union is the whole of
+  what enables the critique slot — there is deliberately no
+  `enabled:` field, for the same reason a gate needs no such field:
+  absence from the union already means "does not run" (v5 §7.19,
+  ORC-92). Neither this file's `depth:`, nor a gate's or an
+  environment's `depth:` or `ticket_types:`, is read by anything
+  today — scheduling is a later consumer (v5 §7.19) — so there is no
+  consumer to migrate;
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
@@ -716,7 +745,10 @@ role: design                    # who signs off; identity holds the
 ticket_types: [feature]         # which types visit it; omitted = all
 depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
                                 #   top level only. A maximum, never
-                                #   validated against the chain.
+                                #   validated against the chain. Also
+                                #   accepts [first, rest] (§15.5) — the
+                                #   project's first traversal of this
+                                #   gate vs. every later one.
 throwback: [product-design]     # exits it may reject to; each must be
                                 #   earlier in the effective sequence
 escalation: author              # policy; human gates are author-owned
@@ -725,6 +757,16 @@ escalation: author              # policy; human gates are author-owned
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
+
+**Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
+ORC-92). A gate is a human sign-off, and a human reads the top level;
+setting a gate's depth by reasoning about how far the chain fans out
+is arguing the auto-reviewer's case inside the human reviewer's own
+declaration — that argument belongs to `critique.yaml` (§15.5), a
+separate declaration for exactly this reason, not to a field on a
+gate. Declare a gate at a nonzero depth only when the review genuinely
+wants a human at every fanned-out node, which is unusual enough that
+the file's own comment should say why.
 
 ### 15.3 Ordering, and why `after:` is a reference
 
@@ -745,7 +787,8 @@ error**, as is a cycle in `after:` references.
 environment: staging
 after: merge                    # the system status it deploys at
 promote_from: dev               # previous environment; omitted = first
-depth: 0                        # top level only, the usual case
+depth: 0                        # top level only, the usual case. Also
+                                #   accepts [first, rest] (§15.5).
 lifetime: persistent            # persistent | per_ticket (per-PR envs,
                                 #   which are simply depth 0 + per_ticket)
 ```
@@ -757,3 +800,66 @@ store test, and §8's BYO constraint: an endpoint in a bundle breaks
 hosted onboarding). What lives here is which environments exist and
 what promotion into one requires; that changes what is enforced, so
 it is graph state, versioned, changed by PR.
+
+### 15.5 `critique.yaml` — the auto-review knob
+
+```yaml
+depth: 1                        # same grammar as a gate's or an
+                                #   environment's depth (§15.2, §15.4):
+                                #   a non-negative integer, or a pair
+                                #   [first, rest]. Omitted = 0, top
+                                #   level only.
+```
+
+**Optional, singular, fixed path** — `bundles/<name>/critique.yaml`
+at a workflow bundle's root, sibling to `bundle.yaml`, never a glob.
+`gates/` and `environments/` are directories because a project
+genuinely declares several of each; there is exactly one `critique`
+status to configure, so a directory would hold at most one file and
+buys nothing over a fixed path. `extends:` layers it exactly as it
+layers any other bundle file (§11): a bundle naming `critique.yaml`
+overlays whatever the layer beneath it declared at that same path.
+
+**Presence is participation — there is no `enabled:` field.** A
+workflow bundle whose loaded union (every `extends:` layer, not just
+the leaf bundle) carries no `critique.yaml` runs no critique tier at
+all, whatever the chain declares. One that does runs every review
+tier the chain declares, filtered to `depth:`'s levels, exactly as a
+gate's own depth filters which levels see it.
+
+**This is the opt-in reading of v5 §7.19's "a workflow disabling the
+critique slot," settled here rather than left to whichever the form
+happened to imply.** An earlier draft of that sentence read as
+critique-on-by-default, disabled by naming it — which, since no
+workflow bundle in this repo declares anything about critique today,
+would have made every existing project's chain review tiers start
+running the moment this file's grammar shipped, decided by nobody.
+Opt-in also fits the mechanism honestly: `extends:` composes by union
+and same-path replacement (§11) and has no "the layer below declared
+this; unmake it" primitive. A default-on critique could only be
+turned off by a file whose entire content is a negative — a shape
+this DSL has nowhere else. Default-off costs nothing equivalent:
+turning critique on is an ordinary addition, the same shape a gate or
+an environment already takes, and it never needs to un-declare
+anything a lower layer holds.
+
+**Configures a fixed kind; declares nothing.** `critique.yaml` never
+names the status it configures. There is exactly one legal target
+today (`critique`, §15.1) and the file's fixed path *is* the
+reference to it, the same way `catapult.yaml`'s own fixed path needs
+no field naming which repo it belongs to. This is what keeps the form
+on the right side of §15.1's "declarable by neither axis": nothing
+here mints a status name, and nothing here is a review tier's own
+declaration (§3.3) — a chain still owns the review tiers themselves;
+this file only says how far into the fan-out a workflow lets them
+run.
+
+**One spelling wherever a depth appears.** `[first, rest]` means the
+same thing on a gate, an environment or here: "first" is the
+project's first traversal of the status this depth attaches to —
+never the first time a given *ticket* visits it, and never the pass
+right after a throwback sends the status back for a repeat visit,
+both of which are ordinary later traversals of a status the project
+has already been through once (v5 §7.19). A bare integer still means
+both positions at once, so no declaration written before this pair
+form existed changes meaning.

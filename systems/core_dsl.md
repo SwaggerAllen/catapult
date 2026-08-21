@@ -129,6 +129,47 @@ context-source kinds, and audit profiles.
   generation/projection plus 8 review — 6 edges, 5 flows, 2 workflow
   gates). Revisit condition: none — this *is* the daylight the entry
   above asked for.
+- **Depth's grammar generalizes to a pair, and a new declarable form
+  configures `critique`'s participation** (ORC-92, design pass;
+  `docs/dsl-syntax.md` §13, §15.2, §15.4, §15.5; `docs/v5-design-
+  decisions.md` §7.19). Two changes land together, by the ticket's
+  own sequencing constraint: `depth:`'s shape check widens from
+  "non-negative integer" to "non-negative integer, or a list of
+  exactly two" — `Catapult.Dsl.Gate.parse_depth/2` and
+  `Catapult.Dsl.Environment`'s own copy both need the second clause,
+  and §13 gains a shape-check rule validating all three depth sites
+  the same way — and the loader gains a new, singular, non-globbed
+  declaration kind: `critique.yaml` at a workflow bundle's root,
+  structural-parsing-only in the same shape `Gate` and `Environment`
+  already use (unknown keys rejected, `depth:` defaulting to `0`),
+  with no other fields — no `after:`, no `role:`, nothing that would
+  make it look like a review-status declaration, because it
+  configures a fixed kind rather than declaring one (§15.1's line
+  stays exactly as strict). Updating `bundles/**` content ahead of
+  this landing fails every bundle load; updating the parser without
+  the content leaves the content silently unable to say what this
+  ticket argues it should. Neither order is safe done alone, so this
+  is one change, not two.
+
+  **Not built: a globbed directory for status participation
+  generally.** The tempting generalization —
+  `statuses/<name>.yaml`, one file per configurable fixed kind,
+  mirroring `gates/` and `environments/` — is refused for now: there
+  is exactly one configurable kind (`critique`), and a directory
+  earns nothing over a fixed single path until a second kind
+  actually needs the same knob. Revisit condition: a second system
+  status wanting a workflow-declared participation depth — at which
+  point the fixed path generalizes to a directory the same way
+  `gates/` already shows the shape for.
+
+  **Not built: a named-pass selector for the `[first, rest]` pair.**
+  `first`/`rest` are positional, never a name a bundle chooses
+  (`scaffold`, `refactor_flow`) — a chain has no vocabulary for its
+  own flows on the workflow axis to begin with (v5 §7.18), and
+  inventing one here to save a pair's two positions a name would be
+  the identical cross-axis leak the axis split already forbids
+  everywhere else. Revisit condition: none — the coupling this
+  refuses is structural, not a gap waiting on more flows to exist.
 - **`Chain.t()` carries its resolved `predicates.yaml` map forward**
   (ORC-8, named here because the reactive scheduler is the first
   runtime consumer). `Chain.build/3` already resolves and validates

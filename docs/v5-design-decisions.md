@@ -3369,6 +3369,89 @@ chain port. The port only has to carry the review tiers themselves
 critique}`) and the platform-wide review grammar, both of which it
 already does.
 
+**Revised (ORC-92): depth generalizes to a pair, and gains a
+declaration form for a system status.** Two gaps stood before this
+ticket. `depth:` accepted only a bare integer — one ceiling, no way
+to say "the project's first pass through this status wants more
+scrutiny than every later one." And `depth:` itself existed on a
+gate (§15.2) and an environment (§15.4), both declarable, while
+`critique` is a system status (§15.1), declarable by neither axis —
+so "disable the critique slot" was asserted twice in this repo's own
+prose (this section, and `dsl-syntax.md` §3.3) and declarable
+nowhere. Both close together, and one leans on the other: a
+declaration form for `critique`'s own participation is only worth
+building because the depth it carries can now say more than one
+number.
+
+**Depth may now be a pair, `[first, rest]`.** Scaffolding a project
+from its seed has no reviewed prior graph to trust, so that pass
+wants its fan-out reviewed in full; every later pass runs against a
+graph a human, or the auto-reviewer, has already read once and
+returns to the top level. "First" names **the project's first
+traversal of the status a depth is attached to** — not the first
+time a given ticket visits it, and not the pass right after a
+throwback sends the status back for a repeat visit; both of those are
+ordinary later traversals of a status the project has already been
+through once. A bare integer still means both positions at once, so
+no declaration that predates this pair form changes meaning. The
+selector is positional — first/rest by position in the pair, never a
+name — because naming one would put a chain-side concept (which flow,
+which cascade) into a workflow-side declaration, exactly the
+cross-axis coupling §7.18 exists to prevent; depth already scopes
+without naming a tier for the identical reason, and a named position
+would undo that for the one case that needs it least.
+
+**`critique.yaml` is the new form** (`dsl-syntax.md` §15.5): one
+optional, singular, fixed-path file per workflow bundle, layered
+under `extends:` like any other bundle file, holding nothing but the
+same `depth:` grammar. It configures `critique`'s participation
+without declaring `critique` as anything — the file's fixed path is
+the reference to the one fixed-vocabulary kind it can mean, so
+nothing here grows the declarable set past what §15.1 already fixes.
+
+**Settled: critique is opt-in, not on-by-default.** Both readings
+were defensible from this section's own words — "a workflow disabling
+the critique slot" reads as present-by-default — but the mechanism
+decides it once stated plainly: `extends:` composes by union and
+same-path replacement (§7.18, `dsl-syntax.md` §11), with nothing that
+expresses "the layer below declared this; unmake it." A default-on
+critique could only be turned off by a declaration whose entire
+content is a negative, a shape this DSL has nowhere else. Default-off
+costs nothing equivalent: turning critique on is an ordinary
+addition, exactly the shape a gate or an environment already takes,
+and it never needs to un-declare anything a lower layer holds.
+Consequence, stated because it is not free: `bundles/default-flow`
+declares no `critique.yaml` today, so the day this form ships, the
+default chain's six review tiers stop being merely unscheduled (true
+since the tier-ification decision above) and start being a workflow
+that has been asked, plainly, whether it wants them, and has not yet
+answered. Answering that is bundle content, not this decision;
+`systems/platform_content.md` carries the recommendation for the
+implementing pass.
+
+**A gate's depth 0 is the rule, not merely its default.** A gate is a
+human sign-off, and a human reads the top level; reasoning about how
+far a chain fans out to set a gate's depth is arguing the
+auto-reviewer's case inside the human reviewer's own declaration.
+`bundles/default-flow/gates/engineering-review.yaml` currently
+declares `depth: 2`, justified in its own comment by the chain's
+fan-out — exactly that misplaced argument, and wrong for it;
+`systems/platform_content.md` carries the fix as a decision for the
+implementing pass. Fan-out reasoning belongs to `critique.yaml`'s own
+depth instead, which is the whole reason it exists as a separate
+declaration rather than a new field bolted onto a gate.
+
+**Sequencing, stated so nobody lands half of it.**
+`Catapult.Dsl.Gate.parse_depth/2` (and `Catapult.Dsl.Environment`'s
+own copy) accept a scalar today and reject a list — the grammar
+change, the loader change and the shipped bundle content that uses
+the pair form move in one change, because updating content ahead of
+the parser fails every bundle load, including the reference
+deployment's. Neither `depth:` nor `ticket_types:` is read by
+anything today, on a gate, an environment or the new file, so — as
+before this ticket — there is no scheduling consumer to migrate; the
+window stays free until one exists.
+
 ---
 
 ## 8. Parked / open items
