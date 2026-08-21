@@ -928,6 +928,165 @@ defmodule Catapult.Dsl.LoaderTest do
            )
   end
 
+  ## depth: (§13, §15.2, §15.4, §15.5) — the scalar-or-pair grammar,
+  ## shared by a gate, an environment and critique.yaml
+
+  test "a gate's depth: accepts the [first, rest] pair", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: generation
+      role: design
+      escalation: author
+      depth: [2, 0]
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.gates["product-review"].depth == {2, 0}
+  end
+
+  test "an environment's depth: accepts the [first, rest] pair", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/environments/staging.yaml" => """
+      environment: staging
+      after: deploy
+      depth: [1, 0]
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.environments["staging"].depth == {1, 0}
+  end
+
+  test "a depth: list of other than exactly two entries is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: generation
+      role: design
+      escalation: author
+      depth: [1, 2, 3]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "expected a non-negative integer or a list of exactly two non-negative integers"
+             )
+           )
+  end
+
+  test "a negative depth: is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      after: generation
+      role: design
+      escalation: author
+      depth: -1
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "expected a non-negative integer or a list of exactly two non-negative integers"
+             )
+           )
+  end
+
+  ## critique.yaml (§15.5) — the auto-review knob
+
+  test "a workflow bundle with no critique.yaml loads with critique: nil (opt-in, off by default)",
+       %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.critique == nil
+  end
+
+  test "critique.yaml turns the critique slot on, at the depth it declares", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/critique.yaml" => """
+      depth: [2, 0]
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.critique.depth == {2, 0}
+  end
+
+  test "critique.yaml's depth defaults to 0 when omitted", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{"bundles/default-flow/critique.yaml" => "{}\n"})
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.critique.depth == 0
+  end
+
+  test "critique.yaml carrying an unknown field is a load error", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/critique.yaml" => """
+      depth: 1
+      after: generation
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"after\""))
+  end
+
+  test "a leaf bundle's critique.yaml replaces its base layer's at the same path", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "catapult.yaml" => """
+      chain: default
+      workflow: org-flow
+      """,
+      "bundles/default-flow/critique.yaml" => """
+      depth: 1
+      """,
+      "bundles/org-flow/bundle.yaml" => """
+      name: org-flow
+      version: "1.0.0"
+      kind: workflow
+      extends: default-flow
+      gates: [gates/*.yaml]
+      environments: [environments/*.yaml]
+      """,
+      "bundles/org-flow/critique.yaml" => """
+      depth: 2
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.critique.depth == 2
+  end
+
   defp tier!(name) do
     """
     tier: #{name}

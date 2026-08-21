@@ -17,6 +17,7 @@ defmodule Catapult.Dsl.Workflow do
   perform rather than failing on a resolver that does not exist yet.
   """
 
+  alias Catapult.Dsl.Critique
   alias Catapult.Dsl.Environment
   alias Catapult.Dsl.Extends
   alias Catapult.Dsl.Gate
@@ -26,12 +27,13 @@ defmodule Catapult.Dsl.Workflow do
   alias Catapult.Dsl.Yaml
 
   @enforce_keys [:name]
-  defstruct [:name, gates: %{}, environments: %{}]
+  defstruct [:name, :critique, gates: %{}, environments: %{}]
 
   @type t :: %__MODULE__{
           name: String.t(),
           gates: %{String.t() => Gate.t()},
-          environments: %{String.t() => Environment.t()}
+          environments: %{String.t() => Environment.t()},
+          critique: Critique.t() | nil
         }
 
   @doc "Loads and validates the workflow bundle named `name` under `bundles_root`."
@@ -63,6 +65,7 @@ defmodule Catapult.Dsl.Workflow do
 
     {gates, gate_problems} = parse_all(gate_files, Gate)
     {environments, env_problems} = parse_all(env_files, Environment)
+    {critique, critique_problems} = parse_critique(layers)
 
     gate_map = index(gates)
     env_map = index(environments)
@@ -70,6 +73,7 @@ defmodule Catapult.Dsl.Workflow do
     problems =
       gate_problems ++
         env_problems ++
+        critique_problems ++
         duplicate_names(gates, "gate") ++
         duplicate_names(environments, "environment") ++
         gate_after_problems(gate_map) ++
@@ -84,9 +88,31 @@ defmodule Catapult.Dsl.Workflow do
         queue_precedes_problems()
 
     if problems == [] do
-      {:ok, %__MODULE__{name: name, gates: gate_map, environments: env_map}}
+      {:ok, %__MODULE__{name: name, gates: gate_map, environments: env_map, critique: critique}}
     else
       {:error, Enum.uniq(problems)}
+    end
+  end
+
+  # `critique.yaml` is a fixed, singular path, never a glob (§15.5): the
+  # same specific-first, same-path-replace resolution
+  # `Catapult.Generation.ContextAssembly` and `Catapult.Dsl.Grammar`
+  # already use for other bundle-relative content, applied to a
+  # declaration file instead of a prompt or a schema.
+  defp parse_critique(layers) do
+    case Extends.resolve_content_path(layers, "critique.yaml") do
+      nil -> {nil, []}
+      path -> parse_critique_file(path)
+    end
+  end
+
+  defp parse_critique_file(path) do
+    with {:ok, raw} <- Yaml.read(path),
+         {:ok, critique} <- Critique.parse(path, raw) do
+      {critique, []}
+    else
+      {:error, reason} when is_binary(reason) -> {nil, [reason]}
+      {:error, problems} when is_list(problems) -> {nil, problems}
     end
   end
 
