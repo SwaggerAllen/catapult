@@ -96,6 +96,17 @@ green (v5 §2.13):
   ways: an advisory not on the list still fails, and an entry matching
   nothing warns that it can be removed, so acknowledgements expire by
   themselves when the dependency is bumped.
+  A reachability clause in one of these comments carries its own
+  expiry problem, independent of the version-drift one above: Hex's
+  self-expiry is version-scoped (a listed ID matching nothing is
+  flagged), and nothing re-checks a comment's *prose* claim about
+  which paths a request can reach. ORC-91 caught one going stale
+  silently — a "the plane serves /health only" parenthetical outlived
+  by one commit, ORC-9's `DispatchPlug`, that gave the same listener a
+  second inbound path. The version half of an ignore-advisories
+  comment checks itself; a reachability half, once written, is good
+  only until the next listener change, and nothing short of rereading
+  it against the code catches that.
 - `mix xref graph --format cycles --fail-above 0` — compile-
   dependency cycles prohibited.
 - `mix xref graph --label compile-connected --fail-above 0` — the
