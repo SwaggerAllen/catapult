@@ -95,17 +95,21 @@ reached only through their APIs per v5 §2.4).
   `import Config` is for.
 - **TLS verification to the managed database is `verify_none`,
   deliberately, and this bullet — not the cast's docstring — is now
-  its record** (ORC-83). `cast_database_url/1` strips DO's injected
-  `sslmode=require` (Ecto's URL parser rejects the query param as an
-  option) and configures `ssl: [verify: :verify_none]` rather than
-  `verify_peer` against a pinned CA. The bindable ref (`SETUP.md` §2)
-  resolves over DO's private network, which is a real, partial
-  mitigation — reaching a position to MITM that path is a materially
-  harder attack than the plaintext-adjacent alternative — but it is
-  not certificate verification, and the gap is real: a compromised or
-  misconfigured resolver on that network path is exactly what
-  `verify_peer` would catch and `verify_none` does not. Backlog, not
-  gating: nothing in `docs/build-plan.md`, the engine milestone
+  its record** (ORC-83). `cast_database_url/1` strips the platform's
+  injected `sslmode=require` (Ecto's URL parser rejects the query
+  param as an option) and configures `ssl: [verify: :verify_none]`
+  rather than `verify_peer` against a pinned CA. The standing decision
+  is provider-neutral, because a systems doc is the wrong altitude for
+  any one provider's topology to be the reasoning: **`verify_none`
+  holds only where the operator controls the network path end to end;
+  anywhere else, pin a CA and use `verify_peer`.** Which operator,
+  which network, and why that control holds for this deployment today
+  are `SETUP.md` §2's facts, not this doc's to restate — the gap
+  `verify_none` accepts is real regardless (a compromised or
+  misconfigured resolver on the path is exactly what `verify_peer`
+  would catch and `verify_none` does not), and end-to-end operator
+  control is what makes that gap survivable rather than open. Backlog,
+  not gating: nothing in `docs/build-plan.md`, the engine milestone
   (Phase 3) included, depends on verified TLS to the database.
 
   **The docstring's own phrase overclaims and this corrects it.** It
@@ -118,11 +122,12 @@ reached only through their APIs per v5 §2.4).
   self-reported deferral with no tracked record, which is precisely
   what would have kept happening: the docstring is prose a reader has
   to already be looking at, this doc is what the next pass touching
-  `cast_database_url/1` reads on the way in. Revisit condition: before
-  `DATABASE_URL` (or a successor) resolves over a network path DO
-  doesn't operate, at which point the cast pins DO's CA bundle and
-  switches to `verify_peer`, and this bullet is what that ticket
-  argues with.
+  `cast_database_url/1` reads on the way in. Revisit condition: the
+  moment `DATABASE_URL` (or a successor) resolves over a path the
+  operator does not control end to end (`SETUP.md` §2 is where that
+  stops being true, if it ever does), at which point the cast pins a
+  CA and switches to `verify_peer`, and this bullet is what that
+  ticket argues with.
 - **Library configuration is assembled, never re-declared.** Ecto and
   Oban read application env by their own contract and will keep doing
   it; the config layer feeds them rather than fighting them, so
