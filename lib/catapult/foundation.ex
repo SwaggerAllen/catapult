@@ -44,9 +44,11 @@ defmodule Catapult.Foundation do
   DO managed Postgres injects a URL ending in `?sslmode=require`, and
   Ecto's URL parser rejects `sslmode` as an option, so the query string
   is stripped and TLS configured explicitly. `verify_none` is deliberate
-  for now: the bindable URL points at the cluster over DO's network, and
-  certificate pinning is recorded follow-up work (the maintenance lane),
-  not a boot blocker.
+  for now: the bindable URL points at the cluster over DO's network. The
+  record of that choice, including the revisit condition, is
+  `systems/foundation.md`'s TLS bullet (ORC-83) — not this docstring,
+  and not the maintenance lane, which watches hex/GitHub advisories and
+  has no way to see a `verify_none` literal in application code.
 
   It returns `{:error, _}` rather than raising, like every declared cast:
   a URL that cannot be parsed is one line in the boot report next to
