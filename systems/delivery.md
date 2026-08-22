@@ -61,7 +61,7 @@ design gates pass.
   the dispatch call. What reset does *not* do: generated artifacts
   still land only through `Dispatch`'s result-report path into the
   plane's own store, never written to the bound repo, and reset does
-  not make `input.<role>` resolve — that's intake, Phase 4
+  not make `input.<role>` resolve — that's intake, Phase 5, ORC-12
   (`docs/non-goals.md`'s ORC-10 entry). What it buys today is an
   author and a rebuild path for a fixture repo, not test determinism
   or seeded generation content.
