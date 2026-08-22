@@ -33,9 +33,13 @@ state outright. That finding is what this directory answers.
 
 **Where these documents and `docs/v5-design-decisions.md` disagree,
 v5 wins** — that is the whole point of there being a v5. These are
-inputs to a decision, not the decision. Four differences are known
-and load-bearing, so that a reader does not mistake them for
-oversights:
+inputs to a decision, not the decision. Four differences are
+conceptual; three more are structural, and those three will cost a
+reader a load error rather than a misconception, so they're kept
+separate below. All seven are known and load-bearing, so that a
+reader does not mistake them for oversights:
+
+### Conceptual differences
 
 - **Responsibilities.** v4 §2 "A note on responsibilities" removed
   v3's `resp` tier and made responsibilities structured fields on
@@ -62,6 +66,38 @@ oversights:
   §3.3 — its own tier, `reviews: <tier>`, not v4's nested block) and
   the platform-wide review grammar (`<score>`, each `<finding id>` —
   v4 §B.3.2) carry forward unchanged; only the path concept is void.
+
+### Structural differences
+
+These three are not disagreements about what the system should do —
+they're places the v4 examples name a file or a shape that the merged
+v5 loader (`Catapult.Dsl.Manifest`, `Catapult.Dsl.PredicatesFile`)
+does not read. A reader who copies the worked example gets a load
+error, not a design question.
+
+- **`predicates.yaml`'s wrapper key.** `catapult-default-bundle-v4-examples.md`'s
+  worked example (line 374) opens with a top-level `predicates:` key
+  and nests the named predicates under it. `Catapult.Dsl.PredicatesFile`
+  reads the file's own top-level map as `{name => expression}`
+  directly — there is no wrapper. ORC-84's dev pass hit this as a real
+  load failure (`predicates.yaml's predicate "predicates" is %{...},
+  expected a string expression` — the whole map parsed as one
+  predicate) and removed the wrapper. The file itself is still a
+  separate file in v5, which makes this the easiest of the three to
+  miss: only its contents changed shape, not its existence.
+- **`fragments.yaml` as a separate file.** The layout tree (line 47)
+  and the bundle.yaml example (line 147, `fragments: fragments.yaml`)
+  name it as its own registry file. `Catapult.Dsl.Manifest` reads
+  `fragments:` as a plain inline list of kind names inside
+  `bundle.yaml` (`@chain_keys` has no pointer form), and nothing
+  anywhere parses a standalone `fragments.yaml`. Also recorded in
+  `bundles/default/bundle.yaml`'s own comment, `systems/platform_content.md`,
+  and `docs/non-goals.md`.
+- **`plan.yaml` has no parser and nothing to declare.** The layout
+  tree (line 26) and bundle.yaml example (line 149, `plan_rule:
+  plan.yaml`) both name it. v5 §6 drops the phase machinery entirely
+  — no `phased:` tiers, no phase-plan projection, no plan rule — and
+  `dsl-syntax.md` §1's canonical layout does not list it.
 
 ## Licensing
 
