@@ -52,11 +52,18 @@ defmodule Catapult.MixProject do
       ignore_advisories: [
         # cowlib 2.19.0, all three unpatched upstream as of 2026-08-18
         # — 2.19.0 is the newest release and every advisory names it, so
-        # there is nothing to move to and this is maintenance-watcher
-        # territory (ORC-37 scoped the gate, not the advisories). cowlib
-        # arrives transitively via plug_cowboy, pinned from below by
-        # cowboy 2.18.0's `cowlib >= 2.19.0`; no path is reachable from
-        # our own code today (the plane serves /health only).
+        # there is nothing to move to, and that is the whole of why
+        # these stay ignored (ORC-37 scoped the gate, not the
+        # advisories). cowlib arrives transitively via plug_cowboy,
+        # pinned from below by cowboy 2.18.0's `cowlib >= 2.19.0`. This
+        # ignore used to also lean on the plane's single listener
+        # serving `/health` only; ORC-9's `DispatchPlug` gave that same
+        # listener a second inbound path (`/dispatch/*`, forwarding to
+        # delivery's boundary export), so that ground is gone — the
+        # plane now has more than one path into the cowboy/cowlib stack
+        # these advisories are about. Nothing here rests on request
+        # paths anymore; the version-drift argument above is load-
+        # bearing on its own.
         # HTTP response splitting, cow_http_struct_hd:escape_string/2.
         "EEF-CVE-2026-43966",
         # Cookie request header injection, cow_cookie:cookie/1.
