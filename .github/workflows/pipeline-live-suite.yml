@@ -42,6 +42,22 @@ jobs:
       PGHOST: localhost
       PGUSER: catapult
       PGPASSWORD: catapult
+      # The one thing this job needs that ci.yml does not, so copying
+      # ci.yml across never surfaces it: CI makes no outbound GitHub
+      # call, and the `:live` chain test makes two — reset the bound
+      # fixture repo's contents, then dispatch a real workflow_dispatch
+      # against it (Catapult.Delivery.HostPort.Actions, SETUP.md §2).
+      #
+      # Job-level rather than on the `mix test` step: config/test.exs
+      # reads this with System.get_env at config-load time, which
+      # happens during deps.get and compile, not only at test time.
+      #
+      # Absent, the suite does not fail loudly — config/test.exs falls
+      # back to a "test-token" sentinel and GitHub answers 401 Bad
+      # credentials, which reads exactly like a revoked token or an
+      # adapter bug. Two milestone boundaries were lost to that before
+      # this line existed.
+      DELIVERY_GITHUB_TOKEN: ${{ secrets.DELIVERY_GITHUB_TOKEN }}
     services:
       postgres:
         image: postgres:16
