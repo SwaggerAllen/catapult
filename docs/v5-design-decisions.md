@@ -517,15 +517,17 @@ injected clock, seeded randomness.
 **The `:live` suite is the deliberate exception, on a cadence rather
 than a gate.** A `:live`-tagged suite (real providers, real external
 services, deployed surfaces) is excluded from ticket CI and runs once
-per milestone at the boundary — after the boundary ticket is created,
-before the author's pass — results posted on the boundary ticket,
+per milestone, gating the milestone's own `paused → closing`
+transition (§7.8, revised at ORC-103 — there is no boundary ticket to
+create or to post results on) — results posted on the milestone,
 failures filed as milestone blockers, and the flag flip (§7.8)
 strictly downstream of a green run. Rationale: per-ticket determinism
 is what the escalation rules depend on, but a live check that never
 runs is how "merged and green" quietly diverges from "works against
 the world"; both properties hold, each at its own cadence.
-(Orchestration-side: one added boundary step, absorbed by its
-existing step-comment resume machinery.)
+(Orchestration-side: the identical cadence, absorbed by its own
+boundary ticket's step-comment resume machinery — a different system
+running a different loop, `systems/delivery.md`.)
 
 - Test ownership mirrors the mutex: `test/<comp>/` mirrors
   `lib/<comp>/`; derived file maps include test paths. A thin
@@ -1948,16 +1950,58 @@ head SHA regardless of base branch.
 
 ### 7.8 Milestones
 
-Unchanged from orchestration: a milestone is a collection of
-features; the boundary ticket, author's pass, archive/debt-scan/
-grooming machinery all port as-is. One added machine step: on
-boundary-ticket creation, the **`:live` suite runs** (§2.8) and
-posts results before the author's pass, so the pass happens with the
-true end-to-end check in hand; failures block the boundary through
-the existing blocking rule. "Shipping" a milestone aggregates the
-flag set from its included features and flips it at the boundary
-after the author's pass and a green live run — features merge dark
-as they complete; the milestone lights up together.
+A milestone is a collection of features, unchanged from orchestration.
+Everything downstream of that is not, as of ORC-103: an earlier pass
+ported orchestration's boundary ticket wholesale — "the boundary
+ticket, author's pass, archive/debt-scan/grooming machinery all port
+as-is" — and **that ticket does not belong here.** Every reason
+orchestration's own design gives for it is a constraint Catapult does
+not have: the pause needs to be *tracked* somewhere, and the pass
+needs a *place to live* (the retro note, the scan output and the
+grooming proposals as comments on one issue) — both true only because
+orchestration has no tracker of its own to hold either directly.
+Catapult's ticket state is its own event log (§7.17), so a milestone
+can carry a close status and hold the record of its own close without
+proxying through a ticket at all.
+
+**The close sequence is declared, not fixed.** `dsl-syntax.md` §15.1
+used to name `boundary` — "the milestone pass" — as a single static
+agent step; that staticness is gone. §15.6 gives a milestone its own
+small fixed status set (`open → paused → closing → review → closed`,
+plus `blocked`), declarable by neither axis for the identical reason
+ticket system statuses aren't: it is the anchor a milestone parked
+mid-close re-resolves against across a workflow cutover. §15.7 lets a
+workflow bundle declare which close-step kinds run at `closing` and in
+what order — `archive`, `scan` (debt scan and grooming, one step,
+matching orchestration's own resumable unit), `file` — reusing gates'
+own `after:`-ordering shape rather than inventing a parallel one.
+`archive` precedes every other declared step, checked at load time,
+because it is what makes the retro note and the milestone's carried
+findings durable before the tickets holding them are archived.
+
+**The pause's ticket-blocks-ticket edge has no target without a
+boundary ticket.** It is replaced by a flag a ticket carries against
+its own milestone — the milestone it is already committed to, no new
+edge type needed. Read one direction, the dispatcher drains only
+flagged tickets (plus `Urgent`, unchanged, §7.3) while the milestone
+sits `paused`, `closing` or `blocked`; read the other, `closing` will
+not begin while a flagged ticket in this milestone is unresolved.
+
+The **`:live` suite** still runs once per milestone (§2.8), now gating
+the milestone's own `paused → closing` transition rather than a
+boundary ticket's `Todo → In progress`: a failing verdict parks the
+milestone in `blocked`, and `closing` re-runs the suite before
+dispatching the first declared close step — the identical
+two-cause-one-recovery shape orchestration's boundary ticket used.
+"Shipping" a milestone still aggregates the flag set from its included
+features and flips it at `closed`, after a green live run and the
+author's pass — features merge dark as they complete; the milestone
+lights up together.
+
+The machinery this implies — sweeping milestones, dispatching the
+declared close steps, writing the retro note, running the scan — is
+Phase 7's (`systems/delivery.md`), filed as its own ticket and blocked
+on this record. This section settles the shape; it builds none of it.
 
 ### 7.9 The scaffold
 
@@ -2199,10 +2243,10 @@ security advisories) auto-files maintenance tickets with entry
 delivery-only ticket, empty gates) vs. architecture-implicating (a
 major version changing APIs walks the doc graph like any change).
 Filing discipline bends "issues only on the author's ask" the same
-way the boundary ticket does: routine bumps file to Triage for
-batch-accept; advisory-backed security bumps file directly to the
-queue with `Urgent` plus a notification — the alternative is the
-author doing it by hand out-of-band, which is strictly worse. The
+way milestone close-step proposals do (§7.8): routine bumps file to
+Triage for batch-accept; advisory-backed security bumps file directly
+to the queue with `Urgent` plus a notification — the alternative is
+the author doing it by hand out-of-band, which is strictly worse. The
 auto-queue threshold is a `tunable`. Bumps touch `mix.exs`/`mix.lock`
 (accepted shared-file territory) and serialize textually at their
 natural cadence. `Urgent` itself is a **modifier on any type**, never
@@ -2229,17 +2273,17 @@ gets rarer still.
 
 **Stubbed scopes project into the working surface as swap tickets.**
 When a stub declaration is approved, the plane files the swap ticket
-(machinery-filed, like the boundary ticket and maintenance) in the
-**`Stubbed`** status (§7.6), carrying the scope's mutex labels, the
-deferral argument, the exit plan, and the gate it will run when
-scheduled. **No milestone** — the point is an open timeline, and a
-milestone-bound Stubbed ticket would block that boundary forever.
-Scheduling is the author's act: assign a milestone, move it into the
-flow, ordinary (gated) ticket from there. The audit keeps tickets and
-inventory in lockstep (§2.14). Rationale: the stub inventory is the
-mechanical truth; the Stubbed column is that truth standing
-permanently in the author's field of view — a live, visible list of
-what is deliberately half-built.
+(machinery-filed, like milestone close-step proposals (§7.8) and
+maintenance) in the **`Stubbed`** status (§7.6), carrying the scope's
+mutex labels, the deferral argument, the exit plan, and the gate it
+will run when scheduled. **No milestone** — the point is an open
+timeline, and a milestone-bound Stubbed ticket would block that
+boundary forever. Scheduling is the author's act: assign a milestone,
+move it into the flow, ordinary (gated) ticket from there. The audit
+keeps tickets and inventory in lockstep (§2.14). Rationale: the stub
+inventory is the mechanical truth; the Stubbed column is that truth
+standing permanently in the author's field of view — a live, visible
+list of what is deliberately half-built.
 
 **Assignment is derived, never authority.** The plane writes tracker
 assignees as a projection of who-has-the-ball: author-owned states

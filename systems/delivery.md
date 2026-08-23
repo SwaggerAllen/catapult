@@ -123,6 +123,25 @@ design gates pass.
   of the workflow-bundle machinery this needs to have a subject at
   all — there is no declared workflow sequence to cut over from
   before then.
+- **No boundary ticket** (ORC-103, design pass; `docs/v5-design-
+  decisions.md` §7.8; `docs/dsl-syntax.md` §15.6-§15.7). An earlier
+  pass ported orchestration's milestone-pause ticket verbatim; it
+  does not belong here, because the reasons orchestration needs it —
+  no tracker of its own to track the pause or hold the pass's record
+  — are not true of a plane that owns its tracker (v5 §7.17). The
+  close is state on the milestone entity itself: a small
+  platform-fixed status set plus a declared, ordered sequence of
+  close-step kinds, the grammar for both given in `dsl-syntax.md`
+  §15.6-§15.7. **The pause's blocking edge changes shape with it**:
+  orchestration's ticket-blocks-ticket relation had no target once
+  the boundary ticket it pointed at is gone, so the milestone-close
+  hold is a flag a ticket carries against its own already-committed
+  milestone, not a second ticket — read by the dispatcher to exempt a
+  flagged ticket from the pause, and read by the close sequence to
+  hold `closing` open while one is unresolved. Storage for the flag,
+  the dispatcher's read of it, and the sweep/archive/scan/file
+  machinery itself are Target (Phase 7), filed as its own ticket and
+  blocked on this one; this entry is the shape it builds against.
 
 ## Initial vs target
 

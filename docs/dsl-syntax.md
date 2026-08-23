@@ -40,6 +40,7 @@ bundles/<name>/                # kind: workflow
   bundle.yaml
   gates/<gate>.yaml            # one file per declared review gate
   environments/<env>.yaml      # one file per deployment environment
+  close/<step>.yaml            # one file per declared milestone-close step (§15.7)
 ```
 
 `catapult.yaml`:
@@ -65,7 +66,8 @@ flows: [flows/*/flow.yaml]
 A workflow bundle's manifest carries `kind: workflow`, its own
 `extends:` (the platform workflow layer, which ships the default UX
 and engineering review gates and the `dev`/`staging` environments),
-and `gates:` / `environments:` globs in place of the chain's lists.
+and `gates:` / `environments:` / `close:` globs in place of the
+chain's lists.
 The file-list keys are per-kind: a `tiers:` list in a workflow bundle
 is an unknown field and a load error, per §13.
 
@@ -651,6 +653,22 @@ Added with the two axes and the declarable protocol surface (v5
 - a workflow bundle under the `runtime` dialect is a load error, not
   dead weight: that dialect has no review lifecycle (§12).
 
+Added with milestone-close declarations (§15.6, §15.7, ORC-103):
+
+- a close step's `step:` value resolves against §15.6's closed set of
+  close-step kinds — the same cross-reference discipline as a `phase:`
+  or `agent_step:` value on a tier's `delivery:` block;
+- two close steps declaring the same `after:` is a load error, and so
+  is a cycle in `after:` references — §15.3's total-order rule for
+  gates, restated because `close/` is a second directory it now
+  governs;
+- **`archive` precedes every other declared close step in the
+  effective order** — a load-time check, not a convention, on the
+  same footing as "a queue precedes every generation and every
+  deploy": a `scan` step ordered before `archive` would read ticket
+  data the archive step is what makes durable (§15.6), and the
+  failure is silent rather than loud without the check.
+
 ## 14. Deliberately absent
 
 Recorded so nobody re-adds them: **phases** (v5 §6 — dropped
@@ -673,7 +691,12 @@ kinds). On a review tier specifically (§3.3): **`review_path:`**
 §7.19 — a review projects to comments, never a committed file) and
 **a per-tier `required:` gating flag** (dropped with the nested
 `review:` block it lived on; threshold-based gating is a parked
-scheduler item, §7.19, not bundle content).
+scheduler item, §7.19, not bundle content). **A milestone boundary
+ticket** (ORC-103, `docs/v5-design-decisions.md` §7.8): orchestration
+tracks its own milestone pause on a proxy ticket because it has no
+tracker of its own to hold the state directly; Catapult owns its
+tracker (v5 §7.17), so the close is state on the milestone itself
+(§15.6), and there is nothing for a proxy ticket to do.
 
 ## 15. Workflow declarations
 
@@ -731,8 +754,14 @@ makes them replaceable.
 may name (§3): `design` (produces a design-graph artifact for a
 tier), `dev` (implements a child scope), `critique` (the review pass
 over a freshly produced draft), `reconcile`, `validate` (§7.11's
-repair loop), `boundary` (the milestone pass). Adding one is a
-platform change, reviewed as one.
+repair loop). Adding one is a platform change, reviewed as one.
+
+**Revised at ORC-103: `boundary` is retired from this list.** It
+used to name "the milestone pass" as a single static agent step — no
+tier's `delivery:` ever actually named it, since a milestone close is
+not a chain tier's business, and the staticness was the problem: a
+milestone's close is a declared sequence, not one fixed pass (§15.6,
+§15.7).
 
 ### 15.2 `gates/<gate>.yaml` — a review status
 
@@ -863,3 +892,116 @@ both of which are ordinary later traversals of a status the project
 has already been through once (v5 §7.19). A bare integer still means
 both positions at once, so no declaration written before this pair
 form existed changes meaning.
+
+### 15.6 Milestone statuses — the fixed vocabulary
+
+A milestone is not a ticket, and its close is not a chain tier, so
+neither §15.1 nor a tier's `delivery:` gives it a home. **Catapult has
+no boundary ticket** (`docs/v5-design-decisions.md` §7.8, revised at
+ORC-103): the close is state on the milestone itself, and this section
+is that state's fixed vocabulary.
+
+| kind | meaning | ball |
+|---|---|---|
+| `open` | the milestone is accruing and dispatching tickets normally | plane |
+| `paused` | the last committed ticket resolved; the queue is paused for the author's manual pass | author |
+| `closing` | the author signaled the pass is done; declared close steps are dispatching | agent |
+| `review` | close-step output is filed; awaiting the author's accept or decline | author |
+| `blocked` | a close-blocking condition is open — a failed `:live`-suite verdict, an open close-blocking ticket, a dead run | varies |
+| `closed` | terminal | — |
+
+**Platform-fixed, declarable by neither axis — the identical rule and
+the identical reason as §15.1's system statuses.** A system status is
+undeclarable so a blocked ticket has an anchor set to re-resolve
+against when a workflow cutover removes the status it was parked at
+(§13); a milestone parked mid-close has the same problem the moment
+the declared close sequence changes underneath it (§15.7), and the
+fix is the same shape: a small fixed kind set nothing can delete,
+underneath whatever a workflow bundle declares on top of it.
+
+`open → paused` fires on the trigger that used to create orchestration's
+boundary ticket: the last committed ticket in the milestone resolving.
+`paused → closing` is the author's own transition — the
+manual-pass-is-finished signal that has no other source, exactly as
+moving that ticket to `In progress` was the signal (`docs/v5-design-
+decisions.md` §7.8). `closing → review` and `review → closed` are
+agent- and author-moved respectively, matching `Boundary review` →
+`Done`.
+
+**Close-step kinds — the milestone analog of §15.1's agent steps,
+closed set:** `archive` (writes the retro note), `scan` (the
+bounded-input debt scan and the grooming re-rank/propose pass — one
+step, matching orchestration's own resumable unit), `file` (lands
+proposals in Triage). These are what a declared close step (§15.7)
+names; adding a kind is a platform change, reviewed as one, the same
+rule as an agent step.
+
+### 15.7 `close/<kind>.yaml` — a declared close step
+
+```yaml
+step: scan                      # one of §15.6's close-step kinds; unique
+                                #   in the loaded union
+after: archive                  # predecessor: another declared close
+                                #   step; omitted = first
+```
+
+**The steps that close a milestone are declared, not fixed** — this is
+the replacement for the single static `boundary` agent step (§15.1,
+revised at ORC-103). Declared the same shape as a gate (§15.2): a
+directory, one file per participating step, `after:` for ordering,
+naming a predecessor rather than an index for the identical reason
+§15.3 gives (an integer position cannot survive `extends:` layering).
+§15.3's total-order rule applies verbatim: two close steps declaring
+the same `after:` is a load error, and so is a cycle.
+
+**Presence is participation — there is no `enabled:` field**, the same
+rule §15.5 states for `critique.yaml`, extended from a singular fixed
+path to a directory because a project genuinely declares several of
+these, the way it declares several gates or environments. A workflow
+bundle whose loaded union carries no `close/*.yaml` at all runs no
+automated close step; the milestone still moves `paused → closing →
+review → closed`, and `closing` does nothing but wait for the author,
+the same as `Boundary review` never materialized on orchestration's
+ticket when nothing was proposed.
+
+**`archive` precedes every other declared step — structurally
+mandatory even though the sequence is declared.** A `scan` step reads
+ticket data (diffs, findings, the retro note) that the archive step is
+what makes durable in the first place — an archived ticket is
+invisible to the "is this already filed?" check the next
+milestone's scan depends on, so a close sequence that runs `scan`
+before `archive`, or declares `scan` with no `archive` at all, silently
+breaks duplicate detection rather than failing loudly. §13 makes this a
+load-time check, on the same footing as "a queue precedes every
+generation and every deploy": declaring `close/archive.yaml` is
+optional (a bundle may close with no automation at all), but the
+moment any other close-step kind is declared, `archive` must be too,
+and ordered before it.
+
+**Resume keys off the close-step kind, never off a bundle-authored
+name.** There is no name to key on — `step:` is drawn from §15.6's
+three-member closed set, the same way a gate's or a review tier's
+platform-fixed position is never a string a bundle invents. A
+workflow-bundle edit can stop declaring `close/scan.yaml`, or reorder
+it against `file`; it cannot rename a kind, because the kinds are not
+bundle vocabulary. A milestone sitting in `closing` mid-pass when such
+an edit lands re-resolves exactly as a blocked ticket does across a
+workflow cutover (`docs/v5-design-decisions.md` §7.19,
+`systems/core_dsl.md`'s cutover entry): the close sequence in effect
+for that pass is the one pinned when the milestone entered `closing`,
+read off the same active-bundle-version timeline that already answers
+this question for tickets — no second pinning mechanism, no second
+cutover story.
+
+**The pause's other half has a new spelling.** Orchestration's
+boundary ticket used a ticket-blocks-ticket edge to do two things at
+once: exempt a blocker from the pause, and hold the close open while
+one exists. With no boundary ticket there is no target for that edge.
+It is replaced by a flag a ticket carries against its own milestone —
+the milestone it is already committed to, no new edge type needed:
+while the milestone sits `paused`, `closing` or `blocked`, the
+dispatcher drains only flagged tickets (plus `Urgent`, unchanged, v5
+§7.3); and `closing` will not begin while a flagged ticket in this
+milestone is unresolved. The flag's storage and the dispatcher read
+are Phase 7's (`systems/delivery.md`); this section settles only that
+the relation is ticket→its-own-milestone, not ticket→ticket.

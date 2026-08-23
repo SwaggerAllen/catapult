@@ -184,6 +184,29 @@ context-source kinds, and audit profiles.
   `predicates: %{String.t() => Predicate.t()}`, populated from the
   value `build/3` already computes. `systems/engine.md` records the
   runtime-evaluator decision this field exists to serve.
+- **A milestone's close sequence is a declared workflow-bundle
+  construct, not a chain agent step** (ORC-103, design pass;
+  `docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
+  §7.8). Two closed, platform-fixed vocabularies land together, the
+  milestone analog of §15.1's system statuses and agent steps: a
+  milestone-status set (`open`/`paused`/`closing`/`review`/
+  `blocked`/`closed`) undeclarable by either axis, for the identical
+  re-resolution-anchor reason system statuses are; and a close-step
+  kind set (`archive`/`scan`/`file` — `scan` covers both the debt
+  scan and the grooming re-rank/propose pass, one resumable unit,
+  matching orchestration's own step markers) a workflow bundle
+  participates in via a new declaration kind, `close/<kind>.yaml`,
+  directory-shaped like `gates/` rather than singular like
+  `critique.yaml` — a project genuinely declares several. The loader
+  gains one structural check with no existing precedent in the
+  closed sets §13 already validates: `archive` must precede every
+  other declared close step, checked the same way "a queue precedes
+  every generation" already is. `boundary`, the single static agent
+  step this replaces, is retired from §15.1's list. Not built as part
+  of this pass: the dispatcher, the sweep, the retro-note writer, the
+  ticket→milestone close-blocking flag's storage — all Phase 7's
+  (`systems/delivery.md`), which this entry gives a grammar to build
+  against rather than a static single-pass name to work around.
 
 ## Initial vs target
 
