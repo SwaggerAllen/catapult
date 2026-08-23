@@ -184,39 +184,52 @@ context-source kinds, and audit profiles.
   `predicates: %{String.t() => Predicate.t()}`, populated from the
   value `build/3` already computes. `systems/engine.md` records the
   runtime-evaluator decision this field exists to serve.
-- **A container's queue sequence is declared workflow-bundle
-  vocabulary, generic over container kind — not a milestone-only
-  construct** (ORC-105, design pass, superseding ORC-103's own
-  unmerged milestone-only draft of this same entry;
-  `docs/dsl-syntax.md` §15.6-§15.8; `docs/v5-design-decisions.md`
-  §7.8). Two closed, platform-fixed vocabularies land together, the
-  container analog of §15.1's system statuses and agent steps: a
-  per-container-kind ordered queue-name sequence (`project`'s seven,
-  `milestone`'s four) undeclarable by either axis, for the identical
-  re-resolution-anchor reason system statuses are; and a new
-  declaration kind, `queues/<container>/<queue>.yaml`, directory-
-  shaped like `gates/` rather than singular like `critique.yaml` — a
-  project genuinely declares several per container kind. Each
-  declaration names exactly one of `flow:` (a ticket-type/label value,
-  the same vocabulary a gate's `ticket_types:` draws from — never a
-  chain bundle's own `flow:` name; no cross-axis load-time binding is
-  introduced) or `opens:` (a nested container kind, minting one
-  instance at a time). The loader gains two structural checks with no
-  exact precedent in the closed sets §13 already validates: the
-  declared queue graph (`after:` plus `blocks:`) must stay acyclic per
-  container kind, the same `graph_constraint: acyclic` discipline §4's
-  edge instances already carry; and a `blocks:` entry must name a
-  sibling under the same container kind, never a queue nested inside
-  what the blocking queue itself `opens:` — a scoping check, not an
-  acyclicity one. `boundary`, the single static agent step this
+- **A project's queue sequence and a container's are two declaration
+  shapes, not one shape parameterized by kind** (ORC-105, design
+  pass, superseding both ORC-103's own unmerged milestone-only draft
+  of this entry and this same ticket's own first, since-reversed
+  draft, which gave `project` and `milestone` a shared fixed-sequence
+  shape off one `container:` field checked against a two-member
+  registry; `docs/dsl-syntax.md` §15.6-§15.8; `docs/v5-design-
+  decisions.md` §7.8). `queues/project.yaml` is optional and singular
+  (`critique.yaml`'s shape) and holds whatever queue array the
+  workflow bundle authors — no anchor check, no fixed count, no
+  platform vocabulary to validate names against. `queues/containers/
+  <name>.yaml` is directory-shaped like `gates/` — a bundle may
+  declare many named containers — and each one's `queues:` array must
+  hold exactly the four platform-fixed anchor names, in exactly this
+  order, undeclarable by either axis for the identical re-resolution-
+  anchor reason system statuses are: `prep`, `main`, `retro`,
+  `cleanup`. There is no per-container-kind sequence table and no
+  kind registry — `container:` names the declaration itself, the same
+  way a `gate:` file names its own gate, and any declared container
+  may nest inside any other via `opens:`. Each entry names exactly one
+  of `flow:` (a ticket-type/label value, the same vocabulary a gate's
+  `ticket_types:` draws from — never a chain bundle's own `flow:`
+  name; no cross-axis load-time binding is introduced) or `opens:` (a
+  declared container's name, minting one instance at a time). The
+  loader gains two structural checks with no exact precedent in the
+  closed sets §13 already validates: **a declaration-graph check**
+  over container names connected by `opens:` edges, which must be
+  acyclic with a self-reference rejected as the degenerate one-node
+  cycle — this is the check that bars a container from nesting its
+  own kind and the one that bounds nesting depth, and it replaced an
+  earlier, wrong-altitude draft of the same idea that checked
+  ancestry on *instances* rather than *declarations* (rejected because
+  it leaves unbounded depth declarable, caught only mid-flight); and a
+  scoping check that a `blocks:` entry must name a queue declared in
+  the same file, never a queue nested inside what the blocking queue
+  itself `opens:`. `boundary`, the single static agent step this
   replaces, is retired from §15.1's list outright — nothing takes its
   slot there, because `retro` and `setup` dispatch as ordinary chain
   flows through a declared queue rather than through a tier's
-  `delivery.agent_step`. **Not built as part of this pass**: the
-  dispatcher, the sweep, the scan/setup/retro machinery, and the
-  ticket→milestone `Stubbed`/`Urgent` interactions this needs to have
-  a subject at all — ORC-104's, which this entry gives a grammar to
-  build against.
+  `delivery.agent_step`; `setup` specifically dispatches as the
+  minted container's own `prep` entry, never the parent's `opens:`
+  entry, so `flow:` and `opens:` never need to coexist on one
+  declaration. **Not built as part of this pass**: the dispatcher, the
+  sweep, the scan/setup/retro machinery, and the ticket→milestone
+  `Stubbed`/`Urgent` interactions this needs to have a subject at all
+  — ORC-104's, which this entry gives a grammar to build against.
 
   **Retiring `boundary` from `Catapult.Dsl.SystemStatus`
   (`lib/catapult/dsl/system_status.ex:35,52`) is dev's diff, not

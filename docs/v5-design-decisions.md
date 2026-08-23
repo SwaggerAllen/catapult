@@ -556,8 +556,9 @@ system running a different loop, `systems/delivery.md`.)
   orchestration's "every state the issue named exists, named as
   asked," and gives reconcile a mechanical check where it's currently
   weakest.
-- `@tag :skip` requires a ticket key; CI rejects bare skips — keeps the
-  boundary agent's debt-scan input trustworthy.
+- `@tag :skip` requires a ticket key; CI rejects bare skips — keeps
+  `retro`'s debt-scan input trustworthy (`boundary`, ORC-105's
+  retired predecessor, did this job under the older name).
 - Factories (ex_machina) per component, exported via a boundary-
   exported `Comp.TestSupport` (test env only) — cross-component test
   data through a declared door, not a hole in isolation.
@@ -1980,8 +1981,10 @@ head SHA regardless of base branch.
 milestone-only framing of this section.** ORC-103 first tried "give
 the milestone its own statuses and the steps that close it" — the
 right instinct, a fifth of the actual decision: the milestone is one
-**container** among several (the project is another, below) and
-the close is one **queue** among four. Every reason ORC-103 gave for
+declared **container** (the project is a different form entirely,
+below, not a second container — settled only after this section's
+own first draft got that part wrong) and the close is one **queue**
+among four. Every reason ORC-103 gave for
 retiring orchestration's boundary ticket still holds and generalizes
 rather than being re-argued (carried forward, not re-derived): the
 pause needed to be *tracked* somewhere and the pass needed a *place to
@@ -1994,36 +1997,63 @@ follows is the decision set (ORC-105); the grammar it's built from is
 the scan/setup/retro machinery itself is ORC-104's — this section
 settles the shape, not the diff.
 
-**Containers nest, and every level shares one mechanism.** A
-container's status is which of a fixed, ordered sequence of **queues**
-it currently sits at — the queue names themselves platform-fixed,
-declarable by neither axis, for the identical re-resolution reason
-ticket system statuses aren't (`dsl-syntax.md` §15.1, §15.6): the
-anchor a container parked mid-sequence falls back to when a workflow
-cutover changes what a queue dispatches underneath it. What each named
-queue *points at* — a ticket type/label (a **work flow**) or a nested
-container kind (a **container flow**) — is declared; the sequence
-itself is not. Nothing requires a container's queues to bottom out in
-tickets at all: with more than one work type, "is this a ticket" stops
-being definable, and a queue sequence built entirely from
-container-opening queues is legitimate. **Cycles are refused** — the
-same `graph_constraint: acyclic` discipline `dsl-syntax.md` §4's edge
-instances already carry, applied to the declared queue graph
-(`after:` plus `blocks:`, `dsl-syntax.md` §13). Different container *kinds* with
-different queue sets are deferred: nesting alone gets epics-and-
-milestones, should that ever be wanted, without a new mechanism — an
-epic is simply a container whose queue opens a container flow of
-milestones. A genuinely distinct kind, if real usage ever wants one,
-is new system-status-style vocabulary decided then, on evidence, not
-guessed at now.
+**A project is not a container — two declaration shapes, not one
+parameterized by kind.** This reverses this section's own first
+draft, which gave `project` and `milestone` a shared shape off one
+`container:` field checked against a two-member registry; the
+reversal is the point, not a casualty of it. The two differ exactly
+where it matters: **a project's queue sequence is fully declared by
+the workflow bundle** — any names, any count, any order, chosen
+freely because a project needs no re-resolution anchor (all review
+happens at lower levels, and a workflow cutover mid-project isn't the
+hazard a cutover mid-container is). **A container is one kind,
+arbitrarily nestable, and every instance carries the identical fixed
+anchor sequence** — `prep` → `main` → `retro` → `cleanup`, platform-
+fixed, declarable by neither axis, for the identical re-resolution
+reason ticket system statuses aren't (`dsl-syntax.md` §15.1, §15.6):
+the anchor a container parked mid-sequence falls back to when a
+workflow cutover changes what a queue dispatches underneath it. What
+varies per declared container is its **name** and what each of its
+four anchor entries *points at* — a ticket type/label (a **work
+flow**) or another declared container's name (a **container flow**) —
+never the anchor names, their count, or their order. Nothing requires
+a container's queues to bottom out in tickets at all: with more than
+one work type, "is this a ticket" stops being definable, and a queue
+sequence built entirely from container-opening queues is legitimate.
+Declaring `epic` gets epics-and-milestones for free the moment an
+`epic` container's own `main` entry opens `milestone` — no new
+mechanism, because there is only the one container kind; a genuinely
+distinct kind, if real usage ever wants one, is new system-status-
+style vocabulary decided then, on evidence, not guessed at now.
 
-**A queue is a query, never stored.** "Work items in this container
-whose declared flow is this queue's, unresolved" — addressable
-whether or not the queue is current, which is the handle a queue
-needs while inactive (a future milestone's `prep` is a real, queryable
-thing before that milestone opens). A stored per-queue bucket would be
-a new in-plane pending set: `ready_scopes` itself refuses to
-materialize for the identical reason (v5 §1.2), and
+**Acyclicity is a load-time check over container *declarations*, not
+a runtime check over container *instances* — getting this altitude
+right took two passes.** The first pass reached for "no container may
+be its own ancestor," checked as instances mint; the corrected
+version is a static check of the declaration graph itself — the graph
+of container *names* connected by `opens:` edges — which must be
+acyclic, with a container naming itself the degenerate one-node case
+of the same rule (`dsl-syntax.md` §13). The instance-level version is
+not merely redundant, it is the wrong tool: it leaves unbounded depth
+*declarable*, caught only when some live chain of instances happens
+to close the loop, which trades a load-time failure for a mid-flight
+one — the identical trade this project has already made the other
+way (v5 §2.4: failing at config load beats failing mid-flight). The
+declaration-graph check is also what actually bars same-name nesting
+(a `milestone` declaration cannot open `milestone`) and what bounds
+depth without counting it: an acyclic graph has a finite longest path,
+so a bundle's maximum nesting depth is knowable from the bundle alone,
+even though the number of distinct levels an author declares is
+unbounded. No further instance-level check is needed — it falls out
+of the declaration graph's acyclicity for free.
+
+**A queue is a query, never stored.** "Work items in this project or
+container whose declared flow is this queue's, unresolved" —
+addressable whether or not the queue is current, which is the handle
+a queue needs while inactive (a future milestone's `prep` is a real,
+queryable thing before that milestone opens). A stored per-queue
+bucket would be a new in-plane pending set: `ready_scopes` itself
+refuses to materialize for the identical reason (v5 §1.2), and
 `Catapult.Engine.Scheduler` holds no memory of what it last broadcast
 — a stale ordering is worse than none, because it is the kind of
 thing that gets acted on (v5 §7.11's staleness projection makes the
@@ -2032,44 +2062,57 @@ not tickets — the distinction only matters the day a non-ticket work
 type exists, but the grammar doesn't assume it away.
 
 **One queue may block another, declared, and a block may only name a
-sibling.** A container does not leave a queue while a queue that
-blocks it holds unresolved work — which is what makes "the retro
-can't finish while milestone work is open" an instance of a general
-rule (`main` blocking `retro`, below) rather than a special case, and
-which also closes the stranding hole ORC-103 solved narrowly: work in
-a blocking queue cannot be quietly closed over. A `blocks:` entry may
-only name a queue visible at its own container level (`dsl-syntax.md`
-§15.8) — reaching into a nested container's own queues would make its
-internals part of its interface to whatever blocks it, exactly
-backwards from composability. To block on something nested, block on
-the container-opening queue it lives inside.
+sibling.** A container or project does not leave a queue while a
+queue that blocks it holds unresolved work — which is what makes "the
+retro can't finish while milestone work is open" an instance of a
+general rule (`main` blocking `retro`, below) rather than a special
+case, and which also closes the stranding hole ORC-103 solved
+narrowly: work in a blocking queue cannot be quietly closed over. A
+`blocks:` entry may only name a queue declared in the same file — a
+container's other three anchor entries, or another entry in the
+project's own queue file (`dsl-syntax.md` §15.8) — reaching into a
+nested container's own queues would make its internals part of its
+interface to whatever blocks it, exactly backwards from
+composability. To block on something nested, block on the
+container-opening queue it lives inside.
 
-**The project is the outermost container, and it is less new than it
-looks.** `project_id` is already the top-level scope in the engine
-store (`systems/engine.md`) — every table carries it post-ORC-87,
-`Store.list_project_ids/0` enumerates them, and the active-bundle-
-version projection already keys current bundle versions per project
-per axis (`systems/engine.md`'s ninth projection). The project isn't a
-new concept acquiring a workflow; it's the existing outermost scope
-finally having one. Its queues, in order: `initialization` →
-`scaffolding` → `build-out` → `iteration` → `maintenance` →
-`deprecating` → `sunsetting`. All but `scaffolding` point at the same
-work flow for now — the distinctions are ones that *become*
-meaningful; they needn't be on the first build. `scaffolding` differs
-because the seed pass (§7.9) wants different settings from ordinary
-ticket work. `initialization` is autopopulated by business logic, not
-protocol: the grammar declares the queue exists; what lands in it on a
-fresh project is not the loader's business. `deprecating` and
-`sunsetting` may be dummy queues (a work flow nothing ever populates)
-initially and become real later. **This also settles §6's open
-question:** the root container has statuses like any other, and
-closing one means what closing any container means — its last queue
-(`sunsetting`) resolving with nothing open behind it
-(`dsl-syntax.md` §15.6).
+**The project is the outermost scope, and having a lifecycle at all
+is less new than it looks — even though being a *container* was the
+wrong way to give it one.** `project_id` is already the top-level
+scope in the engine store (`systems/engine.md`) — every table carries
+it post-ORC-87, `Store.list_project_ids/0` enumerates them, and the
+active-bundle-version projection already keys current bundle versions
+per project per axis (`systems/engine.md`'s ninth projection). The
+project isn't a new concept acquiring a workflow; it's the existing
+outermost scope finally having one, declared through its own form
+rather than borrowing the container's. Its queues, in order:
+`initialization` → `scaffolding` → `build-out` → `iteration` →
+`maintenance` → `deprecating` → `sunsetting` — the default bundle's
+own authored choice, not a platform requirement, since a project's
+queue list is exactly as declarable as any other project content.
+All but `scaffolding` point at the same work flow for now — the
+distinctions are ones that *become* meaningful; they needn't be on
+the first build. `scaffolding` differs because the seed pass (§7.9)
+wants different settings from ordinary ticket work. `initialization`
+is autopopulated by business logic, not protocol: the grammar
+declares the queue exists; what lands in it on a fresh project is not
+the loader's business. `deprecating` and `sunsetting` are real,
+ordinary declared queues **from the start** — not dummies promoted
+later, since there is no platform-fixed project sequence left for
+"later" to mean anything against. **This also settles §6's open
+question:** the root has statuses because it is a project like any
+other, with its own declared queue list, and closing it means that
+list's last entry (`sunsetting`, in the default bundle's own
+ordering) resolving with nothing open behind it (`dsl-syntax.md`
+§15.6) — not because the root is a container reaching a fixed
+terminal kind, which is a mechanism only containers have.
 
-**Milestone queues, and the end of the debt milestone.** A milestone's
-queues, in order: `prep` → `main` → `retro` → `cleanup`. `prep` is
-work the milestone requires before beginning; `cleanup` is work that
+**Milestone queues, and the end of the debt milestone.** `milestone`
+is a declared **container** (`dsl-syntax.md` §15.6) — one instance of
+the one container kind, not a platform-registered second kind — whose
+four fixed anchor entries point, in order, at: `prep` → `main` →
+`retro` → `cleanup`. `prep` is work the milestone requires before
+beginning; `cleanup` is work that
 got missed during it — distinct on purpose, because "debt left over
 from the last milestone" and "debt required for the next one" used to
 land in one place and are different questions. **This reverses this
@@ -2090,10 +2133,14 @@ human.** `boundary` is retired as a chain-level agent step
 (`dsl-syntax.md` §15.1) and becomes `retro`, a queue-dispatched flow —
 it never named anything a tier's `delivery:` actually used, and the
 single static pass is exactly what the queue model replaces. A
-`setup` flow joins it, running at a project's container-opening queue
-(`build-out`/`iteration`, whichever a workflow bundle assigns) each
-time it mints the next milestone, constituting that milestone before
-it starts. The split follows the direction each looks: `retro` —
+`setup` flow joins it, dispatched as `milestone`'s own `prep` entry's
+declared `flow:` each time the project's `build-out`/`iteration`
+queue (whichever a workflow bundle assigns) mints the next instance —
+minting and constituting are necessarily two different declarations
+(the project's `opens:` entry and the new milestone's own `prep`
+entry), so there is nowhere `flow:` and `opens:` need to coexist on
+one entry, and no "before `prep`" position to invent. The split
+follows the direction each looks: `retro` —
 backward — adjudicates carried findings, scans the diff for debt,
 updates the milestone's tickets to reflect what actually landed, and
 flips the aggregated flag set (below); `setup` — forward — grooms,
@@ -2128,10 +2175,11 @@ for operators who want a button rather than immediate archival — it
 exists in orchestration because of a borrowed tracker's ticket cap,
 which is not a protocol concern here and is never load-checked to
 precede anything (`dsl-syntax.md` §14's corresponding entry). What
-protocol *does* guarantee: **containers keep references to their work
-items even once archived**, so a container is always a path to its
-own history. That kills the retro note outright — its whole job was
-duplicate detection over work that archiving had made invisible, and
+protocol *does* guarantee: **containers and projects alike keep
+references to their work items even once archived**, so either is
+always a path to its own history. That kills the retro note
+outright — its whole job was duplicate detection over work that
+archiving had made invisible, and
 nothing here is invisible in the one context that matters. The
 archive-precedes-every-step load check ORC-103 drew up goes with it:
 it was well-formed only on the premise a scan couldn't otherwise see

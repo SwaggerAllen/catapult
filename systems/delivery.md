@@ -13,8 +13,8 @@ them, the v5 §7 machinery in two stages: first the **authoring loop**
 (Phase 4: feature-ticket lifecycle projection, gate states,
 feature-branch PR management, decline harvesting), later the full
 two-grain delivery (child lifecycle, mutex, dispatch, reconciliation,
-the validation loop, escalations, milestones with the `:live`
-boundary step, the maintenance watcher).
+the validation loop, escalations, milestones with the `:live`-gated
+`retro` queue (ORC-105), the maintenance watcher).
 
 **There is no Tracker port, and no tracker adapter is ever built**
 (v5 §7.17). Ticket state is ours; the work surface is ours
@@ -123,32 +123,39 @@ design gates pass.
   of the workflow-bundle machinery this needs to have a subject at
   all — there is no declared workflow sequence to cut over from
   before then.
-- **No boundary ticket, generalized: containers carry their own
-  progress, and the project is a container too** (ORC-105, design
-  pass, superseding ORC-103's own unmerged milestone-only version of
-  this entry; `docs/v5-design-decisions.md` §7.8;
-  `docs/dsl-syntax.md` §15.6-§15.8). A container's status is which of
-  its declared queues is current; a queue is a derived query, never a
-  stored bucket, so there is no per-queue pending set for this system
-  to own the way `ready_scopes` is engine's. Two relations this
-  system dispatches against, both new: a queue's `flow:` target is
-  ordinary ticket-type dispatch (no new mechanism — a `retro` or
-  `setup` ticket opens a flow instance exactly like any other type);
-  a queue's `blocks:` relation to a sibling queue holds that sibling's
-  entry open while the blocking queue carries unresolved work items —
-  the general form of what used to be a single hard-coded
-  boundary-blocking rule, now one relation the dispatcher reads
-  wherever a workflow bundle declares it, milestone `main`→`retro`
-  included. **The pause has no separate mechanism to build**: an
-  `Urgent` ticket dispatches regardless of which queue a container
-  currently sits in (`docs/v5-design-decisions.md` §7.3, §7.10), which
-  falls out of ordinary priority dispatch rather than needing a
-  ticket-carried flag against its milestone the way ORC-103's draft
-  required. Storage for "which queue is a given container currently
-  at," the `blocks:`-aware dispatcher, the `:live`-gates-`retro`
-  interlock (§2.8), and the scan/setup/retro machinery itself are
-  Target (Phase 7), filed as ORC-104 and blocked on this record; this
-  entry is the shape it builds against.
+- **No boundary ticket, generalized: containers and the project alike
+  carry their own progress — but the project is not a container**
+  (ORC-105, design pass, superseding both ORC-103's own unmerged
+  milestone-only version of this entry and this same ticket's own
+  first, since-reversed draft, which folded the project into the
+  container shape; `docs/v5-design-decisions.md` §7.8;
+  `docs/dsl-syntax.md` §15.6-§15.8). A container's or a project's
+  status is which of its declared queues is current; a queue is a
+  derived query, never a stored bucket, so there is no per-queue
+  pending set for this system to own the way `ready_scopes` is
+  engine's. Two relations this system dispatches against, both new: a
+  queue's `flow:` target is ordinary ticket-type dispatch (no new
+  mechanism — a `retro` or `setup` ticket opens a flow instance
+  exactly like any other type, `setup` dispatching as the newly
+  minted container's own `prep` entry rather than the parent's
+  `opens:` entry, so the two never need to be the same declaration); a
+  queue's `blocks:` relation to a sibling queue in the same
+  declaration holds that sibling's entry open while the blocking queue
+  carries unresolved work items — the general form of what used to be
+  a single hard-coded boundary-blocking rule, now one relation the
+  dispatcher reads wherever a workflow bundle declares it, milestone
+  `main`→`retro` included. **The pause has no separate mechanism to
+  build**: an `Urgent` ticket dispatches regardless of which queue a
+  container or the project currently sits in (`docs/v5-design-
+  decisions.md` §7.3, §7.10), which falls out of ordinary priority
+  dispatch rather than needing a ticket-carried flag against its
+  milestone the way ORC-103's draft required. Storage for "which queue
+  a given container or the project is currently at," the
+  `blocks:`-aware dispatcher, the declaration-graph acyclicity check
+  that bounds nesting (`docs/dsl-syntax.md` §13), the
+  `:live`-gates-`retro` interlock (§2.8), and the scan/setup/retro
+  machinery itself are Target (Phase 7), filed as ORC-104 and blocked
+  on this record; this entry is the shape it builds against.
 
 ## Initial vs target
 
