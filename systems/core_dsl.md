@@ -184,6 +184,53 @@ context-source kinds, and audit profiles.
   `predicates: %{String.t() => Predicate.t()}`, populated from the
   value `build/3` already computes. `systems/engine.md` records the
   runtime-evaluator decision this field exists to serve.
+- **A container's queue sequence is declared workflow-bundle
+  vocabulary, generic over container kind — not a milestone-only
+  construct** (ORC-105, design pass, superseding ORC-103's own
+  unmerged milestone-only draft of this same entry;
+  `docs/dsl-syntax.md` §15.6-§15.8; `docs/v5-design-decisions.md`
+  §7.8). Two closed, platform-fixed vocabularies land together, the
+  container analog of §15.1's system statuses and agent steps: a
+  per-container-kind ordered queue-name sequence (`project`'s seven,
+  `milestone`'s four) undeclarable by either axis, for the identical
+  re-resolution-anchor reason system statuses are; and a new
+  declaration kind, `queues/<container>/<queue>.yaml`, directory-
+  shaped like `gates/` rather than singular like `critique.yaml` — a
+  project genuinely declares several per container kind. Each
+  declaration names exactly one of `flow:` (a ticket-type/label value,
+  the same vocabulary a gate's `ticket_types:` draws from — never a
+  chain bundle's own `flow:` name; no cross-axis load-time binding is
+  introduced) or `opens:` (a nested container kind, minting one
+  instance at a time). The loader gains two structural checks with no
+  exact precedent in the closed sets §13 already validates: the
+  declared queue graph (`after:` plus `blocks:`) must stay acyclic per
+  container kind, the same `graph_constraint: acyclic` discipline §4's
+  edge instances already carry; and a `blocks:` entry must name a
+  sibling under the same container kind, never a queue nested inside
+  what the blocking queue itself `opens:` — a scoping check, not an
+  acyclicity one. `boundary`, the single static agent step this
+  replaces, is retired from §15.1's list outright — nothing takes its
+  slot there, because `retro` and `setup` dispatch as ordinary chain
+  flows through a declared queue rather than through a tier's
+  `delivery.agent_step`. **Not built as part of this pass**: the
+  dispatcher, the sweep, the scan/setup/retro machinery, and the
+  ticket→milestone `Stubbed`/`Urgent` interactions this needs to have
+  a subject at all — ORC-104's, which this entry gives a grammar to
+  build against.
+
+  **Retiring `boundary` from `Catapult.Dsl.SystemStatus`
+  (`lib/catapult/dsl/system_status.ex:35,52`) is dev's diff, not
+  design's** (§7 of the design record, settled): the constant module
+  is core_dsl's own mapped path, and design's committable paths stop
+  at doc content. Filed against ORC-104 rather than actioned here —
+  the type and the `@agent_steps` list both still name `:boundary`
+  today, which means the loader still accepts a chain declaring
+  `agent_step: boundary` even though no tier ever has and the grammar
+  record above no longer sanctions one. That gap is real but narrow
+  (nothing in `bundles/**` declares it, so no bundle content silently
+  breaks); closing it is one line in each of two places, and belongs
+  in the same change that builds the queue grammar's loader support
+  rather than a doc-only pass touching code outside its lane.
 
 ## Initial vs target
 

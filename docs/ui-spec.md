@@ -209,12 +209,14 @@ navigator are invented and unvalidated.*
   merely available (§7.17) — a general tracker cannot draw any of it
 - read-only; every action opens the ticket
 
-**`milestone`** — commitment and boundary progress.
+**`milestone`** — commitment and queue progress (v5 §7.8, revised at
+ORC-105 from a single boundary point to a declared queue sequence).
 
 - what is committed, what is in flight, what is `Stubbed` and why —
   the "live, visible list of what is deliberately half-built" §7.11
   already requires
-- the boundary's blockers and their state
+- which queue (`prep`/`main`/`retro`/`cleanup`) is current, and any
+  `blocks:` condition holding it there
 
 **`triage`** — machinery-filed work awaiting batch-accept.
 

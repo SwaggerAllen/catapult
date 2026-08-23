@@ -60,7 +60,10 @@ sketch. Delivery batching is not the defense; structure is. Honest
 limit: this buys a debt-free starting position for the initial feature
 list, not immunity — post-launch drift pressure is met by the standing
 machinery (staleness cascades, upward absorption, re-evaluation, the
-audit, alternating debt milestones), and the residual risk of
+audit, every milestone's own `cleanup` and `prep` queues — §7.8,
+revised at ORC-105 from an earlier, since-reversed design where debt
+accrued to alternating whole milestones instead), and the residual
+risk of
 feature-sized delivery (private-side entropy inside clean contracts)
 is exactly what boundary-level testing, the debt scan, and the
 refactor flow exist for.
@@ -517,15 +520,24 @@ injected clock, seeded randomness.
 **The `:live` suite is the deliberate exception, on a cadence rather
 than a gate.** A `:live`-tagged suite (real providers, real external
 services, deployed surfaces) is excluded from ticket CI and runs once
-per milestone at the boundary — after the boundary ticket is created,
-before the author's pass — results posted on the boundary ticket,
-failures filed as milestone blockers, and the flag flip (§7.8)
-strictly downstream of a green run. Rationale: per-ticket determinism
-is what the escalation rules depend on, but a live check that never
-runs is how "merged and green" quietly diverges from "works against
-the world"; both properties hold, each at its own cadence.
-(Orchestration-side: one added boundary step, absorbed by its
-existing step-comment resume machinery.)
+per milestone — **settled at ORC-105: at the milestone level
+specifically, gating that milestone's own `main → retro` transition
+(§7.8)**, not at the project level and not at every nesting level a
+future container kind might add. Results post on the milestone,
+failures file as milestone blockers held against `retro`'s declared
+`blocks:` relation to `main` (§7.8, `dsl-syntax.md` §15.8), and the
+flag flip (§7.8) stays strictly downstream of a green run. A
+project's own queues are too coarse-grained a cadence for this check
+(`build-out` and `iteration` each span many milestones) and nothing
+nests inside a milestone today for a finer one to attach to; the
+question stays open only for whatever container kind eventually
+nests there. Rationale for the cadence itself, unchanged: per-ticket
+determinism is what the escalation rules depend on, but a live check
+that never runs is how "merged and green" quietly diverges from
+"works against the world"; both properties hold, each at its own
+cadence. (Orchestration-side: the identical cadence, absorbed by its
+own boundary ticket's step-comment resume machinery — a different
+system running a different loop, `systems/delivery.md`.)
 
 - Test ownership mirrors the mutex: `test/<comp>/` mirrors
   `lib/<comp>/`; derived file maps include test paths. A thin
@@ -639,11 +651,13 @@ are the platform primitive that makes the deploy model safe:
 - Flags registered via `feature_flags/0`, spine-named, collision-
   checked; a new flag is a §2.8 named decision.
 - **Lifecycle from existing machinery:** a feature's tickets land
-  behind the feature's flag; the milestone boundary (the author's
-  manual pass — already the only manual-testing point) is the natural
-  flip point; flag *removal* is gating debt — the boundary agent's
-  debt scan gets a bounded input "flags fully-on for > N milestones"
-  and files cleanup proposals.
+  behind the feature's flag; a milestone's `retro` queue closing (the
+  author's manual pass — already the only manual-testing point —
+  revised at ORC-105 from "the milestone boundary") is the natural
+  flip point; flag *removal* is gating debt — `retro`'s debt scan gets
+  a bounded input "flags fully-on for > N milestones" and files
+  cleanup proposals into `cleanup`/the next milestone's `prep`
+  (§4.5, §7.8).
 - **Flags partially substitute for staging:** the author's pass
   exercises flagged-off features on production via actor targeting.
   Not a full substitute (schema changes and deploy-time behavior still
@@ -654,7 +668,7 @@ are the platform primitive that makes the deploy model safe:
   mostly evaporates; flags earn their keep as staged rollout,
   kill-switch, the author's flagged-in prod validation, and the
   milestone flip — a milestone "ships" by aggregating and flipping
-  its features' flag set at the boundary.
+  its features' flag set once `retro` closes clean (§7.8).
 - Scope discipline: release flags only, plus ops kill-switches owned
   by the component wrapping an external dependency. No percentage
   rollouts/experimentation — machinery without a customer at this
@@ -1320,9 +1334,14 @@ lanes, author-overridable per ticket:
   the archetype) the enforcement is part of what "the feature
   works" means. A policy created against already-shipped scopes
   files into the current milestone directly.
-- **`debt`** — accumulates to the next debt milestone through the
-  existing debt-composition machinery, gating test and all. Code
-  style and non-load-bearing conventions.
+- **`debt`** — **revised at ORC-105**, since there is no next debt
+  milestone to accumulate to: the same gating test that used to sort
+  "next debt milestone" from "backlog" now sorts the *current*
+  milestone's `cleanup` queue from the *next* milestone's `prep` queue
+  (§7.8) — "does the next milestone get materially harder without
+  this" routes to `prep`; everything else lands in this milestone's
+  own `cleanup` rather than an indefinite backlog. Code style and
+  non-load-bearing conventions.
 
 The default policy set ships with routings (structural/`fixed`
 leans `urgent`; style leans `debt`); registry policies declare
@@ -1718,9 +1737,12 @@ pass generalized; everything downstream is standard. The taxonomy:
 - **Capability-only** (responsibilities, no UI) — enters at
   requirements; the first author gate is architecture review.
 - **Tech debt / refactor** — enters at architecture (sysarch/comparch
-  deltas, no product change). Orchestration's alternating debt
-  milestones and gating-debt rules survive unchanged; debt tickets
-  are this entry with the `tech-debt` label.
+  deltas, no product change). Orchestration's gating-debt rule
+  survives (§4.5); the alternating debt milestone it used to route
+  through does not — **reversed at ORC-105** (§7.8) — debt tickets
+  are this entry with the `tech-debt` label, filed into a milestone's
+  `prep` or `cleanup` queue per §4.5's revised routing rather than a
+  dedicated milestone.
 - **Bug, fixed in-flow** — enters wherever the plan tier localizes
   the defect. "Which artifact was wrong — impl, comparch, screen
   definition?" is itself the first planning question; the cascade
@@ -1755,9 +1777,13 @@ pass generalized; everything downstream is standard. The taxonomy:
   unratified.
 - **Urgent / stop-the-world** — orchestration's rules port verbatim:
   `Urgent` preempts at pickup, never interrupts in-flight work, never
-  steals an in-flight mutex, overrides the milestone pause. A true
-  security patch bypasses the pipeline onto main — and its afterlife
-  *is* the absorption path above. One mechanism, two doors.
+  steals an in-flight mutex, dispatches regardless of which queue a
+  milestone currently sits in (§7.8, revised at ORC-105 from
+  "overrides the milestone pause" — there is no longer a distinct
+  pause state to override; an Urgent ticket simply ignores queue
+  ordering, by construction). A true security patch bypasses the
+  pipeline onto main — and its afterlife *is* the absorption path
+  above. One mechanism, two doors.
 
 ### 7.4 Feedback surfaces
 
@@ -1912,7 +1938,9 @@ state.
   it; Stubbed means starting when the world permits). Exempt from
   staleness and escalation checks (nothing is stale about waiting
   deliberately); carries no milestone until scheduled, so it can
-  never block a boundary.
+  never be the unresolved work that holds a milestone's own queues
+  open (§7.8's `blocks:` relation, revised at ORC-105 — "block a
+  boundary" in the older phrasing this replaces).
 - **Blocked carries flavor labels and its origin** (ported from
   orchestration `372630a`). Three flavors, as labels — never
   states, because a flavor dispatches nothing and a state would be
@@ -1946,18 +1974,171 @@ compile suite), `ci:code` for the full gate set (§2.13). Selection
 logic stays in the plane; the plane consumes check results keyed to
 head SHA regardless of base branch.
 
-### 7.8 Milestones
+### 7.8 Containers, queues, and milestones
 
-Unchanged from orchestration: a milestone is a collection of
-features; the boundary ticket, author's pass, archive/debt-scan/
-grooming machinery all port as-is. One added machine step: on
-boundary-ticket creation, the **`:live` suite runs** (§2.8) and
-posts results before the author's pass, so the pass happens with the
-true end-to-end check in hand; failures block the boundary through
-the existing blocking rule. "Shipping" a milestone aggregates the
-flag set from its included features and flips it at the boundary
-after the author's pass and a green live run — features merge dark
-as they complete; the milestone lights up together.
+**Revised wholesale at ORC-105, superseding ORC-103's own unmerged
+milestone-only framing of this section.** ORC-103 first tried "give
+the milestone its own statuses and the steps that close it" — the
+right instinct, a fifth of the actual decision: the milestone is one
+**container** among several (the project is another, below) and
+the close is one **queue** among four. Every reason ORC-103 gave for
+retiring orchestration's boundary ticket still holds and generalizes
+rather than being re-argued (carried forward, not re-derived): the
+pause needed to be *tracked* somewhere and the pass needed a *place to
+live*, both true only because orchestration has no tracker of its own
+to hold either directly; Catapult's ticket state is its own event log
+(§7.1, §7.17), so a container can carry its own progress and the
+record of its own history without proxying through a ticket. What
+follows is the decision set (ORC-105); the grammar it's built from is
+`dsl-syntax.md` §15.6-§15.8. Building the dispatcher, the sweep, and
+the scan/setup/retro machinery itself is ORC-104's — this section
+settles the shape, not the diff.
+
+**Containers nest, and every level shares one mechanism.** A
+container's status is which of a fixed, ordered sequence of **queues**
+it currently sits at — the queue names themselves platform-fixed,
+declarable by neither axis, for the identical re-resolution reason
+ticket system statuses aren't (`dsl-syntax.md` §15.1, §15.6): the
+anchor a container parked mid-sequence falls back to when a workflow
+cutover changes what a queue dispatches underneath it. What each named
+queue *points at* — a ticket type/label (a **work flow**) or a nested
+container kind (a **container flow**) — is declared; the sequence
+itself is not. Nothing requires a container's queues to bottom out in
+tickets at all: with more than one work type, "is this a ticket" stops
+being definable, and a queue sequence built entirely from
+container-opening queues is legitimate. **Cycles are refused** — the
+same `graph_constraint: acyclic` discipline `dsl-syntax.md` §4's edge
+instances already carry, applied to the declared queue graph
+(`after:` plus `blocks:`, `dsl-syntax.md` §13). Different container *kinds* with
+different queue sets are deferred: nesting alone gets epics-and-
+milestones, should that ever be wanted, without a new mechanism — an
+epic is simply a container whose queue opens a container flow of
+milestones. A genuinely distinct kind, if real usage ever wants one,
+is new system-status-style vocabulary decided then, on evidence, not
+guessed at now.
+
+**A queue is a query, never stored.** "Work items in this container
+whose declared flow is this queue's, unresolved" — addressable
+whether or not the queue is current, which is the handle a queue
+needs while inactive (a future milestone's `prep` is a real, queryable
+thing before that milestone opens). A stored per-queue bucket would be
+a new in-plane pending set: `ready_scopes` itself refuses to
+materialize for the identical reason (v5 §1.2), and
+`Catapult.Engine.Scheduler` holds no memory of what it last broadcast
+— a stale ordering is worse than none, because it is the kind of
+thing that gets acted on (v5 §7.11's staleness projection makes the
+same refusal for exactly this reason). Note the noun: **work items**,
+not tickets — the distinction only matters the day a non-ticket work
+type exists, but the grammar doesn't assume it away.
+
+**One queue may block another, declared, and a block may only name a
+sibling.** A container does not leave a queue while a queue that
+blocks it holds unresolved work — which is what makes "the retro
+can't finish while milestone work is open" an instance of a general
+rule (`main` blocking `retro`, below) rather than a special case, and
+which also closes the stranding hole ORC-103 solved narrowly: work in
+a blocking queue cannot be quietly closed over. A `blocks:` entry may
+only name a queue visible at its own container level (`dsl-syntax.md`
+§15.8) — reaching into a nested container's own queues would make its
+internals part of its interface to whatever blocks it, exactly
+backwards from composability. To block on something nested, block on
+the container-opening queue it lives inside.
+
+**The project is the outermost container, and it is less new than it
+looks.** `project_id` is already the top-level scope in the engine
+store (`systems/engine.md`) — every table carries it post-ORC-87,
+`Store.list_project_ids/0` enumerates them, and the active-bundle-
+version projection already keys current bundle versions per project
+per axis (`systems/engine.md`'s ninth projection). The project isn't a
+new concept acquiring a workflow; it's the existing outermost scope
+finally having one. Its queues, in order: `initialization` →
+`scaffolding` → `build-out` → `iteration` → `maintenance` →
+`deprecating` → `sunsetting`. All but `scaffolding` point at the same
+work flow for now — the distinctions are ones that *become*
+meaningful; they needn't be on the first build. `scaffolding` differs
+because the seed pass (§7.9) wants different settings from ordinary
+ticket work. `initialization` is autopopulated by business logic, not
+protocol: the grammar declares the queue exists; what lands in it on a
+fresh project is not the loader's business. `deprecating` and
+`sunsetting` may be dummy queues (a work flow nothing ever populates)
+initially and become real later. **This also settles §6's open
+question:** the root container has statuses like any other, and
+closing one means what closing any container means — its last queue
+(`sunsetting`) resolving with nothing open behind it
+(`dsl-syntax.md` §15.6).
+
+**Milestone queues, and the end of the debt milestone.** A milestone's
+queues, in order: `prep` → `main` → `retro` → `cleanup`. `prep` is
+work the milestone requires before beginning; `cleanup` is work that
+got missed during it — distinct on purpose, because "debt left over
+from the last milestone" and "debt required for the next one" used to
+land in one place and are different questions. **This reverses this
+section's own earlier framing** (the alternating-debt-milestone
+picture inherited from orchestration and restated informally at §1.1)
+**, and the reversal is the point.** Debt becomes a queue inside every
+milestone instead of a milestone every other slot: nothing has to be
+inserted into the project's own queue sequence, no debt milestone has
+to be autogenerated, and the alternation stops being prose nothing
+enforces. §4.5's `debt`-routing gating test is revised to match: it
+now sorts a milestone's own `cleanup` from the next milestone's `prep`
+rather than "next debt milestone" from "backlog" — arguably a clearer
+question, and every place that gating test is invoked reads it this
+way from here.
+
+**Two agents, dispatched as ordinary work items, and what stays
+human.** `boundary` is retired as a chain-level agent step
+(`dsl-syntax.md` §15.1) and becomes `retro`, a queue-dispatched flow —
+it never named anything a tier's `delivery:` actually used, and the
+single static pass is exactly what the queue model replaces. A
+`setup` flow joins it, running at a project's container-opening queue
+(`build-out`/`iteration`, whichever a workflow bundle assigns) each
+time it mints the next milestone, constituting that milestone before
+it starts. The split follows the direction each looks: `retro` —
+backward — adjudicates carried findings, scans the diff for debt,
+updates the milestone's tickets to reflect what actually landed, and
+flips the aggregated flag set (below); `setup` — forward — grooms,
+sets blockers, and fills `prep`. Both are **ordinary work items**:
+there is a ticket again, and it is not the thing that was removed.
+What's absent is the *pause-proxy* — a ticket standing in for
+container state a borrowed tracker had nowhere else to hold
+(`dsl-syntax.md` §14's corresponding entry draws this distinction
+explicitly, so the next reader doesn't take the return of a ticket as
+a reversal). What's present is dispatched work, with its own
+chain-bundle flow and tiers, through machinery that already exists
+(§7.10's "opening a ticket IS opening a flow instance"). **Human,
+irreducibly:** manual testing across the milestone (the pipeline
+protocol's own DESIGN §10 names this the only place manual testing
+happens, and nothing here changes that), reading the `:live` verdict
+(§2.8), clearing `Blocked` tickets carrying `needs-review`, accepting
+or declining `retro`'s Triage-filed proposals.
+
+The **`:live` suite** still runs once per milestone (§2.8, settled at
+ORC-105 to gate `main`'s completion specifically), and a failing
+verdict is exactly the sort of unresolved work `main`'s `blocks:`
+relation to `retro` holds open for: `retro` will not begin — and
+`:live` re-runs — until it clears. "Shipping" a milestone still
+aggregates the flag set from its included features and flips it once
+`retro` closes clean, after a green live run and the author's pass —
+features merge dark as they complete; the milestone lights up
+together.
+
+**Archive is policy, and the retro note dies with it.** Archiving a
+container's old work items is a user action, and optionally a status
+for operators who want a button rather than immediate archival — it
+exists in orchestration because of a borrowed tracker's ticket cap,
+which is not a protocol concern here and is never load-checked to
+precede anything (`dsl-syntax.md` §14's corresponding entry). What
+protocol *does* guarantee: **containers keep references to their work
+items even once archived**, so a container is always a path to its
+own history. That kills the retro note outright — its whole job was
+duplicate detection over work that archiving had made invisible, and
+nothing here is invisible in the one context that matters. The
+archive-precedes-every-step load check ORC-103 drew up goes with it:
+it was well-formed only on the premise a scan couldn't otherwise see
+archived tickets, and that premise no longer holds — keeping a rule
+after its reason is gone is the failure the mix.exs cowlib
+advisory-ignore rationale went stale the same way (ORC-91): a
+justification that quietly outlives the fact it was true of.
 
 ### 7.9 The scaffold
 
@@ -2130,8 +2311,9 @@ be declared at the member, with the protocol defining only the slots:
   ordering exists to prevent. Two things need care and are called out
   rather than assumed: the blocking relation (§7.2's child-blocks-
   parent, which is about completion) must not be read as dispatch
-  gating, and a boundary-style `openBlockerFor` check must not treat
-  early children as blockers that prevent the parent's own dispatch.
+  gating, and a queue's own `blocks:` check (§7.8's generalization of
+  orchestration's `openBlockerFor`) must not treat early children as
+  blockers that prevent the parent's own dispatch.
   Product-tier fanouts never spawn because product tiers generate
   under gate phases, not Building. The grain rule is a platform
   constant.
@@ -2183,7 +2365,10 @@ only if a real exception ever forces it.
 **Agents are three layers, changing at three rates.** The writer
 matrix carries *roles* only — authority, invariant across
 implementations. The protocol names *agent kinds* (design, dev,
-reconcile, boundary, validation) as vocabulary. Tier declarations may
+reconcile, validation, and — dispatched through a milestone's
+declared queues rather than a tier's `delivery:` block, §7.8, revised
+at ORC-105 from the single static `boundary` kind — retro and setup)
+as vocabulary. Tier declarations may
 carry an *executor profile* (model, effort, harness requirements —
 v4's per-tier `thinking_effort` is the precedent). The project
 bindings file maps kind → runtime (orchestration's `agents:` config,
@@ -2199,16 +2384,18 @@ security advisories) auto-files maintenance tickets with entry
 delivery-only ticket, empty gates) vs. architecture-implicating (a
 major version changing APIs walks the doc graph like any change).
 Filing discipline bends "issues only on the author's ask" the same
-way the boundary ticket does: routine bumps file to Triage for
-batch-accept; advisory-backed security bumps file directly to the
-queue with `Urgent` plus a notification — the alternative is the
-author doing it by hand out-of-band, which is strictly worse. The
-auto-queue threshold is a `tunable`. Bumps touch `mix.exs`/`mix.lock`
-(accepted shared-file territory) and serialize textually at their
-natural cadence. `Urgent` itself is a **modifier on any type**, never
-a type: pure precedence (preempts at pickup, overrides the milestone
-pause, never steals an in-flight mutex), preserving orchestration's
-treatment.
+way a milestone's `scan`-sourced proposals do (§7.8): routine bumps
+file to Triage for batch-accept; advisory-backed security bumps file
+directly to the queue with `Urgent` plus a notification — the
+alternative is the author doing it by hand out-of-band, which is
+strictly worse. The auto-queue threshold is a `tunable`. Bumps touch
+`mix.exs`/`mix.lock` (accepted shared-file territory) and serialize
+textually at their natural cadence. `Urgent` itself is a **modifier
+on any type**, never a type: pure precedence (preempts at pickup,
+dispatches regardless of which queue a milestone currently sits in —
+revised at ORC-105 from "overrides the milestone pause," which named
+a mechanism §7.8 no longer has — never steals an in-flight mutex),
+preserving orchestration's treatment.
 
 **Restricted scopes carry a third touchpoint, and the budget
 principle bends knowingly.** A scope marked `codegen: restricted`
@@ -2229,12 +2416,14 @@ gets rarer still.
 
 **Stubbed scopes project into the working surface as swap tickets.**
 When a stub declaration is approved, the plane files the swap ticket
-(machinery-filed, like the boundary ticket and maintenance) in the
-**`Stubbed`** status (§7.6), carrying the scope's mutex labels, the
-deferral argument, the exit plan, and the gate it will run when
+(machinery-filed, like a milestone's `scan`-sourced proposals — §7.8,
+revised at ORC-105 from "the boundary ticket" — and maintenance) in
+the **`Stubbed`** status (§7.6), carrying the scope's mutex labels,
+the deferral argument, the exit plan, and the gate it will run when
 scheduled. **No milestone** — the point is an open timeline, and a
-milestone-bound Stubbed ticket would block that boundary forever.
-Scheduling is the author's act: assign a milestone, move it into the
+milestone-bound Stubbed ticket would hold that milestone's queues
+open forever (§7.8's `blocks:` relation). Scheduling is the author's
+act: assign a milestone, move it into the
 flow, ordinary (gated) ticket from there. The audit keeps tickets and
 inventory in lockstep (§2.14). Rationale: the stub inventory is the
 mechanical truth; the Stubbed column is that truth standing
