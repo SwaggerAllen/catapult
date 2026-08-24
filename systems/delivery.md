@@ -231,6 +231,85 @@ design gates pass.
   it. Neither correction changes this system's shape, only what its
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
+- **ORC-31 (design pass) extends the Host port's operation vocabulary
+  for feature-lifecycle PR management and decline harvesting** —
+  branch, PR-open, merge-forward, merge, review-comment read, marker-
+  comment write, PR-label set, and check-status read, plus a diff
+  read for reconciliation. Each is traced to the protocol clause it
+  serves rather than to what GitHub happens to expose (v5 §7.17's
+  first discipline): branch/PR-open/merge-forward/merge cover §7.5's
+  topology (child PR → feature branch, feature PR → main; merge-
+  forward absorbs drift continuously and surfaces a conflict as a
+  real signal, never a silent resolution); PR-label set is how the
+  plane marks `ci:docs`/`ci:code` for §7.7's job selection; check-
+  status read answers back keyed to head SHA regardless of base
+  branch, exactly as §7.7 requires; review-comment read and marker-
+  comment write are §7.4's harvesting split, and they are two
+  different GitHub comment kinds by design, not by convention —
+  review-comment read pulls line-anchored, human-authored review
+  comments (the harvesting source), marker-comment write posts
+  plane-authored, issue-level PR comments (bounces, findings), and
+  keeping them on separate GitHub APIs is what lets "anything
+  unmarked in the diff span is human feedback" (§7.4) hold without
+  parsing anything to tell the two apart. Diff read is this ticket's
+  own restated invariant (conventions §11): the port moves refs and
+  reads diffs, it never checks out. As with every earlier operation
+  on this port, each lands in `HostPort.Actions` and `HostPort.Fake`
+  in the same change — never one ahead of the other.
+- **The marker vocabulary is a typed module, scoped to GitHub PR
+  comments only** (ORC-31, design pass; extends the marker-retirement
+  bullet above rather than reopening it). `HostPort.Marker` (naming
+  follows `HostPort.Actions`/`HostPort.Fake`'s own pattern) holds a
+  closed enum of kinds, each with a render function producing the
+  exact comment body and a parse function reading one back —
+  `{:ok, {kind, payload}} | :not_a_marker` — so no call site builds a
+  marker string by interpolation and no call site greps a comment
+  body for a substring. Phase 4 needs exactly one kind to start: the
+  scope-violation bounce already named in §7.5 ("a plane-authored
+  marker comment naming the paths, `Ready for rework`"). Later kinds
+  — §7.11's findings marker, §7.14's bug-intake sequence stamp — join
+  the same closed enum when their phase needs them; they are not
+  invented ad hoc at whichever call site first wants one. This module
+  governs the write side only. The read side needs no parser of its
+  own: review comments and marker comments already arrive through
+  different GitHub APIs, so "unmarked" is a fact about which endpoint
+  returned the comment, not a string this module inspects.
+- **The Fake's forge state lives in `Catapult.Delivery.Store`, not a
+  second process** (ORC-31, design pass). Branches, open PRs, posted
+  comments and check runs are exactly the same shape of problem
+  `dispatch_run` already solved: state one test writes and the same
+  test reads back, sandboxed per-test under `mix test`'s async runs.
+  `HostPort.Fake` gains no GenServer identity and no in-memory map for
+  this — new Store-owned Ecto tables carry it, the same persistence
+  substrate every other delivery record already uses, so the fake
+  stays sandbox-safe without inventing a second state mechanism this
+  system would then have to keep consistent with the first.
+- **No HTTP-mock-server-based fake** (ORC-31, design pass; refusal,
+  scope: system:delivery). The Actions adapter's own code path could
+  run unmodified against a stub GitHub server (Bypass, a cassette
+  replay of the REST API), and that will look like the easier fake to
+  write. Refused: it fakes the vendor's transport, not the protocol —
+  the exact property v5 §7.17's second discipline names ("the fake is
+  written against the protocol rather than mirroring the adapter"),
+  and an HTTP-level stub would quietly start requiring GitHub's own
+  URL shape, pagination and rate-limit behavior to keep the fake
+  alive, which is the coupling the fake exists to avoid. `HostPort
+  .Fake` stays a plain Elixir implementation of the behaviour with no
+  HTTP dependency at all.
+- **The sim-style test ring drives a full branch → PR → comment →
+  harvest → merge-forward → merge scenario through `HostPort.Fake`
+  alone, with no network** (ORC-31, design pass). It lives beside the
+  rest of this system's suite, under this doc's own file map
+  (`test/catapult/delivery/`) — no separate ring or `live` directory,
+  the same reasoning `docs/non-goals.md`'s no-`test/live/`-directory
+  entry already gives for a different tag. It carries no `:live` tag
+  itself: nothing in it crosses a real network boundary, so the ring
+  is an ordinary async suite member, not a live one. Populating this
+  ring is scope, not scaffolding — the same standing principle
+  `systems/generation.md` states for the dispatch fake — because it
+  is what lets protocol work on branches, PRs and harvesting continue
+  to be exercised, and continue to be provably correct, on a day
+  GitHub itself is down.
 
 ## Initial vs target
 
@@ -255,9 +334,12 @@ dashboard's Phase 4/7 web layer. **Narrowed again at ORC-10**: the
 repo-reset operation above, and the `Contents: read and write` grant
 it draws on, land with it — a second sliver of Phase 4's host port
 pulled into Phase 3 for the same reason the first one was, because the
-milestone boundary test needs it now. Feature-lifecycle PR management
-and decline harvesting proper are unaffected and still open at Phase
-4. Target
+milestone boundary test needs it now. **ORC-31 (design pass) records
+the shape of the rest of Phase 4's host port** — the operation
+vocabulary, the marker-vocabulary module and the sim-style test ring,
+above — ahead of the dev pass that builds it; feature-lifecycle PR
+management and decline harvesting proper stay open at Phase 4 until
+that pass lands. Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound
