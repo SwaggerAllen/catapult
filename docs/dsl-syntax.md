@@ -36,13 +36,13 @@ bundles/<name>/                # kind: chain
   schemas/<name>.xsd           # body grammars referenced by tiers
   flows/<flow>/flow.yaml       # one directory per flow
   flows/<flow>/<prompt>.md.liquid
-bundles/<name>/                # kind: workflow
-  bundle.yaml
-  gates/<gate>.yaml            # one file per declared review gate
-  environments/<env>.yaml      # one file per deployment environment
-  types/<name>.yaml             # one file per registered work-item type (§15.9)
-  queues/project.yaml           # singular: the project's own declared queue sequence (§15.6-§15.7)
-  queues/containers/<name>.yaml # one file per declared container (§15.6-§15.9)
+bundles/<name>/                # kind: workflow — forked from a platform
+  bundle.yaml                  #   template, never `extends:`-layered (§11)
+  gates/<gate>.yaml            # one file per declared review gate (§15.4)
+  environments/<env>.yaml      # one file per deployment environment (§15.4)
+  types/<name>.yaml             # one file per declared work item — ticket,
+                                #   container or the project itself,
+                                #   distinguished by `skeleton:` (§15.1-§15.2)
 ```
 
 `catapult.yaml`:
@@ -65,12 +65,13 @@ fragments: [techspec, pubapi, privapi, policies, failure_surface]
 flows: [flows/*/flow.yaml]
 ```
 
-A workflow bundle's manifest carries `kind: workflow`, its own
-`extends:` (the platform workflow layer, which ships the default UX
-and engineering review gates and the `dev`/`staging` environments),
-and `gates:` / `environments:` / `queues:` globs in place of the
-chain's lists. The file-list keys are per-kind: a `tiers:` list in a
-workflow bundle is an unknown field and a load error, per §13.
+A workflow bundle's manifest carries `kind: workflow`, no `extends:`
+field at all (§11 — forked from the platform's default gates,
+environments and types instead, never layered), and `gates:` /
+`environments:` / `types:` globs in place of the chain's lists. The
+file-list keys are per-kind: a `tiers:` list in a workflow bundle is
+an unknown field and a load error, per §13, and so is `extends:`
+itself on that same manifest.
 
 Fragment kinds are a **closed vocabulary per bundle**: a kind used in
 any `handle:` or `produces:` must appear here.
@@ -226,18 +227,22 @@ prompt (§9), exactly as before.
 
 **Never named from the workflow axis.** A workflow bundle turns the
 critique slot that follows a given generation status *on* by
-declaring it — `critique.yaml` (§15.5) — never by naming a review
-tier (`comparch_review`): the declaration references the
-platform-fixed status (`critique`) by its one fixed path, never a
-bundle's own tier. Naming a review tier from a workflow declaration
-is the identical cross-axis leak §11 already forbids for gates and
-generation tiers. **Revised at ORC-92:** an earlier reading of this
+declaring a `critique` entry next to that `generation` entry in a
+type's own `statuses:` array (§15.5) — never by naming a review tier
+(`comparch_review`): the declaration references the platform-fixed
+status (`critique`) by its fixed vocabulary word, never a bundle's own
+tier. Naming a review tier from a workflow declaration is the
+identical cross-axis leak §11 already forbids for gates and
+generation tiers. **Revised at ORC-92, and the file it revised is
+itself retired at ORC-105's fourth pass:** an earlier reading of this
 paragraph had the direction backward — critique present by default,
 disabled by naming it — which is not what actually happens: no
 workflow bundle in this repo declares anything about critique today,
 and that silence means "off," not "on and undeclared." §15.5 settles
-it explicitly: absent a `critique.yaml`, no critique tier runs at
-all; declaring one is what turns it on, at the depth it names.
+it explicitly, now as an inline entry rather than a standalone
+`critique.yaml` file: absent a `critique` entry next to a given
+`generation` entry, no critique tier runs there; declaring one is
+what turns it on, at the depth it names.
 
 ## 4. Edge declarations
 
@@ -512,33 +517,51 @@ reconciliation.
 
 ## 11. `extends:` — content layering
 
-A bundle naming `extends: <layer>` loads the layer first, then
-overlays: **declarations union; same-path files replace; the
-*automation* protocol's own files never override** — the agent and
-queue states, and the graph connecting them, ship in the platform
-workflow layer and are not overlayable (v5 §7.10). **Narrowed at v5
-§7.16/§7.18:** review states and deployment environments *are*
-declarable, in a workflow bundle; what stays un-overlayable is the
-automation graph itself. The admission rule is that a state may be
-declared iff no plane logic branches on it.
+**Chain-axis only, since this ticket's fourth pass.** A chain bundle
+naming `extends: <layer>` loads the layer first, then overlays:
+declarations union, same-path files replace (v5 §7.10, §9). Cycles in
+`extends:` chains are load errors.
 
-**`extends:` layers within an axis and never across it.** A chain
-extending a workflow, or the reverse, is a load error: the two axes
-exist precisely so they can vary independently (v5 §7.18). Cycles in
-`extends:` chains are load errors. Layering composes *content*; it
-never adds vocabulary — that is §12's job, and the two mechanisms are
-deliberately distinct (v5 §9).
+**Reversed: a workflow bundle carries no `extends:` field, and there
+is no platform workflow base layer left to compose against.** v5
+§7.18 originally gave the workflow axis its own base layer, mirroring
+the chain axis's `platform-elixir` layer, specifically so a project's
+gates and environments could live "in its bundle's `extends:` layer,
+versioned in the repo, changed by PR." That reasoning does not survive
+contact with how bundles are actually distributed: v5 §3.1 already
+chose **fork, tailor, and merge upstream later** as the lifecycle for
+bundles and policy packs generally, because git has a merge story hex
+does not — and a workflow bundle is exactly this shape, never layered
+at runtime by a loader. `bundles/`'s platform workflow content is a
+template a project's workflow bundle forks from and tailors, pulling
+later platform revisions in by ordinary git merge, the same as any
+other forked artifact (v5 §7.8). Declarable review states, deployment
+environments and work-item types (§15) are the forked bundle's own
+content from the start, never a leaf layer composed onto a base one
+at load time. The admission rule this reversal leaves untouched is
+v5 §7.16/§7.18's own: a state may be declared iff no plane logic
+branches on it — that rule was never about *how* declarable content
+reaches a project, only about *what* may be declared, and forking
+answers the first question without touching the second.
+
+**A chain bundle's `extends:` may never name a workflow bundle, or
+the reverse, because there is no longer a workflow-axis `extends:` to
+name.** Naming `extends:` at all inside a workflow bundle is an
+unknown field, rejected at load like any other (§13). Layering
+composes *content*; it never adds vocabulary — that is §12's job, and
+the two mechanisms are deliberately distinct (v5 §9).
 
 **The axes do not reference each other at all. Both reference only
 the platform's fixed vocabulary — statuses, queues, agent steps.** A
 tier's `delivery:` block (v5 §7.10) names the phase it generates in
 and the agent step that generates it, and nothing else; a workflow's
-gates and environments attach to those same fixed positions. Neither
-side can name a declaration belonging to the other, which is what
-makes **any chain bundle composable with any workflow bundle** — no
-shared gate or environment vocabulary, and no compatibility contract
-to check (v5 §7.18). A gate's review set follows from where it sits:
-it reviews whatever the chain produced at the step it follows.
+gates and environments attach to those same fixed positions (§15.2).
+Neither side can name a declaration belonging to the other, which is
+what makes **any chain bundle composable with any workflow bundle** —
+no shared gate or environment vocabulary, and no compatibility
+contract to check (v5 §7.18). A gate's review set follows from where
+it sits: it reviews whatever the chain produced at the step it
+follows.
 
 ## 12. Extension registration — the platform surface
 
@@ -595,11 +618,12 @@ Added with the two axes and the declarable protocol surface (v5
   two bundles a matched pair rather than freely composable. There is
   deliberately **no chain/workflow compatibility check**: with no
   shared vocabulary there is nothing to check;
-- every review status sits on an edge between **system statuses**
-  (queue, generation, checks, merge, deploy) that exists, and its
-  exits resolve within the workflow bundle (v5 §7.19);
-- a **queue status precedes every generation and every deployment**;
-- **every generation status has at least one blocked exit** — a
+- every declared gate or environment entry sits on an edge between
+  **skeleton anchors** (§15.1) that exist in the citing type's own
+  array, and its exits resolve within the same array (v5 §7.19);
+- a **`pending` entry precedes every `generation` and every `deploy`
+  entry in the same array**;
+- **every `generation` entry has at least one blocked exit** — a
   generation that can fail with nowhere to land is the
   parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19). `Blocked`
   is a single system status; return routing is a rule over the
@@ -612,26 +636,51 @@ Added with the two axes and the declarable protocol surface (v5
   coupling §11 forbids (v5 §7.19);
 - **a `depth:` value is a non-negative integer, or a list of exactly
   two non-negative integers** (§7.19's `[first, rest]` pair) — on a
-  gate, an environment, or `critique.yaml` (§15.5) alike, one grammar
-  checked the same way at all three sites; any other spelling is a
-  load error naming the offending value and the file it came from
-  (v5 §7.19, ORC-92). The never-validated-against-the-chain rule
-  above is unaffected: a pair's two positions are still ceilings,
+  gate, an environment, or a `critique` entry (§15.5) alike, one
+  grammar checked the same way at all three sites; any other spelling
+  is a load error naming the offending value and the declaration it
+  came from (v5 §7.19, ORC-92). The never-validated-against-the-chain
+  rule above is unaffected: a pair's two positions are still ceilings,
   never claims checked against the chain's actual fan-out;
-- **`critique.yaml` (§15.5) is optional, singular and
-  structural-only at load time**, the same shape as `bundle.yaml`
-  itself: at most one per loaded workflow bundle (`extends:` layers
-  it by §11's same-path replace, never additively), unknown keys
-  rejected, `depth:` validated by the rule above and defaulting to
-  `0` when omitted. Its presence in the loaded union is the whole of
-  what enables the critique slot — there is deliberately no
-  `enabled:` field, for the same reason a gate needs no such field:
-  absence from the union already means "does not run" (v5 §7.19,
-  ORC-92). Neither this file's `depth:`, nor a gate's or an
-  environment's `depth:`, is read by anything today — scheduling is a
-  later consumer (v5 §7.19) — so there is no consumer to migrate;
-- `extends:` never crosses axes, and each named bundle's `kind`
-  matches the `catapult.yaml` key that named it;
+- **a `critique` entry must sit immediately after a `generation` entry
+  in the same type's `statuses:` array** (§15.5) — a `critique` entry
+  in a `container`- or `none`-skeleton type's array, or one not
+  adjacent to a `generation` entry, is a load error naming the
+  declaration and the position. There is deliberately no `enabled:`
+  field anywhere in this grammar: a `generation` entry's mere absence
+  of an adjacent `critique` entry already means "does not run" (v5
+  §7.19, ORC-92). Neither a gate's, an environment's, nor a
+  `critique` entry's `depth:` is read by anything today — scheduling
+  is a later consumer (v5 §7.19) — so there is no consumer to
+  migrate;
+- a gate's exits (forward and throwback) resolve to states that
+  exist within the citing type's own array, and its declared
+  escalation policy is well-formed;
+- **a `type:` name is unique in the loaded union, whatever `skeleton:`
+  it declares** — `container`, `ticket` and `none` share one
+  namespace (§15.2);
+- **at most one loaded type declares `skeleton: none`** — the
+  project's own singularity, checked structurally rather than by a
+  reserved name (§15.2);
+- **every `container`-skeleton type's `statuses:` array holds exactly
+  the five platform-fixed anchor names, each exactly once, in exactly
+  this order: `setup`, `prep`, `main`, `retro`, `cleanup`, followed by
+  `terminal`** (§15.1) — the container analogue of a ticket's system
+  statuses, declarable by neither axis for the identical
+  re-resolution reason. A missing name, a duplicate, an extra name, or
+  the five out of order is a load error naming the declaration and
+  the mismatch;
+- **every `ticket`-skeleton type's `statuses:` array opens with
+  `pending`, closes with `terminal`, and holds `generation`, `checks`,
+  `merge` and `deploy` at least once each, in that relative order**
+  (§15.1) — `generation` and `merge` may recur; `pending` and
+  `terminal` may not. A `ticket`-skeleton array missing one of these
+  anchors, or holding one out of its fixed relative order, is a load
+  error naming the declaration and the mismatch;
+- **there is no `after:` field anywhere in this grammar** — on a
+  gate, an environment, or a type's own anchor entries alike, position
+  is the array index and nothing else (§15.3). A declaration carrying
+  `after:` is an unknown field, rejected at load like any other;
 - **a gate whose role has no holders is a load error**, not a runtime
   condition — otherwise a deadlocked gate is indistinguishable from a
   slow reviewer (v5 §7.16). Holders live in identity (Phase 7); until
@@ -639,8 +688,6 @@ Added with the two axes and the declarable protocol surface (v5
   input (a `role_holders:` resolver) and skips the check, rather than
   failing every load, when none is supplied — the same shape the
   mirror-mapping check below already has for the same reason;
-- a gate's exits (forward and throwback) resolve to states that
-  exist, and its declared escalation policy is well-formed;
 - every declared review state has a counterpart in the mirror mapping
   when the outbound tracker add-on is configured (v5 §7.17) — an
   unmapped state is the failure that has halted a sweep before. Same
@@ -651,91 +698,69 @@ Added with the two axes and the declarable protocol surface (v5
   a state and a label, one hyphen apart in meaning — cheap against a
   fixed list, and an actual check against a declared one;
 - a workflow bundle under the `runtime` dialect is a load error, not
-  dead weight: that dialect has no review lifecycle (§12).
+  dead weight: that dialect has no review lifecycle (§12);
+- **a workflow bundle carrying an `extends:` field is a load error**
+  (§11) — there is no platform workflow base layer left to name.
 
-Added with container, project and work-item-type declarations
-(§15.6-§15.9, ORC-105 — supersedes the milestone-only
-`close/<kind>.yaml` shape ORC-103 drew up on its own unmerged branch
-and this same ticket's own two earlier, since-reversed drafts (a
-fixed seven-name project sequence checked against a two-member
-`container:` registry, then a `flow:`/`opens:` pair on every queue
-entry); nothing below has ever loaded, so this is the vocabulary's
-first landing, not a revision of one in the loaded union):
+Added with the unified work-item declaration
+(§15.2-§15.9, ORC-105's fourth pass — supersedes the milestone-only
+`close/<kind>.yaml` shape ORC-103 drew up on its own unmerged branch,
+this same ticket's first draft (a fixed seven-name project sequence
+checked against a two-member `container:` registry), its second
+(a `flow:`/`opens:` pair on every queue entry), and its third (one
+registered type per file, but still three file locations for
+`project`, `container` and plain-type declarations); nothing below
+has ever loaded, so this is the vocabulary's first landing, not a
+revision of one in the loaded union):
 
-- **`queues/project.yaml` is optional, singular and freely
-  declared** — the same structural shape `critique.yaml` (§13 above)
-  already has: at most one per loaded workflow bundle, `extends:`
-  layers it by §11's same-path replace. Its `queues:` array names
-  whatever queues the bundle wants, in whatever order and count the
-  author chooses — array position is declared order, there is no
-  `after:` field to duplicate it and no anchor sequence to check
-  entries against, because a project needs no re-resolution anchor:
-  every review happens at a lower level, and a project changes rarely
-  enough that a workflow cutover mid-project is not the hazard a
-  cutover mid-container is (§15.6). Each entry's `queue:` name is
-  unique within the file; that is the only uniqueness rule;
-- **`queues/containers/<name>.yaml` declares one named container**,
-  and a bundle may hold many — directory-shaped like `gates/` for
-  that reason, singular per name rather than singular per bundle.
-  There is one container **kind**; `<name>` (and the file's own
-  `container:` key) is that declaration's identity, not a selection
-  from a platform registry — declaring `epic` or `program` is
-  authoring, exactly like declaring a new gate or environment, never
-  a platform change. A bundle may declare as many named containers as
-  it wants, and any of them may nest inside any other (including
-  itself in the trivial sense of "a container can be the thing a
-  queue entry's `flow:` names" — see the acyclicity rule below for
-  what actually bars self-nesting);
-- **every container declaration's `queues:` array holds exactly the
-  five platform-fixed anchor names, each exactly once, in exactly
-  this order: `setup`, `prep`, `main`, `retro`, `cleanup`** (§15.6) —
-  the container analogue of a ticket's system statuses, declarable by
-  neither axis for the identical re-resolution reason. A missing
-  name, a duplicate, an extra name, or the five out of order is a
-  load error naming the declaration and the mismatch. There is no
-  `after:` field on a container queue entry — position is the array
-  index, and the array's shape is fixed, so there is nothing left for
-  `after:` to say;
-- **`types/<name>.yaml` registers one named work-item type**,
-  directory-shaped like `gates/` and `queues/containers/`, for the
-  identical reason: a bundle declares more than one. A type is,
-  literally, a list of statuses — its `statuses:` names the declared
-  gates (§15.2) this type's tickets visit; the system-status skeleton
-  (§15.1) applies to every type unconditionally and is never repeated
-  here. Order in `statuses:` carries no meaning of its own — each
-  named gate already carries its own position via its own `after:`
-  (§15.3) — so the array is checked for one thing only: every entry
-  resolves to a gate declared in the loaded union. This inverts,
-  rather than duplicates, what a gate's own former `ticket_types:`
-  field did (§15.2 — now retired): the type names which gates it
-  visits instead of every gate naming which types visit it, and there
-  is exactly one place either fact is declared, so the two can no
-  longer read as disagreeing;
-- **container declarations and work-item-type declarations share one
-  namespace** — the registry `flow:` resolves against. A `container:`
-  name and a `type:` name may not collide, in either direction, and
-  the loader does not care, when resolving a `flow:` reference, which
-  of the two kinds of file produced the name — only what the resolved
-  declaration's own content turns out to be;
-- **`flow:` is the one field a queue entry carries, required, on
-  every entry in `queues/project.yaml` and every entry in a
-  `queues/containers/<name>.yaml` file alike** — naming a member of
-  the registry above. This replaces the earlier `flow:`/`opens:` pair
-  outright, not merely renames one half of it: there is no longer a
-  structural difference, on the queue entry itself, between "this
-  queue dispatches a ticket" and "this queue opens a nested
-  container" for the loader to branch on. What the resolved name
-  turns out to be — a plain type (dispatch terminates there, an
-  ordinary ticket) or a container (dispatch mints a new instance,
-  §15.8) — is visible only from what the *resolved declaration's own*
-  array contains, never from anything the queue entry itself
-  declares;
+- **`types/<name>.yaml` is the one declaration shape, directory-shaped
+  because a bundle declares more than one** — `type:` names the
+  declaration, `skeleton:` selects `ticket`, `container` or `none`
+  (§15.1), and `statuses:` is the ordered array §15.1's per-skeleton
+  checks above and §15.3-§15.5's positional checks below both run
+  over. There is one shared registry `flow:` resolves against (§15.2),
+  regardless of which skeleton a given declaration picks;
+- **a `statuses:` array entry is exactly one of: a skeleton anchor
+  (`status:`, from the closed set §15.1 fixes for this declaration's
+  own `skeleton:`), a gate reference (`review:`, naming a gate
+  declared in the loaded union), or an environment reference
+  (`environment:`, naming an environment declared in the loaded
+  union)** — an entry carrying more than one of these three keys, or
+  none of them, is a load error;
+- **a `review:` or `environment:` entry is legal only in a `ticket`-
+  or `container`-skeleton type's array** — a `none`-skeleton type's
+  array is entirely `status:` entries, since "all review happens at
+  lower levels" (§15.1) is a property of the project specifically, not
+  a further case of §15.2's ticket-versus-container governing rule. A
+  `review:` or `environment:` entry in a `none`-skeleton type is a
+  load error;
+- **`flow:` and `blocks:` are legal only on a queue-shaped anchor
+  entry** — a `status:` entry whose name is one of a `container`-
+  skeleton type's five anchors, or any `status:` entry in a
+  `none`-skeleton type's array. `flow:` is required there and absent
+  everywhere else; `blocks:` is optional there and absent everywhere
+  else. A `review:` or `environment:` entry carrying either is a load
+  error, as is a `ticket`-skeleton type's `generation`, `checks`,
+  `merge` or `deploy` entry carrying `flow:` — those anchors dispatch
+  by chain-side tiers, not by a workflow-declared `flow:`;
+- **`flow:` is required on every queue-shaped anchor entry and names a
+  member of the type registry above.** This replaces the earlier
+  `flow:`/`opens:` pair outright, not merely renames one half of it:
+  there is no structural difference, on the entry itself, between
+  "this queue dispatches a ticket" and "this queue opens a nested
+  container" for the loader to branch on. What the resolved name turns
+  out to be — a `ticket`-skeleton type (dispatch terminates there, an
+  ordinary ticket) or a `container`-skeleton type (dispatch mints a
+  new instance, §15.8) — is visible only from what the *resolved
+  declaration's own* `skeleton:` says, never from anything the queue
+  entry itself declares. A `flow:` naming a `none`-skeleton type is a
+  load error: nothing nests into a project (§15.6);
 - **no cross-axis load-time check binds a queue's `flow:` value to a
-  chain bundle's `flow:` declaration of the same name.** The
-  identical non-binding §11 already holds between every other chain/
-  workflow pairing, unaffected by the registry existing: a chain
-  bundle shipping a flow whose `ticket:` face uses a matching label is
-  what makes work actually dispatch there once a type opens, but that
+  chain bundle's `flow:` declaration of the same name.** The identical
+  non-binding §11 already holds between every other chain/workflow
+  pairing, unaffected by the registry existing: a chain bundle
+  shipping a flow whose `ticket:` face uses a matching label is what
+  makes work actually dispatch there once a type opens, but that
   pairing is convention checked at ticket-open time (an unrecognized
   label opens no flow instance and files `Blocked`/`needs-setup`,
   `docs/v5-design-decisions.md` §7.4), never a loader cross-reference.
@@ -744,36 +769,35 @@ first landing, not a revision of one in the loaded union):
   is no unresolvable reference left inside the workflow bundle's own
   graph, only the (unaffected, unchecked) question of whether the
   chain axis ever claims the name;
-- **a `blocks:` entry must name a queue declared in the same file** —
-  the same array (a container's five entries, or the project file's
-  own list) — §2's scoping rule made mechanical: a queue cannot block
-  something nested inside a different queue's own container
-  instances, because that queue's internals are not this level's
-  vocabulary to name. A `blocks:` entry naming a queue in a different
-  declaration, or naming this queue itself, is a load error;
-- **the declaration graph, over container names connected by `flow:`
-  edges whose target resolves to another container** (from other
-  containers' entries and from the project file's own entries), must
-  be acyclic, and a container naming itself in one of its own
+- **a `blocks:` entry must name a queue-shaped anchor declared in the
+  same type's `statuses:` array** — §15.6's scoping rule made
+  mechanical: a queue cannot block something nested inside a different
+  queue's own container instances, because that queue's internals are
+  not this level's vocabulary to name. A `blocks:` entry naming a
+  queue in a different declaration, or naming this queue itself, is a
+  load error;
+- **the declaration graph, over `type:` names connected by `flow:`
+  edges whose target resolves to a `container`-skeleton type**, must
+  be acyclic, and a type naming itself in one of its own queue-shaped
   entries' `flow:` is rejected outright as the degenerate one-node
   case of the same rule — checked statically, from the loaded bundle
   alone, before any container instance exists. A `flow:` edge whose
-  target resolves to a plain type takes no part in this graph: a
-  plain type declares no further `flow:` of its own, so it is always
-  a leaf and can never sit on a cycle. This is the check that
-  actually bars same-name nesting (a `milestone` declaration cannot
-  open `milestone`) and bounds nesting depth: an acyclic graph has a
-  finite longest path, so the maximum depth a bundle permits is
-  knowable from the bundle itself, even though nesting composes
-  arbitrarily (as many distinct named levels as the bundle declares).
-  There is deliberately **no further, instance-level check** ("no
-  container is its own ancestor") — it falls out of the declaration
-  graph's acyclicity for free, and building it separately would leave
-  unbounded depth *declarable*, caught only when some live chain of
-  instances happens to close the loop, trading a load-time failure
-  for a mid-flight one (the same trade this project has already made
-  the other way: v5 §2.4's "failing at config load beats failing
-  mid-flight").
+  target resolves to a `ticket`-skeleton type takes no part in this
+  graph: a `ticket`-skeleton type has no queue-shaped anchor of its
+  own, so it is always a leaf and can never sit on a cycle. This is
+  the check that actually bars same-name nesting (a `milestone`
+  declaration cannot open `milestone`) and bounds nesting depth: an
+  acyclic graph has a finite longest path, so the maximum depth a
+  bundle permits is knowable from the bundle itself, even though
+  nesting composes arbitrarily (as many distinct named levels as the
+  bundle declares). There is deliberately **no further,
+  instance-level check** ("no container is its own ancestor") — it
+  falls out of the declaration graph's acyclicity for free, and
+  building it separately would leave unbounded depth *declarable*,
+  caught only when some live chain of instances happens to close the
+  loop, trading a load-time failure for a mid-flight one (the same
+  trade this project has already made the other way: v5 §2.4's
+  "failing at config load beats failing mid-flight").
 
 ## 14. Deliberately absent
 
@@ -805,7 +829,7 @@ unmerged framing of this same entry; `docs/v5-design-decisions.md`
 container state a borrowed tracker had nowhere else to hold, because
 orchestration has no tracker of its own. Catapult owns its tracker
 (v5 §7.17), so a container's progress is state on the container
-entity itself (§15.6), and there is nothing for a proxy ticket to do.
+entity itself (§15.2), and there is nothing for a proxy ticket to do.
 **This is not the same absence as "no retro."** The retro pass is
 present, as an ordinary work item dispatched through a milestone's
 `retro` queue (§15.7) like any other flow instance — ORC-103's
@@ -828,10 +852,9 @@ query against the ticket store at any moment; nothing pre-computes it.
 archived work becomes invisible to duplicate detection the moment it
 archives, and the note was the only surviving trace. Containers and
 projects alike keep references to their work items even once archived
-(§15.6, `docs/v5-design-decisions.md` §7.8), which removes the
-premise: a scan queue reads the container's own history directly, so
-nothing needs to be written down solely so a later pass can find it
-again.
+(`docs/v5-design-decisions.md` §7.8), which removes the premise: a
+scan queue reads the container's own history directly, so nothing
+needs to be written down solely so a later pass can find it again.
 
 **An `archive`-precedes-every-declared-queue load check.** ORC-103's
 draft carried one, for the reason above: a scan reading ticket data
@@ -849,18 +872,20 @@ Placed after §14 rather than beside the chain declaration kinds
 cross-references throughout, stay stable. Everything here belongs to
 a `kind: workflow` bundle (§2).
 
-### 15.1 System statuses — the fixed vocabulary
+### 15.1 Skeletons — the fixed vocabulary
 
 Platform-fixed, referenced by both bundle axes, declarable by
-neither (v5 §7.18, §7.19). They are the skeleton review statuses
-attach to, and the anchor set a blocked ticket re-resolves against
-when a workflow cutover removes the status it was parked at (v5 §6,
-§7.19) — which they can only be because they are not declarable.
+neither (v5 §7.18, §7.19). They are the anchors everything else —
+gates, environments, critique, and a container's own queues —
+positions against (§15.2), and the set a blocked work item
+re-resolves against when a workflow cutover removes the status it was
+parked at (v5 §6, §7.19) — which they can only be because they are
+not declarable.
 
 | kind | meaning | ball |
 |---|---|---|
 | `backlog` | committed to nothing yet | author |
-| `queue` | committed, awaiting dispatch capacity | plane |
+| `pending` | committed, awaiting dispatch capacity | plane |
 | `generation` | an agent run producing artifacts | agent |
 | `critique` | an agent run reviewing a freshly produced draft | agent |
 | `fanout` | children in flight; progress rolls up | plane |
@@ -870,29 +895,80 @@ when a workflow cutover removes the status it was parked at (v5 §6,
 | `validating` | post-deploy verification (§7.11) | plane |
 | `blocked` | single status, flavor labels, origin kept | varies |
 | `stubbed` | waiting on an external timeline, by choice | world |
+| `setup` | constitutes a freshly minted container, once (§15.8) | agent |
+| `prep` | work a container requires before it opens | varies |
+| `main` | the container's own working period | varies |
+| `retro` | backward-looking close of a container | agent |
+| `cleanup` | work missed during the container's own period | varies |
 | `terminal` | shipped / done | — |
 
 `ball` is v5 §7.11's author-owned vs machine-owned distinction, which
 drives assignee rendering; `blocked` inherits from the status that
 kicked to it.
 
-**A `queue` precedes every `generation` and every `deploy`** — a
+**Renamed from `queue`, at this ticket's fourth pass.** A single work
+item's own wait-for-dispatch status and a container's own named queue
+position (§15.2) used to share one word, and once both could appear
+in the same declared array (§15.2) the collision stopped being
+theoretical. `pending` keeps the fixed-vocabulary meaning exactly —
+"committed, awaiting dispatch capacity" — freeing "queue" for the
+sense the rest of this section actually needs it in. This is
+Catapult-local DSL vocabulary rather than orchestration's protocol
+(`internal/protocol/protocol.go`'s `AllStates` has no `queue` member
+to rename), so the rename touches this file plus
+`lib/catapult/dsl/system_status.ex` and nothing in the two-repo
+protocol — recorded as dev's diff against ORC-104, the same way
+`:boundary`'s retirement below is, not actioned here.
+
+**A `pending` precedes every `generation` and every `deploy`** — a
 load-time check (§13), not a convention. **`stubbed` is exempt from
 staleness and escalation** (v5 §7.6): nothing is stale about waiting
 deliberately.
 
 Mapping onto v5 §7.6's lifecycles, which are this vocabulary with
-every review sequence at length one — feature: `Todo`(queue) →
+every review sequence at length one — feature: `Todo`(pending) →
 *Product design*(generation) → **Product review**(review) →
 *Architecting*(generation) → **Architecture review**(review) →
 `Building`(fanout) → `Reconciling`(merge) → `Merged`(merge) →
 `Validating`(validating) → `Shipped`(terminal). Child: `Ready for
-dev`(queue) → `In progress`(generation) → `Checks`(checks) →
+dev`(pending) → `In progress`(generation) → `Checks`(checks) →
 `Reconciling`(merge) → `Merged`(merge) → `Done`(terminal), with
-`Ready for rework`(queue) / `Reworking`(generation) as the repair
+`Ready for rework`(pending) / `Reworking`(generation) as the repair
 loop. The two bolded statuses are the platform workflow layer's
 default review declarations, not system statuses — which is what
 makes them replaceable.
+
+**Two skeletons, plus one declaration with none.** A declared
+work-item type (§15.2) selects a `skeleton:`, and the skeleton fixes
+which of the anchors above its `statuses:` array must contain, each
+at least once, in the relative order given here — never their names,
+their presence, or (bar the exceptions §15.4 and §15.5 name) how many
+times each may appear:
+
+- **`ticket`** — `pending`, then any interleaving of `generation`
+  (each optionally paired with a `critique` entry, §15.5) and declared
+  gates (§15.4), then `checks`, `merge`, `deploy` (optionally paired
+  with declared environments, §15.4), then `terminal`. `generation`
+  and `merge` may recur — v5 §7.6's own feature lifecycle above
+  already visits `generation` twice (*Product design*, *Architecting*)
+  and `merge` twice (`Reconciling`, `Merged`) — `pending` and
+  `terminal` may not: first and last, exactly once.
+- **`container`** — the five names fixed at this ticket's first pass:
+  `setup`, `prep`, `main`, `retro`, `cleanup`, each exactly once, in
+  exactly this order, then `terminal`. This is the container analogue
+  of the ticket skeleton, for the identical re-resolution reason: the
+  anchor a container parked mid-sequence falls back to when a
+  workflow cutover changes what a queue dispatches underneath it. A
+  container currently at `main` stays at `main` across the cutover;
+  only which type `main` now dispatches changes.
+- **`none`** — no anchors at all. The type's `statuses:` array is
+  entirely author-declared queue positions, in whatever order and
+  count the bundle wants, with no re-resolution anchor to preserve
+  and no fixed relative order to check. This is the project's shape
+  (§15.2): a project needs no anchor because all review happens at
+  lower levels and a project changes shape rarely enough that a
+  workflow cutover mid-project is not the hazard a cutover
+  mid-container is.
 
 **Agent steps**, the other half of what a chain's `delivery:` block
 may name (§3): `design` (produces a design-graph artifact for a
@@ -906,138 +982,292 @@ step, but no tier's `delivery:` ever actually named it — a milestone
 close is not a chain tier's business, and the staticness was the
 underlying problem (ORC-103's own finding, carried forward at
 ORC-105). A container's progress is a declared sequence of queues
-(§15.6-§15.9), not one fixed pass; the work that used to hide behind
+(§15.2-§15.8), not one fixed pass; the work that used to hide behind
 `boundary` — the retro backward-looking pass and, at a container's own
 fanout into a nested one, the forward-looking setup pass
 (`docs/v5-design-decisions.md` §7.8) — dispatches as an ordinary flow
 instance through a queue's declared `flow:`, the same mechanism as any
 other ticket, needing no reserved slot in this closed set.
 
-### 15.2 `gates/<gate>.yaml` — a review status
+### 15.2 One work-item declaration: `types/<name>.yaml`
+
+**A container is any work item whose skeleton has queues. A ticket is
+any work item whose skeleton has a generation. They are otherwise
+interchangeable, and the grammar gives them one declaration shape,
+not three** (author review, superseding this ticket's own second
+draft, which had already collapsed `flow:`/`opens:` into one field
+but still split `queues/project.yaml`, `queues/containers/<name>
+.yaml` and `types/<name>.yaml` into three file locations). A
+milestone with a `main` queue, then a human sign-off gate, then a
+staging deployment, then `retro` is an ordinary sentence this grammar
+can say; there is no reason a container should be unable to carry a
+gate, or a project a deployment, merely because earlier drafts gave
+each shape its own file and its own rules.
 
 ```yaml
+# types/milestone.yaml
+type: milestone                  # this declaration's name — what a
+                                  #   flow: value (§15.7) and a chain
+                                  #   bundle's own ticket: labels:
+                                  #   reference (never a load-time
+                                  #   cross-check — see §15.7)
+skeleton: container              # ticket | container | none (§15.1)
+statuses:                        # every anchor the skeleton fixes,
+                                  #   plus whatever else is declared,
+                                  #   in array order (§15.3)
+  - status: setup
+    flow: setup
+  - status: prep
+    flow: feature
+  - status: main
+    flow: feature
+    blocks: [retro]
+  - review: ux-review             # a declared gate (§15.4), positioned here
+  - status: retro
+    flow: retro
+  - status: cleanup
+    flow: tech-debt
+  - status: terminal
+```
+
+```yaml
+# types/feature.yaml
+type: feature
+skeleton: ticket
+statuses:
+  - status: pending
+  - status: generation
+  - status: critique               # paired with the generation entry
+    depth: 1                       #   directly above it (§15.5)
+  - review: product-review
+  - status: generation              # a second visit — architecture,
+                                    #   after product review
+  - review: engineering-review
+  - status: checks
+  - status: merge
+  - environment: staging
+    promote_from: dev
+  - status: deploy
+  - status: terminal
+```
+
+```yaml
+# types/project.yaml
+type: project
+skeleton: none
+statuses:
+  - status: initialization
+    flow: onboarding
+  - status: scaffolding
+    flow: seed
+  - status: build-out
+    flow: milestone                # names a declared container (§15.6)
+  - status: iteration
+    flow: milestone
+  - status: maintenance
+    flow: maintenance
+  - status: deprecating
+    flow: deprecation
+  - status: sunsetting
+    flow: sunset
+```
+
+**What's real and what was three file formats talking to itself.**
+Author review found most of the apparent differences between the
+draft's `types/`, `queues/containers/` and `queues/project.yaml`
+shapes were artifacts of the split, not facts about queues or
+generations. What survives, now expressed as `skeleton:` rather than
+as a choice of file:
+
+- **has a queue vs. has a generation** — the governing rule itself,
+  and the reason `container` and `ticket` are different `skeleton:`
+  values rather than one.
+- **the skeleton's own shape** (§15.1) — `pending → generation →
+  checks → merge → deploy → terminal` against `setup → prep → main →
+  retro → cleanup → terminal` against no fixed shape at all.
+- **can source a nesting edge** — only a `container`- or
+  `none`-skeleton type has a queue-shaped anchor carrying `flow:`
+  (§15.7), so only those can point at another container (§15.6); a
+  `ticket`-skeleton type has no queue-shaped anchor at all and is
+  always a leaf in the declaration graph.
+- **critique's admission** — the one place `skeleton: ticket` alone
+  gates what may be declared (§15.5), because critique's depth
+  selects which tiers a generation fanned into, and only a
+  `generation` anchor gives it something to select within.
+- **gates' and environments' own admission** — legal on `ticket`- and
+  `container`-skeleton types alike (the widening this pass makes), but
+  not on `none`: a project's own array is entirely `status:` entries,
+  because "all review happens at lower levels" (§15.1) is true of the
+  outermost scope specifically, not a case the governing rule above
+  was ever making a claim about — that rule is about ticket versus
+  container, and says nothing about the project.
+
+Everything else — which file a declaration lived in, and whether its
+array was a registered set or a fixed sequence — was the three-shape
+split talking to itself, and none of it survives as a rule to check.
+
+**One registry, one namespace, whatever `skeleton:` a declaration
+picks.** `container`, `ticket` and `none` share the identical
+declaration shape and the identical registry `flow:` resolves against
+(§15.7); a `type:` name may not collide with another, regardless of
+which skeleton either one declares (§13). There is at most one loaded
+`skeleton: none` declaration in a workflow bundle's own union — the
+project is a project because it is the one declaration nothing else's
+`flow:` ever names (§15.6), not because its name is reserved.
+
+**"Ticket", "container" and "milestone" are what a declaration
+contains, not what the grammar calls it.** Nothing in the loader
+branches on any of the three words. A type's own former job of naming
+the platform-fixed skeleton is now `skeleton:`'s alone, which leaves
+"ticket", "container" and "milestone" as descriptions a reader reaches
+for because a `ticket`-skeleton type usually holds one generation and
+a `container`-skeleton type usually holds queues — never a kind the
+grammar itself checks, and never a registry key.
+
+### 15.3 Ordering: the array is the only mechanism
+
+**`after:` is retired, reaching past containers into gates and
+environments as they exist today — that is intended.** A gate used to
+name its own predecessor (`after: product-review`), and a workflow
+bundle's gates formed one chain that a type's `statuses:` filtered by
+name (this ticket's third pass); a container's five anchors were
+already the one place `after:` was absent, because their order was
+fixed and there was nothing left for it to say. Extending the fixed-
+array shape to gates and environments removes the field everywhere,
+rather than leaving it standing beside a mechanism that has made it
+redundant: `after: product-review` and "this entry's position in the
+citing type's own `statuses:` array" said the same thing, and a
+grammar that lets both say it is a grammar with two ways to disagree
+with itself.
+
+**This is a real change in what "the same gate" can mean across
+types, not a wash.** The retired model required one order for the
+whole bundle — "two review statuses declaring the same `after:` is a
+load error" was a check *over the bundle*, because a gate's position
+had to hold regardless of which type's `statuses:` cited it in. With
+order living on the citing type's own array instead, two types may
+cite `product-review` and `engineering-review` in opposite relative
+order without either declaration being wrong, because neither one's
+array answers to the other's. `gates/<gate>.yaml` and `environments/
+<env>.yaml` (§15.4) still declare a gate or an environment once —
+role, throwback, escalation, depth, or promotion and lifetime — and
+any number of types may cite the same one by name; what moved out of
+those files is only the field that used to fix a single global
+position, not the fields that describe the review or the deployment
+itself.
+
+**Chain-axis position is unaffected — there was never an `after:`
+there to retire.** §3's tier declarations position tiers by edges and
+context walks, not by a predecessor field; `after:` was workflow-axis
+vocabulary from the day it was introduced, and retiring it touches
+only the files this section and §15.4 describe.
+
+### 15.4 `gates/<gate>.yaml` and `environments/<env>.yaml`
+
+Named, directory-shaped declarations — a bundle holds several of
+each — cited from a type's `statuses:` array (§15.2) wherever the
+author wants them to run:
+
+```yaml
+# gates/ux-review.yaml
 review: ux-review               # status name; unique in the loaded union
-after: product-review           # predecessor: a system status or another
-                                #   review in this bundle (§15.3)
 role: design                    # who signs off; identity holds the
                                 #   holders, bindings the reviewers: map
 depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
                                 #   top level only. A maximum, never
                                 #   validated against the chain. Also
-                                #   accepts [first, rest] (§15.5) — the
+                                #   accepts [first, rest] — the
                                 #   project's first traversal of this
                                 #   gate vs. every later one.
-throwback: [product-design]     # exits it may reject to; each must be
-                                #   earlier in the effective sequence
+throwback: [product-design]     # exits it may reject to; each must
+                                #   resolve within the citing type's
+                                #   own array (§13)
 escalation: author              # policy; human gates are author-owned
 ```
+
+```yaml
+# environments/staging.yaml
+environment: staging
+promote_from: dev               # previous environment; omitted = first
+depth: 0                        # top level only, the usual case. Also
+                                #   accepts [first, rest].
+lifetime: persistent            # persistent | per_ticket (per-PR envs,
+                                #   which are simply depth 0 + per_ticket)
+```
+
+Neither carries `after:` (§15.3): a gate or an environment's position
+is wherever a citing type's `statuses:` array places its `review:` or
+`environment:` entry, and one declaration may be cited, at different
+positions, by more than one type.
 
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
 
-**No `ticket_types:` field, as of ORC-105 — retired, not merely
-undocumented.** A gate used to carry `ticket_types: [feature]`,
-naming which types visited it; that fact is now declared the other
-way, on the type (`types/<name>.yaml`'s `statuses:`, §15.9), and
-there is exactly one place it lives. A bundle declaring `ticket_types:`
-on a gate is an unknown field, rejected at load like any other (§13).
+**No `ticket_types:` field, and none is missing.** A gate used to
+carry `ticket_types: [feature]`; that fact is now which types' own
+`statuses:` arrays cite it, and there is exactly one place it lives —
+the citing type, not the gate.
 
 **Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
 ORC-92). A gate is a human sign-off, and a human reads the top level;
 setting a gate's depth by reasoning about how far the chain fans out
 is arguing the auto-reviewer's case inside the human reviewer's own
-declaration — that argument belongs to `critique.yaml` (§15.5), a
-separate declaration for exactly this reason, not to a field on a
+declaration — that argument belongs to critique's own depth (§15.5),
+a separate declaration for exactly this reason, not to a field on a
 gate. Declare a gate at a nonzero depth only when the review genuinely
 wants a human at every fanned-out node, which is unusual enough that
 the file's own comment should say why.
 
-### 15.3 Ordering, and why `after:` is a reference
+**Endpoints, credentials and hostnames are not on an environment
+declaration.** They change only how the plane connects and operates,
+so they are bindings — plane entities, queried and picked, never repo
+content (v5 §7.10's store test, and §8's BYO constraint: an endpoint
+in a bundle breaks hosted onboarding). What lives here is which
+environments exist and what promotion into one requires; that changes
+what is enforced, so it is graph state, versioned, changed by PR.
 
-Position is declared by naming a predecessor, never by an index. An
-integer `order:` cannot survive `extends:` layering: an organization
-inserting a review between two platform-layer reviews would have to
-renumber files it does not own. Naming the predecessor lets the org
-layer say `after: product-review` and leave the platform layer
-untouched — which is the whole point of layering content (§11).
+### 15.5 `critique` — paired with a peer generation entry
 
-Since review is sequential (v5 §7.19), the order on an edge must be
-total: **two review statuses declaring the same `after:` is a load
-error**, as is a cycle in `after:` references.
-
-### 15.4 `environments/<env>.yaml` — a deployment environment
-
-```yaml
-environment: staging
-after: merge                    # the system status it deploys at
-promote_from: dev               # previous environment; omitted = first
-depth: 0                        # top level only, the usual case. Also
-                                #   accepts [first, rest] (§15.5).
-lifetime: persistent            # persistent | per_ticket (per-PR envs,
-                                #   which are simply depth 0 + per_ticket)
-```
-
-**Endpoints, credentials and hostnames are not here.** They change
-only how the plane connects and operates, so they are bindings —
-plane entities, queried and picked, never repo content (v5 §7.10's
-store test, and §8's BYO constraint: an endpoint in a bundle breaks
-hosted onboarding). What lives here is which environments exist and
-what promotion into one requires; that changes what is enforced, so
-it is graph state, versioned, changed by PR.
-
-### 15.5 `critique.yaml` — the auto-review knob
+**The one carve-out, and the reason is worth stating rather than
+asserting.** A gate is depth 0 on a container the identical way it is
+on a ticket — a human reads the top level, whatever the top level
+contains — and an environment is the same: neither needs a generation
+to mean something. Critique is different in kind: its depth *selects
+which tiers' review runs*, which needs a generation to select within.
+A `container`- or `none`-skeleton type has no `generation` anchor at
+all, so a `critique` entry naming a depth there would select tiers
+that do not exist at that level — refused, not silently ignored.
 
 ```yaml
-depth: 1                        # same grammar as a gate's or an
-                                #   environment's depth (§15.2, §15.4):
-                                #   a non-negative integer, or a pair
-                                #   [first, rest]. Omitted = 0, top
-                                #   level only.
+  - status: generation
+  - status: critique              # must sit immediately after a
+    depth: 1                      #   generation entry in the same array
 ```
 
-**Optional, singular, fixed path** — `bundles/<name>/critique.yaml`
-at a workflow bundle's root, sibling to `bundle.yaml`, never a glob.
-`gates/` and `environments/` are directories because a project
-genuinely declares several of each; there is exactly one `critique`
-status to configure, so a directory would hold at most one file and
-buys nothing over a fixed path. `extends:` layers it exactly as it
-layers any other bundle file (§11): a bundle naming `critique.yaml`
-overlays whatever the layer beneath it declared at that same path.
+**Configures a fixed kind; declares nothing.** `critique` is a system
+status (§15.1), not a named, reusable declaration the way a gate or
+an environment is — there is exactly one `critique`, and citing it
+more than once in a type's array (once per `generation` entry it
+should pair with) is the ordinary way to give two generation phases
+different depths, not two declarations of the same thing.
 
 **Presence is participation — there is no `enabled:` field.** A
-workflow bundle whose loaded union (every `extends:` layer, not just
-the leaf bundle) carries no `critique.yaml` runs no critique tier at
-all, whatever the chain declares. One that does runs every review
-tier the chain declares, filtered to `depth:`'s levels, exactly as a
-gate's own depth filters which levels see it.
+`generation` entry with no adjacent `critique` entry runs no critique
+tier at that phase, whatever the chain declares. One that does runs
+every review tier the chain declares at that phase, filtered to
+`depth:`'s levels, exactly as a gate's own depth filters which levels
+see it.
 
 **This is the opt-in reading of v5 §7.19's "a workflow disabling the
-critique slot," settled here rather than left to whichever the form
-happened to imply.** An earlier draft of that sentence read as
-critique-on-by-default, disabled by naming it — which, since no
-workflow bundle in this repo declares anything about critique today,
-would have made every existing project's chain review tiers start
-running the moment this file's grammar shipped, decided by nobody.
-Opt-in also fits the mechanism honestly: `extends:` composes by union
-and same-path replacement (§11) and has no "the layer below declared
-this; unmake it" primitive. A default-on critique could only be
-turned off by a file whose entire content is a negative — a shape
-this DSL has nowhere else. Default-off costs nothing equivalent:
-turning critique on is an ordinary addition, the same shape a gate or
-an environment already takes, and it never needs to un-declare
-anything a lower layer holds.
-
-**Configures a fixed kind; declares nothing.** `critique.yaml` never
-names the status it configures. There is exactly one legal target
-today (`critique`, §15.1) and the file's fixed path *is* the
-reference to it, the same way `catapult.yaml`'s own fixed path needs
-no field naming which repo it belongs to. This is what keeps the form
-on the right side of §15.1's "declarable by neither axis": nothing
-here mints a status name, and nothing here is a review tier's own
-declaration (§3.3) — a chain still owns the review tiers themselves;
-this file only says how far into the fan-out a workflow lets them
-run.
+critique slot," unchanged by the move from a singular `critique.yaml`
+file to an inline array entry.** The file existed because critique's
+participation used to be bundle-wide, with nowhere per-type to put
+it; now that every type has its own array, per-type participation is
+the more precise expression of the same opt-in default, not a new
+one. A type whose author wants no critique anywhere simply writes no
+`critique` entries — no `enabled:` field, here or anywhere else in
+this grammar.
 
 **One spelling wherever a depth appears.** `[first, rest]` means the
 same thing on a gate, an environment or here: "first" is the
@@ -1049,88 +1279,53 @@ has already been through once (v5 §7.19). A bare integer still means
 both positions at once, so no declaration written before this pair
 form existed changes meaning.
 
-### 15.6 Two forms: `project` and `container`
+### 15.6 Nesting, and the declaration graph that bounds it
 
-**A project is not a container, and the grammar gives them two
-declaration shapes rather than one shape parameterized by kind**
-(author review, superseding this same ticket's own first draft,
-which gave both a fixed queue sequence off one `container:` field
-checked against a two-member registry). They differ in exactly the
-way that matters: a project's queue sequence is fully declared by the
-workflow bundle, and a container's is not.
+**Nesting composes, and it is bounded without being counted.** Any
+`container`- or `none`-skeleton type's queue-shaped anchor may name
+another `container`-skeleton type in its `flow:` (§15.7) — declaring
+`epic` gets epics-and-milestones for free the moment an `epic` type's
+own `main` entry's `flow:` names `milestone`, no second mechanism,
+because there is only the one shared registry and one field. What
+varies per declared container is its **name** and what each of its
+anchor entries' `flow:` points at — never the anchor names, their
+count, or their order (§15.1).
 
-**A project holds no system statuses.** Its status is a position in
-whatever ordered list of queues `queues/project.yaml` declares —
-array order is declaration order, any names, any count, entirely the
-bundle author's to choose. It needs no re-resolution anchor because
-nothing here is fixed for a cutover to preserve: all review happens
-at lower (container) levels, and a project changes shape rarely
-enough that a workflow cutover mid-project isn't the hazard a cutover
-mid-container is. `queues/project.yaml` is optional, singular and
-structural-only at load time — the same shape `critique.yaml` already
-has (§13): at most one per loaded workflow bundle, unknown keys
-rejected, `extends:` layering it by §11's same-path replace.
+**What is barred, and barred at load rather than left to a live chain
+to discover, is a type reaching itself through its own declarations.**
+The declaration graph — types connected by `flow:` edges whose target
+resolves to a `container`-skeleton type — must be acyclic, and a type
+naming itself is the degenerate one-node case of the same rule (§13).
+`milestone` cannot open `milestone`. A `flow:` edge whose target
+resolves to a `ticket`-skeleton type takes no part in this graph: a
+`ticket`-skeleton type has no queue-shaped anchor of its own, so it is
+always a leaf.
 
-**A container is one kind, arbitrarily nestable, and every instance —
-whatever it's named — carries the identical fixed anchor sequence:
-`setup` → `prep` → `main` → `retro` → `cleanup`.** Five names, not
-four: an earlier draft dispatched `setup` as the value of `prep`'s own
-`flow:`, which runs it once per *container* rather than once per
-*mint* — wrong, because constituting a freshly minted instance is a
-different event from an already-existing instance completing `prep`
-again after a throwback. `setup` gets its own anchor position, first,
-so it runs exactly once, at mint, before anything else in the
-instance's own sequence (§15.8). This is the container analogue of
-§15.1's system statuses: platform-fixed, declarable by neither axis,
-for the identical re-resolution reason — the anchor a container
-parked mid-sequence falls back to when a workflow cutover changes
-what a queue dispatches underneath it. A container currently at
-`main` stays at `main` across the cutover; only which type `main` now
-dispatches changes. What varies per declared container is its
-**name** (`milestone`, or any other name a bundle mints — `epic`,
-`program`, whatever nesting a project wants) and what each of its
-five anchor entries' `flow:` points at (§15.7, §15.9) — never the
-anchor names, their count, or their order. A bundle may declare many
-named containers (`queues/containers/<name>.yaml`, one file per
-name), and any one of them may nest inside any other by naming it in
-a `flow:` value (§15.7) — there is no kind registry to check a name
-against, because `container:` no longer selects from a closed
-platform vocabulary; it names the declaration being authored, the
-same way a `gate:` file names its own gate or a `type:` file names
-its own work-item type (§15.9) — all three share one registry
-namespace.
-
-**Nesting composes, and it is bounded without being counted.**
-Declaring `epic` gets epics-and-milestones for free the moment an
-`epic` container's own `main` entry's `flow:` names `milestone` — no
-second mechanism, because there is only the one container kind and
-one field. What is barred, and barred at load rather than left to a
-live chain to discover, is a container reaching itself: the
-declaration graph over container names, connected by `flow:` edges
-whose target resolves to another container, must be acyclic, and a
-container naming itself is the degenerate one-node case of the same
-check (§13). A `milestone` declaration therefore cannot open
-`milestone` — same-*declaration* nesting is refused outright, not
-deferred pending a name for it, which resolves §7's open question:
-there is no numeral to clash with fan-out `depth:` because nesting is
-never counted, only named, and an acyclic declaration graph has a
+**This is a load-time check over declarations, not a runtime check
+over instances — getting the altitude right took two passes on this
+ticket.** The tempting version is "no container may be its own
+ancestor," checked as instances mint; it is the wrong tool, because it
+leaves unbounded depth *declarable*, caught only when some live chain
+of instances happens to close the loop — trading a load-time failure
+for a mid-flight one, the identical trade this project has already
+made the other way (v5 §2.4: failing at config load beats failing
+mid-flight). The declaration-graph check is also what bars same-name
+nesting and bounds depth without counting it: an acyclic graph has a
 finite longest path, so a bundle's maximum nesting depth is knowable
-from the bundle alone even though the number of *distinct* levels an
-author declares is unbounded.
+from the bundle alone, even though the number of distinct named
+levels an author declares is unbounded. No further instance-level
+check is needed — it falls out of the declaration graph's acyclicity
+for free.
 
-**After a container's `cleanup` resolves, it reaches a fixed terminal
-kind — not a further queue name**, the same shape a ticket's own
-sequence ends at `terminal` (§15.1) without a workflow bundle
-declaring content for `terminal` itself. A project has no equivalent
-universal terminal, because it has no universal sequence to end: it
-closes when its own last declared queue (whichever the bundle placed
-last) resolves with nothing open behind it. **This settles §6's open
-question of whether the root container has statuses and what closing
-one means:** the root is a project, not a container, so it has
-statuses the identical way any project does — its own declared queue
-list — and closing it means that list's last entry resolving clean,
-same mechanism as any project, merely the outermost and never itself
-nested (`docs/v5-design-decisions.md` §7.8).
+**After a container-skeleton instance's `cleanup` resolves, it
+reaches a fixed `terminal` kind — not a further queue name** (§15.1).
+A `none`-skeleton instance has no such universal terminal, because it
+has no universal sequence to end: it closes when its own last
+declared entry resolves with nothing open behind it. This is also the
+outermost project's own closing condition — the project is never
+itself a `flow:` target (§15.2), so closing it means that list's last
+entry resolving clean, the same mechanism as any other `none`-
+skeleton declaration, merely the one nothing nests.
 
 **No separate "blocked" anchor kind, and none is missing.** A
 container or project currently at queue Q with an unresolved blocking
@@ -1141,72 +1336,30 @@ from being stored. Introducing a stored or fixed `blocked` status
 here would be exactly the pending-work-on-the-node antipattern v5
 §7.11's staleness projection already refuses.
 
-### 15.7 Declaring queues: `queues/project.yaml` and `queues/containers/<name>.yaml`
+### 15.7 Queues, dispatch, and blocking
 
-A project's own sequence, fully authored:
-
-```yaml
-# queues/project.yaml
-queues:
-  - queue: initialization        # any name; array order is declared order
-    flow: onboarding              # a registered plain type (§15.9); what
-                                  #   actually lands here is business logic, not
-                                  #   protocol — see below
-  - queue: scaffolding
-    flow: seed
-  - queue: build-out
-    flow: milestone               # names a declared container (§15.6, §15.9)
-  - queue: iteration
-    flow: milestone
-  - queue: maintenance
-    flow: maintenance
-  - queue: deprecating
-    flow: deprecation
-  - queue: sunsetting
-    flow: sunset
-```
-
-A declared container, its array fixed to the five anchor names in
-order:
+A queue-shaped anchor entry — any `status:` entry belonging to a
+`container`- or `none`-skeleton type's array — carries `flow:`,
+required, naming a member of the type registry (§15.2):
 
 ```yaml
-# queues/containers/milestone.yaml
-container: milestone            # this declaration's name — referenced elsewhere via flow:
-queues:
-  - queue: setup                 # §15.6's five anchor names, in this order, no more, no fewer
-    flow: setup                  # runs once per mint, not once per container (§15.6, §15.8)
-  - queue: prep
+  - status: main
     flow: feature
-  - queue: main
-    flow: feature
-    blocks: [retro]              # sibling-scoped (§15.8); never a queue nested inside a flow: target
-  - queue: retro
-    flow: retro
-  - queue: cleanup
-    flow: tech-debt
+    blocks: [retro]
 ```
-
-Each entry's `queue:` name is required on a container (checked
-against the fixed set, §13) and optional-but-conventional on a
-project (nothing to check it against). `flow:` is required on every
-entry, project or container alike, and names a member of the
-work-item-type registry (§15.9) — a declared container or a declared
-plain type, uniformly; there is no second field for the container
-case (§13, superseding this ticket's own earlier `flow:`/`opens:`
-pair).
 
 **A queue is a query, never stored** (`docs/v5-design-decisions.md`
-§7.8): the unresolved work items in this project or container
+§7.8): the unresolved work items in this container or project
 assigned to this queue. Nothing writes a per-queue bucket; nothing
 reads one back. The identical reason `ready_scopes` itself refuses to
 materialize (v5 §1.2) and `Catapult.Engine.Scheduler` holds no memory
 of what it last broadcast: a stale bucket is worse than an absent
 one, because it is the kind of thing a dispatcher acts on.
 
-**`flow:` resolves against the workflow bundle's own type registry
-(§15.9), never against a chain bundle's `flow:` declaration.** No
-load-time cross-reference binds the two (§13) — the same non-binding
-§11 already holds between every other chain/workflow pairing. A chain
+**`flow:` resolves against the workflow bundle's own type registry,
+never against a chain bundle's `flow:` declaration.** No load-time
+cross-reference binds the two (§13) — the same non-binding §11
+already holds between every other chain/workflow pairing. A chain
 shipping a flow whose own `ticket:` face uses a matching label is
 what makes work actually land in this queue once the type opens; that
 pairing is authored convention, checked when a ticket of that type
@@ -1223,41 +1376,18 @@ failure an unrecognized label already produces: nothing ever opens
 that type. `docs/v5-design-decisions.md` §7.8 records this as the
 accepted cost of composability, not a gap left to close.
 
-**`initialization` is autopopulated by business logic, not
-protocol.** This grammar declares that the queue exists and, once a
-workflow bundle declares its `flow:`, what type it dispatches; *what
-actually lands in it* on a fresh project is plane business logic
-outside the loader's remit — a scoping line this grammar respects
-rather than blurs (`docs/v5-design-decisions.md` §7.8).
-`deprecating` and `sunsetting` are ordinary declared queues from the
-outset — nothing here defers them to dummy status, since there is no
-platform-fixed project sequence left to fill in later.
-
-### 15.8 Blocking, and how a queue dispatches
-
-**One queue may block another, declared, scoped to visible siblings
-only.** `blocks:` on a queue names other queues declared in the
-*same file* — a container's other four anchor entries, or another
-entry in the same `queues/project.yaml` — whose completion it holds
-open while this queue still carries unresolved work items — §13
-rejects a `blocks:` entry naming a queue in a different declaration,
-and rejects one naming a queue nested inside what *this* queue's
-`flow:` opens. Reaching into a nested container's own queues would
-make that container's internals part of its interface to the level
-blocking it, exactly backwards from composability: to block on
-something nested, block on the `flow:` entry that opens it, not on
-what is inside it. `main` blocking `retro` is the instance that
-generalizes what used to be a special case ("the retro can't finish
-while milestone work is open") into this one declared relation.
-
-**Dispatch is uniform: every queue entry's `flow:` names a member of
-the type registry (§15.9), and what happens next follows from what
-that member turns out to be — never from anything the queue entry
-itself declares.** A `flow:` resolving to a plain type dispatches an
-ordinary ticket of that type: opening a ticket of the declared type
-opens a flow instance exactly as any other entry does (v5 §7.10's
-"opening a ticket IS opening a flow instance"), with its own gates,
-its own children, its own PR. A milestone's `retro` and `prep`
+**Dispatch is uniform: what happens next follows from what the
+resolved declaration turns out to be — never from anything the queue
+entry itself declares.** A `flow:` resolving to a `ticket`-skeleton
+type dispatches an ordinary ticket: opening a ticket of the declared
+type opens a flow instance exactly as any other entry does (v5
+§7.10's "opening a ticket IS opening a flow instance"), with its own
+gates, its own children, its own PR. A `flow:` resolving to a
+`container`-skeleton type mints one instance of it (§15.8); the
+parent's queue does not complete until the minted instance reaches
+its own `terminal` — nesting composes through the same completion
+rule any other `flow:` queue already uses, because there was never a
+second mechanism to begin with. A milestone's `retro` and `prep`
 (which dispatches ordinary feature work) are no exception: both are
 ordinary work items — "a work item, with its own bundles, dispatched
 by machinery that already exists" (`docs/v5-design-decisions.md`
@@ -1267,89 +1397,83 @@ tiers carrying ordinary `delivery:` blocks, is what gives each its
 actual agent behavior; nothing in this grammar special-cases either
 by name.
 
-**A `flow:` resolving to a declared container mints one instance of
-it and starts that instance at its own `setup` entry (§15.6).**
-Minting and constituting are necessarily two different declarations —
-the parent's queue entry lives in the parent's own file, the newly
-minted instance's `setup` entry lives in the child's — so there is
-nowhere `flow:` needs to name two things at once, and no "before
-`setup`" position to invent: `setup`'s own `flow:` (typically the
-`setup` plain type) is what runs `setup`'s actual job — grooming,
-setting blockers, filling `prep` — once, at mint, because it is the
-*first entry of the newly minted instance's own sequence* rather than
-a value stashed on the parent's dispatch entry. The parent's queue
-does not complete until the minted instance reaches its terminal kind
-(§15.6) — nesting composes through the same completion rule any other
-`flow:` queue already uses, because there was never a second
-mechanism to begin with.
+**One queue may block another, declared, scoped to visible siblings
+only.** `blocks:` on a queue names other queues declared in the same
+array — a container's other anchor entries, or another entry in the
+same `none`-skeleton project's array — whose completion it holds open
+while this queue still carries unresolved work items; §13 rejects a
+`blocks:` entry naming a queue in a different declaration, and rejects
+one naming a queue nested inside what *this* queue's `flow:` opens.
+Reaching into a nested container's own queues would make that
+container's internals part of its interface to the level blocking it,
+exactly backwards from composability: to block on something nested,
+block on the `flow:` entry that opens it, not on what is inside it.
+`main` blocking `retro` is the instance that generalizes what used to
+be a special case ("the retro can't finish while milestone work is
+open") into this one declared relation.
 
-### 15.9 `types/<name>.yaml` — registering a work-item type
+**`initialization` is autopopulated by business logic, not
+protocol.** This grammar declares that the queue exists and, once a
+workflow bundle declares its `flow:`, what type it dispatches; *what
+actually lands in it* on a fresh project is plane business logic
+outside the loader's remit — a scoping line this grammar respects
+rather than blurs (`docs/v5-design-decisions.md` §7.8).
+`deprecating` and `sunsetting` are ordinary declared queues from the
+outset — nothing here defers them to dummy status, since a
+`none`-skeleton project has no platform-fixed sequence to promote them
+out of later.
 
-```yaml
-# types/feature.yaml
-type: feature                    # this declaration's name — what flow: (§15.7)
-                                  #   and a chain bundle's own ticket: labels:
-                                  #   reference (never a load-time cross-check —
-                                  #   see §15.7 and the residual-failure note there)
-statuses: [product-review]       # declared gates (§15.2) this type's tickets
-                                  #   visit; the system-status skeleton (§15.1)
-                                  #   is unconditional and never repeated here
-```
+### 15.8 Mint vs. activation
 
-**A type is a list of statuses — nothing more, and this is the same
-inversion §15.6's container form already made, applied uniformly.**
-Today, a type's effective sequence is assembled by *filtering*: each
-gate (§15.2) used to carry its own `ticket_types: [feature]`, naming
-which types visited it, and a type's sequence was whichever gates
-happened to name it, discovered by scanning every gate rather than
-read off any one declaration. Registering types inverts the index:
-the type names its own gates, `ticket_types:` is retired from
-`gates/<gate>.yaml` outright (§15.2), and there is exactly one place
-either fact is declared — a gate and a type can no longer disagree
-about whether the other applies, because there is only one of the two
-facts left to state.
+**A container instance exists before its `setup` runs, and a
+container's own position measures which instance is *active*, not
+which instances exist.** Work gets scheduled into a milestone long
+before that milestone opens — grooming the next milestone's `prep`
+during the current milestone's own `main` is exactly the kind of
+thing this design wants to allow — so an instance's existence cannot
+hinge on a step internal to it. Two sentences in earlier drafts of
+this ticket said otherwise and both are wrong: "dispatch mints one
+instance and starts that instance at its own `setup` entry" and
+"minted one at a time as the prior one closes" both make existence
+and activation the same event; they are not.
 
-**`statuses:` is a set with array syntax, not a second ordering
-mechanism.** Each named gate already carries its own position via its
-own `after:` (§15.3); listing gates here says *which* apply to this
-type, never *where* — order within the array carries no meaning, and
-declaring the same gates in a different order changes nothing. What
-does carry meaning is which system statuses (§15.1) a type passes
-through, and that part is never declared at all: every type visits
-`queue`, `generation`, `checks`, `merge`, `deploy` and `terminal`
-unconditionally, the identical skeleton every ticket already has, so
-naming them here would repeat a platform-fixed fact rather than
-declare one.
+**Mint creates an instance; a parent's queue reaching it is what
+activates it.** A `flow:` resolving to a `container`-skeleton type
+(§15.7) mints an instance as soon as something creates it — business
+logic, or a person — and that instance accepts work into its own
+future queues immediately. The parent's own queue position determines
+only which minted instance is *current*; `setup`'s own `flow:`
+(§15.1, §15.7) dispatches once an instance becomes current, not once
+it is minted, which is what makes "runs once, at activation" true
+without leaning on mint timing. Minting and constituting were always
+necessarily two different declarations — the parent's queue entry
+lives in the parent's own file, the newly minted instance's `setup`
+entry lives in the child's — so there was never a "before `setup`"
+position to invent in the first place.
 
-**Container declarations and type declarations share one registry and
-one namespace** (§13): `queues/containers/<name>.yaml` and
-`types/<name>.yaml` both mint entries a queue's `flow:` (§15.7) can
-resolve to, a `container:` name and a `type:` name may not collide,
-and the loader does not branch on which kind of file produced a
-`flow:` target — only on what that target's own declaration contains.
-A container's own five anchor entries are exactly this recursive
-case: each one's `flow:` is an ordinary reference into the same
-registry, and it is *because* the registry is shared that a
-container's `main` can point at a plain type (`feature`) while an
-`epic`'s `main` points at another container (`milestone`), with no
-second mechanism for either.
+**The only way a container's position moves backward is a queue
+un-resolving.** §15.7's queue is a query — the unresolved work items
+assigned to it — so a resolved queue un-resolves the moment its
+population refills, and that is the entire mechanism: no `throwback:`
+field on a queue entry (§15.4's `throwback:` is a gate field, and a
+container's own anchor entries carry no gates of their own to have
+one), and no separate "container went backward" event to define. An
+already-active instance re-visiting `prep` after new prep work appears
+is this rule in action, not an exception to it — and it is also why a
+container's own `setup` never needed a throwback-shaped argument for
+its position: an already-existing instance revisiting `prep` is an
+ordinary un-resolve, not a second constitution.
 
-**No axis tag on a `flow:` value, and none is needed.** An earlier
-draft of this grammar considered marking each `flow:` value with the
-axis of what it names, to disambiguate a value that might resolve
-several ways. That problem doesn't exist once every `flow:` reference
-resolves against exactly one registry, on exactly one axis, load-
-checked with no unresolvable case — the tag would have solved a
-problem this design no longer has.
+### 15.9 The declarable-protocol narrowing, continued
 
-**This extends v5 §7.16/§7.18's declarable-protocol narrowing, and it
-says so rather than leaving the extension implicit** (`docs/
-non-goals.md`'s "No per-project restructuring of the automation
-protocol" entry, amended alongside this section). Work-item types join
-review gates and deployment environments as workflow-bundle content;
-the automation graph and the anchor statuses underneath it — system
-statuses (§15.1) and container anchors (§15.6) alike — stay
-platform-fixed, so the admission rule that entry already states ("a
-state may be declared iff no plane logic branches on it") covers this
-addition without amendment to the rule itself, only to the list of
-things declared under it.
+Work-item types, together with gates, environments and critique's own
+participation, are workflow-bundle content (`docs/non-goals.md`'s "No
+per-project restructuring of the automation protocol" entry, amended
+at this ticket's third pass and unchanged by the unification above):
+the automation graph and the anchor statuses underneath it — the
+ticket and container skeletons alike (§15.1) — stay platform-fixed,
+so the admission rule that entry already states ("a state may be
+declared iff no plane logic branches on it") covers this section's
+single declaration shape without needing to change again: nothing
+here grows what is declarable past what the third pass already
+recorded, only how it is spelled.

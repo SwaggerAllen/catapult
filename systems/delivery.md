@@ -136,7 +136,8 @@ design gates pass.
   system to own the way `ready_scopes` is engine's. Two relations this
   system dispatches against, both new: a queue's `flow:` target
   resolves against a work-item-type registry shared by container and
-  plain-type declarations alike (`docs/dsl-syntax.md` §15.9) — no new
+  plain-type declarations alike (`docs/dsl-syntax.md` §15.2, unified
+  further at the fourth pass below) — no new
   dispatch mechanism whichever it resolves to, a `retro` or `setup`
   ticket opening a flow instance exactly like any other type, `setup`
   dispatching as its own anchor entry, first in the newly minted
@@ -159,6 +160,26 @@ design gates pass.
   `:live`-gates-`retro` interlock (§2.8), and the scan/setup/retro
   machinery itself are Target (Phase 7), filed as ORC-104 and blocked
   on this record; this entry is the shape it builds against.
+- **Mint is not activation, and this system's dispatcher is the one
+  that has to hold the two apart** (ORC-105's fourth pass, design
+  pass; `docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md`
+  §7.8). A container instance can exist — created by business logic or
+  a person, accepting groomed work into its own future queues — before
+  its parent's own position ever reaches it; only reaching it makes it
+  *active*, and only becoming active runs its `setup` entry's `flow:`.
+  Two earlier framings of this same record had mint and activation as
+  one event ("dispatch mints one instance and starts that instance at
+  its own `setup` entry"; "minted one at a time as the prior one
+  closes") and both are wrong for the case this system explicitly
+  wants: grooming next milestone's `prep` during this milestone's own
+  `main`. What this system owns, not yet built: the storage
+  distinguishing "instances that exist" from "the instance that is
+  current," and the rule that a container's position only ever moves
+  backward because a queue — a query over unresolved work items —
+  un-resolves when its population refills, never through a
+  `throwback:`-shaped event of its own (a container's anchor entries
+  carry no gates, so they have no `throwback:` to borrow). Filed
+  against ORC-104 alongside the rest of this entry's Target list.
 
 ## Initial vs target
 

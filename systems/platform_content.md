@@ -396,29 +396,34 @@ loader tickets carry `system:core-dsl`.
 
 - **Two follow-ups for the implementing pass, not this design pass's
   to commit** (ORC-92; `docs/v5-design-decisions.md` §7.19 carries
-  the argument, `docs/dsl-syntax.md` §15.5 the form). First:
-  `bundles/default-flow/gates/engineering-review.yaml`'s `depth: 2`
-  is wrong under §7.19's revised rule — a gate is a human sign-off
-  and reads the top level regardless of how far the chain fans out,
-  so the fix is `depth: 0`, and the comment arguing fan-out ("the
-  architecture chain fans out twice... so 2 covers both levels")
-  comes out with it; nothing about the gate's `after:`/
-  `throwback:`/`role:` changes. Second: `bundles/default-flow`
-  declares no `critique.yaml` today, and under §7.19's opt-in
+  the argument, `docs/dsl-syntax.md` §15.5 the form — **both files'
+  own shape changed under ORC-105's fourth pass**, below, but neither
+  recommendation does). First: `bundles/default-flow/gates/
+  engineering-review.yaml`'s `depth: 2` is wrong under §7.19's revised
+  rule — a gate is a human sign-off and reads the top level regardless
+  of how far the chain fans out, so the fix is `depth: 0`, and the
+  comment arguing fan-out ("the architecture chain fans out twice...
+  so 2 covers both levels") comes out with it; nothing about the
+  gate's `throwback:`/`role:` changes, and `after:` no longer exists
+  on a gate to change either way (`docs/dsl-syntax.md` §15.3) — the
+  gate's position is now wherever the citing type's own `statuses:`
+  array places its `review:` entry. Second: `bundles/default-flow`
+  declares no `critique` entries today, and under §7.19's opt-in
   decision that means the default chain's eight review tiers ship
-  inert the moment the loader gains the new form — silently, since
-  an absent file is not a load error. Recommended content, following
-  the pair's own worked argument (the project's first traversal
-  wants its fan-out reviewed; every later one returns to the top
-  level, same section): `depth: [2, 0]` — `2` because the
-  architecture chain's own deepest fan-out is two edges deep (`comp`,
-  then `subcomp` — the same count `engineering-review.yaml`'s own
-  retired comment already established correctly, just for the wrong
-  declaration), `0` for every traversal after the project's first.
-  Neither edit is this pass's to make (`bundles/**` sits outside
-  `designOwnedPaths`); both are decided here so the implementing
-  ticket has an argued value to carry rather than a blank `depth:`
-  field to guess at.
+  inert the moment the loader gains the new form — silently, since an
+  absent entry is not a load error. Recommended content, following
+  the pair's own worked argument (the project's first traversal wants
+  its fan-out reviewed; every later one returns to the top level, same
+  section): a `critique` entry, immediately after each `generation`
+  entry the architecture chain's tiers dispatch at, carrying `depth:
+  [2, 0]` — `2` because the architecture chain's own deepest fan-out
+  is two edges deep (`comp`, then `subcomp` — the same count
+  `engineering-review.yaml`'s own retired comment already established
+  correctly, just for the wrong declaration), `0` for every traversal
+  after the project's first. Neither edit is this pass's to make
+  (`bundles/**` sits outside `designOwnedPaths`); both are decided here
+  so the implementing ticket has an argued value to carry rather than
+  a blank `depth:` field to guess at.
 
 ## Initial vs target
 

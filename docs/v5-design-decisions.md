@@ -525,7 +525,7 @@ specifically, gating that milestone's own `main → retro` transition
 (§7.8)**, not at the project level and not at every nesting level a
 future container kind might add. Results post on the milestone,
 failures file as milestone blockers held against `retro`'s declared
-`blocks:` relation to `main` (§7.8, `dsl-syntax.md` §15.8), and the
+`blocks:` relation to `main` (§7.8, `dsl-syntax.md` §15.7), and the
 flag flip (§7.8) stays strictly downstream of a green run. A
 project's own queues are too coarse-grained a cadence for this check
 (`build-out` and `iteration` each span many milestones) and nothing
@@ -1553,11 +1553,19 @@ checks what a project declares**:
   template tiers, external-node declarations, audit grammar) that
   project bundles inherit and overlay. Without it every project forks
   the convention corpus. ~~The delivery DSL section (§7) also ships
-  from this layer.~~ **Corrected at §7.18:** delivery ships from a
-  platform *workflow* layer, on the other axis. Shipping it from the
-  language layer would tie the workflow vocabulary to one target
-  stack, and the whole point of the chain/workflow split is that one
-  organization's workflow spans decompositions that differ by stack.
+  from this layer.~~ ~~**Corrected at §7.18:** delivery ships from a
+  platform *workflow* layer, on the other axis.~~ **Corrected again
+  at ORC-105's fourth pass (§7.8, §7.18):** there is no platform
+  *workflow* layer either — delivery's default gates and environments
+  ship as a **template** a project's workflow bundle forks, never a
+  layer any loader composes at runtime. `extends:` itself stays exactly
+  what this bullet describes, but chain-axis only: shipping delivery
+  from the language layer would still tie the workflow vocabulary to
+  one target stack, and the whole point of the chain/workflow split is
+  still that one organization's workflow spans decompositions that
+  differ by stack — that argument survives the correction; only the
+  mechanism it argues against `extends:`-vs-fork, not the two axes
+  themselves.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
   source for shared prompt framing across the six architecture tiers;
   per-tier files for what differs. (Siege's `_shared.py` pattern,
@@ -1981,84 +1989,138 @@ head SHA regardless of base branch.
 milestone-only framing of this section.** ORC-103 first tried "give
 the milestone its own statuses and the steps that close it" — the
 right instinct, a fifth of the actual decision: the milestone is one
-declared **container** (the project is a different form entirely,
-below, not a second container — settled only after this section's
-own first draft got that part wrong) and the close is one **queue**
-among five. Every reason ORC-103 gave for
-retiring orchestration's boundary ticket still holds and generalizes
-rather than being re-argued (carried forward, not re-derived): the
-pause needed to be *tracked* somewhere and the pass needed a *place to
-live*, both true only because orchestration has no tracker of its own
-to hold either directly; Catapult's ticket state is its own event log
-(§7.1, §7.17), so a container can carry its own progress and the
-record of its own history without proxying through a ticket. What
-follows is the decision set (ORC-105); the grammar it's built from is
-`dsl-syntax.md` §15.6-§15.9. Building the dispatcher, the sweep, and
-the scan/setup/retro machinery itself is ORC-104's — this section
-settles the shape, not the diff.
+declared **container** and the close is one **queue** among five.
+Every reason ORC-103 gave for retiring orchestration's boundary
+ticket still holds and generalizes rather than being re-argued
+(carried forward, not re-derived): the pause needed to be *tracked*
+somewhere and the pass needed a *place to live*, both true only
+because orchestration has no tracker of its own to hold either
+directly; Catapult's ticket state is its own event log (§7.1, §7.17),
+so a container can carry its own progress and the record of its own
+history without proxying through a ticket. What follows is the
+decision set (ORC-105, all four of its passes); the grammar it's
+built from is `dsl-syntax.md` §15.1-§15.9. Building the dispatcher,
+the sweep, and the scan/setup/retro machinery itself is ORC-104's —
+this section settles the shape, not the diff.
 
 **A third pass registered work-item types, and inverted a filter into
 a declaration.** A type's effective status sequence used to be
 assembled by scanning every gate for a `ticket_types:` entry naming
-it; `dsl-syntax.md` §15.9 now has the type name its own gates instead
-— `ticket_types:` retired from `gates/<gate>.yaml` outright, one fact
-in one place. The same move that gave the container form its array
-(below) applied to plain ticket types too, and it collapses `flow:`
-and `opens:` into one required field: a queue entry's `flow:` names a
-member of one shared registry, and whether that member turns out to
-be a plain type (dispatch terminates, an ordinary ticket) or a
-container (dispatch mints a nested instance) is visible only in what
-the *resolved* declaration itself contains, never in anything the
-queue entry declares. This is a real extension of what's declarable,
-and it argues with a recorded decision rather than sidestepping it:
+it; the type now names its own gates instead — `ticket_types:`
+retired from a gate's own declaration outright, one fact in one
+place. The same move that gave the container form its array applied
+to plain ticket types too, and it collapsed `flow:` and `opens:` into
+one required field: a queue entry's `flow:` names a member of one
+shared registry, and whether that member turns out to be a plain type
+(dispatch terminates, an ordinary ticket) or a container (dispatch
+mints a nested instance) is visible only in what the *resolved*
+declaration itself contains, never in anything the queue entry
+declares. This is a real extension of what's declarable, and it
+argues with a recorded decision rather than sidestepping it:
 `docs/non-goals.md`'s "No per-project restructuring of the automation
 protocol" entry is amended alongside this section to record it,
 because its own admission rule ("a state may be declared iff no plane
 logic branches on it") already covers the addition without needing to
 change.
 
-**A project is not a container — two declaration shapes, not one
-parameterized by kind.** This reverses this section's own first
-draft, which gave `project` and `milestone` a shared shape off one
-`container:` field checked against a two-member registry; the
-reversal is the point, not a casualty of it. The two differ exactly
-where it matters: **a project's queue sequence is fully declared by
+**A fourth pass found the third pass's own split was still three file
+formats for one thing, and unified them.** The third pass registered
+work-item types but kept `queues/project.yaml`, a directory of named
+containers, and a directory of named types as three separate shapes;
+author review found most of the differences among them were artifacts
+of the split rather than facts about queues or generations. **The
+governing rule: a container is any work item whose skeleton has
+queues, a ticket is any work item whose skeleton has a generation, and
+they are otherwise interchangeable** — a milestone with a `main`
+queue, then a human sign-off gate, then a staging deployment, then
+`retro` is now an ordinary sentence, where the third pass's grammar
+could not have said it (a container's array admitted no gates or
+environments at all). One declaration shape holds all three cases —
+`ticket`, `container` and the project's own `none` — distinguished by
+a `skeleton:` field rather than by which file a declaration lived in
+(`dsl-syntax.md` §15.1-§15.2). **Gates and environments widen onto
+`container`, joining `ticket`; the project's own `none` does not
+join them.** A project's array stays entirely queue-shaped, since
+"all review happens at lower levels" (`dsl-syntax.md` §15.1) is a
+fact about the outermost scope specifically, not a case the governing
+rule above was making a claim about — that rule is ticket versus
+container, and never mentions the project. **Critique is a second,
+narrower carve-out on top of that**, because its depth selects which
+tiers a generation fanned into, and only a `generation` anchor —
+which neither a `container`- nor a `none`-skeleton type has — gives
+it something to select within (`dsl-syntax.md` §15.5).
+
+**The same fourth pass retired `after:` for the same reason it
+unified the three shapes: array position said everything `after:` did
+and more precisely.** A gate's own former predecessor field required
+one linear order for the whole bundle; with order living on each
+citing type's own array instead, two types may run the same two gates
+in different relative order, which the old model could not express
+without contradiction (`dsl-syntax.md` §15.3). This reaches gates and
+environments as they exist today, not merely the container form this
+section is about, and the grammar section is where the full argument
+lives.
+
+**And it reversed v5 §7.18's own workflow-axis base layer:
+`extends:` narrows to the chain axis, and workflow bundles are forked,
+not layered.** §7.18's reasoning — that a project's gates and
+environments live "in its bundle's `extends:` layer" — assumed the
+loader composes a project's workflow bundle from a platform base at
+load time. That is not how bundles are actually distributed: §3.1
+already chose fork-tailor-merge as the lifecycle for bundles and
+policy packs generally, because git has a merge story hex does not,
+and a workflow bundle is exactly this shape. `bundles/`'s platform
+workflow content becomes a template a project forks from and pulls
+later revisions into by git merge, never a base layer the loader
+composes underneath a leaf bundle (`dsl-syntax.md` §11 carries the
+full argument and the load-time consequence: a workflow bundle
+declaring `extends:` at all is now a load error).
+
+**A project is not a container, even though the two now share one
+declaration shape.** The reversal at this section's second pass —
+against its own first draft, which gave `project` and `milestone` a
+shared shape off one `container:` field checked against a two-member
+registry — still holds; the fourth pass's unification gives every
+`skeleton:` value the same *file* shape without erasing what makes
+`none` different. **A project's queue sequence is fully declared by
 the workflow bundle** — any names, any count, any order, chosen
 freely because a project needs no re-resolution anchor (all review
 happens at lower levels, and a workflow cutover mid-project isn't the
-hazard a cutover mid-container is). **A container is one kind,
-arbitrarily nestable, and every instance carries the identical fixed
-anchor sequence** — `setup` → `prep` → `main` → `retro` → `cleanup`,
-platform-fixed, declarable by neither axis, for the identical
-re-resolution reason ticket system statuses aren't (`dsl-syntax.md`
-§15.1, §15.6): the anchor a container parked mid-sequence falls back
-to when a workflow cutover changes what a queue dispatches underneath
-it. What varies per declared container is its **name** and what each
-of its five anchor entries' `flow:` *points at* — a registered plain
-type (a **work flow**) or another declared container's name (a
-**container flow**), the same registry either way (`dsl-syntax.md`
-§15.9) — never the anchor names, their count, or their order. Nothing
-requires a container's queues to bottom out in tickets at all: with
-more than one work type, "is this a ticket" stops being definable,
-and a queue sequence built entirely from container-opening queues is
-legitimate. Declaring `epic` gets epics-and-milestones for free the
-moment an `epic` container's own `main` entry's `flow:` names
-`milestone` — no new mechanism, because there is only the one
-container kind and one field; a genuinely distinct kind, if real
-usage ever wants one, is new system-status-style vocabulary decided
-then, on evidence, not guessed at now.
+hazard a cutover mid-container is). **A container's `skeleton:` is
+one kind, arbitrarily nestable, and every instance carries the
+identical fixed anchor sequence** — `setup` → `prep` → `main` →
+`retro` → `cleanup`, platform-fixed, declarable by neither axis, for
+the identical re-resolution reason ticket skeletons aren't
+(`dsl-syntax.md` §15.1): the anchor a container parked mid-sequence
+falls back to when a workflow cutover changes what a queue dispatches
+underneath it. What varies per declared container is its **name** and
+what each of its five anchor entries' `flow:` *points at* — a
+registered ticket-skeleton type (a **work flow**) or another declared
+container's name (a **container flow**), the same registry either way
+(`dsl-syntax.md` §15.2) — never the anchor names, their count, or
+their order. Nothing requires a container's queues to bottom out in
+tickets at all: with more than one work type, "is this a ticket"
+stops being definable, and a queue sequence built entirely from
+container-opening queues is legitimate. Declaring `epic` gets
+epics-and-milestones for free the moment an `epic` container's own
+`main` entry's `flow:` names `milestone` — no new mechanism, because
+there is only the one container skeleton and one field; a genuinely
+distinct skeleton, if real usage ever wants one, is new
+system-status-style vocabulary decided then, on evidence, not guessed
+at now.
 
 **Acyclicity is a load-time check over container *declarations*, not
 a runtime check over container *instances* — getting this altitude
 right took two passes.** The first pass reached for "no container may
 be its own ancestor," checked as instances mint; the corrected
 version is a static check of the declaration graph itself — the graph
-of container *names* connected by `flow:` edges whose target resolves
-to another container — which must be acyclic, with a container naming
+of `type:` names connected by `flow:` edges whose target resolves to a
+`container`-skeleton type — which must be acyclic, with a type naming
 itself the degenerate one-node case of the same rule (`dsl-syntax.md`
-§13). A `flow:` edge whose target resolves to a plain type takes no
-part in this graph — a plain type declares no further `flow:` of its
-own, so it is always a leaf. The instance-level version is
+§13). A `flow:` edge whose target resolves to a `ticket`-skeleton type
+takes no part in this graph — a `ticket`-skeleton type declares no
+further `flow:` of its own, so it is always a leaf. The instance-level
+version is
 not merely redundant, it is the wrong tool: it leaves unbounded depth
 *declarable*, caught only when some live chain of instances happens
 to close the loop, which trades a load-time failure for a mid-flight
@@ -2093,9 +2155,10 @@ retro can't finish while milestone work is open" an instance of a
 general rule (`main` blocking `retro`, below) rather than a special
 case, and which also closes the stranding hole ORC-103 solved
 narrowly: work in a blocking queue cannot be quietly closed over. A
-`blocks:` entry may only name a queue declared in the same file — a
-container's other four anchor entries, or another entry in the
-project's own queue file (`dsl-syntax.md` §15.8) — reaching into a
+`blocks:` entry may only name a queue declared in the same type's own
+`statuses:` array — a container's other four anchor entries, or
+another entry in the project's own array (`dsl-syntax.md` §15.7) —
+reaching into a
 nested container's own queues would make its internals part of its
 interface to whatever blocks it, exactly backwards from
 composability. To block on something nested, block on the queue
@@ -2109,8 +2172,9 @@ it post-ORC-87, `Store.list_project_ids/0` enumerates them, and the
 active-bundle-version projection already keys current bundle versions
 per project per axis (`systems/engine.md`'s ninth projection). The
 project isn't a new concept acquiring a workflow; it's the existing
-outermost scope finally having one, declared through its own form
-rather than borrowing the container's. Its queues, in order:
+outermost scope finally having one, declared with `skeleton: none`
+(`dsl-syntax.md` §15.1) rather than borrowing the container's fixed
+anchors. Its queues, in order:
 `initialization` → `scaffolding` → `build-out` → `iteration` →
 `maintenance` → `deprecating` → `sunsetting` — the default bundle's
 own authored choice, not a platform requirement, since a project's
@@ -2130,12 +2194,14 @@ other, with its own declared queue list, and closing it means that
 list's last entry (`sunsetting`, in the default bundle's own
 ordering) resolving with nothing open behind it (`dsl-syntax.md`
 §15.6) — not because the root is a container reaching a fixed
-terminal kind, which is a mechanism only containers have.
+terminal kind, which is a mechanism only `container`-skeleton
+declarations have.
 
 **Milestone queues, and the end of the debt milestone.** `milestone`
-is a declared **container** (`dsl-syntax.md` §15.6) — one instance of
-the one container kind, not a platform-registered second kind — whose
-five fixed anchor entries point, in order, at: `setup` → `prep` →
+is a declared **`container`-skeleton type** (`dsl-syntax.md` §15.1) —
+one instance of the one container skeleton, not a platform-registered
+second kind — whose five fixed anchor entries point, in order, at:
+`setup` → `prep` →
 `main` → `retro` → `cleanup`. `setup` constitutes the instance, once,
 at mint; `prep` is work the milestone requires before beginning;
 `cleanup` is work that
@@ -2160,16 +2226,26 @@ human.** `boundary` is retired as a chain-level agent step
 it never named anything a tier's `delivery:` actually used, and the
 single static pass is exactly what the queue model replaces. A
 `setup` flow joins it, dispatched as `milestone`'s own `setup` entry's
-declared `flow:` each time the project's `build-out`/`iteration`
-queue (whichever a workflow bundle assigns) mints the next instance —
-minting and constituting are necessarily two different declarations
-(the project's queue entry and the new milestone's own `setup`
-entry), so there is nowhere one `flow:` needs to name two things at
-once, and no "before `prep`" position to invent: `setup` **is** the
-position, first in the minted instance's own five-entry sequence
+declared `flow:` once a milestone instance becomes the *active* one at
+whichever of the project's own queues a workflow bundle assigns it to
+(`build-out`, `iteration`, ...) — **not once it is minted**
+(`dsl-syntax.md` §15.8, this section's own fourth-pass correction).
+Minting a milestone instance and activating it are different events:
+the instance can exist, and accept groomed work into its own future
+queues, well before the project's own queue reaches it — "we set
+blockers for and groom the tickets of the next milestone" is exactly
+this, done during the current milestone's own `main`. Minting and
+constituting were always necessarily two different declarations (the
+project's queue entry and the new milestone's own `setup` entry), so
+there was never a "before `prep`" position to invent: `setup` **is**
+the position, first in the minted instance's own five-entry sequence
 rather than a value stashed on `prep`'s own `flow:` (an earlier draft
 of this section did exactly that, which runs `setup` once per
-*container* rather than once per *mint* — corrected here). The split
+*container* rather than once per *mint*). What changes at the fourth
+pass is only *when* `setup` fires relative to mint — at activation,
+not at mint — which is what makes "runs once" true without leaning on
+mint timing, and what lets a milestone be groomed before it opens
+without `setup` running twice or early. The split
 follows the direction each looks: `retro` —
 backward — adjudicates carried findings, scans the diff for debt,
 updates the milestone's tickets to reflect what actually landed, and
@@ -3224,9 +3300,16 @@ whole job, and the two halves are already named in `dsl-syntax.md`:
   environment kind are new declaration kinds registered exactly this
   way. Extensions compose the *language*.
 - **Instances are content** (`dsl-syntax.md` §11) — a project's
-  actual gates and environments live in its bundle's `extends:`
-  layer, versioned in the repo, changed by PR. `extends:` composes
-  *content* and never adds vocabulary.
+  actual gates and environments are versioned in the repo, changed by
+  PR. **Reversed at ORC-105's fourth pass: not via an `extends:`
+  layer.** This paragraph originally had them live in the workflow
+  bundle's own `extends:` layer, mirroring the chain axis's
+  `platform-elixir` base; §7.8 and `dsl-syntax.md` §11 record why that
+  does not survive contact with how bundles actually distribute
+  (fork-tailor-merge, §3.1) and the consequence: a workflow bundle now
+  carries no `extends:` field at all. The content is still repo
+  content, versioned, changed by PR — only the mechanism that gets it
+  there changed, from a load-time layer to a forked bundle.
 
 **The store test (§7.10) splits each feature in the same place, and
 the split is not where intuition puts it.** *Topology is content;
@@ -3255,10 +3338,12 @@ forces a fork of the workflow per stack, which is the failure this
 split exists to prevent.
 
 **One language, two documents.** This is not a second bundle system
-(§9 again): same loader, same validation pass, same `extends:`
-semantics. `catapult.yaml` names one of each instead of one bundle,
-and a bundle manifest declares its `kind`. The declaration kinds a
-workflow bundle contains are registered exactly like any other
+(§9 again): same loader, same validation pass. **`extends:` semantics
+diverge by axis as of ORC-105's fourth pass** — the chain axis keeps
+them unchanged; the workflow axis has no `extends:` at all, forked
+instead (below). `catapult.yaml` names one of each instead of one
+bundle, and a bundle manifest declares its `kind`. The declaration
+kinds a workflow bundle contains are registered exactly like any other
 (`dsl-syntax.md` §12).
 
 **The invariant that makes the split real: neither axis references
@@ -3306,15 +3391,33 @@ platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
 vocabulary there too, not a workflow bundle's declaration. The rule
 holds; the resemblance is what makes it worth a sentence.
 
-**`extends:` layers within an axis and never across it.** Each axis
-has its own base layer, and a chain extending a workflow (or the
-reverse) is a load error. This corrects §6's bundle-layering bullet,
-which had the delivery DSL shipping from the `platform-elixir` layer:
-that is exactly the weld this section breaks, because it would tie
-the workflow vocabulary to one language binding. Delivery ships from
-a platform *workflow* layer, which is also where the default gates
-(a UX review and an engineering review) and the default environments
-(`dev`, `staging`) live.
+**`extends:` layers within an axis and never across it — narrowed
+further at ORC-105's fourth pass, below.** As first written here,
+each axis had its own base layer, and a chain extending a workflow
+(or the reverse) was a load error. This corrected §6's bundle-layering
+bullet, which had the delivery DSL shipping from the `platform-elixir`
+layer: that was exactly the weld this section broke, because it would
+tie the workflow vocabulary to one language binding. Delivery shipped
+from a platform *workflow* layer, which was also where the default
+gates (a UX review and an engineering review) and the default
+environments (`dev`, `staging`) lived.
+
+**Reversed at ORC-105's fourth pass (§7.8): there is no platform
+*workflow* layer, and the workflow axis has no `extends:` at all.**
+The paragraph above gave the workflow axis a base layer purely by
+analogy with the chain axis's `platform-elixir` layer, and the analogy
+does not hold: v5 §3.1 already chose fork-tailor-merge as how bundles
+and policy packs are distributed, because git has a merge story hex
+does not, and a workflow bundle is exactly this shape — never
+composed from two files by a loader at runtime. `bundles/`'s default
+gates and environments are a **template** a project's workflow bundle
+forks from and tailors, pulling later platform revisions in by
+ordinary git merge. What survives unchanged: delivery still shares no
+vocabulary with any one language binding, and the default gates and
+environments are still where a fresh project's workflow bundle starts
+from — only the mechanism that gets them there changed, from a
+runtime layer to a fork (`dsl-syntax.md` §11 carries the load-time
+consequence).
 
 **A consequence worth keeping straight: the `runtime` dialect loads
 no workflow bundle at all.** §12 defines it as having no review
@@ -3338,7 +3441,9 @@ one-hyphen-apart naming rule over the declared set.
 
 ### 7.19 System statuses, review sequences, and fan-out depth
 
-**The fixed vocabulary is the set of *system statuses*** — queue,
+**The fixed vocabulary is the set of *system statuses*** — `pending`
+(renamed from `queue` at ORC-105's fourth pass, once a container's own
+queue positions joined the same vocabulary — `dsl-syntax.md` §15.1),
 generation, checks, merge, deploy. These are the platform's, they are
 what both bundle axes reference (§7.18), and they are the anchors
 everything else positions against. The earlier framing of "between
@@ -3404,9 +3509,10 @@ that kicked them over.
 **Returning from Blocked is one rule: the origin status, or any
 earlier status in this ticket's effective sequence. Never forward.**
 Forward would skip steps that later stages depend on — a required
-review before deployment, a queue before generation — so it is
-refused rather than discouraged. Landing on a status that has a queue
-puts the ticket in the queue, not directly into generation.
+review before deployment, a `pending` before generation — so it is
+refused rather than discouraged. Landing on a status that has a
+`pending` before it puts the ticket there, not directly into
+generation.
 
 **"Earlier" is well-defined only because review is sequential
 (§7.19's own decision).** A ticket's effective sequence at its
@@ -3572,7 +3678,7 @@ match is on **platform-fixed vocabulary only**: "no `critique` after
 `generation`" is a legal workflow declaration, and naming a review
 tier — `comparch_review` — from the workflow side is the cross-axis
 leak §7.18 exists to prevent, precisely as a chain may never name a
-workflow's gate. It is symmetric with `queue`, which is likewise a
+workflow's gate. It is symmetric with `pending`, which is likewise a
 platform-fixed position nobody's content declares by name.
 
 **It is a second dispatched run, and it reads committed state.** Not
@@ -3641,7 +3747,7 @@ declaration form for a system status.** Two gaps stood before this
 ticket. `depth:` accepted only a bare integer — one ceiling, no way
 to say "the project's first pass through this status wants more
 scrutiny than every later one." And `depth:` itself existed on a
-gate (§15.2) and an environment (§15.4), both declarable, while
+gate and an environment (§15.4), both declarable, while
 `critique` is a system status (§15.1), declarable by neither axis —
 so "disable the critique slot" was asserted twice in this repo's own
 prose (this section, and `dsl-syntax.md` §3.3) and declarable
@@ -3668,33 +3774,40 @@ cross-axis coupling §7.18 exists to prevent; depth already scopes
 without naming a tier for the identical reason, and a named position
 would undo that for the one case that needs it least.
 
-**`critique.yaml` is the new form** (`dsl-syntax.md` §15.5): one
-optional, singular, fixed-path file per workflow bundle, layered
-under `extends:` like any other bundle file, holding nothing but the
-same `depth:` grammar. It configures `critique`'s participation
-without declaring `critique` as anything — the file's fixed path is
-the reference to the one fixed-vocabulary kind it can mean, so
-nothing here grows the declarable set past what §15.1 already fixes.
+**`critique.yaml` was the form at ORC-92; ORC-105's fourth pass retires
+the file and folds its one field into the type declaration itself**
+(`dsl-syntax.md` §15.5): a `critique` entry, immediately following a
+`generation` entry in a `ticket`-skeleton type's own `statuses:`
+array, carrying the same `depth:` grammar the file used to. What moved
+is only the file: the same fixed-vocabulary kind (`critique`, §15.1)
+is still configured rather than declared, and the reasoning below
+survives unchanged because it was never about the file, only about
+what presence means.
 
-**Settled: critique is opt-in, not on-by-default.** Both readings
-were defensible from this section's own words — "a workflow disabling
-the critique slot" reads as present-by-default — but the mechanism
-decides it once stated plainly: `extends:` composes by union and
-same-path replacement (§7.18, `dsl-syntax.md` §11), with nothing that
-expresses "the layer below declared this; unmake it." A default-on
-critique could only be turned off by a declaration whose entire
-content is a negative, a shape this DSL has nowhere else. Default-off
-costs nothing equivalent: turning critique on is an ordinary
-addition, exactly the shape a gate or an environment already takes,
-and it never needs to un-declare anything a lower layer holds.
-Consequence, stated because it is not free: `bundles/default-flow`
-declares no `critique.yaml` today, so the day this form ships, the
-default chain's eight review tiers stop being merely unscheduled (true
-since the tier-ification decision above) and start being a workflow
-that has been asked, plainly, whether it wants them, and has not yet
-answered. Answering that is bundle content, not this decision;
-`systems/platform_content.md` carries the recommendation for the
-implementing pass.
+**Settled: critique is opt-in, not on-by-default — a conclusion the
+retirement above doesn't touch.** Both readings were defensible from
+this section's own words — "a workflow disabling the critique slot"
+reads as present-by-default — but the mechanism decides it once
+stated plainly. As first argued here, that mechanism was `extends:`
+composing by union and same-path replacement, with nothing that
+expresses "the layer below declared this; unmake it." The workflow
+axis no longer has `extends:` at all (§7.8, §7.18), but the same shape
+of argument holds one level down: a type's own `statuses:` array has
+no "the type below named this; unmake it" primitive either, only
+presence or absence of a `critique` entry next to a given `generation`
+entry. A default-on critique could only be turned off by a declaration
+whose entire content is a negative, a shape this DSL has nowhere else,
+whichever layer or level the declaration lives at. Default-off costs
+nothing equivalent: turning critique on is an ordinary addition,
+exactly the shape a gate or an environment already takes, and it never
+needs to un-declare anything. Consequence, stated because it is not
+free: `bundles/default-flow` declares no `critique` entries today, so
+the day this form ships, the default chain's eight review tiers stop
+being merely unscheduled (true since the tier-ification decision
+above) and start being a workflow that has been asked, plainly,
+whether it wants them, and has not yet answered. Answering that is
+bundle content, not this decision; `systems/platform_content.md`
+carries the recommendation for the implementing pass.
 
 **A gate's depth 0 is the rule, not merely its default.** A gate is a
 human sign-off, and a human reads the top level; reasoning about how
@@ -3715,12 +3828,12 @@ change, the loader change and the shipped bundle content that uses
 the pair form move in one change, because updating content ahead of
 the parser fails every bundle load, including the reference
 deployment's. `depth:` is not read by anything today, on a gate, an
-environment or the new file, so — as before this ticket — there is no
-scheduling consumer to migrate; the window stays free until one
-exists. (`ticket_types:`, a gate's own field at the time this
-paragraph was written, is retired outright at ORC-105 — §7.8, above —
-so this no longer applies to it at all, rather than merely applying
-to an unread one.)
+environment or a `critique` entry, so — as before this ticket — there
+is no scheduling consumer to migrate; the window stays free until one
+exists. (`ticket_types:` and `after:`, both a gate's own fields at the
+time this paragraph was written, are retired outright at ORC-105 —
+§7.8 above and `dsl-syntax.md` §15.3 respectively — so neither applies
+to it at all anymore, rather than merely applying to an unread one.)
 
 ---
 

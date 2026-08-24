@@ -422,9 +422,12 @@ Recorded so nobody adds them back as conveniences:
   equally fixed, whatever container they belong to — only the
   project's own queue list, and what each anchor entry's `flow:`
   points at (a registered work-item type, `docs/dsl-syntax.md`
-  §15.9), is workflow-bundle content, same as a gate or an
-  environment. The UI renders whichever is in front of it and never
-  offers to add a container anchor or reorder one (§7.18).
+  §15.2), is workflow-bundle content, same as a gate or an
+  environment, both of which are cited by position rather than a
+  fixed predecessor field as of ORC-105's fourth pass (`docs/
+  dsl-syntax.md` §15.3) — a distinction this UI never surfaces, since
+  it never offers to add a container anchor or reorder one either way
+  (§7.18).
 - **Parallel review UI.** Review is sequential by decision (§7.19);
   the deferred *parallelize sequential review* toggle is a bindings
   setting when it arrives, not a second board mode.

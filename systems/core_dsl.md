@@ -131,8 +131,10 @@ context-source kinds, and audit profiles.
   above asked for.
 - **Depth's grammar generalizes to a pair, and a new declarable form
   configures `critique`'s participation** (ORC-92, design pass;
-  `docs/dsl-syntax.md` §13, §15.2, §15.4, §15.5; `docs/v5-design-
-  decisions.md` §7.19). Two changes land together, by the ticket's
+  `docs/dsl-syntax.md` §13, §15.4, §15.5; `docs/v5-design-
+  decisions.md` §7.19 — both grammar sections' own shape changed again
+  at ORC-105's fourth pass, below, without disturbing this decision).
+  Two changes land together, by the ticket's
   own sequencing constraint: `depth:`'s shape check widens from
   "non-negative integer" to "non-negative integer, or a list of
   exactly two" — `Catapult.Dsl.Gate.parse_depth/2` and
@@ -254,6 +256,59 @@ context-source kinds, and audit profiles.
   breaks); closing it is one line in each of two places, and belongs
   in the same change that builds the queue grammar's loader support
   rather than a doc-only pass touching code outside its lane.
+
+- **A fourth ORC-105 pass unified `queues/project.yaml`, `queues/
+  containers/<name>.yaml` and `types/<name>.yaml` into one declaration
+  shape, retired `after:`, and moved `critique.yaml`/`gates/`/
+  `environments/` positioning inline** (design pass, superseding the
+  three-file-shape entry above; `docs/dsl-syntax.md` §15.1-§15.9;
+  `docs/v5-design-decisions.md` §7.8, §7.18, §7.19). Every declaration
+  is now `types/<name>.yaml`: `type:` names it, `skeleton:` picks
+  `ticket`, `container` or `none` (§15.1's per-skeleton fixed anchor
+  set), and `statuses:` is one ordered array holding both the
+  skeleton's own anchors and whatever gates (`review:`), environments
+  (`environment:`) or `critique` entries the author interleaves among
+  them — position is the array index, full stop; no declaration in
+  this grammar carries an `after:` field anymore, on a gate or an
+  environment either, which is the one change reaching past this
+  ticket's own container feature into gate/environment declarations
+  as they exist today. `gates/<gate>.yaml` and `environments/<env>
+  .yaml` still exist as named, reusable declarations (role, throwback,
+  escalation, depth; promotion, lifetime) — what moved out of them is
+  only position, since a citing type's own array now says where each
+  one runs, and two types may run the same gate in different relative
+  order without either being wrong. `critique.yaml` is retired outright
+  (superseding ORC-92's form, `docs/v5-design-decisions.md` §7.19): a
+  `critique` entry must sit immediately after a `generation` entry in
+  the same array, which is also the load-time reason a `container`- or
+  `none`-skeleton type can never declare one — it has no `generation`
+  anchor to pair with. The loader gains three checks with no exact
+  precedent in the closed sets §13 already validates: a `statuses:`
+  entry must carry exactly one of `status:`/`review:`/`environment:`;
+  `flow:`/`blocks:` are legal only on a queue-shaped `status:` entry
+  (a container's five anchors, or any entry in a `none`-skeleton
+  type); and a `ticket`-skeleton type's array must contain `pending`
+  (first), `generation`/`checks`/`merge`/`deploy` (each at least once,
+  in that relative order, `generation`/`merge` may recur) and
+  `terminal` (last). **Also reversed:** `extends:` narrows to the
+  chain axis; a workflow bundle carries no `extends:` field at all,
+  since v5 §3.1's fork-tailor-merge lifecycle — already the model for
+  bundles and policy packs generally — turns out to be the one a
+  workflow bundle was always shaped for, not a runtime-composed layer
+  (`docs/dsl-syntax.md` §11). **Not built as part of this pass**, same
+  as the third: the dispatcher, the sweep, the scan/setup/retro
+  machinery — ORC-104's, unaffected in shape by this pass beyond what
+  it inherits from the grammar being one file format instead of three.
+
+  **`queue`'s rename to `pending` in `Catapult.Dsl.SystemStatus`
+  (`lib/catapult/dsl/system_status.ex`) is dev's diff, not design's**,
+  the identical boundary the `:boundary` retirement above draws: the
+  constant module is core_dsl's own mapped path. Filed against
+  ORC-104 alongside it — the module still names the fixed-vocabulary
+  member `:queue` today, which is harmless until a bundle's own
+  container queue and a ticket's own system status need to coexist in
+  loader error messages or generated UI copy, at which point the two
+  senses collide in exactly the way the doc rename exists to prevent.
 
 ## Initial vs target
 

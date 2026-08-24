@@ -80,7 +80,7 @@ organization. What stays refused is a project rewiring the
 automation graph itself.
 
 **Extended at ORC-105 to work-item types, recorded rather than left
-implicit.** `docs/dsl-syntax.md` §15.9 registers a work-item type as a
+implicit.** `docs/dsl-syntax.md` §15.2 registers a work-item type as a
 declared list of the gates it visits (`types/<name>.yaml`), replacing
 what used to be assembled by scanning every gate's own
 `ticket_types:` field. That is a real addition to what a workflow
@@ -90,12 +90,22 @@ appeared inside a gate's list — so this entry is the one it argues
 with, and does so in writing rather than by omission. It survives
 under the same admission rule stated above without needing to change:
 no plane logic branches on a type's mere existence any more than it
-branches on a gate's, and the automation graph underneath — system
-statuses (§15.1) and, per this same ticket, container anchors (§15.6)
-— stays exactly as platform-fixed as before. What stays refused is
-unchanged: a project cannot rewire the automation graph itself, only
-declare which already-platform-fixed gates a type of its own naming
-passes through.
+branches on a gate's, and the automation graph underneath — the
+ticket and container skeletons (§15.1) alike — stays exactly as
+platform-fixed as before. What stays refused is unchanged: a project
+cannot rewire the automation graph itself, only declare which
+already-platform-fixed gates a type of its own naming passes through.
+
+**A fourth pass folded gates, environments and critique into the same
+declaration and retired `after:`, and neither move extends this entry
+further.** Position — which was never declarable, only a predecessor
+reference between already-declarable gates — moved from a per-gate
+`after:` field to the citing type's own array index (`docs/
+dsl-syntax.md` §15.3); what may be declared didn't change, only where
+the declaration lives. The admission rule above answers this the same
+way it answered the third pass: no plane logic branches on *where in
+the array* a gate sits, any more than it branched on which type named
+it.
 
 ## No inbound write path from a mirrored tracker
 scope: system:delivery, system:dashboard
