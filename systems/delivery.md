@@ -13,8 +13,8 @@ them, the v5 §7 machinery in two stages: first the **authoring loop**
 (Phase 4: feature-ticket lifecycle projection, gate states,
 feature-branch PR management, decline harvesting), later the full
 two-grain delivery (child lifecycle, mutex, dispatch, reconciliation,
-the validation loop, escalations, milestones with the `:live`
-boundary step, the maintenance watcher).
+the validation loop, escalations, milestones with the `:live`-gated
+`retro` queue (ORC-105), the maintenance watcher).
 
 **There is no Tracker port, and no tracker adapter is ever built**
 (v5 §7.17). Ticket state is ours; the work surface is ours
@@ -123,6 +123,114 @@ design gates pass.
   of the workflow-bundle machinery this needs to have a subject at
   all — there is no declared workflow sequence to cut over from
   before then.
+- **No boundary ticket, generalized: containers and the project alike
+  carry their own progress — but the project is not a container**
+  (ORC-105, design pass, superseding both ORC-103's own unmerged
+  milestone-only version of this entry and this same ticket's own two
+  earlier, since-reversed drafts — one that folded the project into
+  the container shape, one that gave every queue entry a `flow:`/
+  `opens:` pair; `docs/v5-design-decisions.md` §7.8; `docs/
+  dsl-syntax.md` §15.6-§15.9). A container's or a project's status is
+  which of its declared queues is current; a queue is a derived query,
+  never a stored bucket, so there is no per-queue pending set for this
+  system to own the way `ready_scopes` is engine's. Two relations this
+  system dispatches against, both new: a queue's `flow:` target
+  resolves against a work-item-type registry shared by container and
+  plain-type declarations alike (`docs/dsl-syntax.md` §15.2, unified
+  further at the fourth pass below) — no new
+  dispatch mechanism whichever it resolves to, a `retro` or `setup`
+  ticket opening a flow instance exactly like any other type, `setup`
+  dispatching as its own anchor entry, first in the newly minted
+  container's own sequence, never a value carried on the parent's
+  dispatching entry, so the two never need to be the same declaration;
+  a queue's `blocks:` relation to a sibling queue in the same
+  declaration holds that sibling's entry open while the blocking queue
+  carries unresolved work items — the general form of what used to be
+  a single hard-coded boundary-blocking rule, now one relation the
+  dispatcher reads wherever a workflow bundle declares it, milestone
+  `main`→`retro` included. **The pause has no separate mechanism to
+  build**: an `Urgent` ticket dispatches regardless of which queue a
+  container or the project currently sits in (`docs/v5-design-
+  decisions.md` §7.3, §7.10), which falls out of ordinary priority
+  dispatch rather than needing a ticket-carried flag against its
+  milestone the way ORC-103's draft required. Storage for "which queue
+  a given container or the project is currently at," the
+  `blocks:`-aware dispatcher, the declaration-graph acyclicity check
+  that bounds nesting (`docs/dsl-syntax.md` §13), the
+  `:live`-gates-`retro` interlock (§2.8), and the scan/setup/retro
+  machinery itself are Target (Phase 7), filed as ORC-104 and blocked
+  on this record; this entry is the shape it builds against.
+- **Mint is not activation, and this system's dispatcher is the one
+  that has to hold the two apart** (ORC-105's fourth pass, design
+  pass; `docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md`
+  §7.8). A container instance can exist — created by business logic or
+  a person, accepting groomed work into its own future queues — before
+  its parent's own position ever reaches it; only reaching it makes it
+  *active*, and only becoming active runs its `setup` entry's `flow:`.
+  Two earlier framings of this same record had mint and activation as
+  one event ("dispatch mints one instance and starts that instance at
+  its own `setup` entry"; "minted one at a time as the prior one
+  closes") and both are wrong for the case this system explicitly
+  wants: grooming next milestone's `prep` during this milestone's own
+  `main`. What this system owns, not yet built: the storage
+  distinguishing "instances that exist" from "the instance that is
+  current," and the two ways a container's position moves backward — a
+  queue (a query over unresolved work items) un-resolving when its
+  population refills, or a gate the container's own array cites
+  throwing back to an earlier entry in that array. **The second way is
+  a fifth-pass correction**, not a fourth-pass fact: the fourth pass's
+  own "a container's anchor entries carry no gates, so they have no
+  `throwback:` to borrow" stopped being true the moment gates and
+  environments widened onto containers in the same pass that wrote it
+  (`docs/dsl-syntax.md` §15.2, §15.4, §15.8) — a milestone sign-off
+  gate between `main` and `retro` can throw back to `main` today, and
+  this system's dispatcher has to honor that path alongside the
+  un-resolve one, not only the one the earlier framing left standing.
+  Filed against ORC-104 alongside the rest of this entry's Target list.
+- **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
+  respect and closed a hole in the loader's own acyclicity check that
+  this system's dispatcher would otherwise have inherited** (design
+  pass; `docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
+  §7.8). `milestone`'s `setup` and `retro` queues are declared
+  `singleton: true` — bounded, this system's fifth-pass reading held,
+  to 0 or 1 unresolved at a time — which is not something the loader
+  can check (a queue's population is live ticket state) and is
+  therefore this system's own dispatcher's job. **This reading was
+  wrong, corrected at the sixth pass below** — see that bullet rather
+  than treating "admitted and files `Blocked`" as this system's
+  target behavior. Separately, the declaration-graph acyclicity check
+  ORC-104 is filed to build (above) now has to treat a skeleton-less
+  type — the project included — as a graph node, not only a
+  `container`-skeleton type: the fourth pass's narrower node set
+  excluded the exact edge a project/container cycle runs on
+  (`milestone.main` → `flow: project`, `project.build-out` → `flow:
+  milestone`), so a loader built against the fourth pass's own record
+  would have let that cycle through. Nothing in this system's own
+  dispatch logic changes shape from the acyclicity correction — it is
+  about what the loader accepts before this system ever sees a bundle
+  — but the Target build has to read the corrected record, not the
+  superseded one.
+- **A sixth ORC-105 pass corrected the fifth pass's own singleton
+  reading and gave this system's dispatcher a fact to check that the
+  loader cannot: which type a fresh project actually starts from**
+  (design pass; `docs/dsl-syntax.md` §2, §13, §15.6-§15.7; `docs/
+  v5-design-decisions.md` §7.8). `singleton:` bounds a queue to at
+  most one work item **ever assigned**, not 0-or-1 unresolved at any
+  moment — a queue whose sole work item has reached `terminal` is
+  *closed*, not empty-with-room, so this system's dispatcher must
+  reject a second assignment outright rather than admit it and file
+  `Blocked`, once one work item has ever been assigned to a singleton
+  queue. This is a real behavior change from the fifth pass's own
+  record, not a rewording: "admit and file `Blocked`" and "reject
+  outright" dispatch differently on the same input. Separately,
+  `entry:` on a workflow bundle's own `bundle.yaml` names the type
+  onboarding dispatches a fresh project from — this system reads it
+  rather than inferring a starting point from which declaration looks
+  project-shaped, the identical inference this record's own earlier
+  passes leaned on informally without the loader ever having checked
+  it. Neither correction changes this system's shape, only what its
+  dispatcher and its onboarding path each read and enforce; both are
+  ORC-104's to build, alongside the rest of this entry's Target list.
 
 ## Initial vs target
 

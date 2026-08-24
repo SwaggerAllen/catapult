@@ -309,10 +309,13 @@ mechanically defeats the automation (v5 §2.8).
 - **The `:live` suite is the exception, on a cadence, not a gate.**
   Tests tagged `:live` (real providers, real tracker/host against
   scratch projects, deployed surfaces) are excluded from ticket CI
-  and run at the **milestone boundary** — after the boundary ticket
-  is created, before the author's pass — so the true end-to-end
-  sanity check happens exactly once per milestone, with results on
-  the boundary ticket and failures filed as milestone blockers.
+  and run once per milestone, gating that milestone's own `main →
+  retro` queue transition (v5 §2.8, §7.8 — revised at ORC-105 from
+  "at the milestone boundary — after the boundary ticket is created,
+  before the author's pass," a proxy-ticket mechanism this repo's own
+  container model no longer has) — so the true end-to-end sanity
+  check happens exactly once per milestone, with results on the
+  milestone and failures held open as a `retro`-blocking condition.
   Rationale: per-ticket determinism is what the escalation rules
   depend on; a live check that never runs is how "merged and green"
   quietly diverges from "actually works against the world." Both

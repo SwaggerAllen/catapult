@@ -209,12 +209,14 @@ navigator are invented and unvalidated.*
   merely available (§7.17) — a general tracker cannot draw any of it
 - read-only; every action opens the ticket
 
-**`milestone`** — commitment and boundary progress.
+**`milestone`** — commitment and queue progress (v5 §7.8, revised at
+ORC-105 from a single boundary point to a declared queue sequence).
 
 - what is committed, what is in flight, what is `Stubbed` and why —
   the "live, visible list of what is deliberately half-built" §7.11
   already requires
-- the boundary's blockers and their state
+- which queue (`setup`/`prep`/`main`/`retro`/`cleanup`) is current, and
+  any `blocks:` condition holding it there
 
 **`triage`** — machinery-filed work awaiting batch-accept.
 
@@ -414,9 +416,18 @@ in the loop depends on it.
 Recorded so nobody adds them back as conveniences:
 
 - **A second write path.** Every mutation is a command (§2's rule 1).
-- **Editable protocol vocabulary.** Statuses the automation reads,
-  queues and agent steps are platform-fixed; the UI renders them and
-  never offers to add one (§7.18).
+- **Editable protocol vocabulary.** Statuses the automation reads and
+  agent steps are platform-fixed; a container's own five queue
+  positions (`setup`/`prep`/`main`/`retro`/`cleanup`, v5 §7.8) are
+  equally fixed, whatever container they belong to — only the
+  project's own queue list, and what each anchor entry's `flow:`
+  points at (a registered work-item type, `docs/dsl-syntax.md`
+  §15.2), is workflow-bundle content, same as a gate or an
+  environment, both of which are cited by position rather than a
+  fixed predecessor field as of ORC-105's fourth pass (`docs/
+  dsl-syntax.md` §15.3) — a distinction this UI never surfaces, since
+  it never offers to add a container anchor or reorder one either way
+  (§7.18).
 - **Parallel review UI.** Review is sequential by decision (§7.19);
   the deferred *parallelize sequential review* toggle is a bindings
   setting when it arrives, not a second board mode.

@@ -131,8 +131,10 @@ context-source kinds, and audit profiles.
   above asked for.
 - **Depth's grammar generalizes to a pair, and a new declarable form
   configures `critique`'s participation** (ORC-92, design pass;
-  `docs/dsl-syntax.md` §13, §15.2, §15.4, §15.5; `docs/v5-design-
-  decisions.md` §7.19). Two changes land together, by the ticket's
+  `docs/dsl-syntax.md` §13, §15.4, §15.5; `docs/v5-design-
+  decisions.md` §7.19 — both grammar sections' own shape changed again
+  at ORC-105's fourth pass, below, without disturbing this decision).
+  Two changes land together, by the ticket's
   own sequencing constraint: `depth:`'s shape check widens from
   "non-negative integer" to "non-negative integer, or a list of
   exactly two" — `Catapult.Dsl.Gate.parse_depth/2` and
@@ -184,6 +186,193 @@ context-source kinds, and audit profiles.
   `predicates: %{String.t() => Predicate.t()}`, populated from the
   value `build/3` already computes. `systems/engine.md` records the
   runtime-evaluator decision this field exists to serve.
+- **A project's queue sequence and a container's are two declaration
+  shapes, not one shape parameterized by kind, and work-item types are
+  now a registry** (ORC-105, design pass, superseding both ORC-103's
+  own unmerged milestone-only draft of this entry and this same
+  ticket's own two earlier, since-reversed drafts — a shared
+  fixed-sequence shape off one `container:` field checked against a
+  two-member registry, then a `flow:`/`opens:` pair on every queue
+  entry; `docs/dsl-syntax.md` §15.6-§15.9; `docs/v5-design-
+  decisions.md` §7.8). `queues/project.yaml` is optional and singular
+  (`critique.yaml`'s shape) and holds whatever queue array the
+  workflow bundle authors — no anchor check, no fixed count, no
+  platform vocabulary to validate names against. `queues/containers/
+  <name>.yaml` is directory-shaped like `gates/` — a bundle may
+  declare many named containers — and each one's `queues:` array must
+  hold exactly the five platform-fixed anchor names, in exactly this
+  order, undeclarable by either axis for the identical re-resolution-
+  anchor reason system statuses are: `setup`, `prep`, `main`, `retro`,
+  `cleanup`. There is no per-container-kind sequence table and no
+  kind registry — `container:` names the declaration itself, the same
+  way a `gate:` file names its own gate. `types/<name>.yaml` registers
+  a plain work-item type as a list of the declared gates (§15.2) it
+  visits — inverting the gate's own former `ticket_types:` field,
+  which is retired outright — and shares one namespace with container
+  declarations: a bundle's containers and its plain types are one
+  registry. Every queue entry, project or container, carries exactly
+  one field, `flow:`, required, naming a member of that registry; the
+  loader does not branch on which kind of declaration the name
+  resolves to, only on what that declaration's own content contains —
+  this replaces the earlier `flow:`/`opens:` pair outright, not merely
+  renames half of it. The loader gains two structural checks with no
+  exact precedent in the closed sets §13 already validates: **a
+  declaration-graph check** over container names connected by `flow:`
+  edges whose target resolves to another container (an edge into a
+  plain type is not part of this graph — a plain type has no further
+  `flow:` of its own, so it is always a leaf), which must be acyclic
+  with a self-reference rejected as the degenerate one-node cycle —
+  this is the check that bars a container from nesting its own kind
+  and the one that bounds nesting depth, and it replaced an earlier,
+  wrong-altitude draft of the same idea that checked ancestry on
+  *instances* rather than *declarations* (rejected because it leaves
+  unbounded depth declarable, caught only mid-flight); and a scoping
+  check that a `blocks:` entry must name a queue declared in the same
+  file, never a queue nested inside what the blocking queue's `flow:`
+  opens. `boundary`, the single static agent step this replaces, is
+  retired from §15.1's list outright — nothing takes its slot there,
+  because `retro` and `setup` dispatch as ordinary chain flows through
+  a declared queue rather than through a tier's `delivery.agent_step`;
+  `setup` specifically is its own anchor entry, first in a minted
+  container's own five-entry sequence — not a value stashed on
+  `prep`'s own `flow:`, which an earlier draft of this same ticket got
+  wrong (it runs `setup` once per container instead of once per mint)
+  — so there is nowhere `flow:` needs to name two things on one
+  declaration. **Not built as part of this pass**: the dispatcher, the
+  sweep, the scan/setup/retro machinery, and the ticket→milestone
+  `Stubbed`/`Urgent` interactions this needs to have a subject at all
+  — ORC-104's, which this entry gives a grammar to build against.
+
+  **Retiring `boundary` from `Catapult.Dsl.SystemStatus`
+  (`lib/catapult/dsl/system_status.ex:35,52`) is dev's diff, not
+  design's** (§7 of the design record, settled): the constant module
+  is core_dsl's own mapped path, and design's committable paths stop
+  at doc content. Filed against ORC-104 rather than actioned here —
+  the type and the `@agent_steps` list both still name `:boundary`
+  today, which means the loader still accepts a chain declaring
+  `agent_step: boundary` even though no tier ever has and the grammar
+  record above no longer sanctions one. That gap is real but narrow
+  (nothing in `bundles/**` declares it, so no bundle content silently
+  breaks); closing it is one line in each of two places, and belongs
+  in the same change that builds the queue grammar's loader support
+  rather than a doc-only pass touching code outside its lane.
+
+- **A fourth ORC-105 pass unified `queues/project.yaml`, `queues/
+  containers/<name>.yaml` and `types/<name>.yaml` into one declaration
+  shape, retired `after:`, and moved `critique.yaml`/`gates/`/
+  `environments/` positioning inline** (design pass, superseding the
+  three-file-shape entry above; `docs/dsl-syntax.md` §15.1-§15.9;
+  `docs/v5-design-decisions.md` §7.8, §7.18, §7.19). Every declaration
+  is now `types/<name>.yaml`: `type:` names it, `skeleton:` picks
+  `ticket`, `container` or `none` (§15.1's per-skeleton fixed anchor
+  set), and `statuses:` is one ordered array holding both the
+  skeleton's own anchors and whatever gates (`review:`), environments
+  (`environment:`) or `critique` entries the author interleaves among
+  them — position is the array index, full stop; no declaration in
+  this grammar carries an `after:` field anymore, on a gate or an
+  environment either, which is the one change reaching past this
+  ticket's own container feature into gate/environment declarations
+  as they exist today. `gates/<gate>.yaml` and `environments/<env>
+  .yaml` still exist as named, reusable declarations (role, throwback,
+  escalation, depth; promotion, lifetime) — what moved out of them is
+  only position, since a citing type's own array now says where each
+  one runs, and two types may run the same gate in different relative
+  order without either being wrong. `critique.yaml` is retired outright
+  (superseding ORC-92's form, `docs/v5-design-decisions.md` §7.19): a
+  `critique` entry must sit immediately after a `generation` entry in
+  the same array, which is also the load-time reason a `container`- or
+  `none`-skeleton type can never declare one — it has no `generation`
+  anchor to pair with. The loader gains three checks with no exact
+  precedent in the closed sets §13 already validates: a `statuses:`
+  entry must carry exactly one of `status:`/`review:`/`environment:`;
+  `flow:`/`blocks:` are legal only on a queue-shaped `status:` entry
+  (a container's five anchors, or any entry in a `none`-skeleton
+  type); and a `ticket`-skeleton type's array must contain `pending`
+  (first), `generation`/`checks`/`merge`/`deploy` (each at least once,
+  in that relative order, `generation`/`merge` may recur) and
+  `terminal` (last). **Also reversed:** `extends:` narrows to the
+  chain axis; a workflow bundle carries no `extends:` field at all,
+  since v5 §3.1's fork-tailor-merge lifecycle — already the model for
+  bundles and policy packs generally — turns out to be the one a
+  workflow bundle was always shaped for, not a runtime-composed layer
+  (`docs/dsl-syntax.md` §11). **Not built as part of this pass**, same
+  as the third: the dispatcher, the sweep, the scan/setup/retro
+  machinery — ORC-104's, unaffected in shape by this pass beyond what
+  it inherits from the grammar being one file format instead of three.
+
+  **`queue`'s rename to `pending` in `Catapult.Dsl.SystemStatus`
+  (`lib/catapult/dsl/system_status.ex`) is dev's diff, not design's**,
+  the identical boundary the `:boundary` retirement above draws: the
+  constant module is core_dsl's own mapped path. Filed against
+  ORC-104 alongside it — the module still names the fixed-vocabulary
+  member `:queue` today, which is harmless until a bundle's own
+  container queue and a ticket's own system status need to coexist in
+  loader error messages or generated UI copy, at which point the two
+  senses collide in exactly the way the doc rename exists to prevent.
+
+- **A fifth ORC-105 pass corrected two errors the fourth pass's own
+  three-valued `skeleton:` field had baked in, and added one field**
+  (design pass; `docs/dsl-syntax.md` §15.1-§15.9; `docs/v5-design-
+  decisions.md` §7.8). `skeleton:` is optional rather than
+  `ticket | container | none` — a type declaring neither has no
+  anchors at all, which retires the loader's "at most one loaded
+  `skeleton: none` declaration" check outright rather than replacing
+  it: rootness is a node nothing else's `flow:` targets, derived from
+  the declaration graph the loader already builds, never a value a
+  second check has to police. **The declaration-graph acyclicity
+  check's own node set was wrong** — the fourth pass admitted only
+  `container`-skeleton types as nodes, which excluded every `flow:`
+  edge *into* a skeleton-less type by construction and left a real
+  cycle undetected (`milestone.main` naming `flow: project` alongside
+  `project.build-out` naming `flow: milestone`); the loader now treats
+  any type with a queue-shaped anchor — `container`-skeleton or
+  skeleton-less alike — as a graph node, which closes the hole and
+  also reverses the fourth pass's own "a `flow:` naming a
+  `none`-skeleton type is a load error." **Gates and environments
+  widen onto skeleton-less types too** — the fourth pass's restriction
+  read an argument for why a project needs no re-resolution anchor as
+  an argument about what its array may contain, which the governing
+  rule never actually claimed. **New: `singleton: true` on a
+  queue-shaped anchor entry**, bounding a queue to at most one work
+  item over its lifetime for plane code to address directly
+  (`milestone`'s `setup` and `retro` are the motivating declarations)
+  — not a load-time check (assignment history is live state), and the
+  loader's job stops at accepting the field; a second assignment to a
+  singleton queue is dispatch behavior, not a grammar concern, and was
+  first recorded in `docs/v5-design-decisions.md` §7.8 as filing
+  `Blocked` rather than refusing the dispatch — corrected at this same
+  ticket's sixth pass below, since a lifetime bound and a "files
+  `Blocked`" response turned out to disagree with each other. **Not
+  built as part of this pass**, same as the third and fourth: the
+  dispatcher, the sweep, the scan/setup/retro machinery, and the
+  singleton-queue rejection check — ORC-104's.
+
+- **A sixth ORC-105 pass named the plane's entry point explicitly and
+  corrected `singleton:`'s own semantics, both gaps the fifth pass's
+  own record left open** (design pass; `docs/dsl-syntax.md` §2, §13,
+  §15.2, §15.6-§15.7; `docs/v5-design-decisions.md` §7.8). Derived
+  rootness answers "is this type a root," never "which root does the
+  plane dispatch a fresh project from" — a bundle declaring `epic`
+  without nesting it under anything else already has two roots, so
+  "the project is a project by convention" named nothing the loader
+  could check. `entry:`, a new required key on a workflow bundle's own
+  `bundle.yaml`, names that type instead, checked at load the same way
+  `role_holders:` and `mirror_mapping:` are checked when supplied: the
+  name resolves, the resolved type carries a queue-shaped anchor, and
+  it is a root in the declaration graph. **`singleton:` was wrong at
+  the fifth pass in what it bounded** — "0 or 1 unresolved right now"
+  rather than "at most one, ever, over the queue's whole lifetime" —
+  which is why a second work item was recorded as admitted-and-
+  `Blocked`: under a population bound, a queue whose sole item has
+  reached `terminal` looks exactly like an empty queue with room. It
+  is neither; the loader's own check is unaffected (still not a
+  load-time constraint, since assignment history is live state), but
+  the dispatcher's job changes from "admit and file `Blocked`" to "a
+  loud error, permanently, once one work item has ever been assigned."
+  **Not built as part of this pass**, same as every pass before it:
+  the dispatcher, the sweep, the scan/setup/retro machinery, the
+  entry-point load check, and the singleton-lifetime rejection check —
+  ORC-104's.
 
 ## Initial vs target
 
