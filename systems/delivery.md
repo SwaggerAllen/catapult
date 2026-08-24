@@ -483,12 +483,23 @@ design gates pass.
   deploy, which needs `merge` — each sits behind the child
   lifecycle/mutex/dispatch/reconciliation machinery this ticket's own
   scope names as Phase 7's, not this one's. So this process manager's
-  `interested?`/`handle` pair is total over `pending → generation →
+  `interested?`/`handle` pair is total over `queue → generation →
   [critique] → [gate] → … → fanout` and *recognizes* the later kinds
   without ever driving a ticket into them — a bundle declaring gates
   or environments after `deploy` still loads and validates today
   (§13), unaffected. A ticket reaching `fanout` sits there under this
-  phase; what moves it again is Phase 7's own dispatcher.
+  phase; what moves it again is Phase 7's own dispatcher. **Written
+  against `system_status.ex` as it stands, not `dsl-syntax.md`
+  §15.1's table**: the module on this branch carries twelve kinds,
+  first `:queue`, with `:boundary` still in `@agent_steps`; §15.1
+  carries seventeen, `queue` renamed to `pending` and `:boundary`
+  retired, and its own text records both moves as dev's diff against
+  ORC-104 — blocked *by* this ticket — "not actioned here." So this
+  process manager's dev pass opens a module that still says `:queue`
+  and still lists `:boundary`, and this bullet's `queue → generation →
+  …` chain, the twelve-count above, and the `:blocked` bullet below
+  all write against that, on purpose, rather than against §15.1's
+  target shape.
 - **The label owner, settled: the work surface renders; this
   projection never does** (ORC-32, design pass, closing this ticket's
   other open question). The projection carries exactly what
@@ -500,9 +511,12 @@ design gates pass.
   human-facing label is presentation, and belongs with "the work
   surface renders" (this doc's own opening paragraph), not with this
   projection and not with workflow-bundle content. `dsl-syntax.md`
-  §15.1's table already fixes labels for the twelve platform kinds on
-  the two default lifecycles; a *declared* gate's or environment's own
-  name (`ux-review`, `dev`) has no such table and needs one, but
+  §15.1's table already fixes labels for the platform-fixed kinds —
+  twelve on this branch, seventeen once ORC-104's rename and
+  container-status additions land, per the divergence noted above —
+  across the two default lifecycles; a *declared* gate's or
+  environment's own name (`ux-review`, `dev`) has no such table and
+  needs one, but
   writing it is `systems/dashboard.md`'s decision when UI v1 renders
   this projection — out of this ticket's own declared scope ("the
   screens that render this, which are UI v1's") — not a new `label:`
@@ -545,14 +559,18 @@ design gates pass.
   a later increment, and a sizeable one" — and this ticket's own scope
   ends at Building without needing to close it: the process manager
   above covers the transitions engine's own events already drive
-  (dispatch, commit, skip-on-no-diff); the aggregate a human's
-  sign-off command validates against with §7.16's optimistic
-  concurrency is not decided here, and is not assumed to be
-  `Catapult.Engine.Aggregate` — engine's own "a project has one
-  aggregate, not two" (`systems/engine.md`) is scoped to that
-  component's internal shape (one aggregate type per project across
-  both bundle axes), not a system-wide ban on a second component
-  owning a second one.
+  (dispatch, commit, skip-on-no-diff). Which aggregate a human's
+  sign-off command validates against under §7.16's optimistic
+  concurrency is left exactly where `systems/engine.md`'s own §7.16
+  bullet already leaves it: "a workflow gate is declared
+  delivery-bundle vocabulary, not an engine node, so what it pins is
+  delivery's to design when workflow gates land
+  (`systems/delivery.md`'s Phase 7)... not this ticket's to answer."
+  That is engine's own file-map territory, and this doc does not
+  reinterpret engine's "a project has one aggregate, not two" to
+  settle it — the citation above already keeps §7.16 open on its own
+  terms, without needing a second, narrower reading of a rule
+  recorded in another system's file.
 
 ## Initial vs target
 
@@ -585,7 +603,7 @@ lands that shape**: the operation vocabulary in both `HostPort
 .Actions` and `HostPort.Fake`, `HostPort.Marker`, and the offline sim
 ring. **ORC-32 (design pass) records the shape of lifecycle projection
 proper** — the process manager and its standing decisions, above —
-ahead of the dev pass that builds it. It covers `pending` through
+ahead of the dev pass that builds it. It covers `queue` through
 `fanout` (Building) only; wiring the host port's own operations (a
 bounce, a merge-forward, a merge) into that projection, and everything
 from `checks` onward, stays open at Phase 4 and is no ticket's yet.
