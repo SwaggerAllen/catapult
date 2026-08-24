@@ -440,9 +440,14 @@ pulled into Phase 3 for the same reason the first one was, because the
 milestone boundary test needs it now. **ORC-31 (design pass) records
 the shape of the rest of Phase 4's host port** — the operation
 vocabulary, the marker-vocabulary module and the sim-style test ring,
-above — ahead of the dev pass that builds it; feature-lifecycle PR
-management and decline harvesting proper stay open at Phase 4 until
-that pass lands. Target
+above — ahead of the dev pass that builds it. **ORC-31's dev pass
+lands that shape**: the operation vocabulary in both `HostPort
+.Actions` and `HostPort.Fake`, `HostPort.Marker`, and the offline sim
+ring. What stays open at Phase 4 is lifecycle projection proper —
+wiring these operations into ticket-state projection and the gate
+machinery that decides when a bounce, a merge-forward or a merge
+actually fires — which this ticket's own scope excludes and no ticket
+has yet built. Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound

@@ -16,6 +16,20 @@ defmodule Catapult.Delivery.HostPort.Fake do
   default (a canned body has to match the tier's own grammar), so an
   unconfigured call raises loudly rather than returning a
   quietly-wrong success.
+
+  **ORC-31's branch/PR/comment/label/check operations** talk to
+  `Fake.Forge`, a per-test supervised process (`systems/delivery.md`'s
+  fake-process correction) reached under the fixed name
+  `Catapult.Delivery.HostPort.Fake.Forge` — a test starts one with
+  `start_supervised({Fake.Forge, name: Fake.Forge})` before driving
+  these, and runs `async: false` for the same reason
+  `dispatch_worker_test.exs` already does for `fake_dispatch_result`
+  above: a single well-known name, not one scoped per test. Each
+  operation here duplicates the *protocol* logic `HostPort.Actions`
+  runs — author-identity filtering on review comments, the marker
+  idempotency check — against `Forge`'s plain storage, rather than
+  sharing a helper that would let a bug in the shared logic hide from
+  both adapters at once.
   """
 
   require Logger
@@ -23,6 +37,8 @@ defmodule Catapult.Delivery.HostPort.Fake do
   @behaviour Catapult.Delivery.HostPort
 
   alias Catapult.Delivery.Dispatch
+  alias Catapult.Delivery.HostPort.Fake.Forge
+  alias Catapult.Delivery.HostPort.Marker
   alias Catapult.Delivery.Store
 
   @impl Catapult.Delivery.HostPort
@@ -84,5 +100,145 @@ defmodule Catapult.Delivery.HostPort.Fake do
     )
 
     :ok
+  end
+
+  ## ORC-31: branch/PR/comment/label/check operations, against `Forge`
+
+  @impl Catapult.Delivery.HostPort
+  def create_branch(_project_id, base_ref, branch_name) do
+    Forge.create_branch(forge!(), base_ref, branch_name)
+  end
+
+  @impl Catapult.Delivery.HostPort
+  def open_pr(_project_id, request), do: Forge.open_pr(forge!(), request)
+
+  @impl Catapult.Delivery.HostPort
+  def merge_forward(_project_id, source_branch, target_branch) do
+    Forge.merge_forward(forge!(), source_branch, target_branch)
+  end
+
+  @impl Catapult.Delivery.HostPort
+  def merge_pr(_project_id, pr_number, method), do: Forge.merge_pr(forge!(), pr_number, method)
+
+  @doc """
+  Same author-identity filter `HostPort.Actions` applies
+  (`systems/delivery.md`'s ORC-31 harvest-filter entry), run against
+  `Forge`'s seeded comments rather than GitHub's API response —
+  duplicated on purpose rather than shared, so a bug in the filter
+  itself would show up here too.
+  """
+  @impl Catapult.Delivery.HostPort
+  def read_review_comments(_project_id, pr_number, since) do
+    comments =
+      forge!()
+      |> Forge.list_review_comments(pr_number)
+      |> Enum.filter(&(human_authored?(&1) and posted_since?(&1, since)))
+      |> Enum.map(&normalize_review_comment/1)
+
+    {:ok, comments}
+  end
+
+  @doc "Same idempotency check as `HostPort.Actions`: skip the post if this exact marker is already there."
+  @impl Catapult.Delivery.HostPort
+  def write_marker_comment(_project_id, pr_number, kind, payload) do
+    forge = forge!()
+    existing = Forge.list_issue_comments(forge, pr_number)
+
+    if Enum.any?(existing, &matches_marker?(&1, kind, payload)) do
+      :ok
+    else
+      Forge.add_issue_comment(forge, pr_number, Marker.render(kind, payload))
+    end
+  end
+
+  @impl Catapult.Delivery.HostPort
+  def set_pr_labels(_project_id, pr_number, labels),
+    do: Forge.set_labels(forge!(), pr_number, labels)
+
+  @impl Catapult.Delivery.HostPort
+  def read_check_status(_project_id, head_sha) do
+    runs =
+      forge!()
+      |> Forge.list_check_runs(head_sha)
+      |> Enum.map(&normalize_check_run/1)
+
+    {:ok, runs}
+  end
+
+  @doc "Synthesizes a file-level diff between the PR's base and head branch snapshots — there is no real git object for a fake to read."
+  @impl Catapult.Delivery.HostPort
+  def read_diff(_project_id, pr_number) do
+    forge = forge!()
+
+    case Forge.get_pr(forge, pr_number) do
+      nil -> {:error, {:no_such_pr, pr_number}}
+      pr -> {:ok, synthesize_diff(forge, pr)}
+    end
+  end
+
+  defp forge! do
+    case Process.whereis(Forge) do
+      nil ->
+        raise """
+        Catapult.Delivery.HostPort.Fake needs Fake.Forge started — set:
+          {:ok, _pid} = start_supervised({Catapult.Delivery.HostPort.Fake.Forge, name: Catapult.Delivery.HostPort.Fake.Forge})
+        before calling a branch/PR/comment/label/check operation on the fake, and run the test `async: false`
+        (systems/delivery.md's fake-process correction — one well-known name, like `fake_dispatch_result` above).
+        """
+
+      _pid ->
+        Forge
+    end
+  end
+
+  defp human_authored?(%{performed_via_github_app: via_app}) when not is_nil(via_app), do: false
+  defp human_authored?(%{author_type: "Bot"}), do: false
+  defp human_authored?(_comment), do: true
+
+  defp posted_since?(_comment, nil), do: true
+  defp posted_since?(%{updated_at: nil}, _since), do: true
+
+  defp posted_since?(%{updated_at: %DateTime{} = updated_at}, since),
+    do: DateTime.compare(updated_at, since) != :lt
+
+  defp normalize_review_comment(comment),
+    do: Map.take(comment, [:id, :author_login, :body, :path, :line, :updated_at])
+
+  defp normalize_check_run(run) do
+    %{
+      name: Map.fetch!(run, :name),
+      status: Map.fetch!(run, :status),
+      conclusion: Map.get(run, :conclusion)
+    }
+  end
+
+  defp matches_marker?(%{body: body}, kind, payload) do
+    case Marker.parse(body) do
+      {:ok, {^kind, ^payload}} -> true
+      _ -> false
+    end
+  end
+
+  defp synthesize_diff(forge, pr) do
+    {:ok, base_files} = Forge.branch_files(forge, pr.base)
+    {:ok, head_files} = Forge.branch_files(forge, pr.head)
+
+    base_files
+    |> Map.keys()
+    |> Kernel.++(Map.keys(head_files))
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.map(&diff_line(&1, base_files, head_files))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n")
+  end
+
+  defp diff_line(path, base_files, head_files) do
+    case {Map.get(base_files, path), Map.get(head_files, path)} do
+      {nil, content} -> "+++ #{path}\n#{content}"
+      {content, nil} -> "--- #{path}\n#{content}"
+      {same, same} -> nil
+      {_old, new} -> "~~~ #{path}\n#{new}"
+    end
   end
 end
