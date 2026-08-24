@@ -572,12 +572,136 @@ design gates pass.
   terms, without needing a second, narrower reading of a rule
   recorded in another system's file.
 
+- **The storage question the three entries above leave open is
+  engine's, not this system's — corrected here rather than left to
+  read as a contradiction** (ORC-104, design pass;
+  `systems/engine.md`'s own new entry). "What this system owns, not
+  yet built: the storage distinguishing 'instances that exist' from
+  'the instance that is current'" read, at the sixth ORC-105 pass, as
+  a second store this system would keep. It is not: a container
+  instance's mint, its activation and every move of its current queue
+  are original protocol facts with nowhere else to be authoritative,
+  and `systems/engine.md`'s "a project has one aggregate, not two"
+  already settles where an original fact about a project lands —
+  `Catapult.Engine.Aggregate`, the same one every chain-axis event
+  already writes to, never a second aggregate or a delivery-owned
+  table standing in for one. What this system owns is the *dispatcher*
+  — deciding when a queue has emptied of unresolved work, when a
+  `blocks:` sibling has cleared, when a singleton queue's one work item
+  has gone terminal and its `retro`/`setup` may be dispatched — and
+  issuing the resulting command into engine's aggregate; engine
+  validates and records it, and its new projection is what this
+  system's dispatcher reads back, keeping no second copy of its own.
+  This is a real correction to what the sixth pass wrote, not a
+  rewording: this system's own store keeps nothing about container
+  position that engine's projection doesn't already hold.
+
+- **The dispatcher is a new process manager, `Catapult
+  .Delivery.ContainerLifecycle`, built beside `FeatureLifecycle` on the
+  identical `application: Catapult.Engine.Application`-subscribed
+  shape — and the first of this system's process managers that writes
+  back, not only reads** (ORC-104, design pass). Every process manager
+  this system has shipped so far (`FeatureLifecycle`, ORC-32) only
+  projects engine's events into this system's own read models; this
+  one also issues commands into `Catapult.Engine.Aggregate` once its
+  own dispatch conditions are met — the split `systems/engine.md`'s new
+  entry states from the other side. Dispatch stays uniform per
+  `dsl-syntax.md` §15.7: whatever a queue's resolved `flow:` turns out
+  to be, this process manager treats identically — a `ticket`-skeleton
+  resolution opens an ordinary flow instance through the existing
+  `OpenFlow` path (unchanged, still driven only by `ready_scopes` on
+  the chain-axis side), a `container`-skeleton or skeleton-less
+  resolution issues a mint command instead — never branching on
+  anything the queue entry itself declares, only on what the resolved
+  declaration contains. `retro` and `setup` are not special-cased here
+  either: each is an ordinary declared queue entry whose `flow:` names
+  an ordinary chain-bundle flow, dispatched the same way any other
+  queue's `flow:` is (`docs/v5-design-decisions.md` §7.8).
+
+- **Every carried finding leaves adjudicated, enforced as `retro`'s own
+  completion gate — not a separate check bolted on afterward**
+  (ORC-104, design pass). `retro`'s own flow, an ordinary
+  agent-dispatched work item like any other (`v5-design-decisions.md`
+  §7.8), reads the findings this milestone carried and, for each,
+  either opens it under its own key (an ordinary flow instance, through
+  the same uniform dispatch above) or writes a decline with its reason
+  — a new engine event, `FindingAdjudicated`, on the aggregate `retro`'s
+  own ticket already writes into. `retro`'s own queue does not resolve
+  to `terminal` while any finding it carries lacks one of those two
+  outcomes: the same shape as a `blocks:` relation holding a queue open
+  for unresolved work, applied to findings instead of work items,
+  because an unadjudicated finding is exactly that — unresolved work
+  this container is still holding.
+
+- **The aggregated flag set flips through the ordinary
+  intent → idempotent effect → observed completion discipline (§7.1),
+  because a flag flip is an external effect exactly like a GitHub call**
+  (ORC-104, design pass; v5 §2.10, §7.8). `retro`'s own flow computes
+  the union of `feature_flags/0`-registered flags across this
+  milestone's member features (membership read off `systems/engine
+  .md`'s new by-reference projection) once its own queue is otherwise
+  ready to resolve — after the `:live` gate has cleared (already
+  enforced structurally: `main`'s declared `blocks: [retro]` holds
+  `retro` open for exactly this) and the author's own manual pass. The
+  flip is not a plane-internal event alone: it is a
+  `FunWithFlags`-backed enable call, so it follows the outbox
+  discipline every other outbound act in this system already does — a
+  `FlagSetFlipRequested` intent event, an outbox worker performing the
+  enable calls, and a `FlagSetFlipped` completion event once the world
+  confirms. This is what makes "features merge dark as they complete;
+  the milestone lights up together" (§7.8) real behavior rather than a
+  grouping label on a query.
+
+- **Composition proposes and never commits, and proposes off the
+  structured signals this system already keeps rather than
+  reproducing orchestration's flat backlog view** (ORC-104, design
+  pass). `setup`'s own flow — forward-looking, dispatched the same
+  uniform way as any other queue entry — computes candidates for the
+  next container's `prep` from this system's own backlog/gating
+  projection and writes them to a new, purely computed proposal
+  read-model; nothing here creates a real ticket. Committing a proposal
+  into an actual `prep` entry is an ordinary ticket-open action, an
+  author's to take, unchanged by this ticket and out of its scope
+  (explicitly named as such in the ticket record) — the milestone
+  screen that will render this proposal list is dashboard v3's, later.
+  **The refusal this settles**: the tempting shape is the one
+  orchestration shipped — a backlog view keyed on a work item's key,
+  title, priority and gating state, which proposes a work item whose
+  own description argues it isn't ready every close, because nothing
+  in that view can see the argument. This system doesn't reproduce
+  that gap. A work item already carries structured signals orchestration's
+  flat view never had — `Stubbed` status (§7.6, "committed work
+  deliberately waiting"), and any unresolved blocking edge or
+  unmet context-walk dependency the engine already computes — and the
+  proposal query filters against those before a candidate is ever
+  written to the read-model, rather than surfacing every gating-state-
+  eligible item and letting a human filter prose out of a description
+  field by hand.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through
 the two gates; PR + harvesting; lifecycle projected into the plane's
 own read models, which the work surface renders — there is no third
-party in this path. **Narrowed at ORC-9**: the host port's
+party in this path. **Narrowed at ORC-104**: the container/queue
+machinery above — the dispatcher, mint vs. activation, the
+`blocks:`-aware completion check, the singleton-lifetime rejection,
+findings adjudication and the aggregated flag flip — lands in Phase 4
+too, ahead of the rest of Phase 7's two-grain delivery machinery
+(child lifecycle, mutex, dispatch, reconciliation, escalations, the
+maintenance watcher), for the reason the ticket record gives: no
+ticket before Phase 7 otherwise demonstrates the authoring loop closes
+over a container rather than remaining a claim about individual
+tickets. `docs/dsl-syntax.md` §15's grammar itself — the `types/<name>
+.yaml`/`gates/`/`environments/` loader, the declaration-graph
+acyclicity check, the `singleton:`/`blocks:` structural acceptance —
+is `systems/core_dsl.md`'s own file map (`lib/catapult/dsl/**`) and
+lands with this same ticket; no new system and no file-map change is
+needed for either half; the touch is core_dsl + engine + this system,
+their existing globs already covering every path this ticket's dev
+pass reaches.
+
+**Narrowed at ORC-9**: the host port's
 dispatch-facing slice — context-fetch, result-report, OIDC
 validation, run correlation, and its in-memory fake — lands in Phase
 3 with the generation executor (`systems/generation.md`), ahead of

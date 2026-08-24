@@ -403,6 +403,76 @@ them.
   disagreeing with v4's assumption enough to matter — nothing has run
   long enough yet to measure it.
 
+- **Container and workflow-axis lifecycle events land on the same
+  single per-project aggregate, not a second one** (ORC-104, design
+  pass; `docs/dsl-syntax.md` §15.6-§15.8, `docs/v5-design-decisions.md`
+  §7.8, settling what `systems/delivery.md`'s three ORC-105 entries
+  left as "not yet built... this system owns"). A container instance's
+  mint, its activation, each move of its current queue — forward past
+  a resolved gate, or backward when a queue's population refills or a
+  cited gate throws back (§15.8) — a carried finding's filing or
+  decline, and a milestone's flag-set flip are none of them derivable
+  from anything already in the log: nobody else records "this
+  milestone instance now exists" the way nobody else records "this
+  draft was approved." They are original protocol facts, the identical
+  shape `OpenFlow`/`CommitDraft`/`ApproveDraft` already are, and "a
+  project has one aggregate, not two" (above) already answers where
+  they land — `Catapult.Engine.Aggregate`, dispatched through the same
+  `Catapult.Engine.Router`, in the same per-project stream every
+  chain-axis event already writes to. New command/event modules join
+  the existing set under this doc's own file map
+  (`lib/catapult/engine/commands/**`, `lib/catapult/engine/events/**`),
+  not a parallel set delivery owns: a second Commanded aggregate
+  identified by `project_id` would be the second aggregate this doc
+  already refuses, and command modules living under delivery's own map
+  while dispatched through this system's router would point the
+  dependency the wrong way — `systems/delivery.md`'s own "Depends on"
+  already runs delivery → engine, never the reverse. Command
+  validation — a singleton queue's lifetime bound, a queue-advance
+  naming a declared anchor, a `blocks:` relation — reads the loaded
+  `Catapult.Dsl.Workflow.t()` the identical way the reducer already
+  resolves bundle semantics from the log rather than from whatever
+  `core_dsl` currently has loaded (above); this system already depends
+  on core_dsl for exactly this, so no new dependency edge is needed.
+
+  **This is the first command edge into this aggregate that isn't this
+  system's own.** Deciding *when* a queue has emptied or a `blocks:`
+  sibling has cleared, and issuing the command, is
+  `systems/delivery.md`'s new queue dispatcher; this system only
+  validates and records what it's told, exactly as "engine is state of
+  record, delivery is the protocol interpreting it" already reads in
+  that doc. The split is not new in kind, only new in direction — every
+  writer into this aggregate so far has been this system's own command
+  edge, not another system's process manager. It does not reopen "the
+  scheduler dispatches to no component by name," several bullets up:
+  that invariant is scoped to the chain-axis generation signal
+  (`ready_scopes`) specifically, and stands exactly as written — a
+  queue's resolved `flow:` that turns out to open ordinary ticket work
+  still dispatches through the existing `OpenFlow` path, driven by
+  nothing but `ready_scopes`, unchanged.
+
+- **Membership is derived by reference, never a stored list — the
+  queue-as-query principle applied one level up** (ORC-104, design
+  pass; ORC-105's grammar, `dsl-syntax.md` §15.6-§15.7,
+  `docs/v5-design-decisions.md` §7.8's "containers and projects alike
+  keep references to their work items even once archived"). A
+  container's access path to its own work is answerable from each work
+  item's own `container_id` — set once, at open, the same way
+  `project_id` already is — filtered to this container instance, with
+  no resolution predicate to make it look like a queue's population
+  query. Archiving a work item is policy, decided at
+  `systems/delivery.md`, and never touches this column, so the
+  reference survives archival for free: no membership list to keep in
+  sync, and nothing here reopens `ready_scopes`'s own "never
+  materialized" reasoning by writing a bucket for a different query
+  that reasoning already refused a bucket for. A new projection reads
+  current queue position per container instance in the same shape the
+  ninth projection already gives current bundle version — one row per
+  instance, current queue and the sequence it became current — since
+  "which instance is minted vs. which is active" (`dsl-syntax.md`
+  §15.8) is exactly that same two-fact shape, mint recorded once and
+  activation a later, separate write to the same row.
+
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event
