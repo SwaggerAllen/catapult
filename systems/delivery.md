@@ -285,6 +285,14 @@ design gates pass.
   the store, not a restatement of it. Markers are unchanged for *our*
   own machine (marker-comment write); author-identity filtering is
   what now stands in for "unmarked" on the review-comment side.
+  **Placement correction (ORC-31, design pass, second author review):**
+  the first draft of this correction recorded the revision here only,
+  leaving `docs/v5-design-decisions.md` §7.4 still reading the
+  superseded marker-only sentence — the source of truth disagreeing
+  with the system doc about which rule is live. §7.4 now carries this
+  mechanism, its reason and its residual directly; this bullet is the
+  fuller argument the doc text points back to, not a second place the
+  decision was made.
 - **List-shaped read operations page to exhaustion; neither asserts a
   bound it hasn't measured** (ORC-31, design pass, author-review
   correction). `review-comment read` and `check-status read` are both
@@ -312,7 +320,17 @@ design gates pass.
   exact comment body and a parse function reading one back —
   `{:ok, {kind, payload}} | :not_a_marker` — so no call site builds a
   marker string by interpolation and no call site greps a comment
-  body for a substring. Phase 4 needs exactly one kind to start: the
+  body for a substring. **`parse/1`'s named caller (ORC-31, design
+  pass, author-review addition): marker-comment write's own
+  idempotency check.** Before posting a new bounce, the plane lists
+  the PR's existing issue-level comments and parses each with this
+  function to check whether the scope-violation marker for this gate
+  decline is already there, so a re-triggered decline path (a retry,
+  a resumed pass) doesn't post a second `Ready for rework` comment.
+  This is a read of the plane's own issue-level comments and is not
+  the harvesting read — `parse/1` never sees a line-anchored review
+  comment, and harvesting's classification (the correction above)
+  never calls it. Phase 4 needs exactly one kind to start: the
   scope-violation bounce already named in §7.5 ("a plane-authored
   marker comment naming the paths, `Ready for rework`"). Later kinds
   — §7.11's findings marker, §7.14's bug-intake sequence stamp — join
