@@ -231,6 +231,188 @@ design gates pass.
   it. Neither correction changes this system's shape, only what its
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
+- **ORC-31 (design pass) extends the Host port's operation vocabulary
+  for feature-lifecycle PR management and decline harvesting** —
+  branch, PR-open, merge-forward, merge, review-comment read, marker-
+  comment write, PR-label set, and check-status read, plus a diff
+  read for reconciliation. Each is traced to the protocol clause it
+  serves rather than to what GitHub happens to expose (v5 §7.17's
+  first discipline): branch/PR-open/merge-forward/merge cover §7.5's
+  topology (child PR → feature branch, feature PR → main; merge-
+  forward absorbs drift continuously and surfaces a conflict as a
+  real signal, never a silent resolution); PR-label set is how the
+  plane marks `ci:docs`/`ci:code` for §7.7's job selection; check-
+  status read answers back keyed to head SHA regardless of base
+  branch, exactly as §7.7 requires; review-comment read and marker-
+  comment write are §7.4's harvesting split, and they are two
+  different GitHub comment kinds by design, not by convention —
+  review-comment read pulls line-anchored review comments (the
+  harvesting source), marker-comment write posts plane-authored,
+  issue-level PR comments (bounces, findings). Keeping them on
+  separate GitHub APIs is necessary but not, on its own, sufficient
+  for telling human feedback from machine feedback — see the
+  correction below. Diff read is this ticket's
+  own restated invariant (conventions §11): the port moves refs and
+  reads diffs, it never checks out. As with every earlier operation
+  on this port, each lands in `HostPort.Actions` and `HostPort.Fake`
+  in the same change — never one ahead of the other.
+- **Author-review correction: harvesting classification filters by
+  author identity, not by endpoint alone — a revision to §7.4's
+  classification mechanism for the GitHub-PR surface, not an
+  application of it** (ORC-31, design pass, second draft). The first
+  draft treated "arrived via the review-comment endpoint" as
+  sufficient to call a comment human, and presented that as §7.4
+  holding unchanged. It doesn't hold as written: §7.4's rule covers
+  *any* machine, because its premise is that machines mark, while
+  endpoint-of-origin covers only *our* machine. Every third-party
+  actor with review access — a GitHub App, a linter, a review bot,
+  Claude Code's own inline review comments — posts through the
+  identical review-comment endpoint a human uses; under
+  endpoint-alone classification those harvest as human declines and
+  thread into regeneration as author feedback, silently. **Revision:**
+  review-comment read filters its results by author identity before
+  anything is treated as harvestable — `performed_via_github_app` is
+  reliable for GitHub-App-authored comments, `user.type == "Bot"` is
+  reliable for bot accounts, and either excludes a comment from the
+  human bucket. **Residual, named rather than hidden:** a bot
+  authenticating with a human's personal access token is
+  indistinguishable from that human at the API; nothing here closes
+  that gap, and no fix is known. This is the strongest of the three
+  mechanisms considered (markers, endpoint-alone, author-identity)
+  because it needs no third party to cooperate with a convention it
+  has never heard of — but it is a revision of §7.4's text ("anything
+  unmarked... is human feedback") for the surface where we don't own
+  the store, not a restatement of it. Markers are unchanged for *our*
+  own machine (marker-comment write); author-identity filtering is
+  what now stands in for "unmarked" on the review-comment side.
+  **Placement correction (ORC-31, design pass, second author review):**
+  the first draft of this correction recorded the revision here only,
+  leaving `docs/v5-design-decisions.md` §7.4 still reading the
+  superseded marker-only sentence — the source of truth disagreeing
+  with the system doc about which rule is live. §7.4 now carries this
+  mechanism, its reason and its residual directly; this bullet is the
+  fuller argument the doc text points back to, not a second place the
+  decision was made.
+- **List-shaped read operations page to exhaustion; neither asserts a
+  bound it hasn't measured** (ORC-31, design pass, author-review
+  correction). `review-comment read` and `check-status read` are both
+  list reads with no natural cap — a contested review on a real gate
+  decline is not a handful of comments. This project has already
+  shipped the single-page version of this defect once, in the sibling
+  adapter: ORC-101 (Triage) found the Go pipeline's
+  `internal/host/github/github.go` `ListAgentRuns` reading exactly one
+  `per_page=100` page with no filter, on the reasoning "anything past
+  100 runs ago is not it" — reasoning that turned out wrong under
+  sweep noise. `HostPort.Actions` follows GitHub's pagination (the
+  `Link` header / cursor) to exhaustion for both operations rather
+  than reading one page and assuming the rest doesn't matter;
+  `HostPort.Fake` mirrors the same contract — its fixtures include a
+  multi-page case for each, not only a single-page one — so the
+  offline sim ring can catch a caller that assumes one page is
+  everything. No cap is imposed at this layer; a rate/cost bound, if
+  one turns out to be needed, is a dispatch-budget decision (v5
+  §7.12.1), not a silent truncation here.
+- **The marker vocabulary is a typed module, scoped to GitHub PR
+  comments only** (ORC-31, design pass; extends the marker-retirement
+  bullet above rather than reopening it). `HostPort.Marker` (naming
+  follows `HostPort.Actions`/`HostPort.Fake`'s own pattern) holds a
+  closed enum of kinds, each with a render function producing the
+  exact comment body and a parse function reading one back —
+  `{:ok, {kind, payload}} | :not_a_marker` — so no call site builds a
+  marker string by interpolation and no call site greps a comment
+  body for a substring. **`parse/1`'s named caller (ORC-31, design
+  pass, author-review addition): marker-comment write's own
+  idempotency check.** Before posting a new bounce, the plane lists
+  the PR's existing issue-level comments and parses each with this
+  function to check whether the scope-violation marker for this gate
+  decline is already there, so a re-triggered decline path (a retry,
+  a resumed pass) doesn't post a second `Ready for rework` comment.
+  This is a read of the plane's own issue-level comments and is not
+  the harvesting read — `parse/1` never sees a line-anchored review
+  comment, and harvesting's classification (the correction above)
+  never calls it. Phase 4 needs exactly one kind to start: the
+  scope-violation bounce already named in §7.5 ("a plane-authored
+  marker comment naming the paths, `Ready for rework`"). Later kinds
+  — §7.11's findings marker, §7.14's bug-intake sequence stamp — join
+  the same closed enum when their phase needs them; they are not
+  invented ad hoc at whichever call site first wants one. This module
+  governs the write side only. **The read side needs no parser of its
+  own only because the plane never authors a line-anchored review
+  comment — an invariant to keep, not a free property, and it is
+  recorded here so the next pass sees it before it breaks it** (ORC-31,
+  design pass, author-review addition). Today that premise holds
+  because no plane operation posts a line-anchored comment at all,
+  which is what makes the property cost nothing rather than something
+  enforced. If a later ticket adds one — a review-thread reply is an
+  obvious want when declining a decline — that comment would arrive
+  through the same review-comment endpoint the harvesting read
+  otherwise treats as candidate human feedback, and it would harvest
+  as feedback on its own author's comment with nothing here to catch
+  it. Should that operation ever land, harvesting's read side needs
+  the same author-identity filter the correction above puts on
+  review-comment read generally — excluding the plane's own GitHub
+  identity alongside third-party bots and Apps — not a return to
+  string-parsing. Until then, "unmarked" means: arrived as a review
+  comment, and not filtered out by the author-identity check above —
+  not, as the first draft had it, simply "arrived as a review
+  comment."
+- ~~**The Fake's forge state lives in `Catapult.Delivery.Store`, not a
+  second process.** Branches, open PRs, posted comments and check runs
+  are exactly the same shape of problem `dispatch_run` already solved:
+  state one test writes and the same test reads back, sandboxed
+  per-test under `mix test`'s async runs. `HostPort.Fake` gains no
+  GenServer identity and no in-memory map for this — new Store-owned
+  Ecto tables carry it, the same persistence substrate every other
+  delivery record already uses, so the fake stays sandbox-safe without
+  inventing a second state mechanism this system would then have to
+  keep consistent with the first.~~ **Corrected (ORC-31, design pass,
+  author review): a per-test supervised process, not a Store table.**
+  The struck claim's precedent doesn't transfer: `delivery_dispatch_runs`
+  is written by the *real* adapter as well as the fake —
+  `HostPort.Actions` opens that record on every live dispatch, because
+  it is production state the plane genuinely keeps — while branches,
+  PRs, comments and check runs have no production writer at all; GitHub
+  holds them, and the real adapter only ever reads them back. New Store
+  tables for those would exist solely for the fake, inside the plane's
+  production schema, with nothing in production ever writing a row. The
+  reason given for refusing an in-memory fake — sandbox safety under
+  `mix test`'s async runs — has an answer that needs no schema: a
+  per-test supervised process, isolated by construction, since no
+  database is involved there is no sandbox to need. `HostPort.Fake`
+  gains a GenServer per test (started and stopped with the test, like
+  any other test-owned process in this codebase) holding branches,
+  PRs, comments and check runs in memory, keyed to that process — not
+  a Store table. Store-backing forge state may still turn out to be
+  the right call — the fake surviving a `Repo` restart, or the sim ring
+  wanting to query forge state through the same surface as everything
+  else, are real arguments for it — but that argument wasn't made here,
+  so this entry doesn't make the decision on its behalf.
+- **No HTTP-mock-server-based fake** (ORC-31, design pass; refusal,
+  scope: system:delivery). The Actions adapter's own code path could
+  run unmodified against a stub GitHub server (Bypass, a cassette
+  replay of the REST API), and that will look like the easier fake to
+  write. Refused: it fakes the vendor's transport, not the protocol —
+  the exact property v5 §7.17's second discipline names ("the fake is
+  written against the protocol rather than mirroring the adapter"),
+  and an HTTP-level stub would quietly start requiring GitHub's own
+  URL shape, pagination and rate-limit behavior to keep the fake
+  alive, which is the coupling the fake exists to avoid. `HostPort
+  .Fake` stays a plain Elixir implementation of the behaviour with no
+  HTTP dependency at all.
+- **The sim-style test ring drives a full branch → PR → comment →
+  harvest → merge-forward → merge scenario through `HostPort.Fake`
+  alone, with no network** (ORC-31, design pass). It lives beside the
+  rest of this system's suite, under this doc's own file map
+  (`test/catapult/delivery/`) — no separate ring or `live` directory,
+  the same reasoning `docs/non-goals.md`'s no-`test/live/`-directory
+  entry already gives for a different tag. It carries no `:live` tag
+  itself: nothing in it crosses a real network boundary, so the ring
+  is an ordinary async suite member, not a live one. Populating this
+  ring is scope, not scaffolding — the same standing principle
+  `systems/generation.md` states for the dispatch fake — because it
+  is what lets protocol work on branches, PRs and harvesting continue
+  to be exercised, and continue to be provably correct, on a day
+  GitHub itself is down.
 
 ## Initial vs target
 
@@ -255,9 +437,17 @@ dashboard's Phase 4/7 web layer. **Narrowed again at ORC-10**: the
 repo-reset operation above, and the `Contents: read and write` grant
 it draws on, land with it — a second sliver of Phase 4's host port
 pulled into Phase 3 for the same reason the first one was, because the
-milestone boundary test needs it now. Feature-lifecycle PR management
-and decline harvesting proper are unaffected and still open at Phase
-4. Target
+milestone boundary test needs it now. **ORC-31 (design pass) records
+the shape of the rest of Phase 4's host port** — the operation
+vocabulary, the marker-vocabulary module and the sim-style test ring,
+above — ahead of the dev pass that builds it. **ORC-31's dev pass
+lands that shape**: the operation vocabulary in both `HostPort
+.Actions` and `HostPort.Fake`, `HostPort.Marker`, and the offline sim
+ring. What stays open at Phase 4 is lifecycle projection proper —
+wiring these operations into ticket-state projection and the gate
+machinery that decides when a bounce, a merge-forward or a merge
+actually fires — which this ticket's own scope excludes and no ticket
+has yet built. Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound

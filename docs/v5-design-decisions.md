@@ -1812,10 +1812,26 @@ dissolved by giving every feedback type a home:
    told apart now depends on the surface.** On surfaces we own,
    plane-authored annotations are *records with kinds* and no prose
    is parsed — the marker rule is retired there (`docs/ui-spec.md`,
-   `systems/delivery.md`). On GitHub PRs, which we do not own,
-   machine comments still carry fixed markers and anything unmarked
-   in the diff span is human feedback: the original reason holds
-   exactly where the store is somebody else's.
+   `systems/delivery.md`). On GitHub PRs, which we do not own, the
+   plane's own comments still carry fixed markers, posted issue-level
+   rather than line-anchored, which is what the original reason —
+   the store is somebody else's, so typed data needs a convention —
+   still covers exactly. **Revised (ORC-31): that convention no
+   longer decides which *review* comments count as human.** The
+   original rule assumed any machine-authored comment could be told
+   apart by checking for the marker, but a marker is a convention
+   only *our* machine follows; any third-party actor with review
+   access — a GitHub App, a bot, a review tool, Claude Code's own
+   inline review comments — posts through the identical line-anchored
+   review-comment endpoint a human uses, unmarked, and endpoint-of-
+   origin alone would harvest those as human feedback. So a review
+   comment is treated as human feedback only once it also survives an
+   author-identity filter: `performed_via_github_app` excludes
+   GitHub-App-authored comments, `user.type == "Bot"` excludes bot
+   accounts. **Residual, named rather than hidden:** a bot
+   authenticating with a human's personal access token is
+   indistinguishable from that human at the API; nothing here closes
+   that gap. Mechanism and rationale in full: `systems/delivery.md`.
 3. **Preview URLs / storybook exports** — visual review, per branch.
 4. **The docs site** — human browsing of settled architecture.
 
