@@ -2050,6 +2050,28 @@ tiers a generation fanned into, and only a `generation` anchor —
 which neither a `container`- nor a `none`-skeleton type has — gives
 it something to select within (`dsl-syntax.md` §15.5).
 
+**A fifth pass found the fourth pass's own `none` carve-outs were two
+different mistakes wearing one design, and corrected both.** First,
+cosmetic but worth naming: `skeleton: none` was a value spent on
+exactly the fact its own absence already states. `skeleton:` is
+optional now — `ticket` and `container` are the only two real values,
+and a type declaring neither has no anchors at all (`dsl-syntax.md`
+§15.1) — which also retires the fourth pass's "at most one loaded
+`skeleton: none` declaration" load check: rootness is derived from the
+declaration graph (below), not policed by a value. Second, and
+load-bearing rather than cosmetic: excluding the project's array from
+gates and environments read "all review happens at lower levels" as a
+claim about array *content*, when it was only ever the argument for
+why a project needs no *re-resolution anchor* — a different claim, and
+the governing rule this section opens with never mentioned the project
+either way. **Gates and environments now widen onto every type,
+skeleton-less ones included**; a human sign-off between two of a
+project's own queues is the milestone example's own logic one level
+up, and there was never an argued reason to refuse it. Critique alone
+stays the one carve-out, for the reason already given — a `generation`
+anchor is what gives its depth something to select within, and no
+skeleton-less type has one.
+
 **The same fourth pass retired `after:` for the same reason it
 unified the three shapes: array position said everything `after:` did
 and more precisely.** A gate's own former predecessor field required
@@ -2081,8 +2103,9 @@ declaration shape.** The reversal at this section's second pass —
 against its own first draft, which gave `project` and `milestone` a
 shared shape off one `container:` field checked against a two-member
 registry — still holds; the fourth pass's unification gives every
-`skeleton:` value the same *file* shape without erasing what makes
-`none` different. **A project's queue sequence is fully declared by
+type the same *file* shape, whatever `skeleton:` it declares or
+omits, without erasing what makes a skeleton-less declaration
+different. **A project's queue sequence is fully declared by
 the workflow bundle** — any names, any count, any order, chosen
 freely because a project needs no re-resolution anchor (all review
 happens at lower levels, and a workflow cutover mid-project isn't the
@@ -2111,17 +2134,29 @@ at now.
 
 **Acyclicity is a load-time check over container *declarations*, not
 a runtime check over container *instances* — getting this altitude
-right took two passes.** The first pass reached for "no container may
-be its own ancestor," checked as instances mint; the corrected
-version is a static check of the declaration graph itself — the graph
-of `type:` names connected by `flow:` edges whose target resolves to a
-`container`-skeleton type — which must be acyclic, with a type naming
-itself the degenerate one-node case of the same rule (`dsl-syntax.md`
-§13). A `flow:` edge whose target resolves to a `ticket`-skeleton type
-takes no part in this graph — a `ticket`-skeleton type declares no
-further `flow:` of its own, so it is always a leaf. The instance-level
-version is
-not merely redundant, it is the wrong tool: it leaves unbounded depth
+right took two passes, and getting the graph's own node set right took
+a third.** The first pass reached for "no container may be its own
+ancestor," checked as instances mint; the corrected version is a
+static check of the declaration graph itself — **nodes are every type
+with a queue-shaped anchor, edges are `flow:` references between
+them** — which must be acyclic, with a type naming itself the
+degenerate one-node case of the same rule (`dsl-syntax.md` §13). A
+`flow:` edge whose target resolves to a `ticket`-skeleton type takes
+no part in this graph — a `ticket`-skeleton type declares no further
+`flow:` of its own, so it is always a leaf. **The fourth pass's own
+version of this graph admitted only `container`-skeleton types as
+nodes, which left a hole a fifth pass found:** excluding skeleton-less
+types from the node set excludes every edge *into* one by
+construction, and that is exactly the edge a cycle through the project
+can run on — `milestone`'s `main` entry naming `flow: project`
+alongside `project`'s `build-out` entry naming `flow: milestone` is a
+genuine two-node cycle that the narrower graph never built, so it
+loaded clean and would have been caught only if some live chain of
+instances happened to close the loop. A skeleton-less type's array is
+entirely queue-shaped — the same property that makes a
+`container`-skeleton type nestable — so the node set now includes both
+alike. The instance-level
+version is not merely redundant, it is the wrong tool: it leaves unbounded depth
 *declarable*, caught only when some live chain of instances happens
 to close the loop, which trades a load-time failure for a mid-flight
 one — the identical trade this project has already made the other
@@ -2172,9 +2207,9 @@ it post-ORC-87, `Store.list_project_ids/0` enumerates them, and the
 active-bundle-version projection already keys current bundle versions
 per project per axis (`systems/engine.md`'s ninth projection). The
 project isn't a new concept acquiring a workflow; it's the existing
-outermost scope finally having one, declared with `skeleton: none`
-(`dsl-syntax.md` §15.1) rather than borrowing the container's fixed
-anchors. Its queues, in order:
+outermost scope finally having one, declared with no `skeleton:` at
+all (`dsl-syntax.md` §15.1) rather than borrowing the container's
+fixed anchors. Its queues, in order:
 `initialization` → `scaffolding` → `build-out` → `iteration` →
 `maintenance` → `deprecating` → `sunsetting` — the default bundle's
 own authored choice, not a platform requirement, since a project's
@@ -2250,7 +2285,20 @@ follows the direction each looks: `retro` —
 backward — adjudicates carried findings, scans the diff for debt,
 updates the milestone's tickets to reflect what actually landed, and
 flips the aggregated flag set (below); `setup` — forward — grooms,
-sets blockers, and fills `prep`. Both are **ordinary work items**:
+sets blockers, and fills `prep`. **Both `milestone`'s `setup` and
+`retro` anchor entries are declared `singleton: true`** (a fifth-pass
+addition, `dsl-syntax.md` §15.7): each holds at most one work item at
+a time, which is what lets the dispatcher address *the* setup or *the*
+retro work item directly rather than iterating a set that structurally
+never holds more than one — the bound is declared, not read off either
+anchor's name, since the grammar has spent four passes removing
+exactly that kind of implicit fact. A second arrival at either — a
+second ticket dispatched to the queue before the first resolves — is
+admitted and files `Blocked`, the same defined failure an unrecognized
+`flow:` label
+already produces, rather than a silent refusal that would leave the
+second work item's own author with nothing to look at. Both are
+**ordinary work items**:
 there is a ticket again, and it is not the thing that was removed.
 What's absent is the *pause-proxy* — a ticket standing in for
 container state a borrowed tracker had nowhere else to hold

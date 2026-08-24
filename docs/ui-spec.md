@@ -215,8 +215,8 @@ ORC-105 from a single boundary point to a declared queue sequence).
 - what is committed, what is in flight, what is `Stubbed` and why —
   the "live, visible list of what is deliberately half-built" §7.11
   already requires
-- which queue (`prep`/`main`/`retro`/`cleanup`) is current, and any
-  `blocks:` condition holding it there
+- which queue (`setup`/`prep`/`main`/`retro`/`cleanup`) is current, and
+  any `blocks:` condition holding it there
 
 **`triage`** — machinery-filed work awaiting batch-accept.
 

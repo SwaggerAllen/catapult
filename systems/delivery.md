@@ -174,12 +174,41 @@ design gates pass.
   wants: grooming next milestone's `prep` during this milestone's own
   `main`. What this system owns, not yet built: the storage
   distinguishing "instances that exist" from "the instance that is
-  current," and the rule that a container's position only ever moves
-  backward because a queue — a query over unresolved work items —
-  un-resolves when its population refills, never through a
-  `throwback:`-shaped event of its own (a container's anchor entries
-  carry no gates, so they have no `throwback:` to borrow). Filed
-  against ORC-104 alongside the rest of this entry's Target list.
+  current," and the two ways a container's position moves backward — a
+  queue (a query over unresolved work items) un-resolving when its
+  population refills, or a gate the container's own array cites
+  throwing back to an earlier entry in that array. **The second way is
+  a fifth-pass correction**, not a fourth-pass fact: the fourth pass's
+  own "a container's anchor entries carry no gates, so they have no
+  `throwback:` to borrow" stopped being true the moment gates and
+  environments widened onto containers in the same pass that wrote it
+  (`docs/dsl-syntax.md` §15.2, §15.4, §15.8) — a milestone sign-off
+  gate between `main` and `retro` can throw back to `main` today, and
+  this system's dispatcher has to honor that path alongside the
+  un-resolve one, not only the one the earlier framing left standing.
+  Filed against ORC-104 alongside the rest of this entry's Target list.
+- **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
+  respect and closed a hole in the loader's own acyclicity check that
+  this system's dispatcher would otherwise have inherited** (design
+  pass; `docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
+  §7.8). `milestone`'s `setup` and `retro` queues are declared
+  `singleton: true` — population bounded to 0 or 1 — which is not
+  something the loader can check (a queue's population is live ticket
+  state) and is therefore this system's own dispatcher's job: a second
+  work item arriving at either queue is admitted and files `Blocked`,
+  the same defined failure this system already produces for an
+  unrecognized `flow:` label, rather than a silent refusal. Separately,
+  the declaration-graph acyclicity check ORC-104 is filed to build
+  (above) now has to treat a skeleton-less type — the project included
+  — as a graph node, not only a `container`-skeleton type: the fourth
+  pass's narrower node set excluded the exact edge a project/container
+  cycle runs on (`milestone.main` → `flow: project`, `project.build-
+  out` → `flow: milestone`), so a loader built against the fourth
+  pass's own record would have let that cycle through. Nothing in
+  this system's own dispatch logic changes shape from either
+  correction — both are about what the loader accepts before this
+  system ever sees a bundle — but the Target build has to read the
+  corrected record, not the superseded one.
 
 ## Initial vs target
 

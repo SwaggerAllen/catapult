@@ -310,6 +310,40 @@ context-source kinds, and audit profiles.
   loader error messages or generated UI copy, at which point the two
   senses collide in exactly the way the doc rename exists to prevent.
 
+- **A fifth ORC-105 pass corrected two errors the fourth pass's own
+  three-valued `skeleton:` field had baked in, and added one field**
+  (design pass; `docs/dsl-syntax.md` §15.1-§15.9; `docs/v5-design-
+  decisions.md` §7.8). `skeleton:` is optional rather than
+  `ticket | container | none` — a type declaring neither has no
+  anchors at all, which retires the loader's "at most one loaded
+  `skeleton: none` declaration" check outright rather than replacing
+  it: rootness is a node nothing else's `flow:` targets, derived from
+  the declaration graph the loader already builds, never a value a
+  second check has to police. **The declaration-graph acyclicity
+  check's own node set was wrong** — the fourth pass admitted only
+  `container`-skeleton types as nodes, which excluded every `flow:`
+  edge *into* a skeleton-less type by construction and left a real
+  cycle undetected (`milestone.main` naming `flow: project` alongside
+  `project.build-out` naming `flow: milestone`); the loader now treats
+  any type with a queue-shaped anchor — `container`-skeleton or
+  skeleton-less alike — as a graph node, which closes the hole and
+  also reverses the fourth pass's own "a `flow:` naming a
+  `none`-skeleton type is a load error." **Gates and environments
+  widen onto skeleton-less types too** — the fourth pass's restriction
+  read an argument for why a project needs no re-resolution anchor as
+  an argument about what its array may contain, which the governing
+  rule never actually claimed. **New: `singleton: true` on a
+  queue-shaped anchor entry**, bounding a queue's population to 0 or
+  1 for plane code to address directly (`milestone`'s `setup` and
+  `retro` are the motivating declarations) — not a load-time check
+  (population is live state), and the loader's job stops at accepting
+  the field; a second arrival at a singleton queue is dispatch
+  behavior, not a grammar concern, and is recorded in
+  `docs/v5-design-decisions.md` §7.8 as filing `Blocked` rather than
+  refusing the dispatch. **Not built as part of this pass**, same as
+  the third and fourth: the dispatcher, the sweep, the scan/setup/retro
+  machinery, and the singleton-queue arrival check — ORC-104's.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

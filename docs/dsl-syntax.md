@@ -643,10 +643,15 @@ Added with the two axes and the declarable protocol surface (v5
   rule above is unaffected: a pair's two positions are still ceilings,
   never claims checked against the chain's actual fan-out;
 - **a `critique` entry must sit immediately after a `generation` entry
-  in the same type's `statuses:` array** (§15.5) — a `critique` entry
-  in a `container`- or `none`-skeleton type's array, or one not
-  adjacent to a `generation` entry, is a load error naming the
-  declaration and the position. There is deliberately no `enabled:`
+  in the same type's `statuses:` array** (§15.5) — no skeleton
+  mentioned, and none is needed: a `container`-skeleton type and a
+  skeleton-less type have no `generation` anchor to sit after in the
+  first place, so this one rule already excludes both without a
+  separate skeleton check to duplicate it (a fifth-pass simplification
+  — an earlier draft named the excluded skeletons explicitly, which
+  said the same thing a second way). A `critique` entry not adjacent
+  to a `generation` entry is a load error naming the declaration and
+  the position. There is deliberately no `enabled:`
   field anywhere in this grammar: a `generation` entry's mere absence
   of an adjacent `critique` entry already means "does not run" (v5
   §7.19, ORC-92). Neither a gate's, an environment's, nor a
@@ -657,11 +662,8 @@ Added with the two axes and the declarable protocol surface (v5
   exist within the citing type's own array, and its declared
   escalation policy is well-formed;
 - **a `type:` name is unique in the loaded union, whatever `skeleton:`
-  it declares** — `container`, `ticket` and `none` share one
-  namespace (§15.2);
-- **at most one loaded type declares `skeleton: none`** — the
-  project's own singularity, checked structurally rather than by a
-  reserved name (§15.2);
+  it declares or omits** — `container`- and `ticket`-skeleton types
+  and skeleton-less types share one namespace (§15.2);
 - **every `container`-skeleton type's `statuses:` array holds exactly
   the five platform-fixed anchor names, each exactly once, in exactly
   this order: `setup`, `prep`, `main`, `retro`, `cleanup`, followed by
@@ -711,33 +713,39 @@ checked against a two-member `container:` registry), its second
 registered type per file, but still three file locations for
 `project`, `container` and plain-type declarations); nothing below
 has ever loaded, so this is the vocabulary's first landing, not a
-revision of one in the loaded union):
+revision of one in the loaded union; amended at the fifth pass —
+`skeleton:` becomes optional rather than a three-valued field, and the
+`review:`/`environment:`/`flow:` restrictions below are corrected to
+match):
 
 - **`types/<name>.yaml` is the one declaration shape, directory-shaped
   because a bundle declares more than one** — `type:` names the
-  declaration, `skeleton:` selects `ticket`, `container` or `none`
-  (§15.1), and `statuses:` is the ordered array §15.1's per-skeleton
-  checks above and §15.3-§15.5's positional checks below both run
-  over. There is one shared registry `flow:` resolves against (§15.2),
-  regardless of which skeleton a given declaration picks;
+  declaration, `skeleton:` optionally selects `ticket` or `container`
+  (§15.1; omitted means no anchors), and `statuses:` is the ordered
+  array §15.1's per-skeleton checks above and §15.3-§15.5's positional
+  checks below both run over. There is one shared registry `flow:`
+  resolves against (§15.2), whatever skeleton a given declaration
+  picks or omits;
 - **a `statuses:` array entry is exactly one of: a skeleton anchor
   (`status:`, from the closed set §15.1 fixes for this declaration's
-  own `skeleton:`), a gate reference (`review:`, naming a gate
-  declared in the loaded union), or an environment reference
-  (`environment:`, naming an environment declared in the loaded
-  union)** — an entry carrying more than one of these three keys, or
-  none of them, is a load error;
-- **a `review:` or `environment:` entry is legal only in a `ticket`-
-  or `container`-skeleton type's array** — a `none`-skeleton type's
-  array is entirely `status:` entries, since "all review happens at
-  lower levels" (§15.1) is a property of the project specifically, not
-  a further case of §15.2's ticket-versus-container governing rule. A
-  `review:` or `environment:` entry in a `none`-skeleton type is a
-  load error;
+  own `skeleton:`, or an author-chosen name if `skeleton:` is
+  omitted), a gate reference (`review:`, naming a gate declared in the
+  loaded union), or an environment reference (`environment:`, naming
+  an environment declared in the loaded union)** — an entry carrying
+  more than one of these three keys, or none of them, is a load error;
+- **a `review:` or `environment:` entry is legal in any type's array,
+  whatever `skeleton:` it declares or omits** (a fifth-pass reversal —
+  the fourth pass's own load error for a `review:` or `environment:`
+  entry in a skeleton-less type's array is retired along with the
+  reasoning it was checking: "all review happens at lower levels" was
+  never a claim about what a skeleton-less array may contain, only
+  about why it needs no re-resolution anchor, §15.2). Critique alone
+  stays restricted — see the `container`-and-skeleton-less exclusion
+  above;
 - **`flow:` and `blocks:` are legal only on a queue-shaped anchor
   entry** — a `status:` entry whose name is one of a `container`-
   skeleton type's five anchors, or any `status:` entry in a
-  `none`-skeleton type's array. `flow:` is required there and absent
+  skeleton-less type's array. `flow:` is required there and absent
   everywhere else; `blocks:` is optional there and absent everywhere
   else. A `review:` or `environment:` entry carrying either is a load
   error, as is a `ticket`-skeleton type's `generation`, `checks`,
@@ -748,13 +756,20 @@ revision of one in the loaded union):
   `flow:`/`opens:` pair outright, not merely renames one half of it:
   there is no structural difference, on the entry itself, between
   "this queue dispatches a ticket" and "this queue opens a nested
-  container" for the loader to branch on. What the resolved name turns
+  instance" for the loader to branch on. What the resolved name turns
   out to be — a `ticket`-skeleton type (dispatch terminates there, an
-  ordinary ticket) or a `container`-skeleton type (dispatch mints a
-  new instance, §15.8) — is visible only from what the *resolved
-  declaration's own* `skeleton:` says, never from anything the queue
-  entry itself declares. A `flow:` naming a `none`-skeleton type is a
-  load error: nothing nests into a project (§15.6);
+  ordinary ticket) or a type with a queue-shaped anchor of its own, a
+  `container`-skeleton type or a skeleton-less one alike (dispatch
+  mints a new instance, §15.8) — is visible only from what the
+  *resolved declaration's own* `skeleton:` says (or omits), never from
+  anything the queue entry itself declares. **A `flow:` naming a
+  skeleton-less type is legal** (a fifth-pass reversal of the fourth
+  pass's "nothing nests into a project" load error): a skeleton-less
+  type's own array is entirely queue-shaped, exactly the property that
+  makes any other type nestable, and refusing it as a target was an
+  unstated assumption rather than an argued rule — one the declaration
+  graph below needs reversed to catch the cycle it would otherwise
+  miss;
 - **no cross-axis load-time check binds a queue's `flow:` value to a
   chain bundle's `flow:` declaration of the same name.** The identical
   non-binding §11 already holds between every other chain/workflow
@@ -776,28 +791,47 @@ revision of one in the loaded union):
   not this level's vocabulary to name. A `blocks:` entry naming a
   queue in a different declaration, or naming this queue itself, is a
   load error;
-- **the declaration graph, over `type:` names connected by `flow:`
-  edges whose target resolves to a `container`-skeleton type**, must
-  be acyclic, and a type naming itself in one of its own queue-shaped
-  entries' `flow:` is rejected outright as the degenerate one-node
-  case of the same rule — checked statically, from the loaded bundle
-  alone, before any container instance exists. A `flow:` edge whose
-  target resolves to a `ticket`-skeleton type takes no part in this
-  graph: a `ticket`-skeleton type has no queue-shaped anchor of its
-  own, so it is always a leaf and can never sit on a cycle. This is
-  the check that actually bars same-name nesting (a `milestone`
-  declaration cannot open `milestone`) and bounds nesting depth: an
-  acyclic graph has a finite longest path, so the maximum depth a
-  bundle permits is knowable from the bundle itself, even though
-  nesting composes arbitrarily (as many distinct named levels as the
-  bundle declares). There is deliberately **no further,
-  instance-level check** ("no container is its own ancestor") — it
-  falls out of the declaration graph's acyclicity for free, and
-  building it separately would leave unbounded depth *declarable*,
-  caught only when some live chain of instances happens to close the
-  loop, trading a load-time failure for a mid-flight one (the same
-  trade this project has already made the other way: v5 §2.4's
-  "failing at config load beats failing mid-flight").
+- **the declaration graph — nodes are every type with a queue-shaped
+  anchor (a `container`-skeleton type or a skeleton-less one alike),
+  edges are `flow:` references between them** — must be acyclic, and a
+  type naming itself in one of its own queue-shaped entries' `flow:`
+  is rejected outright as the degenerate one-node case of the same
+  rule — checked statically, from the loaded bundle alone, before any
+  container instance exists. A `flow:` edge whose target resolves to a
+  `ticket`-skeleton type takes no part in this graph: a `ticket`-
+  skeleton type has no queue-shaped anchor of its own, so it is always
+  a leaf and can never sit on a cycle. **The node set is corrected at
+  the fifth pass** — the fourth pass's version admitted only
+  `container`-skeleton types as nodes, which excluded every edge
+  *into* a skeleton-less type by construction (the previous bullet's
+  own load error, now reversed) and left a genuine cycle undetected:
+  `milestone`'s `main` entry naming `flow: project` and `project`'s
+  `build-out` entry naming `flow: milestone` is two nodes and two
+  edges under the corrected definition, and a load error; under the
+  fourth pass's narrower one, the first edge was never part of the
+  graph to begin with, so the cycle went unbuilt and undetected until
+  some live chain of instances happened to close it. This is the check
+  that actually bars same-name nesting (a `milestone` declaration
+  cannot open `milestone`) and bounds nesting depth: an acyclic graph
+  has a finite longest path, so the maximum depth a bundle permits is
+  knowable from the bundle itself, even though nesting composes
+  arbitrarily (as many distinct named levels as the bundle declares).
+  There is deliberately **no further, instance-level check** ("no
+  container is its own ancestor") — it falls out of the declaration
+  graph's acyclicity for free, and building it separately would leave
+  unbounded depth *declarable*, caught only when some live chain of
+  instances happens to close the loop, trading a load-time failure for
+  a mid-flight one (the same trade this project has already made the
+  other way: v5 §2.4's "failing at config load beats failing
+  mid-flight");
+- **a queue-shaped anchor entry may carry `singleton: true`, bounding
+  its population to 0 or 1** (§15.7) — legal wherever `flow:` is legal,
+  regardless of what the resolved declaration's own skeleton turns out
+  to be. This is not a load-time cardinality check (a queue's
+  population is live ticket state, unknowable at load) and is not
+  implied by an anchor's name — `retro` and `setup` are singleton by
+  nature but the bundle still has to say so, the same way nothing
+  about `main` or `cleanup` is inferred from their names either.
 
 ## 14. Deliberately absent
 
@@ -938,12 +972,13 @@ loop. The two bolded statuses are the platform workflow layer's
 default review declarations, not system statuses — which is what
 makes them replaceable.
 
-**Two skeletons, plus one declaration with none.** A declared
-work-item type (§15.2) selects a `skeleton:`, and the skeleton fixes
-which of the anchors above its `statuses:` array must contain, each
-at least once, in the relative order given here — never their names,
-their presence, or (bar the exceptions §15.4 and §15.5 name) how many
-times each may appear:
+**Two fixed skeletons, and `skeleton:` is optional — there is no
+third value standing for "neither."** A declared work-item type
+(§15.2) may select a `skeleton:` of `ticket` or `container`, which
+fixes which of the anchors above its `statuses:` array must contain,
+each at least once, in the relative order given here — never their
+names, their presence, or (bar the exceptions §15.4 and §15.5 name)
+how many times each may appear:
 
 - **`ticket`** — `pending`, then any interleaving of `generation`
   (each optionally paired with a `critique` entry, §15.5) and declared
@@ -961,14 +996,19 @@ times each may appear:
   workflow cutover changes what a queue dispatches underneath it. A
   container currently at `main` stays at `main` across the cutover;
   only which type `main` now dispatches changes.
-- **`none`** — no anchors at all. The type's `statuses:` array is
-  entirely author-declared queue positions, in whatever order and
-  count the bundle wants, with no re-resolution anchor to preserve
-  and no fixed relative order to check. This is the project's shape
-  (§15.2): a project needs no anchor because all review happens at
-  lower levels and a project changes shape rarely enough that a
-  workflow cutover mid-project is not the hazard a cutover
-  mid-container is.
+
+**A type with no `skeleton:` has no anchors at all** (a fifth-pass
+correction: an earlier draft spent a `skeleton: none` value on
+exactly the fact the field's own absence already states, which made
+"is this the one `none`-skeleton declaration" a bundle-wide fact a
+value had to police rather than a structural one the loader could see
+for itself, §15.6). Its `statuses:` array is entirely author-declared
+queue positions, in whatever order and count the bundle wants, with
+no re-resolution anchor to preserve and no fixed relative order to
+check. This is the project's shape (§15.2): a project needs no anchor
+because all review happens at lower levels and a project changes
+shape rarely enough that a workflow cutover mid-project is not the
+hazard a cutover mid-container is.
 
 **Agent steps**, the other half of what a chain's `delivery:` block
 may name (§3): `design` (produces a design-graph artifact for a
@@ -1011,12 +1051,13 @@ type: milestone                  # this declaration's name — what a
                                   #   bundle's own ticket: labels:
                                   #   reference (never a load-time
                                   #   cross-check — see §15.7)
-skeleton: container              # ticket | container | none (§15.1)
+skeleton: container              # ticket | container | omit for none (§15.1)
 statuses:                        # every anchor the skeleton fixes,
                                   #   plus whatever else is declared,
                                   #   in array order (§15.3)
   - status: setup
     flow: setup
+    singleton: true              # bounds this queue to 0 or 1 (§15.7)
   - status: prep
     flow: feature
   - status: main
@@ -1025,6 +1066,7 @@ statuses:                        # every anchor the skeleton fixes,
   - review: ux-review             # a declared gate (§15.4), positioned here
   - status: retro
     flow: retro
+    singleton: true
   - status: cleanup
     flow: tech-debt
   - status: terminal
@@ -1053,8 +1095,8 @@ statuses:
 
 ```yaml
 # types/project.yaml
-type: project
-skeleton: none
+type: project                    # no skeleton: line — this type has no
+                                  #   anchors at all (§15.1)
 statuses:
   - status: initialization
     flow: onboarding
@@ -1062,6 +1104,9 @@ statuses:
     flow: seed
   - status: build-out
     flow: milestone                # names a declared container (§15.6)
+  - review: exec-signoff           # a declared gate (§15.4) — legal here
+                                    #   the identical way it's legal on a
+                                    #   ticket- or container-skeleton type
   - status: iteration
     flow: milestone
   - status: maintenance
@@ -1084,36 +1129,57 @@ as a choice of file:
   values rather than one.
 - **the skeleton's own shape** (§15.1) — `pending → generation →
   checks → merge → deploy → terminal` against `setup → prep → main →
-  retro → cleanup → terminal` against no fixed shape at all.
-- **can source a nesting edge** — only a `container`- or
-  `none`-skeleton type has a queue-shaped anchor carrying `flow:`
-  (§15.7), so only those can point at another container (§15.6); a
-  `ticket`-skeleton type has no queue-shaped anchor at all and is
-  always a leaf in the declaration graph.
-- **critique's admission** — the one place `skeleton: ticket` alone
-  gates what may be declared (§15.5), because critique's depth
-  selects which tiers a generation fanned into, and only a
-  `generation` anchor gives it something to select within.
-- **gates' and environments' own admission** — legal on `ticket`- and
-  `container`-skeleton types alike (the widening this pass makes), but
-  not on `none`: a project's own array is entirely `status:` entries,
-  because "all review happens at lower levels" (§15.1) is true of the
-  outermost scope specifically, not a case the governing rule above
-  was ever making a claim about — that rule is about ticket versus
-  container, and says nothing about the project.
+  retro → cleanup → terminal` against no fixed shape at all, for a type
+  with no `skeleton:`.
+- **can source a nesting edge** — only a `container`-skeleton type or a
+  type with no `skeleton:` at all has a queue-shaped anchor carrying
+  `flow:` (§15.7), so only those can point at another container
+  (§15.6); a `ticket`-skeleton type has no queue-shaped anchor at all
+  and is always a leaf in the declaration graph.
+- **critique's admission** — the one place a `generation` anchor
+  (present only on a `ticket`-skeleton type) gates what may be
+  declared (§15.5), because critique's depth selects which tiers a
+  generation fanned into, and only a `generation` anchor gives it
+  something to select within.
 
 Everything else — which file a declaration lived in, and whether its
 array was a registered set or a fixed sequence — was the three-shape
 split talking to itself, and none of it survives as a rule to check.
 
+**Gates and environments widen onto every type, whatever `skeleton:`
+it declares or omits — a fifth-pass reversal of the fourth pass's own
+restriction.** The fourth pass's reasoning — "all review happens at
+lower levels" (§15.1) is true of the outermost scope, so a project's
+array should carry `status:` entries only — mistook an argument for
+why a project needs no *re-resolution anchor* for an argument about
+what its array may *contain*; those are different claims, and the
+governing rule at the top of this section is stated only in terms of
+ticket versus container and never mentions the project either way. A
+human sign-off between `build-out` and `iteration` (the milestone
+example above) is not a strange thing for a project to want, so it is
+admitted rather than refused on a premise that was never actually
+argued. Critique alone stays refused past this widening, and for a
+reason unrelated to the one above: a `generation` anchor is what gives
+its depth something to select within, and neither a `container`-
+skeleton type nor a skeleton-less one has one (§15.5).
+
 **One registry, one namespace, whatever `skeleton:` a declaration
-picks.** `container`, `ticket` and `none` share the identical
-declaration shape and the identical registry `flow:` resolves against
-(§15.7); a `type:` name may not collide with another, regardless of
-which skeleton either one declares (§13). There is at most one loaded
-`skeleton: none` declaration in a workflow bundle's own union — the
-project is a project because it is the one declaration nothing else's
-`flow:` ever names (§15.6), not because its name is reserved.
+picks or omits.** `container`- and `ticket`-skeleton types and
+skeleton-less types share the identical declaration shape and the
+identical registry `flow:` resolves against (§15.7); a `type:` name
+may not collide with another, regardless of which skeleton, if any,
+either one declares (§13). **Rootness is derived, not declared, and
+there is no "at most one" check standing in for it** (a fifth-pass
+correction: an earlier draft required exactly one loaded skeleton-less
+declaration, a bundle-wide fact a value had to police — "is this the
+one" — that the declaration graph already answers structurally). A
+root is simply a node nothing else's `flow:` targets (§15.6), derived
+the identical way a queue is a query instead of a stored bucket and
+ordering is the array index instead of a second field. The project is
+a project by convention — the one skeleton-less declaration a fresh
+onboarding actually dispatches from — never by a load-time singularity
+rule; nothing stops a bundle from declaring a second skeleton-less
+type for some other outermost-shaped thing, and nothing needs to.
 
 **"Ticket", "container" and "milestone" are what a declaration
 contains, not what the grammar calls it.** Nothing in the loader
@@ -1233,11 +1299,17 @@ what is enforced, so it is graph state, versioned, changed by PR.
 asserting.** A gate is depth 0 on a container the identical way it is
 on a ticket — a human reads the top level, whatever the top level
 contains — and an environment is the same: neither needs a generation
-to mean something. Critique is different in kind: its depth *selects
-which tiers' review runs*, which needs a generation to select within.
-A `container`- or `none`-skeleton type has no `generation` anchor at
-all, so a `critique` entry naming a depth there would select tiers
-that do not exist at that level — refused, not silently ignored.
+to mean something, which is why the fifth pass widened both onto
+every type regardless of skeleton (§15.2). Critique is different in
+kind: its depth *selects which tiers' review runs*, which needs a
+generation to select within. **The rule is simply that a `critique`
+entry must sit immediately after a `generation` entry** — no skeleton
+named, because none needs to be: a `container`-skeleton type and a
+skeleton-less type both lack a `generation` anchor to sit after, so
+this one positional rule already excludes both, structurally, without
+a second check saying so a different way (a fifth-pass
+simplification — naming the excluded skeletons explicitly, as an
+earlier draft did, said the identical thing twice).
 
 ```yaml
   - status: generation
@@ -1279,27 +1351,54 @@ has already been through once (v5 §7.19). A bare integer still means
 both positions at once, so no declaration written before this pair
 form existed changes meaning.
 
+**Two pairings, two directions — both stated rather than left for a
+reader to reconcile.** `critique` sits immediately *after* the
+`generation` entry it reviews (above): it reviews a draft that has to
+exist first. An environment sits *before* the `deploy` entry it is a
+promotion target for (§15.2's `feature` example: `environment: staging`
+precedes `status: deploy`): a promotion target has to be configured
+before anything can deploy into it. Both are "paired with" a
+neighboring anchor in the loose sense that the array puts them next to
+each other; neither pairing is a general rule the other one follows —
+critique looks backward at what was just produced, deployment looks
+forward at what it is about to promote into, and the array records
+each exactly where its own direction points.
+
 ### 15.6 Nesting, and the declaration graph that bounds it
 
 **Nesting composes, and it is bounded without being counted.** Any
-`container`- or `none`-skeleton type's queue-shaped anchor may name
-another `container`-skeleton type in its `flow:` (§15.7) — declaring
-`epic` gets epics-and-milestones for free the moment an `epic` type's
-own `main` entry's `flow:` names `milestone`, no second mechanism,
-because there is only the one shared registry and one field. What
-varies per declared container is its **name** and what each of its
-anchor entries' `flow:` points at — never the anchor names, their
-count, or their order (§15.1).
+`container`-skeleton or skeleton-less type's queue-shaped anchor may
+name another `container`-skeleton or skeleton-less type in its
+`flow:` (§15.7) — declaring `epic` gets epics-and-milestones for free
+the moment an `epic` type's own `main` entry's `flow:` names
+`milestone`, no second mechanism, because there is only the one
+shared registry and one field. What varies per declared container is
+its **name** and what each of its anchor entries' `flow:` points at —
+never the anchor names, their count, or their order (§15.1).
 
 **What is barred, and barred at load rather than left to a live chain
 to discover, is a type reaching itself through its own declarations.**
-The declaration graph — types connected by `flow:` edges whose target
-resolves to a `container`-skeleton type — must be acyclic, and a type
-naming itself is the degenerate one-node case of the same rule (§13).
-`milestone` cannot open `milestone`. A `flow:` edge whose target
-resolves to a `ticket`-skeleton type takes no part in this graph: a
-`ticket`-skeleton type has no queue-shaped anchor of its own, so it is
-always a leaf.
+The declaration graph — **nodes are every type with a queue-shaped
+anchor, edges are `flow:` references between them** — must be acyclic,
+and a type naming itself is the degenerate one-node case of the same
+rule (§13). `milestone` cannot open `milestone`. A `flow:` edge whose
+target resolves to a `ticket`-skeleton type takes no part in this
+graph: a `ticket`-skeleton type has no queue-shaped anchor of its own,
+so it is always a leaf.
+
+**The node set has to include skeleton-less types, not only
+`container`-skeleton ones — an earlier draft's narrower definition had
+a hole.** Restricting nodes to `container`-skeleton types excludes
+every edge *into* a skeleton-less type by construction, because such a
+type was never a node the graph could contain — which is exactly the
+edge a cycle through the project can run on: `milestone`'s `main`
+entry naming `flow: project` and `project`'s `build-out` entry naming
+`flow: milestone` is a genuine two-node cycle, and the narrower
+definition would have let it load, catching it only if some live chain
+of instances happened to close the loop. A skeleton-less type's array
+is entirely queue-shaped — the identical property that makes a
+`container`-skeleton type nestable — so the honest definition of "can
+participate in nesting" has to include it, and does.
 
 **This is a load-time check over declarations, not a runtime check
 over instances — getting the altitude right took two passes on this
@@ -1317,15 +1416,25 @@ levels an author declares is unbounded. No further instance-level
 check is needed — it falls out of the declaration graph's acyclicity
 for free.
 
+**Rootness is derived, not declared.** A root is simply a node nothing
+else's `flow:` targets — there is no load check requiring exactly one,
+and none requiring at least one either (§15.2). The project is a root
+by convention and by what a fresh onboarding actually dispatches from,
+never by a grammar rule that singles it out.
+
 **After a container-skeleton instance's `cleanup` resolves, it
 reaches a fixed `terminal` kind — not a further queue name** (§15.1).
-A `none`-skeleton instance has no such universal terminal, because it
-has no universal sequence to end: it closes when its own last
-declared entry resolves with nothing open behind it. This is also the
-outermost project's own closing condition — the project is never
-itself a `flow:` target (§15.2), so closing it means that list's last
-entry resolving clean, the same mechanism as any other `none`-
-skeleton declaration, merely the one nothing nests.
+A skeleton-less instance has no such universal terminal, because it
+has no universal sequence to end: it closes when its own last declared
+entry resolves with nothing open behind it. This is also the outermost
+project's own closing condition when nothing else's `flow:` names it —
+closing it means that list's last entry resolving clean, the same
+mechanism as any other skeleton-less declaration. A skeleton-less type
+that some container's `flow:` *does* nest, unlike the project, closes
+this same way from its own array's perspective and is additionally
+awaited by its parent's queue the identical way a nested container
+is — nesting composes through one completion rule regardless of which
+kind of type sources or targets the edge (§15.7).
 
 **No separate "blocked" anchor kind, and none is missing.** A
 container or project currently at queue Q with an unresolved blocking
@@ -1339,13 +1448,17 @@ here would be exactly the pending-work-on-the-node antipattern v5
 ### 15.7 Queues, dispatch, and blocking
 
 A queue-shaped anchor entry — any `status:` entry belonging to a
-`container`- or `none`-skeleton type's array — carries `flow:`,
-required, naming a member of the type registry (§15.2):
+`container`-skeleton type's array, or any `status:` entry in a
+skeleton-less type's array — carries `flow:`, required, naming a
+member of the type registry (§15.2):
 
 ```yaml
   - status: main
     flow: feature
     blocks: [retro]
+  - status: retro
+    flow: retro
+    singleton: true       # bounds this queue's population to 0 or 1
 ```
 
 **A queue is a query, never stored** (`docs/v5-design-decisions.md`
@@ -1355,6 +1468,28 @@ reads one back. The identical reason `ready_scopes` itself refuses to
 materialize (v5 §1.2) and `Catapult.Engine.Scheduler` holds no memory
 of what it last broadcast: a stale bucket is worse than an absent
 one, because it is the kind of thing a dispatcher acts on.
+
+**`singleton:` bounds the query's cardinality; it does not make the
+queue stored.** `retro` is the motivating case — a single work item
+moving through a flow, not a succession of them — and `setup` is the
+same shape; declaring it gives the plane something to code against,
+addressing *the* retro work item directly rather than iterating a set
+that structurally never holds more than one. It is declared per
+entry, not implied by an anchor's name: `retro` and `setup` are
+singleton by nature, but reading that off the name would make it
+another platform-fixed fact about anchors, which is what this section
+has spent four passes removing — a bundle declares it, the same way it
+declares everything else about what an anchor points at. The bound
+cannot be a load-time check, since a queue's population is live ticket
+state; **a second work item arriving at a queue already carrying one
+is admitted, and files `Blocked`** — the identical shape `docs/
+v5-design-decisions.md` §7.4 already uses for an unrecognized label,
+rather than a silent refusal to dispatch that would leave the second
+work item's own author with nothing to look at. `singleton:` applies
+uniformly whether `flow:` resolves to a `ticket`-skeleton type or one
+with a queue-shaped anchor of its own: a singleton queue naming a
+container-shaped type is exactly "this container has one child
+instance," no second mechanism.
 
 **`flow:` resolves against the workflow bundle's own type registry,
 never against a chain bundle's `flow:` declaration.** No load-time
@@ -1382,12 +1517,16 @@ entry itself declares.** A `flow:` resolving to a `ticket`-skeleton
 type dispatches an ordinary ticket: opening a ticket of the declared
 type opens a flow instance exactly as any other entry does (v5
 §7.10's "opening a ticket IS opening a flow instance"), with its own
-gates, its own children, its own PR. A `flow:` resolving to a
-`container`-skeleton type mints one instance of it (§15.8); the
-parent's queue does not complete until the minted instance reaches
-its own `terminal` — nesting composes through the same completion
-rule any other `flow:` queue already uses, because there was never a
-second mechanism to begin with. A milestone's `retro` and `prep`
+gates, its own children, its own PR. A `flow:` resolving to a type
+with a queue-shaped anchor of its own — a `container`-skeleton type or
+a skeleton-less one alike — mints one instance of it (§15.8); the
+parent's queue does not complete until the minted instance closes
+(reaches its own `terminal`, for a `container`-skeleton instance, or
+resolves its own last declared entry with nothing open behind it, for
+a skeleton-less one, §15.6) — nesting composes through the same
+completion rule any other `flow:` queue already uses, because there
+was never a second mechanism to begin with. A milestone's `retro` and
+`prep`
 (which dispatches ordinary feature work) are no exception: both are
 ordinary work items — "a work item, with its own bundles, dispatched
 by machinery that already exists" (`docs/v5-design-decisions.md`
@@ -1400,7 +1539,7 @@ by name.
 **One queue may block another, declared, scoped to visible siblings
 only.** `blocks:` on a queue names other queues declared in the same
 array — a container's other anchor entries, or another entry in the
-same `none`-skeleton project's array — whose completion it holds open
+same skeleton-less project's array — whose completion it holds open
 while this queue still carries unresolved work items; §13 rejects a
 `blocks:` entry naming a queue in a different declaration, and rejects
 one naming a queue nested inside what *this* queue's `flow:` opens.
@@ -1420,7 +1559,7 @@ outside the loader's remit — a scoping line this grammar respects
 rather than blurs (`docs/v5-design-decisions.md` §7.8).
 `deprecating` and `sunsetting` are ordinary declared queues from the
 outset — nothing here defers them to dummy status, since a
-`none`-skeleton project has no platform-fixed sequence to promote them
+skeleton-less project has no platform-fixed sequence to promote them
 out of later.
 
 ### 15.8 Mint vs. activation
@@ -1438,10 +1577,11 @@ instance and starts that instance at its own `setup` entry" and
 and activation the same event; they are not.
 
 **Mint creates an instance; a parent's queue reaching it is what
-activates it.** A `flow:` resolving to a `container`-skeleton type
-(§15.7) mints an instance as soon as something creates it — business
-logic, or a person — and that instance accepts work into its own
-future queues immediately. The parent's own queue position determines
+activates it.** A `flow:` resolving to a type with a queue-shaped
+anchor of its own — `container`-skeleton, or skeleton-less (§15.7) —
+mints an instance as soon as something creates it — business logic,
+or a person — and that instance accepts work into its own future
+queues immediately. The parent's own queue position determines
 only which minted instance is *current*; `setup`'s own `flow:`
 (§15.1, §15.7) dispatches once an instance becomes current, not once
 it is minted, which is what makes "runs once, at activation" true
@@ -1451,18 +1591,26 @@ lives in the parent's own file, the newly minted instance's `setup`
 entry lives in the child's — so there was never a "before `setup`"
 position to invent in the first place.
 
-**The only way a container's position moves backward is a queue
-un-resolving.** §15.7's queue is a query — the unresolved work items
+**There are two ways a container's position moves backward, not one —
+an earlier draft claimed the narrower rule on a premise this same
+ticket's own fifth pass reversed.** The first, and the one that needs
+no gate at all: §15.7's queue is a query — the unresolved work items
 assigned to it — so a resolved queue un-resolves the moment its
-population refills, and that is the entire mechanism: no `throwback:`
-field on a queue entry (§15.4's `throwback:` is a gate field, and a
-container's own anchor entries carry no gates of their own to have
-one), and no separate "container went backward" event to define. An
-already-active instance re-visiting `prep` after new prep work appears
-is this rule in action, not an exception to it — and it is also why a
-container's own `setup` never needed a throwback-shaped argument for
-its position: an already-existing instance revisiting `prep` is an
-ordinary un-resolve, not a second constitution.
+population refills, with no separate "container went backward" event
+to define. An already-active instance re-visiting `prep` after new
+prep work appears is this rule in action. The second: a gate a
+container-skeleton or skeleton-less type's own array cites can throw
+back to an earlier entry in that same array (§15.4's `throwback:`,
+resolving within "the citing type's own array" exactly as it does on a
+ticket), and a container's array can cite gates now that gates and
+environments widen onto it (§15.2) — a milestone sign-off gate between
+`main` and `retro` rejecting back to `main` is an ordinary throwback,
+not a mechanism the container form lacks. **Neither needs a
+throwback-shaped argument for `setup`'s own position**, which the
+earlier, narrower draft of this section had reached for: `setup` is
+first in the minted instance's own sequence because minting and
+constituting are necessarily two different declarations (above), not
+because a container has no gates to throw back with — it does, now.
 
 ### 15.9 The declarable-protocol narrowing, continued
 
@@ -1477,3 +1625,14 @@ declared iff no plane logic branches on it") covers this section's
 single declaration shape without needing to change again: nothing
 here grows what is declarable past what the third pass already
 recorded, only how it is spelled.
+
+**The fifth pass grows nothing here either.** Gates and environments
+widening onto a skeleton-less type's array, `skeleton:` becoming
+optional instead of three-valued, and `singleton:` on a queue-shaped
+anchor entry are all changes in *where* an already-declarable fact may
+be cited or *how* it is spelled — a gate was already workflow-bundle
+content before a project's array could cite one, and `singleton:` is
+cardinality metadata a queue-shaped entry carries the same way a gate
+carries `depth:`, not a new kind of state. No plane logic branches on
+any of the three, so none of them argues with the entry above the way
+the third pass's type registry did.
