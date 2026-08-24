@@ -9,7 +9,9 @@ defmodule Catapult.Delivery.Store do
 
   alias Catapult.Delivery.Store.DispatchRun
   alias Catapult.Delivery.Store.DraftBody
+  alias Catapult.Delivery.Store.FeatureLifecycle
   alias Catapult.Delivery.Store.ProjectBinding
+  alias Catapult.Engine.Store.Flow, as: EngineFlow
   alias Catapult.Repo
 
   ## Project bindings
@@ -89,5 +91,46 @@ defmodule Catapult.Delivery.Store do
       nil -> nil
       %DraftBody{body: body} -> body
     end
+  end
+
+  ## Feature lifecycle (systems/delivery.md, ORC-32 design pass)
+
+  @doc """
+  The most recently opened, still-`:open` flow for `project_id` — a
+  read of engine's own `engine_flows` (`Catapult.Engine.Store.Flow`),
+  state of record for flow instances (`systems/delivery.md`'s own
+  "Depends on: engine (state of record)"). Phase 4 has no dispatch or
+  mutex machinery yet, so at most one flow is realistically open on a
+  project at a time; this is the process manager's own routing lookup
+  for an event (`DraftCommitted`, `RunFailed`, …) that carries no
+  `flow_id` of its own, not a claim that a project can never hold more
+  than one open flow.
+  """
+  @spec current_open_flow_id(binary()) :: binary() | nil
+  def current_open_flow_id(project_id) do
+    Repo.one(
+      from f in EngineFlow,
+        where: f.project_id == ^project_id and f.status == :open,
+        order_by: [desc: f.opened_sequence],
+        limit: 1,
+        select: f.id
+    )
+  end
+
+  @doc "Upserts a flow's projected lifecycle status — idempotent on `(project_id, id)`, safe under process-manager replay."
+  @spec upsert_feature_lifecycle(map()) :: FeatureLifecycle.t()
+  def upsert_feature_lifecycle(attrs) do
+    id = Map.fetch!(attrs, :id)
+    project_id = Map.fetch!(attrs, :project_id)
+    replace = attrs |> Map.delete(:id) |> Map.delete(:project_id) |> Map.keys()
+
+    %FeatureLifecycle{id: id, project_id: project_id}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: {:replace, replace}, conflict_target: [:project_id, :id])
+  end
+
+  @spec get_feature_lifecycle(binary(), binary()) :: FeatureLifecycle.t() | nil
+  def get_feature_lifecycle(project_id, id) do
+    Repo.get_by(FeatureLifecycle, project_id: project_id, id: id)
   end
 end

@@ -413,6 +413,164 @@ design gates pass.
   is what lets protocol work on branches, PRs and harvesting continue
   to be exercised, and continue to be provably correct, on a day
   GitHub itself is down.
+- **The feature-ticket lifecycle is a Commanded process manager,
+  `Catapult.Delivery.FeatureLifecycle`, reading engine's own events —
+  not a second engine aggregate** (ORC-32, design pass; v5 §7.13's
+  porting-model citation, "snapshot→actions purity maps near-1:1 onto
+  a Commanded process manager," is this component). It is
+  `application: Catapult.Engine.Application`-subscribed, the same
+  application `Catapult.Engine.Router` already names, because the
+  events it reacts to (`FlowOpened`, `DraftCommitted`, `DraftApproved`,
+  …) are engine's own. **Checked, not assumed: this does not reproduce
+  the compile-connected edge `Catapult.Engine.Application`'s own
+  moduledoc warns a router macro creates.** A process manager probed
+  against the real tree — `use Commanded.ProcessManagers.ProcessManager,
+  application: Catapult.Engine.Application, name: "..."`, with
+  `interested?/1` clauses matching real event structs (`FlowOpened`,
+  `DraftCommitted`, `DraftApproved`) — compiles clean and leaves `mix
+  xref graph --label compile-connected --fail-above 0` at its existing
+  zero. The reason is the same one `Catapult.Engine.Router`'s own `use
+  Commanded.Commands.Router, application: Catapult.Engine.Application`
+  line already demonstrates coexisting with the gate: the edge that
+  trips the ratchet is `Commanded.Commands.CompositeRouter.router/1`
+  reading `__registered_commands__/0` off an already-aliased module at
+  compile time (a macro call needing the callee compiled first), which
+  neither `use ..., application: ...` nor ordinary struct
+  pattern-matching in a function head triggers — those are `use`/export
+  dependencies the tracer classifies as non-transitive, never
+  compile-connected. No `Module.concat/1` escape is needed for the
+  process manager itself. (Scratch-verified against this branch; the
+  probe module itself was never committed, per DESIGN §5.)
+- **Identity is the pair `(project_id, flow_id)`, composited into one
+  process-manager identity — never a bare id** (ORC-32, design pass;
+  ORC-87). A ticket IS a flow instance (v5 §7.10, "opening a ticket IS
+  opening a flow instance"); `FlowOpened` and `engine_flows` already
+  carry and key by `(project_id, id)`, for the exact reason
+  `systems/engine.md`'s ORC-87 entry keys every other engine store
+  table the same way — a caller-supplied id is a per-project slug, not
+  globally unique, and `systems/engine.md`'s own evidence is that two
+  independently-written authors reach for the identical plausible one.
+  A process-manager instance started from `interested?(%FlowOpened{
+  project_id: p, flow_id: f})` on bare `f` alone repeats that bug one
+  layer up. `interested?/1` returns `{:start, "#{p}:#{f}"}` (or an
+  equivalent unambiguous composite — the exact separator is dev's),
+  and every later clause matching this project's other engine events
+  derives the same pair from the event's own `project_id` plus
+  whichever id names the ticket's entry node or flow.
+- **The loaded workflow is a parameter, never resolved — the same
+  shape `ReadyScopes.ready/3` and `Scheduler.trigger/2` already take a
+  loaded `Chain.t()` in** (ORC-32, design pass).
+  `Store.current_bundle_version(project_id, :workflow, at_sequence)`
+  reads the ninth projection (`systems/engine.md`), but nothing mints
+  a `projects` row or a `FlipActiveBundle` event on the `:workflow`
+  axis today, so a resolver built now would be built against a shape
+  the bindings work (v5 §7.10 — "not urgent to build... cheap and
+  high-value when it lands") is free to draw differently once it
+  exists. Whatever calls into this process manager's callbacks
+  supplies the already-loaded `Catapult.Dsl.Workflow.t()` — gates,
+  environments, critique — the identical calling convention
+  `ReadyScopes`/`Scheduler` already establish for the chain axis, so
+  the two axes' consumers read alike.
+- **Reachability, settled: `fanout` (Building) is this phase's last
+  reachable status; `checks`, `merge`, `validating` and `terminal`
+  arrive with Phase 7** (ORC-32, design pass, closing this ticket's
+  own open question). The kinds themselves were never in question —
+  `Catapult.Dsl.SystemStatus`'s closed table fixes all twelve up
+  front, so nothing here adds or removes one. What was open is which
+  of them this process manager's own callbacks ever route a ticket
+  into. `checks`/`merge` are CI and reconciliation outcomes and
+  `validating` is §7.11's post-deploy repair loop, which needs a
+  deploy, which needs `merge` — each sits behind the child
+  lifecycle/mutex/dispatch/reconciliation machinery this ticket's own
+  scope names as Phase 7's, not this one's. So this process manager's
+  `interested?`/`handle` pair is total over `queue → generation →
+  [critique] → [gate] → … → fanout` and *recognizes* the later kinds
+  without ever driving a ticket into them — a bundle declaring gates
+  or environments after `deploy` still loads and validates today
+  (§13), unaffected. A ticket reaching `fanout` sits there under this
+  phase; what moves it again is Phase 7's own dispatcher. **Written
+  against `system_status.ex` as it stands, not `dsl-syntax.md`
+  §15.1's table**: the module on this branch carries twelve kinds,
+  first `:queue`, with `:boundary` still in `@agent_steps`; §15.1
+  carries seventeen, `queue` renamed to `pending` and `:boundary`
+  retired, and its own text records both moves as dev's diff against
+  ORC-104 — blocked *by* this ticket — "not actioned here." So this
+  process manager's dev pass opens a module that still says `:queue`
+  and still lists `:boundary`, and this bullet's `queue → generation →
+  …` chain, the twelve-count above, and the `:blocked` bullet below
+  all write against that, on purpose, rather than against §15.1's
+  target shape.
+- **The label owner, settled: the work surface renders; this
+  projection never does** (ORC-32, design pass, closing this ticket's
+  other open question). The projection carries exactly what
+  `Catapult.Dsl.SystemStatus.kind()` and the loaded workflow's own
+  gate/environment `name:` already give — `:generation`,
+  `"engineering-review"` — never a rendered string. Reasoned from
+  §7.10's own store test (does changing it change what is generated,
+  validated or enforced? no — a label is read, never branched on): a
+  human-facing label is presentation, and belongs with "the work
+  surface renders" (this doc's own opening paragraph), not with this
+  projection and not with workflow-bundle content. `dsl-syntax.md`
+  §15.1's table already fixes labels for the platform-fixed kinds —
+  twelve on this branch, seventeen once ORC-104's rename and
+  container-status additions land, per the divergence noted above —
+  across the two default lifecycles; a *declared* gate's or
+  environment's own name (`ux-review`, `dev`) has no such table and
+  needs one, but writing it is `systems/dashboard.md`'s decision when
+  UI v1 renders this projection — out of this ticket's own declared
+  scope ("the screens that render this, which are UI v1's") — not a
+  new `label:` field on `Catapult.Dsl.Gate` (that would put a
+  presentation fact in graph state, exactly what the store test rules
+  out).
+- **Gate skip-on-no-diff and the entry-tier rule are both read off
+  machinery this projection already depends on, not new engine
+  mechanism** (ORC-32, design pass). A gate is offered to the human
+  only once its own reviewed scope has committed something new since
+  the ticket last stood at it — `DraftCommitted`'s own `tier`/
+  `body_sha` already say whether a tier the gate reviews produced
+  anything this cycle, the identical content-identity §7.11's
+  staleness derivation already reads (`systems/engine.md`: "Staleness
+  is a projection, never stored state"). A gate whose scope committed
+  nothing — never dispatched (the entry-tier rule, §7.3, skipped it
+  outright) or regenerated byte-identical — auto-advances rather than
+  asking; "an author gate that asks nothing teaches the author to stop
+  reading them" is the reason, not a new invariant. Entry tier itself
+  is read once, at `FlowOpened` (the flow's own `ticket: {entry:
+  <tier>, ...}` declaration, v5 §7.10), and narrows which
+  `generation`/gate pairs `interested?` ever considers reachable for
+  that instance — every kind before the entry tier's own status is
+  simply never a candidate, the same "nothing to review is
+  orchestration's decisionless pass generalized" framing §7.3 already
+  gives it.
+- **Blocked carries no new mechanism either** (ORC-32, design pass).
+  `:blocked` is one of the twelve fixed kinds
+  (`Catapult.Dsl.SystemStatus`) with `ball: :varies`; this process
+  manager enters it as any other transition, and the flavor label plus
+  origin are read the same way v5 §7.19 already settles for the
+  platform generally — off the ticket's own projected history, never
+  stamped onto a comment (this doc's marker-retirement bullet above
+  already retires stamping "for surfaces we own"). Nothing here adds
+  to that decision; it is named only so the process manager's own
+  callbacks are read as an application of it rather than a fresh
+  design.
+- **What advancing past a gate on a human's word dispatches to stays
+  open, unchanged by this ticket** (ORC-32, design pass). v5 §7.16
+  already names this open — "Approval is a status... the mechanism is
+  a later increment, and a sizeable one" — and this ticket's own scope
+  ends at Building without needing to close it: the process manager
+  above covers the transitions engine's own events already drive
+  (dispatch, commit, skip-on-no-diff). Which aggregate a human's
+  sign-off command validates against under §7.16's optimistic
+  concurrency is left exactly where `systems/engine.md`'s own §7.16
+  bullet already leaves it: "a workflow gate is declared
+  delivery-bundle vocabulary, not an engine node, so what it pins is
+  delivery's to design when workflow gates land
+  (`systems/delivery.md`'s Phase 7)... not this ticket's to answer."
+  That is engine's own file-map territory, and this doc does not
+  reinterpret engine's "a project has one aggregate, not two" to
+  settle it — the citation above already keeps §7.16 open on its own
+  terms, without needing a second, narrower reading of a rule
+  recorded in another system's file.
 
 ## Initial vs target
 
@@ -443,11 +601,13 @@ vocabulary, the marker-vocabulary module and the sim-style test ring,
 above — ahead of the dev pass that builds it. **ORC-31's dev pass
 lands that shape**: the operation vocabulary in both `HostPort
 .Actions` and `HostPort.Fake`, `HostPort.Marker`, and the offline sim
-ring. What stays open at Phase 4 is lifecycle projection proper —
-wiring these operations into ticket-state projection and the gate
-machinery that decides when a bounce, a merge-forward or a merge
-actually fires — which this ticket's own scope excludes and no ticket
-has yet built. Target
+ring. **ORC-32 (design pass) records the shape of lifecycle projection
+proper** — the process manager and its standing decisions, above —
+ahead of the dev pass that builds it. It covers `queue` through
+`fanout` (Building) only; wiring the host port's own operations (a
+bounce, a merge-forward, a merge) into that projection, and everything
+from `checks` onward, stays open at Phase 4 and is no ticket's yet.
+Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
 declared review sequences and environments of §7.19, and the outbound

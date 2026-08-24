@@ -70,12 +70,18 @@ defmodule Catapult.Delivery do
 
   @impl Catapult.Component
   def processes do
-    [{:delivery_oidc_strategy, :singleton}]
+    [
+      {:delivery_oidc_strategy, :singleton},
+      # Same placement `engine_projector` uses, for the same reason
+      # (`Catapult.Delivery.FeatureLifecycle`'s own moduledoc): a
+      # Commanded subscription is consumed once, in order, cluster-wide.
+      {:delivery_feature_lifecycle, :singleton}
+    ]
   end
 
   @impl Catapult.Component
   def children do
-    [{Catapult.Delivery.Oidc.Strategy, []}]
+    [{Catapult.Delivery.Oidc.Strategy, []}, Catapult.Delivery.FeatureLifecycle]
   end
 
   @doc "The configured host port adapter — `Catapult.Delivery.HostPort.Actions` or `.Fake`."

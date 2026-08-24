@@ -941,3 +941,28 @@ least one instance of every edge type — which is the whole of what
 intake/raft storage) landing, at which point `input.<role>` resolves
 for real and the toy seed's raft stops being inert.
 
+## No display-label field on a declared gate or environment
+scope: system:core_dsl, system:delivery, system:dashboard
+
+(ORC-32, design pass.) A declared gate's or environment's own name
+(`ux-review`, `dev`) is what a workflow bundle commits to git and what
+every load-time cross-reference (`throwback:`/`promote_from:`,
+`dsl-syntax.md` §13) resolves against; the string a human reads on
+screen for it ("Product review") is a different fact with a different
+owner. The tempting shape is a `label:` field beside `role:`/`depth:`
+on `Catapult.Dsl.Gate`/`Environment`, and it is refused: v5 §7.10's own
+store test — does changing it change what is generated, validated or
+enforced? — answers no for a label, which makes it presentation, not
+graph state, and graph state is what a bundle file is for. Putting it
+there anyway would mean a cosmetic rename requires the same PR review
+`throwback:` changes do, for a fact review can't actually verify (a
+label reads correctly or it doesn't; nothing downstream enforces it).
+`systems/delivery.md`'s feature-ticket lifecycle projection carries
+the declared name verbatim for exactly this reason; rendering a
+human-facing label from it is `systems/dashboard.md`'s decision, when
+UI v1 renders the projection, not a bundle-authoring one. Revisit
+condition: a real per-bundle localization or
+multi-tenant-labeling requirement that a dashboard-side mapping
+genuinely cannot express — not merely the convenience of not having to
+build that mapping.
+
