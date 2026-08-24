@@ -1,0 +1,102 @@
+defmodule Catapult.Delivery.FeatureLifecycle.Projection do
+  @moduledoc """
+  The pure snapshot→actions half of the feature-ticket lifecycle (v5
+  §7.13's porting-model citation): folds the raw facts
+  `Catapult.Delivery.FeatureLifecycle`'s `apply/2,3` callbacks observe
+  into a resting position, given a loaded `Catapult.Dsl.Workflow.t()`
+  — never resolved by this module (`systems/delivery.md`'s "the loaded
+  workflow is a parameter" bullet).
+
+  **Gate skip-on-no-diff** (`systems/delivery.md`, ORC-32 design
+  pass): a gate is offered to the human only once its own reviewed
+  scope has committed something new since the ticket last stood at
+  it. `commit_signature` is the flow's own high-water mark — the
+  latest project-stream sequence a `DraftCommitted` for this flow
+  landed at — and `passed` records, per position, the signature that
+  was current the last time this process manager walked *past* it.
+  `:queue`, `:generation` and `:critique` carry no human ball and are
+  always walked through once any commit exists; a gate only counts as
+  passed when `passed[position] == commit_signature` exactly — a
+  bare integer bump (a fresh commit) always reopens it. **Dormant by
+  construction today**: nothing in this phase's event vocabulary ever
+  calls `pass/2` (no gate-approval command exists until Phase 7 —
+  `systems/delivery.md`'s own "what advancing past a gate on a
+  human's word dispatches to stays open" bullet), so every resting
+  walk in Phase 4 stops at the first declared gate and stays there.
+  `pass/2` is exercised directly by this module's own tests so the
+  skip semantics are proven correct ahead of the command that will
+  call it.
+
+  **Blocked carries no new mechanism** (`systems/delivery.md`): `
+  block/2` records the position the ticket was standing at when a
+  limit-class failure arrived (`RunFailed`) as `blocked_from` — the
+  flavor and the origin the work surface will want are simply that
+  position, read off this projection rather than stamped onto a
+  comment. `commit/2` (any subsequent `DraftCommitted`, i.e. a retry)
+  clears it and resumes the ordinary walk.
+  """
+
+  alias Catapult.Delivery.FeatureLifecycle.Sequence
+  alias Catapult.Dsl.Workflow
+
+  defstruct commit_signature: nil, passed: %{}, blocked_from: nil
+
+  @type t :: %__MODULE__{
+          commit_signature: integer() | nil,
+          passed: %{Sequence.position() => integer()},
+          blocked_from: Sequence.position() | nil
+        }
+
+  @doc "A fresh projection, before anything has committed."
+  @spec new() :: t()
+  def new, do: %__MODULE__{}
+
+  @doc "Folds a `DraftCommitted` at project-stream sequence `sequence`: bumps the high-water mark and clears any block."
+  @spec commit(t(), integer()) :: t()
+  def commit(%__MODULE__{} = state, sequence) when is_integer(sequence) do
+    %{state | commit_signature: sequence, blocked_from: nil}
+  end
+
+  @doc "Marks `position` passed as of the projection's current commit signature — the gate-approval command's own call, once one exists (Phase 7)."
+  @spec pass(t(), Sequence.position()) :: t()
+  def pass(%__MODULE__{commit_signature: sig} = state, position) do
+    %{state | passed: Map.put(state.passed, position, sig)}
+  end
+
+  @doc "Folds a limit-class `RunFailed`: kicks the ticket to `:blocked`, recording where it was standing."
+  @spec block(t(), Workflow.t()) :: t()
+  def block(%__MODULE__{} = state, %Workflow{} = workflow) do
+    %{state | blocked_from: resting(workflow, state)}
+  end
+
+  @doc """
+  The position `workflow` and `state` resolve to right now: `{:kind,
+  :blocked}` while a block is recorded, otherwise the first position
+  in `Sequence.positions/1` not yet passable, defaulting to the last
+  (`{:kind, :fanout}`) once everything reachable has been.
+  """
+  @spec resting(Workflow.t(), t()) :: Sequence.position()
+  def resting(%Workflow{}, %__MODULE__{blocked_from: from}) when not is_nil(from) do
+    {:kind, :blocked}
+  end
+
+  def resting(%Workflow{} = workflow, %__MODULE__{} = state) do
+    positions = Sequence.positions(workflow)
+    Enum.find(positions, List.last(positions), &(not passable?(&1, state)))
+  end
+
+  @doc "The position the ticket was standing at when it was last kicked to `:blocked`, or `nil` if it never has been."
+  @spec blocked_origin(t()) :: Sequence.position() | nil
+  def blocked_origin(%__MODULE__{blocked_from: from}), do: from
+
+  defp passable?({:kind, :fanout}, _state), do: false
+
+  defp passable?({:kind, kind}, %__MODULE__{commit_signature: sig})
+       when kind in [:queue, :generation, :critique] do
+    not is_nil(sig)
+  end
+
+  defp passable?({:gate, _name} = position, %__MODULE__{commit_signature: sig} = state) do
+    not is_nil(sig) and Map.get(state.passed, position) == sig
+  end
+end
