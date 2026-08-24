@@ -1984,7 +1984,7 @@ right instinct, a fifth of the actual decision: the milestone is one
 declared **container** (the project is a different form entirely,
 below, not a second container — settled only after this section's
 own first draft got that part wrong) and the close is one **queue**
-among four. Every reason ORC-103 gave for
+among five. Every reason ORC-103 gave for
 retiring orchestration's boundary ticket still holds and generalizes
 rather than being re-argued (carried forward, not re-derived): the
 pause needed to be *tracked* somewhere and the pass needed a *place to
@@ -1993,9 +1993,29 @@ to hold either directly; Catapult's ticket state is its own event log
 (§7.1, §7.17), so a container can carry its own progress and the
 record of its own history without proxying through a ticket. What
 follows is the decision set (ORC-105); the grammar it's built from is
-`dsl-syntax.md` §15.6-§15.8. Building the dispatcher, the sweep, and
+`dsl-syntax.md` §15.6-§15.9. Building the dispatcher, the sweep, and
 the scan/setup/retro machinery itself is ORC-104's — this section
 settles the shape, not the diff.
+
+**A third pass registered work-item types, and inverted a filter into
+a declaration.** A type's effective status sequence used to be
+assembled by scanning every gate for a `ticket_types:` entry naming
+it; `dsl-syntax.md` §15.9 now has the type name its own gates instead
+— `ticket_types:` retired from `gates/<gate>.yaml` outright, one fact
+in one place. The same move that gave the container form its array
+(below) applied to plain ticket types too, and it collapses `flow:`
+and `opens:` into one required field: a queue entry's `flow:` names a
+member of one shared registry, and whether that member turns out to
+be a plain type (dispatch terminates, an ordinary ticket) or a
+container (dispatch mints a nested instance) is visible only in what
+the *resolved* declaration itself contains, never in anything the
+queue entry declares. This is a real extension of what's declarable,
+and it argues with a recorded decision rather than sidestepping it:
+`docs/non-goals.md`'s "No per-project restructuring of the automation
+protocol" entry is amended alongside this section to record it,
+because its own admission rule ("a state may be declared iff no plane
+logic branches on it") already covers the addition without needing to
+change.
 
 **A project is not a container — two declaration shapes, not one
 parameterized by kind.** This reverses this section's own first
@@ -2008,32 +2028,37 @@ freely because a project needs no re-resolution anchor (all review
 happens at lower levels, and a workflow cutover mid-project isn't the
 hazard a cutover mid-container is). **A container is one kind,
 arbitrarily nestable, and every instance carries the identical fixed
-anchor sequence** — `prep` → `main` → `retro` → `cleanup`, platform-
-fixed, declarable by neither axis, for the identical re-resolution
-reason ticket system statuses aren't (`dsl-syntax.md` §15.1, §15.6):
-the anchor a container parked mid-sequence falls back to when a
-workflow cutover changes what a queue dispatches underneath it. What
-varies per declared container is its **name** and what each of its
-four anchor entries *points at* — a ticket type/label (a **work
-flow**) or another declared container's name (a **container flow**) —
-never the anchor names, their count, or their order. Nothing requires
-a container's queues to bottom out in tickets at all: with more than
-one work type, "is this a ticket" stops being definable, and a queue
-sequence built entirely from container-opening queues is legitimate.
-Declaring `epic` gets epics-and-milestones for free the moment an
-`epic` container's own `main` entry opens `milestone` — no new
-mechanism, because there is only the one container kind; a genuinely
-distinct kind, if real usage ever wants one, is new system-status-
-style vocabulary decided then, on evidence, not guessed at now.
+anchor sequence** — `setup` → `prep` → `main` → `retro` → `cleanup`,
+platform-fixed, declarable by neither axis, for the identical
+re-resolution reason ticket system statuses aren't (`dsl-syntax.md`
+§15.1, §15.6): the anchor a container parked mid-sequence falls back
+to when a workflow cutover changes what a queue dispatches underneath
+it. What varies per declared container is its **name** and what each
+of its five anchor entries' `flow:` *points at* — a registered plain
+type (a **work flow**) or another declared container's name (a
+**container flow**), the same registry either way (`dsl-syntax.md`
+§15.9) — never the anchor names, their count, or their order. Nothing
+requires a container's queues to bottom out in tickets at all: with
+more than one work type, "is this a ticket" stops being definable,
+and a queue sequence built entirely from container-opening queues is
+legitimate. Declaring `epic` gets epics-and-milestones for free the
+moment an `epic` container's own `main` entry's `flow:` names
+`milestone` — no new mechanism, because there is only the one
+container kind and one field; a genuinely distinct kind, if real
+usage ever wants one, is new system-status-style vocabulary decided
+then, on evidence, not guessed at now.
 
 **Acyclicity is a load-time check over container *declarations*, not
 a runtime check over container *instances* — getting this altitude
 right took two passes.** The first pass reached for "no container may
 be its own ancestor," checked as instances mint; the corrected
 version is a static check of the declaration graph itself — the graph
-of container *names* connected by `opens:` edges — which must be
-acyclic, with a container naming itself the degenerate one-node case
-of the same rule (`dsl-syntax.md` §13). The instance-level version is
+of container *names* connected by `flow:` edges whose target resolves
+to another container — which must be acyclic, with a container naming
+itself the degenerate one-node case of the same rule (`dsl-syntax.md`
+§13). A `flow:` edge whose target resolves to a plain type takes no
+part in this graph — a plain type declares no further `flow:` of its
+own, so it is always a leaf. The instance-level version is
 not merely redundant, it is the wrong tool: it leaves unbounded depth
 *declarable*, caught only when some live chain of instances happens
 to close the loop, which trades a load-time failure for a mid-flight
@@ -2069,12 +2094,12 @@ general rule (`main` blocking `retro`, below) rather than a special
 case, and which also closes the stranding hole ORC-103 solved
 narrowly: work in a blocking queue cannot be quietly closed over. A
 `blocks:` entry may only name a queue declared in the same file — a
-container's other three anchor entries, or another entry in the
+container's other four anchor entries, or another entry in the
 project's own queue file (`dsl-syntax.md` §15.8) — reaching into a
 nested container's own queues would make its internals part of its
 interface to whatever blocks it, exactly backwards from
-composability. To block on something nested, block on the
-container-opening queue it lives inside.
+composability. To block on something nested, block on the queue
+entry whose `flow:` opens it.
 
 **The project is the outermost scope, and having a lifecycle at all
 is less new than it looks — even though being a *container* was the
@@ -2110,9 +2135,10 @@ terminal kind, which is a mechanism only containers have.
 **Milestone queues, and the end of the debt milestone.** `milestone`
 is a declared **container** (`dsl-syntax.md` §15.6) — one instance of
 the one container kind, not a platform-registered second kind — whose
-four fixed anchor entries point, in order, at: `prep` → `main` →
-`retro` → `cleanup`. `prep` is work the milestone requires before
-beginning; `cleanup` is work that
+five fixed anchor entries point, in order, at: `setup` → `prep` →
+`main` → `retro` → `cleanup`. `setup` constitutes the instance, once,
+at mint; `prep` is work the milestone requires before beginning;
+`cleanup` is work that
 got missed during it — distinct on purpose, because "debt left over
 from the last milestone" and "debt required for the next one" used to
 land in one place and are different questions. **This reverses this
@@ -2133,13 +2159,17 @@ human.** `boundary` is retired as a chain-level agent step
 (`dsl-syntax.md` §15.1) and becomes `retro`, a queue-dispatched flow —
 it never named anything a tier's `delivery:` actually used, and the
 single static pass is exactly what the queue model replaces. A
-`setup` flow joins it, dispatched as `milestone`'s own `prep` entry's
+`setup` flow joins it, dispatched as `milestone`'s own `setup` entry's
 declared `flow:` each time the project's `build-out`/`iteration`
 queue (whichever a workflow bundle assigns) mints the next instance —
 minting and constituting are necessarily two different declarations
-(the project's `opens:` entry and the new milestone's own `prep`
-entry), so there is nowhere `flow:` and `opens:` need to coexist on
-one entry, and no "before `prep`" position to invent. The split
+(the project's queue entry and the new milestone's own `setup`
+entry), so there is nowhere one `flow:` needs to name two things at
+once, and no "before `prep`" position to invent: `setup` **is** the
+position, first in the minted instance's own five-entry sequence
+rather than a value stashed on `prep`'s own `flow:` (an earlier draft
+of this section did exactly that, which runs `setup` once per
+*container* rather than once per *mint* — corrected here). The split
 follows the direction each looks: `retro` —
 backward — adjudicates carried findings, scans the diff for debt,
 updates the milestone's tickets to reflect what actually landed, and
@@ -3684,10 +3714,13 @@ own copy) accept a scalar today and reject a list — the grammar
 change, the loader change and the shipped bundle content that uses
 the pair form move in one change, because updating content ahead of
 the parser fails every bundle load, including the reference
-deployment's. Neither `depth:` nor `ticket_types:` is read by
-anything today, on a gate, an environment or the new file, so — as
-before this ticket — there is no scheduling consumer to migrate; the
-window stays free until one exists.
+deployment's. `depth:` is not read by anything today, on a gate, an
+environment or the new file, so — as before this ticket — there is no
+scheduling consumer to migrate; the window stays free until one
+exists. (`ticket_types:`, a gate's own field at the time this
+paragraph was written, is retired outright at ORC-105 — §7.8, above —
+so this no longer applies to it at all, rather than merely applying
+to an unread one.)
 
 ---
 

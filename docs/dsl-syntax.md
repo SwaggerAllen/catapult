@@ -40,8 +40,9 @@ bundles/<name>/                # kind: workflow
   bundle.yaml
   gates/<gate>.yaml            # one file per declared review gate
   environments/<env>.yaml      # one file per deployment environment
+  types/<name>.yaml             # one file per registered work-item type (§15.9)
   queues/project.yaml           # singular: the project's own declared queue sequence (§15.6-§15.7)
-  queues/containers/<name>.yaml # one file per declared container (§15.6-§15.8)
+  queues/containers/<name>.yaml # one file per declared container (§15.6-§15.9)
 ```
 
 `catapult.yaml`:
@@ -627,9 +628,8 @@ Added with the two axes and the declarable protocol surface (v5
   `enabled:` field, for the same reason a gate needs no such field:
   absence from the union already means "does not run" (v5 §7.19,
   ORC-92). Neither this file's `depth:`, nor a gate's or an
-  environment's `depth:` or `ticket_types:`, is read by anything
-  today — scheduling is a later consumer (v5 §7.19) — so there is no
-  consumer to migrate;
+  environment's `depth:`, is read by anything today — scheduling is a
+  later consumer (v5 §7.19) — so there is no consumer to migrate;
 - `extends:` never crosses axes, and each named bundle's `kind`
   matches the `catapult.yaml` key that named it;
 - **a gate whose role has no holders is a load error**, not a runtime
@@ -653,14 +653,14 @@ Added with the two axes and the declarable protocol surface (v5
 - a workflow bundle under the `runtime` dialect is a load error, not
   dead weight: that dialect has no review lifecycle (§12).
 
-Added with container and project queue declarations (§15.6-§15.8,
-ORC-105 — supersedes both the milestone-only `close/<kind>.yaml`
-shape ORC-103 drew up on its own unmerged branch and this same
-ticket's own first, since-reversed draft, which gave `project` a
-fixed seven-name queue sequence and checked `container:` against a
-two-member kind registry; nothing below has ever loaded, so this is
-the vocabulary's first landing, not a revision of one in the loaded
-union):
+Added with container, project and work-item-type declarations
+(§15.6-§15.9, ORC-105 — supersedes the milestone-only
+`close/<kind>.yaml` shape ORC-103 drew up on its own unmerged branch
+and this same ticket's own two earlier, since-reversed drafts (a
+fixed seven-name project sequence checked against a two-member
+`container:` registry, then a `flow:`/`opens:` pair on every queue
+entry); nothing below has ever loaded, so this is the vocabulary's
+first landing, not a revision of one in the loaded union):
 
 - **`queues/project.yaml` is optional, singular and freely
   declared** — the same structural shape `critique.yaml` (§13 above)
@@ -683,62 +683,97 @@ union):
   authoring, exactly like declaring a new gate or environment, never
   a platform change. A bundle may declare as many named containers as
   it wants, and any of them may nest inside any other (including
-  itself in the trivial sense of "a container can be the thing an
-  `opens:` entry names" — see the acyclicity rule below for what
-  actually bars self-nesting);
+  itself in the trivial sense of "a container can be the thing a
+  queue entry's `flow:` names" — see the acyclicity rule below for
+  what actually bars self-nesting);
 - **every container declaration's `queues:` array holds exactly the
-  four platform-fixed anchor names, each exactly once, in exactly
-  this order: `prep`, `main`, `retro`, `cleanup`** (§15.6) — the
-  container analogue of a ticket's system statuses, declarable by
+  five platform-fixed anchor names, each exactly once, in exactly
+  this order: `setup`, `prep`, `main`, `retro`, `cleanup`** (§15.6) —
+  the container analogue of a ticket's system statuses, declarable by
   neither axis for the identical re-resolution reason. A missing
-  name, a duplicate, an extra name, or the four out of order is a
+  name, a duplicate, an extra name, or the five out of order is a
   load error naming the declaration and the mismatch. There is no
   `after:` field on a container queue entry — position is the array
   index, and the array's shape is fixed, so there is nothing left for
   `after:` to say;
-- `flow:` and `opens:` are **mutually exclusive and one is required**
-  on every queue entry, project or container — a queue points at a
-  work flow (a ticket-type/label value, the same vocabulary a gate's
-  `ticket_types:` already draws from) or at a nested container's
-  declared name, never both and never neither (dsl-syntax.md's
-  mutual-exclusivity precedent is §4.1's `instances:` vs. the flat
-  edge form);
+- **`types/<name>.yaml` registers one named work-item type**,
+  directory-shaped like `gates/` and `queues/containers/`, for the
+  identical reason: a bundle declares more than one. A type is,
+  literally, a list of statuses — its `statuses:` names the declared
+  gates (§15.2) this type's tickets visit; the system-status skeleton
+  (§15.1) applies to every type unconditionally and is never repeated
+  here. Order in `statuses:` carries no meaning of its own — each
+  named gate already carries its own position via its own `after:`
+  (§15.3) — so the array is checked for one thing only: every entry
+  resolves to a gate declared in the loaded union. This inverts,
+  rather than duplicates, what a gate's own former `ticket_types:`
+  field did (§15.2 — now retired): the type names which gates it
+  visits instead of every gate naming which types visit it, and there
+  is exactly one place either fact is declared, so the two can no
+  longer read as disagreeing;
+- **container declarations and work-item-type declarations share one
+  namespace** — the registry `flow:` resolves against. A `container:`
+  name and a `type:` name may not collide, in either direction, and
+  the loader does not care, when resolving a `flow:` reference, which
+  of the two kinds of file produced the name — only what the resolved
+  declaration's own content turns out to be;
+- **`flow:` is the one field a queue entry carries, required, on
+  every entry in `queues/project.yaml` and every entry in a
+  `queues/containers/<name>.yaml` file alike** — naming a member of
+  the registry above. This replaces the earlier `flow:`/`opens:` pair
+  outright, not merely renames one half of it: there is no longer a
+  structural difference, on the queue entry itself, between "this
+  queue dispatches a ticket" and "this queue opens a nested
+  container" for the loader to branch on. What the resolved name
+  turns out to be — a plain type (dispatch terminates there, an
+  ordinary ticket) or a container (dispatch mints a new instance,
+  §15.8) — is visible only from what the *resolved declaration's own*
+  array contains, never from anything the queue entry itself
+  declares;
 - **no cross-axis load-time check binds a queue's `flow:` value to a
-  chain bundle's `flow:` declaration of the same name.** A queue
-  names a ticket type the same loose way a gate's `ticket_types:`
-  does; the chain bundle shipping a flow whose `ticket:` face uses a
-  matching label is what makes work actually dispatch there, but that
+  chain bundle's `flow:` declaration of the same name.** The
+  identical non-binding §11 already holds between every other chain/
+  workflow pairing, unaffected by the registry existing: a chain
+  bundle shipping a flow whose `ticket:` face uses a matching label is
+  what makes work actually dispatch there once a type opens, but that
   pairing is convention checked at ticket-open time (an unrecognized
   label opens no flow instance and files `Blocked`/`needs-setup`,
-  `docs/v5-design-decisions.md` §7.4), never a loader cross-reference
-  — the identical stance §11 already takes on every other chain/
-  workflow pairing, extended here rather than broken;
+  `docs/v5-design-decisions.md` §7.4), never a loader cross-reference.
+  The registry adds one guarantee this pairing didn't have before:
+  `flow:` itself always resolves, on the workflow axis alone — there
+  is no unresolvable reference left inside the workflow bundle's own
+  graph, only the (unaffected, unchecked) question of whether the
+  chain axis ever claims the name;
 - **a `blocks:` entry must name a queue declared in the same file** —
-  the same array (a container's four entries, or the project file's
+  the same array (a container's five entries, or the project file's
   own list) — §2's scoping rule made mechanical: a queue cannot block
   something nested inside a different queue's own container
   instances, because that queue's internals are not this level's
   vocabulary to name. A `blocks:` entry naming a queue in a different
   declaration, or naming this queue itself, is a load error;
-- **the declaration graph, over container names connected by
-  `opens:` edges (from other containers' entries and from the
-  project file's own entries), must be acyclic, and a container
-  naming itself in one of its own entries' `opens:` is rejected
-  outright as the degenerate one-node case of the same rule** — checked
-  statically, from the loaded bundle alone, before any container
-  instance exists. This is the check that actually bars same-name
-  nesting (a `milestone` declaration cannot open `milestone`) and
-  bounds nesting depth: an acyclic graph has a finite longest path, so
-  the maximum depth a bundle permits is knowable from the bundle
-  itself, even though nesting composes arbitrarily (as many distinct
-  named levels as the bundle declares). There is deliberately **no
-  further, instance-level check** ("no container is its own
-  ancestor") — it falls out of the declaration graph's acyclicity for
-  free, and building it separately would leave unbounded depth
-  *declarable*, caught only when some live chain of instances happens
-  to close the loop, trading a load-time failure for a mid-flight one
-  (the same trade this project has already made the other way: v5
-  §2.4's "failing at config load beats failing mid-flight").
+- **the declaration graph, over container names connected by `flow:`
+  edges whose target resolves to another container** (from other
+  containers' entries and from the project file's own entries), must
+  be acyclic, and a container naming itself in one of its own
+  entries' `flow:` is rejected outright as the degenerate one-node
+  case of the same rule — checked statically, from the loaded bundle
+  alone, before any container instance exists. A `flow:` edge whose
+  target resolves to a plain type takes no part in this graph: a
+  plain type declares no further `flow:` of its own, so it is always
+  a leaf and can never sit on a cycle. This is the check that
+  actually bars same-name nesting (a `milestone` declaration cannot
+  open `milestone`) and bounds nesting depth: an acyclic graph has a
+  finite longest path, so the maximum depth a bundle permits is
+  knowable from the bundle itself, even though nesting composes
+  arbitrarily (as many distinct named levels as the bundle declares).
+  There is deliberately **no further, instance-level check** ("no
+  container is its own ancestor") — it falls out of the declaration
+  graph's acyclicity for free, and building it separately would leave
+  unbounded depth *declarable*, caught only when some live chain of
+  instances happens to close the loop, trading a load-time failure
+  for a mid-flight one (the same trade this project has already made
+  the other way: v5 §2.4's "failing at config load beats failing
+  mid-flight").
 
 ## 14. Deliberately absent
 
@@ -781,8 +816,8 @@ ticket-as-state-proxy is gone; the ticket-as-work-item was never in
 question.
 
 **A stored per-queue ticket bucket.** A queue is a derived query —
-work items in a container whose declared `flow:`/`opens:` target is
-this queue's, unresolved (§15.7, `docs/v5-design-decisions.md` §7.8)
+the unresolved work items in a container or project assigned to this
+queue's declared `flow:` (§15.7, `docs/v5-design-decisions.md` §7.8)
 — never a materialized set the plane writes to and reads back. The
 identical reason `ready_scopes` refuses to materialize applies
 unchanged: a stale bucket is worse than none, because it is the kind
@@ -871,7 +906,7 @@ step, but no tier's `delivery:` ever actually named it — a milestone
 close is not a chain tier's business, and the staticness was the
 underlying problem (ORC-103's own finding, carried forward at
 ORC-105). A container's progress is a declared sequence of queues
-(§15.6-§15.8), not one fixed pass; the work that used to hide behind
+(§15.6-§15.9), not one fixed pass; the work that used to hide behind
 `boundary` — the retro backward-looking pass and, at a container's own
 fanout into a nested one, the forward-looking setup pass
 (`docs/v5-design-decisions.md` §7.8) — dispatches as an ordinary flow
@@ -886,7 +921,6 @@ after: product-review           # predecessor: a system status or another
                                 #   review in this bundle (§15.3)
 role: design                    # who signs off; identity holds the
                                 #   holders, bindings the reviewers: map
-ticket_types: [feature]         # which types visit it; omitted = all
 depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
                                 #   top level only. A maximum, never
                                 #   validated against the chain. Also
@@ -901,6 +935,13 @@ escalation: author              # policy; human gates are author-owned
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
+
+**No `ticket_types:` field, as of ORC-105 — retired, not merely
+undocumented.** A gate used to carry `ticket_types: [feature]`,
+naming which types visited it; that fact is now declared the other
+way, on the type (`types/<name>.yaml`'s `statuses:`, §15.9), and
+there is exactly one place it lives. A bundle declaring `ticket_types:`
+on a gate is an unknown field, rejected at load like any other (§13).
 
 **Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
 ORC-92). A gate is a human sign-off, and a human reads the top level;
@@ -1032,30 +1073,41 @@ rejected, `extends:` layering it by §11's same-path replace.
 
 **A container is one kind, arbitrarily nestable, and every instance —
 whatever it's named — carries the identical fixed anchor sequence:
-`prep` → `main` → `retro` → `cleanup`.** This is the container
-analogue of §15.1's system statuses: platform-fixed, declarable by
-neither axis, for the identical re-resolution reason — the anchor a
-container parked mid-sequence falls back to when a workflow cutover
-changes what a queue dispatches underneath it. A container currently
-at `main` stays at `main` across the cutover; only which flow `main`
-now dispatches changes. What varies per declared container is its
+`setup` → `prep` → `main` → `retro` → `cleanup`.** Five names, not
+four: an earlier draft dispatched `setup` as the value of `prep`'s own
+`flow:`, which runs it once per *container* rather than once per
+*mint* — wrong, because constituting a freshly minted instance is a
+different event from an already-existing instance completing `prep`
+again after a throwback. `setup` gets its own anchor position, first,
+so it runs exactly once, at mint, before anything else in the
+instance's own sequence (§15.8). This is the container analogue of
+§15.1's system statuses: platform-fixed, declarable by neither axis,
+for the identical re-resolution reason — the anchor a container
+parked mid-sequence falls back to when a workflow cutover changes
+what a queue dispatches underneath it. A container currently at
+`main` stays at `main` across the cutover; only which type `main` now
+dispatches changes. What varies per declared container is its
 **name** (`milestone`, or any other name a bundle mints — `epic`,
 `program`, whatever nesting a project wants) and what each of its
-four anchor entries points at — never the anchor names, their count,
-or their order. A bundle may declare many named containers
-(`queues/containers/<name>.yaml`, one file per name), and any one of
-them may nest inside any other via `opens:` (§15.7) — there is no
-kind registry to check a name against, because `container:` no longer
-selects from a closed platform vocabulary; it names the declaration
-being authored, the same way a `gate:` file names its own gate.
+five anchor entries' `flow:` points at (§15.7, §15.9) — never the
+anchor names, their count, or their order. A bundle may declare many
+named containers (`queues/containers/<name>.yaml`, one file per
+name), and any one of them may nest inside any other by naming it in
+a `flow:` value (§15.7) — there is no kind registry to check a name
+against, because `container:` no longer selects from a closed
+platform vocabulary; it names the declaration being authored, the
+same way a `gate:` file names its own gate or a `type:` file names
+its own work-item type (§15.9) — all three share one registry
+namespace.
 
 **Nesting composes, and it is bounded without being counted.**
 Declaring `epic` gets epics-and-milestones for free the moment an
-`epic` container's own `main` entry `opens: milestone` — no second
-mechanism, because there is only the one container kind. What is
-barred, and barred at load rather than left to a live chain to
-discover, is a container reaching itself: the declaration graph over
-container names, connected by `opens:` edges, must be acyclic, and a
+`epic` container's own `main` entry's `flow:` names `milestone` — no
+second mechanism, because there is only the one container kind and
+one field. What is barred, and barred at load rather than left to a
+live chain to discover, is a container reaching itself: the
+declaration graph over container names, connected by `flow:` edges
+whose target resolves to another container, must be acyclic, and a
 container naming itself is the degenerate one-node case of the same
 check (§13). A `milestone` declaration therefore cannot open
 `milestone` — same-*declaration* nesting is refused outright, not
@@ -1097,12 +1149,15 @@ A project's own sequence, fully authored:
 # queues/project.yaml
 queues:
   - queue: initialization        # any name; array order is declared order
+    flow: onboarding              # a registered plain type (§15.9); what
+                                  #   actually lands here is business logic, not
+                                  #   protocol — see below
   - queue: scaffolding
     flow: seed
   - queue: build-out
-    opens: milestone              # names a declared container (§15.6)
+    flow: milestone               # names a declared container (§15.6, §15.9)
   - queue: iteration
-    opens: milestone
+    flow: milestone
   - queue: maintenance
     flow: maintenance
   - queue: deprecating
@@ -1111,18 +1166,20 @@ queues:
     flow: sunset
 ```
 
-A declared container, its array fixed to the four anchor names in
+A declared container, its array fixed to the five anchor names in
 order:
 
 ```yaml
 # queues/containers/milestone.yaml
-container: milestone            # this declaration's name — referenced elsewhere via opens:
+container: milestone            # this declaration's name — referenced elsewhere via flow:
 queues:
-  - queue: prep                  # §15.6's four anchor names, in this order, no more, no fewer
-    flow: setup                  # setup's ticket dispatches here; see §15.8
+  - queue: setup                 # §15.6's five anchor names, in this order, no more, no fewer
+    flow: setup                  # runs once per mint, not once per container (§15.6, §15.8)
+  - queue: prep
+    flow: feature
   - queue: main
     flow: feature
-    blocks: [retro]              # sibling-scoped (§15.8); never a queue nested inside an opens: target
+    blocks: [retro]              # sibling-scoped (§15.8); never a queue nested inside a flow: target
   - queue: retro
     flow: retro
   - queue: cleanup
@@ -1131,33 +1188,45 @@ queues:
 
 Each entry's `queue:` name is required on a container (checked
 against the fixed set, §13) and optional-but-conventional on a
-project (nothing to check it against). `flow:` and `opens:` are
-mutually exclusive and one is required, on every entry, project or
-container alike.
+project (nothing to check it against). `flow:` is required on every
+entry, project or container alike, and names a member of the
+work-item-type registry (§15.9) — a declared container or a declared
+plain type, uniformly; there is no second field for the container
+case (§13, superseding this ticket's own earlier `flow:`/`opens:`
+pair).
 
 **A queue is a query, never stored** (`docs/v5-design-decisions.md`
-§7.8): "work items in this project or container whose declared
-`flow:` target is this queue's, unresolved." Nothing writes a
-per-queue bucket; nothing reads one back. The identical reason
-`ready_scopes` itself refuses to materialize (v5 §1.2) and
-`Catapult.Engine.Scheduler` holds no memory of what it last
-broadcast: a stale bucket is worse than an absent one, because it is
-the kind of thing a dispatcher acts on.
+§7.8): the unresolved work items in this project or container
+assigned to this queue. Nothing writes a per-queue bucket; nothing
+reads one back. The identical reason `ready_scopes` itself refuses to
+materialize (v5 §1.2) and `Catapult.Engine.Scheduler` holds no memory
+of what it last broadcast: a stale bucket is worse than an absent
+one, because it is the kind of thing a dispatcher acts on.
 
-**`flow:` names a ticket type, never a chain bundle's `flow:`
-declaration.** No load-time cross-reference binds the two (§13) — the
-same non-binding §11 already holds between every other chain/workflow
-pairing. A chain shipping a flow whose own `ticket:` face uses a
-matching label is what makes work actually land in this queue; that
+**`flow:` resolves against the workflow bundle's own type registry
+(§15.9), never against a chain bundle's `flow:` declaration.** No
+load-time cross-reference binds the two (§13) — the same non-binding
+§11 already holds between every other chain/workflow pairing. A chain
+shipping a flow whose own `ticket:` face uses a matching label is
+what makes work actually land in this queue once the type opens; that
 pairing is authored convention, checked when a ticket of that type
 opens (an unrecognized label opens nothing and files `Blocked`/
 `needs-setup`, `docs/v5-design-decisions.md` §7.4), not something this
 loader validates.
 
+**The residual failure this leaves, named rather than left to be
+discovered later:** a workflow bundle can register a type that no
+chain bundle's `ticket: labels:` ever claims. That is not a load
+error — catching it would reintroduce the cross-axis binding §11
+forbids everywhere else — so it degrades to the identical defined
+failure an unrecognized label already produces: nothing ever opens
+that type. `docs/v5-design-decisions.md` §7.8 records this as the
+accepted cost of composability, not a gap left to close.
+
 **`initialization` is autopopulated by business logic, not
 protocol.** This grammar declares that the queue exists and, once a
-workflow bundle declares its `flow:`, what ticket type it dispatches;
-*what actually lands in it* on a fresh project is plane business logic
+workflow bundle declares its `flow:`, what type it dispatches; *what
+actually lands in it* on a fresh project is plane business logic
 outside the loader's remit — a scoping line this grammar respects
 rather than blurs (`docs/v5-design-decisions.md` §7.8).
 `deprecating` and `sunsetting` are ordinary declared queues from the
@@ -1168,42 +1237,119 @@ platform-fixed project sequence left to fill in later.
 
 **One queue may block another, declared, scoped to visible siblings
 only.** `blocks:` on a queue names other queues declared in the
-*same file* — a container's other three anchor entries, or another
+*same file* — a container's other four anchor entries, or another
 entry in the same `queues/project.yaml` — whose completion it holds
 open while this queue still carries unresolved work items — §13
 rejects a `blocks:` entry naming a queue in a different declaration,
-and rejects one naming a queue nested inside what *this* queue
-`opens:`. Reaching into a nested container's own queues would make
-that container's internals part of its interface to the level
+and rejects one naming a queue nested inside what *this* queue's
+`flow:` opens. Reaching into a nested container's own queues would
+make that container's internals part of its interface to the level
 blocking it, exactly backwards from composability: to block on
-something nested, block on the `opens:` queue it lives inside, not on
+something nested, block on the `flow:` entry that opens it, not on
 what is inside it. `main` blocking `retro` is the instance that
 generalizes what used to be a special case ("the retro can't finish
 while milestone work is open") into this one declared relation.
 
-**Dispatch through a `flow:` queue is ordinary ticket dispatch** —
-opening a ticket of the declared type opens a flow instance exactly as
-any other entry does (v5 §7.10's "opening a ticket IS opening a flow
-instance"), with its own gates, its own children, its own PR. A
-milestone's `retro` and `prep` (which dispatches `setup`, below) are
-no exception: both are ordinary work items — "a work item, with its
-own bundles, dispatched by machinery that already exists"
-(`docs/v5-design-decisions.md` §7.8) — not a reserved agent-step slot
-the way `boundary` used to be (§15.1). The chain bundle shipping
-`retro` and `setup` flows, with tiers carrying ordinary `delivery:`
-blocks, is what gives each its actual agent behavior; nothing in this
-grammar special-cases either by name.
+**Dispatch is uniform: every queue entry's `flow:` names a member of
+the type registry (§15.9), and what happens next follows from what
+that member turns out to be — never from anything the queue entry
+itself declares.** A `flow:` resolving to a plain type dispatches an
+ordinary ticket of that type: opening a ticket of the declared type
+opens a flow instance exactly as any other entry does (v5 §7.10's
+"opening a ticket IS opening a flow instance"), with its own gates,
+its own children, its own PR. A milestone's `retro` and `prep`
+(which dispatches ordinary feature work) are no exception: both are
+ordinary work items — "a work item, with its own bundles, dispatched
+by machinery that already exists" (`docs/v5-design-decisions.md`
+§7.8) — not a reserved agent-step slot the way `boundary` used to be
+(§15.1). The chain bundle shipping `retro` and `setup` flows, with
+tiers carrying ordinary `delivery:` blocks, is what gives each its
+actual agent behavior; nothing in this grammar special-cases either
+by name.
 
-**Dispatch through an `opens:` queue mints one instance of the named
-container and starts it at that container's `prep` entry (§15.6).**
+**A `flow:` resolving to a declared container mints one instance of
+it and starts that instance at its own `setup` entry (§15.6).**
 Minting and constituting are necessarily two different declarations —
-the parent's `opens:` entry lives in the parent's own file, the newly
-minted instance's `prep` entry lives in the child's — so `flow:` and
-`opens:` never need to coexist on one entry: the queue that opens a
-nested container and the queue that runs `setup` are simply separate
-entries, in separate files. `setup`'s job — grooming, setting
-blockers, filling `prep` — is what running `prep`'s own `flow:` does;
-there is no third mechanism and no "before `prep`" queue position to
-invent. The parent's `opens:` queue does not complete until the
-minted instance reaches its terminal kind (§15.6) — nesting composes
-through the same completion rule a `flow:` queue already uses.
+the parent's queue entry lives in the parent's own file, the newly
+minted instance's `setup` entry lives in the child's — so there is
+nowhere `flow:` needs to name two things at once, and no "before
+`setup`" position to invent: `setup`'s own `flow:` (typically the
+`setup` plain type) is what runs `setup`'s actual job — grooming,
+setting blockers, filling `prep` — once, at mint, because it is the
+*first entry of the newly minted instance's own sequence* rather than
+a value stashed on the parent's dispatch entry. The parent's queue
+does not complete until the minted instance reaches its terminal kind
+(§15.6) — nesting composes through the same completion rule any other
+`flow:` queue already uses, because there was never a second
+mechanism to begin with.
+
+### 15.9 `types/<name>.yaml` — registering a work-item type
+
+```yaml
+# types/feature.yaml
+type: feature                    # this declaration's name — what flow: (§15.7)
+                                  #   and a chain bundle's own ticket: labels:
+                                  #   reference (never a load-time cross-check —
+                                  #   see §15.7 and the residual-failure note there)
+statuses: [product-review]       # declared gates (§15.2) this type's tickets
+                                  #   visit; the system-status skeleton (§15.1)
+                                  #   is unconditional and never repeated here
+```
+
+**A type is a list of statuses — nothing more, and this is the same
+inversion §15.6's container form already made, applied uniformly.**
+Today, a type's effective sequence is assembled by *filtering*: each
+gate (§15.2) used to carry its own `ticket_types: [feature]`, naming
+which types visited it, and a type's sequence was whichever gates
+happened to name it, discovered by scanning every gate rather than
+read off any one declaration. Registering types inverts the index:
+the type names its own gates, `ticket_types:` is retired from
+`gates/<gate>.yaml` outright (§15.2), and there is exactly one place
+either fact is declared — a gate and a type can no longer disagree
+about whether the other applies, because there is only one of the two
+facts left to state.
+
+**`statuses:` is a set with array syntax, not a second ordering
+mechanism.** Each named gate already carries its own position via its
+own `after:` (§15.3); listing gates here says *which* apply to this
+type, never *where* — order within the array carries no meaning, and
+declaring the same gates in a different order changes nothing. What
+does carry meaning is which system statuses (§15.1) a type passes
+through, and that part is never declared at all: every type visits
+`queue`, `generation`, `checks`, `merge`, `deploy` and `terminal`
+unconditionally, the identical skeleton every ticket already has, so
+naming them here would repeat a platform-fixed fact rather than
+declare one.
+
+**Container declarations and type declarations share one registry and
+one namespace** (§13): `queues/containers/<name>.yaml` and
+`types/<name>.yaml` both mint entries a queue's `flow:` (§15.7) can
+resolve to, a `container:` name and a `type:` name may not collide,
+and the loader does not branch on which kind of file produced a
+`flow:` target — only on what that target's own declaration contains.
+A container's own five anchor entries are exactly this recursive
+case: each one's `flow:` is an ordinary reference into the same
+registry, and it is *because* the registry is shared that a
+container's `main` can point at a plain type (`feature`) while an
+`epic`'s `main` points at another container (`milestone`), with no
+second mechanism for either.
+
+**No axis tag on a `flow:` value, and none is needed.** An earlier
+draft of this grammar considered marking each `flow:` value with the
+axis of what it names, to disambiguate a value that might resolve
+several ways. That problem doesn't exist once every `flow:` reference
+resolves against exactly one registry, on exactly one axis, load-
+checked with no unresolvable case — the tag would have solved a
+problem this design no longer has.
+
+**This extends v5 §7.16/§7.18's declarable-protocol narrowing, and it
+says so rather than leaving the extension implicit** (`docs/
+non-goals.md`'s "No per-project restructuring of the automation
+protocol" entry, amended alongside this section). Work-item types join
+review gates and deployment environments as workflow-bundle content;
+the automation graph and the anchor statuses underneath it — system
+statuses (§15.1) and container anchors (§15.6) alike — stay
+platform-fixed, so the admission rule that entry already states ("a
+state may be declared iff no plane logic branches on it") covers this
+addition without amendment to the rule itself, only to the list of
+things declared under it.

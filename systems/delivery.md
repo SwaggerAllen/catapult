@@ -126,20 +126,23 @@ design gates pass.
 - **No boundary ticket, generalized: containers and the project alike
   carry their own progress — but the project is not a container**
   (ORC-105, design pass, superseding both ORC-103's own unmerged
-  milestone-only version of this entry and this same ticket's own
-  first, since-reversed draft, which folded the project into the
-  container shape; `docs/v5-design-decisions.md` §7.8;
-  `docs/dsl-syntax.md` §15.6-§15.8). A container's or a project's
-  status is which of its declared queues is current; a queue is a
-  derived query, never a stored bucket, so there is no per-queue
-  pending set for this system to own the way `ready_scopes` is
-  engine's. Two relations this system dispatches against, both new: a
-  queue's `flow:` target is ordinary ticket-type dispatch (no new
-  mechanism — a `retro` or `setup` ticket opens a flow instance
-  exactly like any other type, `setup` dispatching as the newly
-  minted container's own `prep` entry rather than the parent's
-  `opens:` entry, so the two never need to be the same declaration); a
-  queue's `blocks:` relation to a sibling queue in the same
+  milestone-only version of this entry and this same ticket's own two
+  earlier, since-reversed drafts — one that folded the project into
+  the container shape, one that gave every queue entry a `flow:`/
+  `opens:` pair; `docs/v5-design-decisions.md` §7.8; `docs/
+  dsl-syntax.md` §15.6-§15.9). A container's or a project's status is
+  which of its declared queues is current; a queue is a derived query,
+  never a stored bucket, so there is no per-queue pending set for this
+  system to own the way `ready_scopes` is engine's. Two relations this
+  system dispatches against, both new: a queue's `flow:` target
+  resolves against a work-item-type registry shared by container and
+  plain-type declarations alike (`docs/dsl-syntax.md` §15.9) — no new
+  dispatch mechanism whichever it resolves to, a `retro` or `setup`
+  ticket opening a flow instance exactly like any other type, `setup`
+  dispatching as its own anchor entry, first in the newly minted
+  container's own sequence, never a value carried on the parent's
+  dispatching entry, so the two never need to be the same declaration;
+  a queue's `blocks:` relation to a sibling queue in the same
   declaration holds that sibling's entry open while the blocking queue
   carries unresolved work items — the general form of what used to be
   a single hard-coded boundary-blocking rule, now one relation the

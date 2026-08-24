@@ -185,47 +185,57 @@ context-source kinds, and audit profiles.
   value `build/3` already computes. `systems/engine.md` records the
   runtime-evaluator decision this field exists to serve.
 - **A project's queue sequence and a container's are two declaration
-  shapes, not one shape parameterized by kind** (ORC-105, design
-  pass, superseding both ORC-103's own unmerged milestone-only draft
-  of this entry and this same ticket's own first, since-reversed
-  draft, which gave `project` and `milestone` a shared fixed-sequence
-  shape off one `container:` field checked against a two-member
-  registry; `docs/dsl-syntax.md` §15.6-§15.8; `docs/v5-design-
+  shapes, not one shape parameterized by kind, and work-item types are
+  now a registry** (ORC-105, design pass, superseding both ORC-103's
+  own unmerged milestone-only draft of this entry and this same
+  ticket's own two earlier, since-reversed drafts — a shared
+  fixed-sequence shape off one `container:` field checked against a
+  two-member registry, then a `flow:`/`opens:` pair on every queue
+  entry; `docs/dsl-syntax.md` §15.6-§15.9; `docs/v5-design-
   decisions.md` §7.8). `queues/project.yaml` is optional and singular
   (`critique.yaml`'s shape) and holds whatever queue array the
   workflow bundle authors — no anchor check, no fixed count, no
   platform vocabulary to validate names against. `queues/containers/
   <name>.yaml` is directory-shaped like `gates/` — a bundle may
   declare many named containers — and each one's `queues:` array must
-  hold exactly the four platform-fixed anchor names, in exactly this
+  hold exactly the five platform-fixed anchor names, in exactly this
   order, undeclarable by either axis for the identical re-resolution-
-  anchor reason system statuses are: `prep`, `main`, `retro`,
+  anchor reason system statuses are: `setup`, `prep`, `main`, `retro`,
   `cleanup`. There is no per-container-kind sequence table and no
   kind registry — `container:` names the declaration itself, the same
-  way a `gate:` file names its own gate, and any declared container
-  may nest inside any other via `opens:`. Each entry names exactly one
-  of `flow:` (a ticket-type/label value, the same vocabulary a gate's
-  `ticket_types:` draws from — never a chain bundle's own `flow:`
-  name; no cross-axis load-time binding is introduced) or `opens:` (a
-  declared container's name, minting one instance at a time). The
-  loader gains two structural checks with no exact precedent in the
-  closed sets §13 already validates: **a declaration-graph check**
-  over container names connected by `opens:` edges, which must be
-  acyclic with a self-reference rejected as the degenerate one-node
-  cycle — this is the check that bars a container from nesting its
-  own kind and the one that bounds nesting depth, and it replaced an
-  earlier, wrong-altitude draft of the same idea that checked
-  ancestry on *instances* rather than *declarations* (rejected because
-  it leaves unbounded depth declarable, caught only mid-flight); and a
-  scoping check that a `blocks:` entry must name a queue declared in
-  the same file, never a queue nested inside what the blocking queue
-  itself `opens:`. `boundary`, the single static agent step this
-  replaces, is retired from §15.1's list outright — nothing takes its
-  slot there, because `retro` and `setup` dispatch as ordinary chain
-  flows through a declared queue rather than through a tier's
-  `delivery.agent_step`; `setup` specifically dispatches as the
-  minted container's own `prep` entry, never the parent's `opens:`
-  entry, so `flow:` and `opens:` never need to coexist on one
+  way a `gate:` file names its own gate. `types/<name>.yaml` registers
+  a plain work-item type as a list of the declared gates (§15.2) it
+  visits — inverting the gate's own former `ticket_types:` field,
+  which is retired outright — and shares one namespace with container
+  declarations: a bundle's containers and its plain types are one
+  registry. Every queue entry, project or container, carries exactly
+  one field, `flow:`, required, naming a member of that registry; the
+  loader does not branch on which kind of declaration the name
+  resolves to, only on what that declaration's own content contains —
+  this replaces the earlier `flow:`/`opens:` pair outright, not merely
+  renames half of it. The loader gains two structural checks with no
+  exact precedent in the closed sets §13 already validates: **a
+  declaration-graph check** over container names connected by `flow:`
+  edges whose target resolves to another container (an edge into a
+  plain type is not part of this graph — a plain type has no further
+  `flow:` of its own, so it is always a leaf), which must be acyclic
+  with a self-reference rejected as the degenerate one-node cycle —
+  this is the check that bars a container from nesting its own kind
+  and the one that bounds nesting depth, and it replaced an earlier,
+  wrong-altitude draft of the same idea that checked ancestry on
+  *instances* rather than *declarations* (rejected because it leaves
+  unbounded depth declarable, caught only mid-flight); and a scoping
+  check that a `blocks:` entry must name a queue declared in the same
+  file, never a queue nested inside what the blocking queue's `flow:`
+  opens. `boundary`, the single static agent step this replaces, is
+  retired from §15.1's list outright — nothing takes its slot there,
+  because `retro` and `setup` dispatch as ordinary chain flows through
+  a declared queue rather than through a tier's `delivery.agent_step`;
+  `setup` specifically is its own anchor entry, first in a minted
+  container's own five-entry sequence — not a value stashed on
+  `prep`'s own `flow:`, which an earlier draft of this same ticket got
+  wrong (it runs `setup` once per container instead of once per mint)
+  — so there is nowhere `flow:` needs to name two things on one
   declaration. **Not built as part of this pass**: the dispatcher, the
   sweep, the scan/setup/retro machinery, and the ticket→milestone
   `Stubbed`/`Urgent` interactions this needs to have a subject at all

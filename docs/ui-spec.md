@@ -417,10 +417,12 @@ Recorded so nobody adds them back as conveniences:
 
 - **A second write path.** Every mutation is a command (§2's rule 1).
 - **Editable protocol vocabulary.** Statuses the automation reads and
-  agent steps are platform-fixed; a container's own four queue
-  positions (`prep`/`main`/`retro`/`cleanup`, v5 §7.8) are equally
-  fixed, whatever container they belong to — only the project's own
-  queue list is workflow-bundle content, same as a gate or an
+  agent steps are platform-fixed; a container's own five queue
+  positions (`setup`/`prep`/`main`/`retro`/`cleanup`, v5 §7.8) are
+  equally fixed, whatever container they belong to — only the
+  project's own queue list, and what each anchor entry's `flow:`
+  points at (a registered work-item type, `docs/dsl-syntax.md`
+  §15.9), is workflow-bundle content, same as a gate or an
   environment. The UI renders whichever is in front of it and never
   offers to add a container anchor or reorder one (§7.18).
 - **Parallel review UI.** Review is sequential by decision (§7.19);
