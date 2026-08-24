@@ -516,12 +516,12 @@ design gates pass.
   container-status additions land, per the divergence noted above —
   across the two default lifecycles; a *declared* gate's or
   environment's own name (`ux-review`, `dev`) has no such table and
-  needs one, but
-  writing it is `systems/dashboard.md`'s decision when UI v1 renders
-  this projection — out of this ticket's own declared scope ("the
-  screens that render this, which are UI v1's") — not a new `label:`
-  field on `Catapult.Dsl.Gate` (that would put a presentation fact in
-  graph state, exactly what the store test rules out).
+  needs one, but writing it is `systems/dashboard.md`'s decision when
+  UI v1 renders this projection — out of this ticket's own declared
+  scope ("the screens that render this, which are UI v1's") — not a
+  new `label:` field on `Catapult.Dsl.Gate` (that would put a
+  presentation fact in graph state, exactly what the store test rules
+  out).
 - **Gate skip-on-no-diff and the entry-tier rule are both read off
   machinery this projection already depends on, not new engine
   mechanism** (ORC-32, design pass). A gate is offered to the human

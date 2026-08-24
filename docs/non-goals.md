@@ -958,10 +958,10 @@ there anyway would mean a cosmetic rename requires the same PR review
 `throwback:` changes do, for a fact review can't actually verify (a
 label reads correctly or it doesn't; nothing downstream enforces it).
 `systems/delivery.md`'s feature-ticket lifecycle projection carries
-the declared name verbatim for exactly this reason;
-rendering a human-facing label from it is `systems/dashboard.md`'s
-decision, when UI v1 renders the projection, not a bundle-authoring
-one. Revisit condition: a real per-bundle localization or
+the declared name verbatim for exactly this reason; rendering a
+human-facing label from it is `systems/dashboard.md`'s decision, when
+UI v1 renders the projection, not a bundle-authoring one. Revisit
+condition: a real per-bundle localization or
 multi-tenant-labeling requirement that a dashboard-side mapping
 genuinely cannot express — not merely the convenience of not having to
 build that mapping.
