@@ -67,10 +67,40 @@ flows: [flows/*/flow.yaml]
 
 A workflow bundle's manifest carries `kind: workflow`, no `extends:`
 field at all (§11 — forked from the platform's default gates,
-environments and types instead, never layered), and `gates:` /
-`environments:` / `types:` globs in place of the chain's lists. The
-file-list keys are per-kind: a `tiers:` list in a workflow bundle is
-an unknown field and a load error, per §13, and so is `extends:`
+environments and types instead, never layered), `gates:` /
+`environments:` / `types:` globs in place of the chain's lists, and
+one further key the chain axis has no counterpart for:
+
+```yaml
+name: default-flow
+version: "1.0.0"
+kind: workflow
+gates: [gates/*.yaml]
+environments: [environments/*.yaml]
+types: [types/*.yaml]
+entry: project                    # names the type a fresh project
+                                   #   dispatches from (§15.2, §15.6)
+```
+
+**`entry:` names the type the plane instantiates when a new project
+starts — a fact rootness alone does not answer** (a sixth-pass
+addition). §15.6's declaration graph derives which types are
+*roots* — nodes nothing else's `flow:` targets — and a bundle
+declaring `epic` without ever nesting it under something else has two
+of them; roots are not projects, and "the project is a project by
+convention" was never a rule the loader could check anything against.
+`entry:` is a reference, the identical shape `catapult.yaml` already
+has pinning one bundle per axis, not a duplicated fact: it names a
+`type:` and the loader checks three things at load — the name
+resolves in the loaded union, the resolved declaration carries a
+queue-shaped anchor (`container`-skeleton or skeleton-less, §15.6),
+and it is a root in the declaration graph (§13). Rootness itself stays
+derived, for the acyclicity argument §15.6 makes; only *which* root is
+the entry point is declared, once, beside the other bundle-wide facts
+`bundle.yaml` already carries.
+
+The file-list keys are per-kind: a `tiers:` list in a workflow bundle
+is an unknown field and a load error, per §13, and so is `extends:`
 itself on that same manifest.
 
 Fragment kinds are a **closed vocabulary per bundle**: a kind used in
@@ -716,7 +746,9 @@ has ever loaded, so this is the vocabulary's first landing, not a
 revision of one in the loaded union; amended at the fifth pass —
 `skeleton:` becomes optional rather than a three-valued field, and the
 `review:`/`environment:`/`flow:` restrictions below are corrected to
-match):
+match; amended again at the sixth — `entry:` (§2) gets a load check of
+its own, and the `singleton:` bullet is corrected to bound a queue's
+whole lifetime rather than its momentary population):
 
 - **`types/<name>.yaml` is the one declaration shape, directory-shaped
   because a bundle declares more than one** — `type:` names the
@@ -825,13 +857,24 @@ match):
   other way: v5 §2.4's "failing at config load beats failing
   mid-flight");
 - **a queue-shaped anchor entry may carry `singleton: true`, bounding
-  its population to 0 or 1** (§15.7) — legal wherever `flow:` is legal,
-  regardless of what the resolved declaration's own skeleton turns out
-  to be. This is not a load-time cardinality check (a queue's
-  population is live ticket state, unknowable at load) and is not
-  implied by an anchor's name — `retro` and `setup` are singleton by
-  nature but the bundle still has to say so, the same way nothing
-  about `main` or `cleanup` is inferred from their names either.
+  it to at most one work item assigned over its whole lifetime — never
+  a second, even once the first has resolved** (§15.7) — legal
+  wherever `flow:` is legal, regardless of what the resolved
+  declaration's own skeleton turns out to be. This is not a load-time
+  cardinality check (assignment history is live ticket state,
+  unknowable at load) and is not implied by an anchor's name — `retro`
+  and `setup` are singleton by nature but the bundle still has to say
+  so, the same way nothing about `main` or `cleanup` is inferred from
+  their names either;
+- **`entry:` is required on every workflow bundle's `bundle.yaml`
+  (§2), and must name a `type:` that resolves in the loaded union,
+  carries a queue-shaped anchor, and is a root in the declaration
+  graph below** — an absent `entry:`, one naming a `ticket`-skeleton
+  type, one that doesn't resolve, or one some other declaration's
+  `flow:` targets, is each a load error naming the mismatch. Unlike
+  `role_holders:` and `mirror_mapping:` above, there is no later
+  component this field waits on — a bundle author writes it the same
+  turn they write the type it names — so it takes no opt-in exemption.
 
 ## 14. Deliberately absent
 
@@ -1057,7 +1100,7 @@ statuses:                        # every anchor the skeleton fixes,
                                   #   in array order (§15.3)
   - status: setup
     flow: setup
-    singleton: true              # bounds this queue to 0 or 1 (§15.7)
+    singleton: true              # at most one work item, ever (§15.7)
   - status: prep
     flow: feature
   - status: main
@@ -1175,11 +1218,17 @@ declaration, a bundle-wide fact a value had to police — "is this the
 one" — that the declaration graph already answers structurally). A
 root is simply a node nothing else's `flow:` targets (§15.6), derived
 the identical way a queue is a query instead of a stored bucket and
-ordering is the array index instead of a second field. The project is
-a project by convention — the one skeleton-less declaration a fresh
-onboarding actually dispatches from — never by a load-time singularity
-rule; nothing stops a bundle from declaring a second skeleton-less
-type for some other outermost-shaped thing, and nothing needs to.
+ordering is the array index instead of a second field. Nothing stops
+a bundle from declaring a second skeleton-less type for some other
+outermost-shaped thing, and nothing needs to — a bundle with two roots
+is well-formed. **Which root the plane actually dispatches a fresh
+project from is a separate fact, named explicitly by `entry:` in
+`bundle.yaml` (§2), not derived from rootness at all** (a sixth-pass
+correction: an earlier draft of this section called the project "a
+project by convention," which named nothing the loader could check —
+rootness answers "is this a root," never "which root do I start
+from," and those are different questions with a bundle that has more
+than one root).
 
 **"Ticket", "container" and "milestone" are what a declaration
 contains, not what the grammar calls it.** Nothing in the loader
@@ -1416,11 +1465,18 @@ levels an author declares is unbounded. No further instance-level
 check is needed — it falls out of the declaration graph's acyclicity
 for free.
 
-**Rootness is derived, not declared.** A root is simply a node nothing
-else's `flow:` targets — there is no load check requiring exactly one,
-and none requiring at least one either (§15.2). The project is a root
-by convention and by what a fresh onboarding actually dispatches from,
-never by a grammar rule that singles it out.
+**Rootness is derived, not declared, and acyclicity already guarantees
+at least one.** A root is simply a node nothing else's `flow:`
+targets — there is no load check requiring exactly one, because a
+finite acyclic graph always has at least one node with no incoming
+edge, so "zero roots" is structurally impossible and there is nothing
+for a check to guard against. There can be more than one: a bundle
+declaring `epic` without ever nesting it under something else adds a
+second root, and that is legal. **Which root is the plane's actual
+starting point is a different question from rootness, and this
+section does not answer it** — that is `entry:` in `bundle.yaml`
+(§2), a declared reference checked against this graph rather than a
+fact the graph produces on its own.
 
 **After a container-skeleton instance's `cleanup` resolves, it
 reaches a fixed `terminal` kind — not a further queue name** (§15.1).
@@ -1458,7 +1514,7 @@ member of the type registry (§15.2):
     blocks: [retro]
   - status: retro
     flow: retro
-    singleton: true       # bounds this queue's population to 0 or 1
+    singleton: true       # at most one work item, ever (§15.7)
 ```
 
 **A queue is a query, never stored** (`docs/v5-design-decisions.md`
@@ -1469,27 +1525,67 @@ materialize (v5 §1.2) and `Catapult.Engine.Scheduler` holds no memory
 of what it last broadcast: a stale bucket is worse than an absent
 one, because it is the kind of thing a dispatcher acts on.
 
-**`singleton:` bounds the query's cardinality; it does not make the
-queue stored.** `retro` is the motivating case — a single work item
-moving through a flow, not a succession of them — and `setup` is the
-same shape; declaring it gives the plane something to code against,
-addressing *the* retro work item directly rather than iterating a set
-that structurally never holds more than one. It is declared per
-entry, not implied by an anchor's name: `retro` and `setup` are
-singleton by nature, but reading that off the name would make it
-another platform-fixed fact about anchors, which is what this section
-has spent four passes removing — a bundle declares it, the same way it
-declares everything else about what an anchor points at. The bound
-cannot be a load-time check, since a queue's population is live ticket
-state; **a second work item arriving at a queue already carrying one
-is admitted, and files `Blocked`** — the identical shape `docs/
-v5-design-decisions.md` §7.4 already uses for an unrecognized label,
-rather than a silent refusal to dispatch that would leave the second
-work item's own author with nothing to look at. `singleton:` applies
-uniformly whether `flow:` resolves to a `ticket`-skeleton type or one
-with a queue-shaped anchor of its own: a singleton queue naming a
-container-shaped type is exactly "this container has one child
-instance," no second mechanism.
+**`singleton:` bounds assignment over the queue's whole lifetime, not
+the query's momentary population — a sixth-pass correction of the
+pass that introduced it.** The bound is not "0 or 1 unresolved right
+now"; it is **at most one work item ever assigned, and exactly one
+once populated.** The distinction is not cosmetic: a queue is a query
+over *unresolved* work, so once a singleton queue's one work item
+reaches `terminal` the query is empty again — a population-scoped
+bound would treat that emptiness as room for a second assignment, and
+it is not room, it is closure. `retro` is the motivating case — a
+single work item moving through a flow once, not a succession of
+them, ever — and `setup` is the same shape; declaring it gives the
+plane something to code against, addressing *the* retro work item
+directly, and lets it stay closed once that work item is done rather
+than reopening to a second one. It is declared per entry, not implied
+by an anchor's name: `retro` and `setup` are singleton by nature, but
+reading that off the name would make it another platform-fixed fact
+about anchors, which is what this section has spent four passes
+removing — a bundle declares it, the same way it declares everything
+else about what an anchor points at.
+
+**This does not reintroduce stored state.** "Has anything ever been
+assigned to this queue" is answerable from the same work-item records
+the query itself reads, with the resolution filter dropped — a Done
+work item is invisible to the queue-as-query (§15.7 above) but not to
+the ticket store it is one of, so the singleton check is one fewer
+predicate over the same table, not a new bucket written and read
+back. The bound cannot be a load-time check regardless — assignment
+history is live ticket state, unknowable at load — so, as with the
+query itself, the loader's job stops at accepting the field (§13);
+**a second assignment, ever, is a loud error**, not an admitted
+dispatch that files `Blocked` the way an unrecognized `flow:` label
+does. A silent-refusal concern was the reason an earlier draft chose
+admit-and-`Blocked`, and it is real, but the answer is a scoping line
+rather than a protocol concession: what happens to the rejected
+work's own content is business logic outside the loader's remit, the
+identical line this section already draws for `initialization`
+(below) — not something the grammar needs to decide by widening what
+"singleton" means.
+
+**One property is the point of the field, not an edge case to
+special-case around: once a singleton queue's sole work item is
+`terminal`, that queue is permanently closed to new work.** A pass
+reading "loud error on a second assignment" without this stated might
+be tempted to add an escape hatch for it later; there is none to add,
+because a closed singleton queue is what the declaration asked for.
+
+**This composes with §15.8's two ways a container's position moves
+backward rather than needing a third.** §15.8 already allows a
+resolved queue to un-resolve when its population refills, or a cited
+gate to throw an entry back. Under a lifetime bound, the only way a
+singleton queue can ever un-resolve is **its own one work item going
+backward** — reopened, or thrown back through a gate it cites — never
+a second item arriving, because there is never a second item. "If you
+need to go back through a singleton queue, you move the work item
+that is already there" falls out of the two rules together and needs
+no separate statement here.
+
+`singleton:` applies uniformly whether `flow:` resolves to a
+`ticket`-skeleton type or one with a queue-shaped anchor of its own: a
+singleton queue naming a container-shaped type is exactly "this
+container has one child instance, ever," no second mechanism.
 
 **`flow:` resolves against the workflow bundle's own type registry,
 never against a chain bundle's `flow:` declaration.** No load-time
@@ -1636,3 +1732,12 @@ cardinality metadata a queue-shaped entry carries the same way a gate
 carries `depth:`, not a new kind of state. No plane logic branches on
 any of the three, so none of them argues with the entry above the way
 the third pass's type registry did.
+
+**Nor does the sixth.** `entry:` in `bundle.yaml` (§2) is a reference
+to an already-declared type, the identical shape `catapult.yaml`'s own
+`chain:`/`workflow:` pins already have — it names which already-
+declarable root the plane starts from, adding no new declarable fact
+about the automation graph itself. The `singleton:` correction changes
+what a lifetime bound means and what the dispatcher does about it, not
+what a bundle may declare: the field existed at the fifth pass, and
+this pass fixes its semantics rather than widening its surface.

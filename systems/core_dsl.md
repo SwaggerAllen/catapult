@@ -333,16 +333,46 @@ context-source kinds, and audit profiles.
   read an argument for why a project needs no re-resolution anchor as
   an argument about what its array may contain, which the governing
   rule never actually claimed. **New: `singleton: true` on a
-  queue-shaped anchor entry**, bounding a queue's population to 0 or
-  1 for plane code to address directly (`milestone`'s `setup` and
-  `retro` are the motivating declarations) — not a load-time check
-  (population is live state), and the loader's job stops at accepting
-  the field; a second arrival at a singleton queue is dispatch
-  behavior, not a grammar concern, and is recorded in
-  `docs/v5-design-decisions.md` §7.8 as filing `Blocked` rather than
-  refusing the dispatch. **Not built as part of this pass**, same as
-  the third and fourth: the dispatcher, the sweep, the scan/setup/retro
-  machinery, and the singleton-queue arrival check — ORC-104's.
+  queue-shaped anchor entry**, bounding a queue to at most one work
+  item over its lifetime for plane code to address directly
+  (`milestone`'s `setup` and `retro` are the motivating declarations)
+  — not a load-time check (assignment history is live state), and the
+  loader's job stops at accepting the field; a second assignment to a
+  singleton queue is dispatch behavior, not a grammar concern, and was
+  first recorded in `docs/v5-design-decisions.md` §7.8 as filing
+  `Blocked` rather than refusing the dispatch — corrected at this same
+  ticket's sixth pass below, since a lifetime bound and a "files
+  `Blocked`" response turned out to disagree with each other. **Not
+  built as part of this pass**, same as the third and fourth: the
+  dispatcher, the sweep, the scan/setup/retro machinery, and the
+  singleton-queue rejection check — ORC-104's.
+
+- **A sixth ORC-105 pass named the plane's entry point explicitly and
+  corrected `singleton:`'s own semantics, both gaps the fifth pass's
+  own record left open** (design pass; `docs/dsl-syntax.md` §2, §13,
+  §15.2, §15.6-§15.7; `docs/v5-design-decisions.md` §7.8). Derived
+  rootness answers "is this type a root," never "which root does the
+  plane dispatch a fresh project from" — a bundle declaring `epic`
+  without nesting it under anything else already has two roots, so
+  "the project is a project by convention" named nothing the loader
+  could check. `entry:`, a new required key on a workflow bundle's own
+  `bundle.yaml`, names that type instead, checked at load the same way
+  `role_holders:` and `mirror_mapping:` are checked when supplied: the
+  name resolves, the resolved type carries a queue-shaped anchor, and
+  it is a root in the declaration graph. **`singleton:` was wrong at
+  the fifth pass in what it bounded** — "0 or 1 unresolved right now"
+  rather than "at most one, ever, over the queue's whole lifetime" —
+  which is why a second work item was recorded as admitted-and-
+  `Blocked`: under a population bound, a queue whose sole item has
+  reached `terminal` looks exactly like an empty queue with room. It
+  is neither; the loader's own check is unaffected (still not a
+  load-time constraint, since assignment history is live state), but
+  the dispatcher's job changes from "admit and file `Blocked`" to "a
+  loud error, permanently, once one work item has ever been assigned."
+  **Not built as part of this pass**, same as every pass before it:
+  the dispatcher, the sweep, the scan/setup/retro machinery, the
+  entry-point load check, and the singleton-lifetime rejection check —
+  ORC-104's.
 
 ## Initial vs target
 

@@ -2287,17 +2287,25 @@ updates the milestone's tickets to reflect what actually landed, and
 flips the aggregated flag set (below); `setup` — forward — grooms,
 sets blockers, and fills `prep`. **Both `milestone`'s `setup` and
 `retro` anchor entries are declared `singleton: true`** (a fifth-pass
-addition, `dsl-syntax.md` §15.7): each holds at most one work item at
-a time, which is what lets the dispatcher address *the* setup or *the*
-retro work item directly rather than iterating a set that structurally
-never holds more than one — the bound is declared, not read off either
-anchor's name, since the grammar has spent four passes removing
-exactly that kind of implicit fact. A second arrival at either — a
-second ticket dispatched to the queue before the first resolves — is
-admitted and files `Blocked`, the same defined failure an unrecognized
-`flow:` label
-already produces, rather than a silent refusal that would leave the
-second work item's own author with nothing to look at. Both are
+addition, corrected at the sixth, `dsl-syntax.md` §15.7): each holds
+at most one work item, ever — not merely 0-or-1 at a time — which is
+what lets the dispatcher address *the* setup or *the* retro work item
+directly, permanently, rather than iterating a set that structurally
+never holds more than one and never re-opens once it empties. The
+bound is declared, not read off either anchor's name, since the
+grammar has spent four passes removing exactly that kind of implicit
+fact. **A second assignment to either, ever — even after the first has
+already reached `terminal` — is a loud dispatch-time error, not an
+admitted second ticket.** The fifth pass had this as "admitted and
+files `Blocked`," the same shape an unrecognized `flow:` label
+produces; the sixth pass found that shape wrong for a bound scoped to
+the queue's whole lifetime rather than its momentary population — a
+singleton queue whose one work item is already `terminal` is
+*closed*, on purpose, and admitting a second into it would treat that
+closure as an ordinary empty queue with room. What the rejected
+work's own content becomes is business logic outside the grammar's
+remit, the identical scoping line already drawn for `initialization`
+(above), not a reason to widen what "singleton" means. Both are
 **ordinary work items**:
 there is a ticket again, and it is not the thing that was removed.
 What's absent is the *pause-proxy* — a ticket standing in for
@@ -2341,6 +2349,29 @@ archived tickets, and that premise no longer holds — keeping a rule
 after its reason is gone is the failure the mix.exs cowlib
 advisory-ignore rationale went stale the same way (ORC-91): a
 justification that quietly outlives the fact it was true of.
+
+**A sixth pass named the plane's own starting point, which derived
+rootness never did.** The fifth pass's declaration-graph fix (above)
+answers "is this type a root" — a node nothing else's `flow:`
+targets — and a bundle that declares `epic` without ever nesting it
+under something else has *two* roots the moment it does, since `epic`
+was already one before `milestone` joined it as another. Roots are
+not projects, and "the project is a project by convention" — every
+earlier pass's own phrasing — named nothing the loader could check.
+**`entry:`, a new required key on a workflow bundle's own
+`bundle.yaml`, names the type a fresh project actually dispatches
+from** (`dsl-syntax.md` §2): a reference, the identical shape
+`catapult.yaml` already has pinning one bundle per axis, not a second
+copy of a fact the graph produces on its own. The loader checks it in
+full — the name resolves, the resolved type carries a queue-shaped
+anchor, and it is a root in the declaration graph — so a bundle that
+loads has a starting point the loader has actually verified rather
+than one a reader has to infer from which declaration looks
+project-shaped. Worth recording alongside it: acyclicity already
+guarantees at least one root exists in any loaded bundle (a finite
+DAG always has a node with no incoming edge), so `entry:` is the only
+missing piece here, not a general well-formedness rule needing a
+companion check of its own.
 
 ### 7.9 The scaffold
 

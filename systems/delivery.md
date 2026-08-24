@@ -192,23 +192,45 @@ design gates pass.
   this system's dispatcher would otherwise have inherited** (design
   pass; `docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
   §7.8). `milestone`'s `setup` and `retro` queues are declared
-  `singleton: true` — population bounded to 0 or 1 — which is not
-  something the loader can check (a queue's population is live ticket
-  state) and is therefore this system's own dispatcher's job: a second
-  work item arriving at either queue is admitted and files `Blocked`,
-  the same defined failure this system already produces for an
-  unrecognized `flow:` label, rather than a silent refusal. Separately,
-  the declaration-graph acyclicity check ORC-104 is filed to build
-  (above) now has to treat a skeleton-less type — the project included
-  — as a graph node, not only a `container`-skeleton type: the fourth
-  pass's narrower node set excluded the exact edge a project/container
-  cycle runs on (`milestone.main` → `flow: project`, `project.build-
-  out` → `flow: milestone`), so a loader built against the fourth
-  pass's own record would have let that cycle through. Nothing in
-  this system's own dispatch logic changes shape from either
-  correction — both are about what the loader accepts before this
-  system ever sees a bundle — but the Target build has to read the
-  corrected record, not the superseded one.
+  `singleton: true` — bounded, this system's fifth-pass reading held,
+  to 0 or 1 unresolved at a time — which is not something the loader
+  can check (a queue's population is live ticket state) and is
+  therefore this system's own dispatcher's job. **This reading was
+  wrong, corrected at the sixth pass below** — see that bullet rather
+  than treating "admitted and files `Blocked`" as this system's
+  target behavior. Separately, the declaration-graph acyclicity check
+  ORC-104 is filed to build (above) now has to treat a skeleton-less
+  type — the project included — as a graph node, not only a
+  `container`-skeleton type: the fourth pass's narrower node set
+  excluded the exact edge a project/container cycle runs on
+  (`milestone.main` → `flow: project`, `project.build-out` → `flow:
+  milestone`), so a loader built against the fourth pass's own record
+  would have let that cycle through. Nothing in this system's own
+  dispatch logic changes shape from the acyclicity correction — it is
+  about what the loader accepts before this system ever sees a bundle
+  — but the Target build has to read the corrected record, not the
+  superseded one.
+- **A sixth ORC-105 pass corrected the fifth pass's own singleton
+  reading and gave this system's dispatcher a fact to check that the
+  loader cannot: which type a fresh project actually starts from**
+  (design pass; `docs/dsl-syntax.md` §2, §13, §15.6-§15.7; `docs/
+  v5-design-decisions.md` §7.8). `singleton:` bounds a queue to at
+  most one work item **ever assigned**, not 0-or-1 unresolved at any
+  moment — a queue whose sole work item has reached `terminal` is
+  *closed*, not empty-with-room, so this system's dispatcher must
+  reject a second assignment outright rather than admit it and file
+  `Blocked`, once one work item has ever been assigned to a singleton
+  queue. This is a real behavior change from the fifth pass's own
+  record, not a rewording: "admit and file `Blocked`" and "reject
+  outright" dispatch differently on the same input. Separately,
+  `entry:` on a workflow bundle's own `bundle.yaml` names the type
+  onboarding dispatches a fresh project from — this system reads it
+  rather than inferring a starting point from which declaration looks
+  project-shaped, the identical inference this record's own earlier
+  passes leaned on informally without the loader ever having checked
+  it. Neither correction changes this system's shape, only what its
+  dispatcher and its onboarding path each read and enforce; both are
+  ORC-104's to build, alongside the rest of this entry's Target list.
 
 ## Initial vs target
 
