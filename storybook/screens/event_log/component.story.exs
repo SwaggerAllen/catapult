@@ -88,7 +88,8 @@ defmodule Catapult.Storybook.Screens.EventLogStory do
     [
       %Variation{
         id: :streaming,
-        description: "The default view: one project's whole log, newest activity visible, nothing selected.",
+        description:
+          "The default view: one project's whole log, newest activity visible, nothing selected.",
         attributes: %{
           project_id: @project_id,
           events: events(),
@@ -122,7 +123,8 @@ defmodule Catapult.Storybook.Screens.EventLogStory do
       },
       %Variation{
         id: :filtered_by_ticket,
-        description: "The 'ticket' filter from docs/ui-spec.md, bound to container_id — every row shares one ticket.",
+        description:
+          "The 'ticket' filter from docs/ui-spec.md, bound to container_id — every row shares one ticket.",
         attributes: %{
           project_id: @project_id,
           events: events(),
@@ -132,7 +134,8 @@ defmodule Catapult.Storybook.Screens.EventLogStory do
       },
       %Variation{
         id: :filtered_by_actor,
-        description: "The 'actor' filter, bound to actor_id — narrowed to what a human (not the executor) did.",
+        description:
+          "The 'actor' filter, bound to actor_id — narrowed to what a human (not the executor) did.",
         attributes: %{
           project_id: @project_id,
           events: events() |> Enum.filter(&(&1.actor_id == "author")),
@@ -154,7 +157,8 @@ defmodule Catapult.Storybook.Screens.EventLogStory do
       },
       %Variation{
         id: :empty_stream,
-        description: "A project with no events yet — a real state, not a loading spinner or an error.",
+        description:
+          "A project with no events yet — a real state, not a loading spinner or an error.",
         attributes: %{
           project_id: "proj_new",
           events: [],

@@ -3,11 +3,12 @@ defmodule Catapult.FoundationTest do
 
   alias Catapult.Foundation
 
-  test "declares the three values a deployment differs on, one of them external" do
+  test "declares the values a deployment differs on, one of them external" do
     assert [
              {:database_url, "DATABASE_URL", database_opts},
              {:pool_size, "FOUNDATION_POOL_SIZE", _},
-             {:health_port, "FOUNDATION_HEALTH_PORT", _}
+             {:health_port, "FOUNDATION_HEALTH_PORT", _},
+             {:endpoint_secret_key_base, "FOUNDATION_ENDPOINT_SECRET_KEY_BASE", _}
            ] = Foundation.config()
 
     # DATABASE_URL is the one name imposed from outside; the other two

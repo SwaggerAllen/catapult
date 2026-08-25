@@ -16,7 +16,8 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
     [
       %Variation{
         id: :blocked_on_context,
-        description: "One unsatisfied walk, its target still absent — the ordinary blocked shape.",
+        description:
+          "One unsatisfied walk, its target still absent — the ordinary blocked shape.",
         attributes: %{
           project_id: @project_id,
           node_id: "comparch:dashboard",
@@ -82,7 +83,8 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
       },
       %Variation{
         id: :excluded_by_scope_filter,
-        description: "passes_scope_filter is false — this node was never a candidate, whatever its context looks like.",
+        description:
+          "passes_scope_filter is false — this node was never a candidate, whatever its context looks like.",
         attributes: %{
           project_id: @project_id,
           node_id: "subcomparch:legacy_billing",
@@ -95,7 +97,8 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
       },
       %Variation{
         id: :fully_satisfied,
-        description: "Every context walk resolved and approved — nothing in scope is blocking this node.",
+        description:
+          "Every context walk resolved and approved — nothing in scope is blocking this node.",
         attributes: %{
           project_id: @project_id,
           node_id: "comparch:dashboard",
