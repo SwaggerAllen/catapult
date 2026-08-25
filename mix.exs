@@ -179,8 +179,15 @@ defmodule Catapult.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  # `storybook/` compiles in every environment, deliberately. It is
+  # design-owned (`pipeline.config.json`'s `designOwnedPaths`), which
+  # makes it the one tree where authored Elixir arrives without a dev
+  # pass behind it — so leaving it off this list is what would make it
+  # unchecked, not what would keep it out of the way. On the path, the
+  # whole gate set (format, credo, compile --warnings-as-errors, the
+  # boundary compiler) covers it like any other source.
+  defp elixirc_paths(:test), do: ["lib", "storybook", "test/support"]
+  defp elixirc_paths(_), do: ["lib", "storybook"]
 
   defp deps do
     [
@@ -229,7 +236,17 @@ defmodule Catapult.MixProject do
       # + JWKS verification is stock Elixir machinery (joken/joken_jwks-
       # grade), not custom crypto") — named in ORC-9's own scope text.
       {:joken, "~> 2.6"},
-      {:joken_jwks, "~> 1.7"}
+      {:joken_jwks, "~> 1.7"},
+      # The screen machinery `docs/ui-spec.md` and `systems/dashboard.md`
+      # describe: `Phoenix.Component` for the presentational shells design
+      # authors under `storybook/screens/**` (design-owned per
+      # `pipeline.config.json`), and PhoenixStorybook for the stories that
+      # exercise them. Ordinary runtime deps rather than `only: [:dev,
+      # :test]`: the storybook ships in a release deliberately — main is
+      # both prod and staging today, and the storybook is wanted on the
+      # staging release once the two separate.
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_storybook, "~> 1.3"}
     ]
   end
 
