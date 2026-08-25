@@ -3,82 +3,140 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
   Built against the real `bundles/default-flow` this repo ships with —
   "checked, not assumed" (`systems/delivery.md`'s own standard for this
   ticket) — rather than a synthetic fixture, so a change to the shipped
-  gates is caught here too.
+  types is caught here too.
+
+  Rewritten at ORC-104: `after:` is retired (dsl-syntax.md §15.3), so
+  there is no gate chain to walk and no orphan-anchor case to test.
+  Position is the citing type's own array index, which is what the
+  synthetic cases below now exercise instead.
   """
 
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
-  alias Catapult.Dsl.Gate
+  alias Catapult.Dsl.Status
+  alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
 
-  describe "positions/1 against the shipped default-flow bundle" do
+  describe "positions/2 against the shipped default-flow bundle" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
       %{workflow: workflow}
     end
 
-    test "queue, generation, critique, both gates in order, then fanout", %{workflow: workflow} do
-      assert Sequence.positions(workflow) == [
-               {:kind, :queue},
+    test "the feature type's own array, in order, up to the reachable boundary", %{
+      workflow: workflow
+    } do
+      assert Sequence.positions(workflow, "feature") == [
+               {:kind, :pending},
                {:kind, :generation},
                {:kind, :critique},
                {:gate, "ux-review"},
                {:gate, "engineering-review"},
-               {:kind, :fanout}
+               {:kind, :checks}
              ]
+    end
+
+    test "merge, deploy and terminal sit past this phase's reach", %{workflow: workflow} do
+      positions = Sequence.positions(workflow, "feature")
+
+      refute {:kind, :merge} in positions
+      refute {:kind, :deploy} in positions
+      refute {:kind, :terminal} in positions
+    end
+
+    test "an environment citation is not a resting position", %{workflow: workflow} do
+      # `types/feature.yaml` cites `staging` before its `deploy` entry
+      # (§15.5). It configures that deploy; nothing rests at it.
+      assert Enum.all?(Sequence.positions(workflow, "feature"), &match?({:kind, _}, &1)) or
+               Enum.all?(
+                 Sequence.positions(workflow, "feature"),
+                 &(elem(&1, 0) in [:kind, :gate])
+               )
+    end
+
+    test "a type name that does not resolve yields no positions", %{workflow: workflow} do
+      assert Sequence.positions(workflow, "no-such-type") == []
     end
   end
 
-  describe "positions/1 without a declared critique" do
-    test "omits the :critique position" do
-      workflow = %Workflow{name: "test", critique: nil, gates: %{}, environments: %{}}
+  describe "positions/2 reads the citing type's own array" do
+    test "a type declaring no critique entry has no critique position" do
+      workflow = workflow_with(["pending", "generation", "checks"])
 
-      assert Sequence.positions(workflow) == [
-               {:kind, :queue},
+      assert Sequence.positions(workflow, "t") == [
+               {:kind, :pending},
                {:kind, :generation},
-               {:kind, :fanout}
+               {:kind, :checks}
              ]
     end
-  end
 
-  describe "positions/1 with a gate chain" do
-    test "orders gates by walking after: from generation" do
-      gates = %{
-        "second" => gate("second", after: "first"),
-        "first" => gate("first", after: "generation")
+    test "two types may run the same gates in opposite relative order" do
+      # The change §15.3 is explicitly about: with position living on
+      # the citing type's own array, neither declaration answers to the
+      # other's.
+      forward = %Type{
+        name: "forward",
+        file: "types/forward.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{review: "a"},
+          %Status{review: "b"},
+          %Status{status: "checks"}
+        ]
       }
 
-      workflow = %Workflow{name: "test", critique: nil, gates: gates, environments: %{}}
+      backward = %Type{
+        name: "backward",
+        file: "types/backward.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{review: "b"},
+          %Status{review: "a"},
+          %Status{status: "checks"}
+        ]
+      }
 
-      assert Sequence.positions(workflow) == [
-               {:kind, :queue},
-               {:kind, :generation},
-               {:gate, "first"},
-               {:gate, "second"},
-               {:kind, :fanout}
+      workflow = %Workflow{
+        name: "test",
+        entry: "forward",
+        gates: %{},
+        environments: %{},
+        types: %{"forward" => forward, "backward" => backward}
+      }
+
+      assert Sequence.positions(workflow, "forward") == [
+               {:kind, :pending},
+               {:gate, "a"},
+               {:gate, "b"},
+               {:kind, :checks}
              ]
-    end
 
-    test "a gate anchored beyond generation's chain is not reachable" do
-      gates = %{"orphan" => gate("orphan", after: "checks")}
-      workflow = %Workflow{name: "test", critique: nil, gates: gates, environments: %{}}
-
-      assert Sequence.positions(workflow) == [
-               {:kind, :queue},
-               {:kind, :generation},
-               {:kind, :fanout}
+      assert Sequence.positions(workflow, "backward") == [
+               {:kind, :pending},
+               {:gate, "b"},
+               {:gate, "a"},
+               {:kind, :checks}
              ]
     end
   end
 
-  defp gate(name, after: after_) do
-    %Gate{
-      name: name,
-      file: "gates/#{name}.yaml",
-      after: after_,
-      role: "engineering",
-      escalation: "author"
+  defp workflow_with(status_names) do
+    type = %Type{
+      name: "t",
+      file: "types/t.yaml",
+      skeleton: "ticket",
+      statuses: Enum.map(status_names, &%Status{status: &1})
+    }
+
+    %Workflow{
+      name: "test",
+      entry: "t",
+      gates: %{},
+      environments: %{},
+      types: %{"t" => type}
     }
   end
 end

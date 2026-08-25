@@ -2,8 +2,8 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   @moduledoc """
   The author's state lever, in code (v5 §7.10, `systems/delivery.md`'s
   ORC-32 design pass): a Commanded process manager reading engine's own
-  events and projecting the feature-ticket lifecycle — `queue →
-  generation → [critique] → [gate] → … → fanout`
+  events and projecting the feature-ticket lifecycle — `pending →
+  generation → [critique] → [gate] → … → checks`
   (`Catapult.Delivery.FeatureLifecycle.Sequence`) — into
   `Catapult.Delivery.Store`'s own read model, which the work surface
   renders. No third-party tracker in this path (v5 §7.17).
@@ -73,12 +73,20 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   alias Catapult.Engine.Events.RunFailed
 
   @enforce_keys [:project_id, :flow_id]
-  defstruct [:project_id, :flow_id, :entry_node_id, :projection]
+  defstruct [:project_id, :flow_id, :entry_node_id, :flow_name, :projection]
 
   @type t :: %__MODULE__{
           project_id: binary(),
           flow_id: binary(),
           entry_node_id: binary() | nil,
+          # The workflow-axis type name this flow's sequence is read
+          # off (dsl-syntax.md §15.2) — `FlowOpened.flow_name` is the
+          # convention-checked pairing point between the chain axis's
+          # ticket face and the workflow axis's registry (§13's "no
+          # cross-axis load-time check binds a queue's flow: value to
+          # a chain bundle's flow: declaration of the same name" — an
+          # unrecognized name simply resolves no positions, below).
+          flow_name: String.t() | nil,
           # `nil` only transiently, between `struct(__MODULE__)`
           # (Commanded's own initial state) and this instance's first
           # `apply/2` clause, `%FlowOpened{}` by construction
@@ -132,6 +140,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
       | project_id: event.project_id,
         flow_id: event.flow_id,
         entry_node_id: event.entry_node_id,
+        flow_name: event.flow_name,
         projection: Projection.new()
     }
     |> persist()
@@ -139,8 +148,11 @@ defmodule Catapult.Delivery.FeatureLifecycle do
 
   def apply(%__MODULE__{} = pm, %RunFailed{}) do
     case load_workflow() do
-      {:ok, workflow} -> pm |> update_projection(&Projection.block(&1, workflow)) |> persist()
-      {:error, _reason} -> pm
+      {:ok, workflow} ->
+        pm |> update_projection(&Projection.block(&1, workflow, pm.flow_name)) |> persist()
+
+      {:error, _reason} ->
+        pm
     end
   end
 
@@ -177,7 +189,9 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   defp persist(%__MODULE__{project_id: project_id, flow_id: flow_id} = pm) do
     case load_workflow() do
       {:ok, workflow} ->
-        {status_kind, status_gate} = position_columns(Projection.resting(workflow, pm.projection))
+        resting = Projection.resting(workflow, pm.flow_name, pm.projection)
+        warn_unplaceable(pm, workflow, resting)
+        {status_kind, status_gate} = position_columns(resting)
 
         {blocked_origin_kind, blocked_origin_gate} =
           pm.projection |> Projection.blocked_origin() |> position_columns()
@@ -200,6 +214,25 @@ defmodule Catapult.Delivery.FeatureLifecycle do
     pm
   end
 
+  # An open work item the workflow axis cannot place is the accepted
+  # cost of the two axes not being load-time bound (§15.7). Accepted is
+  # not the same as invisible: it is logged once per projection write,
+  # because the fix — a chain flow whose `ticket:` face uses a label
+  # some declared type actually carries — is an authoring correction
+  # nobody makes without being told.
+  defp warn_unplaceable(%__MODULE__{} = pm, %Workflow{types: types}, nil) do
+    unless Map.has_key?(types, pm.flow_name) do
+      Logger.warning(
+        "flow #{pm.flow_id} opened as #{inspect(pm.flow_name)}, which names no declared " <>
+          "work-item type in the loaded workflow bundle — it is projected without a position " <>
+          "(dsl-syntax.md §15.7)",
+        component: :delivery
+      )
+    end
+  end
+
+  defp warn_unplaceable(%__MODULE__{}, %Workflow{}, _placed), do: :ok
+
   defp position_columns(nil), do: {nil, nil}
   defp position_columns({:kind, kind}), do: {to_string(kind), nil}
   defp position_columns({:gate, name}), do: {nil, name}
@@ -209,8 +242,22 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   ## unchanged by this ticket" — Commanded's own default `handle/2`
   ## (always `[]`) is exactly right here, so it is not overridden.
 
-  @doc "The composite `Sequence.position/0` a flow's projected row currently carries — the work surface's own read (see `Catapult.Delivery.Store.get_feature_lifecycle/2`)."
-  @spec status(Catapult.Delivery.Store.FeatureLifecycle.t()) :: Sequence.position()
+  @doc """
+  The composite `Sequence.position/0` a flow's projected row currently
+  carries — the work surface's own read (see
+  `Catapult.Delivery.Store.get_feature_lifecycle/2`).
+
+  `nil` when the row carries no position at all, which happens for
+  exactly one reason and is worth naming: the flow's `flow_name` does
+  not resolve to a declared type in the loaded workflow bundle. No
+  load-time check binds the two axes (dsl-syntax.md §13, §15.7 — the
+  same non-binding §11 holds everywhere else), so this is a defined
+  outcome rather than a defect: the work item exists and is open, and
+  the workflow axis simply has no sequence to place it in. §15.7 names
+  it "the residual failure this leaves" and records it as the accepted
+  cost of composability.
+  """
+  @spec status(Catapult.Delivery.Store.FeatureLifecycle.t()) :: Sequence.position() | nil
   def status(%Catapult.Delivery.Store.FeatureLifecycle{status_kind: kind})
       when not is_nil(kind) do
     {:kind, String.to_existing_atom(kind)}
@@ -220,4 +267,6 @@ defmodule Catapult.Delivery.FeatureLifecycle do
       when not is_nil(gate) do
     {:gate, gate}
   end
+
+  def status(%Catapult.Delivery.Store.FeatureLifecycle{}), do: nil
 end

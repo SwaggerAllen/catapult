@@ -1,17 +1,10 @@
 review: engineering-review
-after: ux-review                   # sequential; two reviews may not share
-                                    # an `after:` (dsl-syntax.md §15.3)
 role: engineering
-depth: 0                           # a gate reads the top level; this is
-                                    # the rule for a gate, not merely its
-                                    # default (dsl-syntax.md §15.2, ORC-92)
-                                    # — fan-out reasoning belongs to
-                                    # critique.yaml's own depth instead
-throwback: [generation, ux-review] # `generation` and `ux-review` are both
-                                    # earlier than this gate in the
-                                    # effective sequence (§15.3) — a
-                                    # display label like "Architecting"
-                                    # is not declarable vocabulary and
-                                    # fails load (Workflow.gate_throwback_
-                                    # problems/1)
+depth: 0
+throwback: [generation, ux-review] # both sit earlier than this gate in
+                                    # types/feature.yaml's own array — a
+                                    # display label like "Architecting" is
+                                    # not declarable vocabulary and fails
+                                    # load (Catapult.Dsl.Workflow's
+                                    # gate_throwback_problems/2)
 escalation: author

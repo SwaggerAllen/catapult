@@ -1,0 +1,16 @@
+type: retro
+skeleton: ticket
+# The backward-looking agent (v5 §7.8): adjudicates carried findings,
+# scans the diff for debt, and computes the aggregated flag set. Ordinary
+# dispatched work, exactly like `setup` above.
+#
+# No `critique` entry: retro reviews the container that ended, and there
+# is no freshly produced draft of its own for a critique pass to select
+# tiers within (§15.5's "presence is participation").
+statuses:
+  - status: pending
+  - status: generation
+  - status: checks
+  - status: merge
+  - status: deploy
+  - status: terminal

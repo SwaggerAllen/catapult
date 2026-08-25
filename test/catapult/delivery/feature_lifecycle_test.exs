@@ -47,7 +47,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     :ok
   end
 
-  test "opening a flow projects it at :queue" do
+  test "opening a flow projects it at :pending" do
     project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
     flow_id = "flow-1"
 
@@ -56,7 +56,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "capability",
+      flow_name: "feature",
       entry_node_id: "sysarch"
     }
 
@@ -64,7 +64,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert row.entry_node_id == "sysarch"
-    assert FeatureLifecycle.status(row) == {:kind, :queue}
+    assert FeatureLifecycle.status(row) == {:kind, :pending}
   end
 
   test "a commit while the flow is open walks it to the first gate" do
@@ -76,7 +76,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "capability",
+      flow_name: "feature",
       entry_node_id: "sysarch"
     }
 
@@ -91,5 +91,30 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+  end
+
+  test "a flow_name matching no declared type is projected without a position" do
+    # §15.7's "residual failure, named rather than left to be
+    # discovered later": no load-time check binds a chain flow's label
+    # to a workflow type, so an unmatched one is a defined outcome —
+    # the work item is open and real, and the workflow axis has no
+    # sequence to place it in.
+    project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
+    flow_id = "flow-unmatched"
+
+    assert :ok = Router.dispatch(commit(project_id, "d0"), consistency: :strong)
+
+    open = %OpenFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      flow_name: "no-such-declared-type",
+      entry_node_id: "sysarch"
+    }
+
+    assert :ok = Router.dispatch(open, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert row.entry_node_id == "sysarch"
+    assert FeatureLifecycle.status(row) == nil
   end
 end
