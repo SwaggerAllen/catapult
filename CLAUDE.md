@@ -107,9 +107,12 @@ line, a ci.yml step. Substrate has no Phoenix and so no such line.
 Its escape is `# sobelow_skip ["Check.Name"]` immediately above the
 offending function, and it is only honored because `--skip` is on the
 gate line — an annotation alone disarms nothing. `--ignore
-Config.HTTPS` is there for one reason recorded on that line: there is
-no Phoenix endpoint yet, which sobelow says itself on every run
-("cannot find the router"). **It comes out with the first endpoint.**
+Config.HTTPS` is scoped to a single finding rather than absorbed into
+a `.sobelow-skips` baseline, for the reason `mix.exs`'s own
+`ignore_advisories` gives: a silent gate re-blinds itself to the next
+finding. Why it is ignored, and the condition under which it stops
+being, are recorded on the gate line itself — where the edit would
+be made.
 
 The two blocks differ on one line only, and deliberately: the root's
 `mix deps.audit` is an alias running `hex.audit` first and `mix_audit`
