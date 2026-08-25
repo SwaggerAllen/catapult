@@ -81,9 +81,34 @@ conventions §13).
   the component by its module name the same as it would from anywhere
   else in the tree — Elixir does not care which directory a module
   compiles from, only that `storybook/` is on the build's
-  `:elixirc_paths`, which is a dev-owned build concern rather than a
-  design one. This is the pattern every later screen in this system
-  follows unless a later pass argues otherwise in writing.
+  `:elixirc_paths`. This is the pattern every later screen in this
+  system follows unless a later pass argues otherwise in writing.
+
+  **Corrected (author review): that precondition is not dev's, and
+  saying so was wrong rather than merely imprecise.** `mix.exs` is
+  deliberately unowned by any system's file map
+  (`systems/README.md`), and `pipeline.config.json` — whose
+  `preview.buildCommand` today is `mkdir -p dist && cp
+  preview/index.html dist/index.html`, touching nothing under
+  `storybook/**` — is author-owned (DESIGN §5). Neither the design
+  agent nor the dev agent can edit either file, so calling this a
+  dev-owned build concern assigns a real prerequisite to nobody: as
+  landed, `storybook/screens/**` compiles nowhere (`elixirc_paths` is
+  `["lib", "test/support"]` in test, `["lib"]` otherwise), formats
+  nowhere (`.formatter.exs`'s `inputs` doesn't glob `storybook/**`
+  either), and depends on three packages the tree does not have —
+  `phoenix`, `phoenix_live_view`, `phoenix_storybook` — none of them
+  in `mix.exs` today. This placement decision is still right; what
+  was missing is naming the enabling change plainly: an **author-owned
+  prerequisite** — `phoenix`/`phoenix_live_view`/`phoenix_storybook`
+  added to `mix.exs` with `storybook/` folded into `elixirc_paths` and
+  `.formatter.exs`'s `inputs`, and `pipeline.config.json`'s
+  `preview.buildCommand` replaced with a real storybook export — has
+  to land before any screen built against this pattern compiles,
+  formats, gates, or renders at the preview URL. Until it does, this
+  ticket's own two screens are inert by the same measurement, which is
+  a finding for the author's hand-back, not a defect in the placement
+  itself.
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the

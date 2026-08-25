@@ -561,14 +561,27 @@ reached only through their APIs per v5 §2.4).
   storing a target module as data the dispatcher reads at runtime is
   the same shape as the paragraph above and should cost nothing by the
   same argument, but "should" is a claim about `mix xref`'s own
-  labelling of macro-generated route tables, which is verifiable only
-  by compiling the router and reading `mix xref graph --label
-  compile-connected`, and design does not write to `lib/catapult_web/**`
-  to find out (`systems/dashboard.md`'s file map is dev's to implement
-  against, this ticket's own sketch included). So the question the
-  ticket named stays open, carried forward rather than guessed at: dev
-  builds the router per the shape above, runs the gate, and if it
-  fails to hold at 0 that is a finding back to the author — never a
+  labelling of macro-generated route tables, verifiable only by
+  compiling the router and reading `mix xref graph --label
+  compile-connected`.
+
+  **The blocker is stronger than "design doesn't write to
+  `lib/catapult_web/**`" (author review correction, ORC-35): there is
+  no router to compile yet, because Phoenix is not a dependency of
+  this tree at all.** `mix.exs`'s `deps do` carries no `phoenix` and
+  no `phoenix_live_view` — measured against the list, not assumed.
+  There is no `Phoenix.Router` macro to expand and no compiled routes
+  for `mix xref` to label until one of them lands, so the scratch
+  probe ORC-32 established for exactly this kind of question — compile
+  it, uncommitted, read the gate, discard it — has nothing to compile
+  against yet. Adding the dependency is an author-owned `mix.exs` edit,
+  the same file and the same author-ownership finding 1 of the ORC-35
+  review names for the storybook toolchain (`systems/dashboard.md`'s
+  corrected bullet); the true prerequisite is a missing dependency, not
+  a design-agent file-map boundary. So the question the ticket named
+  stays open for the same reason storybook's build does: dev adds
+  Phoenix, builds the router per the shape above, runs the gate, and if
+  it fails to hold at 0 that is a finding back to the author — never a
   self-authorized raise of the number (`docs/non-goals.md`, "no
   compile-connected cap anywhere a ticket can edit it").
 
