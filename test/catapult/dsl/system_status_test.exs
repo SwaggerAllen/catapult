@@ -3,10 +3,10 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the twelve fixed kinds, dsl-syntax.md §15.1's order" do
+  test "the seventeen fixed kinds, dsl-syntax.md §15.1's order" do
     assert SystemStatus.kinds() == [
              :backlog,
-             :queue,
+             :pending,
              :generation,
              :critique,
              :fanout,
@@ -16,14 +16,19 @@ defmodule Catapult.Dsl.SystemStatusTest do
              :validating,
              :blocked,
              :stubbed,
+             :setup,
+             :prep,
+             :main,
+             :retro,
+             :cleanup,
              :terminal
            ]
   end
 
-  test "a queue precedes every generation and every deploy" do
-    assert SystemStatus.queue_precedes?(:generation)
-    assert SystemStatus.queue_precedes?(:deploy)
-    refute SystemStatus.queue_precedes?(:checks)
+  test "a pending precedes every generation and every deploy" do
+    assert SystemStatus.pending_precedes?(:generation)
+    assert SystemStatus.pending_precedes?(:deploy)
+    refute SystemStatus.pending_precedes?(:checks)
   end
 
   test "every non-terminal, non-blocked status can be kicked to blocked" do
@@ -35,14 +40,15 @@ defmodule Catapult.Dsl.SystemStatusTest do
     refute SystemStatus.can_block?(:blocked)
   end
 
-  test "the six fixed agent steps" do
+  test "the five fixed agent steps — :boundary retired (ORC-104)" do
     assert SystemStatus.agent_steps() == [
              :design,
              :dev,
              :critique,
              :reconcile,
-             :validate,
-             :boundary
+             :validate
            ]
+
+    refute SystemStatus.agent_step?(:boundary)
   end
 end

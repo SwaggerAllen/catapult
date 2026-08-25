@@ -40,6 +40,7 @@ config_seed = %{
   # environment"), never a second config source switched on the tag.
   "DELIVERY_GITHUB_TOKEN" => System.get_env("DELIVERY_GITHUB_TOKEN", "test-token"),
   "DELIVERY_HOST_PORT_ADAPTER" => "fake",
+  "DELIVERY_FLAG_SET_ADAPTER" => "fake",
   "DELIVERY_OIDC_JWKS_AUTOSTART" => "false",
   "GENERATION_CLOCK" => "fake"
 }

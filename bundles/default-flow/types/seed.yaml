@@ -1,0 +1,12 @@
+type: seed
+skeleton: ticket
+# The scaffold pass (v5 §7.9), dispatched from the project's own
+# `scaffolding` queue. No gates: the seed produces the base schema rather
+# than a change anyone signs off on.
+statuses:
+  - status: pending
+  - status: generation
+  - status: checks
+  - status: merge
+  - status: deploy
+  - status: terminal

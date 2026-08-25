@@ -64,35 +64,42 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   end
 
   @doc "Folds a limit-class `RunFailed`: kicks the ticket to `:blocked`, recording where it was standing."
-  @spec block(t(), Workflow.t()) :: t()
-  def block(%__MODULE__{} = state, %Workflow{} = workflow) do
-    %{state | blocked_from: resting(workflow, state)}
+  @spec block(t(), Workflow.t(), String.t()) :: t()
+  def block(%__MODULE__{} = state, %Workflow{} = workflow, type_name) do
+    %{state | blocked_from: resting(workflow, type_name, state)}
   end
 
   @doc """
-  The position `workflow` and `state` resolve to right now: `{:kind,
-  :blocked}` while a block is recorded, otherwise the first position
-  in `Sequence.positions/1` not yet passable, defaulting to the last
-  (`{:kind, :fanout}`) once everything reachable has been.
+  The position `workflow`'s `type_name` type and `state` resolve to
+  right now: `{:kind, :blocked}` while a block is recorded, otherwise
+  the first position in `Sequence.positions/2` not yet passable,
+  defaulting to the last (`Sequence`'s own trailing reachability
+  sentinel) once everything reachable has been — the sequence's own
+  final entry is never itself passable, whatever kind it turns out to
+  be, since nothing in Phase 4 implements advancing past it.
   """
-  @spec resting(Workflow.t(), t()) :: Sequence.position()
-  def resting(%Workflow{}, %__MODULE__{blocked_from: from}) when not is_nil(from) do
+  @spec resting(Workflow.t(), String.t(), t()) :: Sequence.position() | nil
+  def resting(%Workflow{}, _type_name, %__MODULE__{blocked_from: from}) when not is_nil(from) do
     {:kind, :blocked}
   end
 
-  def resting(%Workflow{} = workflow, %__MODULE__{} = state) do
-    positions = Sequence.positions(workflow)
-    Enum.find(positions, List.last(positions), &(not passable?(&1, state)))
+  def resting(%Workflow{} = workflow, type_name, %__MODULE__{} = state) do
+    case Sequence.positions(workflow, type_name) do
+      [] ->
+        nil
+
+      positions ->
+        last = List.last(positions)
+        Enum.find(positions, last, &(&1 != last and not passable?(&1, state)))
+    end
   end
 
   @doc "The position the ticket was standing at when it was last kicked to `:blocked`, or `nil` if it never has been."
   @spec blocked_origin(t()) :: Sequence.position() | nil
   def blocked_origin(%__MODULE__{blocked_from: from}), do: from
 
-  defp passable?({:kind, :fanout}, _state), do: false
-
   defp passable?({:kind, kind}, %__MODULE__{commit_signature: sig})
-       when kind in [:queue, :generation, :critique] do
+       when kind in [:pending, :generation, :critique] do
     not is_nil(sig)
   end
 

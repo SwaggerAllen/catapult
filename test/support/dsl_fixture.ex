@@ -17,8 +17,15 @@ defmodule Catapult.Dsl.Fixture do
 
   @doc """
   A minimal, valid chain+workflow project under `dir`: one tier
-  (`comparch`), no edges, no flows, a default workflow with one gate.
-  Individual tests overlay/replace entries with `write!/2` afterward.
+  (`comparch`), no edges, no flows, and a default workflow with one
+  gate, one ticket-skeleton type citing it, and a skeleton-less root
+  the bundle's `entry:` names. Individual tests overlay/replace entries
+  with `write!/2` afterward.
+
+  The workflow half carries `types:`/`entry:` and no `after:` anywhere
+  as of ORC-104 (dsl-syntax.md §15.2-§15.4): a gate's position is the
+  citing type's own array index, and `entry:` is a required key naming
+  the queue-shaped root a fresh project dispatches from.
   """
   @spec minimal!(String.t()) :: :ok
   def minimal!(dir) do
@@ -57,12 +64,31 @@ defmodule Catapult.Dsl.Fixture do
       kind: workflow
       gates: [gates/*.yaml]
       environments: [environments/*.yaml]
+      types: [types/*.yaml]
+      entry: project
       """,
       "bundles/default-flow/gates/product-review.yaml" => """
       review: product-review
-      after: generation
       role: design
       escalation: author
+      """,
+      "bundles/default-flow/types/project.yaml" => """
+      type: project
+      statuses:
+        - status: build-out
+          flow: feature
+      """,
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - review: product-review
+        - status: checks
+        - status: merge
+        - status: deploy
+        - status: terminal
       """
     })
   end

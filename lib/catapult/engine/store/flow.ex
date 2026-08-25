@@ -20,6 +20,15 @@ defmodule Catapult.Engine.Store.Flow do
     field :flow_name, :string
     belongs_to :entry_node, Catapult.Engine.Store.Node
     field :ticket_ref, :string
+    # Membership by reference (ORC-104, systems/engine.md): which
+    # container this work item belongs to and which of that container's
+    # declared queues it is assigned to, both set once at open. A
+    # queue's population is these two columns plus `status`, queried —
+    # never a bucket (`Catapult.Engine.Projections.ContainerQueues`).
+    # Archival never touches either, so a container stays a path to its
+    # own history for free (v5 §7.8).
+    field :container_id, :string
+    field :queue, :string
     field :status, Ecto.Enum, values: [:open, :completed], default: :open
     field :opened_sequence, :integer
     field :completed_sequence, :integer

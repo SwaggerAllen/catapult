@@ -25,9 +25,16 @@ defmodule Catapult.Engine.Reducer do
   """
 
   alias Catapult.Engine.Events.ActiveBundleFlipped
+  alias Catapult.Engine.Events.ContainerActivated
+  alias Catapult.Engine.Events.ContainerClosed
+  alias Catapult.Engine.Events.ContainerMinted
+  alias Catapult.Engine.Events.ContainerQueueAdvanced
   alias Catapult.Engine.Events.DraftApproved
   alias Catapult.Engine.Events.DraftCommitted
   alias Catapult.Engine.Events.DraftDiscarded
+  alias Catapult.Engine.Events.FindingAdjudicated
+  alias Catapult.Engine.Events.FlagSetFlipped
+  alias Catapult.Engine.Events.FlagSetFlipRequested
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.ReviewWritten
@@ -43,6 +50,8 @@ defmodule Catapult.Engine.Reducer do
       flow_name: event.flow_name,
       entry_node_id: event.entry_node_id,
       ticket_ref: event.ticket_ref,
+      container_id: event.container_id,
+      queue: event.queue,
       status: :open,
       opened_sequence: sequence(metadata)
     })
@@ -122,6 +131,76 @@ defmodule Catapult.Engine.Reducer do
   # `drafts` (it is neither a node's current status nor a stored
   # artifact).
   def apply(%RunFailed{}, _metadata), do: :ok
+
+  ## Containers (ORC-104). Each branch writes exactly the fact its own
+  ## event carries and nothing derived: which instances exist, which is
+  ## current, and where each stands. No branch writes a queue's
+  ## population — that is a query (`Catapult.Engine.Store
+  ## .queue_population/3`), and materializing it here is the bucket v5
+  ## §7.8 refuses.
+
+  def apply(%ContainerMinted{} = event, metadata) do
+    Store.mint_container(%{
+      id: event.container_id,
+      project_id: event.project_id,
+      type_name: event.type_name,
+      parent_container_id: event.parent_container_id,
+      parent_queue: event.parent_queue,
+      state: :minted,
+      minted_sequence: sequence(metadata)
+    })
+
+    :ok
+  end
+
+  def apply(%ContainerActivated{} = event, metadata) do
+    Store.activate_container(
+      event.project_id,
+      event.container_id,
+      event.queue,
+      sequence(metadata)
+    )
+  end
+
+  def apply(%ContainerQueueAdvanced{} = event, metadata) do
+    Store.advance_container_queue(
+      event.project_id,
+      event.container_id,
+      event.to_queue,
+      sequence(metadata)
+    )
+  end
+
+  def apply(%ContainerClosed{} = event, metadata) do
+    Store.close_container(event.project_id, event.container_id, sequence(metadata))
+  end
+
+  def apply(%FindingAdjudicated{} = event, metadata) do
+    Store.adjudicate_finding(%{
+      id: event.finding_id,
+      project_id: event.project_id,
+      container_id: event.container_id,
+      disposition: event.disposition,
+      filed_key: event.filed_key,
+      reason: event.reason,
+      adjudicated_sequence: sequence(metadata)
+    })
+
+    :ok
+  end
+
+  def apply(%FlagSetFlipRequested{} = event, metadata) do
+    Store.request_flag_set_flip(
+      event.project_id,
+      event.container_id,
+      event.flags,
+      sequence(metadata)
+    )
+  end
+
+  def apply(%FlagSetFlipped{} = event, metadata) do
+    Store.record_flag_set_flip(event.project_id, event.container_id, sequence(metadata))
+  end
 
   def apply(%ActiveBundleFlipped{} = event, metadata) do
     Store.flip_active_bundle_version(%{

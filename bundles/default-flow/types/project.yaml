@@ -1,0 +1,31 @@
+type: project
+# No skeleton: line — this type has no anchors at all (dsl-syntax.md
+# §15.1). A project needs no re-resolution anchor: all review happens at
+# lower levels, and a workflow cutover mid-project is not the hazard a
+# cutover mid-container is (v5 §7.8). Its whole array is queue-shaped,
+# which is also what makes it a node in the declaration graph (§15.6) —
+# the edge a project/container cycle would run on.
+statuses:
+  - status: initialization        # autopopulated by business logic, not
+    flow: feature                  #   protocol (§15.7): the grammar says
+                                   #   the queue exists and what it
+                                   #   dispatches; what lands in it on a
+                                   #   fresh project is outside the
+                                   #   loader's remit
+  - status: scaffolding
+    flow: seed                     # the one queue that differs — the seed
+                                   #   pass (v5 §7.9) wants different
+                                   #   settings from ordinary ticket work
+  - status: build-out
+    flow: milestone                # names a declared container (§15.6)
+  - status: iteration
+    flow: milestone
+  - status: maintenance
+    flow: feature                  # v5 §7.8: "all but scaffolding point
+  - status: deprecating            #   at the same work flow for now — the
+    flow: feature                  #   distinctions are ones that *become*
+  - status: sunsetting             #   meaningful; they needn't be on the
+    flow: feature                  #   first build"
+# No terminal: a skeleton-less type has no universal terminal, because it
+# has no universal sequence to end (§15.6). This project closes when
+# `sunsetting` resolves with nothing open behind it.

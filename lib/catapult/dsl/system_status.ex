@@ -1,22 +1,40 @@
 defmodule Catapult.Dsl.SystemStatus do
   @moduledoc """
   The platform-fixed vocabulary both bundle axes reference and neither
-  declares (dsl-syntax.md §15.1, v5 §7.18-§7.19): the twelve system
-  statuses and the six agent steps. Referenced by a chain's `delivery:`
-  block (`phase:` against `kinds/0`, `agent_step:` against
-  `agent_steps/0`) and by a workflow's `gates/<gate>.yaml` /
-  `environments/<env>.yaml` `after:` predecessor (§15.2, §15.4).
+  declares (dsl-syntax.md §15.1, v5 §7.18-§7.19): the system-status
+  kinds and the five fixed agent steps. Referenced by a chain's
+  `delivery:` block (`phase:` against `kinds/0`, `agent_step:` against
+  `agent_steps/0`) and by a workflow's `types/<name>.yaml` `statuses:`
+  array (§15.1-§15.2), which positions everything by array index
+  rather than by a named predecessor (§15.3).
 
   Not declarable by either axis (dsl-syntax.md §15.1) — that is what
   lets a blocked ticket re-resolve against these anchors across a
   workflow cutover (v5 §7.19) — so this module is a closed constant
   table, never a registry.
+
+  **Renamed from `queue` to `pending`, at ORC-104's dev pass** (§15.1):
+  a single work item's own wait-for-dispatch status and a container's
+  own named queue position used to share one word; once both could
+  appear in the same declared array, the collision stopped being
+  theoretical. `pending` keeps the fixed-vocabulary meaning exactly —
+  "committed, awaiting dispatch capacity" — freeing "queue" for the
+  sense the rest of dsl-syntax.md §15 needs it in.
+
+  **`:boundary` retired from `agent_step/0`, at the same pass** (§15.1,
+  `systems/core_dsl.md`): it used to name "the milestone pass" as a
+  single static agent step, but no tier's `delivery:` ever actually
+  named it — a container's progress is a declared sequence of queues
+  (§15.2-§15.8), not one fixed pass. The work it stood in for —
+  `retro`'s backward-looking pass and a nested container's own
+  forward-looking `setup` — dispatches as an ordinary flow instance
+  through a queue's declared `flow:`, needing no reserved slot here.
   """
 
-  @typedoc "One of the twelve fixed system-status kinds."
+  @typedoc "One of the fixed system-status kinds."
   @type kind ::
           :backlog
-          | :queue
+          | :pending
           | :generation
           | :critique
           | :fanout
@@ -26,17 +44,22 @@ defmodule Catapult.Dsl.SystemStatus do
           | :validating
           | :blocked
           | :stubbed
+          | :setup
+          | :prep
+          | :main
+          | :retro
+          | :cleanup
           | :terminal
 
   @typedoc "Who holds the ball while a ticket sits at a status of this kind."
   @type ball :: :author | :plane | :agent | :world | :varies
 
-  @typedoc "One of the six fixed agent steps a chain's `delivery.agent_step` may name."
-  @type agent_step :: :design | :dev | :critique | :reconcile | :validate | :boundary
+  @typedoc "One of the five fixed agent steps a chain's `delivery.agent_step` may name."
+  @type agent_step :: :design | :dev | :critique | :reconcile | :validate
 
   @statuses [
     {:backlog, :author},
-    {:queue, :plane},
+    {:pending, :plane},
     {:generation, :agent},
     {:critique, :agent},
     {:fanout, :plane},
@@ -46,16 +69,21 @@ defmodule Catapult.Dsl.SystemStatus do
     {:validating, :plane},
     {:blocked, :varies},
     {:stubbed, :world},
+    {:setup, :agent},
+    {:prep, :varies},
+    {:main, :varies},
+    {:retro, :agent},
+    {:cleanup, :varies},
     {:terminal, nil}
   ]
 
-  @agent_steps [:design, :dev, :critique, :reconcile, :validate, :boundary]
+  @agent_steps [:design, :dev, :critique, :reconcile, :validate]
 
-  @doc "The twelve system-status kinds, in the order dsl-syntax.md §15.1 declares them."
+  @doc "The fixed system-status kinds, in the order dsl-syntax.md §15.1 declares them."
   @spec kinds() :: [kind()]
   def kinds, do: Enum.map(@statuses, &elem(&1, 0))
 
-  @doc "Whether `name` is one of the twelve fixed system-status kinds."
+  @doc "Whether `name` is one of the fixed system-status kinds."
   @spec kind?(term()) :: boolean()
   def kind?(name), do: name in kinds()
 
@@ -63,30 +91,30 @@ defmodule Catapult.Dsl.SystemStatus do
   @spec ball(kind()) :: ball() | nil
   def ball(kind), do: Keyword.fetch!(@statuses, kind)
 
-  @doc "The six fixed agent steps a chain's `delivery.agent_step` may name."
+  @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
   @spec agent_steps() :: [agent_step()]
   def agent_steps, do: @agent_steps
 
-  @doc "Whether `name` is one of the six fixed agent steps."
+  @doc "Whether `name` is one of the five fixed agent steps."
   @spec agent_step?(term()) :: boolean()
   def agent_step?(name), do: name in @agent_steps
 
   @doc """
-  A `queue` precedes every `generation` and every `deploy` (dsl-syntax.md
-  §15.1, §13) — a structural fact about the fixed skeleton, not something
-  any bundle declares, so it is a constant rather than a check over
-  bundle content.
+  A `pending` precedes every `generation` and every `deploy`
+  (dsl-syntax.md §15.1, §13) — a structural fact about the fixed
+  skeleton, not something any bundle declares, so it is a constant
+  rather than a check over bundle content.
   """
-  @spec queue_precedes?(kind()) :: boolean()
-  def queue_precedes?(kind), do: kind in [:generation, :deploy]
+  @spec pending_precedes?(kind()) :: boolean()
+  def pending_precedes?(kind), do: kind in [:generation, :deploy]
 
   @doc """
   Every non-terminal status can be kicked to `:blocked` (v5 §7.19: "the
   automation kicks tickets into it" — a plane rule, not declared data).
   This is what makes "every generation status has at least one blocked
   exit" (dsl-syntax.md §13) a fact about the fixed skeleton rather than
-  about any one workflow bundle; see `Catapult.Dsl.Workflow.Graph` for
-  where that invariant is exercised at load time.
+  about any one workflow bundle; see `Catapult.Dsl.Workflow` for where
+  that invariant is exercised at load time.
   """
   @spec can_block?(kind()) :: boolean()
   def can_block?(:terminal), do: false

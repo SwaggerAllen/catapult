@@ -1,84 +1,99 @@
 defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   @moduledoc """
   The feature-ticket lifecycle's effective sequence (v5 §7.10,
-  `systems/delivery.md`'s ORC-32 design pass): `queue → generation →
-  [critique] → [gate] → … → fanout`, built from a loaded
-  `Catapult.Dsl.Workflow.t()` rather than resolved by this module —
-  the same "take the loaded bundle as a parameter" shape
-  `Catapult.Engine.Projections.ReadyScopes.ready/3` and
-  `Catapult.Engine.Scheduler.trigger/2` already establish for the
-  chain axis.
+  `systems/delivery.md`'s ORC-32 design pass): `pending → generation →
+  [critique] → [gate] → … → checks`, read directly off a loaded
+  `Catapult.Dsl.Workflow.t()`'s named `types/<name>.yaml` declaration
+  (dsl-syntax.md §15.2) rather than resolved by this module — the same
+  "take the loaded bundle as a parameter" shape `Catapult.Engine
+  .Projections.ReadyScopes.ready/3` and `Catapult.Engine.Scheduler
+  .trigger/2` already establish for the chain axis.
 
-  Written against `Catapult.Dsl.SystemStatus` and `Catapult.Dsl
-  .Workflow` as they stand on this branch — twelve system-status
-  kinds, gates positioned by a named `after:` predecessor — not
-  against `dsl-syntax.md`'s own target shape (`pending`, container
-  skeletons, inline `statuses:` arrays), which is unbuilt
-  (`systems/delivery.md`'s own reachability bullet records this
-  explicitly, so the divergence is on purpose here too).
+  **Position is the citing type's own array index, not a named
+  `after:` predecessor** (ORC-104, dsl-syntax.md §15.3): `after:` is
+  retired from this grammar entirely, so this module walks the named
+  type's `statuses:` array directly instead of following `gate.after`
+  chains from `"generation"`.
 
   **Reachability, settled** (`systems/delivery.md`, ORC-32 design
-  pass): `fanout` (Building) is this phase's last reachable status.
-  `checks`, `merge`, `deploy`, `validating` and `terminal` are real
-  kinds (`Catapult.Dsl.SystemStatus`'s closed table fixes all twelve
-  up front) but sit behind the child lifecycle/mutex/dispatch/
-  reconciliation machinery Phase 7 builds, so this module never
-  places one in the sequence it returns — a workflow bundle declaring
-  gates or environments after `deploy` still loads and validates
-  (dsl-syntax.md §13); this module simply never reaches them.
-
-  Environments are absent from the sequence for the same reason:
-  every declared environment's own `after:` sits at `merge` or later
-  (dsl-syntax.md §15.4's own example — a deploy target has to be
-  configured before anything can deploy into it), which is already
-  past this phase's reachable range.
+  pass, carried forward at ORC-104): `checks` is this phase's last
+  reachable position — included as the sequence's own trailing
+  sentinel, the same role the retired `:fanout` played before this
+  ticket's bundle migration removed it from the shipped `feature` type
+  (dsl-syntax.md §15.2's worked example has no `fanout` anchor at all).
+  `merge`, `deploy` and `terminal` are real positions in the loaded
+  type's own array but sit behind the child lifecycle/mutex/dispatch/
+  reconciliation machinery Phase 7 builds, so this module never places
+  one in the sequence it returns — a type declaring them still loads
+  and validates (dsl-syntax.md §13); this module simply never reaches
+  them. An `environment:` citation is absent for a different reason,
+  which outlives the reachability boundary: it is not a resting
+  position at all (see `to_position/1`).
   """
 
-  alias Catapult.Dsl.Critique
-  alias Catapult.Dsl.SystemStatus
+  alias Catapult.Dsl.Status
   alias Catapult.Dsl.Workflow
 
   @typedoc "One stop in the effective sequence: a fixed system-status kind, or a declared gate by its own name."
-  @type position :: {:kind, SystemStatus.kind()} | {:gate, String.t()}
+  @type position :: {:kind, atom()} | {:gate, String.t()}
+
+  # The first position gated behind machinery Phase 4 doesn't have yet
+  # (`systems/delivery.md`'s reachability bullet) — everything at or
+  # after this kind is dropped from the sequence this module returns.
+  @reachable_boundary :checks
 
   @doc """
-  The ordered, reachable positions for `workflow`: `:queue`,
-  `:generation`, `:critique` (only when the loaded workflow declares
-  `critique.yaml` — presence is participation, dsl-syntax.md §15.5),
-  every gate reachable by following `after:` from `"generation"`, in
-  order, and finally `:fanout`.
+  The ordered, reachable positions for the type named `type_name` in
+  `workflow`: every entry in that type's own `statuses:` array, up to
+  and including `#{inspect(@reachable_boundary)}` — the first position
+  this phase's machinery cannot yet advance past.
 
-  A gate whose `after:` chain does not lead back to `"generation"`
-  (e.g. one anchored on `checks` or later) is outside this phase's
-  reachable range and is not included — this module recognizes the
-  later kinds (`SystemStatus.kinds/0` still lists them) without ever
-  routing a ticket into one, exactly as `systems/delivery.md`'s
-  reachability bullet settles.
+  Returns `[]` if `type_name` does not resolve in `workflow` (logged
+  and skipped by the caller, `Catapult.Delivery.FeatureLifecycle`,
+  exactly as an unloadable bundle already is).
   """
-  @spec positions(Workflow.t()) :: [position()]
-  def positions(%Workflow{} = workflow) do
-    [{:kind, :queue}, {:kind, :generation}] ++
-      critique_position(workflow) ++
-      gate_positions(workflow) ++
-      [{:kind, :fanout}]
+  @spec positions(Workflow.t(), String.t()) :: [position()]
+  def positions(%Workflow{types: types}, type_name) do
+    case Map.fetch(types, type_name) do
+      {:ok, type} ->
+        type.statuses
+        |> Enum.map(&to_position/1)
+        |> Enum.reject(&is_nil/1)
+        |> take_through_boundary()
+
+      :error ->
+        []
+    end
   end
 
-  defp critique_position(%Workflow{critique: nil}), do: []
-  defp critique_position(%Workflow{critique: %Critique{}}), do: [{:kind, :critique}]
+  # `String.to_existing_atom/1`, never `to_atom/1` (`Catapult.Dsl
+  # .Fields`'s own discipline): `Catapult.Dsl.Workflow` has already
+  # checked, at load time, that a ticket-skeleton type's `status:`
+  # names come from `Catapult.Dsl.SystemStatus`'s closed set, whose
+  # atoms are compile-time literals — already in the atom table by the
+  # time any bundle content reaches here.
+  defp to_position(%Status{status: name}) when not is_nil(name),
+    do: {:kind, String.to_existing_atom(name)}
 
-  defp gate_positions(%Workflow{gates: gates}) do
-    by_after = Map.new(gates, fn {name, gate} -> {gate.after, name} end)
+  defp to_position(%Status{review: name}) when not is_nil(name), do: {:gate, name}
 
-    "generation"
-    |> walk_gates(by_after, [])
-    |> Enum.reverse()
-    |> Enum.map(&{:gate, &1})
-  end
+  # An `environment:` entry is not a resting position and never
+  # becomes one: it configures the `deploy` entry that follows it
+  # (dsl-syntax.md §15.5's "an environment sits *before* the `deploy`
+  # entry it is a promotion target for"), so a ticket rests at
+  # `deploy`, never at the environment declaration that told `deploy`
+  # where to go. Dropped here rather than filtered by the caller —
+  # `position/0` has exactly two shapes and the projection's own two
+  # columns (`status_kind`/`status_gate`) are built on that.
+  defp to_position(%Status{environment: name}) when not is_nil(name), do: nil
 
-  defp walk_gates(anchor, by_after, acc) do
-    case Map.fetch(by_after, anchor) do
-      {:ok, name} -> walk_gates(name, by_after, [name | acc])
-      :error -> acc
+  defp take_through_boundary(positions) do
+    {before, at_and_after} =
+      Enum.split_while(positions, &(&1 != {:kind, @reachable_boundary}))
+
+    case at_and_after do
+      [] -> before
+      [boundary | _rest] -> before ++ [boundary]
     end
   end
 end

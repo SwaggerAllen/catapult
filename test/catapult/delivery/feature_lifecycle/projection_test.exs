@@ -1,43 +1,58 @@
 defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
+  @moduledoc """
+  Rewritten at ORC-104: the fixture is a `types/<name>.yaml`
+  declaration rather than a bundle-wide gate chain, since `after:` is
+  retired (dsl-syntax.md §15.3) and a gate's position is now the citing
+  type's own array index.
+  """
+
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.FeatureLifecycle.Projection
-  alias Catapult.Dsl.Gate
+  alias Catapult.Dsl.Status
+  alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
 
   # No critique, one gate — the smallest fixture that still exercises
-  # queue -> generation -> gate -> fanout.
+  # pending -> generation -> gate -> checks.
   defp workflow do
+    type = %Type{
+      name: "feature",
+      file: "types/feature.yaml",
+      skeleton: "ticket",
+      statuses: [
+        %Status{status: "pending"},
+        %Status{status: "generation"},
+        %Status{review: "review"},
+        %Status{status: "checks"}
+      ]
+    }
+
     %Workflow{
       name: "test",
-      critique: nil,
+      entry: "feature",
       environments: %{},
-      gates: %{
-        "review" => %Gate{
-          name: "review",
-          file: "gates/review.yaml",
-          after: "generation",
-          role: "engineering",
-          escalation: "author"
-        }
-      }
+      gates: %{},
+      types: %{"feature" => type}
     }
   end
 
-  test "a fresh projection rests at queue" do
-    assert Projection.resting(workflow(), Projection.new()) == {:kind, :queue}
+  defp resting(state), do: Projection.resting(workflow(), "feature", state)
+
+  test "a fresh projection rests at pending" do
+    assert resting(Projection.new()) == {:kind, :pending}
   end
 
   test "a commit walks it through to the first gate, and no further" do
     state = Projection.commit(Projection.new(), 1)
 
-    assert Projection.resting(workflow(), state) == {:gate, "review"}
+    assert resting(state) == {:gate, "review"}
   end
 
   test "a gate marked passed at the current signature is skipped" do
     state = Projection.new() |> Projection.commit(1) |> Projection.pass({:gate, "review"})
 
-    assert Projection.resting(workflow(), state) == {:kind, :fanout}
+    assert resting(state) == {:kind, :checks}
   end
 
   test "skip-on-no-diff: a pass recorded at a stale signature reopens the gate" do
@@ -50,13 +65,14 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
       # the ticket last stood at it" (systems/delivery.md).
       |> Projection.commit(2)
 
-    assert Projection.resting(workflow(), state) == {:gate, "review"}
+    assert resting(state) == {:gate, "review"}
   end
 
   test "block records the position the ticket was standing at, and resolves to :blocked" do
-    state = Projection.new() |> Projection.commit(1) |> Projection.block(workflow())
+    state =
+      Projection.new() |> Projection.commit(1) |> Projection.block(workflow(), "feature")
 
-    assert Projection.resting(workflow(), state) == {:kind, :blocked}
+    assert resting(state) == {:kind, :blocked}
     assert Projection.blocked_origin(state) == {:gate, "review"}
   end
 
@@ -64,10 +80,14 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     state =
       Projection.new()
       |> Projection.commit(1)
-      |> Projection.block(workflow())
+      |> Projection.block(workflow(), "feature")
       |> Projection.commit(2)
 
-    assert Projection.resting(workflow(), state) == {:gate, "review"}
+    assert resting(state) == {:gate, "review"}
     assert Projection.blocked_origin(state) == nil
+  end
+
+  test "a type that does not resolve rests nowhere rather than guessing" do
+    assert Projection.resting(workflow(), "no-such-type", Projection.new()) == nil
   end
 end
