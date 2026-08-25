@@ -516,8 +516,18 @@ Liquid (Solid). Variables: one per named context walk
 and — review prompts only — `draft`. `feedback` and `prior_review`
 render on every prompt a tier has, generation and review alike; `draft`
 alone is withheld from generation prompts (`systems/delivery.md`'s
-ORC-34 entry pins this against the ambiguity §3.3 and this section
-used to read into each other). A variable's name is its target
+ORC-34 entry pins this against the ambiguity §3.3 leaves). `feedback`
+is an ordered list of maps, one per harvested comment — `body`,
+`locator` (nullable; always absent before `docs/ui-spec.md` §5's v2
+per-sentence anchoring ships), `author_id`, `posted_at`
+(`systems/engine.md`'s `CommentPosted`/`CommentFeedback`, ORC-34) —
+never a string beside `draft`, the same representational choice
+`prior_review` makes below. `prior_review` is a map — `score`,
+`findings`, `kind` — the node's own most recent review regardless of
+which draft it landed against (`systems/engine.md`'s `reviews_for_node
+/2`, ORC-34). Both render blank via Solid's own unset-is-empty
+behavior where nothing has been posted or reviewed yet. A variable's
+name is its target
 tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
 gets the same name as a self-hop entry landing on that tier. **Two or
 more context entries naming the same target tier combine into one

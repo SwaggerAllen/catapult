@@ -572,6 +572,16 @@ design gates pass.
   terms, without needing a second, narrower reading of a rule
   recorded in another system's file.
 
+  **Amended at ORC-34: the aggregate question above is answered; the
+  general §7.16 question it sits beside is not.** `Catapult.Engine
+  .Aggregate` is what a human's sign-off command validates against —
+  `ApproveGate`/`DeclineGate`, `systems/engine.md`'s own new entry —
+  settling the narrow half this bullet named. What stays exactly as
+  open as this bullet already left it: what a *passed* gate pins
+  (§7.16's own still-open item), and which node(s) a gate spanning more
+  than Phase 4's single pre-gate `generation` status would validate
+  against. ORC-34 needed neither to close the mechanism it built.
+
 - **The storage question the three entries above leave open is
   engine's, not this system's — corrected here rather than left to
   read as a contradiction** (ORC-104, design pass;
@@ -946,117 +956,78 @@ design gates pass.
   `review-comment read` — that operation, its author-identity filter
   and its residual PAT gap stay exactly where ORC-31/ORC-33 left them,
   waiting on Phase 7's child PRs, untouched by anything below.
-- **A posted review comment is an original protocol fact and lands on
-  `Catapult.Engine.Aggregate`, not a delivery-owned write** (ORC-34,
-  design pass; mirrors `systems/engine.md`'s ORC-104 entry for
-  container facts, applied to a human review action instead of a
-  dispatcher decision). `Catapult.Engine.Events.CommentPosted`
-  (`systems/engine.md`, version 1, explicit per `docs/non-goals.md`'s
-  no-default-version entry) carries `project_id`, `node_id`, `body_sha`
-  — the exact reviewed version, never "whatever `node_id` currently
-  holds" — a sentence locator the native surface's own diff produces
-  (opaque to this system; `docs/ui-spec.md`'s to define), `author_id`,
-  `body`, `posted_at`. **No `kind`/`author_kind` field:** nothing in
-  Phase 4 posts a machine comment through this event — the chain's own
-  auto-review is `ReviewWritten` (`Catapult.Engine.Events.ReviewWritten`,
-  already shipped), a distinct record with its own `kind: :ai | :human`
-  — so `CommentPosted` is human-authored by construction and stays that
-  way until something actually needs to post through it, the same
-  "don't validate a scenario that can't happen" discipline this
-  codebase already keeps elsewhere. This is what ORC-31's
-  author-identity filter exists to reconstruct on a surface we don't
-  own; on a surface we do, the identical outcome falls out of never
-  having built a channel two kinds of author could write through in
-  the first place — a refusal, not an oversight, worth stating so the
-  filter isn't reinvented here the day this event grows a second
-  writer.
-- **Harvesting is a log read at decline time, not an external fetch,
-  so the silent-failure risk the ticket's own record worried about
-  doesn't transfer to Phase 4** (ORC-34, design pass). "Solid renders
-  an unset variable as empty" (`context_assembly.ex`'s own moduledoc)
-  makes a *lost* bucket indistinguishable from a *genuine* zero at
-  render time — a real risk for a fallible external read (GitHub's
-  pagination, a rate limit, a dropped webhook), which is the case the
-  ticket's own open question was written against. A `CommentPosted`
-  walk over this project's own event log, from the node's most recent
-  gate-arrival to now, has no such failure mode: it is the same
-  in-plane, always-available read every other derived count in this
-  codebase already is (`systems/generation.md`'s limit-class-failure
-  count, "the count is derived from the log, never held"). The bucket
-  this system writes is therefore trustworthy at zero, and rendering
-  blank on a zero-comment decline is not a bug to guard against — it
-  is correctly reporting that no comment was left.
-- **A decline naming no comment is rejected at the point of action,
-  never dispatched with blank `feedback`** (ORC-34, design pass,
-  closing the ticket's own open question without a new state). The
-  ticket weighed "regenerate unchanged" (silently burns a dispatch)
-  against "bounce to the author" (costs a state) as though harvesting
-  could only discover the emptiness after the fact; it doesn't have
-  to. `document-review`'s own "throw back" command — whatever shape
-  §7.16's still-undesigned gate sign-off lands in — validates the same
-  way every other command on a surface we own already does: "the
-  rejection lands at the point of action" (this doc, above). A
-  throwback naming zero comments and no free-text reason simply fails
-  validation in the UI, before any event exists to harvest from. No
-  `Blocked`-adjacent state, no wasted dispatch, and no ambiguity
-  between "nothing was wrong" and "the bucket got lost" — the second
-  case no longer exists (previous bullet), and the first is refused
-  before it becomes a decline at all.
-- **The harvested bucket is `Catapult.Delivery.Store`'s own cache,
-  keyed and consumed exactly like `DraftBody`, not a second engine
-  projection** (ORC-34, design pass, settling the ticket's own "where
-  the harvested feedback lives" open question). `Catapult.Delivery
-  .Store.FeedbackBucket` (`delivery_feedback_buckets`, `(project_id,
-  node_id)`, mirroring `DraftBody`'s own shape and reasoning above)
-  holds the ordered `CommentPosted` rows harvested for this decline
-  plus the `body_sha` they were declined against, written once by the
-  process reacting to the decline event — `FeatureLifecycle` or a
-  sibling, dev's call, the same way `FeaturePublisher` split off
-  rather than growing `FeatureLifecycle` a write-side wing. Nothing in
-  engine's own domain — `ready_scopes`, dispatch, staleness — reasons
-  about a harvested bucket's contents; only render time does,
-  synchronously, the identical boundary `ArtifactPush`'s own entry
-  above already draws for a different fact. `Delivery.get_feedback
-  (project_id, node_id)` is the read, called from `ContextAssembly
-  .build_variables/5` unconditionally (§9: `feedback` renders on every
-  prompt, not review-only) exactly where `draft_variable/2` already
-  calls `Delivery.get_draft_body/2`. **Consumed on the next
-  `DraftCommitted` for that node**, `on_conflict: replace` the same
-  way `DraftBody` already is: a fresh commit answering this decline
-  supersedes the bucket that prompted it, so a later, unrelated
-  decline on the same node never renders a stale round of comments
-  alongside its own.
-- **`prior_review` needs no new storage — it is this node's own most
-  recent `ReviewWritten`, read identically wherever it renders**
-  (ORC-34, design pass, pinning what `docs/dsl-syntax.md` §9/§3.3 left
-  ambiguous — corrected there in the same change). The ticket flagged
-  "the same slot doing different jobs" as the thing to pin between a
-  regenerating generation tier and a re-run review tier; both read the
-  same fact (`Catapult.Engine.Store.reviews_for_draft/1` over the
-  node's current `draft_id`, most recent by `inserted_at`) because the
-  fact itself doesn't change with which prompt asks for it — only what
-  each template does with it does, which is prompt-authoring's
-  business, not this system's. Renders as a map (`score`, `findings`,
-  `kind`), the same representational choice `self` and every
-  context-walk variable already make, never a second string-shaped
-  variable beside `draft`. A tier with no paired review tier (§3.3:
-  not every tier declares one) simply has no `ReviewWritten` row to
-  find, and `prior_review` renders blank there the same way `feedback`
-  does on a never-declined node — Solid's existing unset-is-empty
-  behavior, not a branch this system adds.
-- **What this ticket pins for §7.16's still-open item is narrow, and
-  stays narrow on purpose** (ORC-34, design pass). `systems/engine.md`'s
-  own entry already declines to answer "what a passed gate pins"
-  generally, leaving it for whichever ticket lands workflow gates in
-  Phase 7. This ticket answers only what its own bucket needs: a
-  `CommentPosted` and the `FeedbackBucket` it feeds both carry the
-  `body_sha` they were declined against, which is the same identity
-  `DraftCommitted`'s own skip-on-no-diff already compares (above) — so
-  §7.19's throwback reopening everything downstream costs nothing
-  extra to re-derive here, and this ticket adds no second pinning
-  mechanism beside the one delivery already has. The general
-  question — what a *passed* gate, as opposed to a declined one,
-  commits to — is untouched.
+
+- **Design review threw the first draft back: it kept no second copy
+  of the mechanism in name while building one in fact, and it deferred
+  the write path this scope actually needs.** The first draft put
+  `CommentPosted` on `Catapult.Engine.Aggregate` and then wrote
+  `Catapult.Delivery.Store.FeedbackBucket`, a cache this doc's own text
+  called "not a second engine projection" while being exactly that —
+  and a cache whose writer (whatever reacts to a decline) races the
+  timer-driven sweeper that reads readiness, reopening the very
+  silent-blank ambiguity the ticket exists to close. Separately, this
+  ticket's own scope paragraph opens with "the decline trigger,
+  arriving as a command like any other author action and validated the
+  same way" — deferred once, on the reasoning that §7.16's gate
+  sign-off command was a later increment. It isn't, here: `docs/
+  ui-spec.md` §2 rule 2 refuses `document-review` (ORC-75) inventing a
+  comment or a decline command the protocol doesn't have, and neither
+  exists before this pass, so ORC-75 cannot design its screen until
+  this ticket lands the vocabulary. Everything below is corrected
+  against both findings. The full mechanism — `CommentPosted`,
+  `CommentFeedback`, `ApproveGate`/`DeclineGate`, `GateComments`, all
+  four log-derived, none of them a second store — is recorded once, in
+  `systems/engine.md`'s own new entries, since that is where the
+  aggregate, the commands and the event log they read all already
+  live; this doc points at it rather than restating it, which is the
+  discipline the first draft's own text claimed and didn't follow.
+
+- **This system's job is the two reads and the one write the
+  mechanism above doesn't itself perform: rendering, and moving a
+  ticket's projected status.** `Catapult.Generation.ContextAssembly`
+  reads `Engine.Projections.CommentFeedback.since_commit/2` and
+  `Engine.Store.reviews_for_node/2` directly at render time
+  (`systems/generation.md`'s own entry) — this system supplies neither;
+  there is no delivery-owned copy of `feedback` or `prior_review` for
+  either ticket's premise to have gotten wrong this time. What this
+  system does own: `Catapult.Delivery.FeatureLifecycle` gains two more
+  `interested?`/`handle` clauses, `GateApproved` and `GateDeclined`
+  (`systems/engine.md`), the same process manager ORC-32 already built
+  to project every other engine event this ticket's status tracks.
+  `GateApproved` advances the ticket to the next entry in its type's
+  own `statuses:` array after the gate's position (a lookup against the
+  loaded `Catapult.Dsl.Workflow.t()` this process manager already
+  threads through, per ORC-32's own entry above); `GateDeclined` moves
+  it straight to `throwback_to` — no lookup needed, the event already
+  names the resolved target, load-time-guaranteed reachable by
+  `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2`. Neither
+  clause is new mechanism beyond what this process manager already is;
+  it is the increment ORC-32's own "what advancing past a gate
+  dispatches to stays open" bullet named and deferred, closed here on
+  the aggregate side `systems/engine.md` settles and amended into that
+  bullet above.
+
+- **A decline with no comments is refused before it becomes an event,
+  by the aggregate, not by a screen** (ORC-34, design pass,
+  design-review correction). The first draft answered the ticket's own
+  "decline with no comments" open question by having "the UI" fail
+  validation — which puts a protocol invariant in the view layer this
+  doc's own point-of-action rule already rules out for every other
+  command on a surface we own (this doc, above: "the rejection lands at
+  the point of action"), and `docs/ui-spec.md` §2 rule 1 says the same
+  thing from the screen's own side ("no screen is a second write
+  path"). `Catapult.Engine.Commands.DeclineGate` is what actually
+  rejects it — `systems/engine.md`'s own new entry has the check
+  (`GateComments.any_since_last_resolution?/2`) and the reason a
+  free-text override was rejected in favor of requiring a real comment:
+  `docs/ui-spec.md` §3.2 already specs `document-review`'s throwback
+  action with a target and nothing else, no reason field, so requiring
+  a comment rather than inventing one is the simpler fix and the one
+  the screen this ticket answers to already assumes. Whatever screen
+  ORC-75 builds surfaces that rejection synchronously — the same
+  compare-and-swap conflict rendering `docs/ui-spec.md` §3.1 already
+  specs for a stale transition — but does not perform the check itself.
+
 - **Cross-scope comment routing is named, not built — nothing in
   Phase 4 exercises it yet** (ORC-34, design pass). v5 §7.4's
   "comments at the wrong altitude are routed, not honored" example is
@@ -1070,9 +1041,9 @@ design gates pass.
   decide it belongs elsewhere. `CommentPosted`'s `node_id` is
   reassignable by an explicit author action recorded as an ordinary
   edit to that fact, never a plane-side inference; harvesting always
-  buckets by a comment's current `node_id`, whatever it was posted
-  against first. Real cross-ticket routing waits for Phase 7's child
-  tickets to exist at all.
+  reads a comment's current `node_id`, whatever it was posted against
+  first. Real cross-ticket routing waits for Phase 7's child tickets to
+  exist at all.
 
 ## Initial vs target
 
@@ -1147,16 +1118,22 @@ wiring a bounce, a merge-forward or a merge into any of this stays
 exactly as open as ORC-32 already left it — no ticket's yet, and
 `checks` onward is still Phase 7's.
 **ORC-34 (design pass) records the shape of Phase 4's decline-harvesting
-slice** — `CommentPosted`, `Catapult.Delivery.Store.FeedbackBucket`
-and the standing decisions above — ahead of the dev pass that builds
-it, and corrects its own ticket record's premise in the process: the
+slice, and — on design review, widened rather than left as scoped —
+the gate sign-off/decline command mechanism itself** —
+`CommentPosted`, `CommentFeedback`, `ApproveGate`/`DeclineGate`,
+`GateComments` (all `systems/engine.md`'s), and `FeatureLifecycle`'s
+two new `interested?` clauses (above) — ahead of the dev pass that
+builds it, and corrects its own ticket record's premise twice: the
 harvest is `document-review`'s native comments, not `HostPort`'s PR
 review comments, which stay Phase 7's exactly as ORC-31/ORC-33 already
-built them. What it does not cover: the gate sign-off command itself
-(§7.16's "later increment... not this ticket's to answer," restated
-by `systems/engine.md`) and `document-review` the screen
-(`docs/ui-spec.md`, ORC-75) — both still open, both this entry only
-designs against rather than builds.
+built them; and the gate command deferred to "§7.16's later increment"
+on the first pass turns out to be this ticket's, because `docs/
+ui-spec.md` §2 rule 2 refuses `document-review` (ORC-75) inventing
+that vocabulary itself. What still does not cover: `document-review`
+the screen (`docs/ui-spec.md`, ORC-75, blocked on this ticket reaching
+`Merged` for exactly that reason) and §7.16's general "what a passed
+gate pins," which `systems/engine.md`'s own entry names as untouched
+by the mechanism above.
 Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the

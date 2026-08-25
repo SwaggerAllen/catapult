@@ -487,19 +487,188 @@ them.
   the queue-as-query has no way to notice.
 
 - **`CommentPosted` (v1, explicit) is a new `events/0` entry, and a
-  decline-time human review comment is an original protocol fact on
-  this same aggregate, not a second one** (ORC-34, design pass;
-  `systems/delivery.md`'s own entry has the full harvesting
-  mechanism). It joins `DraftApproved`/`FindingAdjudicated` on the
-  identical ground "a project has one aggregate, not two" already
-  gives: nobody else in the log records that a human left this comment
-  on this node's `body_sha`, so it cannot be derived, and it lands
-  through the existing `Catapult.Engine.Router` in the same
-  per-project stream. This system validates and records it; bucketing
-  a decline's comments into a regeneration's `feedback` is delivery's
-  own read of this log, exactly as delivery already reads
-  `engine_flows` and the ninth projection rather than keeping a second
-  copy of either.
+  human review comment is an original protocol fact on this same
+  aggregate, not a second one** (ORC-34, design pass, revised on
+  design review — the FeedbackBucket cache the first draft proposed is
+  gone; see the correction below for why). It joins
+  `DraftApproved`/`FindingAdjudicated` on the identical ground "a
+  project has one aggregate, not two" already gives: nobody else in
+  the log records that a human left this comment on this node's
+  `body_sha`, so it cannot be derived, and it lands through the
+  existing `Catapult.Engine.Router` in the same per-project stream.
+  `Catapult.Engine.Commands.PostComment` carries `project_id`,
+  `node_id`, `body_sha`, `locator` (nullable — see below), `author_id`,
+  `body`, `posted_at` (supplied by the caller, per this system's own
+  purity floor — never generated in the aggregate); `CommentPosted`
+  mirrors it. Validation rejects a `body_sha` that doesn't match the
+  node's currently committed draft, the same stale-view rejection
+  every other command on a surface we own already gives (`systems
+  /delivery.md`'s point-of-action rule) — a comment posted against a
+  view the author hadn't refreshed fails here rather than silently
+  attaching to the wrong version. **No `kind`/`author_kind` field:**
+  nothing in Phase 4 posts a machine comment through this event — the
+  chain's own auto-review is `ReviewWritten`, a distinct record with
+  its own `kind: :ai | :human` — so `CommentPosted` is human-authored
+  by construction and stays that way until something actually needs to
+  post through it, the same "don't validate a scenario that can't
+  happen" discipline this codebase already keeps elsewhere. This is
+  what ORC-31's author-identity filter exists to reconstruct on a
+  surface we don't own; on a surface we do, the identical outcome
+  falls out of never having built a channel two kinds of author could
+  write through in the first place. **Two reviewers commenting
+  concurrently need no new mechanism**: this command carries no
+  `expected_version` invariant of its own to protect (it appends a
+  fact, it doesn't compare-and-swap a mutable one), so the ordinary
+  case is Commanded's own optimistic-concurrency retry on the
+  aggregate stream — the identical primitive §7.16 already names for
+  human-vs-human races generally, not a second one built for comments.
+  **The sentence locator is nullable, and is always null in Phase 4**:
+  `docs/ui-spec.md` §5 stages per-sentence anchoring in `document
+  -review` at v2; v1 (Phase 4's own) has no diff producing one yet.
+  Nothing below reads `locator` to decide what to fold in, only to
+  decide how to render an entry once folded — so v5 §7.4's per-span
+  bucket key degenerates to per-node today (there is exactly one
+  committed body per node to comment on) and activates for free,
+  unchanged, the day v2's anchoring ships a real one.
+
+- **Harvesting is a query against this log, not a second table — the
+  identical shape `Catapult.Engine.Projections.RunFailures` already
+  established for a different derived fact, corrected onto here after
+  design review found the first draft's cache reopened the exact
+  silent-failure risk it claimed to close** (ORC-34, design pass,
+  design-review correction). The reopened risk, named precisely: a
+  cache table is written asynchronously by whatever process reacts to
+  a decline, while the *sweeper* that would dispatch a regeneration is
+  timer-driven and reads readiness from projections the same reducer
+  updates independently (`Catapult.Generation.Sweeper`) — nothing
+  orders the two, so a sweep tick landing between "the gate declined"
+  and "the cache row landed" dispatches with a blank `feedback`,
+  indistinguishable from a genuine zero-comment case at render time.
+  That is exactly the ambiguity this ticket's own record says must be
+  resolved before dispatch, and a cache cannot resolve it — only
+  removing the asynchronous write can. `Catapult.Engine.Projections
+  .CommentFeedback.since_commit(project_id, node_id)` reads
+  `Commanded.EventStore.stream_forward/2` directly, the same call
+  `RunFailures.count_since_commit/2` already makes: a forward fold
+  that resets to `[]` at the node's most recent `DraftCommitted` and
+  appends each `CommentPosted` for that node seen since. This is a
+  synchronous read of the log itself, not a projection anything writes
+  ahead of time, so there is no ordering gap for a sweep tick to land
+  in — the render either sees the comments that are actually in the
+  log at that instant, or (correctly) sees none. It also gives away
+  "consumed on the next `DraftCommitted`" for free: the fold resets at
+  a commit by construction, the same way `RunFailures`'s own count
+  does, with no explicit delete or `on_conflict` step to get wrong.
+  Delivery reads this the same way it already reads `engine_flows` and
+  the ninth projection — through a query, never a second copy of the
+  log's own facts — which is what the pre-review draft's own text
+  claimed while contradicting it with a cache in the same commit;
+  there is now exactly one description of this mechanism, here, and
+  `systems/delivery.md`'s entry points at it rather than restating it.
+
+- **A workflow gate's sign-off is two new commands landing on this
+  aggregate, closing the mechanism `systems/delivery.md`'s ORC-32
+  entry left as "a later increment"** (ORC-34, design pass, scope
+  correction: the ticket's own write path, deferred once to Phase 7,
+  turns out to be this ticket's because `docs/ui-spec.md` §2 rule 2
+  refuses a screen — `document-review`, ORC-75 — inventing protocol
+  vocabulary the platform doesn't have yet, and neither `PostComment`
+  nor a decline command exists before this pass). `Catapult.Engine
+  .Commands.ApproveGate{project_id, flow_id, gate, actor_id}` →
+  `GateApproved`, and `Commands.DeclineGate{project_id, flow_id, gate,
+  throwback_to, actor_id}` → `GateDeclined`, both v1, both keyed by the
+  `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32
+  entry already establishes for this aggregate's process-manager
+  consumer (ORC-87). Validation reads the loaded `Catapult.Dsl
+  .Workflow.t()` the same way this doc's ORC-104 entry already does for
+  container commands: `gate` must be a key of `workflow.gates`, and for
+  `DeclineGate`, `throwback_to` must be a member of that gate's own
+  `throwback` list (`Catapult.Dsl.Gate.throwback` — a member is always
+  load-time-resolvable per `Catapult.Dsl.Workflow`'s own
+  `gate_throwback_problems/2`, but a garbage value on the command still
+  needs rejecting here, at the aggregate, since the loader never sees
+  this command). **A decline requires at least one comment; there is
+  no free-text override.** `docs/ui-spec.md` §3.2's own `document
+  -review` action set is "approve / throw back, with the throwback
+  target chosen from the declared exits" — no reason field — so the
+  simpler of the two fixes design review posed for the ticket's own
+  zero-comment open question is also the one the screen this ticket
+  answers to actually specs: `DeclineGate` is rejected outright,
+  synchronously, at the point of action, when `Catapult.Engine
+  .Projections.GateComments.any_since_last_resolution?(project_id,
+  gate)` is false — the identical `RunFailures`-shaped fold, reset at
+  this project's most recent `GateApproved`/`GateDeclined` naming this
+  `gate` (or at the log's start, if neither has happened yet) and
+  incremented at each `CommentPosted` since, project-wide. **Project-
+  wide, not flow-scoped, on purpose**: `CommentPosted` carries no
+  `flow_id`, and `systems/delivery.md`'s own `FeaturePublisher` entry
+  already leans on "nothing yet opens two flows concurrently on one
+  project" to resolve a flow from a bare `project_id`; this reuses that
+  exact standing simplification rather than inventing a second one, and
+  carries the identical Phase 7 revisit condition — multiple concurrent
+  flows per project need `CommentPosted` to carry `flow_id` too, not a
+  new check here. **This is a rejection the aggregate makes, not the
+  view**: `docs/ui-spec.md` §2 rule 1 and this doc's own "the rejection
+  lands at the point of action" already rule out a UI-side check as the
+  arbiter for any command on a surface we own; a decline attempt with
+  no comments yet is simply invalid input to `DeclineGate`; the screen
+  a future ticket builds surfaces that rejection synchronously, the
+  same as any other compare-and-swap failure, but does not perform it.
+  **What this does not pin: §7.16's "what a passed gate pins" stays
+  exactly as open as it already was.** Neither event carries a
+  `body_sha` or any other content-identity field — they record only
+  enough for a ticket's projected status to move, forward or to a named
+  throwback target, and for the comment-count check above to run; they
+  are not a second attempt at the staleness-of-a-passed-gate question
+  `systems/delivery.md`'s ORC-32 entry and this section's own §7.16
+  bullet already leave to Phase 7. Which node(s) a given gate reviews —
+  the general question behind "does what this gate approved still
+  match what's downstream of it" — is likewise untouched; Phase 4's own
+  shipped `feature.yaml` runs exactly one `generation` status ahead of
+  its gates, so nothing here needs the general answer to work today.
+  Role authorization (does this `actor_id` hold `gate.role`) is left
+  exactly where §7.16 already leaves grant evaluation — identity's, a
+  Phase 7 component — recorded the same way `actor_id` rides
+  unvalidated on `DraftApproved` today. **How a decline reopens a node
+  for regeneration is still not built here.** `GateDeclined` moves the
+  ticket's own projected status (`systems/delivery.md`, below); which
+  chain-axis node(s) that throwback makes eligible for `ready_scopes`
+  again is the same still-open §7.19 mechanism this ticket inherited
+  rather than closed — this entry only guarantees that whenever ORC-9's
+  executor does re-dispatch, `feedback` is already correct by
+  construction (the fold above), independent of what triggers the
+  re-dispatch.
+
+- **`prior_review` needs a new `Store.reviews_for_node/2`, project-
+  scoped per ORC-87 from the start — not the existing `reviews_for_draft
+  /1` the pre-review draft leaned on, which answers a different
+  question and stays exactly as bare-id as it already was, a real gap
+  ORC-87's own audit missed** (ORC-34, design pass, design-review
+  finding; the "audit's first pass missed it" pattern this doc's own
+  ORC-87 entry already used once for `engine_drafts`' second key,
+  applied here to a call site rather than an index).
+  `reviews_for_draft(draft_id)` stays, bare id and all, because the
+  review-tier dispatch rule above needs exactly what it already
+  answers — does *this* draft have a review yet — and threading
+  `project_id` through it is real but separate cleanup this ticket
+  notes without taking (dev's, the same way every other decision in
+  this doc is). What `prior_review` needs is a different query
+  `reviews_for_draft/1` cannot answer, which is the ticket's own "the
+  same slot doing different jobs" question the pre-review draft pinned
+  without noticing it left one of the two jobs blank: reading by
+  `draft_id` returns nothing until *this* draft has been reviewed,
+  which is always true for a freshly regenerated draft and for the
+  review tier about to review it for the first time — exactly the case
+  where "what I said last time" is the whole point. `Store
+  .reviews_for_node(project_id, node_id)` joins `engine_reviews` to
+  `engine_drafts` on `node_id`, ordered by `inserted_at` descending,
+  project-scoped from the moment it's written rather than retrofitted,
+  and both the
+  regenerating generation tier and the review tier re-run after it read
+  the same most-recent row — the node's last review, whichever draft it
+  landed against — which is never empty once the node has been reviewed
+  once, on either caller. A node never yet reviewed still renders
+  `prior_review` blank via Solid's own unset-is-empty behavior, unchanged.
 
 ## Initial vs target
 

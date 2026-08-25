@@ -183,20 +183,31 @@ and validation logic and must not fork it.
   post-ORC-87 shape (`get_node/2`, `edges_from/3`, `approve_node/2`
   all take `project_id` now); no new bare-id `Store` call site is
   introduced here for ORC-87 to have to find and thread later.
-- **`feedback`/`prior_review`'s source is decided, not built here**
-  (ORC-34, design pass; `systems/delivery.md`'s own entry has the
-  mechanism). `ContextAssembly.build_variables/5`'s own moduledoc
-  marks both "Target, not Initial... unset here" — what fills the hole
-  is two delivery-owned reads at render time, the same shape
-  `draft_variable/2` already takes for `draft`: `Delivery.get_feedback
-  /2` (a harvested-comment cache, populated at decline time) and a
-  read of the node's own most recent `ReviewWritten` for
-  `prior_review`, both unconditional (unlike `draft`, neither is
-  review-tier-only — `docs/dsl-syntax.md` §9/§3.3, corrected in the
-  same change), rendering blank via Solid's existing unset-is-empty
-  behavior where neither exists. Nothing about `build/4`'s own shape
-  changes beyond two more entries in `build_variables/5`'s returned
-  map, beside `"draft"`.
+- **`feedback`/`prior_review`'s source is decided, not built here, and
+  both reads land inside this system rather than routing through
+  delivery** (ORC-34, design pass; revised on design review —
+  the first draft routed both through a `Catapult.Delivery` read the
+  same shape `draft_variable/2` takes for `draft`, which made sense
+  only while `feedback` was delivery-owned cache state; neither read is
+  delivery's any longer, so the detour is gone with it).
+  `ContextAssembly.build_variables/5`'s own moduledoc marks both
+  "Target, not Initial... unset here" — what fills the hole is two
+  direct engine reads, exactly where this module already reads
+  `ContextResolver.resolve/2` and `Store.fragments/2` for everything
+  else it renders: `Engine.Projections.CommentFeedback.since_commit
+  (project_id, node_id)` (`systems/engine.md`, a log fold with the
+  identical shape `RunFailures.count_since_commit/2` already has, not
+  a cache) for `feedback`, rendered as an ordered list of maps —
+  `%{body:, locator:, author_id:, posted_at:}`, `locator` always `nil`
+  in Phase 4 (`systems/engine.md`) — and `Engine.Store.reviews_for_node
+  (project_id, node_id)` for `prior_review`, rendered as a map
+  (`score`, `findings`, `kind`), both unconditional (unlike `draft`,
+  neither is review-tier-only — `docs/dsl-syntax.md` §9/§3.3, §9 also
+  carries the two rendered shapes above now, corrected in the same
+  change). Both render blank via Solid's existing unset-is-empty
+  behavior where nothing exists yet to read. Nothing about `build/4`'s
+  own shape changes beyond two more entries in `build_variables/5`'s
+  returned map, beside `"draft"`.
 - **The agent-port fake is scope, not test scaffolding** (the same
   standing decision `systems/llm.md` makes for the runtime's provider
   fake, made here for the same reason): canned bodies through the real
