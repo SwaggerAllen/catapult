@@ -714,6 +714,222 @@ design gates pass.
   eligible item and letting a human filter prose out of a description
   field by hand.
 
+- **ORC-33 (design pass) finds ORC-31's own operation vocabulary short
+  one shape, and this is that shape named rather than patched
+  silently.** Branch/PR-open/merge-forward/merge/labels/checks/diff
+  (`HostPort`'s ORC-31 bullet above) cover topology, CI signaling and
+  reconciliation, but nothing in that list writes *content* onto an
+  arbitrary ref. `reset_repo/2` looks adjacent and isn't: its own
+  moduledoc already restricts it to fixture content, and — checked
+  here rather than assumed — `HostPort.Actions.reset_repo/2` takes no
+  branch argument at all; every `put_file/2` call resolves against the
+  repo's default branch through GitHub's plain `contents/:path`
+  endpoint, with no `ref` query parameter. Pushing a committed draft's
+  body onto a feature branch that is very much not the default branch
+  needs a real branch parameter, so this ticket adds two callbacks to
+  `HostPort` rather than reusing that one: `commit_files(project_id,
+  branch, files, message)` — the same per-file Contents-API shape
+  `reset_repo/2` already established (read the blob sha if the file
+  exists, PUT with it if so), generalized with an explicit `branch:`
+  ref and a caller-supplied commit message, since `"catapult: reset
+  fixture"` is `reset_repo/2`'s own message and wrong for everything
+  else — and `update_pr_body(project_id, pr_number, body)`, a PATCH
+  `HostPort` has never needed before now because nothing before this
+  ticket edits a PR after opening it. Both land in `HostPort.Actions`
+  and `HostPort.Fake` together, the same rule every earlier operation
+  on this port already follows.
+
+- **The write side is a new process manager, `Catapult.Delivery
+  .FeaturePublisher`, not a wing bolted onto `FeatureLifecycle`.** Both
+  are `application: Catapult.Engine.Application`-subscribed to the
+  identical events (`FlowOpened`, `DraftCommitted`) and identified the
+  same composite way (`project_id <> ":" <> flow_id`, ORC-87)
+  `FeatureLifecycle` already establishes — reused, not reinvented, for
+  the same Phase-4 reason `FeatureLifecycle`'s own moduledoc names:
+  nothing yet opens two flows concurrently on one project, so
+  resolving "the flow" from a bare `project_id` is correct today. What
+  is not reused is the module. `FeatureLifecycle` is pure projection —
+  the read side v5 §7.10 wants rendered without asking git anything —
+  and wiring outbound GitHub calls into its own `handle/2` would mean a
+  GitHub outage or a bad credential risking the one component every
+  status column and every gate already depends on. Keeping them apart
+  means a stalled `FeaturePublisher` leaves ticket status exactly as
+  readable as it always was, which is the property worth the second
+  module.
+
+- **Trigger timing, settled: the branch and the PR open together, on
+  the flow's first successful `DraftCommitted`** — closing the ticket's
+  own open question. Neither named alternative survives on its own
+  terms: opening at `FlowOpened` puts a PR up with no diff and nothing
+  for CI to check, which is exactly the "sitting empty, notifying
+  nobody" case the ticket record itself warns against; waiting for
+  "the first gate" lets a flow commit several tiers' worth of drafts
+  before anything is visible anywhere outside the plane's own store,
+  which is worse than the empty-PR case it's meant to avoid, not
+  better. The branch is created off `main`'s current head at that same
+  moment rather than earlier — nothing exists yet to protect from
+  drift before a first artifact lands, so an empty branch parked
+  identically to `main` gives the merge-forward machinery nothing to
+  do. ~~**Naming reuses the same composite identity everything else in
+  this doc keys a flow by** (ORC-87): `feature/<project_id>-<flow_id>`,
+  never a bare `flow_id` or a slug drawn from ticket title text, for
+  the identical collision reason `systems/engine.md`'s own ORC-87 entry
+  already gives for every other per-project id this system handles —
+  two independently-authored flows landing on the same human-readable
+  branch name is exactly the bug a caller-supplied slug invites.~~
+  **Corrected (ORC-33, design pass, author review): the id belongs in
+  the name, not as the whole of it.** The struck reasoning is right
+  that a title slug cannot *be* the identity — two independently-
+  authored flows can share a plausible title — but that argues for
+  keeping `flow_id` in the branch name, not for dropping the slug a
+  human could otherwise read: `feature/<slug>-<flow_id>`, id for
+  uniqueness, slug for what a branch list otherwise can't show. The
+  slug is read once, off the flow's own ticket title at `FlowOpened` —
+  the same declaration entry-tier already reads (`ticket: {entry:
+  <tier>, ...}`, above) — lowercased, non-alphanumeric runs collapsed
+  to one `-`, truncated to a fixed length. It is never re-read: the
+  branch name, slug included, is read back off the same
+  `FeaturePublication` row named below rather than recomputed, so a
+  title edited after the fact can't disagree with what GitHub already
+  holds — which is what answers the struck reasoning's own rename
+  worry, using machinery this bullet already has rather than avoiding
+  the slug to dodge it. `FeaturePublisher`
+  records `branch_name` and `pr_number` on its
+  own row the moment both calls succeed (`Catapult.Delivery.Store
+  .FeaturePublication`, `delivery_feature_publications`,
+  composite-keyed `(project_id, id)` exactly as `Store.FeatureLifecycle`
+  already is) — a re-observed `DraftCommitted` for a flow that already
+  has a row skips straight to the push below.
+
+- **Every push is tracked for idempotency in this system's own store,
+  never as a new engine event.** The tempting shape borrows
+  `FlagSetFlipRequested`/`FlagSetFlipped`'s intent → effect →
+  completion pair wholesale, and that's the wrong precedent here. A
+  flag flip is a fact the *container itself* holds (§7.8's "features
+  merge dark... the milestone lights up together" is real aggregate
+  state), so its completion belongs on `Catapult.Engine.Aggregate`,
+  where every other original fact about a container already lands
+  (`systems/engine.md`'s "a project has one aggregate, not two").
+  Whether a given node's committed body has been pushed onto a git ref
+  is not a fact anything in engine's own domain reasons about — nothing
+  in `ready_scopes`, dispatch or the lifecycle projection reads it back
+  — so it is `delivery_dispatch_runs`'s category of fact, not
+  `FlagSetFlipped`'s: bookkeeping this system's own outbound act keeps
+  for its own retry logic, with no consumer on the other side of the
+  aggregate boundary. `Catapult.Delivery.Store.ArtifactPush`
+  (`delivery_artifact_pushes`, keyed `(project_id, node_id)`) records
+  `tier`, `scope_key`, `path`, `body_sha` and `pushed_at` once
+  `commit_files/4` returns `:ok`. The Contents API is idempotent per
+  path regardless (the same blob-sha-then-PUT shape `reset_repo/2`
+  already relies on), so a lost row costs a redundant PUT, never a
+  wrong one — the row exists to skip the call, not to guarantee the
+  correctness of one that runs twice.
+
+- **The repo-relative path a committed body writes to is a named
+  placeholder, not a settled convention** —
+  `.catapult/artifacts/<tier>/<node_id>.xml`, the raw, schema-validated
+  body `CommitPath` already grammar-checked, written verbatim. No tier
+  in `bundles/default/tiers/*.yaml` declares a target-repo location for
+  its own draft — `draft:`'s `root_tag`/`grammar` name a validation
+  contract, not a place in a shipped project's tree, and nothing else
+  in `dsl-syntax.md` fills that gap either. Deciding the real one —
+  whether a shipped project ever sees this XML at all, or whether a
+  rendering step turns it into the kind of prose `systems/*.md` in
+  *this* repo is, and where that step would live — is a bundle-grammar
+  question (`core_dsl`/`platform_content`'s file maps), not this
+  ticket's to answer by inventing an unreviewed `produces: path:`
+  field. The namespaced placeholder keeps this ticket buildable without
+  pre-empting that decision: nothing a hand-authored project file would
+  ever be named collides with it, and every path is mechanically
+  derivable from fields this system already has in hand (`tier`,
+  `node_id`), no new lookup needed. Revisit condition: the day a tier
+  declares where its own body belongs, this reads that instead of the
+  placeholder — a one-function change here, not a new decision.
+
+- **The PR body is regenerated whole on every push, never appended
+  to** — reading back `Catapult.Delivery.Store.ArtifactPush`'s own rows
+  for the flow rather than re-deriving the set from engine's nodes
+  (`Engine.Store.list_nodes/2` is scoped per tier, and this system
+  already keeps the exact join it would take to reconstruct the set by
+  hand). One line per row — tier, scope, path — links the reader into
+  the diff by path rather than restating its content; a full rewrite
+  means a re-processed event or a retried push can never leave a
+  duplicate or a stale line the way an append-only body would. This is
+  the "table of contents... so the PR is readable without reading the
+  diff" the ticket record asks for, on the reading corrected below of
+  what reading it is actually for.
+
+- **Correction: the feature PR's diff is not the review surface the
+  ticket's own argument says it is.** `docs/v5-design-decisions.md`
+  §7.4's already-live text (the "Reversed at §7.17" passage, which
+  predates this ticket and which this ticket's own record does not
+  cite) splits artifact feedback by kind: prose reviews natively, at
+  sentence granularity; only code review stays line-anchored in a PR.
+  Every tier Phase 4's chain produces is prose (`comparch`, `sysarch`,
+  `impl`, `feature_expansion`, `vocab` — XML-in, schema-validated,
+  never a line of application code), so the surface a human actually
+  reads at `Product review`/`Architecture review` is dashboard's native
+  review screen, once dashboard builds it (already a hard dependency of
+  this whole system — "Depends on" below) — not this PR. What the
+  ticket record calls "the point" survives with a narrower job: the PR
+  stays the versioning, CI (§7.7's `ci:docs`/`ci:code` labels) and
+  child-base surface §7.5 already names, and its body is a navigation
+  aid for whoever does open it, not the mechanism gate-entry depends
+  on. **This is load-bearing for why `FeaturePublisher` may safely lag
+  `FeatureLifecycle` by however long an Oban retry takes**: a gate
+  becomes visible off `FeatureLifecycle`'s own projection, which reads
+  engine state directly and never waits on git; native review, when it
+  lands, reads a committed body the identical way
+  (`Delivery.get_draft_body/2`, already synchronous today). GitHub
+  being slow, rate-limited or briefly down delays what the PR shows,
+  never what the author is asked to act on.
+
+- **Two consequences of the correction above, named rather than left
+  for the next pass to guess at (ORC-33, design pass, author
+  review).** First: **ORC-31's author-identity filter is not
+  orphaned by this correction — it is early.** The doc/code split
+  settles *which surface* each artifact kind reviews on; it does not
+  retire either surface's own machinery. The filter's consumer is
+  line-anchored *code* review, which arrives with child PRs in Phase
+  7, not with this ticket's prose-only feature PR — reading "the PR
+  is not the review surface" alone, without this line, invites a
+  later pass to conclude the filter has no consumer and remove it.
+  The filter and its residual (a PAT-authenticated bot indistinguishable
+  from the human it authenticates as) stay exactly as recorded above,
+  waiting on Phase 7 rather than dead. Second: **`ORC-34` ("Harvest
+  declines from PR review into regeneration feedback"), which this
+  ticket blocks, inherits a scope fact its own record doesn't carry
+  yet.** Under the split, Phase 4's declines are prose declines,
+  read from the native review surface (`docs/ui-spec.md`, once UI v1
+  builds it) rather than from PR review comments — the PR-harvesting
+  half its title names is the code path, and arrives later with the
+  same Phase-7 child PRs the first consequence names. Neither point
+  changes anything this ticket itself builds; both are recorded here
+  because this correction is where the gap between the two first
+  becomes visible.
+- **The ordering fact the correction above states in passing is worth
+  its own line: Phase 4's gates are unreadable by a human until
+  ORC-75 (UI v1) ships the native review screen** (ORC-33, design
+  pass, author review) — a real intra-milestone dependency, not an
+  aside. `FeaturePublisher` and every gate behind
+  `Catapult.Delivery.FeatureLifecycle`'s projection can be built and
+  can fire without ORC-75; nothing here waits on it mechanically. But
+  nobody can act on a `Product review`/`Architecture review` gate
+  until ORC-75 exists, whatever this ticket does with the PR in the
+  meantime — naming it here is what stops a reader concluding Phase 4
+  ships a working review loop on its own. Already listed under
+  "Depends on" below; this is that dependency's reason spelled out
+  rather than left to "the work surface renders."
+- **Merging stays out of this ticket's reach, unchanged from the
+  standing reachability record above.** `FeaturePublisher` calls
+  `create_branch/3`, `open_pr/2` and the two operations this ticket
+  adds; it never calls `merge_pr/3`. "Reachability, settled" already
+  fixes `fanout` (Building) as this phase's last reachable status and
+  leaves `checks`/`merge` to Phase 7's own dispatcher — a publisher
+  that squash-merged on its own initiative would be driving a ticket
+  into a status this system's own lifecycle projection doesn't yet
+  recognize reaching.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through
@@ -778,6 +994,14 @@ ahead of the dev pass that builds it. It covers `queue` through
 `fanout` (Building) only; wiring the host port's own operations (a
 bounce, a merge-forward, a merge) into that projection, and everything
 from `checks` onward, stays open at Phase 4 and is no ticket's yet.
+**ORC-33 (design pass) records the shape of the last unbuilt slice of
+Phase 4's PR management** — `FeaturePublisher`, the two host-port
+operations it needs and the standing decisions above — ahead of the
+dev pass that builds it. It covers creating the feature branch and its
+single PR and keeping both current as the flow's own drafts commit;
+wiring a bounce, a merge-forward or a merge into any of this stays
+exactly as open as ORC-32 already left it — no ticket's yet, and
+`checks` onward is still Phase 7's.
 Target
 (Phase 7): the whole of v5 §7,
 including the delivery-DSL extension registered with core_dsl, the
@@ -791,4 +1015,6 @@ dispatch-facing host port endpoint on its listener), generation (the
 chain whose progress it projects), core_dsl (the workflow bundle's
 declared statuses and environments, v5 §7.18-§7.19), dashboard (the
 work surface — a hard dependency, since nothing else renders the
-loop). Req for the GitHub client.
+loop; concretely **ORC-75, UI v1** — until it ships the native review
+screen, Phase 4's gates have no surface a human can act on, per the
+ORC-33 entry above). Req for the GitHub client.

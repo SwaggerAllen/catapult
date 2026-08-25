@@ -1800,19 +1800,25 @@ Four surfaces, each at its own altitude; the feedback-hose problem
 (one ticket aggregating feedback for dozens of artifacts) is
 dissolved by giving every feedback type a home:
 
-1. **Linear** — the author's inbox and state lever. See tickets
-   waiting on you, action them, kick work back to the machine.
-2. **GitHub PRs** — diffs and artifact feedback. At the review gates
-   the artifact set *is* a doc diff on the feature PR, so artifact
-   feedback is line-anchored PR review comments. **Harvesting rule:**
-   on a gate decline (state moved back), the plane collects review
-   comments since the last gate, buckets them by the artifact span
-   they anchor to, and threads each bucket into that scope's
-   regeneration as `feedback`. **How machine and human comments are
-   told apart now depends on the surface.** On surfaces we own,
-   plane-authored annotations are *records with kinds* and no prose
-   is parsed — the marker rule is retired there (`docs/ui-spec.md`,
-   `systems/delivery.md`). On GitHub PRs, which we do not own, the
+1. **Our own UI** (`my-queue`, `board`, `ticket`) — the author's
+   inbox and state lever. See tickets waiting on you, action them,
+   kick work back to the machine.
+2. **GitHub PRs** — diffs and code review feedback, line-anchored,
+   because line anchoring is what code review wants. Prose artifacts
+   (every tier Phase 4 produces, `systems/delivery.md`'s ORC-33 entry)
+   review on the native surface instead, at sentence granularity.
+   **Harvesting rule:** on a gate decline (state moved back), the
+   plane collects PR review comments made against code since the
+   last gate, buckets them by the artifact span they anchor to, and
+   threads each bucket into that scope's regeneration as `feedback`
+   — a decline on a prose artifact is harvested the same way from
+   the native surface instead (`docs/ui-spec.md`,
+   `systems/delivery.md`), not from this PR.
+   **How machine and human comments are told apart now depends on the
+   surface.** On surfaces we own, plane-authored annotations are
+   *records with kinds* and no prose is parsed — the marker rule is
+   retired there (`docs/ui-spec.md`, `systems/delivery.md`). On
+   GitHub PRs, which we do not own, the
    plane's own comments still carry fixed markers, posted issue-level
    rather than line-anchored, which is what the original reason —
    the store is somebody else's, so typed data needs a convention —
@@ -1880,16 +1886,6 @@ minutes. Budgeted as a real engineering line item, not a leftover
 dashboard — and now sharing a surface with the work loop rather than
 sitting beside it.
 
-**The four feedback surfaces re-sort accordingly.** The author's
-inbox and state lever is *ours* (`my-queue`, `board`, `ticket`).
-Artifact feedback splits by artifact kind rather than living wholly
-in PRs: **prose artifacts review natively at sentence granularity**,
-**code review stays line-anchored in the PR** where line anchoring is
-correct. The harvesting rule is unchanged in substance — on a gate
-decline the plane collects feedback since the last gate and buckets
-it by the artifact span it anchors to — it simply now has two
-sources, and the native one carries a better anchor. Preview URLs /
-storybook exports and the docs site are unaffected.
 
 ### 7.5 Branches, merges, reconciliation
 

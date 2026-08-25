@@ -151,15 +151,31 @@ defmodule Catapult.MixProject do
             :mint,
             :nimble_options,
             :nimble_pool,
+            :makeup,
+            :makeup_eex,
+            :makeup_elixir,
+            :makeup_html,
+            :mdex,
+            :mdex_native,
+            :nimble_parsec,
             :oban,
+            :phoenix,
+            :phoenix_html,
+            :phoenix_live_view,
+            :phoenix_pubsub,
+            :phoenix_storybook,
+            :phoenix_template,
             :plug,
             :plug_cowboy,
             :plug_crypto,
             :postgrex,
             :req,
             :solid,
+            :rustler_precompiled,
             :telemetry_registry,
             :tesla,
+            :websock,
+            :websock_adapter,
             :yaml_elixir
           ]
         ]
@@ -179,8 +195,15 @@ defmodule Catapult.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  # `storybook/` compiles in every environment, deliberately. It is
+  # design-owned (`pipeline.config.json`'s `designOwnedPaths`), which
+  # makes it the one tree where authored Elixir arrives without a dev
+  # pass behind it — so leaving it off this list is what would make it
+  # unchecked, not what would keep it out of the way. On the path, the
+  # whole gate set (format, credo, compile --warnings-as-errors, the
+  # boundary compiler) covers it like any other source.
+  defp elixirc_paths(:test), do: ["lib", "storybook", "test/support"]
+  defp elixirc_paths(_), do: ["lib", "storybook"]
 
   defp deps do
     [
@@ -213,6 +236,13 @@ defmodule Catapult.MixProject do
       {:eventstore, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      # Armed by `mix catapult.audit`'s own sleeper check the moment
+      # `:phoenix` entered the dependency tree (v5 §2.14): a Phoenix
+      # surface without Sobelow is a static-analysis gap the audit
+      # refuses to leave silent. `only: [:dev, :test], runtime: false`
+      # like every other analysis-only tool here, which is also why it
+      # needs no `boundary: check: apps:` entry.
+      {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
       # The blessed HTTP client (conventions §1). Was `only: :test`
       # (the `:live` suite's own dependency) until the first external
@@ -229,7 +259,17 @@ defmodule Catapult.MixProject do
       # + JWKS verification is stock Elixir machinery (joken/joken_jwks-
       # grade), not custom crypto") — named in ORC-9's own scope text.
       {:joken, "~> 2.6"},
-      {:joken_jwks, "~> 1.7"}
+      {:joken_jwks, "~> 1.7"},
+      # The screen machinery `docs/ui-spec.md` and `systems/dashboard.md`
+      # describe: `Phoenix.Component` for the presentational shells design
+      # authors under `storybook/screens/**` (design-owned per
+      # `pipeline.config.json`), and PhoenixStorybook for the stories that
+      # exercise them. Ordinary runtime deps rather than `only: [:dev,
+      # :test]`: the storybook ships in a release deliberately — main is
+      # both prod and staging today, and the storybook is wanted on the
+      # staging release once the two separate.
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_storybook, "~> 1.3"}
     ]
   end
 

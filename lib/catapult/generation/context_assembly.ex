@@ -145,6 +145,17 @@ defmodule Catapult.Generation.ContextAssembly do
   defp bundles_root,
     do: Catapult.Config.fetch!(:generation, :bundles_root) |> Path.join("bundles")
 
+  # sobelow_skip ["Traversal.FileModule"]
+  #
+  # `path` cannot leave the bundle: `Catapult.Dsl.Extends
+  # .resolve_content_path/2` is the only thing that produces it, and it
+  # refuses any candidate that expands outside its layer directory —
+  # covered by `Catapult.Dsl.ExtendsTest`'s containment cases, including
+  # the escape this annotation would otherwise be hiding. The skip is
+  # here because sobelow reads the call site and cannot see the guard
+  # upstream of it, not because the finding was waved through: it was a
+  # real traversal, reproduced against /etc/passwd, and fixed at the
+  # resolver rather than suppressed here.
   defp parse_template(path) do
     case path |> File.read!() |> Solid.parse() do
       {:ok, template} -> {:ok, template}

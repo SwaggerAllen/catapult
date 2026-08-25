@@ -350,6 +350,67 @@ defmodule Catapult.Delivery.HostPort.Actions do
     %{name: run["name"], status: run["status"], conclusion: run["conclusion"]}
   end
 
+  @doc """
+  Writes `files` (repo-relative path => content) onto `branch` via
+  GitHub's Contents API, each under `message` — the same per-file
+  shape `reset_repo/2` uses (read the blob sha if the file exists, PUT
+  with it if so), generalized with an explicit branch ref instead of
+  the implicit default branch `reset_repo/2` always targets, and a
+  caller-supplied message instead of `reset_repo/2`'s own fixed one
+  (`Catapult.Delivery.HostPort`'s own moduledoc, ORC-33). One file's
+  failure does not roll back an earlier one, the same idempotent-retry
+  shape `reset_repo/2` already follows.
+  """
+  @impl Catapult.Delivery.HostPort
+  def commit_files(project_id, branch, files, message) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      put_all_branch_files(binding, branch, files, message)
+    end
+  end
+
+  defp put_all_branch_files(binding, branch, files, message) do
+    Enum.reduce_while(files, :ok, fn {path, content}, :ok ->
+      case put_branch_file(binding, branch, path, content, message) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp put_branch_file(binding, branch, path, content, message) do
+    url = contents_url(binding, path)
+
+    sha =
+      case Req.get(url, auth: auth(), headers: json_headers(), params: [ref: branch]) do
+        {:ok, %{status: 200, body: %{"sha" => sha}}} -> sha
+        {:ok, _not_found_or_other} -> nil
+        {:error, _reason} -> nil
+      end
+
+    body = %{message: message, content: Base.encode64(content), branch: branch}
+    body = if sha, do: Map.put(body, :sha, sha), else: body
+
+    case Req.put(url, auth: auth(), headers: json_headers(), json: body) do
+      {:ok, %{status: status}} when status in 200..299 -> :ok
+      {:ok, resp} -> {:error, {:commit_files_failed, path, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:commit_files_failed, path, reason}}
+    end
+  end
+
+  @doc "Replaces the PR's body wholesale — regenerated on every push, never appended to (`systems/delivery.md`'s ORC-33 entry)."
+  @impl Catapult.Delivery.HostPort
+  def update_pr_body(project_id, pr_number, body) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      url = "#{repo_url(binding)}/pulls/#{pr_number}"
+
+      case Req.patch(url, auth: auth(), headers: json_headers(), json: %{body: body}) do
+        {:ok, %{status: status}} when status in 200..299 -> :ok
+        {:ok, resp} -> {:error, {:update_pr_body_failed, resp.status, resp.body}}
+        {:error, reason} -> {:error, {:update_pr_body_failed, reason}}
+      end
+    end
+  end
+
   @doc "The PR's diff, for reconciliation — the port moves refs and reads diffs, it never checks out (conventions §11)."
   @impl Catapult.Delivery.HostPort
   def read_diff(project_id, pr_number) do

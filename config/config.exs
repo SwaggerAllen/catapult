@@ -25,8 +25,13 @@ config :catapult, Oban,
   # `Catapult.Delivery.oban_queues/0` respectively; this list is what
   # actually starts them (`Catapult.Foundation.children/0` reads it
   # directly). `delivery_flag_flip` is deliberately small: a container
-  # closes once, and its flip is one idempotent call.
-  queues: [generation_dispatch: 5, delivery_flag_flip: 1],
+  # closes once, and its flip is one idempotent call. `delivery_feature
+  # _publish` is concurrency-1 for a related but distinct reason
+  # (`Catapult.Delivery.FeaturePublishWorker`'s own moduledoc, ORC-33):
+  # serializing it is what keeps two nodes in the same flow, committed
+  # close together, from each finding no feature-publication row and
+  # each opening a branch and a PR.
+  queues: [generation_dispatch: 5, delivery_flag_flip: 1, delivery_feature_publish: 1],
   plugins: []
 
 # The seam `Catapult.Delivery.Dispatch` calls into once a result-report
