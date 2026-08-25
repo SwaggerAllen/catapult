@@ -39,6 +39,20 @@ toolchain is the only supported one.
 - `bundles/` — DSL bundle content, both axes (v5 §7.18): the
   chain layers (platform-elixir + default chain) and the platform
   workflow layer (default review sequence, `dev`/`staging`).
+- `screens/` and `storybook/` — **design-owned** (`pipeline
+  .config.json`'s `designOwnedPaths`), and `storybook/**` is the one
+  tree where authored **Elixir** arrives without a dev pass behind
+  it: `storybook/screens/<name>/component.ex` plus its
+  `.story.exs`. It is on `elixirc_paths` in every environment
+  deliberately — off it, the whole gate set is blind to exactly the
+  code nobody reviewed as code.
+- `bin/preview-build.sh` — the branch preview
+  (`pipeline.config.json`'s `preview.buildCommand`). It installs its
+  own OTP/Elixir because the agent runners have none (below), and it
+  **never exits non-zero**: the calling step is `set -euo pipefail`,
+  so a failing preview would fail the agent job and stop tickets
+  dispatching. Every failure publishes `preview/index.html` instead
+  and says why on stdout.
 - `priv/repo/migrations_infra/` — infrastructure migrations
   (Oban, EventStore); per-store migrations compose in as stores land.
 - `seed-docs/` — **vendored SiegeEngine reference, frozen**: the v4
@@ -59,6 +73,7 @@ mix deps.get --check-locked
 mix deps.audit                       # hex.audit runs first, inside the alias
 mix format --check-formatted
 mix credo --strict
+mix sobelow --exit --skip --ignore Config.HTTPS
 mix compile --warnings-as-errors     # boundary compiler is in the set
 mix xref graph --format cycles --fail-above 0
 mix xref graph --label compile-connected --fail-above 0   # the ratchet
@@ -82,6 +97,19 @@ project — so `mix catapult.audit` at the root never sees
 exactly that (and needs `components/substrate/deps` resolved; it exits
 1 rather than skipping if they are not). A new mix project brings its
 own gate block here.
+
+`mix sobelow` is in the root block and not substrate's: it armed
+itself the moment `:phoenix` entered this project's dependency tree,
+because `mix catapult.audit` carries a sleeper check for a Phoenix
+surface with no security-focused static analysis (v5 §2.14), and it
+names all three places arming it takes — the dep, a `qualityGates`
+line, a ci.yml step. Substrate has no Phoenix and so no such line.
+Its escape is `# sobelow_skip ["Check.Name"]` immediately above the
+offending function, and it is only honored because `--skip` is on the
+gate line — an annotation alone disarms nothing. `--ignore
+Config.HTTPS` is there for one reason recorded on that line: there is
+no Phoenix endpoint yet, which sobelow says itself on every run
+("cannot find the router"). **It comes out with the first endpoint.**
 
 The two blocks differ on one line only, and deliberately: the root's
 `mix deps.audit` is an alias running `hex.audit` first and `mix_audit`
@@ -135,6 +163,14 @@ suite path.
   `deps:` or the boundary compiler fails the build (the app list is in
   `mix.exs`). Pure Erlang applications cannot be restrained — that gap
   is `systems/foundation.md`'s and is deliberate, not forgotten.
+- A **bundle-relative content path stays inside its own layer**.
+  `Catapult.Dsl.Extends.resolve_content_path/2` expands both sides
+  and refuses any candidate that escapes, so an escaping `prompt:`
+  reads as "not found" rather than as a file. The value is
+  bundle-authored, and a bundle is the customer's own content at the
+  hosted tier — without the guard a `prompt:` of `"../.."` had the
+  plane reading arbitrary files, which is not hypothetical: it was
+  reproduced against `/etc/passwd` before being fixed.
 - The plane makes no LLM calls and holds no working copies —
   generation is dispatched agent runs (conventions §11). A model
   call in plane code is an architecture violation.
@@ -145,3 +181,53 @@ suite path.
   generated projects — never copy plane code (AGPL) into them and
   never add a copyleft dependency there. New files take their
   directory's license.
+
+## Where things actually run (the "why didn't that fire" list)
+
+Each of these cost a wrong diagnosis before it was written down.
+
+- **Agent runs have no BEAM.** `agent-design` and `agent-dev` install
+  Go and nothing else (orchestration's `setup-pipeline`), because the
+  pipeline is language-agnostic by design. `erlef/setup-beam` is a
+  composite Action and unreachable from a shell string, so anything
+  needing `mix` inside an agent job installs its own toolchain —
+  which is the whole reason `bin/preview-build.sh` exists in that
+  shape. **The gates do not run in agent jobs**; they run in `ci.yml`
+  on the PR.
+- **The pipeline audit only runs on ticket branches.** `ci.yml`'s
+  `gate the pipeline audit` step greps the branch for `orc-[0-9]+`
+  and skips the whole audit without one. So mutex, doc lint, class
+  and design-ownership checks **never see an author branch** — a
+  clean CI run on one is not evidence those checks passed.
+- **A push made with `GITHUB_TOKEN` starts no workflow.** GitHub
+  refuses to trigger on events created with it, so a job that commits
+  back to a branch leaves the PR with *no* checks rather than
+  failing ones. Orchestration's own action records this as its reason
+  for publishing previews from the harness rather than a
+  push-watcher. A push under ordinary credentials is what restores
+  them.
+- **A stale `_build` fails `--warnings-as-errors` for a lie.** A
+  half-finished compile leaves a dependency's modules missing, and
+  the gate then reports them undefined at their call sites — which
+  reads exactly like a real breakage in the caller. Before believing
+  such a failure, `mix compile --force`; if it goes away, it was the
+  build.
+
+## Writing in the docs
+
+- **State the rule; do not narrate what it replaced.** When a
+  decision changes, the stale sentence is deleted rather than struck
+  through and annotated with who corrected it and when — git holds
+  that. This applies to `docs/*.md`, and `docs/v5-design-decisions.md`
+  above all, since it is the design source of truth: it should read
+  as the rules, not as their history.
+- **The exception is the reason.** "X exists because Y went wrong" is
+  load-bearing and stays — it is the thing that stops a later pass
+  simplifying the rule back into the bug (`orchestration/CLAUDE.md`
+  makes the same point about code comments). The distinction is
+  between a rule's *rationale*, which is content, and a *changelog*,
+  which is not.
+- Corollary: a revision to a recorded decision belongs **in the
+  document that records it**, not only in the system doc that
+  noticed. Leaving the source of truth stating the superseded rule is
+  how the next pass re-derives it.
