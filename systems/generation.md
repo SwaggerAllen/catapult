@@ -183,6 +183,20 @@ and validation logic and must not fork it.
   post-ORC-87 shape (`get_node/2`, `edges_from/3`, `approve_node/2`
   all take `project_id` now); no new bare-id `Store` call site is
   introduced here for ORC-87 to have to find and thread later.
+- **`feedback`/`prior_review`'s source is decided, not built here**
+  (ORC-34, design pass; `systems/delivery.md`'s own entry has the
+  mechanism). `ContextAssembly.build_variables/5`'s own moduledoc
+  marks both "Target, not Initial... unset here" — what fills the hole
+  is two delivery-owned reads at render time, the same shape
+  `draft_variable/2` already takes for `draft`: `Delivery.get_feedback
+  /2` (a harvested-comment cache, populated at decline time) and a
+  read of the node's own most recent `ReviewWritten` for
+  `prior_review`, both unconditional (unlike `draft`, neither is
+  review-tier-only — `docs/dsl-syntax.md` §9/§3.3, corrected in the
+  same change), rendering blank via Solid's existing unset-is-empty
+  behavior where neither exists. Nothing about `build/4`'s own shape
+  changes beyond two more entries in `build_variables/5`'s returned
+  map, beside `"draft"`.
 - **The agent-port fake is scope, not test scaffolding** (the same
   standing decision `systems/llm.md` makes for the runtime's provider
   fake, made here for the same reason): canned bodies through the real

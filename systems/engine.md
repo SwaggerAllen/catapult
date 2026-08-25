@@ -486,6 +486,21 @@ them.
   item silently count into some queue's population — the one failure
   the queue-as-query has no way to notice.
 
+- **`CommentPosted` (v1, explicit) is a new `events/0` entry, and a
+  decline-time human review comment is an original protocol fact on
+  this same aggregate, not a second one** (ORC-34, design pass;
+  `systems/delivery.md`'s own entry has the full harvesting
+  mechanism). It joins `DraftApproved`/`FindingAdjudicated` on the
+  identical ground "a project has one aggregate, not two" already
+  gives: nobody else in the log records that a human left this comment
+  on this node's `body_sha`, so it cannot be derived, and it lands
+  through the existing `Catapult.Engine.Router` in the same
+  per-project stream. This system validates and records it; bucketing
+  a decline's comments into a regeneration's `feedback` is delivery's
+  own read of this log, exactly as delivery already reads
+  `engine_flows` and the ninth projection rather than keeping a second
+  copy of either.
+
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event

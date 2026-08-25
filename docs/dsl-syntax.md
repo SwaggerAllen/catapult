@@ -251,9 +251,10 @@ is the same set of walks as the reviewed tier's own `context:` (§13).
 This is what makes the per-tier triad invariant ("generation and
 review receive identical context plus `draft`", §9) a load-time
 property instead of a runtime discipline living in shared assembly
-code. `draft` and `prior_review` are never `context:` entries — they
-are template variables supplied automatically to a review tier's
-prompt (§9), exactly as before.
+code. `draft` and `prior_review` are never `context:` entries. `draft`
+is supplied automatically to a review tier's prompt alone; `prior_review`
+is supplied to every tier's prompt, generation and review alike (§9) —
+the same fact, read once per node, rendered wherever it's declared.
 
 **Never named from the workflow axis.** A workflow bundle turns the
 critique slot that follows a given generation status *on* by
@@ -512,7 +513,11 @@ resolves to at runtime.
 
 Liquid (Solid). Variables: one per named context walk
 (cardinality-many walks iterate), `self`, `feedback`, `prior_review`,
-and — review prompts only — `draft`. A variable's name is its target
+and — review prompts only — `draft`. `feedback` and `prior_review`
+render on every prompt a tier has, generation and review alike; `draft`
+alone is withheld from generation prompts (`systems/delivery.md`'s
+ORC-34 entry pins this against the ambiguity §3.3 and this section
+used to read into each other). A variable's name is its target
 tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
 gets the same name as a self-hop entry landing on that tier. **Two or
 more context entries naming the same target tier combine into one
@@ -524,10 +529,11 @@ applies to me," not one variable per path that produced it. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
 shared framing across the six architecture tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
-the per-tier triad invariant. `draft` (and `prior_review`) are
-supplied automatically by the shared context-assembly path; that a
-review tier's own declared `context:` matches the reviewed tier's is
-a load-time check instead (§3.3, §13).
+the per-tier triad invariant. `draft` is supplied automatically by the
+shared context-assembly path to a review tier's prompt alone;
+`feedback` and `prior_review` are supplied the same way to every
+tier's prompt. That a review tier's own declared `context:` matches
+the reviewed tier's is a load-time check instead (§3.3, §13).
 
 ## 10. Grammars
 
