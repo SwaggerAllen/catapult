@@ -1,5 +1,5 @@
-# One-shot helper, manually dispatched, deleted once the storybook
-# dependency work lands. It exists because `mix deps.get
+# One-shot helper, fired by pushes to the authoring branch and deleted
+# once the storybook dependency work lands. It exists because `mix deps.get
 # --check-locked` is the first gate in ci.yml: a mix.exs change that
 # adds a dependency fails every run until mix.lock matches it, and the
 # authoring environment for this change has no BEAM toolchain to
@@ -12,6 +12,8 @@
 name: relock
 
 on:
+  push:
+    branches: [claude/catapult-v5-handoff-fc9bhw]
   workflow_dispatch:
 
 permissions:
