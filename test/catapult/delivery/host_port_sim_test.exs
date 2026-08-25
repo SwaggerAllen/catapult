@@ -54,6 +54,24 @@ defmodule Catapult.Delivery.HostPortSimTest do
     :ok = Fake.set_pr_labels(@project, pr_number, ["ci:code"])
     assert Forge.get_labels(Forge, pr_number) == ["ci:code"]
 
+    # An artifact body committed onto the feature branch under a
+    # caller-supplied message and an explicit branch ref — the shape
+    # `reset_repo/2` cannot serve (`HostPort`'s own moduledoc, ORC-33).
+    :ok =
+      Fake.commit_files(
+        @project,
+        "feature/orc-99",
+        %{".catapult/artifacts/comparch/comparch.xml" => "<comparch/>"},
+        "catapult: commit comparch comparch"
+      )
+
+    assert {:ok, files} = Forge.branch_files(Forge, "feature/orc-99")
+    assert files[".catapult/artifacts/comparch/comparch.xml"] == "<comparch/>"
+
+    # The PR body is regenerated whole on every push, never appended to.
+    :ok = Fake.update_pr_body(@project, pr_number, "- `comparch` -> comparch.xml")
+    assert Forge.get_pr(Forge, pr_number).body == "- `comparch` -> comparch.xml"
+
     # A human review comment and a bot's are both posted through the
     # identical review-comment endpoint; only the human one survives
     # the author-identity filter and is harvestable
@@ -118,5 +136,12 @@ defmodule Catapult.Delivery.HostPortSimTest do
     # The feature PR squash-merges to main (v5 §7.5).
     :ok = Fake.merge_pr(@project, pr_number, :squash)
     assert %{state: :merged, merged_via: :squash} = Forge.get_pr(Forge, pr_number)
+  end
+
+  test "commit_files/4 and update_pr_body/3 fail loudly against an unknown branch or PR" do
+    assert {:error, :no_such_branch} =
+             Fake.commit_files(@project, "no-such-branch", %{"a" => "b"}, "msg")
+
+    assert {:error, :no_such_pr} = Fake.update_pr_body(@project, 999, "body")
   end
 end

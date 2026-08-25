@@ -99,7 +99,11 @@ defmodule Catapult.Delivery do
       # compute a container's next move and each dispatch it — the
       # second losing to the first's compare-and-swap, but only after
       # both had already decided. One consumer, cluster-wide.
-      {:delivery_container_lifecycle, :singleton}
+      {:delivery_container_lifecycle, :singleton},
+      # Same placement and the same reason as its siblings above: a
+      # Commanded subscription is consumed once, in order, cluster-wide
+      # (`Catapult.Delivery.FeaturePublisher`'s own moduledoc, ORC-33).
+      {:delivery_feature_publisher, :singleton}
     ]
   end
 
@@ -110,8 +114,11 @@ defmodule Catapult.Delivery do
     # Its own queue rather than a shared one: an external effect that
     # retries must not sit behind generation dispatch's concurrency
     # budget, and the queue registry is where an operator looks to see
-    # that it exists at all.
-    [:delivery_flag_flip]
+    # that it exists at all. `delivery_feature_publish` is
+    # `Catapult.Delivery.FeaturePublishWorker`'s own outbox for the
+    # same reason (ORC-33); its concurrency is set in `config/config
+    # .exs`, not here — this list only claims the name.
+    [:delivery_flag_flip, :delivery_feature_publish]
   end
 
   @impl Catapult.Component
@@ -119,7 +126,8 @@ defmodule Catapult.Delivery do
     [
       {Catapult.Delivery.Oidc.Strategy, []},
       Catapult.Delivery.FeatureLifecycle,
-      Catapult.Delivery.ContainerLifecycle
+      Catapult.Delivery.ContainerLifecycle,
+      Catapult.Delivery.FeaturePublisher
     ]
   end
 

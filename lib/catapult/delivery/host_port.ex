@@ -59,6 +59,21 @@ defmodule Catapult.Delivery.HostPort do
   single-page version of this defect once already, in the Go
   pipeline's own adapter).
 
+  **ORC-33: the shape ORC-31 left short** — `reset_repo/2` looks
+  adjacent to a content-write operation and isn't: it takes no branch
+  argument and always resolves against the repo's default branch,
+  which is wrong for pushing a committed draft's body onto a feature
+  branch (`systems/delivery.md`'s ORC-33 entry).
+
+  - `commit_files/4` — the same per-file Contents-API shape
+    `reset_repo/2` already established (read the blob sha if the file
+    exists, PUT with it if so), generalized with an explicit `branch:`
+    ref and a caller-supplied commit message.
+  - `update_pr_body/3` — a PATCH `HostPort` has never needed before
+    now because nothing before ORC-33 edits a PR after opening it. The
+    PR body is regenerated whole on every push, never appended to
+    (`systems/delivery.md`'s ORC-33 entry).
+
   As with `dispatch_run/1` and `reset_repo/2`, every operation here
   lands in `HostPort.Actions` and `HostPort.Fake` in the same change —
   never one ahead of the other.
@@ -147,4 +162,14 @@ defmodule Catapult.Delivery.HostPort do
 
   @callback read_diff(project_id :: binary(), pr_number()) ::
               {:ok, String.t()} | {:error, term()}
+
+  @callback commit_files(
+              project_id :: binary(),
+              branch :: String.t(),
+              files(),
+              message :: String.t()
+            ) :: :ok | {:error, term()}
+
+  @callback update_pr_body(project_id :: binary(), pr_number(), body :: String.t()) ::
+              :ok | {:error, term()}
 end
