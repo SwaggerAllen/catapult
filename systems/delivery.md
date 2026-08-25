@@ -770,16 +770,30 @@ design gates pass.
   moment rather than earlier — nothing exists yet to protect from
   drift before a first artifact lands, so an empty branch parked
   identically to `main` gives the merge-forward machinery nothing to
-  do. **Naming reuses the same composite identity everything else in
+  do. ~~**Naming reuses the same composite identity everything else in
   this doc keys a flow by** (ORC-87): `feature/<project_id>-<flow_id>`,
   never a bare `flow_id` or a slug drawn from ticket title text, for
   the identical collision reason `systems/engine.md`'s own ORC-87 entry
   already gives for every other per-project id this system handles —
   two independently-authored flows landing on the same human-readable
-  branch name is exactly the bug a caller-supplied slug invites. It is
-  read back off the same `FeaturePublication` row named below, never
-  re-derived, so a rename of the flow's own title after the fact can't
-  disagree with the branch GitHub actually holds. `FeaturePublisher`
+  branch name is exactly the bug a caller-supplied slug invites.~~
+  **Corrected (ORC-33, design pass, author review): the id belongs in
+  the name, not as the whole of it.** The struck reasoning is right
+  that a title slug cannot *be* the identity — two independently-
+  authored flows can share a plausible title — but that argues for
+  keeping `flow_id` in the branch name, not for dropping the slug a
+  human could otherwise read: `feature/<slug>-<flow_id>`, id for
+  uniqueness, slug for what a branch list otherwise can't show. The
+  slug is read once, off the flow's own ticket title at `FlowOpened` —
+  the same declaration entry-tier already reads (`ticket: {entry:
+  <tier>, ...}`, above) — lowercased, non-alphanumeric runs collapsed
+  to one `-`, truncated to a fixed length. It is never re-read: the
+  branch name, slug included, is read back off the same
+  `FeaturePublication` row named below rather than recomputed, so a
+  title edited after the fact can't disagree with what GitHub already
+  holds — which is what answers the struck reasoning's own rename
+  worry, using machinery this bullet already has rather than avoiding
+  the slug to dodge it. `FeaturePublisher`
   records `branch_name` and `pr_number` on its
   own row the moment both calls succeed (`Catapult.Delivery.Store
   .FeaturePublication`, `delivery_feature_publications`,
@@ -870,6 +884,42 @@ design gates pass.
   being slow, rate-limited or briefly down delays what the PR shows,
   never what the author is asked to act on.
 
+- **Two consequences of the correction above, named rather than left
+  for the next pass to guess at (ORC-33, design pass, author
+  review).** First: **ORC-31's author-identity filter is not
+  orphaned by this correction — it is early.** The doc/code split
+  settles *which surface* each artifact kind reviews on; it does not
+  retire either surface's own machinery. The filter's consumer is
+  line-anchored *code* review, which arrives with child PRs in Phase
+  7, not with this ticket's prose-only feature PR — reading "the PR
+  is not the review surface" alone, without this line, invites a
+  later pass to conclude the filter has no consumer and remove it.
+  The filter and its residual (a PAT-authenticated bot indistinguishable
+  from the human it authenticates as) stay exactly as recorded above,
+  waiting on Phase 7 rather than dead. Second: **`ORC-34` ("Harvest
+  declines from PR review into regeneration feedback"), which this
+  ticket blocks, inherits a scope fact its own record doesn't carry
+  yet.** Under the split, Phase 4's declines are prose declines,
+  read from the native review surface (`docs/ui-spec.md`, once UI v1
+  builds it) rather than from PR review comments — the PR-harvesting
+  half its title names is the code path, and arrives later with the
+  same Phase-7 child PRs the first consequence names. Neither point
+  changes anything this ticket itself builds; both are recorded here
+  because this correction is where the gap between the two first
+  becomes visible.
+- **The ordering fact the correction above states in passing is worth
+  its own line: Phase 4's gates are unreadable by a human until
+  ORC-75 (UI v1) ships the native review screen** (ORC-33, design
+  pass, author review) — a real intra-milestone dependency, not an
+  aside. `FeaturePublisher` and every gate behind
+  `Catapult.Delivery.FeatureLifecycle`'s projection can be built and
+  can fire without ORC-75; nothing here waits on it mechanically. But
+  nobody can act on a `Product review`/`Architecture review` gate
+  until ORC-75 exists, whatever this ticket does with the PR in the
+  meantime — naming it here is what stops a reader concluding Phase 4
+  ships a working review loop on its own. Already listed under
+  "Depends on" below; this is that dependency's reason spelled out
+  rather than left to "the work surface renders."
 - **Merging stays out of this ticket's reach, unchanged from the
   standing reachability record above.** `FeaturePublisher` calls
   `create_branch/3`, `open_pr/2` and the two operations this ticket
@@ -965,4 +1015,6 @@ dispatch-facing host port endpoint on its listener), generation (the
 chain whose progress it projects), core_dsl (the workflow bundle's
 declared statuses and environments, v5 §7.18-§7.19), dashboard (the
 work surface — a hard dependency, since nothing else renders the
-loop). Req for the GitHub client.
+loop; concretely **ORC-75, UI v1** — until it ships the native review
+screen, Phase 4's gates have no surface a human can act on, per the
+ORC-33 entry above). Req for the GitHub client.

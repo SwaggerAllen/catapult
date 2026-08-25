@@ -1802,14 +1802,24 @@ dissolved by giving every feedback type a home:
 
 1. **Linear** — the author's inbox and state lever. See tickets
    waiting on you, action them, kick work back to the machine.
-2. **GitHub PRs** — diffs and artifact feedback. At the review gates
-   the artifact set *is* a doc diff on the feature PR, so artifact
-   feedback is line-anchored PR review comments. **Harvesting rule:**
-   on a gate decline (state moved back), the plane collects review
-   comments since the last gate, buckets them by the artifact span
-   they anchor to, and threads each bucket into that scope's
-   regeneration as `feedback`. **How machine and human comments are
-   told apart now depends on the surface.** On surfaces we own,
+2. **GitHub PRs** — diffs and code-review feedback. **Corrected
+   (ORC-33, design pass, author review): this item and the re-sort
+   below (`prose artifacts review natively at sentence granularity,
+   code review stays line-anchored in the PR`) were saying opposed
+   things, and this item was the stale one** — it predates §7.17's
+   reversal and was never brought forward to match it. As settled
+   below: only code review happens here, line-anchored, because line
+   anchoring is what code review wants; prose artifacts (every tier
+   Phase 4 produces, `systems/delivery.md`'s ORC-33 entry) review on
+   the native surface instead. **Harvesting rule, narrowed to match:**
+   on a gate decline (state moved back), the plane collects PR review
+   comments made against code since the last gate, buckets them by
+   the artifact span they anchor to, and threads each bucket into
+   that scope's regeneration as `feedback` — a decline on a prose
+   artifact is harvested the same way from the native surface instead
+   (`docs/ui-spec.md`, `systems/delivery.md`), not from this PR.
+   **How machine and human comments are told apart now depends on the
+   surface.** On surfaces we own,
    plane-authored annotations are *records with kinds* and no prose
    is parsed — the marker rule is retired there (`docs/ui-spec.md`,
    `systems/delivery.md`). On GitHub PRs, which we do not own, the
