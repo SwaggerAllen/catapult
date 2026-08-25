@@ -1880,16 +1880,6 @@ minutes. Budgeted as a real engineering line item, not a leftover
 dashboard — and now sharing a surface with the work loop rather than
 sitting beside it.
 
-**The four feedback surfaces re-sort accordingly.** The author's
-inbox and state lever is *ours* (`my-queue`, `board`, `ticket`).
-Artifact feedback splits by artifact kind rather than living wholly
-in PRs: **prose artifacts review natively at sentence granularity**,
-**code review stays line-anchored in the PR** where line anchoring is
-correct. The harvesting rule is unchanged in substance — on a gate
-decline the plane collects feedback since the last gate and buckets
-it by the artifact span it anchors to — it simply now has two
-sources, and the native one carries a better anchor. Preview URLs /
-storybook exports and the docs site are unaffected.
 
 ### 7.5 Branches, merges, reconciliation
 
