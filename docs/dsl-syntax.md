@@ -523,9 +523,11 @@ per-sentence anchoring ships), `author_id`, `posted_at`
 (`systems/engine.md`'s `CommentPosted`/`CommentFeedback`, ORC-34) —
 never a string beside `draft`, the same representational choice
 `prior_review` makes below. `prior_review` is a map — `score`,
-`findings`, `kind` — the node's own most recent review regardless of
-which draft it landed against (`systems/engine.md`'s `reviews_for_node
-/2`, ORC-34). Both render blank via Solid's own unset-is-empty
+`findings`, `kind`, `body_sha` — the node's own most recent review
+regardless of which draft it landed against (`systems/engine.md`'s
+`reviews_for_node/2`, ORC-34); `body_sha` names which committed body
+the review applies to, since reading across drafts on purpose means a
+prompt can no longer assume it is the current one. Both render blank via Solid's own unset-is-empty
 behavior where nothing has been posted or reviewed yet. A variable's
 name is its target
 tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)

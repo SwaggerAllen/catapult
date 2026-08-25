@@ -985,8 +985,8 @@ design gates pass.
 - **This system's job is the two reads and the one write the
   mechanism above doesn't itself perform: rendering, and moving a
   ticket's projected status.** `Catapult.Generation.ContextAssembly`
-  reads `Engine.Projections.CommentFeedback.since_commit/2` and
-  `Engine.Store.reviews_for_node/2` directly at render time
+  reads `Engine.Projections.CommentFeedback.since_last_resolution/2`
+  and `Engine.Store.reviews_for_node/2` directly at render time
   (`systems/generation.md`'s own entry) — this system supplies neither;
   there is no delivery-owned copy of `feedback` or `prior_review` for
   either ticket's premise to have gotten wrong this time. What this

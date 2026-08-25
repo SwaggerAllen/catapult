@@ -194,14 +194,18 @@ and validation logic and must not fork it.
   "Target, not Initial... unset here" — what fills the hole is two
   direct engine reads, exactly where this module already reads
   `ContextResolver.resolve/2` and `Store.fragments/2` for everything
-  else it renders: `Engine.Projections.CommentFeedback.since_commit
-  (project_id, node_id)` (`systems/engine.md`, a log fold with the
-  identical shape `RunFailures.count_since_commit/2` already has, not
-  a cache) for `feedback`, rendered as an ordered list of maps —
+  else it renders: `Engine.Projections.CommentFeedback
+  .since_last_resolution(project_id, node_id)` (`systems/engine.md`, a
+  log fold shaped like `RunFailures.count_since_commit/2` but reset at
+  the gate resolution before the most recent one, not at
+  `DraftCommitted` — corrected on a second design-review pass so this
+  fold's window and `GateComments.any_since_last_resolution?/2`'s
+  validation window are the same query rather than two that can
+  disagree) for `feedback`, rendered as an ordered list of maps —
   `%{body:, locator:, author_id:, posted_at:}`, `locator` always `nil`
   in Phase 4 (`systems/engine.md`) — and `Engine.Store.reviews_for_node
   (project_id, node_id)` for `prior_review`, rendered as a map
-  (`score`, `findings`, `kind`), both unconditional (unlike `draft`,
+  (`score`, `findings`, `kind`, `body_sha`), both unconditional (unlike `draft`,
   neither is review-tier-only — `docs/dsl-syntax.md` §9/§3.3, §9 also
   carries the two rendered shapes above now, corrected in the same
   change). Both render blank via Solid's existing unset-is-empty

@@ -547,18 +547,63 @@ them.
   That is exactly the ambiguity this ticket's own record says must be
   resolved before dispatch, and a cache cannot resolve it — only
   removing the asynchronous write can. `Catapult.Engine.Projections
-  .CommentFeedback.since_commit(project_id, node_id)` reads
+  .CommentFeedback.since_last_resolution(project_id, node_id)` reads
   `Commanded.EventStore.stream_forward/2` directly, the same call
-  `RunFailures.count_since_commit/2` already makes: a forward fold
-  that resets to `[]` at the node's most recent `DraftCommitted` and
-  appends each `CommentPosted` for that node seen since. This is a
+  `RunFailures.count_since_commit/2` already makes, and is a
   synchronous read of the log itself, not a projection anything writes
-  ahead of time, so there is no ordering gap for a sweep tick to land
-  in — the render either sees the comments that are actually in the
-  log at that instant, or (correctly) sees none. It also gives away
-  "consumed on the next `DraftCommitted`" for free: the fold resets at
-  a commit by construction, the same way `RunFailures`'s own count
-  does, with no explicit delete or `on_conflict` step to get wrong.
+  ahead of time — so there is no ordering gap for a sweep tick to land
+  in, whatever the reset boundary turns out to be.
+
+  **The reset boundary is not `DraftCommitted`, on a second design-
+  review finding this pass corrects: that boundary and
+  `GateComments.any_since_last_resolution?/2`'s boundary, below, are
+  different queries that can each pass while the other sees something
+  different, which reopens the same blank-vs-zero ambiguity one level
+  in** (ORC-34, design pass, second design-review correction). A
+  concrete case second review gave: `GateDeclined` at T1 resets
+  validation's window; a comment lands at T2, mid-regeneration;
+  `DraftCommitted` at T3 reset *this* projection's window on the old
+  design, discarding T2 before it ever rendered; `GateDeclined` again
+  at T4 passes validation (T2 postdates T1) and dispatches a
+  regeneration whose `feedback` folds since T3 and sees nothing —
+  burning the exact dispatch this ticket exists to prevent, and losing
+  T2 outright in the process, since no later window ever folds back
+  across T3 to find it. The fix makes both queries the same shape:
+  this fold resets at **the gate resolution before the most recent
+  one** — the second-most-recent `GateApproved`/`GateDeclined` event in
+  the project's log, unfiltered by which `gate` it names, or the start
+  of the log if fewer than two resolutions have happened yet — then
+  appends every `CommentPosted` for `node_id` seen since. Not filtering
+  by `gate` looks like a difference from `GateComments`'s own fold,
+  which does take a `gate` parameter below, but Phase 4's own
+  single-gate `feature.yaml` makes it a difference with no effect: with
+  exactly one gate declared, every `GateApproved`/`GateDeclined` in the
+  project necessarily names it, so folding all resolutions and folding
+  only the ones naming that one gate select the identical events. This
+  leans on the same thing "Phase 4 needs no general node(s)-per-gate
+  answer" already leans on elsewhere in this entry — the day a second
+  gate exists, this fold has to learn which gate covers `node_id` and
+  filter on it too, the same day `GateComments` would have to learn the
+  same mapping to stay a validation for the *right* gate rather than
+  any gate; neither is owed that answer by this ticket. Read at render time,
+  after the triggering `GateDeclined` is already the log's most recent
+  resolution, "the resolution before the most recent one" is exactly
+  the boundary `GateComments` checked *before* that `GateDeclined` was
+  appended, so the two windows are the same window by construction,
+  not by two independently-written queries agreeing today and drifting
+  tomorrow. Walked through the case above: at T4, this fold's boundary
+  is T1 (the resolution before T4), so it sees T2 — the comment that
+  actually justified the decline — and does not see whatever comments
+  led to the T1 decline, already rendered into the regeneration T1
+  dispatched. `DraftCommitted` plays no role in this fold at all; a
+  comment posted while a regeneration is in flight is no longer
+  discarded by that regeneration's own commit, which is the same
+  scenario stated as a separate risk and closed by the same fix rather
+  than a second one. "Consumed" now means "rendered into every
+  regeneration dispatched before the next resolution, and gone the
+  moment that resolution lands" — not "discarded by an unrelated
+  draft commit."
+
   Delivery reads this the same way it already reads `engine_flows` and
   the ninth projection — through a query, never a second copy of the
   log's own facts — which is what the pre-review draft's own text
@@ -636,8 +681,12 @@ them.
   again is the same still-open §7.19 mechanism this ticket inherited
   rather than closed — this entry only guarantees that whenever ORC-9's
   executor does re-dispatch, `feedback` is already correct by
-  construction (the fold above), independent of what triggers the
-  re-dispatch.
+  construction: `CommentFeedback.since_last_resolution/2`'s reset
+  boundary is the same "resolution before the most recent one" this
+  bullet's own comment-count check reads, so the window that let a
+  decline happen is the identical window the regeneration it triggers
+  renders, independent of what triggers the re-dispatch or how long
+  the sweeper takes to notice.
 
 - **`prior_review` needs a new `Store.reviews_for_node/2`, project-
   scoped per ORC-87 from the start — not the existing `reviews_for_draft
@@ -661,14 +710,28 @@ them.
   review tier about to review it for the first time — exactly the case
   where "what I said last time" is the whole point. `Store
   .reviews_for_node(project_id, node_id)` joins `engine_reviews` to
-  `engine_drafts` on `node_id`, ordered by `inserted_at` descending,
-  project-scoped from the moment it's written rather than retrofitted,
-  and both the
+  `engine_drafts` on `project_id` **and** `draft_id`/`id` together —
+  carrying `project_id` on both sides of the join predicate itself,
+  not just in the function's own arguments, which is the exact spot
+  the ORC-87 gap named above is actually won or lost — filters
+  `engine_drafts.node_id`, and orders by `inserted_at` descending,
+  project-scoped from the moment it's written rather than retrofitted.
+  Both the
   regenerating generation tier and the review tier re-run after it read
   the same most-recent row — the node's last review, whichever draft it
   landed against — which is never empty once the node has been reviewed
   once, on either caller. A node never yet reviewed still renders
-  `prior_review` blank via Solid's own unset-is-empty behavior, unchanged.
+  `prior_review` blank via Solid's own unset-is-empty behavior,
+  unchanged. **The row carries `body_sha`** (`Store.Review` already has
+  the field — `write_review`/`ReviewWritten` set it from the draft they
+  reviewed) **and `reviews_for_node/2` renders it**, so a prompt reading
+  `prior_review` can tell whether the review it sees applies to the
+  node's current committed body or a superseded one; without it,
+  nothing distinguished "what I said about the body you're now
+  regenerating from" from "what I said about a body two commits ago,"
+  which the deliberate cross-draft read above makes possible for the
+  first time (`feedback`'s own entries carry the same kind of
+  provenance — `posted_at` against the log's own ordering).
 
 ## Initial vs target
 
