@@ -15,8 +15,11 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
   alias Catapult.Delivery.FeatureLifecycle
   alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Engine.Commands.ApproveDraft
+  alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.CommitDraft
+  alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.PostComment
   alias Catapult.Engine.Router
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -88,6 +91,100 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(approve, consistency: :strong)
 
     assert :ok = Router.dispatch(commit(project_id, "d1"), consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+  end
+
+  test "GateApproved passes the gate and the ticket rests at the next entry" do
+    project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
+    flow_id = "flow-1"
+
+    assert :ok = Router.dispatch(commit(project_id, "d0"), consistency: :strong)
+
+    open = %OpenFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      flow_name: "feature",
+      entry_node_id: "sysarch"
+    }
+
+    assert :ok = Router.dispatch(open, consistency: :strong)
+    approve = %ApproveDraft{project_id: project_id, node_id: "sysarch", draft_id: "d0"}
+    assert :ok = Router.dispatch(approve, consistency: :strong)
+    assert :ok = Router.dispatch(commit(project_id, "d1"), consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+
+    approve_gate = %ApproveGate{
+      project_id: project_id,
+      flow_id: flow_id,
+      gate: "ux-review",
+      actor_id: "human-1"
+    }
+
+    assert :ok = Router.dispatch(approve_gate, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:gate, "engineering-review"}
+  end
+
+  test "GateDeclined moves the ticket straight to its throwback target" do
+    project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
+    flow_id = "flow-1"
+
+    assert :ok = Router.dispatch(commit(project_id, "d0"), consistency: :strong)
+
+    open = %OpenFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      flow_name: "feature",
+      entry_node_id: "sysarch"
+    }
+
+    assert :ok = Router.dispatch(open, consistency: :strong)
+    approve = %ApproveDraft{project_id: project_id, node_id: "sysarch", draft_id: "d0"}
+    assert :ok = Router.dispatch(approve, consistency: :strong)
+    assert :ok = Router.dispatch(commit(project_id, "d1"), consistency: :strong)
+
+    approve_gate = %ApproveGate{
+      project_id: project_id,
+      flow_id: flow_id,
+      gate: "ux-review",
+      actor_id: "human-1"
+    }
+
+    assert :ok = Router.dispatch(approve_gate, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:gate, "engineering-review"}
+
+    # A decline requires at least one comment since this gate's last
+    # resolution (`Catapult.Engine.AggregateTest` covers the rejection
+    # in isolation) — post one against the node's current committed
+    # body before declining.
+    comment = %PostComment{
+      project_id: project_id,
+      node_id: "sysarch",
+      body_sha: "sha-d1",
+      author_id: "human-1",
+      body: "needs another pass",
+      posted_at: ~U[2026-01-02 00:00:00Z]
+    }
+
+    assert :ok = Router.dispatch(comment, consistency: :strong)
+
+    decline_gate = %DeclineGate{
+      project_id: project_id,
+      flow_id: flow_id,
+      gate: "engineering-review",
+      throwback_to: "ux-review",
+      since_sequence: nil,
+      actor_id: "human-1"
+    }
+
+    assert :ok = Router.dispatch(decline_gate, consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:gate, "ux-review"}

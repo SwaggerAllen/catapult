@@ -70,6 +70,8 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   alias Catapult.Engine.Events.DraftCommitted
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.GateApproved
+  alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.RunFailed
 
   @enforce_keys [:project_id, :flow_id]
@@ -117,6 +119,14 @@ defmodule Catapult.Delivery.FeatureLifecycle do
     continue_current_flow(project_id)
   end
 
+  def interested?(%GateApproved{project_id: project_id, flow_id: flow_id}) do
+    {:continue, identity(project_id, flow_id)}
+  end
+
+  def interested?(%GateDeclined{project_id: project_id, flow_id: flow_id}) do
+    {:continue, identity(project_id, flow_id)}
+  end
+
   def interested?(%FlowCompleted{project_id: project_id, flow_id: flow_id}) do
     {:stop, identity(project_id, flow_id)}
   end
@@ -150,6 +160,31 @@ defmodule Catapult.Delivery.FeatureLifecycle do
     case load_workflow() do
       {:ok, workflow} ->
         pm |> update_projection(&Projection.block(&1, workflow, pm.flow_name)) |> persist()
+
+      {:error, _reason} ->
+        pm
+    end
+  end
+
+  # `GateApproved` advances the ticket to the next entry in its type's
+  # own `statuses:` array after the gate's position — `Projection
+  # .pass/2` marking the gate passed at the current commit signature is
+  # the whole of it, since `resting/2`'s own ordinary walk already
+  # finds the next non-passable position from there (`systems/delivery
+  # .md`, ORC-34).
+  def apply(%__MODULE__{} = pm, %GateApproved{gate: gate}) do
+    pm |> update_projection(&Projection.pass(&1, {:gate, gate})) |> persist()
+  end
+
+  # `GateDeclined` moves the ticket straight to `throwback_to` — no
+  # lookup against `passed` needed, the event already names the
+  # resolved target (load-time-guaranteed reachable,
+  # `Catapult.Dsl.Workflow.gate_throwback_problems/2`).
+  def apply(%__MODULE__{} = pm, %GateDeclined{throwback_to: throwback_to}) do
+    case load_workflow() do
+      {:ok, workflow} ->
+        position = Sequence.resolve_position(workflow, throwback_to)
+        pm |> update_projection(&Projection.decline(&1, position)) |> persist()
 
       {:error, _reason} ->
         pm

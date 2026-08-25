@@ -734,16 +734,25 @@ them.
   correction above, both keyed by the
   `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32
   entry already establishes for this aggregate's process-manager
-  consumer (ORC-87). Validation reads the loaded `Catapult.Dsl
-  .Workflow.t()` the same way this doc's ORC-104 entry already does for
-  container commands: `gate` must be a key of `workflow.gates`, and for
-  `DeclineGate`, `throwback_to` must be a member of that gate's own
-  `throwback` list (`Catapult.Dsl.Gate.throwback` — a member is always
+  consumer (ORC-87). **`gate`/`throwback_to` membership — is `gate` a
+  key of `workflow.gates`, is `throwback_to` a member of that gate's
+  own `throwback` list (`Catapult.Dsl.Gate.throwback`,
   load-time-resolvable per `Catapult.Dsl.Workflow`'s own
-  `gate_throwback_problems/2`, but a garbage value on the command still
-  needs rejecting here, at the aggregate, since the loader never sees
-  this command). **A decline requires at least one comment; there is
-  no free-text override.** `docs/ui-spec.md` §3.2's own `document
+  `gate_throwback_problems/2`) — is the command edge's to check, not
+  `execute/2`'s** (dev pass correction): the container commands this
+  entry pointed to as precedent validate bundle content at their own
+  dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in
+  `execute/2` only against the aggregate's own pure state — this
+  aggregate's own moduledoc states that split ("never against bundle
+  content, which the command edge already validated before dispatch")
+  and `execute/2` loading a workflow bundle to check it directly would
+  be exactly the impure read the fourth design-review correction above
+  already retired for `since_sequence`, on the identical file this
+  entry itself is recorded in. Whatever constructs `ApproveGate`/
+  `DeclineGate` — ORC-75's screen, when it lands — validates `gate` and
+  `throwback_to` the same way `ContainerLifecycle` validates
+  `MintContainer`/`AdvanceContainerQueue`, before dispatch. **A decline
+  requires at least one comment; there is no free-text override.** `docs/ui-spec.md` §3.2's own `document
   -review` action set is "approve / throw back, with the throwback
   target chosen from the declared exits" — no reason field — so the
   simpler of the two fixes design review posed for the ticket's own

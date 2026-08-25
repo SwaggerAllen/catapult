@@ -123,6 +123,21 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "resolve_position/2 against the shipped default-flow bundle" do
+    setup do
+      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      %{workflow: workflow}
+    end
+
+    test "a gate name resolves to {:gate, name}", %{workflow: workflow} do
+      assert Sequence.resolve_position(workflow, "ux-review") == {:gate, "ux-review"}
+    end
+
+    test "a status name resolves to {:kind, atom}", %{workflow: workflow} do
+      assert Sequence.resolve_position(workflow, "generation") == {:kind, :generation}
+    end
+  end
+
   defp workflow_with(status_names) do
     type = %Type{
       name: "t",

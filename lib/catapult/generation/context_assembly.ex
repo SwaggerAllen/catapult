@@ -16,18 +16,30 @@ defmodule Catapult.Generation.ContextAssembly do
   shape, which handles a bare self-hop and an explicit `-> tier`
   target identically because both are read off the same place.
 
-  `feedback`/`prior_review` (regen-with-feedback threading) are
-  Target, not Initial (`systems/generation.md`'s own phase split) —
-  unset here; Solid renders an unset variable as empty rather than
-  raising, so a template naming them today just renders blank.
+  `feedback`/`prior_review` (ORC-34, `systems/generation.md`'s own
+  entry) are two direct engine reads, unconditional — unlike `draft`,
+  neither is review-tier-only (`dsl-syntax.md` §9/§3.3): `feedback` is
+  `Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2`
+  and `prior_review` is `Catapult.Engine.Store.reviews_for_node/2`.
+  Both are left out of the variables map entirely — never set to `[]`
+  or an empty map — where nothing has been posted or reviewed yet, so
+  Solid's own unset-is-empty behavior is what a template's `{% if
+  feedback %}` sees, literally unset rather than present-but-empty:
+  Liquid's own truthiness treats an empty list as truthy (only `nil`
+  and `false` are falsy), so a `feedback` key that was always present
+  would make every shipped prompt's own `{% if feedback %}` guard
+  (`bundles/default/prompts/{vocab,ref,subcomparch,sysarch,comparch}
+  .md.liquid`) fire on every render, feedback or none.
   """
 
   alias Catapult.Delivery
   alias Catapult.Dsl.Chain
   alias Catapult.Dsl.Extends
+  alias Catapult.Engine.Projections.CommentFeedback
   alias Catapult.Engine.Projections.ContextResolver
   alias Catapult.Engine.Store
   alias Catapult.Engine.Store.Node
+  alias Catapult.Engine.Store.Review
   alias Catapult.Generation.NodeId
 
   @type failure ::
@@ -98,12 +110,57 @@ defmodule Catapult.Generation.ContextAssembly do
         {tier_name, Enum.map(nodes, &render_node(chain, &1))}
       end)
       |> Map.put("self", render_node(chain, node))
+      |> feedback_variable(project_id, node)
+      |> prior_review_variable(project_id, node)
 
     if review?, do: Map.put(base, "draft", draft_variable(project_id, node)), else: base
   end
 
   defp draft_variable(project_id, %Node{id: node_id}) do
     Delivery.get_draft_body(project_id, node_id) || ""
+  end
+
+  # `CommentFeedback` itself returns atom-keyed entries (an ordinary
+  # Elixir map, useful to an Elixir caller); Solid's own template
+  # variables are always string-keyed (`render_node/2`'s own "id"/
+  # "fragments" below), so this is where the two conventions meet. The
+  # key is left out of `variables` entirely on `[]` rather than set to
+  # an empty list — see this module's own moduledoc for why an always-
+  # present `feedback` would misrender every shipped prompt's own
+  # `{% if feedback %}` guard.
+  defp feedback_variable(variables, project_id, %Node{id: node_id}) do
+    case CommentFeedback.since_last_resolution(project_id, node_id) do
+      [] ->
+        variables
+
+      entries ->
+        rendered =
+          Enum.map(entries, fn entry ->
+            %{
+              "body" => entry.body,
+              "locator" => entry.locator,
+              "author_id" => entry.author_id,
+              "posted_at" => entry.posted_at
+            }
+          end)
+
+        Map.put(variables, "feedback", rendered)
+    end
+  end
+
+  defp prior_review_variable(variables, project_id, %Node{id: node_id}) do
+    case Store.reviews_for_node(project_id, node_id) do
+      %Review{} = review ->
+        Map.put(variables, "prior_review", %{
+          "score" => review.score,
+          "findings" => review.findings,
+          "kind" => review.kind,
+          "body_sha" => review.body_sha
+        })
+
+      nil ->
+        variables
+    end
   end
 
   defp render_node(chain, %Node{} = node) do

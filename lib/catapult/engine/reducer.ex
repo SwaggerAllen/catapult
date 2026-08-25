@@ -25,6 +25,7 @@ defmodule Catapult.Engine.Reducer do
   """
 
   alias Catapult.Engine.Events.ActiveBundleFlipped
+  alias Catapult.Engine.Events.CommentPosted
   alias Catapult.Engine.Events.ContainerActivated
   alias Catapult.Engine.Events.ContainerClosed
   alias Catapult.Engine.Events.ContainerMinted
@@ -37,6 +38,8 @@ defmodule Catapult.Engine.Reducer do
   alias Catapult.Engine.Events.FlagSetFlipRequested
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.GateApproved
+  alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
   alias Catapult.Engine.Events.RunFailed
   alias Catapult.Engine.Store
@@ -131,6 +134,17 @@ defmodule Catapult.Engine.Reducer do
   # `drafts` (it is neither a node's current status nor a stored
   # artifact).
   def apply(%RunFailed{}, _metadata), do: :ok
+
+  # No projection table for any of the three, for the identical reason:
+  # `Catapult.Engine.Projections.CommentFeedback`/`.GateComments` both
+  # read the raw stream directly (`systems/engine.md`'s ORC-34 design
+  # pass, corrected on design review — the first draft's cache reopened
+  # the exact silent-failure risk it claimed to close), and a workflow
+  # gate's resolved position is `Catapult.Delivery.FeatureLifecycle`'s
+  # own projection to keep, not this system's.
+  def apply(%CommentPosted{}, _metadata), do: :ok
+  def apply(%GateApproved{}, _metadata), do: :ok
+  def apply(%GateDeclined{}, _metadata), do: :ok
 
   ## Containers (ORC-104). Each branch writes exactly the fact its own
   ## event carries and nothing derived: which instances exist, which is
