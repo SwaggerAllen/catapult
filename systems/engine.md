@@ -879,7 +879,9 @@ them.
   defect against §7.16's own rule, not an open question — found reading
   the code against the rule, not filed as a finding by either of the
   two tickets that already dispatch these commands** (ORC-114, design
-  pass). `ApproveGate`'s `execute/2` clause bound no aggregate state at
+  pass, revised on design review — the first draft's single compare
+  turned out to guard only one of two distinct staleness questions; see
+  below for the second). `ApproveGate`'s `execute/2` clause bound no aggregate state at
   all (`def execute(%__MODULE__{}, %ApproveGate{} = cmd)`) and emitted
   `GateApproved` unconditionally; `DeclineGate`'s only check was the
   comment-count mark above, which guards a different fact (has anyone
@@ -907,7 +909,9 @@ them.
   leaving; a gate has exactly one meaningful precondition — has this
   resolution already happened — so nothing about the command needs to
   say what state it expects to find, only which gate it is resolving,
-  which both commands already carry. **Neither command gains a field.**
+  which both commands already carry. **This compare alone needs no new
+  field** — the reopening-window fix below is a second, independent
+  one, guarding a different question.
 
   The aggregate gains two project-wide fields beside `comment_count`/
   `gate_marks` above, on the identical simplification those two already
@@ -949,11 +953,62 @@ them.
   is the case this fix exists for: two writers racing on the *same*
   still-open resolution.
 
+  **Design review found a second axis `gate_resolutions` alone cannot
+  cover: staleness against a regenerated body, not staleness against a
+  resolution.** `DraftCommitted`'s own `apply/2` clears the whole
+  `gate_resolutions` map (above) — correctly, since a fresh commit does
+  reopen the gate for review — but reopening the *compare* also reopens
+  the *action*: a reviewer who has `document-review` open on the body a
+  decline just threw back can still click Approve after a regeneration
+  commits a new body underneath them, and finds no key at `cmd.gate` to
+  reject against, because the key that would have named their view was
+  just cleared by the very commit they never saw. `gate_resolutions`
+  answers "has this gate already been resolved since it last reopened,"
+  which is the right question for two writers racing on one resolution
+  and the wrong one for a single writer acting on a view of the wrong
+  resolution.
+
+  **The fix is the one already in this file, not a new one: `PostComment`'s
+  own `body_sha` compare, on the same two commands.** `ApproveGate`/
+  `DeclineGate` gain `node_id` and `body_sha`, the identical pair
+  `PostComment` already carries and for the identical reason —
+  `execute/2` rejects when `cmd.body_sha` doesn't match `nodes[cmd
+  .node_id].body_sha`, the same per-node value `DraftCommitted`'s own
+  `apply/2` already maintains (that's what makes `PostComment`'s
+  existing check possible with no new aggregate state): `{:error,
+  {:engine_stale_gate_resolution, node_id: cmd.node_id, current:
+  current, got: cmd.body_sha}}`, `:engine_stale_comment`'s own shape
+  reused rather than invented. This runs beside `gate_resolutions`, not
+  instead of it — the two guard different failures: `gate_resolutions`
+  rejects a second writer racing the first on one still-open
+  resolution, `body_sha` rejects a resolution whose view is a body the
+  aggregate has already moved past, resolved or not. Which `node_id`:
+  Phase 4's own shipped `feature.yaml` runs exactly one `generation`
+  status ahead of its gates (already named above), so the command edge
+  — `document-review`, when ORC-75 builds it — has exactly one node to
+  read `body_sha` off; the general node(s)-per-gate mapping stays
+  exactly as open as the rest of this entry already leaves it, not a
+  second deferral.
+
+  **This does not reopen §7.16's "what a passed gate pins."** `body_sha`
+  rides the *command*, compared and discarded before the aggregate
+  decides whether to emit; `GateApproved`/`GateDeclined` gain no new
+  field and still carry no content-identity of their own, so the
+  content-pinning question this entry already leaves to Phase 7 (above)
+  is exactly as open as it was. A command-side compare token and an
+  event-side content pin are different mechanisms answering different
+  questions, the same distinction `since_sequence` already draws on
+  `DeclineGate` — a position the check ran against, not a claim about
+  content.
+
   **Verify by breaking it, per orchestration's own rule for a guard
-  rather than a feature**: revert the compare, watch the regression
-  test that exercises two racing `ApproveGate`s (or an `ApproveGate`
-  racing a `DeclineGate`) fail, read the failure, put the compare back
-  — and record the probe in the commit message. Dev's, at implementation
+  rather than a feature**: two probes, not one. Revert `gate_resolutions`'
+  compare and watch a regression test exercising two racing
+  `ApproveGate`s (or an `ApproveGate` racing a `DeclineGate`) fail;
+  separately, revert the `body_sha` compare and watch a test exercising
+  decline → regenerate → stale approve fail — the exact sequence design
+  review's own finding walks. Read each failure, put each compare back,
+  record both probes in the commit message. Dev's, at implementation
   time; recorded here so the expectation travels with the decision
   rather than being invented at review time.
 
