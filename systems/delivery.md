@@ -605,7 +605,27 @@ design gates pass.
   projects engine's events into this system's own read models; this
   one also issues commands into `Catapult.Engine.Aggregate` once its
   own dispatch conditions are met — the split `systems/engine.md`'s new
-  entry states from the other side. Dispatch stays uniform per
+  entry states from the other side.
+
+  **Amended at the dev pass: it dispatches through
+  `Catapult.Engine.Router` itself rather than returning commands for
+  Commanded to route.** A process manager ordinarily returns commands
+  and its `application:` routes them; that is not available here,
+  because `Catapult.Engine.Application` deliberately does not compose
+  the router (keeping it off the compile-connected graph — that
+  module's own moduledoc carries the reason). A returned command is
+  therefore an *unregistered* command and Commanded stops the manager.
+  Two consequences are load-bearing rather than incidental, and are
+  recorded here so the next process manager that writes back does not
+  rediscover them: the dispatch must be `consistency: :eventual`, since
+  a strongly consistent dispatch from inside a strongly consistent
+  handler waits for that handler to catch up with itself; and a
+  rejected command must be absorbed rather than fatal, because the
+  rejections this design produces on purpose — a stale `from_queue`
+  losing its compare-and-swap, a re-mint of an instance that already
+  exists — are the manager re-deriving a decision already made, and
+  Commanded's default is to stop on them. The convergence loop is the
+  resulting events coming back around to the same manager. Dispatch stays uniform per
   `dsl-syntax.md` §15.7: whatever a queue's resolved `flow:` turns out
   to be, this process manager treats identically — a `ticket`-skeleton
   resolution opens an ordinary flow instance through the existing
@@ -632,6 +652,22 @@ design gates pass.
   for unresolved work, applied to findings instead of work items,
   because an unadjudicated finding is exactly that — unresolved work
   this container is still holding.
+
+  **Amended at the dev pass: the gate is the container's own close, not
+  a queue recognized by the name `retro`.** The rule and its reason are
+  unchanged — no container leaves over a finding nobody read — but
+  attaching the check to a *named* queue would have meant the
+  dispatcher branching on the word `retro`, which is the implicit
+  anchor meaning `dsl-syntax.md` §15.2 spent four passes removing
+  ("nothing in the loader branches on any of the three words") and
+  which §15.9's admission rule is written to keep out of plane logic.
+  Attaching it to the close says the same thing about the same
+  container without asking the grammar for a magic word, and says it
+  about *every* container — including one whose author declared no
+  backward-looking queue at all, which the queue-named version would
+  have let close over its findings silently. In the shipped
+  `milestone` type the two land in the same place, because `retro` is
+  followed only by a gate, `cleanup` and `terminal`.
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),

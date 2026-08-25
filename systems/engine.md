@@ -473,6 +473,19 @@ them.
   §15.8) is exactly that same two-fact shape, mint recorded once and
   activation a later, separate write to the same row.
 
+  **The dev pass found membership needed a version bump, not a new
+  table, and that is worth recording where the upcasting discipline
+  is.** `container_id` and `queue` are set once, at open — which means
+  they are fields on the event that opens a work item, so
+  `Catapult.Engine.Events.FlowOpened` is version 2 and
+  `FlowOpenedV1` joins `ReviewWrittenV1` as a frozen historical shape
+  with an upcaster (v5 §2.4). The upcast fills both with `nil` rather
+  than backfilling a guess: a version-1 event was written before
+  containers existed, so the work item it opened was genuinely a member
+  of nothing, and a guessed container would have made an unowned work
+  item silently count into some queue's population — the one failure
+  the queue-as-query has no way to notice.
+
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event

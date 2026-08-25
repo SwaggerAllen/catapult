@@ -21,7 +21,12 @@ config :catapult, Oban,
   # storage is its own ticket, not this one's. Same treatment
   # `ENGINE_SWEEPER_INTERVAL_MS` already gets for the identical reason
   # (`Catapult.Engine`'s own `config/0`) — precedent, not a new gap.
-  queues: [generation_dispatch: 5],
+  # Claimed by `Catapult.Generation.oban_queues/0` and
+  # `Catapult.Delivery.oban_queues/0` respectively; this list is what
+  # actually starts them (`Catapult.Foundation.children/0` reads it
+  # directly). `delivery_flag_flip` is deliberately small: a container
+  # closes once, and its flip is one idempotent call.
+  queues: [generation_dispatch: 5, delivery_flag_flip: 1],
   plugins: []
 
 # The seam `Catapult.Delivery.Dispatch` calls into once a result-report

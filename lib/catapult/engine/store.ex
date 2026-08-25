@@ -15,6 +15,8 @@ defmodule Catapult.Engine.Store do
   import Ecto.Query
 
   alias Catapult.Engine.Store.ActiveBundleVersion
+  alias Catapult.Engine.Store.Container
+  alias Catapult.Engine.Store.ContainerFinding
   alias Catapult.Engine.Store.Draft
   alias Catapult.Engine.Store.Edge
   alias Catapult.Engine.Store.Flow
@@ -260,5 +262,249 @@ defmodule Catapult.Engine.Store do
     ]
     |> Enum.flat_map(&Repo.all/1)
     |> Enum.uniq()
+  end
+
+  ## Containers (ORC-104, systems/engine.md; dsl-syntax.md §15.6-§15.8)
+
+  @doc """
+  Records a minted container instance. Idempotent on replay: a second
+  `ContainerMinted` for the same `(project_id, id)` lands the same row
+  rather than a duplicate, the same natural-key discipline
+  `mint_node/1` already uses.
+  """
+  @spec mint_container(map()) :: Container.t()
+  def mint_container(attrs) do
+    %Container{}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
+  end
+
+  @doc "Marks a minted instance active at `queue` — its own first declared entry (§15.8)."
+  @spec activate_container(binary(), binary(), String.t(), integer()) :: :ok
+  def activate_container(project_id, id, queue, sequence) do
+    update_container(project_id, id,
+      state: :active,
+      current_queue: queue,
+      current_queue_sequence: sequence,
+      activated_sequence: sequence
+    )
+  end
+
+  @doc "Moves an active instance's current queue — forward or backward alike (§15.7-§15.8)."
+  @spec advance_container_queue(binary(), binary(), String.t(), integer()) :: :ok
+  def advance_container_queue(project_id, id, queue, sequence) do
+    update_container(project_id, id, current_queue: queue, current_queue_sequence: sequence)
+  end
+
+  @doc "Marks an instance closed (§15.6)."
+  @spec close_container(binary(), binary(), integer()) :: :ok
+  def close_container(project_id, id, sequence) do
+    update_container(project_id, id, state: :closed, closed_sequence: sequence)
+  end
+
+  @doc "Records the intent to flip a container's aggregated flag set (v5 §7.1, §7.8)."
+  @spec request_flag_set_flip(binary(), binary(), [String.t()], integer()) :: :ok
+  def request_flag_set_flip(project_id, id, flags, sequence) do
+    update_container(project_id, id,
+      flag_set: flags,
+      flag_set_state: :requested,
+      flag_set_sequence: sequence
+    )
+  end
+
+  @doc "Records the world's confirmation that a requested flag set is on (v5 §7.1)."
+  @spec record_flag_set_flip(binary(), binary(), integer()) :: :ok
+  def record_flag_set_flip(project_id, id, sequence) do
+    update_container(project_id, id, flag_set_state: :flipped, flag_set_sequence: sequence)
+  end
+
+  @doc "A container is addressed by `(project_id, id)` — a bare id is not unique across projects (ORC-87)."
+  @spec get_container(binary(), binary()) :: Container.t() | nil
+  def get_container(project_id, id), do: Repo.get_by(Container, project_id: project_id, id: id)
+
+  @doc """
+  The instances minted under `parent_container_id` at `parent_queue`,
+  oldest first — how a parent's queue finds the child it is waiting on
+  (§15.7's "the parent's queue does not complete until the minted
+  instance closes").
+
+  `nil` as the parent means the outermost instances: a project's own,
+  minted from the workflow bundle's `entry:` type with nothing above
+  it.
+  """
+  @spec child_containers(binary(), binary() | nil, String.t() | nil) :: [Container.t()]
+  def child_containers(project_id, parent_container_id, parent_queue) do
+    Container
+    |> where([c], c.project_id == ^project_id)
+    |> where_nilable(:parent_container_id, parent_container_id)
+    |> where_nilable(:parent_queue, parent_queue)
+    |> order_by([c], asc: c.minted_sequence, asc: c.id)
+    |> Repo.all()
+  end
+
+  @doc "Records how one carried finding left. Idempotent on replay, like every other write here."
+  @spec adjudicate_finding(map()) :: ContainerFinding.t()
+  def adjudicate_finding(attrs) do
+    %ContainerFinding{}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: :nothing, conflict_target: [:project_id, :id])
+  end
+
+  @doc "Every finding this container has adjudicated, filed and declined alike."
+  @spec container_findings(binary(), binary()) :: [ContainerFinding.t()]
+  def container_findings(project_id, container_id) do
+    ContainerFinding
+    |> where([f], f.project_id == ^project_id and f.container_id == ^container_id)
+    |> order_by([f], asc: f.adjudicated_sequence, asc: f.id)
+    |> Repo.all()
+  end
+
+  @doc """
+  The unresolved work items assigned to `queue` in `container_id` —
+  **the queue itself, computed on every call** (dsl-syntax.md §15.7, v5
+  §7.8).
+
+  There is no bucket behind this and there is deliberately never going
+  to be one: `ready_scopes` refuses to materialize for the identical
+  reason, and `Catapult.Engine.Scheduler` holds no memory of what it
+  last broadcast — a stale ordering is worse than none, because it is
+  the kind of thing a dispatcher acts on.
+  """
+  @spec queue_population(binary(), binary(), String.t()) :: [Flow.t()]
+  def queue_population(project_id, container_id, queue) do
+    project_id
+    |> queue_scope(container_id, queue)
+    |> where([f], f.status == :open)
+    |> order_by([f], asc: f.opened_sequence, asc: f.id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Whether anything has **ever** been assigned to `queue` in
+  `container_id`, resolved work included — the fact `singleton:`'s
+  lifetime bound is checked against (dsl-syntax.md §15.7).
+
+  This is not stored state reintroduced by the back door: it is
+  `queue_population/3`'s own query with the resolution filter dropped.
+  A `terminal` work item is invisible to the queue-as-query but not to
+  the flow store it is one of, so the singleton check is one *fewer*
+  predicate over the same table, not a new bucket.
+  """
+  @spec queue_ever_assigned?(binary(), binary(), String.t()) :: boolean()
+  def queue_ever_assigned?(project_id, container_id, queue) do
+    project_id |> queue_scope(container_id, queue) |> Repo.exists?()
+  end
+
+  @doc "Every work item this container holds, at any queue, resolved or not — a container's access path to its own work (v5 §7.8)."
+  @spec container_work_items(binary(), binary()) :: [Flow.t()]
+  def container_work_items(project_id, container_id) do
+    Flow
+    |> where([f], f.project_id == ^project_id and f.container_id == ^container_id)
+    |> order_by([f], asc: f.opened_sequence, asc: f.id)
+    |> Repo.all()
+  end
+
+  defp queue_scope(project_id, container_id, queue) do
+    where(
+      Flow,
+      [f],
+      f.project_id == ^project_id and f.container_id == ^container_id and f.queue == ^queue
+    )
+  end
+
+  defp where_nilable(query, field, nil), do: where(query, [c], is_nil(field(c, ^field)))
+  defp where_nilable(query, field, value), do: where(query, [c], field(c, ^field) == ^value)
+
+  defp update_container(project_id, id, set) do
+    Repo.update_all(
+      from(c in Container, where: c.project_id == ^project_id and c.id == ^id),
+      set: set
+    )
+
+    :ok
+  end
+
+  @doc """
+  The findings recorded while `container` was the active container —
+  the set "every carried finding leaves adjudicated" (v5 §7.8) is
+  measured against.
+
+  **The window is the container's own active span**, from its
+  activation to its close (or to now, while it is still open),
+  measured in draft-commit sequence. That is what "carried" means here
+  and it is chosen over a structural walk deliberately: the
+  alternative — reviews on drafts of nodes descended from this
+  container's member work items — needs a recursive walk of
+  `parent_node_id` that this projection has no other caller for, and
+  it would still miss a finding raised against a node the container
+  did not itself produce but was nonetheless open during. A close is
+  answerable for what came up on its watch.
+
+  Returns each review's own `findings` entries flattened, in draft
+  order, deduplicated by finding id — one review re-run over the same
+  draft raises the same finding again, and adjudicating it twice is
+  the conflict the aggregate rejects.
+  """
+  @spec carried_findings(binary(), integer() | nil, integer() | nil) :: [map()]
+  def carried_findings(project_id, from_sequence, to_sequence) do
+    Review
+    |> join(:inner, [r], d in Draft, on: d.project_id == r.project_id and d.id == r.draft_id)
+    |> where([r, _d], r.project_id == ^project_id)
+    |> then(&sequence_at_or_after(&1, from_sequence))
+    |> then(&sequence_at_or_before(&1, to_sequence))
+    |> order_by([_r, d], asc: d.committed_sequence)
+    |> select([r, _d], r.findings)
+    |> Repo.all()
+    |> List.flatten()
+    |> Enum.uniq_by(&finding_id/1)
+  end
+
+  # A container with no recorded activation carries everything before
+  # it too — an unbounded window is the honest answer to "since when?"
+  # when the answer is "we do not know," and it errs toward *more*
+  # findings needing adjudication rather than fewer, which is the safe
+  # direction for a check whose whole job is that nothing slips out
+  # unread.
+  defp sequence_at_or_after(query, nil), do: query
+
+  defp sequence_at_or_after(query, sequence),
+    do: where(query, [_r, d], d.committed_sequence >= ^sequence)
+
+  defp sequence_at_or_before(query, nil), do: query
+
+  defp sequence_at_or_before(query, sequence),
+    do: where(query, [_r, d], d.committed_sequence <= ^sequence)
+
+  defp finding_id(%{"id" => id}), do: id
+  defp finding_id(%{id: id}), do: id
+  defp finding_id(other), do: other
+
+  @doc """
+  Whether the work item `flow_id` still waits on an unresolved
+  `:dependency` edge — the structured "cannot start yet" signal
+  composition filters candidates against (v5 §7.8,
+  `Catapult.Delivery.ContainerLifecycle.Composition`).
+
+  Measured from the work item's own entry node outward: a dependency
+  edge out of that node whose target is not yet `:approved` is work
+  this item is waiting on. `false` for a work item with no entry node
+  recorded, which is the honest answer — nothing is known to block it.
+  """
+  @spec blocking_edges_unresolved?(binary(), binary()) :: boolean()
+  def blocking_edges_unresolved?(project_id, flow_id) do
+    case Repo.get_by(Flow, project_id: project_id, id: flow_id) do
+      %Flow{entry_node_id: entry_node_id} when not is_nil(entry_node_id) ->
+        Edge
+        |> join(:inner, [e], n in Node,
+          on: n.project_id == e.project_id and n.id == e.target_node_id
+        )
+        |> where([e, _n], e.project_id == ^project_id and e.source_node_id == ^entry_node_id)
+        |> where([e, _n], e.type == :dependency)
+        |> where([_e, n], n.status != :approved)
+        |> Repo.exists?()
+
+      _absent_or_no_entry_node ->
+        false
+    end
   end
 end

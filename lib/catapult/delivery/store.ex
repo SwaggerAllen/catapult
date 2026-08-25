@@ -7,6 +7,7 @@ defmodule Catapult.Delivery.Store do
 
   import Ecto.Query
 
+  alias Catapult.Delivery.Store.ContainerProposal
   alias Catapult.Delivery.Store.DispatchRun
   alias Catapult.Delivery.Store.DraftBody
   alias Catapult.Delivery.Store.FeatureLifecycle
@@ -132,5 +133,61 @@ defmodule Catapult.Delivery.Store do
   @spec get_feature_lifecycle(binary(), binary()) :: FeatureLifecycle.t() | nil
   def get_feature_lifecycle(project_id, id) do
     Repo.get_by(FeatureLifecycle, project_id: project_id, id: id)
+  end
+
+  ## Composition proposals (ORC-104, systems/delivery.md)
+
+  @doc """
+  Records one computed proposal. Upsert on `(project_id, id)`: the same
+  candidate proposed at two successive closes updates one row rather
+  than accumulating a duplicate suggestion, which is the failure mode
+  the flat backlog view this replaces actually had.
+  """
+  @spec upsert_container_proposal(map()) :: ContainerProposal.t()
+  def upsert_container_proposal(attrs) do
+    id = Map.fetch!(attrs, :id)
+    project_id = Map.fetch!(attrs, :project_id)
+    replace = Map.keys(Map.delete(attrs, :id))
+
+    %ContainerProposal{id: id, project_id: project_id}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: {:replace, replace}, conflict_target: [:project_id, :id])
+  end
+
+  @doc "Every proposal computed at `source_container_id`'s close, oldest first."
+  @spec container_proposals(binary(), binary()) :: [ContainerProposal.t()]
+  def container_proposals(project_id, source_container_id) do
+    ContainerProposal
+    |> where(
+      [p],
+      p.project_id == ^project_id and p.source_container_id == ^source_container_id
+    )
+    |> order_by([p], asc: p.computed_sequence, asc: p.id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Open work items on this project that belong to no container — the
+  candidate pool composition filters (v5 §7.8).
+
+  Each is returned with the lifecycle status the feature-ticket
+  projection currently holds for it, because `stubbed` is one of the
+  structured signals the filter turns on and reading it here is what
+  keeps the filter from having to re-derive a status this system
+  already projects.
+  """
+  @spec unscheduled_work_items(binary()) :: [map()]
+  def unscheduled_work_items(project_id) do
+    EngineFlow
+    |> where([f], f.project_id == ^project_id and f.status == :open and is_nil(f.container_id))
+    |> join(:left, [f], l in FeatureLifecycle, on: l.project_id == f.project_id and l.id == f.id)
+    |> order_by([f, _l], asc: f.opened_sequence, asc: f.id)
+    |> select([f, l], %{
+      id: f.id,
+      ticket_ref: f.ticket_ref,
+      flow_name: f.flow_name,
+      status_kind: l.status_kind
+    })
+    |> Repo.all()
   end
 end

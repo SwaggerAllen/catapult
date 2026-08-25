@@ -22,13 +22,20 @@ defmodule Catapult.Engine.Router do
 
   use Commanded.Commands.Router, application: Catapult.Engine.Application
 
+  alias Catapult.Engine.Commands.ActivateContainer
+  alias Catapult.Engine.Commands.AdjudicateFinding
+  alias Catapult.Engine.Commands.AdvanceContainerQueue
   alias Catapult.Engine.Commands.ApproveDraft
+  alias Catapult.Engine.Commands.CloseContainer
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.CompleteFlow
   alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.FlipActiveBundle
+  alias Catapult.Engine.Commands.MintContainer
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.RecordFlagSetFlip
   alias Catapult.Engine.Commands.RecordRunFailure
+  alias Catapult.Engine.Commands.RequestFlagSetFlip
   alias Catapult.Engine.Commands.WriteReview
 
   @aggregate Module.concat([Catapult, Engine, Aggregate])
@@ -44,7 +51,22 @@ defmodule Catapult.Engine.Router do
       DiscardDraft,
       WriteReview,
       FlipActiveBundle,
-      RecordRunFailure
+      RecordRunFailure,
+      # ORC-104's container edge. Same aggregate, same router, same
+      # per-project stream — `systems/engine.md`'s "a project has one
+      # aggregate, not two." What is new is only the *direction* of the
+      # writer: `Catapult.Delivery.ContainerLifecycle` is the first
+      # process manager outside this system to dispatch here, which is
+      # the split `systems/delivery.md` states from the other side
+      # (engine is state of record, delivery is the protocol
+      # interpreting it).
+      MintContainer,
+      ActivateContainer,
+      AdvanceContainerQueue,
+      CloseContainer,
+      AdjudicateFinding,
+      RequestFlagSetFlip,
+      RecordFlagSetFlip
     ],
     to: @aggregate
   )

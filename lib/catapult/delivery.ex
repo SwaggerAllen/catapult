@@ -42,9 +42,27 @@ defmodule Catapult.Delivery do
       # the network — the default suite's chain never reaches it
       # anyway, since the fake host port bypasses HTTP/OIDC entirely
       # (conventions §9).
-      {:oidc_jwks_autostart, "DELIVERY_OIDC_JWKS_AUTOSTART", cast: :boolean, default: "true"}
+      {:oidc_jwks_autostart, "DELIVERY_OIDC_JWKS_AUTOSTART", cast: :boolean, default: "true"},
+      # Same real-vs-fake selection the host port already rides (v5
+      # §2.12), for the flag port a container's aggregated flip goes
+      # out through. The default is `deferred`, not a no-op: conventions
+      # §13 defers flag consumption, and
+      # `Catapult.Delivery.FlagSet.Deferred` records the intent and
+      # refuses to claim an effect it did not have, which is what keeps
+      # v5 §7.1's "the log never says 'done' on the plane's own word"
+      # literal while that deferral stands.
+      {:flag_set_adapter, "DELIVERY_FLAG_SET_ADAPTER",
+       cast: &__MODULE__.cast_flag_set_adapter/1, default: "deferred"}
     ]
   end
+
+  @doc "Casts the configured flag-set implementation name to its module."
+  @spec cast_flag_set_adapter(String.t()) :: {:ok, module()} | {:error, String.t()}
+  def cast_flag_set_adapter("deferred"), do: {:ok, Catapult.Delivery.FlagSet.Deferred}
+  def cast_flag_set_adapter("fake"), do: {:ok, Catapult.Delivery.FlagSet.Fake}
+
+  def cast_flag_set_adapter(other),
+    do: {:error, "is #{inspect(other)}, expected \"deferred\" or \"fake\""}
 
   @doc "Casts the configured adapter name to its module."
   @spec cast_adapter(String.t()) :: {:ok, module()} | {:error, String.t()}
@@ -75,13 +93,34 @@ defmodule Catapult.Delivery do
       # Same placement `engine_projector` uses, for the same reason
       # (`Catapult.Delivery.FeatureLifecycle`'s own moduledoc): a
       # Commanded subscription is consumed once, in order, cluster-wide.
-      {:delivery_feature_lifecycle, :singleton}
+      {:delivery_feature_lifecycle, :singleton},
+      # `:singleton` for the stronger of the two reasons: this one
+      # *writes*. Two instances reading the same stream would each
+      # compute a container's next move and each dispatch it — the
+      # second losing to the first's compare-and-swap, but only after
+      # both had already decided. One consumer, cluster-wide.
+      {:delivery_container_lifecycle, :singleton}
     ]
   end
 
   @impl Catapult.Component
+  def oban_queues do
+    # The outbox queue a container's aggregated flag flip executes on
+    # (v5 §7.1's intent -> idempotent effect -> observed completion).
+    # Its own queue rather than a shared one: an external effect that
+    # retries must not sit behind generation dispatch's concurrency
+    # budget, and the queue registry is where an operator looks to see
+    # that it exists at all.
+    [:delivery_flag_flip]
+  end
+
+  @impl Catapult.Component
   def children do
-    [{Catapult.Delivery.Oidc.Strategy, []}, Catapult.Delivery.FeatureLifecycle]
+    [
+      {Catapult.Delivery.Oidc.Strategy, []},
+      Catapult.Delivery.FeatureLifecycle,
+      Catapult.Delivery.ContainerLifecycle
+    ]
   end
 
   @doc "The configured host port adapter — `Catapult.Delivery.HostPort.Actions` or `.Fake`."
