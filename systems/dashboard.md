@@ -84,31 +84,34 @@ conventions §13).
   `:elixirc_paths`. This is the pattern every later screen in this
   system follows unless a later pass argues otherwise in writing.
 
-  **Corrected (author review): that precondition is not dev's, and
-  saying so was wrong rather than merely imprecise.** `mix.exs` is
-  deliberately unowned by any system's file map
-  (`systems/README.md`), and `pipeline.config.json` — whose
-  `preview.buildCommand` today is `mkdir -p dist && cp
-  preview/index.html dist/index.html`, touching nothing under
-  `storybook/**` — is author-owned (DESIGN §5). Neither the design
-  agent nor the dev agent can edit either file, so calling this a
-  dev-owned build concern assigns a real prerequisite to nobody: as
-  landed, `storybook/screens/**` compiles nowhere (`elixirc_paths` is
-  `["lib", "test/support"]` in test, `["lib"]` otherwise), formats
-  nowhere (`.formatter.exs`'s `inputs` doesn't glob `storybook/**`
-  either), and depends on three packages the tree does not have —
-  `phoenix`, `phoenix_live_view`, `phoenix_storybook` — none of them
-  in `mix.exs` today. This placement decision is still right; what
-  was missing is naming the enabling change plainly: an **author-owned
-  prerequisite** — `phoenix`/`phoenix_live_view`/`phoenix_storybook`
-  added to `mix.exs` with `storybook/` folded into `elixirc_paths` and
-  `.formatter.exs`'s `inputs`, and `pipeline.config.json`'s
-  `preview.buildCommand` replaced with a real storybook export — has
-  to land before any screen built against this pattern compiles,
-  formats, gates, or renders at the preview URL. Until it does, this
-  ticket's own two screens are inert by the same measurement, which is
-  a finding for the author's hand-back, not a defect in the placement
-  itself.
+  **Settled (author review, second pass): the prerequisite the
+  correction above named is landed, and lands ahead of this ticket by
+  construction, so the placement decision carries no qualification at
+  all.** [PR #67](https://github.com/SwaggerAllen/catapult/pull/67)
+  adds `phoenix`/`phoenix_live_view`/`phoenix_storybook` to `mix.exs`
+  (`phoenix_live_view` and `phoenix_storybook` direct, `phoenix`
+  transitive, all three in `boundary: check: apps:`), folds
+  `storybook` into `elixirc_paths` in every environment, adds
+  `storybook` to `.formatter.exs`'s `inputs` with
+  `:phoenix`/`:phoenix_live_view` in `import_deps` so `attr`, `slot`
+  and `~H` format as markup, and replaces `preview.buildCommand` with
+  `bash bin/preview-build.sh`. It is green, out of draft, and
+  sequenced to merge before this ticket reaches dev — nothing but
+  ORC-33 is ahead of it — so `storybook/screens/<name>/` is simply the
+  pattern: components authored under it compile, format and gate like
+  any other source the moment dev opens this tree, with nothing left
+  to name as outstanding.
+
+  **One piece survives as a real gap, and it belongs to this ticket's
+  own dev pass rather than to #67.** `phoenix_storybook` v1.3 ships no
+  static export — it is served from a live Phoenix route, with no
+  export task standing in for one — so a static preview deploy means
+  booting the app and crawling it, and there is no endpoint to boot
+  until `lib/catapult_web` lands. `bin/preview-build.sh` already knows
+  this: it installs the pinned toolchain, resolves deps, and publishes
+  the placeholder with the reason on stdout rather than going quiet.
+  The moment this ticket's dev pass lands an endpoint, that fallback
+  message is what names the snapshot step as the piece still missing.
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the

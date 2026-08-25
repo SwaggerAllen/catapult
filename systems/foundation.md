@@ -522,8 +522,9 @@ reached only through their APIs per v5 §2.4).
   the registration underneath it.
 
   **Landed as a shape, not yet as code (ORC-35 design pass): what
-  "absorbs `api_surface/0` generically" means, and the one thing this
-  pass cannot settle.** `DispatchPlug`'s hand-matching
+  "absorbs `api_surface/0` generically" means, and the compile-connected
+  question the shape raised — now measured, below.** `DispatchPlug`'s
+  hand-matching
   (`path_info: ["health" | _]`, `["dispatch", "context", run_key]`,
   ...) is deliberately replaced by a *data-driven* successor rather
   than by literal router macros calling each target module by name:
@@ -555,35 +556,59 @@ reached only through their APIs per v5 §2.4).
   component needs to declare a LiveView route, so there is no
   cross-component registry to design here, only an ordinary router
   naming `event-log`, `explain-why` and whatever v1 adds directly
-  (`systems/dashboard.md`). **What this design pass cannot settle is
-  whether introducing that router holds the `compile-connected
-  --fail-above 0` line** — the ticket's own open question. `live/2`
-  storing a target module as data the dispatcher reads at runtime is
-  the same shape as the paragraph above and should cost nothing by the
-  same argument, but "should" is a claim about `mix xref`'s own
-  labelling of macro-generated route tables, verifiable only by
-  compiling the router and reading `mix xref graph --label
-  compile-connected`.
+  (`systems/dashboard.md`). **Whether introducing that router holds
+  the `compile-connected --fail-above 0` line was the ticket's own
+  open question; it is answered now, measured rather than predicted.**
 
-  **The blocker is stronger than "design doesn't write to
-  `lib/catapult_web/**`" (author review correction, ORC-35): there is
-  no router to compile yet, because Phoenix is not a dependency of
-  this tree at all.** `mix.exs`'s `deps do` carries no `phoenix` and
-  no `phoenix_live_view` — measured against the list, not assumed.
-  There is no `Phoenix.Router` macro to expand and no compiled routes
-  for `mix xref` to label until one of them lands, so the scratch
-  probe ORC-32 established for exactly this kind of question — compile
-  it, uncommitted, read the gate, discard it — has nothing to compile
-  against yet. Adding the dependency is an author-owned `mix.exs` edit,
-  the same file and the same author-ownership finding 1 of the ORC-35
-  review names for the storybook toolchain (`systems/dashboard.md`'s
-  corrected bullet); the true prerequisite is a missing dependency, not
-  a design-agent file-map boundary. So the question the ticket named
-  stays open for the same reason storybook's build does: dev adds
-  Phoenix, builds the router per the shape above, runs the gate, and if
-  it fails to hold at 0 that is a finding back to the author — never a
-  self-authorized raise of the number (`docs/non-goals.md`, "no
-  compile-connected cap anywhere a ticket can edit it").
+  The blocker the first pass named was real while it held: no router
+  to compile, because Phoenix was not a dependency of this tree at all
+  (`mix.exs`'s `deps do` carried no `phoenix`, no `phoenix_live_view`
+  — measured against the list, not assumed), so the scratch probe
+  ORC-32 established for exactly this kind of question — compile it,
+  uncommitted, read the gate, discard it — had nothing to compile
+  against. [PR #67](https://github.com/SwaggerAllen/catapult/pull/67)
+  removes that blocker (`systems/dashboard.md`'s settled placement
+  bullet has the detail) and is sequenced to merge before this ticket
+  reaches dev, so the probe now has something to run against, and the
+  probe has been run: a router carrying
+
+  ```elixir
+  scope "/", CatapultWeb do
+    pipe_through(:browser)
+    live("/event-log/:project_id", ProbeLive, :index)
+    live("/explain-why/:project_id", ProbeLive, :show)
+  end
+  ```
+
+  compiles with `mix xref graph --label compile-connected
+  --fail-above 0` exiting 0 — the graph is empty — and `mix xref graph
+  --label compile --source lib/catapult_web/probe_router.ex` shows the
+  router with no outgoing compile edges at all, including none to
+  either `live/2` target module. That confirms the prediction by the
+  mechanism it named: `live/2` stores its target as data the
+  dispatcher reads at runtime, the same shape `DispatchPlug`'s
+  successor uses over `api_surface/0` above, not the
+  `CompositeRouter.router/1`-reading-`__registered_commands__/0` shape
+  that trips the ratchet. No `Module.concat/1` escape is needed for
+  the dashboard router, the same way ORC-32 found none needed for its
+  process manager. Settled, not carried forward: a real router that
+  fails to hold `--fail-above 0` is still a finding back to the
+  author, never a self-authorized raise of the number
+  (`docs/non-goals.md`, "no compile-connected cap anywhere a ticket
+  can edit it") — that sentence just no longer describes an open
+  question here, only the ordinary backstop it is everywhere else.
+
+  **One caveat travels with the settled result, because the probe
+  didn't cover it.** The probe carried no `Phoenix.Endpoint` and no
+  boundary declaration, and compiled reporting
+  `CatapultWeb.ProbeRouter is not included in any boundary`. The
+  ratchet result is about the router's own compile edges and holds
+  regardless of that gap, but how `lib/catapult_web/**`'s modules
+  register with the boundary compiler is a separate question this
+  measurement does not answer — and `mix compile
+  --warnings-as-errors` has the boundary compiler in its set, so it is
+  a real gate this ticket's dev pass has to meet, not a loose end the
+  ratchet already covered.
 
   This is why `systems/generation.md` and `systems/delivery.md` both
   carry `system:foundation` alongside their own labels: this doc's
