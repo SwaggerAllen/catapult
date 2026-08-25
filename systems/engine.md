@@ -568,41 +568,85 @@ them.
   regeneration whose `feedback` folds since T3 and sees nothing —
   burning the exact dispatch this ticket exists to prevent, and losing
   T2 outright in the process, since no later window ever folds back
-  across T3 to find it. The fix makes both queries the same shape:
-  this fold resets at **the gate resolution before the most recent
-  one** — the second-most-recent `GateApproved`/`GateDeclined` event in
-  the project's log, unfiltered by which `gate` it names, or the start
-  of the log if fewer than two resolutions have happened yet — then
-  appends every `CommentPosted` for `node_id` seen since. Not filtering
-  by `gate` looks like a difference from `GateComments`'s own fold,
-  which does take a `gate` parameter below, but Phase 4's own
-  single-gate `feature.yaml` makes it a difference with no effect: with
-  exactly one gate declared, every `GateApproved`/`GateDeclined` in the
-  project necessarily names it, so folding all resolutions and folding
-  only the ones naming that one gate select the identical events. This
-  leans on the same thing "Phase 4 needs no general node(s)-per-gate
-  answer" already leans on elsewhere in this entry — the day a second
-  gate exists, this fold has to learn which gate covers `node_id` and
-  filter on it too, the same day `GateComments` would have to learn the
-  same mapping to stay a validation for the *right* gate rather than
-  any gate; neither is owed that answer by this ticket. Read at render time,
-  after the triggering `GateDeclined` is already the log's most recent
-  resolution, "the resolution before the most recent one" is exactly
-  the boundary `GateComments` checked *before* that `GateDeclined` was
-  appended, so the two windows are the same window by construction,
-  not by two independently-written queries agreeing today and drifting
-  tomorrow. Walked through the case above: at T4, this fold's boundary
-  is T1 (the resolution before T4), so it sees T2 — the comment that
-  actually justified the decline — and does not see whatever comments
-  led to the T1 decline, already rendered into the regeneration T1
-  dispatched. `DraftCommitted` plays no role in this fold at all; a
-  comment posted while a regeneration is in flight is no longer
-  discarded by that regeneration's own commit, which is the same
-  scenario stated as a separate risk and closed by the same fix rather
-  than a second one. "Consumed" now means "rendered into every
-  regeneration dispatched before the next resolution, and gone the
-  moment that resolution lands" — not "discarded by an unrelated
-  draft commit."
+  across T3 to find it. `DraftCommitted` plays no role in either fold
+  from this point on: a comment posted while a regeneration is in
+  flight is not discarded by that regeneration's own commit.
+
+  **The fix the second pass built on top of that — "the resolution
+  before the most recent one," unfiltered by gate — inferred the
+  boundary from *position* in the global resolution sequence, and a
+  third design-review finding shows that inference wrong the moment a
+  workflow declares more than one gate, which `bundles/default-flow
+  /types/feature.yaml` already does** (ORC-34, design pass, third
+  design-review correction). The second pass's own argument for
+  ignoring `gate` was "Phase 4's own single-gate `feature.yaml` makes
+  it a difference with no effect... with exactly one gate declared,
+  every `GateApproved`/`GateDeclined` in the project necessarily names
+  it" — the shipped bundle declares two, `ux-review` then
+  `engineering-review`, run in sequence over the same single
+  pre-gate `generation` status, and `engineering-review`'s own
+  `throwback: [generation, ux-review]` makes a decline-to-`ux-review`-
+  then-decline-again-at-`engineering-review` path ordinary rather than
+  contrived. Third review's case: `GateDeclined` on `engineering-review`
+  at T1 resets *validation's* window for that gate; a comment lands at
+  T2; `GateApproved` on `ux-review` at T3 is a resolution too, but not
+  one naming `engineering-review`; `GateDeclined` on `engineering-review`
+  again at T4 passes validation (the last resolution *naming*
+  `engineering-review` is T1, and T2 postdates it) — but "the resolution
+  before the most recent one," unfiltered, is T3, so the render folds
+  since T3 and misses T2. Same blank-vs-real-zero ambiguity the ticket
+  exists to close, one gate count higher than the second pass checked.
+
+  **The fix stops inferring the boundary from position and has the
+  validated boundary ride on the event that used it, so the two windows
+  are the same window by identity rather than by an argument that has
+  to stay true across every gate count.** `Catapult.Engine.Projections
+  .GateComments` gains `last_resolution_sequence(project_id, gate)` —
+  the log position of the most recent `GateApproved`/`GateDeclined`
+  naming `gate`, or `nil` if neither has happened yet — as the one
+  primitive both `any_since_last_resolution?/2` (below) and `DeclineGate`
+  now call, rather than each independently recomputing "where did the
+  window start." `Commands.DeclineGate`'s `execute/2` calls it once, to
+  validate (unchanged: rejected unless a `CommentPosted` for this gate's
+  scope postdates it) and, on acceptance, stamps the identical number
+  onto the emitted `GateDeclined` as `since_sequence`. `CommentFeedback
+  .since_last_resolution(project_id, node_id)` no longer infers anything
+  from the global resolution sequence's *shape*: it reads the most
+  recent `GateApproved`/`GateDeclined` event in the project's log,
+  unfiltered by which gate it names — Phase 4's single pre-gate
+  `generation` status is what makes "whichever gate" safe here, the
+  reasoning the second pass actually needed and mislabeled as being
+  about gate *count* — and if that event is a `GateDeclined`, folds
+  every `CommentPosted` for `node_id` seen after its stamped
+  `since_sequence`; if it is a `GateApproved`, or no resolution has
+  happened yet, `feedback` is empty. Walked through the case above:
+  `GateDeclined@T4` carries `since_sequence: T1` (validation's own
+  boundary, stamped rather than re-derived), so the render folds since
+  T1 and sees T2 — the comment that actually justified the decline —
+  regardless of `GateApproved@T3` sitting between them in the log.
+  "Consumed" now means "rendered into every regeneration dispatched
+  before the next resolution naming this gate, and gone the moment that
+  resolution lands" — not "discarded by an unrelated draft commit," and
+  not "discarded by an unrelated gate's own approval" either.
+
+  **This closes a second failure the position-based inference had, named
+  by third review but not exercised by its main counter-example: a
+  passed gate's already-answered feedback being re-litigated by an
+  unrelated later re-dispatch** (staleness, a `RunFailed` retry). Under
+  "the resolution before the most recent one," a re-dispatch happening
+  after a `GateApproved` still folds from whatever position-based
+  boundary that inference produced, which can resurrect comments the
+  gate that approved already read. Under the fix, the most recent
+  resolution being a `GateApproved` renders `feedback` empty outright —
+  nothing is outstanding once a gate has passed, independent of what
+  triggered the re-dispatch.
+
+  **`since_sequence` is a log position, not a content claim, and does
+  not reopen §7.16's "what a passed gate pins"** — the same distinction
+  the sign-off entry below already draws for why neither gate event
+  carries a `body_sha`. It says only "here is where `CommentFeedback`
+  should start folding," never anything about what the gate approved or
+  whether downstream content still matches it.
 
   Delivery reads this the same way it already reads `engine_flows` and
   the ninth projection — through a query, never a second copy of the
@@ -644,7 +688,18 @@ them.
   gate)` is false — the identical `RunFailures`-shaped fold, reset at
   this project's most recent `GateApproved`/`GateDeclined` naming this
   `gate` (or at the log's start, if neither has happened yet) and
-  incremented at each `CommentPosted` since, project-wide. **Project-
+  incremented at each `CommentPosted` since, project-wide. That reset
+  point is computed by a function of its own, `GateComments
+  .last_resolution_sequence(project_id, gate)`, rather than being
+  inlined into the boolean check — `any_since_last_resolution?/2` calls
+  it and folds; `DeclineGate`'s `execute/2` calls it a second time (the
+  same call, same result) on acceptance and stamps it onto the emitted
+  `GateDeclined` as `since_sequence` (`nil` if this is the gate's first
+  resolution) — one primitive feeding both the check and the record,
+  which is what lets the harvesting entry above read the record back
+  instead of re-deriving a boundary of its own (a third design-review
+  correction; see that entry for why re-deriving it independently was
+  the bug). **Project-
   wide, not flow-scoped, on purpose**: `CommentPosted` carries no
   `flow_id`, and `systems/delivery.md`'s own `FeaturePublisher` entry
   already leans on "nothing yet opens two flows concurrently on one
@@ -663,8 +718,10 @@ them.
   exactly as open as it already was.** Neither event carries a
   `body_sha` or any other content-identity field — they record only
   enough for a ticket's projected status to move, forward or to a named
-  throwback target, and for the comment-count check above to run; they
-  are not a second attempt at the staleness-of-a-passed-gate question
+  throwback target, for the comment-count check above to run, and (
+  `GateDeclined` only) the log position that check ran against —
+  `since_sequence`, above, a position in the log, not a claim about
+  content — so they are not a second attempt at the staleness-of-a-passed-gate question
   `systems/delivery.md`'s ORC-32 entry and this section's own §7.16
   bullet already leave to Phase 7. Which node(s) a given gate reviews —
   the general question behind "does what this gate approved still
@@ -681,12 +738,16 @@ them.
   again is the same still-open §7.19 mechanism this ticket inherited
   rather than closed — this entry only guarantees that whenever ORC-9's
   executor does re-dispatch, `feedback` is already correct by
-  construction: `CommentFeedback.since_last_resolution/2`'s reset
-  boundary is the same "resolution before the most recent one" this
-  bullet's own comment-count check reads, so the window that let a
+  construction: `DeclineGate`'s own validation call to `GateComments
+  .last_resolution_sequence/2` (via `any_since_last_resolution?/2`,
+  above) is the exact number `GateDeclined` stamps as `since_sequence`,
+  and `CommentFeedback` (above) reads that stamped number back rather
+  than re-deriving one from the log's shape — the window that let a
   decline happen is the identical window the regeneration it triggers
-  renders, independent of what triggers the re-dispatch or how long
-  the sweeper takes to notice.
+  renders, by identity rather than by two independently-written queries
+  agreeing today and drifting tomorrow, independent of what triggers
+  the re-dispatch, how long the sweeper takes to notice, or how many
+  gates the workflow declares.
 
 - **`prior_review` needs a new `Store.reviews_for_node/2`, project-
   scoped per ORC-87 from the start — not the existing `reviews_for_draft

@@ -197,11 +197,17 @@ and validation logic and must not fork it.
   else it renders: `Engine.Projections.CommentFeedback
   .since_last_resolution(project_id, node_id)` (`systems/engine.md`, a
   log fold shaped like `RunFailures.count_since_commit/2` but reset at
-  the gate resolution before the most recent one, not at
-  `DraftCommitted` — corrected on a second design-review pass so this
-  fold's window and `GateComments.any_since_last_resolution?/2`'s
-  validation window are the same query rather than two that can
-  disagree) for `feedback`, rendered as an ordered list of maps —
+  the log position the triggering `GateDeclined` itself recorded when
+  it was validated, not at `DraftCommitted` and not inferred from
+  position in the resolution sequence — corrected on a third
+  design-review pass after a second-pass position-based inference
+  proved wrong the moment a workflow declares more than one gate, which
+  the shipped `bundles/default-flow/types/feature.yaml` already does;
+  this fold's window and `GateComments.any_since_last_resolution?/2`'s
+  validation window are now the same number by construction, both
+  reading `GateComments.last_resolution_sequence/2`, rather than two
+  queries that can disagree) for `feedback`, rendered as an ordered
+  list of maps —
   `%{body:, locator:, author_id:, posted_at:}`, `locator` always `nil`
   in Phase 4 (`systems/engine.md`) — and `Engine.Store.reviews_for_node
   (project_id, node_id)` for `prior_review`, rendered as a map
