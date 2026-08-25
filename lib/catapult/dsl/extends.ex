@@ -137,6 +137,16 @@ defmodule Catapult.Dsl.Extends do
   review grammar, living only in its base layer) still resolves —
   "same-path files replace" (dsl-syntax.md §11) applied to referenced
   content the same way it already applies to tier/edge/flow files.
+
+  **A path that escapes its layer directory resolves to `nil`**, so a
+  caller sees "not found" rather than a file outside the bundle. The
+  value being resolved is bundle-authored — a tier's `prompt:` — and
+  a bundle is the customer's own content at the hosted tier, so
+  without this the plane reads whatever a `prompt:` of `"../.."`
+  names. Confirmed rather than theorised: before this guard,
+  `resolve_content_path([{"bundles/default", %{}}],
+  "../../../../../etc/passwd")` returned that path and
+  `Catapult.Generation.ContextAssembly.parse_template/1` read it.
   """
   @spec resolve_content_path([layer()], String.t()) :: String.t() | nil
   def resolve_content_path(layers, relative_path) do
@@ -144,7 +154,16 @@ defmodule Catapult.Dsl.Extends do
     |> Enum.reverse()
     |> Enum.find_value(fn {layer_dir, _manifest} ->
       candidate = Path.join(layer_dir, relative_path)
-      if File.regular?(candidate), do: candidate
+      if within?(layer_dir, candidate) and File.regular?(candidate), do: candidate
     end)
+  end
+
+  # `Path.expand/1` rather than string comparison on the raw join: the
+  # traversal only shows up once `..` segments are collapsed. The
+  # trailing separator on the root is what keeps `bundles/default-flow`
+  # from reading as inside `bundles/default`.
+  defp within?(layer_dir, candidate) do
+    root = Path.expand(layer_dir)
+    String.starts_with?(Path.expand(candidate), root <> "/")
   end
 end
