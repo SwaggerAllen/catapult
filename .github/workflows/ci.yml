@@ -73,6 +73,23 @@ jobs:
       - name: credo
         run: mix credo --strict
 
+      # Armed by `mix catapult.audit`'s sleeper check when `:phoenix`
+      # entered the tree (v5 §2.14). `--exit` makes a finding a failing
+      # exit code rather than a report nobody reads.
+      #
+      # `Config.HTTPS` is ignored because there is no Phoenix endpoint
+      # to enable HTTPS on — sobelow says so itself on every run
+      # ("cannot find the router"), so the finding is about a surface
+      # that does not exist. **Remove this the moment
+      # `lib/catapult_web` lands an endpoint** (ORC-35's dev pass), at
+      # which point it stops being a false positive and starts being
+      # the check it was written to be. Named per-finding rather than
+      # absorbed into a `.sobelow-skips` baseline, for the reason
+      # `mix.exs`'s own `ignore_advisories` gives: a silent gate
+      # re-blinds itself to the next finding.
+      - name: sobelow
+        run: mix sobelow --exit --skip --ignore Config.HTTPS
+
       - name: compile (warnings are errors; boundary in the compiler set)
         run: mix compile --warnings-as-errors
 

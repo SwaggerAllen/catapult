@@ -7,3 +7,7 @@ erl_crash.dump
 *.beam
 components/substrate/_build/
 components/substrate/deps/
+
+# The branch preview build output (bin/preview-build.sh, published to
+# Cloudflare Pages by the agent actions). Generated per run, never committed.
+dist/
