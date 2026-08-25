@@ -73,6 +73,12 @@ jobs:
       - name: credo
         run: mix credo --strict
 
+      # Armed by `mix catapult.audit`'s sleeper check when `:phoenix`
+      # entered the tree (v5 §2.14). `--exit` makes a finding a failing
+      # exit code rather than a report nobody reads.
+      - name: sobelow
+        run: mix sobelow --exit
+
       - name: compile (warnings are errors; boundary in the compiler set)
         run: mix compile --warnings-as-errors
 

@@ -156,6 +156,7 @@ defmodule Catapult.MixProject do
             :makeup_elixir,
             :makeup_html,
             :mdex,
+            :mdex_native,
             :nimble_parsec,
             :oban,
             :phoenix,
@@ -235,6 +236,13 @@ defmodule Catapult.MixProject do
       {:eventstore, "~> 1.4"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      # Armed by `mix catapult.audit`'s own sleeper check the moment
+      # `:phoenix` entered the dependency tree (v5 §2.14): a Phoenix
+      # surface without Sobelow is a static-analysis gap the audit
+      # refuses to leave silent. `only: [:dev, :test], runtime: false`
+      # like every other analysis-only tool here, which is also why it
+      # needs no `boundary: check: apps:` entry.
+      {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
       {:ex_machina, "~> 2.7", only: :test},
       # The blessed HTTP client (conventions §1). Was `only: :test`
       # (the `:live` suite's own dependency) until the first external

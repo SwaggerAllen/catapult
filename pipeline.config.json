@@ -35,6 +35,7 @@
   "qualityGates": [
     "mix format --check-formatted",
     "mix credo --strict",
+    "mix sobelow --exit",
     "mix compile --warnings-as-errors",
     "mix deps.audit",
     "mix xref graph --format cycles --fail-above 0",
