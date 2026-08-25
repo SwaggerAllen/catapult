@@ -62,66 +62,134 @@ conventions §13).
   and storybook export machinery work on our own UI.
 - Reads projections only; every mutation goes through engine
   commands. The dashboard can never be a second write path.
-- **`my-queue` is the one screen in this system with no project
-  scope, and that is the decision, not an inconsistency** (ORC-75
-  design pass). `board`, `event-log` and `explain-why` are each
-  explicitly single-project; the inbox is not, because v5 §7.10 says
-  so directly, about this exact screen, before this pass ever ran:
-  "at one human this degenerates correctly: 'My Issues' is exactly
-  the **cross-project** list of tickets needing the author — the
-  inbox property, with no filtering." A project switcher gating
-  `my-queue` would trade away the property that makes it the daily
-  entry point rather than a second `board`. `screens/my-queue.md`
-  carries the argument in full.
-- **The gate action `ticket` and `document-review` render is ahead of
-  what Phase 4 can execute** (ORC-75 design pass, recorded so dev
-  doesn't rediscover it mid-implementation). "What advancing past a
-  gate on a human's word dispatches to" is v5 §7.16's own still-open
-  item ("Approval is a status... the mechanism is a later increment,
-  and a sizeable one"), left open again by `systems/delivery.md`'s
-  ORC-32 entry and, downstream of that, by `Catapult.Delivery
-  .FeatureLifecycle.Projection`'s `pass/2`, which is dormant by
-  construction today — nothing in this phase's event vocabulary calls
-  it, so every resting walk stops at the first declared gate. **Throw
-  back is real**: ORC-34 harvests a decline today; no gate-approval
-  command stands behind an approve. Both screens' "Approve" control is
-  designed now, on the reasonable bet that the command lands inside
-  this phase's own work rather than waiting on Phase 7 proper — but
-  until it does, dev's pass wires it against whatever exists, which
-  may be a disabled control naming the gap rather than a working one,
-  and that is this phase's decision to make, not a defect in either
-  screen's design.
-- **No boundary carve-out exists yet for the screen-machinery tree,
-  and every `storybook/screens/**/component.ex` fails `mix compile
-  --warnings-as-errors` until one lands** (ORC-75 design pass, verified
-  by actually compiling this ticket's four components against
-  `main`'s current `lib/catapult.ex`, which is a real gate run rather
-  than an assumption). `lib/catapult.ex`'s own moduledoc names the
-  shape — "One coarse boundary today; per-system boundaries... carve
-  out of it as those systems land" — and a component built on
-  `Phoenix.Component`/`Phoenix.LiveView`'s HEEx engine is exactly that
-  case: neither app is in the root boundary's `deps:` list, so every
-  `~H` template anywhere under `storybook/screens/` currently trips
-  "forbidden reference," dozens of times per file, for every module the
-  HEEx compiler expands to (`Phoenix.Component`,
-  `Phoenix.Component.Declarative`, `Phoenix.LiveView.Engine`,
-  `Phoenix.LiveView.HTMLEngine`, `Phoenix.LiveView.Rendered`,
-  `Phoenix.LiveView.Comprehension`, `Phoenix.LiveView.LiveStream` were
-  the ones this pass's own four components triggered — a real
-  `Phoenix.LiveComponent` or `phoenix_storybook` macro reference would
-  add more). This is **not** specific to this ticket's screens: any
-  ticket's `storybook/screens/**/component.ex` hits the identical wall,
-  design-owned code that cannot itself carry the fix — `lib/catapult.ex`
-  is outside every design pass's committable paths (DESIGN §5). A
-  `Catapult.Storybook` (or equivalently-named) boundary, declared with
-  the modules above (and `deps: []`, since nothing calls back into the
-  plane from a stateless shell) as its own `deps:`, unblocks every
-  screen at once rather than one ticket's dev pass carving out only
-  what its own components happened to reference. `.story.exs` files are
-  unaffected today — they are not part of `mix compile`'s own pass,
-  only `component.ex` is — but the same carve-out is where a story
-  file's own compile-time needs would land if `phoenix_storybook`'s own
-  macros ever trip the same check.
+- **Every screen's navigation and every query it issues carries a
+  project id, with no cross-project or "all projects" view anywhere in
+  this system** (ORC-87, ORC-35 design pass). A node id is a
+  per-project slug and a project's event stream is per-project too
+  (`systems/engine.md`), so a route or a query missing the project
+  resolves nothing rather than resolving the wrong project's data.
+  `event-log` and `explain-why` (`screens/event-log.md`,
+  `screens/explain-why.md`) are this decision's first two screens; it
+  binds every screen after them the same way, which is why it is
+  recorded here rather than in either screen doc alone.
+
+  **Narrowed at ORC-75 for exactly one screen, on the rule's own
+  stated reason rather than against it.** `my-queue` is cross-project
+  — v5 §7.10 says so directly, about this exact screen: "at one human
+  this degenerates correctly: 'My Issues' is exactly the
+  **cross-project** list of tickets needing the author — the inbox
+  property, with no filtering." That is not a route or a query missing
+  a project id, which is the failure this bullet's own reasoning
+  names; it is `my-queue` issuing one fully project-scoped query per
+  project the actor has standing in and merging the rows for display.
+  No route resolves without a project id and no query risks resolving
+  the wrong project's data — the two ways this rule's reasoning says
+  the mistake actually happens — so `my-queue` satisfies the reason
+  the rule exists rather than being an exception carved out of it. A
+  project switcher gating `my-queue` would trade away the property
+  that makes it the daily entry point rather than a second `board`.
+  `board`, `event-log`, `explain-why`, `ticket` and `document-review`
+  are each explicitly single-project, unaffected by this narrowing;
+  `screens/my-queue.md` carries the argument in full.
+- **The gate action `ticket` and `document-review` render is real, not
+  anticipatory** (ORC-75 design pass, correcting an earlier draft of
+  this bullet written before ORC-34 landed the mechanism it was
+  waiting on). `Catapult.Engine.Commands.ApproveGate{project_id,
+  flow_id, gate, actor_id}` → `GateApproved`, and `Commands
+  .DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
+  actor_id}` → `GateDeclined` are coded on `main`
+  (`lib/catapult/engine/commands/{approve,decline}_gate.ex`,
+  `systems/engine.md`'s ORC-34 entry), and `Catapult.Delivery
+  .FeatureLifecycle` gained the two `interested?`/`handle` clauses that
+  actually move a ticket's projected status off them: `GateApproved`
+  advances to the next entry in the type's own `statuses:` array past
+  the gate, `GateDeclined` moves straight to `throwback_to`
+  (`systems/delivery.md`'s ORC-34 entry). Both screens' approve/throw-
+  back controls target these directly, so dev's pass wires a working
+  control rather than a disabled one naming a gap — the earlier draft
+  of this bullet is wrong on that point and is corrected rather than
+  struck through, since the command it was hedging against not
+  existing now does. **What stays open is narrower than the earlier
+  draft said**: §7.16's "what a passed gate pins" and which node(s) a
+  gate spanning more than one status validates against are both still
+  unanswered — `systems/engine.md`'s own ORC-34 entry leaves them so on
+  purpose — but neither blocks v1, since Phase 4's own `feature.yaml`
+  runs exactly one `generation` status ahead of each gate. `gate`/
+  `throwback_to` membership is validated at the command edge: whatever
+  constructs the command (dev's LiveView) checks it against the loaded
+  workflow bundle before dispatch, the same way `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` load-time-guarantees every declared
+  `throwback:` target is reachable — this is also why `document-
+  review`'s throwback picker only ever offers a gate's own declared
+  exits. **A decline naming no comment is rejected by `DeclineGate`'s
+  own aggregate state, never by either screen** — the screen surfaces
+  that rejection synchronously, the same compare-and-swap conflict
+  rendering `ticket`'s stale-transition case already specs, but does
+  not perform the check itself (`docs/ui-spec.md` §2 rule 1;
+  `screens/document-review.md` and `screens/ticket.md` both name this
+  precisely).
+- **Component modules live beside their story, under
+  `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
+  (ORC-35 design pass — the first ticket to exercise this system's
+  screen machinery). `component.ex` and `component.story.exs` are
+  both design-owned and both committed there; the LiveView that mounts
+  a screen for real is dev's, in this doc's own file map, and imports
+  the component by its module name the same as it would from anywhere
+  else in the tree — Elixir does not care which directory a module
+  compiles from, only that `storybook/` is on the build's
+  `:elixirc_paths`. This is the pattern every later screen in this
+  system follows unless a later pass argues otherwise in writing.
+
+  **The placement decision carries no qualification: `mix.exs`,
+  `elixirc_paths` and `.formatter.exs` already carry the storybook
+  tree, so `storybook/screens/<name>/` is simply the pattern.**
+  `phoenix_live_view` and `phoenix_storybook` are direct dependencies
+  and `phoenix` is transitive, all three named in `boundary: check:
+  apps:`; `elixirc_paths` includes `storybook` in every environment;
+  `.formatter.exs`'s `inputs` glob it too, with
+  `:phoenix`/`:phoenix_live_view` in `import_deps` so `attr`, `slot`
+  and `~H` format as markup; and `pipeline.config.json`'s
+  `preview.buildCommand` runs `bash bin/preview-build.sh`. Components
+  authored under this placement compile, format and gate like any
+  other source in the tree.
+
+  **One piece is a real gap, and it belongs to this ticket's own dev
+  pass.** `phoenix_storybook` v1.3 ships no static export — it is
+  served from a live Phoenix route, with no export task standing in
+  for one — so a static preview deploy means booting the app and
+  crawling it, and there is no endpoint to boot until
+  `lib/catapult_web` lands. `bin/preview-build.sh` already knows this:
+  it installs the pinned toolchain, resolves deps, and publishes the
+  placeholder with the reason on stdout rather than going quiet. The
+  moment this ticket's dev pass lands an endpoint, that fallback
+  message is what names the snapshot step as the piece still missing.
+
+  **A third piece belongs to the author, and is unnamed anywhere in
+  this ticket's own path unless it is written here.**
+  `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
+  Config.HTTPS`, and the comment above it says why and says when to
+  stop: there is no `Phoenix.Endpoint` yet for the finding to be about
+  (sobelow reports "cannot find the router" on every run today), and
+  the ignore is meant to come out **the moment `lib/catapult_web`
+  lands an endpoint** — which is this ticket's own dev pass. `ci.yml`
+  is author-owned (DESIGN §5); dev cannot make that edit, only trigger
+  the condition under which it should happen. Left as a comment on a
+  gate line, that trigger has nobody positioned to notice it. It has
+  to ship as an author-owned change bundled with dev's endpoint: drop
+  `--ignore Config.HTTPS`, and configure `force_ssl`/HSTS on the new
+  endpoint so the check passes because the surface is real, not
+  because the finding is still suppressed.
+- **The dispatch-facing listener's hand-wiring retires in favor of a
+  registry-driven successor, not a hand-authored router** —
+  `systems/foundation.md`'s own diff carries the decision and the
+  reasoning (the compile-connected gate question ORC-9 raised); this
+  bullet exists only so a reader of this doc knows the router question
+  is answered one doc over rather than unaddressed. Dashboard's own
+  screens (`event-log`, `explain-why`, and whatever v1 adds) get an
+  ordinary `Phoenix.Router` with their routes declared directly, since
+  no other component needs to declare a LiveView route the way several
+  declare an `api_surface/0` one — only the boundary-export half of
+  the listener needed a generic, registry-driven shape.
 
 ## Initial vs target
 

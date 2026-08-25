@@ -21,6 +21,7 @@ defmodule Catapult.Engine.Events do
   """
 
   alias Catapult.Engine.Events.ActiveBundleFlipped
+  alias Catapult.Engine.Events.CommentPosted
   alias Catapult.Engine.Events.ContainerActivated
   alias Catapult.Engine.Events.ContainerClosed
   alias Catapult.Engine.Events.ContainerMinted
@@ -34,6 +35,8 @@ defmodule Catapult.Engine.Events do
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.FlowOpenedV1
+  alias Catapult.Engine.Events.GateApproved
+  alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
   alias Catapult.Engine.Events.ReviewWrittenV1
   alias Catapult.Engine.Events.RunFailed
@@ -58,7 +61,10 @@ defmodule Catapult.Engine.Events do
       {:container_closed, 1},
       {:finding_adjudicated, 1},
       {:flag_set_flip_requested, 1},
-      {:flag_set_flipped, 1}
+      {:flag_set_flipped, 1},
+      {:comment_posted, 1},
+      {:gate_approved, 1},
+      {:gate_declined, 1}
     ]
   end
 
@@ -81,4 +87,7 @@ defmodule Catapult.Engine.Events do
   def module(:finding_adjudicated, 1), do: FindingAdjudicated
   def module(:flag_set_flip_requested, 1), do: FlagSetFlipRequested
   def module(:flag_set_flipped, 1), do: FlagSetFlipped
+  def module(:comment_posted, 1), do: CommentPosted
+  def module(:gate_approved, 1), do: GateApproved
+  def module(:gate_declined, 1), do: GateDeclined
 end

@@ -25,6 +25,12 @@ config_seed = %{
   "DATABASE_URL" => database_url,
   "FOUNDATION_POOL_SIZE" => "10",
   "ENGINE_EVENT_STORE_POOL_SIZE" => "10",
+  # `CatapultWeb.Endpoint` starts in every environment, test included
+  # (`Catapult.Application`'s own note — `Phoenix.ConnTest`/
+  # `Phoenix.LiveViewTest` need the process running even though
+  # `serve_health: false` keeps it from binding a real socket).
+  "FOUNDATION_ENDPOINT_SECRET_KEY_BASE" =>
+    "test-secret-key-base-test-secret-key-base-test-secret-key-base-64",
   # The default suite drives the whole chain offline through the fake
   # host port (conventions §9) — never Actions, never a real JWKS
   # fetch. `DELIVERY_GITHUB_TOKEN` still needs a value: `Catapult.Config

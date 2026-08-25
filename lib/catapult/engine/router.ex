@@ -26,13 +26,16 @@ defmodule Catapult.Engine.Router do
   alias Catapult.Engine.Commands.AdjudicateFinding
   alias Catapult.Engine.Commands.AdvanceContainerQueue
   alias Catapult.Engine.Commands.ApproveDraft
+  alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.CloseContainer
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.CompleteFlow
+  alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.FlipActiveBundle
   alias Catapult.Engine.Commands.MintContainer
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.PostComment
   alias Catapult.Engine.Commands.RecordFlagSetFlip
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.RequestFlagSetFlip
@@ -66,7 +69,14 @@ defmodule Catapult.Engine.Router do
       CloseContainer,
       AdjudicateFinding,
       RequestFlagSetFlip,
-      RecordFlagSetFlip
+      RecordFlagSetFlip,
+      # ORC-34's decline-harvesting edge: a human comment, and the two
+      # gate sign-off commands `Catapult.Delivery.FeatureLifecycle`
+      # reacts to (`systems/engine.md`). Same aggregate, same router,
+      # same per-project stream as every command above.
+      PostComment,
+      ApproveGate,
+      DeclineGate
     ],
     to: @aggregate
   )

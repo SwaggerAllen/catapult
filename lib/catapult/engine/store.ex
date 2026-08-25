@@ -190,6 +190,29 @@ defmodule Catapult.Engine.Store do
     Repo.all(from r in Review, where: r.draft_id == ^draft_id, order_by: r.inserted_at)
   end
 
+  @doc """
+  `node_id`'s own most recent review, regardless of which draft it
+  landed against (`prior_review`, ORC-34, `systems/engine.md`) —
+  answers a different question than `reviews_for_draft/1`, which is
+  blank for a freshly regenerated draft's own review tier every time,
+  exactly when "what I said last time" is the point. Project-scoped
+  from the join predicate itself (`d.project_id == r.project_id`), not
+  only in this function's own arguments — the precise spot the ORC-87
+  bare-id gap `reviews_for_draft/1` still carries would reappear if it
+  weren't.
+  """
+  @spec reviews_for_node(binary(), binary()) :: Review.t() | nil
+  def reviews_for_node(project_id, node_id) do
+    Repo.one(
+      from r in Review,
+        join: d in Draft,
+        on: d.project_id == r.project_id and d.id == r.draft_id,
+        where: d.project_id == ^project_id and d.node_id == ^node_id,
+        order_by: [desc: r.inserted_at],
+        limit: 1
+    )
+  end
+
   ## Flows
 
   @spec insert_flow(map()) :: Flow.t()

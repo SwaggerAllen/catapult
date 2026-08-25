@@ -87,6 +87,25 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   # columns (`status_kind`/`status_gate`) are built on that.
   defp to_position(%Status{environment: name}) when not is_nil(name), do: nil
 
+  @doc """
+  Resolves a `GateDeclined.throwback_to` name — a status or a cited
+  gate, the identical vocabulary `gate_throwback_problems/2` already
+  validates it against at load time (ORC-34) — to its `position()`
+  shape, the same one `to_position/1` produces from a `%Status{}`
+  entry. A gate name is never also a declared status kind (the two
+  live in disjoint vocabularies — `@ticket_status_names`'s closed set
+  vs. a bundle-authored gate name), so membership in `workflow.gates`
+  alone decides which shape a bare string resolves to.
+  """
+  @spec resolve_position(Workflow.t(), String.t()) :: position()
+  def resolve_position(%Workflow{gates: gates}, name) do
+    if Map.has_key?(gates, name) do
+      {:gate, name}
+    else
+      {:kind, String.to_existing_atom(name)}
+    end
+  end
+
   defp take_through_boundary(positions) do
     {before, at_and_after} =
       Enum.split_while(positions, &(&1 != {:kind, @reachable_boundary}))

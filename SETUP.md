@@ -70,11 +70,20 @@ The facts a future session needs, recorded as facts:
 - App `catapult`, region `sfo`; app id is in
   `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
   `:live_base_url` key in `config/test.exs`. **`/health` is no longer
-  the only served path** (ORC-9): a second path, `/dispatch/*`, serves
-  the agent-dispatch host port's context-fetch/result-report calls
-  (`systems/generation.md`, `systems/delivery.md`), both behind
-  `Catapult.Foundation.DispatchPlug`'s hand-wired dispatch rather than
-  a general router. The hostname's home moved to `:live_base_url` when
+  the only served path** (ORC-9, widened by ORC-35): a second path,
+  `/dispatch/*`, serves the agent-dispatch host port's
+  context-fetch/result-report calls (`systems/generation.md`,
+  `systems/delivery.md`); both sit behind
+  `Catapult.Foundation.DispatchPlug`'s registry-driven dispatch over
+  `api_surface/0` rather than a general router. A third path — dashboard's
+  own screens (`event-log`, `explain-why`) and the storybook — sits
+  behind `CatapultWeb.Router`, the ordinary `Phoenix.Router` this
+  system's own screens are named in directly. Both mechanisms are
+  plugs in `CatapultWeb.Endpoint`'s own pipeline, which is now this
+  instance's one public listener (`Catapult.Application`) — the raw
+  `Plug.Cowboy` mount ORC-9 built is retired, not duplicated, so the
+  "one public port" fact below is unchanged. The hostname's home moved
+  to `:live_base_url` when
   the `:live` suite acquired a code consumer for it (ORC-29): prose
   cannot be dereferenced, and a value the boundary suite reads once a
   milestone goes red and names itself when it drifts, which is the
@@ -85,6 +94,15 @@ The facts a future session needs, recorded as facts:
   `FOUNDATION_HEALTH_PORT` overrides, and was `HEALTH_PORT` before
   ORC-4 put env var names on the slug spine — it is not set on the
   instance, so the rename changed nothing there).
+- **`FOUNDATION_ENDPOINT_SECRET_KEY_BASE` — `CatapultWeb.Endpoint`'s own
+  secret, set as an App Platform environment variable, encrypted**
+  (ORC-35). Declared by foundation with no default, so a build without
+  it fails at boot with the config report naming it, the same shape
+  `DELIVERY_GITHUB_TOKEN` below already documents. Signs the LiveView
+  socket's connect tokens and the session cookie `Plug.Session` hangs
+  the CSRF token on — no login and no writes ride it yet, but Phoenix
+  requires it regardless of whether a session is ever meaningfully
+  read.
 - Database: managed PG 16, component/cluster
   `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
   bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted

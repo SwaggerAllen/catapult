@@ -51,6 +51,19 @@ config :catapult, Catapult.Engine.Application, pubsub: :local, registry: :local
 
 config :catapult, serve_health: false
 
+# `CatapultWeb.Endpoint`'s build-shape config (ORC-35's dev pass):
+# `secret_key_base` and the HTTP port are instance-shape and come from
+# `Catapult.Config` instead (`Catapult.Application.endpoint_child/0`),
+# per ORC-4's split. `pubsub_server` names the PubSub this same
+# supervision tree starts alongside it — LiveView's own transport, not
+# `Commanded.PubSub` (`Catapult.Engine.Topics`'s "already configured...
+# already started" — a second, App-owned PubSub the web layer needs
+# regardless of whether any engine broadcast ever reaches a socket).
+config :catapult, CatapultWeb.Endpoint,
+  render_errors: [formats: [html: CatapultWeb.ErrorHTML], layout: false],
+  pubsub_server: CatapultWeb.PubSub,
+  live_view: [signing_salt: "catapult-dashboard-lv"]
+
 # The export macro's Logger metadata floor (ORC-21,
 # `Catapult.Component.API`): `component:` at every boundary entry and
 # `trace_id:` at the root of each trace. Declared here because Logger

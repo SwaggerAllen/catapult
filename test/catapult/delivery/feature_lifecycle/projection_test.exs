@@ -90,4 +90,38 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
   test "a type that does not resolve rests nowhere rather than guessing" do
     assert Projection.resting(workflow(), "no-such-type", Projection.new()) == nil
   end
+
+  test "a decline pins the resting position at its own throwback target" do
+    state =
+      Projection.new()
+      |> Projection.commit(1)
+      |> Projection.pass({:gate, "review"})
+      |> Projection.decline({:kind, :generation})
+
+    assert resting(state) == {:kind, :generation}
+  end
+
+  test "a subsequent commit clears the throwback pin and resumes the ordinary walk" do
+    state =
+      Projection.new()
+      |> Projection.commit(1)
+      |> Projection.pass({:gate, "review"})
+      |> Projection.decline({:kind, :generation})
+      |> Projection.commit(2)
+
+    # `passed[{:gate, "review"}]` was recorded at signature 1; the fresh
+    # commit bumps the signature to 2, so the ordinary walk reopens the
+    # gate on its own — the pin has nothing left to add.
+    assert resting(state) == {:gate, "review"}
+  end
+
+  test "a block recorded after a decline takes precedence over the throwback pin" do
+    state =
+      Projection.new()
+      |> Projection.commit(1)
+      |> Projection.decline({:kind, :generation})
+      |> Projection.block(workflow(), "feature")
+
+    assert resting(state) == {:kind, :blocked}
+  end
 end

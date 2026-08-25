@@ -147,6 +147,7 @@ defmodule Catapult.MixProject do
             :joken_jwks,
             :jose,
             :libgraph,
+            :lazy_html,
             :mime,
             :mint,
             :nimble_options,
@@ -269,7 +270,13 @@ defmodule Catapult.MixProject do
       # both prod and staging today, and the storybook is wanted on the
       # staging release once the two separate.
       {:phoenix_live_view, "~> 1.0"},
-      {:phoenix_storybook, "~> 1.3"}
+      {:phoenix_storybook, "~> 1.3"},
+      # `Phoenix.LiveViewTest`'s own runtime requirement for parsing
+      # rendered HTML (ORC-35's dev pass — the first ticket exercising
+      # LiveView tests in this tree); analysis-only, like every other
+      # `only: [:dev, :test]` tool here, which is also why it needs no
+      # `boundary: check: apps:` entry.
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 

@@ -251,9 +251,10 @@ is the same set of walks as the reviewed tier's own `context:` (§13).
 This is what makes the per-tier triad invariant ("generation and
 review receive identical context plus `draft`", §9) a load-time
 property instead of a runtime discipline living in shared assembly
-code. `draft` and `prior_review` are never `context:` entries — they
-are template variables supplied automatically to a review tier's
-prompt (§9), exactly as before.
+code. `draft` and `prior_review` are never `context:` entries. `draft`
+is supplied automatically to a review tier's prompt alone; `prior_review`
+is supplied to every tier's prompt, generation and review alike (§9) —
+the same fact, read once per node, rendered wherever it's declared.
 
 **Never named from the workflow axis.** A workflow bundle turns the
 critique slot that follows a given generation status *on* by
@@ -512,7 +513,23 @@ resolves to at runtime.
 
 Liquid (Solid). Variables: one per named context walk
 (cardinality-many walks iterate), `self`, `feedback`, `prior_review`,
-and — review prompts only — `draft`. A variable's name is its target
+and — review prompts only — `draft`. `feedback` and `prior_review`
+render on every prompt a tier has, generation and review alike; `draft`
+alone is withheld from generation prompts (`systems/delivery.md`'s
+ORC-34 entry pins this against the ambiguity §3.3 leaves). `feedback`
+is an ordered list of maps, one per harvested comment — `body`,
+`locator` (nullable; always absent before `docs/ui-spec.md` §5's v2
+per-sentence anchoring ships), `author_id`, `posted_at`
+(`systems/engine.md`'s `CommentPosted`/`CommentFeedback`, ORC-34) —
+never a string beside `draft`, the same representational choice
+`prior_review` makes below. `prior_review` is a map — `score`,
+`findings`, `kind`, `body_sha` — the node's own most recent review
+regardless of which draft it landed against (`systems/engine.md`'s
+`reviews_for_node/2`, ORC-34); `body_sha` names which committed body
+the review applies to, since reading across drafts on purpose means a
+prompt can no longer assume it is the current one. Both render blank via Solid's own unset-is-empty
+behavior where nothing has been posted or reviewed yet. A variable's
+name is its target
 tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
 gets the same name as a self-hop entry landing on that tier. **Two or
 more context entries naming the same target tier combine into one
@@ -524,10 +541,11 @@ applies to me," not one variable per path that produced it. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
 shared framing across the six architecture tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
-the per-tier triad invariant. `draft` (and `prior_review`) are
-supplied automatically by the shared context-assembly path; that a
-review tier's own declared `context:` matches the reviewed tier's is
-a load-time check instead (§3.3, §13).
+the per-tier triad invariant. `draft` is supplied automatically by the
+shared context-assembly path to a review tier's prompt alone;
+`feedback` and `prior_review` are supplied the same way to every
+tier's prompt. That a review tier's own declared `context:` matches
+the reviewed tier's is a load-time check instead (§3.3, §13).
 
 ## 10. Grammars
 

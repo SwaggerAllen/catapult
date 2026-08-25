@@ -23,18 +23,22 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Commands.AdjudicateFinding
   alias Catapult.Engine.Commands.AdvanceContainerQueue
   alias Catapult.Engine.Commands.ApproveDraft
+  alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.CloseContainer
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.CompleteFlow
+  alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.FlipActiveBundle
   alias Catapult.Engine.Commands.MintContainer
   alias Catapult.Engine.Commands.OpenFlow
+  alias Catapult.Engine.Commands.PostComment
   alias Catapult.Engine.Commands.RecordFlagSetFlip
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.RequestFlagSetFlip
   alias Catapult.Engine.Commands.WriteReview
   alias Catapult.Engine.Events.ActiveBundleFlipped
+  alias Catapult.Engine.Events.CommentPosted
   alias Catapult.Engine.Events.ContainerActivated
   alias Catapult.Engine.Events.ContainerClosed
   alias Catapult.Engine.Events.ContainerMinted
@@ -47,10 +51,17 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Events.FlagSetFlipRequested
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.GateApproved
+  alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
   alias Catapult.Engine.Events.RunFailed
 
-  defstruct project_id: nil, nodes: %{}, flows: %{}, containers: %{}
+  defstruct project_id: nil,
+            nodes: %{},
+            flows: %{},
+            containers: %{},
+            comment_count: 0,
+            gate_marks: %{}
 
   @typedoc """
   `nodes`, `flows` and `containers` are keyed by id, tracking only what
@@ -66,12 +77,28 @@ defmodule Catapult.Engine.Aggregate do
   current is answerable from `Catapult.Engine.Store.Container` for
   readers; this copy exists only so `execute/2` can reject without a
   read.
+
+  A node's entry gained `body_sha` at ORC-34: `PostComment`'s own
+  stale-view rejection needs the node's currently committed draft to
+  compare against, and the minimal state a command needs validated
+  against is exactly this aggregate's own job to keep, the same
+  reasoning that already gives it `pending_draft_id`.
+
+  `comment_count` and `gate_marks` are ORC-34's own addition, for
+  `DeclineGate`'s "at least one comment since this gate's last
+  resolution" check: a project-wide counter bumped on every
+  `CommentPosted`, and a per-gate mark of that counter's value as of
+  each gate's last `GateApproved`/`GateDeclined` — pure aggregate
+  state, so the check needs no store read the way a log-position query
+  would (`systems/engine.md`'s fourth design-review correction).
   """
   @type t :: %__MODULE__{
           project_id: binary() | nil,
-          nodes: %{binary() => %{pending_draft_id: binary() | nil}},
+          nodes: %{binary() => %{pending_draft_id: binary() | nil, body_sha: binary() | nil}},
           flows: %{binary() => :open | :completed},
-          containers: %{binary() => container()}
+          containers: %{binary() => container()},
+          comment_count: non_neg_integer(),
+          gate_marks: %{String.t() => non_neg_integer()}
         }
 
   @typedoc "The per-container validation state — see `t:t/0`."
@@ -185,6 +212,69 @@ defmodule Catapult.Engine.Aggregate do
       occurred_at: cmd.occurred_at,
       actor_id: cmd.actor_id
     }
+  end
+
+  ## Decline-harvesting (v5 §7.4, ORC-34): a human comment as an
+  ## original protocol fact, and the two gate sign-off commands
+  ## `Catapult.Delivery.FeatureLifecycle`'s own new `interested?`
+  ## clauses react to (`systems/delivery.md`). Bundle content — is
+  ## `gate` real, does `throwback_to` name a member of its own
+  ## `throwback:` list — is the command edge's to check before
+  ## dispatch, same as every other command here; `execute/2` validates
+  ## only the minimal aggregate-local state each command needs
+  ## rejected against.
+
+  def execute(%__MODULE__{nodes: nodes}, %PostComment{} = cmd) do
+    case Map.get(nodes, cmd.node_id) do
+      %{body_sha: body_sha} when body_sha == cmd.body_sha ->
+        %CommentPosted{
+          project_id: cmd.project_id,
+          node_id: cmd.node_id,
+          body_sha: cmd.body_sha,
+          locator: cmd.locator,
+          author_id: cmd.author_id,
+          body: cmd.body,
+          posted_at: cmd.posted_at
+        }
+
+      %{body_sha: current} ->
+        {:error,
+         {:engine_stale_comment, node_id: cmd.node_id, current: current, got: cmd.body_sha}}
+
+      nil ->
+        {:error, {:engine_comment_unknown_node, node_id: cmd.node_id}}
+    end
+  end
+
+  def execute(%__MODULE__{}, %ApproveGate{} = cmd) do
+    %GateApproved{
+      project_id: cmd.project_id,
+      flow_id: cmd.flow_id,
+      gate: cmd.gate,
+      actor_id: cmd.actor_id
+    }
+  end
+
+  # A decline requires at least one comment since this gate's last
+  # resolution; there is no free-text override (`docs/ui-spec.md`
+  # §3.2's throwback action has a target and nothing else). Pure
+  # aggregate state — `comment_count` past the mark recorded for
+  # `cmd.gate` at its last `GateApproved`/`GateDeclined` — never a
+  # store read (`systems/engine.md`'s fourth design-review
+  # correction: `execute/2` may not read the log).
+  def execute(%__MODULE__{comment_count: count, gate_marks: marks}, %DeclineGate{} = cmd) do
+    if count > Map.get(marks, cmd.gate, 0) do
+      %GateDeclined{
+        project_id: cmd.project_id,
+        flow_id: cmd.flow_id,
+        gate: cmd.gate,
+        throwback_to: cmd.throwback_to,
+        since_sequence: cmd.since_sequence,
+        actor_id: cmd.actor_id
+      }
+    else
+      {:error, {:engine_gate_decline_without_comment, gate: cmd.gate}}
+    end
   end
 
   def execute(%__MODULE__{}, %FlipActiveBundle{} = cmd) do
@@ -419,18 +509,36 @@ defmodule Catapult.Engine.Aggregate do
   def apply(%__MODULE__{} = agg, %DraftCommitted{} = event) do
     nodes =
       agg.nodes
-      |> Map.put(event.node_id, %{pending_draft_id: event.draft_id})
+      |> Map.put(event.node_id, %{pending_draft_id: event.draft_id, body_sha: event.body_sha})
       |> mint_placeholders(event.mints)
 
     %__MODULE__{agg | project_id: event.project_id, nodes: nodes}
   end
 
   def apply(%__MODULE__{} = agg, %DraftApproved{} = event) do
-    %__MODULE__{agg | nodes: Map.put(agg.nodes, event.node_id, %{pending_draft_id: nil})}
+    %__MODULE__{
+      agg
+      | nodes: update_node(agg.nodes, event.node_id, &%{&1 | pending_draft_id: nil})
+    }
   end
 
   def apply(%__MODULE__{} = agg, %DraftDiscarded{} = event) do
-    %__MODULE__{agg | nodes: Map.put(agg.nodes, event.node_id, %{pending_draft_id: nil})}
+    %__MODULE__{
+      agg
+      | nodes: update_node(agg.nodes, event.node_id, &%{&1 | pending_draft_id: nil})
+    }
+  end
+
+  def apply(%__MODULE__{} = agg, %CommentPosted{}) do
+    %__MODULE__{agg | comment_count: agg.comment_count + 1}
+  end
+
+  def apply(%__MODULE__{} = agg, %GateApproved{} = event) do
+    %__MODULE__{agg | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count)}
+  end
+
+  def apply(%__MODULE__{} = agg, %GateDeclined{} = event) do
+    %__MODULE__{agg | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count)}
   end
 
   def apply(%__MODULE__{} = agg, %ContainerMinted{} = event) do
@@ -491,7 +599,19 @@ defmodule Catapult.Engine.Aggregate do
 
   defp mint_placeholders(nodes, mints) do
     Enum.reduce(mints, nodes, fn mint, acc ->
-      Map.put_new(acc, mint.node_id, %{pending_draft_id: nil})
+      Map.put_new(acc, mint.node_id, %{pending_draft_id: nil, body_sha: nil})
     end)
+  end
+
+  # A node in `agg.nodes` by construction of every caller here (`apply/2`
+  # only ever reaches `DraftApproved`/`DraftDiscarded` for a node that
+  # already committed at least once); left as a no-op on a missing key
+  # for the identical replay-survival reason `update_container/3`
+  # already gives.
+  defp update_node(nodes, node_id, fun) do
+    case Map.fetch(nodes, node_id) do
+      {:ok, node} -> Map.put(nodes, node_id, fun.(node))
+      :error -> nodes
+    end
   end
 end

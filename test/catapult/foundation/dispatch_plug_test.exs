@@ -26,9 +26,11 @@ defmodule Catapult.Foundation.DispatchPlugTest do
     assert conn.status in [401, 404]
   end
 
-  test "anything else is 404" do
+  test "anything else passes through unhalted, for CatapultWeb.Router to own" do
     opts = DispatchPlug.init([])
     conn = DispatchPlug.call(conn(:get, "/nope"), opts)
-    assert conn.status == 404
+
+    refute conn.halted
+    assert conn.status == nil
   end
 end

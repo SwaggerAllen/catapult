@@ -34,27 +34,41 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   position, read off this projection rather than stamped onto a
   comment. `commit/2` (any subsequent `DraftCommitted`, i.e. a retry)
   clears it and resumes the ordinary walk.
+
+  **`GateDeclined` pins the resting position the identical way**
+  (ORC-34): `decline/2` records `throwback_to`'s own resolved position
+  as `thrown_back_to`, and `resting/2` reads it back before the
+  ordinary `passed`-based walk, the same precedence `blocked_from`
+  already gets — a decline is otherwise invisible until the next
+  commit, since nothing about `passed` changes the moment it lands
+  (the declined gate itself was never marked passed). `commit/2`
+  clears it exactly as it clears `blocked_from`: once a fresh commit
+  bumps `commit_signature`, the ordinary walk already lands back on
+  the thrown-back-to position on its own (any gate `passed` at the
+  now-stale signature reopens per the skip-on-no-diff rule above), so
+  the pin has nothing left to do.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
   alias Catapult.Dsl.Workflow
 
-  defstruct commit_signature: nil, passed: %{}, blocked_from: nil
+  defstruct commit_signature: nil, passed: %{}, blocked_from: nil, thrown_back_to: nil
 
   @type t :: %__MODULE__{
           commit_signature: integer() | nil,
           passed: %{Sequence.position() => integer()},
-          blocked_from: Sequence.position() | nil
+          blocked_from: Sequence.position() | nil,
+          thrown_back_to: Sequence.position() | nil
         }
 
   @doc "A fresh projection, before anything has committed."
   @spec new() :: t()
   def new, do: %__MODULE__{}
 
-  @doc "Folds a `DraftCommitted` at project-stream sequence `sequence`: bumps the high-water mark and clears any block."
+  @doc "Folds a `DraftCommitted` at project-stream sequence `sequence`: bumps the high-water mark and clears any block or throwback pin."
   @spec commit(t(), integer()) :: t()
   def commit(%__MODULE__{} = state, sequence) when is_integer(sequence) do
-    %{state | commit_signature: sequence, blocked_from: nil}
+    %{state | commit_signature: sequence, blocked_from: nil, thrown_back_to: nil}
   end
 
   @doc "Marks `position` passed as of the projection's current commit signature — the gate-approval command's own call, once one exists (Phase 7)."
@@ -69,18 +83,31 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
     %{state | blocked_from: resting(workflow, type_name, state)}
   end
 
+  @doc "Folds a `GateDeclined`: pins the resting position at `position` (`Sequence.resolve_position/2`'s own shape for `throwback_to`) until the next commit clears it."
+  @spec decline(t(), Sequence.position()) :: t()
+  def decline(%__MODULE__{} = state, position) do
+    %{state | thrown_back_to: position}
+  end
+
   @doc """
   The position `workflow`'s `type_name` type and `state` resolve to
-  right now: `{:kind, :blocked}` while a block is recorded, otherwise
-  the first position in `Sequence.positions/2` not yet passable,
-  defaulting to the last (`Sequence`'s own trailing reachability
-  sentinel) once everything reachable has been — the sequence's own
-  final entry is never itself passable, whatever kind it turns out to
-  be, since nothing in Phase 4 implements advancing past it.
+  right now: `{:kind, :blocked}` while a block is recorded, the pinned
+  throwback target while a decline is recorded and no fresher commit
+  has landed, otherwise the first position in `Sequence.positions/2`
+  not yet passable, defaulting to the last (`Sequence`'s own trailing
+  reachability sentinel) once everything reachable has been — the
+  sequence's own final entry is never itself passable, whatever kind
+  it turns out to be, since nothing in Phase 4 implements advancing
+  past it.
   """
   @spec resting(Workflow.t(), String.t(), t()) :: Sequence.position() | nil
   def resting(%Workflow{}, _type_name, %__MODULE__{blocked_from: from}) when not is_nil(from) do
     {:kind, :blocked}
+  end
+
+  def resting(%Workflow{}, _type_name, %__MODULE__{thrown_back_to: position})
+      when not is_nil(position) do
+    position
   end
 
   def resting(%Workflow{} = workflow, type_name, %__MODULE__{} = state) do

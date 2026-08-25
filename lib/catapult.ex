@@ -42,6 +42,11 @@ defmodule Catapult do
       Ecto,
       Ecto.Adapters.Postgres,
       Ecto.Adapters.SQL,
+      # `test/support/data_case.ex`'s own sandbox setup — pre-existing
+      # (not this ticket's), surfaced the same way `Commanded.EventStore`
+      # was above: uncaught until an edit to this file's boundary config
+      # invalidated the compile cache that had been hiding it.
+      Ecto.Adapters.SQL.Sandbox,
       Ecto.Migrator,
       Oban,
       Plug,
@@ -57,6 +62,16 @@ defmodule Catapult do
       # reach (`fsm`, `gen_stage`, `telemetry_registry` — mix.exs's own
       # boundary apps list names the same set, for the same reason).
       Commanded,
+      # `Catapult.Engine.Projections.RunFailures` already calls
+      # `Commanded.EventStore.stream_forward/3` directly (the event
+      # log's own read API, per its moduledoc) — a pre-existing gap
+      # this entry closes rather than introduces: `mix compile
+      # --warnings-as-errors` only re-checks a file's boundary
+      # compliance when something about the boundary config changes,
+      # so this stayed uncaught until this ticket's own edits to this
+      # file invalidated the cache and surfaced it (a `"project"`
+      # finding, filed separately).
+      Commanded.EventStore,
       Commanded.EventStore.Adapters.EventStore,
       EventStore,
       Fsm,
@@ -85,7 +100,45 @@ defmodule Catapult do
       # Liquid prompt rendering (ORC-9, `dsl-syntax.md` §9): context
       # assembly's own templating library (`Catapult.Generation
       # .ContextAssembly`).
-      Solid
+      Solid,
+      # `Catapult.Storybook.Screens.*`'s presentational shells
+      # (`storybook/screens/**`, ORC-35, `systems/dashboard.md`'s
+      # placement decision): stateless `Phoenix.Component`s compiled
+      # under the coarse boundary the same as everything else, since
+      # there is exactly one boundary today. Each entry is a distinct
+      # implicit boundary `~H` compilation reaches into, the same
+      # granularity `Ecto`'s four entries above are already at.
+      Phoenix.Component,
+      Phoenix.Component.Declarative,
+      Phoenix.LiveView.Comprehension,
+      Phoenix.LiveView.Engine,
+      Phoenix.LiveView.HTMLEngine,
+      Phoenix.LiveView.LiveStream,
+      Phoenix.LiveView.Rendered,
+      Phoenix.LiveView.TagEngine,
+      # `Catapult.Storybook.Screens.*Story` modules (`storybook/screens/**`'s
+      # `.story.exs` half): `phoenix_storybook` compiles them itself, at
+      # `CatapultWeb.Storybook`'s own compile time, to build its content
+      # tree — a reach into the coarse boundary from outside it, same as
+      # every dep above.
+      PhoenixStorybook
     ],
-    exports: []
+    exports: [
+      # `CatapultWeb`'s read surface into the coarse boundary — the
+      # same modules `lib/catapult/generation/**` and
+      # `lib/catapult/delivery/**` already call directly for reads, no
+      # boundary-export indirection (ORC-35's research: neither system
+      # goes through a `defexport`'d function for this). `Foundation
+      # .DispatchPlug` is exported so `CatapultWeb.Endpoint` can mount
+      # it as a plug (`systems/foundation.md`'s design pass — the two
+      # mechanisms share one listener).
+      Storybook.Screens.EventLog,
+      Storybook.Screens.ExplainWhy,
+      Foundation.DispatchPlug,
+      Engine.Store,
+      Engine.Events,
+      Engine.Application,
+      Engine.Projections.ReadyScopes,
+      Dsl
+    ]
 end
