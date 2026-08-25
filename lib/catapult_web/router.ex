@@ -22,7 +22,7 @@ defmodule CatapultWeb.Router do
     plug :fetch_live_flash
     plug :assign_root_layout
     plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    plug :put_secure_browser_headers, %{"content-security-policy" => "default-src 'self'"}
   end
 
   # A plain function body, not a literal `{Module, :root}` opt on
