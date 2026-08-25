@@ -600,34 +600,98 @@ them.
   **The fix stops inferring the boundary from position and has the
   validated boundary ride on the event that used it, so the two windows
   are the same window by identity rather than by an argument that has
-  to stay true across every gate count.** `Catapult.Engine.Projections
-  .GateComments` gains `last_resolution_sequence(project_id, gate)` —
-  the log position of the most recent `GateApproved`/`GateDeclined`
-  naming `gate`, or `nil` if neither has happened yet — as the one
-  primitive both `any_since_last_resolution?/2` (below) and `DeclineGate`
-  now call, rather than each independently recomputing "where did the
-  window start." `Commands.DeclineGate`'s `execute/2` calls it once, to
-  validate (unchanged: rejected unless a `CommentPosted` for this gate's
-  scope postdates it) and, on acceptance, stamps the identical number
-  onto the emitted `GateDeclined` as `since_sequence`. `CommentFeedback
-  .since_last_resolution(project_id, node_id)` no longer infers anything
-  from the global resolution sequence's *shape*: it reads the most
-  recent `GateApproved`/`GateDeclined` event in the project's log,
-  unfiltered by which gate it names — Phase 4's single pre-gate
-  `generation` status is what makes "whichever gate" safe here, the
-  reasoning the second pass actually needed and mislabeled as being
-  about gate *count* — and if that event is a `GateDeclined`, folds
-  every `CommentPosted` for `node_id` seen after its stamped
-  `since_sequence`; if it is a `GateApproved`, or no resolution has
-  happened yet, `feedback` is empty. Walked through the case above:
-  `GateDeclined@T4` carries `since_sequence: T1` (validation's own
-  boundary, stamped rather than re-derived), so the render folds since
-  T1 and sees T2 — the comment that actually justified the decline —
-  regardless of `GateApproved@T3` sitting between them in the log.
-  "Consumed" now means "rendered into every regeneration dispatched
-  before the next resolution naming this gate, and gone the moment that
-  resolution lands" — not "discarded by an unrelated draft commit," and
-  not "discarded by an unrelated gate's own approval" either.
+  to stay true across every gate count — and a fourth design-review
+  finding fixes *where* that computation happens, since the first
+  version of this fix read the store from inside `execute/2`**
+  (ORC-34, design pass, fourth design-review correction).
+  `Catapult.Engine.Aggregate`'s own moduledoc states the constraint the
+  first version broke: "`execute/2` and `apply/2` read only their own
+  arguments; every id, timestamp and sequence number a resulting event
+  carries is already present on the command" — checked by
+  `Catapult.Engine.Policies.PurityFloor`. Calling `Catapult.Engine
+  .Projections.GateComments.last_resolution_sequence/2` from inside
+  `execute/2` breaks both halves at once: it is a `Commanded.EventStore
+  .stream_forward/2` read, not a read of `execute/2`'s own state-and-
+  command arguments, and `since_sequence` is exactly "a sequence number
+  a resulting event carries" that arrived by being computed there
+  rather than by already being on the command. The corrected split is
+  this system's own standing purity rule, above — "no clocks,
+  randomness, or generated ids in aggregate/reducer/projection code;
+  inject at the command edge" — applied to a third kind of value that
+  rule always implied but this ticket is the first to need: a **log
+  position** is injected the same way a clock or an id is, not derived
+  inside the aggregate. `Catapult.Engine.Projections.GateComments
+  .last_resolution_sequence(project_id, gate)` keeps the definition the
+  third pass gave it — the log position of the most recent
+  `GateApproved`/`GateDeclined` naming `gate`, or `nil` if neither has
+  happened yet (so `since_sequence` on a gate's first-ever `GateDeclined`
+  is `nil`, and `CommentFeedback` folds from the start of the log, the
+  same as its own "no resolution has happened yet" case below) — only
+  its caller moves, from inside `execute/2` to wherever `DeclineGate` is
+  built.
+
+  - **Validation moves onto the aggregate's own state — no store read,
+    because none is needed.** The aggregate already keeps the "minimal
+    state needed to reject a malformed sequence" for containers and
+    nodes (its own moduledoc); it gains the same shape for gates: a
+    project-wide comment counter, bumped by one on every `CommentPosted`
+    it applies, and a per-gate mark of that counter's value as of each
+    gate's last `GateApproved`/`GateDeclined`, recorded when `apply/2`
+    folds that event. `DeclineGate`'s `execute/2` rejects unless the
+    current counter is past the mark recorded for `cmd.gate` — the
+    identical predicate the retired `any_since_last_resolution?/2`
+    computed by reading the log, now answered by reading `state`, one
+    of `execute/2`'s own two arguments. `GateComments
+    .any_since_last_resolution?/2` is retired outright: its only caller
+    was `execute/2`, and leaving it standing beside the aggregate's own
+    copy of the same fact is the exact two-windows-that-can-disagree
+    shape the second and third design reviews spent two passes
+    closing — one predicate, and the aggregate is now where it lives.
+  - **`since_sequence` moves onto the command.** `Commands.DeclineGate`
+    gains a `since_sequence` field, computed by whatever constructs the
+    command — the same command-edge boundary `posted_at` already
+    crosses on `PostComment`, for the identical reason: an aggregate
+    that computed it would be reading the store, and one that derived
+    it from its own local counter would still be manufacturing an event
+    field the moduledoc requires already be present on the command. The
+    caller reads `GateComments.last_resolution_sequence(project_id,
+    gate)` — a plain query, fine outside the aggregate — before
+    dispatch; `execute/2` copies `cmd.since_sequence` onto the emitted
+    `GateDeclined` unchanged, the same copy `CommentPosted` already
+    makes of `posted_at`.
+  - **A caller-supplied boundary that has gone slightly stale is safe
+    in the one direction that matters.** If a comment lands between the
+    caller's read and the aggregate processing the command,
+    `since_sequence` undercounts how recent the true boundary is — but
+    undercounting only makes `CommentFeedback` fold from *earlier*,
+    including comments already answered, never *later*, so the failure
+    mode is extra context, not a blank render. A stale command racing
+    an actual resolution of the *same* gate is the one case that could
+    go the other way, and it already can't reach the aggregate:
+    `DeclineGate`'s `expected_version` (§7.16's optimistic concurrency,
+    unchanged) rejects it outright, and the ordinary retry re-reads
+    `GateComments.last_resolution_sequence/2` before trying again — the
+    identical mechanism this doc already names for two humans commenting
+    concurrently.
+
+  `CommentFeedback.since_last_resolution(project_id, node_id)` is
+  unchanged by any of this: it still reads the most recent
+  `GateApproved`/`GateDeclined` event in the project's log, unfiltered
+  by which gate it names — Phase 4's single pre-gate `generation`
+  status is what makes "whichever gate" safe here, the reasoning the
+  second pass actually needed and mislabeled as being about gate
+  *count* — and if that event is a `GateDeclined`, folds every
+  `CommentPosted` for `node_id` seen after its stamped `since_sequence`;
+  if it is a `GateApproved`, or no resolution has happened yet,
+  `feedback` is empty. Walked through the third review's own case:
+  `GateDeclined@T4` carries `since_sequence: T1` — read off the command
+  that produced it, not re-derived — so the render folds since T1 and
+  sees T2, the comment that actually justified the decline, regardless
+  of `GateApproved@T3` sitting between them in the log. "Consumed"
+  still means "rendered into every regeneration dispatched before the
+  next resolution naming this gate, and gone the moment that resolution
+  lands" — not "discarded by an unrelated draft commit," and not
+  "discarded by an unrelated gate's own approval" either.
 
   **This closes a second failure the position-based inference had, named
   by third review but not exercised by its main counter-example: a
@@ -665,7 +729,9 @@ them.
   nor a decline command exists before this pass). `Catapult.Engine
   .Commands.ApproveGate{project_id, flow_id, gate, actor_id}` →
   `GateApproved`, and `Commands.DeclineGate{project_id, flow_id, gate,
-  throwback_to, actor_id}` → `GateDeclined`, both v1, both keyed by the
+  throwback_to, since_sequence, actor_id}` → `GateDeclined`, both v1,
+  `since_sequence` caller-supplied per the fourth design-review
+  correction above, both keyed by the
   `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32
   entry already establishes for this aggregate's process-manager
   consumer (ORC-87). Validation reads the loaded `Catapult.Dsl
@@ -683,23 +749,19 @@ them.
   simpler of the two fixes design review posed for the ticket's own
   zero-comment open question is also the one the screen this ticket
   answers to actually specs: `DeclineGate` is rejected outright,
-  synchronously, at the point of action, when `Catapult.Engine
-  .Projections.GateComments.any_since_last_resolution?(project_id,
-  gate)` is false — the identical `RunFailures`-shaped fold, reset at
-  this project's most recent `GateApproved`/`GateDeclined` naming this
-  `gate` (or at the log's start, if neither has happened yet) and
-  incremented at each `CommentPosted` since, project-wide. That reset
-  point is computed by a function of its own, `GateComments
-  .last_resolution_sequence(project_id, gate)`, rather than being
-  inlined into the boolean check — `any_since_last_resolution?/2` calls
-  it and folds; `DeclineGate`'s `execute/2` calls it a second time (the
-  same call, same result) on acceptance and stamps it onto the emitted
-  `GateDeclined` as `since_sequence` (`nil` if this is the gate's first
-  resolution) — one primitive feeding both the check and the record,
-  which is what lets the harvesting entry above read the record back
-  instead of re-deriving a boundary of its own (a third design-review
-  correction; see that entry for why re-deriving it independently was
-  the bug). **Project-
+  synchronously, at the point of action, when the aggregate's own
+  comment counter has not advanced past the mark it recorded for
+  `gate` at that gate's last resolution — pure aggregate state, no
+  store read; the harvesting entry above (fourth design-review
+  correction) has the mechanism and the reason it moved off
+  `GateComments.any_since_last_resolution?/2`, a store read `execute/2`
+  may no longer make. `since_sequence` on the emitted `GateDeclined` is
+  `cmd.since_sequence`, copied rather than computed, for the identical
+  reason — the caller populates it from `GateComments
+  .last_resolution_sequence(project_id, gate)` before dispatch, and the
+  same correction covers why that stays safe even when the read has
+  gone slightly stale by the time the aggregate processes the command.
+  **Project-
   wide, not flow-scoped, on purpose**: `CommentPosted` carries no
   `flow_id`, and `systems/delivery.md`'s own `FeaturePublisher` entry
   already leans on "nothing yet opens two flows concurrently on one
@@ -728,6 +790,17 @@ them.
   match what's downstream of it" — is likewise untouched; Phase 4's own
   shipped `feature.yaml` runs exactly one `generation` status ahead of
   its gates, so nothing here needs the general answer to work today.
+  **Named rather than left to be found by a fan-out: the decline check
+  is project-wide and the render is per-node, and those are not the
+  same scope** (fourth design-review's own minor finding). A comment
+  on one node is enough to pass `DeclineGate`'s project-wide count, and
+  the regeneration it triggers can cover several nodes; `CommentFeedback`
+  still renders exactly what landed on each node's own log, so a
+  sibling the comment never named regenerates with blank `feedback` —
+  correct per-node, not blank-vs-real-zero ambiguous, but not
+  "justified by a comment" either. That gap is the same node(s)-per-gate
+  mapping this entry already defers, not a new one; it is named here so
+  the deferral reads as a stated gap rather than an implied guarantee.
   Role authorization (does this `actor_id` hold `gate.role`) is left
   exactly where §7.16 already leaves grant evaluation — identity's, a
   Phase 7 component — recorded the same way `actor_id` rides
@@ -737,15 +810,14 @@ them.
   chain-axis node(s) that throwback makes eligible for `ready_scopes`
   again is the same still-open §7.19 mechanism this ticket inherited
   rather than closed — this entry only guarantees that whenever ORC-9's
-  executor does re-dispatch, `feedback` is already correct by
-  construction: `DeclineGate`'s own validation call to `GateComments
-  .last_resolution_sequence/2` (via `any_since_last_resolution?/2`,
-  above) is the exact number `GateDeclined` stamps as `since_sequence`,
-  and `CommentFeedback` (above) reads that stamped number back rather
-  than re-deriving one from the log's shape — the window that let a
-  decline happen is the identical window the regeneration it triggers
-  renders, by identity rather than by two independently-written queries
-  agreeing today and drifting tomorrow, independent of what triggers
+  executor does re-dispatch, `feedback` cannot render blank where a
+  real comment justified the decline: `since_sequence` on
+  `GateDeclined` is read from `GateComments.last_resolution_sequence/2`
+  at the same command-construction boundary that populates the decline
+  (the fourth design-review correction above has the mechanism, and why
+  a stale read there is safe in the direction that matters), and
+  `CommentFeedback` (above) reads that stamped number back rather than
+  re-deriving one from the log's shape — independent of what triggers
   the re-dispatch, how long the sweeper takes to notice, or how many
   gates the workflow declares.
 

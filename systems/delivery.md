@@ -1017,8 +1017,11 @@ design gates pass.
   the point of action"), and `docs/ui-spec.md` §2 rule 1 says the same
   thing from the screen's own side ("no screen is a second write
   path"). `Catapult.Engine.Commands.DeclineGate` is what actually
-  rejects it — `systems/engine.md`'s own new entry has the check
-  (`GateComments.any_since_last_resolution?/2`) and the reason a
+  rejects it — `systems/engine.md`'s own new entry has the check (the
+  aggregate's own per-gate comment-count state, not a projection read —
+  the fourth design-review correction relocated it there off
+  `GateComments.any_since_last_resolution?/2`, since the aggregate's
+  own purity floor forbids `execute/2` reading the log) and the reason a
   free-text override was rejected in favor of requiring a real comment:
   `docs/ui-spec.md` §3.2 already specs `document-review`'s throwback
   action with a target and nothing else, no reason field, so requiring

@@ -197,16 +197,23 @@ and validation logic and must not fork it.
   else it renders: `Engine.Projections.CommentFeedback
   .since_last_resolution(project_id, node_id)` (`systems/engine.md`, a
   log fold shaped like `RunFailures.count_since_commit/2` but reset at
-  the log position the triggering `GateDeclined` itself recorded when
-  it was validated, not at `DraftCommitted` and not inferred from
+  the log position the triggering `GateDeclined` itself carries as
+  `since_sequence`, not at `DraftCommitted` and not inferred from
   position in the resolution sequence — corrected on a third
   design-review pass after a second-pass position-based inference
   proved wrong the moment a workflow declares more than one gate, which
-  the shipped `bundles/default-flow/types/feature.yaml` already does;
-  this fold's window and `GateComments.any_since_last_resolution?/2`'s
-  validation window are now the same number by construction, both
-  reading `GateComments.last_resolution_sequence/2`, rather than two
-  queries that can disagree) for `feedback`, rendered as an ordered
+  the shipped `bundles/default-flow/types/feature.yaml` already does.
+  `since_sequence` is caller-supplied on the `DeclineGate` command
+  rather than computed inside the aggregate (a fourth design-review
+  correction — `execute/2` reading the log to compute it broke this
+  system's own purity floor), populated from `GateComments
+  .last_resolution_sequence/2` at the command-construction boundary,
+  outside the aggregate; the decline's own accept/reject check is a
+  separate, purely local read of the aggregate's own state, not this
+  same query, and `systems/engine.md`'s own entry explains why the two
+  no longer needing to be textually identical is still safe — a stale
+  `since_sequence` can only widen the render's window, never narrow it
+  past a real comment) for `feedback`, rendered as an ordered
   list of maps —
   `%{body:, locator:, author_id:, posted_at:}`, `locator` always `nil`
   in Phase 4 (`systems/engine.md`) — and `Engine.Store.reviews_for_node
