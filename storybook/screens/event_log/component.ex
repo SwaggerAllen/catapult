@@ -117,7 +117,7 @@ defmodule Catapult.Storybook.Screens.EventLog do
 
         <div :if={@event.recorded_version != @event.current_version} class="alert alert-warning">
           <span>
-            Stored as <span class="font-mono">{<%= @event.type %>, <%= @event.recorded_version %>}</span>.
+            Stored as <span class="font-mono">&lbrace;<%= @event.type %>, <%= @event.recorded_version %>&rbrace;</span>.
             Every read upcasts, so the payload below is the current shape (v<%= @event.current_version %>),
             not what was originally written — the fields below are what replay would produce too.
           </span>
