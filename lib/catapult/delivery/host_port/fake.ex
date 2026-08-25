@@ -165,6 +165,17 @@ defmodule Catapult.Delivery.HostPort.Fake do
     {:ok, runs}
   end
 
+  @doc "Writes `files` onto `branch`'s in-memory content (`Fake.Forge`) — the fake's own answer to `commit_files/4`."
+  @impl Catapult.Delivery.HostPort
+  def commit_files(_project_id, branch, files, message) do
+    Forge.commit_files(forge!(), branch, files, message)
+  end
+
+  @doc "Replaces the fake PR's stored body — the fake's own answer to `update_pr_body/3`."
+  @impl Catapult.Delivery.HostPort
+  def update_pr_body(_project_id, pr_number, body),
+    do: Forge.update_pr_body(forge!(), pr_number, body)
+
   @doc "Synthesizes a file-level diff between the PR's base and head branch snapshots — there is no real git object for a fake to read."
   @impl Catapult.Delivery.HostPort
   def read_diff(_project_id, pr_number) do

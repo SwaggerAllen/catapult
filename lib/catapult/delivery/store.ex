@@ -7,10 +7,12 @@ defmodule Catapult.Delivery.Store do
 
   import Ecto.Query
 
+  alias Catapult.Delivery.Store.ArtifactPush
   alias Catapult.Delivery.Store.ContainerProposal
   alias Catapult.Delivery.Store.DispatchRun
   alias Catapult.Delivery.Store.DraftBody
   alias Catapult.Delivery.Store.FeatureLifecycle
+  alias Catapult.Delivery.Store.FeaturePublication
   alias Catapult.Delivery.Store.ProjectBinding
   alias Catapult.Engine.Store.Flow, as: EngineFlow
   alias Catapult.Repo
@@ -133,6 +135,53 @@ defmodule Catapult.Delivery.Store do
   @spec get_feature_lifecycle(binary(), binary()) :: FeatureLifecycle.t() | nil
   def get_feature_lifecycle(project_id, id) do
     Repo.get_by(FeatureLifecycle, project_id: project_id, id: id)
+  end
+
+  ## Feature publication (systems/delivery.md, ORC-33 design pass)
+
+  @doc "The flow's own feature branch/PR record, or `nil` before the first successful `DraftCommitted`."
+  @spec get_feature_publication(binary(), binary()) :: FeaturePublication.t() | nil
+  def get_feature_publication(project_id, flow_id) do
+    Repo.get_by(FeaturePublication, project_id: project_id, id: flow_id)
+  end
+
+  @doc "Records a flow's branch/PR once opened — upsert on `(project_id, id)`, so a re-observed `DraftCommitted` for a flow that already has a row is a no-op write of the same facts."
+  @spec upsert_feature_publication(map()) :: FeaturePublication.t()
+  def upsert_feature_publication(attrs) do
+    id = Map.fetch!(attrs, :id)
+    project_id = Map.fetch!(attrs, :project_id)
+    replace = attrs |> Map.delete(:id) |> Map.delete(:project_id) |> Map.keys()
+
+    %FeaturePublication{id: id, project_id: project_id}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: {:replace, replace}, conflict_target: [:project_id, :id])
+  end
+
+  @doc "Whether `node_id`'s draft at `body_sha` has already been pushed — the idempotency check `Catapult.Delivery.FeaturePublishWorker` runs before doing anything."
+  @spec get_artifact_push(binary(), binary()) :: ArtifactPush.t() | nil
+  def get_artifact_push(project_id, node_id) do
+    Repo.get_by(ArtifactPush, project_id: project_id, node_id: node_id)
+  end
+
+  @doc "Records a node's push — upsert on `(project_id, node_id)`, so a node whose draft is regenerated and re-pushed updates its one row rather than accumulating a stale one."
+  @spec upsert_artifact_push(map()) :: ArtifactPush.t()
+  def upsert_artifact_push(attrs) do
+    project_id = Map.fetch!(attrs, :project_id)
+    node_id = Map.fetch!(attrs, :node_id)
+    replace = attrs |> Map.delete(:project_id) |> Map.delete(:node_id) |> Map.keys()
+
+    %ArtifactPush{project_id: project_id, node_id: node_id}
+    |> Ecto.Changeset.change(attrs)
+    |> Repo.insert!(on_conflict: {:replace, replace}, conflict_target: [:project_id, :node_id])
+  end
+
+  @doc "Every node pushed for `flow_id` so far, tier then path — the PR body's own table of contents (`systems/delivery.md`'s ORC-33 entry)."
+  @spec artifact_pushes_for_flow(binary(), binary()) :: [ArtifactPush.t()]
+  def artifact_pushes_for_flow(project_id, flow_id) do
+    ArtifactPush
+    |> where([p], p.project_id == ^project_id and p.flow_id == ^flow_id)
+    |> order_by([p], asc: p.tier, asc: p.path)
+    |> Repo.all()
   end
 
   ## Composition proposals (ORC-104, systems/delivery.md)

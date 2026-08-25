@@ -84,6 +84,20 @@ defmodule Catapult.Delivery.HostPort.Fake.Forge do
           :ok | {:error, :no_such_pr} | {:error, :already_merged}
   def merge_pr(server, number, method), do: GenServer.call(server, {:merge_pr, number, method})
 
+  @doc "Merges `files` onto `branch`'s stored content, as `HostPort.Fake.commit_files/4`'s backing state (ORC-33) — `message` is accepted and not stored, the same way GitHub's own commit history is not modeled here."
+  @spec commit_files(GenServer.server(), String.t(), files(), String.t()) ::
+          :ok | {:error, :no_such_branch}
+  def commit_files(server, branch, files, message) do
+    GenServer.call(server, {:commit_files, branch, files, message})
+  end
+
+  @doc "Replaces a stored PR's body — `HostPort.Fake.update_pr_body/3`'s backing state (ORC-33)."
+  @spec update_pr_body(GenServer.server(), pos_integer(), String.t()) ::
+          :ok | {:error, :no_such_pr}
+  def update_pr_body(server, number, body) do
+    GenServer.call(server, {:update_pr_body, number, body})
+  end
+
   @doc "Test/scenario setup: appends a review comment as if a human (or bot) had posted it."
   @spec seed_review_comment(GenServer.server(), pos_integer(), map()) :: :ok
   def seed_review_comment(server, pr_number, attrs) do
@@ -215,6 +229,24 @@ defmodule Catapult.Delivery.HostPort.Fake.Forge do
 
       :error ->
         {:reply, {:error, :no_such_pr}, state}
+    end
+  end
+
+  def handle_call({:commit_files, branch, files, _message}, _from, state) do
+    case Map.fetch(state.branches, branch) do
+      {:ok, existing} ->
+        {:reply, :ok,
+         %{state | branches: Map.put(state.branches, branch, Map.merge(existing, files))}}
+
+      :error ->
+        {:reply, {:error, :no_such_branch}, state}
+    end
+  end
+
+  def handle_call({:update_pr_body, number, body}, _from, state) do
+    case Map.fetch(state.prs, number) do
+      {:ok, pr} -> {:reply, :ok, %{state | prs: Map.put(state.prs, number, %{pr | body: body})}}
+      :error -> {:reply, {:error, :no_such_pr}, state}
     end
   end
 
