@@ -521,6 +521,57 @@ reached only through their APIs per v5 §2.4).
   generically, this listener's hand-wiring is what gets deleted, not
   the registration underneath it.
 
+  **Landed as a shape, not yet as code (ORC-35 design pass): what
+  "absorbs `api_surface/0` generically" means, and the one thing this
+  pass cannot settle.** `DispatchPlug`'s hand-matching
+  (`path_info: ["health" | _]`, `["dispatch", "context", run_key]`,
+  ...) is deliberately replaced by a *data-driven* successor rather
+  than by literal router macros calling each target module by name:
+  the new plug reads the same aggregated `api_surface/0` table the
+  composer already builds (`systems/substrate.md`'s "the roster is one
+  table"), matches `{verb, path}` against it at request time exactly
+  the way route-identity collision-checking already does
+  (`{version, verb, path}` with every `:param` segment equal to every
+  other), and dispatches with `apply(module, function, [conn,
+  params])` — a runtime call through an atom pulled from a list, the
+  same shape `Catapult.Component.Composer` already uses to call
+  `children/0` and every other registry callback on a module it never
+  `alias`es or `require`s. No new compile-time edge, because nothing
+  about this differs in kind from what the composer already does
+  today at zero compile-connected cost; it only replaces two hardcoded
+  clauses with a lookup over a table that already exists. `/health`
+  keeps dispatching the same way, as one more entry through the same
+  table rather than a hardcoded first clause. This retires the
+  hand-matching that carried ORC-9's own reasoning ("no macro or
+  behaviour coupling") without abandoning the reasoning itself — the
+  new plug is still not a macro-composed router calling target modules
+  directly, for the same reason the old one wasn't.
+
+  This does not, on its own, get `docs/ui-spec.md`'s dashboard screens
+  on screen. Those need LiveView sockets — a `Phoenix.Endpoint` and a
+  `Phoenix.Router` with `live/2` routes — which is infrastructure nothing
+  in this tree runs today, and unlike `api_surface/0`'s boundary-export
+  routes, dashboard's own screens are wholly this system's: no other
+  component needs to declare a LiveView route, so there is no
+  cross-component registry to design here, only an ordinary router
+  naming `event-log`, `explain-why` and whatever v1 adds directly
+  (`systems/dashboard.md`). **What this design pass cannot settle is
+  whether introducing that router holds the `compile-connected
+  --fail-above 0` line** — the ticket's own open question. `live/2`
+  storing a target module as data the dispatcher reads at runtime is
+  the same shape as the paragraph above and should cost nothing by the
+  same argument, but "should" is a claim about `mix xref`'s own
+  labelling of macro-generated route tables, which is verifiable only
+  by compiling the router and reading `mix xref graph --label
+  compile-connected`, and design does not write to `lib/catapult_web/**`
+  to find out (`systems/dashboard.md`'s file map is dev's to implement
+  against, this ticket's own sketch included). So the question the
+  ticket named stays open, carried forward rather than guessed at: dev
+  builds the router per the shape above, runs the gate, and if it
+  fails to hold at 0 that is a finding back to the author — never a
+  self-authorized raise of the number (`docs/non-goals.md`, "no
+  compile-connected cap anywhere a ticket can edit it").
+
   This is why `systems/generation.md` and `systems/delivery.md` both
   carry `system:foundation` alongside their own labels: this doc's
   mapped `application.ex`/`health_endpoint.ex` is where the change

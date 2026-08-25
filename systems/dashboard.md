@@ -62,6 +62,39 @@ conventions §13).
   and storybook export machinery work on our own UI.
 - Reads projections only; every mutation goes through engine
   commands. The dashboard can never be a second write path.
+- **Every screen's navigation and every query it issues carries a
+  project id, with no cross-project or "all projects" view anywhere in
+  this system** (ORC-87, ORC-35 design pass). A node id is a
+  per-project slug and a project's event stream is per-project too
+  (`systems/engine.md`), so a route or a query missing the project
+  resolves nothing rather than resolving the wrong project's data.
+  `event-log` and `explain-why` (`screens/event-log.md`,
+  `screens/explain-why.md`) are this decision's first two screens; it
+  binds every screen after them the same way, which is why it is
+  recorded here rather than in either screen doc alone.
+- **Component modules live beside their story, under
+  `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
+  (ORC-35 design pass — the first ticket to exercise this system's
+  screen machinery). `component.ex` and `component.story.exs` are
+  both design-owned and both committed there; the LiveView that mounts
+  a screen for real is dev's, in this doc's own file map, and imports
+  the component by its module name the same as it would from anywhere
+  else in the tree — Elixir does not care which directory a module
+  compiles from, only that `storybook/` is on the build's
+  `:elixirc_paths`, which is a dev-owned build concern rather than a
+  design one. This is the pattern every later screen in this system
+  follows unless a later pass argues otherwise in writing.
+- **The dispatch-facing listener's hand-wiring retires in favor of a
+  registry-driven successor, not a hand-authored router** —
+  `systems/foundation.md`'s own diff carries the decision and the
+  reasoning (the compile-connected gate question ORC-9 raised); this
+  bullet exists only so a reader of this doc knows the router question
+  is answered one doc over rather than unaddressed. Dashboard's own
+  screens (`event-log`, `explain-why`, and whatever v1 adds) get an
+  ordinary `Phoenix.Router` with their routes declared directly, since
+  no other component needs to declare a LiveView route the way several
+  declare an `api_surface/0` one — only the boundary-export half of
+  the listener needed a generic, registry-driven shape.
 
 ## Initial vs target
 
