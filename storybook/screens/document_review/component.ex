@@ -2,15 +2,17 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   @moduledoc """
   Presentational shell for the `document-review` screen (`screens/document-review.md`). Stateless:
   every assign is handed down whole, nothing is fetched here, and there is no socket. The eventual
-  LiveView owns loading the sentence-aligned diff, collecting comments keyed by `{body_sha,
-  sentence_index}` (`screens/document-review.md`'s "The sentence locator"), and issuing the
-  approve/throw-back command — this module only renders the shape those produce, including a
-  rejected zero-comment decline.
+  LiveView owns loading the sentence-aligned diff, grouping comments by sentence for display only
+  — `PostComment` always sends `locator: nil` in v1 (`screens/document-review.md`'s "The sentence
+  locator is unset in v1"), so this grouping is a local rendering concern, not a protocol fact —
+  and issuing `ApproveGate`/`DeclineGate`/`PostComment` — this module only renders the shape those
+  produce, including a decline rejected by the aggregate for naming no comment.
 
   `sentences`: `%{index:, text:, change: :unchanged | :added | :removed}`, in body order.
-  `comments`: `%{sentence_index:, author:, body:}` — this pass's comments only (`screens/
-  document-review.md`'s "Deferred beyond v1"). `stale`: `nil` or `%{approved_sha:, current_sha:}`.
-  `decline_error`: set when the last throw-back was rejected for naming no comment.
+  `comments`: `%{sentence_index:, author:, body:}` — this render's own sentence grouping, this
+  pass's comments only (`screens/document-review.md`'s "Deferred beyond v1"). `stale`: `nil` or
+  `%{approved_sha:, current_sha:}`. `decline_error`: set when the last throw-back was rejected by
+  `DeclineGate` for naming no comment since the gate's last resolution.
   """
 
   use Phoenix.Component

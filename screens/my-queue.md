@@ -66,6 +66,19 @@ does not ask you to already know where to look.
 ever wanted here, it is a narrowing control over the same cross-project read, not a precondition
 for the read to run.
 
+**This does not contradict `systems/dashboard.md`'s own ORC-87 rule** — "every screen's navigation
+and every query it issues carries a project id, with no cross-project or 'all projects' view
+anywhere in this system" — it satisfies the reason that rule states for itself. ORC-87's own text
+names the failure it exists to prevent: "a route or a query missing the project resolves nothing
+rather than resolving the wrong project's data." `my-queue` never issues a query missing a project
+id — it issues one fully project-scoped read per project the actor has standing in (the same read
+`board` makes for one project, run once per project instead of once) and merges the rows for
+display. No route resolves without a project id anywhere in this screen, and no query risks
+resolving against the wrong project's data; the cross-project property is in what the *screen*
+shows, assembled from reads that are each as project-scoped as `board`'s own. `systems/
+dashboard.md`'s own bullet carries this narrowing now, so this argument and that one stay in
+agreement rather than needing reconciling against each other by a future reader.
+
 ## Empty is a real state
 
 An empty queue is not a loading state or a degenerate case of a populated list — it means the

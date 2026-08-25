@@ -55,12 +55,20 @@ of the lane's ordinary status chip.
 ## Cards carry pass-forward and pass-back directly
 
 With lanes abbreviated and fan-out collapsed, the common action has to be reachable without
-opening a ticket. A card exposes the same two transitions `ticket` offers — approve (forward) and
-throw back (to a declared exit) — under the same optimistic-concurrency compare as everywhere else
-in this system (v5 §7.16): the command carries the status the card believed it was leaving, and a
-stale card is rejected and told who moved it, in place, rather than silently failing or applying
-the wrong transition. `screens/ticket.md` describes the conflict rendering once; this screen
-reuses it rather than defining a second version.
+opening a ticket. A card exposes the same two commands `ticket` dispatches — `ApproveGate` and
+`DeclineGate` (`Catapult.Engine.Commands`, `screens/ticket.md`) — under the same optimistic-
+concurrency compare as everywhere else in this system (v5 §7.16): the command carries the status
+the card believed it was leaving, and a stale card is rejected and told who moved it, in place,
+rather than silently failing or applying the wrong transition. `screens/ticket.md` describes the
+conflict rendering once; this screen reuses it rather than defining a second version.
+
+**A card's own throw-back inherits `DeclineGate`'s comment requirement, unmodified.** For Phase
+4's prose-only gates, throwing back with no comment posted yet is rejected the identical
+synchronous way `screens/document-review.md` specs — a card offers the control because the
+command is real and the rejection renders in place either way, not because a comment can be left
+from the card itself. The ordinary path to a working pass-back is `document-review` first,
+then either screen to send it; the card exists for the case where a comment already went in from
+an earlier visit and the actor is back on `board` deciding what to do next.
 
 ## Filters
 

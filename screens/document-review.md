@@ -16,40 +16,67 @@ looked up separately (v5 §7.18) — the same node the ticket's sequence rail na
 One artifact, one committed body at one `body_sha`; this screen never shows more than one tier's
 worth of prose at a time.
 
-## The sentence locator
+## The sentence locator is unset in v1
 
-`ee8dbd1` (ORC-34's harvesting design) left this screen holding the pen: `CommentPosted`'s
-`body_sha` pins the exact reviewed version, but the *span within it* a comment anchors to is
-"opaque to this system... `docs/ui-spec.md`'s to define." Settled here, since it is this screen's
-diff that produces it and nothing downstream needs to parse it — only carry it and hand it back:
-
-**A locator is `{body_sha, sentence_index}`** — `sentence_index` a zero-based ordinal into the
-artifact's sentences as a deterministic splitter orders them, scoped to the exact `body_sha` it
-was computed against. It is never recomputed against a later body: a locator is only ever read
-back for rendering *that* `body_sha`'s own diff (this pass or `document-review`'s eventual
-history), where the ordinal it was assigned under still applies by construction. Nothing outside
-this screen re-derives an ordinal from a sentence's text — sentence identity here is positional,
-not content-addressed, which is what keeps two identical sentences in one body distinguishable.
+`Catapult.Engine.Commands.PostComment` carries a `locator` field, and it is nullable — final,
+merged ORC-34 (`systems/engine.md`) settles it as **always null in Phase 4**: "v1 (Phase 4's own)
+has no diff producing one yet," and per-sentence anchoring is `docs/ui-spec.md` §5's own v2 stage,
+not this ticket's. An earlier draft of this screen (drawn against ORC-34's own pre-review draft)
+committed to computing a real `{body_sha, sentence_index}` locator here and sending it on every
+comment; that draft was thrown back before merging; this screen does not build the thing it was
+thrown back for. **This screen posts every `PostComment` with `locator: nil`.** The sentence a
+comment was raised against is kept only as this render's own local grouping — which sentence a
+comment sits beside on screen — and is never sent to the aggregate and never round-trips: reload
+this screen and every comment on a node renders together, undifferentiated by sentence, which is
+exactly what `Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2` already folds
+(per-node, not per-span — "v5 §7.4's per-span bucket key degenerates to per-node today," in
+`systems/engine.md`'s own words). Per-sentence anchoring activates later **without a protocol
+change**: the field already exists on the command, unpopulated; a future pass teaches this screen
+to compute and send a real one, and nothing downstream has to change to read it.
 
 ## The diff, per sentence
 
 The prior committed body (the last `body_sha` this node held, or none on a first pass) and the
-current one, sentence-aligned: unchanged, added, and removed sentences marked as such. A comment
-attaches to one sentence in the **current** body — there is no commenting on a removed sentence,
-since nothing downstream would ever read a locator pointing at prose that no longer exists.
+current one, sentence-aligned: unchanged, added, and removed sentences marked as such. This is a
+**reading aid**, not an anchoring mechanism (previous section) — prose diffs badly per line, so
+showing the change per sentence is what makes the diff legible at all, independent of whether a
+comment raised against a sentence is protocol-anchored to it. A comment is offered against one
+sentence in the **current** body — there is no commenting on a removed sentence, since nothing
+downstream would ever have prose left to show it beside.
 
 ## Approve or throw back
 
-- **Approve** — the gate passes.
-- **Throw back** — to one of the gate's declared exits, and it is here, not on `ticket`, that a
-  throwback becomes a decline in ORC-34's sense: **at least one comment is required.** A throwback
-  naming zero comments and no free-text reason is rejected at the point of action — a decline the
-  harvester would find empty is refused before it becomes an event, never dispatched with blank
-  feedback and never given a state of its own (`systems/delivery.md`'s ORC-34 entry).
+- **Approve** — `Catapult.Engine.Commands.ApproveGate{project_id, flow_id, gate, actor_id}` →
+  `GateApproved`. The gate passes; `Catapult.Delivery.FeatureLifecycle` advances the ticket's
+  projected status to the next entry past this gate (`systems/delivery.md`'s ORC-34 entry).
+- **Throw back** — `Commands.DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
+  actor_id}` → `GateDeclined`, `throwback_to` chosen from the gate's own declared exits (never a
+  free-text target, and never a reason field — `docs/ui-spec.md` §3.2's own action set is
+  "approve / throw back... with the throwback target chosen from the declared exits"). **At least
+  one comment is required, and it is `DeclineGate`'s own aggregate state that enforces it, not
+  this screen**: the aggregate keeps a project-wide comment counter and a per-gate mark of that
+  counter's value as of the gate's last resolution, and rejects the command outright when nothing
+  has advanced the counter past `gate`'s own mark since — pure aggregate state, no store read
+  (`systems/engine.md`'s ORC-34 entry, fourth design-review correction). This screen surfaces that
+  rejection **synchronously, at the point of action** — the identical compare-and-swap conflict
+  rendering `screens/ticket.md` specs for a stale transition, reused rather than redefined here —
+  and does not perform the check itself (`docs/ui-spec.md` §2 rule 1: no screen is a second write
+  path). `since_sequence` is populated by whatever constructs the command (dev's LiveView) from
+  `Catapult.Engine.Projections.GateComments.last_resolution_sequence(project_id, gate)`, read
+  immediately before dispatch — this screen's own job is only to know the field exists and that a
+  stale read of it is safe in the direction that matters (`systems/engine.md`'s own entry has the
+  argument); computing it is not a rendering concern.
+
+A posted comment is its own command, independent of the gate action: `Commands
+.PostComment{project_id, node_id, body_sha, locator: nil, author_id, body, posted_at}` →
+`CommentPosted`, validated against the node's currently committed `body_sha` — a comment posted
+against a view the author hadn't refreshed is rejected the same stale-view way every other command
+on this surface is, not silently attached to the wrong version.
 
 **This is the screen `ticket`'s own gate action defers to for a design artifact.** `ticket` shows
-that a gate is waiting and who holds it; when the position is a design review, its approve/throw-
-back controls are this screen's, not a duplicate pair rendered twice.
+that a gate is waiting and who holds it; when the position is a design review — every position
+Phase 4's own `feature.yaml` declares — its approve/throw-back controls are this screen's, not a
+duplicate pair rendered twice.
 
 ## Stale marking
 

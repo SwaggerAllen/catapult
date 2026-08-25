@@ -33,11 +33,24 @@ inapplicable entries grayed out. The distinction between "declared but not at th
 
 ## The gate action
 
-Shown only when the viewer's role holds the gate at the ticket's current position:
+Shown only when the viewer's role holds the gate at the ticket's current position, and dispatching
+one of two real commands (`Catapult.Engine.Commands`, `systems/engine.md`'s ORC-34 entry):
 
-- **Approve** — advance to the next position.
-- **Throw back** — to one of the gate's declared exits (v5 §7.16's "a gate declares... its exits,
-  forward and throwback").
+- **Approve** — `ApproveGate{project_id, flow_id, gate, actor_id}` → `GateApproved`, advancing to
+  the next position.
+- **Throw back** — `DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence, actor_id}`
+  → `GateDeclined`, `throwback_to` one of the gate's declared exits (v5 §7.16's "a gate declares...
+  its exits, forward and throwback"), validated at construction against the loaded workflow bundle
+  the same way `document-review`'s own throwback picker is.
+
+**Every gate Phase 4's own `feature.yaml` declares reviews a prose artifact, so in v1 this
+screen's own gate action is never the one issuing the command.** `screens/document-review.md`
+holds the actual approve/throw-back controls and the comment-count check `DeclineGate` enforces
+for a decline; this screen shows that a gate is waiting, who holds it, and links there rather than
+rendering a second, competing pair. The controls are named here because the command they dispatch
+is this ticket's own — the same `ApproveGate`/`DeclineGate` pair — and a future non-prose gate
+(Phase 7) would render them directly on this screen with no new mechanism, only a different
+destination for the click.
 
 Both are commands under the same optimistic-concurrency compare as `board`'s cards (v5 §7.16):
 the command carries the status the actor believed the ticket was at. **A rejected transition is
