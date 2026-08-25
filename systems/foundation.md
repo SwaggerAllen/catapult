@@ -521,6 +521,93 @@ reached only through their APIs per v5 §2.4).
   generically, this listener's hand-wiring is what gets deleted, not
   the registration underneath it.
 
+  **Landed as a shape, not yet as code (ORC-35 design pass): what
+  "absorbs `api_surface/0` generically" means, and the compile-connected
+  question the shape raised — now measured, below.** `DispatchPlug`'s
+  hand-matching
+  (`path_info: ["health" | _]`, `["dispatch", "context", run_key]`,
+  ...) is deliberately replaced by a *data-driven* successor rather
+  than by literal router macros calling each target module by name:
+  the new plug reads the same aggregated `api_surface/0` table the
+  composer already builds (`systems/substrate.md`'s "the roster is one
+  table"), matches `{verb, path}` against it at request time exactly
+  the way route-identity collision-checking already does
+  (`{version, verb, path}` with every `:param` segment equal to every
+  other), and dispatches with `apply(module, function, [conn,
+  params])` — a runtime call through an atom pulled from a list, the
+  same shape `Catapult.Component.Composer` already uses to call
+  `children/0` and every other registry callback on a module it never
+  `alias`es or `require`s. No new compile-time edge, because nothing
+  about this differs in kind from what the composer already does
+  today at zero compile-connected cost; it only replaces two hardcoded
+  clauses with a lookup over a table that already exists. `/health`
+  keeps dispatching the same way, as one more entry through the same
+  table rather than a hardcoded first clause. This retires the
+  hand-matching that carried ORC-9's own reasoning ("no macro or
+  behaviour coupling") without abandoning the reasoning itself — the
+  new plug is still not a macro-composed router calling target modules
+  directly, for the same reason the old one wasn't.
+
+  This does not, on its own, get `docs/ui-spec.md`'s dashboard screens
+  on screen. Those need LiveView sockets — a `Phoenix.Endpoint` and a
+  `Phoenix.Router` with `live/2` routes — which is infrastructure nothing
+  in this tree runs today, and unlike `api_surface/0`'s boundary-export
+  routes, dashboard's own screens are wholly this system's: no other
+  component needs to declare a LiveView route, so there is no
+  cross-component registry to design here, only an ordinary router
+  naming `event-log`, `explain-why` and whatever v1 adds directly
+  (`systems/dashboard.md`). **Whether introducing that router holds
+  the `compile-connected --fail-above 0` line was the ticket's own
+  open question; it is answered now, measured rather than predicted.**
+
+  The blocker the first pass named was real while it held: no router
+  to compile, because Phoenix was not a dependency of this tree at all
+  (`mix.exs`'s `deps do` carried no `phoenix`, no `phoenix_live_view`
+  — measured against the list, not assumed). Phoenix is a dependency
+  of this tree now (`systems/dashboard.md`'s placement bullet has the
+  detail), so the scratch probe ORC-32 established for exactly this
+  kind of question — compile it, uncommitted, read the gate, discard
+  it — has something to run against, and it has been run: a router
+  carrying
+
+  ```elixir
+  scope "/", CatapultWeb do
+    pipe_through(:browser)
+    live("/event-log/:project_id", ProbeLive, :index)
+    live("/explain-why/:project_id", ProbeLive, :show)
+  end
+  ```
+
+  compiles with `mix xref graph --label compile-connected
+  --fail-above 0` exiting 0 — the graph is empty — and `mix xref graph
+  --label compile --source lib/catapult_web/probe_router.ex` shows the
+  router with no outgoing compile edges at all, including none to
+  either `live/2` target module. That confirms the prediction by the
+  mechanism it named: `live/2` stores its target as data the
+  dispatcher reads at runtime, the same shape `DispatchPlug`'s
+  successor uses over `api_surface/0` above, not the
+  `CompositeRouter.router/1`-reading-`__registered_commands__/0` shape
+  that trips the ratchet. No `Module.concat/1` escape is needed for
+  the dashboard router, the same way ORC-32 found none needed for its
+  process manager. Settled, not carried forward: a real router that
+  fails to hold `--fail-above 0` is still a finding back to the
+  author, never a self-authorized raise of the number
+  (`docs/non-goals.md`, "no compile-connected cap anywhere a ticket
+  can edit it") — that sentence just no longer describes an open
+  question here, only the ordinary backstop it is everywhere else.
+
+  **One caveat travels with the settled result, because the probe
+  didn't cover it.** The probe carried no `Phoenix.Endpoint` and no
+  boundary declaration, and compiled reporting
+  `CatapultWeb.ProbeRouter is not included in any boundary`. The
+  ratchet result is about the router's own compile edges and holds
+  regardless of that gap, but how `lib/catapult_web/**`'s modules
+  register with the boundary compiler is a separate question this
+  measurement does not answer — and `mix compile
+  --warnings-as-errors` has the boundary compiler in its set, so it is
+  a real gate this ticket's dev pass has to meet, not a loose end the
+  ratchet already covered.
+
   This is why `systems/generation.md` and `systems/delivery.md` both
   carry `system:foundation` alongside their own labels: this doc's
   mapped `application.ex`/`health_endpoint.ex` is where the change

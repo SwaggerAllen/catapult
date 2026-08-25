@@ -62,6 +62,78 @@ conventions §13).
   and storybook export machinery work on our own UI.
 - Reads projections only; every mutation goes through engine
   commands. The dashboard can never be a second write path.
+- **Every screen's navigation and every query it issues carries a
+  project id, with no cross-project or "all projects" view anywhere in
+  this system** (ORC-87, ORC-35 design pass). A node id is a
+  per-project slug and a project's event stream is per-project too
+  (`systems/engine.md`), so a route or a query missing the project
+  resolves nothing rather than resolving the wrong project's data.
+  `event-log` and `explain-why` (`screens/event-log.md`,
+  `screens/explain-why.md`) are this decision's first two screens; it
+  binds every screen after them the same way, which is why it is
+  recorded here rather than in either screen doc alone.
+- **Component modules live beside their story, under
+  `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
+  (ORC-35 design pass — the first ticket to exercise this system's
+  screen machinery). `component.ex` and `component.story.exs` are
+  both design-owned and both committed there; the LiveView that mounts
+  a screen for real is dev's, in this doc's own file map, and imports
+  the component by its module name the same as it would from anywhere
+  else in the tree — Elixir does not care which directory a module
+  compiles from, only that `storybook/` is on the build's
+  `:elixirc_paths`. This is the pattern every later screen in this
+  system follows unless a later pass argues otherwise in writing.
+
+  **The placement decision carries no qualification: `mix.exs`,
+  `elixirc_paths` and `.formatter.exs` already carry the storybook
+  tree, so `storybook/screens/<name>/` is simply the pattern.**
+  `phoenix_live_view` and `phoenix_storybook` are direct dependencies
+  and `phoenix` is transitive, all three named in `boundary: check:
+  apps:`; `elixirc_paths` includes `storybook` in every environment;
+  `.formatter.exs`'s `inputs` glob it too, with
+  `:phoenix`/`:phoenix_live_view` in `import_deps` so `attr`, `slot`
+  and `~H` format as markup; and `pipeline.config.json`'s
+  `preview.buildCommand` runs `bash bin/preview-build.sh`. Components
+  authored under this placement compile, format and gate like any
+  other source in the tree.
+
+  **One piece is a real gap, and it belongs to this ticket's own dev
+  pass.** `phoenix_storybook` v1.3 ships no static export — it is
+  served from a live Phoenix route, with no export task standing in
+  for one — so a static preview deploy means booting the app and
+  crawling it, and there is no endpoint to boot until
+  `lib/catapult_web` lands. `bin/preview-build.sh` already knows this:
+  it installs the pinned toolchain, resolves deps, and publishes the
+  placeholder with the reason on stdout rather than going quiet. The
+  moment this ticket's dev pass lands an endpoint, that fallback
+  message is what names the snapshot step as the piece still missing.
+
+  **A third piece belongs to the author, and is unnamed anywhere in
+  this ticket's own path unless it is written here.**
+  `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
+  Config.HTTPS`, and the comment above it says why and says when to
+  stop: there is no `Phoenix.Endpoint` yet for the finding to be about
+  (sobelow reports "cannot find the router" on every run today), and
+  the ignore is meant to come out **the moment `lib/catapult_web`
+  lands an endpoint** — which is this ticket's own dev pass. `ci.yml`
+  is author-owned (DESIGN §5); dev cannot make that edit, only trigger
+  the condition under which it should happen. Left as a comment on a
+  gate line, that trigger has nobody positioned to notice it. It has
+  to ship as an author-owned change bundled with dev's endpoint: drop
+  `--ignore Config.HTTPS`, and configure `force_ssl`/HSTS on the new
+  endpoint so the check passes because the surface is real, not
+  because the finding is still suppressed.
+- **The dispatch-facing listener's hand-wiring retires in favor of a
+  registry-driven successor, not a hand-authored router** —
+  `systems/foundation.md`'s own diff carries the decision and the
+  reasoning (the compile-connected gate question ORC-9 raised); this
+  bullet exists only so a reader of this doc knows the router question
+  is answered one doc over rather than unaddressed. Dashboard's own
+  screens (`event-log`, `explain-why`, and whatever v1 adds) get an
+  ordinary `Phoenix.Router` with their routes declared directly, since
+  no other component needs to declare a LiveView route the way several
+  declare an `api_surface/0` one — only the boundary-export half of
+  the listener needed a generic, registry-driven shape.
 
 ## Initial vs target
 

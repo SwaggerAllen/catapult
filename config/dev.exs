@@ -19,6 +19,8 @@ config :catapult,
         %{
           "DATABASE_URL" => "ecto://catapult:catapult@localhost/catapult_dev",
           "FOUNDATION_HEALTH_PORT" => "4000",
+          "FOUNDATION_ENDPOINT_SECRET_KEY_BASE" =>
+            "dev-secret-key-base-dev-secret-key-base-dev-secret-key-base-64",
           "DELIVERY_GITHUB_TOKEN" => "dev-token",
           "DELIVERY_HOST_PORT_ADAPTER" => "fake"
         }}

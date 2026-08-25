@@ -33,7 +33,15 @@ defmodule Catapult.Foundation do
       # health endpoint). App Platform routes public traffic to 8080 and
       # that isn't changeable in its UI, so 8080 is the default and this
       # variable is the explicit override.
-      {:health_port, "FOUNDATION_HEALTH_PORT", cast: :integer, default: "8080"}
+      {:health_port, "FOUNDATION_HEALTH_PORT", cast: :integer, default: "8080"},
+      # `CatapultWeb.Endpoint`'s own secret (ORC-35's dev pass): signs
+      # the LiveView socket's connect tokens and the session cookie
+      # `Plug.Session` needs to hang a CSRF token on. No default, like
+      # `database_url` and `github_token` — a build without it fails at
+      # boot with the config report naming it, the same failure mode
+      # SETUP.md §2 already documents for the token.
+      {:endpoint_secret_key_base, "FOUNDATION_ENDPOINT_SECRET_KEY_BASE",
+       cast: :string, secret: true}
     ]
   end
 
