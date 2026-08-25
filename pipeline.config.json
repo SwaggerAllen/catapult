@@ -55,7 +55,7 @@
   "staleClaimGrace": "20m",
   "preview": {
     "pagesProject": "catapult-storybook",
-    "buildCommand": "mkdir -p dist && cp preview/index.html dist/index.html",
+    "buildCommand": "bash bin/preview-build.sh",
     "outputDir": "dist"
   },
   "actors": {
