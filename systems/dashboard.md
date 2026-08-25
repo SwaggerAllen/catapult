@@ -84,34 +84,45 @@ conventions §13).
   `:elixirc_paths`. This is the pattern every later screen in this
   system follows unless a later pass argues otherwise in writing.
 
-  **Settled (author review, second pass): the prerequisite the
-  correction above named is landed, and lands ahead of this ticket by
-  construction, so the placement decision carries no qualification at
-  all.** [PR #67](https://github.com/SwaggerAllen/catapult/pull/67)
-  adds `phoenix`/`phoenix_live_view`/`phoenix_storybook` to `mix.exs`
-  (`phoenix_live_view` and `phoenix_storybook` direct, `phoenix`
-  transitive, all three in `boundary: check: apps:`), folds
-  `storybook` into `elixirc_paths` in every environment, adds
-  `storybook` to `.formatter.exs`'s `inputs` with
+  **The placement decision carries no qualification: `mix.exs`,
+  `elixirc_paths` and `.formatter.exs` already carry the storybook
+  tree, so `storybook/screens/<name>/` is simply the pattern.**
+  `phoenix_live_view` and `phoenix_storybook` are direct dependencies
+  and `phoenix` is transitive, all three named in `boundary: check:
+  apps:`; `elixirc_paths` includes `storybook` in every environment;
+  `.formatter.exs`'s `inputs` glob it too, with
   `:phoenix`/`:phoenix_live_view` in `import_deps` so `attr`, `slot`
-  and `~H` format as markup, and replaces `preview.buildCommand` with
-  `bash bin/preview-build.sh`. It is green, out of draft, and
-  sequenced to merge before this ticket reaches dev — nothing but
-  ORC-33 is ahead of it — so `storybook/screens/<name>/` is simply the
-  pattern: components authored under it compile, format and gate like
-  any other source the moment dev opens this tree, with nothing left
-  to name as outstanding.
+  and `~H` format as markup; and `pipeline.config.json`'s
+  `preview.buildCommand` runs `bash bin/preview-build.sh`. Components
+  authored under this placement compile, format and gate like any
+  other source in the tree.
 
-  **One piece survives as a real gap, and it belongs to this ticket's
-  own dev pass rather than to #67.** `phoenix_storybook` v1.3 ships no
-  static export — it is served from a live Phoenix route, with no
-  export task standing in for one — so a static preview deploy means
-  booting the app and crawling it, and there is no endpoint to boot
-  until `lib/catapult_web` lands. `bin/preview-build.sh` already knows
-  this: it installs the pinned toolchain, resolves deps, and publishes
-  the placeholder with the reason on stdout rather than going quiet.
-  The moment this ticket's dev pass lands an endpoint, that fallback
+  **One piece is a real gap, and it belongs to this ticket's own dev
+  pass.** `phoenix_storybook` v1.3 ships no static export — it is
+  served from a live Phoenix route, with no export task standing in
+  for one — so a static preview deploy means booting the app and
+  crawling it, and there is no endpoint to boot until
+  `lib/catapult_web` lands. `bin/preview-build.sh` already knows this:
+  it installs the pinned toolchain, resolves deps, and publishes the
+  placeholder with the reason on stdout rather than going quiet. The
+  moment this ticket's dev pass lands an endpoint, that fallback
   message is what names the snapshot step as the piece still missing.
+
+  **A third piece belongs to the author, and is unnamed anywhere in
+  this ticket's own path unless it is written here.**
+  `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
+  Config.HTTPS`, and the comment above it says why and says when to
+  stop: there is no `Phoenix.Endpoint` yet for the finding to be about
+  (sobelow reports "cannot find the router" on every run today), and
+  the ignore is meant to come out **the moment `lib/catapult_web`
+  lands an endpoint** — which is this ticket's own dev pass. `ci.yml`
+  is author-owned (DESIGN §5); dev cannot make that edit, only trigger
+  the condition under which it should happen. Left as a comment on a
+  gate line, that trigger has nobody positioned to notice it. It has
+  to ship as an author-owned change bundled with dev's endpoint: drop
+  `--ignore Config.HTTPS`, and configure `force_ssl`/HSTS on the new
+  endpoint so the check passes because the surface is real, not
+  because the finding is still suppressed.
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the

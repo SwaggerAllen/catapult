@@ -563,14 +563,12 @@ reached only through their APIs per v5 §2.4).
   The blocker the first pass named was real while it held: no router
   to compile, because Phoenix was not a dependency of this tree at all
   (`mix.exs`'s `deps do` carried no `phoenix`, no `phoenix_live_view`
-  — measured against the list, not assumed), so the scratch probe
-  ORC-32 established for exactly this kind of question — compile it,
-  uncommitted, read the gate, discard it — had nothing to compile
-  against. [PR #67](https://github.com/SwaggerAllen/catapult/pull/67)
-  removes that blocker (`systems/dashboard.md`'s settled placement
-  bullet has the detail) and is sequenced to merge before this ticket
-  reaches dev, so the probe now has something to run against, and the
-  probe has been run: a router carrying
+  — measured against the list, not assumed). Phoenix is a dependency
+  of this tree now (`systems/dashboard.md`'s placement bullet has the
+  detail), so the scratch probe ORC-32 established for exactly this
+  kind of question — compile it, uncommitted, read the gate, discard
+  it — has something to run against, and it has been run: a router
+  carrying
 
   ```elixir
   scope "/", CatapultWeb do
