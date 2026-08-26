@@ -13,6 +13,13 @@ tier: upward_propagation_plan
 scope: cascade_visit
 identity: id
 fields:
+  # `argument` is the reserved `fields:` name the work surface reads
+  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # tier is that entry tier for every upward_propagation flow instance.
+  # `argument_summary` (below) is this tier's own pre-existing field,
+  # kept as-is; this is a second name for the same `draft.argument`
+  # value, not a rename of an existing consumer.
+  argument: draft.argument
   argument_summary: draft.argument
   resolved: draft.resolved
 handle:

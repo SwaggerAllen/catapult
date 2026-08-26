@@ -5,6 +5,10 @@
   <xs:element name="bug-fix-plan">
     <xs:complexType>
       <xs:sequence>
+        <!-- The ticket surface's own headline (ORC-114, docs/dsl-syntax.md
+             §3's reserved `argument` fields: name) — one or two sentences,
+             why this fix matters, not a restatement of <observed>/<expected>. -->
+        <xs:element name="argument" type="xs:string"/>
         <xs:element name="observed" type="xs:string"/>
         <xs:element name="expected" type="xs:string"/>
         <xs:element name="scope" type="xs:string"/>

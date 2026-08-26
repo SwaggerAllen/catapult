@@ -19,6 +19,7 @@ The user's defect report — observed behavior, expected behavior, and
 Emit a single `<bug-fix-plan>` block:
 
     <bug-fix-plan>
+      <argument>...</argument>
       <observed>...</observed>
       <expected>...</expected>
       <scope>...</scope>
@@ -27,6 +28,9 @@ Emit a single `<bug-fix-plan>` block:
 
 # Rules
 
+* `<argument>` is one or two sentences stating why this fix matters —
+  the impact of the defect, the ticket surface's own headline. Not a
+  restatement of `<observed>`/`<expected>`.
 * `<observed>` and `<expected>` restate the defect report's own
   behavior claims precisely — don't editorialize or generalize a
   specific bug report into a broader "this component is unreliable"

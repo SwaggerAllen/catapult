@@ -21,11 +21,12 @@ The context bundle carries:
 
 # Output contract
 
-Emit exactly one `<feature>` block, followed by a `<resolved/>`
-marker once the feature has been proposed (this plan's completion
-signal):
+Emit an `<argument>`, exactly one `<feature>` block, and a
+`<resolved/>` marker once the feature has been proposed (this plan's
+completion signal):
 
     <feature-request-plan>
+      <argument>Users currently lose saved search state between sessions, so power users re-enter the same query every visit.</argument>
       <feature>
         <name>Saved Searches</name>
         <intent>Users save search queries with friendly labels and reopen them from the sidebar. Saved searches survive across sessions and devices, and changes to the underlying filter set re-execute on open. The user can rename, reorder, and delete saved searches inline.</intent>
@@ -41,6 +42,10 @@ new-user flows. Don't mark a feature implicit just because it's small.
 
 # Rules
 
+* `<argument>` is one or two sentences stating why this work exists —
+  the case for the feature, the ticket surface's own headline. Distinct
+  from `<intent>`: `<intent>` describes what the feature does once
+  built; `<argument>` is why anyone asked for it.
 * `<name>` is 2–5 words, title case. Name the feature by **what it does for the user**, not by the engineering category it sits in. "Password Reset" is sharper than "Credential Management"; "Subscription Tiers" is sharper than "Billing". Push against names that could label a section in any SaaS product's marketing page — what makes this project's version distinctive?
 * `<intent>` is 2–5 sentences (longer only when the feature is genuinely complex). Describe *what* the feature does and *why*, not *how* it will be built. Name specific data, operations, and failure conditions so downstream requirements can extract concrete obligations. "Users can pay for things" gives requirements nothing; "Users can pay for tiered service plans via credit card with monthly and annual billing cycles; failed payments trigger a grace-period retry before suspending the account" gives requirements payment processing, invoice delivery, retry scheduling, and account suspension as four distinct system obligations.
 * **Feature name must be unique across the project.** Compare against every entry in `sibling_features`. If your proposed name collides, pick a sharper variant.

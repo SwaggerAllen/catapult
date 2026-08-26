@@ -16,6 +16,10 @@ tier: refactor_plan
 scope: cascade_visit
 identity: id
 fields:
+  # `argument` is the reserved `fields:` name the work surface reads
+  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # tier is that entry tier for every refactor flow instance.
+  argument: draft.argument
   scope_summary: draft.scope
   resolved: draft.resolved
 handle:
