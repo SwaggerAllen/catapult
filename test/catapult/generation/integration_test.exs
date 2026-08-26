@@ -264,8 +264,8 @@ defmodule Catapult.Generation.IntegrationTest do
     #    own node's* regenerated context, not merely "some" regen —
     #    a sibling minted off the same parent, never declined, must
     #    regenerate with no feedback at all (`vocab.md.liquid`'s own
-    #    `{% if feedback %}` guard is what makes this visible in the
-    #    rendered prompt, the same mechanism `ContextAssemblyTest`
+    #    `{% if feedback.size > 0 %}` guard is what makes this visible
+    #    in the rendered prompt, the same mechanism `ContextAssemblyTest`
     #    already proves for a single node). --
     assert auth_request.rendered_prompt =~ "Revising against feedback"
     refute billing_request.rendered_prompt =~ "Revising against feedback"
