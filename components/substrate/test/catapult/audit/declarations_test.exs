@@ -243,8 +243,7 @@ defmodule Catapult.Audit.DeclarationsTest do
       component = compile!(ctx.dir, @operator)
 
       {:ok,
-       declarations: Config.declarations([component]),
-       manifest: Path.join(ctx.dir, "SETUP.md")}
+       declarations: Config.declarations([component]), manifest: Path.join(ctx.dir, "SETUP.md")}
     end
 
     test "only the invented, required, non-external value is a subject", ctx do
