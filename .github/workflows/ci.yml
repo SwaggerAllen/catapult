@@ -49,6 +49,24 @@ jobs:
           version-file: .tool-versions
           version-type: strict
 
+      # Exact key only — no `restore-keys` fallback, deliberately (ORC-135).
+      # A prefix fallback restores the newest cache matching `mix-Linux-`,
+      # which after a lockfile change on this branch is this branch's own
+      # *older* `_build`: dependency beams from the previous lockfile, and
+      # a boundary reference manifest describing the modules that went
+      # with them. That partial state is the one thing the boundary
+      # compiler cannot recover from cleanly — `:ets.file2tab` failing
+      # falls through to an empty table *silently*, so the run checks only
+      # what it compiled and still reports green. Without the fallback the
+      # state is binary: an exact hit, or a clean build that compiles and
+      # therefore checks everything.
+      #
+      # It costs close to nothing. Cache reads are scoped to the current
+      # branch plus the base branch, and this workflow runs only on
+      # `pull_request` — so `main` never writes a cache and no branch can
+      # read another's. The fallback could only ever have matched this
+      # branch's own earlier run, which hits the exact key anyway unless a
+      # lockfile moved. Every branch's first run is already cold.
       - uses: actions/cache@v4
         with:
           path: |
@@ -57,7 +75,6 @@ jobs:
             components/substrate/deps
             components/substrate/_build
           key: mix-${{ runner.os }}-${{ hashFiles('.tool-versions', 'mix.lock', 'components/substrate/mix.lock') }}
-          restore-keys: mix-${{ runner.os }}-
 
       # --check-locked is a hard gate (conventions §2): a silently
       # drifting lockfile is a supply surface and a reproducibility lie.
