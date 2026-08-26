@@ -104,7 +104,9 @@ defmodule Catapult.Engine.Projections.CommentFeedbackTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "n1",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
@@ -119,7 +121,14 @@ defmodule Catapult.Engine.Projections.CommentFeedbackTest do
     assert :ok = open_flow!(project_id, "f1", "n1")
     assert :ok = comment!(project_id, "n1", "sha1", "read before the approval")
 
-    approve = %ApproveGate{project_id: project_id, flow_id: "f1", gate: "ux-review"}
+    approve = %ApproveGate{
+      project_id: project_id,
+      flow_id: "f1",
+      gate: "ux-review",
+      node_id: "n1",
+      body_sha: "sha1"
+    }
+
     assert :ok = Router.dispatch(approve, consistency: :strong)
 
     assert CommentFeedback.since_last_resolution(project_id, "n1") == []
@@ -138,7 +147,9 @@ defmodule Catapult.Engine.Projections.CommentFeedbackTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "n1",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
@@ -158,7 +169,9 @@ defmodule Catapult.Engine.Projections.CommentFeedbackTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "n1",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(first_decline, consistency: :strong)
@@ -180,7 +193,9 @@ defmodule Catapult.Engine.Projections.CommentFeedbackTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: since_sequence
+      since_sequence: since_sequence,
+      node_id: "n1",
+      body_sha: "sha2"
     }
 
     assert :ok = Router.dispatch(second_decline, consistency: :strong)

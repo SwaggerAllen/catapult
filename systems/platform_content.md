@@ -476,6 +476,27 @@ loader tickets carry `system:core-dsl`.
   the pattern this bundle's real migration should track rather than
   reinvent.
 
+- **Every `<flow>_plan` tier declares `fields: argument: draft.argument`,
+  closing the gap `docs/dsl-syntax.md` §3's new reserved name leaves
+  open by default** (ORC-114, design pass). A flow's planning tier —
+  `feature_request_plan`, `refactor_plan`, `bug_fix_plan`,
+  `downward_propagation_plan`, `upward_propagation_plan` — is already,
+  by this doc's own "Five flows ship" entry above, the tier every one
+  of these flows opens at (`FlowOpened.entry_node_id`), so it is the
+  one tier per flow the work surface's `ticket` screen actually reads
+  `fields["argument"]` off. It is also, already, the tier whose job is
+  closest to stating one: `feature_request_plan`'s own prompt is the
+  near-verbatim port of `seed-docs/siege-prompts/propose_feature.md` —
+  a proposal is an argument by another name — and the other four are
+  authored fresh in this same voice (above). Each of the five grammars
+  gains a short `<argument>` element (one or two sentences, "why this
+  work exists," not a restatement of the plan's own structured content)
+  and each tier's `fields:` gains the one-line mapping; no tier outside
+  this set declares it, so a fan-out child (`comp`, `subcomparch`, …)
+  never carries its own argument distinct from its top-level ticket's —
+  correct, since `docs/ui-spec.md` §3.1 only ever shows one, for the
+  ticket the surface is currently open to.
+
 ## Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

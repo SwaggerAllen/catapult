@@ -36,6 +36,7 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Commands.RecordFlagSetFlip
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.RequestFlagSetFlip
+  alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Commands.WriteReview
   alias Catapult.Engine.Events.ActiveBundleFlipped
   alias Catapult.Engine.Events.CommentPosted
@@ -51,6 +52,7 @@ defmodule Catapult.Engine.Aggregate do
   alias Catapult.Engine.Events.FlagSetFlipRequested
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
   alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
@@ -61,7 +63,9 @@ defmodule Catapult.Engine.Aggregate do
             flows: %{},
             containers: %{},
             comment_count: 0,
-            gate_marks: %{}
+            gate_marks: %{},
+            gate_resolutions: %{},
+            blocked: false
 
   @typedoc """
   `nodes`, `flows` and `containers` are keyed by id, tracking only what
@@ -91,6 +95,19 @@ defmodule Catapult.Engine.Aggregate do
   each gate's last `GateApproved`/`GateDeclined` — pure aggregate
   state, so the check needs no store read the way a log-position query
   would (`systems/engine.md`'s fourth design-review correction).
+
+  `gate_resolutions` and `blocked` are ORC-114's own addition.
+  `gate_resolutions` is the compare-and-swap `ApproveGate`/
+  `DeclineGate` reject a second writer against: absent key means
+  "open," and a fresh `DraftCommitted` clears the whole map, the
+  identical "reopens every gate" fact `Catapult.Delivery
+  .FeatureLifecycle.Projection.commit/2` already encodes on the
+  delivery side. Project-wide rather than flow-scoped, on the same
+  "nothing yet opens two flows concurrently on one project" call
+  `comment_count` already makes, with the identical Phase 7 revisit
+  condition. `blocked` is the identical shape scaled down further —
+  `ResumeFlow`'s own precondition — set by `RunFailed`, cleared by
+  `FlowResumed` and by `DraftCommitted` alongside `gate_resolutions`.
   """
   @type t :: %__MODULE__{
           project_id: binary() | nil,
@@ -98,7 +115,9 @@ defmodule Catapult.Engine.Aggregate do
           flows: %{binary() => :open | :completed},
           containers: %{binary() => container()},
           comment_count: non_neg_integer(),
-          gate_marks: %{String.t() => non_neg_integer()}
+          gate_marks: %{String.t() => non_neg_integer()},
+          gate_resolutions: %{String.t() => :approved | :declined},
+          blocked: boolean()
         }
 
   @typedoc "The per-container validation state — see `t:t/0`."
@@ -246,24 +265,42 @@ defmodule Catapult.Engine.Aggregate do
     end
   end
 
-  def execute(%__MODULE__{}, %ApproveGate{} = cmd) do
-    %GateApproved{
-      project_id: cmd.project_id,
-      flow_id: cmd.flow_id,
-      gate: cmd.gate,
-      actor_id: cmd.actor_id
-    }
+  # Compare-and-swap at the gate grain (ORC-114, v5 §7.16, closing the
+  # defect `systems/engine.md`'s own entry names): `gate_resolutions`
+  # rejects a second writer racing the first on this still-open
+  # resolution; `body_sha` rejects a resolution whose view is a body
+  # the aggregate has already moved past, resolved or not — the two
+  # guard different failures, and both run before a `GateApproved` is
+  # ever produced. Mirrors `PostComment`'s own three-way case on the
+  # node lookup: fresh, stale, unknown.
+  def execute(%__MODULE__{nodes: nodes, gate_resolutions: resolutions}, %ApproveGate{} = cmd) do
+    with :ok <- reject_if_gate_resolved(resolutions, cmd.gate),
+         :ok <- reject_if_stale_gate_view(nodes, cmd.node_id, cmd.body_sha) do
+      %GateApproved{
+        project_id: cmd.project_id,
+        flow_id: cmd.flow_id,
+        gate: cmd.gate,
+        actor_id: cmd.actor_id
+      }
+    end
   end
 
-  # A decline requires at least one comment since this gate's last
-  # resolution; there is no free-text override (`docs/ui-spec.md`
-  # §3.2's throwback action has a target and nothing else). Pure
-  # aggregate state — `comment_count` past the mark recorded for
-  # `cmd.gate` at its last `GateApproved`/`GateDeclined` — never a
-  # store read (`systems/engine.md`'s fourth design-review
-  # correction: `execute/2` may not read the log).
-  def execute(%__MODULE__{comment_count: count, gate_marks: marks}, %DeclineGate{} = cmd) do
-    if count > Map.get(marks, cmd.gate, 0) do
+  # The identical compare-and-swap `ApproveGate` above gains, plus the
+  # pre-existing "at least one comment since this gate's last
+  # resolution" check — there is no free-text override
+  # (`docs/ui-spec.md` §3.2's throwback action has a target and
+  # nothing else). The comment check is pure aggregate state —
+  # `comment_count` past the mark recorded for `cmd.gate` at its last
+  # `GateApproved`/`GateDeclined` — never a store read
+  # (`systems/engine.md`'s fourth design-review correction: `execute/2`
+  # may not read the log).
+  def execute(
+        %__MODULE__{nodes: nodes, comment_count: count, gate_marks: marks} = agg,
+        %DeclineGate{} = cmd
+      ) do
+    with :ok <- reject_if_gate_resolved(agg.gate_resolutions, cmd.gate),
+         :ok <- reject_if_stale_gate_view(nodes, cmd.node_id, cmd.body_sha),
+         :ok <- require_comment_since_mark(count, marks, cmd.gate) do
       %GateDeclined{
         project_id: cmd.project_id,
         flow_id: cmd.flow_id,
@@ -272,9 +309,33 @@ defmodule Catapult.Engine.Aggregate do
         since_sequence: cmd.since_sequence,
         actor_id: cmd.actor_id
       }
-    else
-      {:error, {:engine_gate_decline_without_comment, gate: cmd.gate}}
     end
+  end
+
+  # A human resume of a limit-class block (ORC-114) — the compare-and-
+  # swap scaled to a single boolean precondition, the same shape
+  # `ApproveGate`/`DeclineGate` above take at the gate grain: a stale
+  # resume (someone else already resumed it, or a retry already
+  # landed) reads identically to "never was blocked," which is enough
+  # for the rejection to be correct. `cmd.to` is flattened into the
+  # event's own `to_kind`/`to_gate` pair — a deterministic reshape of
+  # data already on the command, not a new value (this system's purity
+  # floor) — because `FlowResumed`'s own moduledoc explains why the
+  # bare tuple can't ride the event.
+  def execute(%__MODULE__{blocked: true}, %ResumeFlow{} = cmd) do
+    {to_kind, to_gate} = flatten_position(cmd.to)
+
+    %FlowResumed{
+      project_id: cmd.project_id,
+      flow_id: cmd.flow_id,
+      to_kind: to_kind,
+      to_gate: to_gate,
+      actor_id: cmd.actor_id
+    }
+  end
+
+  def execute(%__MODULE__{blocked: false}, %ResumeFlow{} = cmd) do
+    {:error, {:engine_flow_not_blocked, flow_id: cmd.flow_id}}
   end
 
   def execute(%__MODULE__{}, %FlipActiveBundle{} = cmd) do
@@ -492,6 +553,44 @@ defmodule Catapult.Engine.Aggregate do
   defp blank?(value) when is_binary(value), do: String.trim(value) == ""
   defp blank?(_other), do: true
 
+  ## ApproveGate/DeclineGate's shared compare-and-swap helpers (ORC-114) — see their own `execute/2` clauses above.
+
+  defp reject_if_gate_resolved(resolutions, gate) do
+    case Map.get(resolutions, gate) do
+      nil ->
+        :ok
+
+      disposition ->
+        {:error, {:engine_gate_already_resolved, gate: gate, disposition: disposition}}
+    end
+  end
+
+  defp reject_if_stale_gate_view(nodes, node_id, body_sha) do
+    case Map.get(nodes, node_id) do
+      %{body_sha: ^body_sha} ->
+        :ok
+
+      %{body_sha: current} ->
+        {:error,
+         {:engine_stale_gate_resolution, node_id: node_id, current: current, got: body_sha}}
+
+      nil ->
+        {:error, {:engine_stale_gate_resolution, node_id: node_id, current: nil, got: body_sha}}
+    end
+  end
+
+  defp require_comment_since_mark(count, marks, gate) do
+    if count > Map.get(marks, gate, 0) do
+      :ok
+    else
+      {:error, {:engine_gate_decline_without_comment, gate: gate}}
+    end
+  end
+
+  # `ResumeFlow`'s own helper — see its `execute/2` clause above.
+  defp flatten_position({:kind, kind}), do: {to_string(kind), nil}
+  defp flatten_position({:gate, name}), do: {nil, name}
+
   ## apply/2 — aggregate state rehydration
 
   def apply(%__MODULE__{} = agg, %FlowOpened{} = event) do
@@ -512,7 +611,13 @@ defmodule Catapult.Engine.Aggregate do
       |> Map.put(event.node_id, %{pending_draft_id: event.draft_id, body_sha: event.body_sha})
       |> mint_placeholders(event.mints)
 
-    %__MODULE__{agg | project_id: event.project_id, nodes: nodes}
+    %__MODULE__{
+      agg
+      | project_id: event.project_id,
+        nodes: nodes,
+        gate_resolutions: %{},
+        blocked: false
+    }
   end
 
   def apply(%__MODULE__{} = agg, %DraftApproved{} = event) do
@@ -534,11 +639,27 @@ defmodule Catapult.Engine.Aggregate do
   end
 
   def apply(%__MODULE__{} = agg, %GateApproved{} = event) do
-    %__MODULE__{agg | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count)}
+    %__MODULE__{
+      agg
+      | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count),
+        gate_resolutions: Map.put(agg.gate_resolutions, event.gate, :approved)
+    }
   end
 
   def apply(%__MODULE__{} = agg, %GateDeclined{} = event) do
-    %__MODULE__{agg | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count)}
+    %__MODULE__{
+      agg
+      | gate_marks: Map.put(agg.gate_marks, event.gate, agg.comment_count),
+        gate_resolutions: Map.put(agg.gate_resolutions, event.gate, :declined)
+    }
+  end
+
+  def apply(%__MODULE__{} = agg, %RunFailed{}) do
+    %__MODULE__{agg | blocked: true}
+  end
+
+  def apply(%__MODULE__{} = agg, %FlowResumed{}) do
+    %__MODULE__{agg | blocked: false}
   end
 
   def apply(%__MODULE__{} = agg, %ContainerMinted{} = event) do
@@ -579,7 +700,6 @@ defmodule Catapult.Engine.Aggregate do
 
   def apply(%__MODULE__{} = agg, %ReviewWritten{}), do: agg
   def apply(%__MODULE__{} = agg, %ActiveBundleFlipped{}), do: agg
-  def apply(%__MODULE__{} = agg, %RunFailed{}), do: agg
 
   # Every caller is an event whose own command edge already rejected an
   # unknown container, so a missing key here would mean a log this
