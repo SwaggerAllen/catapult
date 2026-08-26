@@ -168,6 +168,22 @@ path already is (§13 checks cross-references, not path semantics);
 naming the convention here is so two bundle authors, or one bundle
 read twice, agree on what a join-target tier's `fields:` values mean.
 
+**`argument` is a reserved `fields:` name on a flow's entry tier — the
+human-readable case for the work, v5 §7.2 — read by the work surface,
+never enforced at load time** (ORC-114). `docs/ui-spec.md` §3.1's
+`ticket` screen opens on "the argument, first," and nothing in a
+node's `fields` carried prose before this: a tier's own `fields:`
+already supports any name the bundle chooses, so `argument` is not new
+grammar, only a name the loader now knows to expect at exactly one
+place — the tier a flow opens at (`FlowOpened.entry_node_id`) —
+without checking that it is there. A type whose entry tier declares no
+`argument` renders a blank one on `ticket` rather than failing to
+load, the same "declared but absent reads as unset" posture `input.
+<role>` and `prior_review` already have; adding a load-time
+requirement that every entry tier carry it is a further protocol
+change this ticket does not make. `systems/platform_content.md` names
+which tiers in the shipped bundle declare it.
+
 Per-scope attributes that appear in *body* declarations rather than
 tier files (they vary per node, not per tier): `implementation:
 stubbed | real` with `swap: transparent | migration | reset` (v5

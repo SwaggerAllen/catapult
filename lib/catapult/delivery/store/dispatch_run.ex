@@ -8,6 +8,13 @@ defmodule Catapult.Delivery.Store.DispatchRun do
   inputs are visible-log territory (v5 §7.12.1) — and is the plane's
   own correlation handle; GitHub's numeric `github_run_id` is recorded
   from the first authenticated call and matched on every call after.
+
+  `flow_id` is ORC-114's own addition — nullable, resolved by the
+  dispatching caller the same way `Catapult.Delivery.FeatureLifecycle`
+  already resolves a `DraftCommitted`/`RunFailed`'s flow
+  (`Catapult.Delivery.Store.current_open_flow_id/1`) — so `ticket` can
+  read a flow's own run list (`dispatch_runs_for_flow/2`) beside its
+  PR list.
   """
 
   use Ecto.Schema
@@ -17,6 +24,7 @@ defmodule Catapult.Delivery.Store.DispatchRun do
   schema "delivery_dispatch_runs" do
     field :project_id, :string
     field :node_id, :string
+    field :flow_id, :string
     field :tier, :string
     field :scope_key, :map, default: %{}
     field :repo_owner, :string

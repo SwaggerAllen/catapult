@@ -124,4 +124,27 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
 
     assert resting(state) == {:kind, :blocked}
   end
+
+  test "a resume clears the block and pins the resting position at the chosen target" do
+    state =
+      Projection.new()
+      |> Projection.commit(1)
+      |> Projection.block(workflow(), "feature")
+      |> Projection.resume({:kind, :generation})
+
+    assert resting(state) == {:kind, :generation}
+    assert Projection.blocked_origin(state) == nil
+  end
+
+  test "a subsequent commit clears the resume pin and resumes the ordinary walk" do
+    state =
+      Projection.new()
+      |> Projection.commit(1)
+      |> Projection.pass({:gate, "review"})
+      |> Projection.block(workflow(), "feature")
+      |> Projection.resume({:kind, :generation})
+      |> Projection.commit(2)
+
+    assert resting(state) == {:gate, "review"}
+  end
 end

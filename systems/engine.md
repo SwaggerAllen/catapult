@@ -875,6 +875,196 @@ them.
   first time (`feedback`'s own entries carry the same kind of
   provenance — `posted_at` against the log's own ordering).
 
+- **`ApproveGate`/`DeclineGate` carried no compare-and-swap, which is a
+  defect against §7.16's own rule, not an open question — found reading
+  the code against the rule, not filed as a finding by either of the
+  two tickets that already dispatch these commands** (ORC-114, design
+  pass, revised on design review — the first draft's single compare
+  turned out to guard only one of two distinct staleness questions; see
+  below for the second). `ApproveGate`'s `execute/2` clause bound no aggregate state at
+  all (`def execute(%__MODULE__{}, %ApproveGate{} = cmd)`) and emitted
+  `GateApproved` unconditionally; `DeclineGate`'s only check was the
+  comment-count mark above, which guards a different fact (has anyone
+  commented since the last resolution) and has never guarded staleness
+  of the resolution itself. Two role-holders racing to resolve the same
+  gate — both looking at the same pending action, both dispatching
+  around the same moment — land both writes today; the second is never
+  told. `docs/ui-spec.md` §3.1 already promises otherwise for both
+  screens that dispatch these commands: `ticket`'s "optimistic-
+  concurrency feedback: a rejected transition names who moved it and
+  where (§7.16)" and `board`'s "the controls are the same two
+  transitions the ticket screen offers, under the same compare-and-
+  swap (§7.16), so a stale card fails the same way and says who moved
+  it" — sentences already committed against behavior the aggregate does
+  not have.
+
+  **The shape to copy is already in this file.** `AdvanceContainerQueue`
+  matches `%{state: :active, queue: current} when current == cmd.from_queue`
+  and carries `from_queue` on the command for the identical reason
+  §7.16 gives: first writer wins, a stale `from` is rejected rather than
+  applied. A gate's own precondition turns out simpler than a
+  container's, and the shape is smaller for a stated reason rather than
+  copied short: a container queue can be *any* of several named values,
+  so `AdvanceContainerQueue` has to say which one it believes it is
+  leaving; a gate has exactly one meaningful precondition — has this
+  resolution already happened — so nothing about the command needs to
+  say what state it expects to find, only which gate it is resolving,
+  which both commands already carry. **This compare alone needs no new
+  field** — the reopening-window fix below is a second, independent
+  one, guarding a different question.
+
+  The aggregate gains two project-wide fields beside `comment_count`/
+  `gate_marks` above, on the identical simplification those two already
+  state and revisit-condition: **`gate_resolutions: %{String.t() =>
+  :approved | :declined}`**, absent key meaning "open." `execute/2` for
+  `ApproveGate`/`DeclineGate` rejects when `cmd.gate` is already a key —
+  `{:error, {:engine_gate_already_resolved, gate: cmd.gate, disposition:
+  existing}}`, the same "name the value, not the actor" level of detail
+  `:engine_container_queue_conflict` already gives (a screen wanting who
+  reads the log the same way `document-review`'s own conflict rendering
+  already would). `apply/2` for `GateApproved`/`GateDeclined` sets the
+  key to the disposition; `apply/2` for `DraftCommitted` clears the
+  whole map — a fresh commit reopens every gate, the identical fact
+  `Catapult.Delivery.FeatureLifecycle.Projection.commit/2` already
+  encodes on the delivery side (below), tracked here independently and
+  for the same reason the container's own copy of `queue` is: "this
+  copy exists only so `execute/2` can reject without a read." Project-
+  wide rather than flow-scoped is the same call `CommentPosted` above
+  already made and for the same reason — `DraftCommitted` carries no
+  `flow_id`, "nothing yet opens two flows concurrently on one project"
+  is exactly as true here as it was there, and the identical Phase 7
+  revisit condition applies: multiple concurrent flows need this keyed
+  by `{flow_id, gate}`, not a new mechanism.
+
+  **This settles §7.16's still-open "compare token: version, not
+  status" item, in favor of the recorded rule rather than the still-
+  open alternative — a decision this ticket owes since it is the first
+  to build the mechanism the item is about.** `gate_resolutions` is a
+  named-value compare (`:approved | :declined | absent`), the same
+  status-shaped kind `AdvanceContainerQueue`'s `queue` already is, not
+  the aggregate's Commanded stream version — following "Author's call:
+  the rule as stated compares on status" (§7.16) and the precedent
+  already in this file, over the ABA risk the item itself names and
+  leaves open. The ABA exposure this carries is the same one
+  `AdvanceContainerQueue` already carries and no worse: a gate resolved,
+  reopened by a commit, and resolved again looks identical, at the
+  compare, to a gate resolved once — which is correct, since a second
+  legitimate resolution *should* succeed. What stays closed either way
+  is the case this fix exists for: two writers racing on the *same*
+  still-open resolution.
+
+  **Design review found a second axis `gate_resolutions` alone cannot
+  cover: staleness against a regenerated body, not staleness against a
+  resolution.** `DraftCommitted`'s own `apply/2` clears the whole
+  `gate_resolutions` map (above) — correctly, since a fresh commit does
+  reopen the gate for review — but reopening the *compare* also reopens
+  the *action*: a reviewer who has `document-review` open on the body a
+  decline just threw back can still click Approve after a regeneration
+  commits a new body underneath them, and finds no key at `cmd.gate` to
+  reject against, because the key that would have named their view was
+  just cleared by the very commit they never saw. `gate_resolutions`
+  answers "has this gate already been resolved since it last reopened,"
+  which is the right question for two writers racing on one resolution
+  and the wrong one for a single writer acting on a view of the wrong
+  resolution.
+
+  **The fix is the one already in this file, not a new one: `PostComment`'s
+  own `body_sha` compare, on the same two commands.** `ApproveGate`/
+  `DeclineGate` gain `node_id` and `body_sha`, the identical pair
+  `PostComment` already carries and for the identical reason —
+  `execute/2` rejects when `cmd.body_sha` doesn't match `nodes[cmd
+  .node_id].body_sha`, the same per-node value `DraftCommitted`'s own
+  `apply/2` already maintains (that's what makes `PostComment`'s
+  existing check possible with no new aggregate state): `{:error,
+  {:engine_stale_gate_resolution, node_id: cmd.node_id, current:
+  current, got: cmd.body_sha}}`, `:engine_stale_comment`'s own shape
+  reused rather than invented. This runs beside `gate_resolutions`, not
+  instead of it — the two guard different failures: `gate_resolutions`
+  rejects a second writer racing the first on one still-open
+  resolution, `body_sha` rejects a resolution whose view is a body the
+  aggregate has already moved past, resolved or not. Which `node_id`:
+  Phase 4's own shipped `feature.yaml` runs exactly one `generation`
+  status ahead of its gates (already named above), so the command edge
+  — `document-review`, when ORC-75 builds it — has exactly one node to
+  read `body_sha` off; the general node(s)-per-gate mapping stays
+  exactly as open as the rest of this entry already leaves it, not a
+  second deferral.
+
+  **This does not reopen §7.16's "what a passed gate pins."** `body_sha`
+  rides the *command*, compared and discarded before the aggregate
+  decides whether to emit; `GateApproved`/`GateDeclined` gain no new
+  field and still carry no content-identity of their own, so the
+  content-pinning question this entry already leaves to Phase 7 (above)
+  is exactly as open as it was. A command-side compare token and an
+  event-side content pin are different mechanisms answering different
+  questions, the same distinction `since_sequence` already draws on
+  `DeclineGate` — a position the check ran against, not a claim about
+  content.
+
+  **Verify by breaking it, per orchestration's own rule for a guard
+  rather than a feature**: two probes, not one. Revert `gate_resolutions`'
+  compare and watch a regression test exercising two racing
+  `ApproveGate`s (or an `ApproveGate` racing a `DeclineGate`) fail;
+  separately, revert the `body_sha` compare and watch a test exercising
+  decline → regenerate → stale approve fail — the exact sequence design
+  review's own finding walks. Read each failure, put each compare back,
+  record both probes in the commit message. Dev's, at implementation
+  time; recorded here so the expectation travels with the decision
+  rather than being invented at review time.
+
+- **Unblocking a limit-class failure gains a real command — a human
+  action, not only a regeneration retry** (ORC-114, design pass).
+  `Catapult.Delivery.FeatureLifecycle.Projection`'s own moduledoc
+  records the gap precisely: "a block clears only via a subsequent
+  `DraftCommitted` retry — never a human action." `docs/ui-spec.md`
+  §3.1's `my-queue` names **unblock** as one of exactly three actions
+  the plane ever asks a human for, and J4 (§4) is "`board` (blocked,
+  grouped under origin) → `ticket` → return to origin, or pick an
+  earlier status from the prefix" — a real write, with nothing in
+  `lib/catapult/engine/commands/` to dispatch.
+
+  `Catapult.Engine.Commands.ResumeFlow{project_id, flow_id, to,
+  actor_id}` → `Catapult.Engine.Events.FlowResumed{project_id, flow_id,
+  to, actor_id}`, both v1, dispatched through the same router and
+  landing on the same per-project aggregate as every other command
+  here — an original protocol fact ("a human chose to resume this
+  ticket at this position") nobody else in the log records, the
+  identical ground `GateDeclined`/`CommentPosted` already stand on.
+  `to` is the chosen return position (`Sequence.position()`-shaped,
+  `systems/delivery.md`); validating it against the effective-sequence
+  prefix up to and including the ticket's own `blocked_origin` — "never
+  forward" (`docs/ui-spec.md` §6) — is the command edge's job, the
+  identical division `gate`/`throwback_to` already draw: bundle- and
+  projection-derived content is checked before dispatch, never inside
+  `execute/2`.
+
+  **The compare-and-swap is the same mechanism as the gate fix above,
+  scaled down further: a gate has one precondition; being blocked has
+  one too.** The aggregate gains a third project-wide field, `blocked:
+  boolean`, `false` by default. `apply/2` for `RunFailed` sets it `true`
+  — unconditional, since every `RunFailed` this system's own event
+  already is limit-class by construction (its moduledoc: "a dispatched
+  agent run failed on a limit-class error"), so there is no second
+  failure class to distinguish here the way there was for a gate's
+  disposition. `apply/2` for `FlowResumed` and for `DraftCommitted` both
+  set it `false` — a retry and a human resume clear the same fact, the
+  identical pair `Projection.commit/2` already clears on the delivery
+  side. `execute/2` for `ResumeFlow` rejects unless `blocked == true`:
+  `{:error, {:engine_flow_not_blocked, flow_id: cmd.flow_id}}` — a
+  stale resume attempt (someone else already resumed it, or a retry
+  already landed) reads identically to "never was blocked," which is
+  enough for the rejection to be correct without the aggregate having
+  to retain who resolved it, the same level of detail the gate fix
+  settled on above. Project-wide, not flow-scoped, for the identical
+  reason and the identical Phase 7 revisit condition as `gate_resolutions`
+  and `comment_count` before it: `RunFailed` carries no `flow_id` either.
+
+  `Catapult.Engine.Router` gains `ResumeFlow` in its dispatch list,
+  beside `ApproveGate`/`DeclineGate`, with the same comment marking it
+  part of this ticket's edge. Role authorization (does this `actor_id`
+  own the blocked ticket's origin status) is left exactly where every
+  other gate-adjacent command already leaves it — identity's, Phase 7.
+
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event

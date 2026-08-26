@@ -17,6 +17,7 @@ What changed at the re-approved upstream scope: {{ change_summary }}
 Emit a single `<propagation-plan>` block:
 
     <propagation-plan>
+      <argument>...</argument>
       <change_summary>...</change_summary>
       <scope>...</scope>
       <resolved>true</resolved>
@@ -24,6 +25,9 @@ Emit a single `<propagation-plan>` block:
 
 # Rules
 
+* `<argument>` is one or two sentences stating why this propagation
+  exists — the ticket surface's own headline. Not a restatement of
+  `<change_summary>`.
 * `<change_summary>` restates what materially changed at the upstream
   scope — not a diff, a plain-language statement of what a downstream
   reader needs to know before regenerating against it.

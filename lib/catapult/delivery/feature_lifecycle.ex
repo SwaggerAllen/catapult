@@ -70,6 +70,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   alias Catapult.Engine.Events.DraftCommitted
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
   alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.RunFailed
@@ -124,6 +125,10 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   end
 
   def interested?(%GateDeclined{project_id: project_id, flow_id: flow_id}) do
+    {:continue, identity(project_id, flow_id)}
+  end
+
+  def interested?(%FlowResumed{project_id: project_id, flow_id: flow_id}) do
     {:continue, identity(project_id, flow_id)}
   end
 
@@ -189,6 +194,17 @@ defmodule Catapult.Delivery.FeatureLifecycle do
       {:error, _reason} ->
         pm
     end
+  end
+
+  # `to_kind`/`to_gate` already name a resolved `Sequence.position()` —
+  # the command edge that built `ResumeFlow` resolved it before
+  # dispatch (`systems/engine.md`'s own entry) — so unlike `GateDeclined`
+  # above, this needs no workflow load to fold, only the same
+  # kind/gate-pair reconstruction `status/1` below already does for the
+  # store's own flattened columns.
+  def apply(%__MODULE__{} = pm, %FlowResumed{to_kind: to_kind, to_gate: to_gate}) do
+    position = unflatten_position(to_kind, to_gate)
+    pm |> update_projection(&Projection.resume(&1, position)) |> persist()
   end
 
   def apply(%__MODULE__{} = pm, %DraftCommitted{}, %{stream_version: sequence}) do
@@ -271,6 +287,19 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   defp position_columns(nil), do: {nil, nil}
   defp position_columns({:kind, kind}), do: {to_string(kind), nil}
   defp position_columns({:gate, name}), do: {nil, name}
+
+  # The reverse of `position_columns/1`, for `FlowResumed`'s own
+  # flattened `to_kind`/`to_gate` pair (`Catapult.Engine.Events
+  # .FlowResumed`'s own moduledoc: never both set, never both nil).
+  # `String.to_existing_atom/1`, never `to_atom/1`, the identical
+  # discipline `Sequence.to_position/1` already takes — a `to_kind` on
+  # this event only ever came from a `Sequence.position()`'s own
+  # `{:kind, atom}` the command edge resolved from the closed
+  # `Catapult.Dsl.SystemStatus` set, already in the atom table.
+  defp unflatten_position(to_kind, nil) when not is_nil(to_kind),
+    do: {:kind, String.to_existing_atom(to_kind)}
+
+  defp unflatten_position(nil, to_gate) when not is_nil(to_gate), do: {:gate, to_gate}
 
   ## Nothing to dispatch in Phase 4 (`systems/delivery.md`): "what
   ## advancing past a gate on a human's word dispatches to stays open,

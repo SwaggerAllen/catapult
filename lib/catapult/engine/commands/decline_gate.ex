@@ -2,7 +2,8 @@ defmodule Catapult.Engine.Commands.DeclineGate do
   @moduledoc """
   A human's throwback on a declared workflow gate (v5 §7.16,
   `systems/engine.md`'s ORC-34 design pass, corrected on design
-  review). Aggregate id: `project_id`.
+  review; given a compare-and-swap at ORC-114). Aggregate id:
+  `project_id`.
 
   `gate`, `throwback_to` and `flow_id` are validated at the command
   edge against the loaded `Catapult.Dsl.Workflow.t()` before dispatch
@@ -22,8 +23,29 @@ defmodule Catapult.Engine.Commands.DeclineGate do
   .GateComments.any_since_last_resolution?/2`'s retired store read moved
   here) — no free-text override, per `docs/ui-spec.md` §3.2's throwback
   action having a target and nothing else.
+
+  `node_id` and `body_sha` are `ApproveGate`'s own new pair (ORC-114) —
+  see its moduledoc for why: a decline against a body the aggregate has
+  already moved past is exactly as stale as an approval against one.
   """
 
-  @enforce_keys [:project_id, :flow_id, :gate, :throwback_to, :since_sequence]
-  defstruct [:project_id, :flow_id, :gate, :throwback_to, :since_sequence, :actor_id]
+  @enforce_keys [
+    :project_id,
+    :flow_id,
+    :gate,
+    :throwback_to,
+    :since_sequence,
+    :node_id,
+    :body_sha
+  ]
+  defstruct [
+    :project_id,
+    :flow_id,
+    :gate,
+    :throwback_to,
+    :since_sequence,
+    :node_id,
+    :body_sha,
+    :actor_id
+  ]
 end

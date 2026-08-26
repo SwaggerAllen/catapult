@@ -15,6 +15,7 @@ defmodule Catapult.Delivery.Store do
   alias Catapult.Delivery.Store.FeaturePublication
   alias Catapult.Delivery.Store.ProjectBinding
   alias Catapult.Engine.Store.Flow, as: EngineFlow
+  alias Catapult.Engine.Store.Node, as: EngineNode
   alias Catapult.Repo
 
   ## Project bindings
@@ -76,14 +77,30 @@ defmodule Catapult.Delivery.Store do
 
   ## Draft bodies (the review-tier `draft` variable's own cache — see the owning migration)
 
+  @doc """
+  Shift-then-write, one previous body rather than a log (ORC-114,
+  `systems/delivery.md`): the row's own current `body`/`body_sha` (pre-
+  conflict — absent on a first commit) become `previous_body`/
+  `previous_body_sha`, then the incoming values become the new current
+  ones — one atomic upsert, not a separate read.
+  """
   @spec put_draft_body(binary(), binary(), String.t(), String.t()) :: :ok
   def put_draft_body(project_id, node_id, body, body_sha) do
+    on_conflict =
+      from(d in DraftBody,
+        update: [
+          set: [
+            previous_body: d.body,
+            previous_body_sha: d.body_sha,
+            body: ^body,
+            body_sha: ^body_sha
+          ]
+        ]
+      )
+
     %DraftBody{project_id: project_id, node_id: node_id}
     |> Ecto.Changeset.change(%{body: body, body_sha: body_sha})
-    |> Repo.insert!(
-      on_conflict: {:replace, [:body, :body_sha]},
-      conflict_target: [:project_id, :node_id]
-    )
+    |> Repo.insert!(on_conflict: on_conflict, conflict_target: [:project_id, :node_id])
 
     :ok
   end
@@ -93,6 +110,15 @@ defmodule Catapult.Delivery.Store do
     case Repo.get_by(DraftBody, project_id: project_id, node_id: node_id) do
       nil -> nil
       %DraftBody{body: body} -> body
+    end
+  end
+
+  @doc "The prior committed body for `node_id`, or `nil` on a first pass — `document-review`'s own diff source (ORC-114)."
+  @spec get_previous_draft_body(binary(), binary()) :: String.t() | nil
+  def get_previous_draft_body(project_id, node_id) do
+    case Repo.get_by(DraftBody, project_id: project_id, node_id: node_id) do
+      nil -> nil
+      %DraftBody{previous_body: previous_body} -> previous_body
     end
   end
 
@@ -184,6 +210,15 @@ defmodule Catapult.Delivery.Store do
     |> Repo.all()
   end
 
+  @doc "Every dispatch run correlated to `flow_id` so far, oldest first — `ticket`'s own linked-runs list, beside `get_feature_publication/2`'s linked PR (ORC-114)."
+  @spec dispatch_runs_for_flow(binary(), binary()) :: [DispatchRun.t()]
+  def dispatch_runs_for_flow(project_id, flow_id) do
+    DispatchRun
+    |> where([r], r.project_id == ^project_id and r.flow_id == ^flow_id)
+    |> order_by([r], asc: r.inserted_at)
+    |> Repo.all()
+  end
+
   ## Composition proposals (ORC-104, systems/delivery.md)
 
   @doc """
@@ -238,5 +273,46 @@ defmodule Catapult.Delivery.Store do
       status_kind: l.status_kind
     })
     |> Repo.all()
+  end
+
+  ## The work surface's own ticket listing (ORC-114, systems/delivery.md)
+
+  @doc """
+  Every open flow on `project_id`, ticket-listing shape — `board`'s
+  lanes and `my-queue`'s three action kinds place a ticket from this
+  one project-scoped read, not two separate ones. Resolves this
+  ticket's own open question in favor of the query landing here and
+  the screens staying ORC-75's.
+
+  `argument` is `fields["argument"]` off the node at the flow's own
+  `entry_node_id` (`docs/dsl-syntax.md`'s reserved `fields:` name) —
+  `nil` until a tier declares it, the same unset-is-empty behavior
+  `prior_review` already relies on.
+  """
+  @spec tickets_for_project(binary()) :: [map()]
+  def tickets_for_project(project_id) do
+    EngineFlow
+    |> where([f], f.project_id == ^project_id and f.status == :open)
+    |> join(:left, [f], l in FeatureLifecycle, on: l.project_id == f.project_id and l.id == f.id)
+    |> join(:left, [f], n in EngineNode,
+      on: n.project_id == f.project_id and n.id == f.entry_node_id
+    )
+    |> order_by([f, _l, _n], asc: f.opened_sequence, asc: f.id)
+    |> select([f, l, n], %{
+      id: f.id,
+      ticket_ref: f.ticket_ref,
+      flow_name: f.flow_name,
+      entry_node_id: f.entry_node_id,
+      status_kind: l.status_kind,
+      status_gate: l.status_gate,
+      blocked_origin_kind: l.blocked_origin_kind,
+      blocked_origin_gate: l.blocked_origin_gate,
+      fields: n.fields
+    })
+    |> Repo.all()
+    |> Enum.map(fn row ->
+      argument = row.fields && Map.get(row.fields, "argument")
+      row |> Map.delete(:fields) |> Map.put(:argument, argument)
+    end)
   end
 end

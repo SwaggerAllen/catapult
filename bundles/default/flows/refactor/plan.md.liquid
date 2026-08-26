@@ -18,6 +18,7 @@ The user's description of the structural change: {{ description }}
 Emit a single `<refactor-plan>` block:
 
     <refactor-plan>
+      <argument>...</argument>
       <scope>...</scope>
       <rationale>...</rationale>
       <resolved>true</resolved>
@@ -25,6 +26,10 @@ Emit a single `<refactor-plan>` block:
 
 # Rules
 
+* `<argument>` is one or two sentences stating why this work exists —
+  the ticket surface's own headline. Distinct from `<rationale>`,
+  which argues the reshape's technical justification in full;
+  `<argument>` is the plain-language case for doing it at all.
 * `<scope>` names, concretely, which components, dependencies, or
   responsibility assignments this change touches — specific aliases
   and ids where the user's description names them, not a restatement

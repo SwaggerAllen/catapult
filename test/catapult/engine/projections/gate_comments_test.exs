@@ -92,7 +92,14 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
     assert :ok = open_flow!(project_id, "f1", "n1")
     assert :ok = comment!(project_id, "n1", "sha1")
 
-    approve = %ApproveGate{project_id: project_id, flow_id: "f1", gate: "ux-review"}
+    approve = %ApproveGate{
+      project_id: project_id,
+      flow_id: "f1",
+      gate: "ux-review",
+      node_id: "n1",
+      body_sha: "sha1"
+    }
+
     assert :ok = Router.dispatch(approve, consistency: :strong)
 
     assert GateComments.last_resolution_sequence(project_id, "ux-review") != nil
@@ -109,7 +116,9 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "n1",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
@@ -129,7 +138,9 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "n1",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
@@ -139,7 +150,14 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
     assert :ok = commit!(project_id, "n1", "sha2")
     assert :ok = comment!(project_id, "n1", "sha2")
 
-    approve = %ApproveGate{project_id: project_id, flow_id: "f1", gate: "ux-review"}
+    approve = %ApproveGate{
+      project_id: project_id,
+      flow_id: "f1",
+      gate: "ux-review",
+      node_id: "n1",
+      body_sha: "sha2"
+    }
+
     assert :ok = Router.dispatch(approve, consistency: :strong)
 
     second = GateComments.last_resolution_sequence(project_id, "ux-review")

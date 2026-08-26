@@ -39,6 +39,7 @@ defmodule Catapult.Engine.Router do
   alias Catapult.Engine.Commands.RecordFlagSetFlip
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.RequestFlagSetFlip
+  alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Commands.WriteReview
 
   @aggregate Module.concat([Catapult, Engine, Aggregate])
@@ -76,7 +77,11 @@ defmodule Catapult.Engine.Router do
       # same per-project stream as every command above.
       PostComment,
       ApproveGate,
-      DeclineGate
+      DeclineGate,
+      # ORC-114's unblock edge: the human resume `FeatureLifecycle
+      # .Projection`'s own moduledoc names as missing. Same aggregate,
+      # same router, same per-project stream as every command above.
+      ResumeFlow
     ],
     to: @aggregate
   )
