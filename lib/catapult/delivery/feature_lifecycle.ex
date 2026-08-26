@@ -52,6 +52,22 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   workflow is — see above). `entry_node_id` is recorded from
   `FlowOpened` and persisted for a later pass to build on; the skip
   rule itself is not implemented here.
+
+  **`@derive Jason.Encoder` and the `JsonDecoder` implementation below**
+  (ORC-120): `Commanded.ProcessManagers.ProcessManagerInstance` calls
+  `persist_state/2` after every handled event, unconditionally, which
+  round-trips this struct through `Commanded.Serialization
+  .JsonSerializer` the identical way every event here already does —
+  and without an encoder, `Jason.encode!/1` raises on the first write
+  against a real (non-`InMemory`) event store, not on `mix test`
+  (`config/test.exs`'s adapter never serializes state at all). Encoding
+  the nested `projection` field is `Projection`'s own `Jason.Encoder`
+  implementation's job (see its moduledoc); decoding it back is not —
+  `JsonSerializer.deserialize/2` builds this struct via `struct/2`
+  before any decoder protocol runs, which leaves `projection` a bare
+  atom-keyed map rather than a reified `Projection.t()` unless this
+  module's own `JsonDecoder` implementation calls `Projection
+  .from_wire/1` on it, below.
   """
 
   use Commanded.ProcessManagers.ProcessManager,
@@ -76,6 +92,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   alias Catapult.Engine.Events.RunFailed
 
   @enforce_keys [:project_id, :flow_id]
+  @derive Jason.Encoder
   defstruct [:project_id, :flow_id, :entry_node_id, :flow_name, :projection]
 
   @type t :: %__MODULE__{
@@ -333,4 +350,17 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   end
 
   def status(%Catapult.Delivery.Store.FeatureLifecycle{}), do: nil
+end
+
+defimpl Commanded.Serialization.JsonDecoder, for: Catapult.Delivery.FeatureLifecycle do
+  alias Catapult.Delivery.FeatureLifecycle
+  alias Catapult.Delivery.FeatureLifecycle.Projection
+
+  @doc "See `FeatureLifecycle`'s own moduledoc entry: reifies the bare atom-keyed map `JsonSerializer.deserialize/2`'s `struct/2` call leaves in `projection` back into a `Projection.t()`."
+  def decode(%FeatureLifecycle{projection: projection} = pm)
+      when is_map(projection) and not is_struct(projection) do
+    %{pm | projection: Projection.from_wire(projection)}
+  end
+
+  def decode(%FeatureLifecycle{} = pm), do: pm
 end
