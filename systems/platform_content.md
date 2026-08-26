@@ -504,7 +504,10 @@ loader tickets carry `system:core-dsl`.
   it to an empty list — that module's own moduledoc and
   `systems/generation.md`'s ORC-34 entry give the reason, and this pass
   leaves both unchanged. But Solid follows ordinary Liquid truthiness
-  (`deps/solid/lib/solid/unary_condition.ex`: only `nil` and `false` are
+  (`deps/solid/lib/solid/unary_condition.ex` — the ticket cites
+  `.../tags/unary_condition.ex`, a path that doesn't exist in this
+  dep; the file is at the top level of `lib/solid`, and this entry
+  corrects it rather than silently diverging: only `nil` and `false` are
   falsy), so every `{% if feedback %}` guard that leans on that omission
   to stay closed — `vocab.md.liquid`, `ref.md.liquid`,
   `subcomparch.md.liquid`, `sysarch.md.liquid`, `comparch.md.liquid`
@@ -528,6 +531,24 @@ loader tickets carry `system:core-dsl`.
   edit a `lib/catapult/generation/**` contract `systems/generation.md`
   already documents at length as deliberate, to solve a problem the
   template-side guard above closes without touching engine code at all.
+  The fix's correctness rests on three Solid behaviours stated in prose
+  above and asserted nowhere in the suite — `StandardFilter.size/1`'s
+  nil-to-`0` catch-all, `BinaryCondition.eval/1`'s nil-vs-number `false`,
+  and `unary_condition.ex`'s two-value falsy set — which is the same
+  shape of defect this ticket was filed about, one level in. **Dev adds
+  one render test covering all six guarded templates against three
+  `feedback` shapes** — omitted, `[]`, and populated — extending the
+  existing homes rather than opening new ones:
+  `test/catapult/generation/context_assembly_test.exs` already asserts
+  the omitted and populated shapes for `vocab.md.liquid`
+  (`ContextAssemblyTest`'s own moduledoc); `test/catapult/generation
+  /integration_test.exs` already renders the real `bundles/default`
+  bundle end to end. The `[]` shape is the one to add rather than
+  extend: nothing in `ContextAssembly` produces it today, which is
+  exactly why a break there would go unnoticed, and it is the case that
+  turns this entry's three prose claims about Solid into three the
+  suite holds instead of three the next reader has to re-verify by
+  reading `deps/solid` again.
 
 ## Initial vs target
 
