@@ -1,7 +1,16 @@
 # The gate set (docs/conventions.md §2), in place before the pipeline
 # per the build plan: reconciliation trusts green, so the gates predate
-# the work. Name is load-bearing later: orchestration's sweep stub
-# triggers on this workflow's completion.
+# the work. The name below is load-bearing, and no longer where it
+# used to be: the sweep no longer triggers on this workflow's
+# completion (`pipeline-sweep.yml` carries `workflow_dispatch` only).
+# The metronome Worker does the waking, and it wakes only on a
+# `workflow_run` whose name matches the project's CI workflow —
+# without that filter a sweep's own completion would wake the next
+# one, forever. So the string still has to match the `ciWorkflow` on
+# this project's entry in the Worker's PROJECTS table, which is
+# optional and defaults to `ci` — renaming this workflow without
+# setting it there stops the CI hop waking anything, and the ticket
+# then waits on the hourly beat rather than failing anywhere.
 #
 # PRs into main only (orchestration 423a636's rule): push + bare
 # pull_request ran every commit twice for the same verdict, and branch
