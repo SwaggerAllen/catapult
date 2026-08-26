@@ -62,7 +62,7 @@ design gates pass.
   still land only through `Dispatch`'s result-report path into the
   plane's own store, never written to the bound repo, and reset does
   not make `input.<role>` resolve — that's intake, Phase 5, ORC-12
-  (`docs/non-goals.md`'s ORC-10 entry). What it buys today is an
+  (`systems/generation.md` carries what that means for assertions). What it buys today is an
   author and a rebuild path for a fixture repo, not test determinism
   or seeded generation content.
 - **`DELIVERY_GITHUB_TOKEN` gains `Contents: read and write`, pulled
@@ -404,8 +404,8 @@ design gates pass.
   alone, with no network** (ORC-31, design pass). It lives beside the
   rest of this system's suite, under this doc's own file map
   (`test/catapult/delivery/`) — no separate ring or `live` directory,
-  the same reasoning `docs/non-goals.md`'s no-`test/live/`-directory
-  entry already gives for a different tag. It carries no `:live` tag
+  the same reasoning `systems/foundation.md`'s live suite already
+  gives for a different tag. It carries no `:live` tag
   itself: nothing in it crosses a real network boundary, so the ring
   is an ordinary async suite member, not a live one. Populating this
   ring is scope, not scaffolding — the same standing principle
@@ -1130,7 +1130,7 @@ design gates pass.
   for a comment to be wrong at yet beyond node-vs-node inside one
   ticket — and even that is a human correcting their own lane, not the
   machine inferring one: the plane makes no model calls
-  (`docs/non-goals.md`), so nothing here reads a comment's prose to
+  (conventions §11), so nothing here reads a comment's prose to
   decide it belongs elsewhere. `CommentPosted`'s `node_id` is
   reassignable by an explicit author action recorded as an ordinary
   edit to that fact, never a plane-side inference; harvesting always

@@ -75,6 +75,26 @@ one that bans copyleft for procurement reasons rather than product
 ones, gets the same three classes and writes a different policy over
 them.
 
+**The vocabulary is closed at three.** The "ours versus proprietary"
+split that the `:service` rows below turn on is read off the declared
+identifier rather than a fourth class, because SPDX already spells "no
+listed license applies" as `LicenseRef-<id>`. A fourth class, or a
+`proprietary:` boolean riding alongside, would be a second place to
+state a fact the identifier already states, and two places that can
+disagree is how a check ends up enforcing the wrong rule with complete
+confidence. Reopening it would take a real licensing consequence
+turning on something other than conveyance, network use or neither — a
+fourth way code reaches people, not a fourth adjective for the same
+three.
+
+**Neither fact is defaulted, and the pair cannot be half-defaulted.**
+There is no license a component "probably" carries, and a defaulted
+class paired with an absent identifier makes the component's
+self-check a verdict about nothing. The deciding reason is the other
+one: a default makes every project's audit print a policy verdict
+nobody asserted. An undeclared component is reported at audit time
+instead, alongside every other structural absence.
+
 The policy, which is ours and which another project would replace:
 
 | `distribution` | our code | dependencies |
@@ -83,6 +103,30 @@ The policy, which is ours and which another project would replace:
 | `:service`, ours | AGPL-3.0-only | anything — we offer source, so nothing a dependency asks for is a cost we are not already paying. |
 | `:service`, proprietary (hosted tier) | proprietary (`LicenseRef-*`) | **the same list**, and for its own reason: AGPL §13 would oblige us to offer source to our own users, defeating the point of the component being closed. Not "no copyleft" — "everything except copyleft" cannot be enumerated, so a denylist would have the check deciding the copyleft-ness of identifiers it has never seen, which is a guess running in the permissive direction. `MPL-2.0` and `EPL-2.0` are therefore outside this row until a project's list says otherwise, which is a line in one `mix.exs` rather than a release of the check. |
 | `:internal` | anything | anything |
+
+**Two rulings about the plane itself**, each decided rather than
+derived from that table. The root `mix.exs` carries **no `package:`
+block**, and none is ever added to arm the check: the symmetry with
+`components/substrate` — which states `package: [licenses:
+["Apache-2.0"]]` precisely *because* that is the arming — is a trap.
+Adding one beside the plane's policy makes `subjects/1` count the
+project itself as a `:distributed` subject, arms the entire plane
+closure, and fails on exactly one dependency. One override line from
+green is what makes it dangerous; a wall of failures would have been
+self-correcting. What the block asserts is false besides — `package:`
+means somebody fetches this, and the plane is published nowhere. It
+would take the plane genuinely being published as a package, which is
+a different product than this document describes, to change that.
+
+And the plane is **`:service`, never `:internal`**. The reading that
+gets to `:internal` is not silly — the plane conveys nothing and we
+operate it — which is why the answer is written down rather than left
+to be re-derived. The plane is reached over a network by people who
+are not its operator: the sole case `:service` exists to name, and the
+entire reason this document chose AGPL-3.0-only over plain GPL. §13 is
+the provision that makes copyleft mean anything for this shape of
+program, and declaring `:internal` would assert that it does not reach
+the one program it was chosen for.
 
 **Why a declaration is enough, without a path to back it up.** The
 objection to declaring is that a declaration can be wrong where a
@@ -93,6 +137,18 @@ documented surface, reviewed like any other declaration and visible
 to anyone reading the architecture. A wrong class is therefore
 wrong *in public*, which is the property the path rule was providing
 and the only one it was providing.
+
+Outside this repository the path rule is not merely weaker but wrong.
+A check that picks its subjects by walking `components/*` knows where
+*this* repository keeps its components, and it ships into customer
+trees where that glob means nothing and where a permissive-deps
+requirement is not Catapult's to impose. The sanctioned form is the
+declaration a project already makes about itself — `package:
+[licenses: [...]]`, checked when it names something the allowlist
+contains and inert when it names nothing, read alongside a component's
+own `licensing/0`. What makes that safe rather than merely tidy is
+that hex already demands it: `mix hex.build` refuses a package with no
+`licenses`, so nothing that ships can forget to arm the check.
 
 ## The policy, with its enforcement ladder
 
@@ -147,6 +203,30 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
   present-but-unrecognized hex metadata spelling — that residue is
   what the project's own `allow:` list is for.
 
+  **The check attributes nothing per component.** A project's policy
+  is the strictest among every subject it composes; it does not work
+  out which component pulled `plug` in. mix has no per-component
+  dependency declarations, so any attribution would be a call-graph
+  guess made offline, and its errors would run permissive — the one
+  direction this check may not fail in. The shared-tree fact is
+  simply true anyway: every dependency in a project is available to
+  every component in it, whatever brought it in. It would take a real
+  per-component dependency declaration in the language to revisit,
+  which is not a thing mix has and not a thing to build here.
+
+  **Enforcement lands in CI and nowhere else** (ORC-16). The composer
+  validates that `licensing/0` is well-formed, exactly as it does
+  every other declaration and for the same reason — it needs no
+  environment — but it never holds the allowlist and never decides
+  whether a license passes. The composer runs at boot as well as
+  under the audit, so an allowlist there means a production node
+  refusing to start because a transitive dependency's license string
+  is unrecognized: a catastrophic response to a question with no
+  runtime consequence at all. The severity that fits a legal fact is
+  CI red. The failure has to land where a human is already reading,
+  not where a deploy is already halfway out, and there is no license
+  question whose answer changes what a running node should do.
+
 ## Contributions
 
 **No outside contribution is accepted without a signed CLA** —
@@ -176,6 +256,16 @@ terms are posted.
 - Trademark: the name and marks are not licensed by any of the
   above; a trademark policy is wanted by first release (the AGPL
   fork keeping the name is the scenario to preclude).
+- **Attribution in our own files is unanswered, deliberately**
+  (deferred at ORC-16). The dependency inventory above answers what
+  the *dependencies* impose; what carries attribution for our own
+  source — a header in every file, or a `NOTICE` at each project
+  root — is a separate decision with a real cost either way, and
+  taking it now would stamp thousands of lines against a posture
+  counsel has not reviewed. The revisit condition is dated rather
+  than open: the repository opening to outside contributions, which
+  is when the `LICENSE` texts and the CLA above land and when the
+  attribution question has to be answered anyway.
 - **Dependency licenses inside a proprietary `:service` component.**
   The table above bans AGPL there on the reasoning that §13 obliges
   an offer of source to network users, which is the same argument we

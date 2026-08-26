@@ -71,6 +71,21 @@ seeds release task.
   the only one with a consumer, a boot half, and error messages worth
   their specificity, and `Catapult.Config` keeps them. Absorbing it
   would trade a good report for a uniform one.
+
+  **Two of v5 §2.2's names are outside the roster on purpose, for
+  different reasons** (ORC-22). There is no `docs/0` callback and
+  never will be: `docs/` is a directory whose path derives from the
+  slug (conventions §3), so there is nothing to declare and nothing
+  that can collide, and a callback returning a path the spine already
+  fixes is a derivation written twice — the failure the spine table
+  exists to prevent. `cli/0` is out on a narrower argument, and a
+  priced one: it is `api_surface/0`'s shape with an escript composer
+  instead of a router, and the retrofit cost ORC-22 pays down is the
+  cost of components having already declared their names *somewhere
+  else*. No component can declare a CLI command anywhere today,
+  because there is no escript to declare it to, so nothing shadows it
+  and nothing is deferred except a table row. The escript's arrival
+  is what adds that row.
 - **The address is positional, the policy is opts, and an opt is not
   optional for sitting in a keyword list.** Every entry carrying more
   than a name follows `config/0`'s `{key, name, opts}` grain:
@@ -334,6 +349,21 @@ seeds release task.
   for. The accepted cost is that values are not visible from a remote
   console without calling the accessor.
 
+  **Load-once is the rule, not merely the current implementation**
+  (ORC-4). Config is read once, before the root supervisor starts, and
+  does not change until the next boot: no watcher, no reload signal,
+  no swapping a value on a running node. A value that can change under
+  a running process is a value every reader must re-read and no reader
+  may hold — a distributed-systems problem bought in exchange for
+  redeploying, and this platform's deploy model is one environment
+  with autodeploy on green, so the redeploy is the cheap thing here.
+  It is the same boundary the flag machinery is refused at
+  (`docs/non-goals.md`): the cases that actually want live change are
+  kill switches and rollouts, which are named non-goals rather than
+  features waiting on a config watcher. Load-once is also what makes
+  `:persistent_term` correct and what lets the boot report be the only
+  report.
+
   **The store is keyed by slug, not by module** —
   `Catapult.Config.fetch!(:foundation, :health_port)` — settled at
   implementation (ORC-4). The slug is the spine every other claimed
@@ -449,7 +479,7 @@ seeds release task.
   remote is best at, and "unreachable" is exactly the `{:error, _}`
   the file source proved was load-bearing. What a remote cannot do
   through this port is push, and that limitation is not the port's to
-  fix. `docs/non-goals.md` records load-once; the thing actually
+  fix. Load-once is the rule (above); the thing actually
   standing between us and watching is the accessor's contract —
   `:persistent_term`, written once before the supervisor starts, read
   by callers who may hold what they read. A source pushing into a
@@ -1736,11 +1766,123 @@ build work at all.
   over the project default with `Map.merge`, so a boundary declaring
   any `check:` key **replaces** the apps list rather than extending it.
   There are zero such boundaries today, so no check is built for it —
-  building enforcement for a pattern with no subject is what
-  `docs/non-goals.md` refuses in three other places. The revisit
+  building enforcement for a pattern with no subject is what this
+  document refuses in three other places ("What a check may infer"). The revisit
   condition is the first `use Boundary` in this tree carrying a
   `check:` key, which is an AST predicate of exactly the shape
   `Catapult.Audit.Source` already serves.
+
+### What a check may infer (the standing limit)
+
+Every check in `mix catapult.audit` decides on facts a parser can see
+in the file in front of it. Where an honest answer would need the
+value of a variable, the check reports the call it cannot resolve
+rather than guessing, and the residue is stated rather than covered.
+One property is the reason, and it is why all of the rulings below
+came out the same way: **a shallow analysis reported as a guarantee is
+worse than a stated gap.** A check that misses is read as coverage,
+and a run that passed without checking anything is the exact defect
+these checks are filed about.
+
+Five requests for inference have been refused on that rule, recorded
+so the next pass reaching for one finds the answer rather than
+re-deriving it.
+
+- **No taint analysis for secret config values** (ORC-21). v5 §2.2
+  asks that secret-flagged values never appear in logs or error
+  payloads, and the tempting reading follows a value from the accessor
+  to a `Logger` call. A value bound to a variable, put in a map, or
+  passed to a helper is out of reach of any check that is also free of
+  false positives. The wrapper type holds the property everywhere at
+  once — a redacting `Inspect`, an explicit unwrap — and the audit
+  keeps only the exact one-hop residue: an unwrap inside a logging
+  call. If the wrapper is ever found insufficient the answer is a
+  narrower unwrap surface, not a deeper analysis.
+- **No dataflow for a computed config key**, and no reading a dynamic
+  `fetch!/2` as a wildcard (ORC-48). The cheaper alternative is the
+  one worth naming, because it is what the next pass will reach for:
+  treat `fetch!(:foundation, key)` as reading *everything*
+  `:foundation` declares, so nothing false-positives. That is a whole
+  slug's worth of coverage switched off by a call that says so
+  nowhere, in a check whose entire subject is dead declarations — the
+  silence is the defect, not the strictness. Reporting the unjoinable
+  call keeps the run red and names the cause, the same trade as
+  reporting an unparseable file instead of skipping it. A legitimate
+  computed read would be an argument for a second accessor that
+  declares what it may reach, never for the check guessing.
+- **No destination detection on a model call** (ORC-52): nothing reads
+  a URL, a hostname or a provider name out of an HTTP call's
+  arguments. At AST grade the call is `:httpc.request(:post, {url,
+  ...}, [], [])`, and whether `url` reaches a model provider is data —
+  decided at runtime, normally read from configuration. Matching a
+  provider hostname in a literal catches a spelling nobody writes and
+  reports clean on every real instance of the thing the check is named
+  after. What is built instead bans the *transport*: no plane module
+  calls a pure Erlang HTTP client (`systems/foundation.md`), which is
+  decidable, broader than conventions §11, and exact. The destination
+  is not a static fact and no amount of check will make it one.
+- **No catalogue of the ecosystem's HTTP clients** to close the Elixir
+  half (ORC-52). `check: [apps: [...]]` checks the applications it
+  names, so an Elixir HTTP client is unchecked until it is named there
+  — a real residue, carried in `systems/foundation.md`'s own sentence
+  rather than left implied. A check that knows `:tesla`, `:finch`,
+  `:mint`, `:httpoison` and the rest has a coverage list of the world
+  maintained by us, and a failure mode of silence for every client not
+  on it. The existing mechanism is better than the check would be: an
+  Elixir client cannot be called without being a dependency, a
+  dependency is a v5 §2.8 named decision visible in the same diff, and
+  the `check:` line belongs in that diff. This is the one half of
+  §11's enforcement where the thing being added announces itself.
+- **No reader-identity rule on config reads** (ORC-48) — the check
+  does not police *who* reads a key, narrowing ORC-4's own phrasing
+  out loud rather than quietly. Deciding that a call site belongs to a
+  component means a path→component map inside the task, which is the
+  layout knowledge this task refuses at its front door — worse here
+  than in the `components/*` case, because a generated project's spine
+  puts components wherever it likes and the map would be wrong rather
+  than merely absent. The substantive reason stands alone anyway:
+  `Catapult.Config.fetch!/2` takes a slug *precisely* so a reader can
+  name a value it does not own (`Catapult.Repo` reading
+  `:foundation`'s database URL is the tree's own example), and whether
+  a cross-component read is acceptable coupling is a boundary question
+  the boundary compiler already answers. The check keeps the half that
+  is a registry fact: a key nobody declared. Ownership of a *call
+  site* is not a fact the config registry holds.
+
+The same rule decides where an escape may exist, and twice the answer
+has been nowhere.
+
+- **No `catapult:allow` on either direction of the declared↔read
+  check** (ORC-48). `Catapult.Audit.Declarations` already refuses the
+  tag for what it reports — the escape excuses a *line* the parser
+  found, and a dead declaration is the absence of one — but the
+  unjoinable-read direction does name a line, so the exception is
+  refused on its own merits rather than inherited. An allow tag there
+  would silently re-arm the false-dead report the suppression exists
+  to prevent: it quiets one line by making another line lie, and the
+  lying line's advice is *delete this declaration* against a value the
+  boot requires. Both remedies are one line and always available —
+  delete the declaration, or spell the key — which is the condition
+  under which this repo has consistently declined to build an escape.
+  An escape here is a way to keep dead configuration forever, which is
+  the thing being checked.
+- **No exemption list on the boundary-apps check** (ORC-50): no ignore
+  entry, no `catapult:allow`, no per-application waiver. Three kinds
+  of application sit outside the completeness requirement and every
+  one of them is *derived*, so no name is written and none can be
+  spent — `:boundary` itself
+  (`Boundary.Checker.check_external_dep?/3` opens by excluding it),
+  applications contributing no `Elixir.*` modules
+  (`Boundary.Mix.app_modules/1` filters them out, so no list entry
+  could restrain a call into one), and path deps (read off `:path` in
+  the dep options; naming one reproduces ORC-21's defect at twelve
+  forbidden references and a red build, measured). This is the line
+  ORC-16 drew for licenses: nobody imposes a dependency on us, so the
+  fix for an unchecked application is naming it, and a waiver could
+  only ever be spent restoring the fail-open the check exists to
+  close. A fourth exclusion would have to be a fourth *mechanical*
+  fact about what Boundary can restrain, discovered the way these
+  three were, and it would arrive as a derivation rather than a list.
 
 ### The config declared↔read check (ORC-48)
 

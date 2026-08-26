@@ -3169,15 +3169,13 @@ states are platform-fixed. **Review states are declared**, vary by
 ticket type, and the default set is a UX review and an engineering
 review, either of which may throw back to design.
 
-This argues against `docs/non-goals.md`'s
-`No per-project protocol restructuring`, which says states and gates
-are platform-fixed — and it satisfies that entry's stated reason,
-which is that prompts, plane logic and shared vocabulary are written
-against the states. That holds for states the automation reads. It
-does not hold for a state whose only job is routing a human: nothing
-dispatches from it and no prompt is written against it. So the
-admission rule narrows rather than dissolving — **a state may be
-declared iff no plane logic branches on it.**
+The admission rule is narrow, and stated as one: **a state may be
+declared iff no plane logic branches on it.** What "platform-fixed"
+protects is that prompts, plane logic and shared vocabulary are all
+written against the states, and that holds for states the automation
+reads. It does not hold for a state whose only job is routing a
+human: nothing dispatches from it and no prompt is written against
+it. `docs/non-goals.md` records the rule in that form.
 
 Mechanically the plane never learns a new state. A gate sits on an
 *edge* of the fixed graph: the plane parks there and resumes on a

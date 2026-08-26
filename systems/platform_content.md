@@ -203,9 +203,11 @@ loader tickets carry `system:core-dsl`.
   restriction, not a mandate to pre-wire every tier against a need
   nothing has yet. `reference` is not among this ticket's own named
   five edges (`fulfills`, `dependency`, `domain_parent`,
-  `decomposition`, `policy_application`) — `docs/non-goals.md` records
-  why folding ref attachment into one of those five would misname the
-  mechanism rather than honor "same mechanism, one name."
+  `decomposition`, `policy_application`), and folding ref attachment
+  into one of those five to hit the literal count would misname the
+  mechanism rather than honor "same mechanism, one name": ref
+  attachment is not a mint, not the comp↔resp binding, and not a
+  policy scope grain.
   **Policy scoping is v5 §4.5's three grains, never `child_of(resp)`**:
   project-global (no scope edge — a `<policy>` with neither `<required>`
   nor `<structural/>`, read via `all.policy` when a tier genuinely
@@ -225,8 +227,7 @@ loader tickets carry `system:core-dsl`.
   An earlier pass here read `comparch`'s one-hop context grammar as
   unable to reach it and left both grains unread rather than
   under-deliver the load-bearing one; design review called that the
-  wrong response to a missing construct (`docs/non-goals.md` carries
-  the reversal). `dsl-syntax.md` §7.1's hop chains and reversed hops
+  wrong response to a missing construct. `dsl-syntax.md` §7.1's hop chains and reversed hops
   (`.<edge>~`) are what changed: `comparch.yaml` now reads
   `self.parent.policy_application~ -> policy.handle` (direct grain,
   one reversed hop) and `self.parent.fulfills.policy_application~ ->
@@ -272,13 +273,14 @@ loader tickets carry `system:core-dsl`.
   tier, since sequencing two flow-scoped tiers needs instance-level
   flow-state ("has the upstream stage closed yet") that
   "projection-time instance checks" (this ticket's own stated
-  out-of-scope) would have to supply — see `docs/non-goals.md`, which
-  is where that particular simplification still stands.
+  out-of-scope) would have to supply. Flow instance state becoming a
+  real, checkable loader or engine concept is what would reopen the
+  two-stage split, on its own merits rather than under a content
+  port.
 
   **Each flow's planning tier mints one `cascade_visit`-scoped node
   per node the flow's cascade actually visits, not one `singleton`
-  node per open instance** (design review; `docs/non-goals.md` carries
-  the reversal in full). The first pass here read v5's closed scope
+  node per open instance** (design review). The first pass here read v5's closed scope
   set as having no tier standing for "whichever tier this cascade is
   currently visiting" the way v4's informal `scaffold_tier` did, and
   concluded a real per-visited-node plan fan-out was inexpressible
@@ -304,9 +306,13 @@ loader tickets carry `system:core-dsl`.
   tier reads `ticket.findings` (dsl-syntax.md §7's "ticket thread for
   the scope", v5's replacement for v4's dropped `seed:` block) —
   `lib/catapult/dsl/dialect.ex` registers no context-source extension
-  in either dialect yet, so declaring it fails load. `docs/non-goals.md`
-  records this as a `core_dsl` delivery-system dependency, not
-  something this pass can build. Every planning tier reads
+  in either dialect yet, so declaring it fails load — measured, not
+  assumed. What is missing is a registration rather than a grammar:
+  `ticket.findings` already parses and is already spec'd, and what it
+  needs is a platform module implementing
+  `Catapult.Dsl.Extension`'s `context_sources/0` and registering
+  `"findings"`. That is `core_dsl`'s delivery-system milestone —
+  plane extension code, not bundle content. Every planning tier reads
   `input.project_doc` instead today, which is the frozen original
   intake, not the flow's own new prose.
 
