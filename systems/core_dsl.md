@@ -395,23 +395,34 @@ context-source kinds, and audit profiles.
   being an outstanding declaration gap — computed at throwback time
   from the loaded bundle, never stored, the same posture `ready_scopes`
   and staleness already take. `throwback:` itself is unchanged in
-  shape and stays legal everywhere it already was, as the explicit
-  override for a target the derivation would not pick.
+  shape, reach and runtime semantics: the same bounded allow-list of
+  legal decline exits the command edge already enforces
+  (`Catapult.Engine.Aggregate`'s `DeclineGate` clause, ORC-34;
+  `systems/dashboard.md`'s own ORC-75 entry), not a single value the
+  derivation's default is swapped out for.
 
-  **What this retires in role, not in size:** before this pass, a
-  gate's own declared `throwback:` was the only mechanism a
-  regeneration reopened through; every declared gate in
-  `bundles/default-flow/gates/**` therefore names one today. After it,
-  an author may omit `throwback:` wherever the derivation already picks
-  the node they want, and the field remains for the day it doesn't
-  (`ux-review`'s own `throwback: [pending]` — reaching past its own
-  sub-array's derived fallback, `generation`, to restart before it —
-  is that day, already present in the shipped bundle, not a
-  counterexample this pass overlooked). §15.1's fixed vocabulary loses
-  none of its three jobs (gates/environments/critique position against
-  it, chain tiers bind to it, cutover re-resolution anchors on it) —
-  only the middle job's throwback-target role, which this section's
-  derivation now shares with it rather than depending on it exclusively.
+  **What this retires in role, not in size:** before this pass, an
+  *undeclared* `throwback:` (`[]`, §15.4's own default) left a gate
+  with zero legal exits — an unreachable gate, not a feature — so
+  every declared gate in `bundles/default-flow/gates/**` names one
+  today out of necessity, not preference. After this pass, an author
+  may omit `throwback:` wherever the derivation already picks the sole
+  node they want, and the field remains exactly as before for every
+  other case: naming a target *outside* the citing sub-array
+  (`ux-review`'s own `throwback: [pending]`, reaching past its
+  sub-array to `pending`, which the derivation — confined to the citing
+  sub-array — was never going to reach), or naming more than one legal
+  exit alongside whatever the derivation would pick
+  (`engineering-review`'s own `throwback: [generation, ux-review]`:
+  `generation` is the derived default, `ux-review` is a second exit the
+  single-valued derivation could not itself offer). Neither is a
+  counterexample this pass overlooked; both are the field's existing
+  multi-target shape doing what it always did. §15.1's fixed vocabulary
+  loses none of its three jobs (gates/environments/critique position
+  against it, chain tiers bind to it, cutover re-resolution anchors on
+  it) — only the middle job's throwback-target role, which this
+  section's derivation now shares with it rather than depending on it
+  exclusively for the empty-list case.
 
   **Not decided by this pass, named rather than glossed over:** nested
   sub-arrays (a homonym risk against `container`-skeleton nesting,

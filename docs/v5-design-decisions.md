@@ -3645,10 +3645,11 @@ computed. `dsl-syntax.md` §15.10's sub-array grouping gives it one —
 a throwback's default fallback is its citing sub-array's own
 non-critique agent step, so "everything downstream of the
 regeneration" *is* "everything in this sub-array," derived from the
-same structure that already answers §7.16's open item above. `throwback:`
-survives as a general, explicit override for the rare case the
-derivation picks the wrong node — never a second all-reopen rule
-beside this one (§4.5's escape-hatch discipline).
+same structure that already answers §7.16's open item above.
+`throwback:`, when declared, stays exactly the bounded allow-list of
+legal exits it always was (below) — the derivation only fills the gap
+an empty one used to leave, never a second all-reopen rule beside this
+one (§4.5's escape-hatch discipline).
 
 **Blocked stays a single system status** (§7.6's decision, revisited
 under declarable statuses and upheld), with flavor labels for the
@@ -3695,6 +3696,16 @@ movement; both reopen everything downstream, and §7.11's derived
 staleness makes the re-pass free where nothing a review saw actually
 changed. Specifying them separately would let an unblock leave a
 stale approval standing downstream.
+
+**That equivalence is about reopen scope, not about which targets
+either entry point may land on — the two paragraphs above are
+Blocked-return's alone.** A declared gate's `throwback:` stays a
+bounded allow-list a human reviews in a PR (§7.16 above; ORC-34), not
+the tracked-origin-plus-total-order computation this section builds
+for Blocked; unifying *how far backward movement reopens* never
+implied unifying *how a legal target is chosen*, and the two were
+never the same mechanism to begin with. `dsl-syntax.md` §15.10
+(ORC-115) settles this in the one place it was raised.
 
 **The escape valve for a genuinely unwanted step stays heavy on
 purpose.** Deciding a parked ticket does not need its security review

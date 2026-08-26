@@ -1889,28 +1889,79 @@ of its own now resolves to this derivation rather than being an
 outstanding declaration gap; §15.4's `throwback:` field is unaffected
 in shape and stays legal wherever it already was.
 
-**`throwback:` stays exactly as declared — a general, explicit
-override for a target the derivation would not pick — and it keeps
-reaching anywhere in the citing type's own full array, sub-array
-boundaries included, which is what makes it useful as an override
-rather than a second copy of the default.** `docs/v5-design-
-decisions.md` §4.5 already states this repo's position on escape
-hatches — general on purpose, no per-use kinds, because "an escape
-hatch that accretes special cases becomes N more mechanisms" — and it
-applies here unchanged: there is one override field, one shape
-(§15.4's existing list-of-targets), and no second derivation rule
-beside the one above. **The test worth stating up front, and the one
-this pass holds itself to: if the default bundle needs the override on
-day one, the derivation is wrong.** Under the rule above, the retro
-case that motivated this whole section resolves without it. A real
-default-bundle gate reaching for `throwback:` today, `ux-review`'s own
-declared `throwback: [pending]` (`bundles/default-flow/gates/
-ux-review.yaml`), is not a counterexample: `pending` sits outside
-`ux-review`'s own sub-array entirely (before `generation`, not inside
-the group), so declaring it is exactly the override case the field
-exists for — rejecting all the way back to before generation, not
-merely back to the derivation's own `generation` — never evidence
-that the derivation itself is missing a case.
+**The worked example is the post-retirement shape, not today's
+grammar, and says so here rather than leaving the next reader to
+check.** `bundles/default-flow/types/milestone.yaml` cites `retro` as
+a `flow:`-carrying, container-skeleton anchor today (`types/retro.yaml`
+runs its own singleton flow), and the load-time check above refuses a
+queue-shaped anchor inside a sub-array — so `[milestone-signoff, retro,
+proposals-read]` cannot legally form a sub-array until "singleton flows
+retire into sub-arrays of their parent container" (below) actually
+lands. The reasoning holds regardless: it argues from the *shape* ORC-104
+already committed to in prose, not from a sub-array the loader accepts
+today. One consequence worth naming plainly: no sub-array the default
+bundle can legally form *today* distinguishes this rule from a naive
+first-element one, since `types/feature.yaml`'s own group
+(`generation`, `critique`, `ux-review`, `engineering-review`) has
+`generation` as both the sub-array's one non-critique agent step and
+its first entry. The rule ships correct but unexercised by the shipped
+bundle until the milestone retirement lands.
+
+**`throwback:` stays exactly as declared — the same real, bounded
+allow-list of legal decline exits it always was, unaffected in shape,
+reach or runtime semantics — and the derivation only ever fills the
+gap that field's absence used to leave.** Before this section, a
+`review:` entry with an empty `throwback:` (§15.4's own default,
+`throwback: []`) had *zero* legal exits: `Catapult.Engine.Aggregate`'s
+`DeclineGate` clause requires `throwback_to` to name a member of the
+gate's own `throwback` list, so an undeclared gate could not be
+declined at all — a load-time-invisible bug, not a feature. The
+derivation replaces that gap with exactly one legal exit, computed
+rather than declared; it does not touch what a *non-empty* declared
+list means, how many targets it may name, or which are legal. §13's
+own check above already says this precisely — "sub-array membership
+does not narrow what an explicit `throwback:` may name, only what the
+*default*, when none is declared, falls back to" — and that check,
+`Catapult.Dsl.Workflow.gate_throwback_problems/2`, and the aggregate's
+membership check are all exactly as they were; this ticket amends none
+of them. `docs/v5-design-decisions.md` §4.5 already states this
+repo's position on escape hatches — general on purpose, no per-use
+kinds, because "an escape hatch that accretes special cases becomes N
+more mechanisms" — and it applies here unchanged: one field, one shape
+(§15.4's existing list-of-targets), no second derivation rule.
+
+**The test worth stating up front, and the one this pass holds itself
+to: if the default bundle needs a *different default value* than the
+derivation on day one, the derivation is wrong.** That is a narrower
+claim than "if the default bundle declares `throwback:` at all" — a
+gate is free to name additional legal exits alongside whatever the
+derivation would pick without that being evidence against the
+derivation, because the derivation only ever computes one target and
+was never trying to be a menu. Under the rule above, the retro case
+that motivated this whole section resolves without any declaration.
+Two real default-bundle gates reach for `throwback:` regardless, and
+neither is a counterexample, for two different reasons:
+
+- `ux-review`'s own declared `throwback: [pending]` (`bundles/
+  default-flow/gates/ux-review.yaml`) names a target *outside*
+  `ux-review`'s own sub-array entirely (before `generation`, not
+  inside the group) — the derivation, which only ever resolves within
+  the citing sub-array, has no opinion on `pending` at all, so this is
+  reach the derivation was never going to have, not a case it got
+  wrong.
+- `engineering-review`'s own declared `throwback: [generation,
+  ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
+  sits entirely inside the group the derivation covers, and is worth
+  naming rather than passing over: `generation` is exactly what the
+  derivation would pick as the single default, and `ux-review` is a
+  second, additional legal exit the derivation — being a single-value
+  fallback — could never offer on its own. Declaring this list is
+  ordinary use of `throwback:`'s existing multi-target shape (a
+  decliner picks which of two regenerations they mean), not a
+  replacement for a default that disagrees with it. Had the bundle
+  declared `throwback: [ux-review]` alone — dropping the target the
+  derivation already supplies — *that* would be the counterexample
+  this test is built to catch, and the shipped bundle does not do it.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not
@@ -1940,6 +1991,35 @@ the log rather than a stored field. Nothing here builds that join —
 declared workflow gates are still `systems/delivery.md`'s Phase 7 to
 build at all — this section only gives that future build a structural
 node to pin against, where before there was none.
+
+**Design review: does `docs/v5-design-decisions.md` §7.19's "backward
+movement is one rule with two entry points" widen a declared
+`throwback:` into the same unbounded earlier-prefix picker Blocked-
+return gets? No — that paragraph unifies *reopen scope*, not *target
+legality*, and the two are separable questions with separate,
+already-settled answers.** §7.19 draws the equivalence between a
+throwback and a Blocked unblock specifically so neither rule needs its
+own reopen-scope clause — "both reopen everything downstream" is the
+entire content of "the same movement." It says nothing about which
+targets either entry point may land on, and the two were never the
+same there either: Blocked-return's own paragraph two above computes
+its target from tracked origin plus a total order and is not declared
+per anything, where a gate's declared `throwback:` is graph content a
+human reviews in a PR, on purpose (`docs/v5-design-decisions.md` §7.16;
+`docs/ui-spec.md`'s J2 and line 152 give the gate action "throw back
+(to a declared target)" in as many words, distinctly from J4's
+"pick an earlier status from the prefix" for Blocked). That the
+declared list bounds what a decline may name is real, shipped
+behavior this ticket does not touch: `Catapult.Engine.Aggregate`'s
+`DeclineGate` clause rejects a `throwback_to` outside the gate's own
+`throwback` list (ORC-34), and `systems/dashboard.md`'s own ORC-75
+entry already states the consequence in as many words — "`document-
+review`'s throwback picker only ever offers a gate's own declared
+exits." Nothing about grouping statuses into sub-arrays or deriving a
+default for the empty-list case bears on that check; it is unchanged
+in shape, reach, or runtime semantics. What actually changed is
+narrower and already stated above: an empty `throwback:` used to mean
+zero legal exits (an unreachable gate), and now means one, derived.
 
 **Not decided here, left open:**
 
