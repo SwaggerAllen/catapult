@@ -210,8 +210,9 @@ conventions §13).
   from whether a node's current `body_sha` matches what the gate's
   approval event recorded — cannot be built: `GateApproved`/
   `GateDeclined` carry no content identity, deliberately, and §7.16's
-  "what a passed gate pins" is left open for Phase 7/ORC-115 by name in
-  `systems/engine.md`'s own entry. `Catapult.Delivery.Store
+  "what a passed gate pins" was, at the time this entry was written,
+  left open for Phase 7/ORC-115 by name in `systems/engine.md`'s own
+  entry. `Catapult.Delivery.Store
   .get_previous_draft_body/2` (one previous body, not a log) answers
   the per-sentence **diff** `document-review` renders — a narrower
   question ("what changed since the last pass") than "has what this
@@ -219,6 +220,18 @@ conventions §13).
   not have. `screens/document-review.md` drops stale marking from v1
   rather than shipping a stopgap `body_sha` on the gate events that
   ORC-115 would be the first thing to delete.
+
+  **ORC-115 has since answered §7.16's item at the design level** (
+  `docs/dsl-syntax.md` §15.10; `docs/v5-design-decisions.md` §7.16):
+  what a gate pins is its citing sub-array's one non-critique
+  agent-balled entry, at the gate's declared `depth:`, derived rather
+  than stamped on the event. This is still not a `body_sha` and still
+  not built — the log join `systems/delivery.md`'s Phase 7 needs is
+  unbuilt, and this v1 scoping decision (drop stale marking rather than
+  ship a stopgap field) is unaffected. It is recorded here so a later
+  pass reads "why isn't this built yet" rather than "is this still
+  open" — the open question moved from *what* a gate pins to *building*
+  the join against the answer.
 - **No assignee or role-holder projection exists, and Phase 4's screens
   render the degenerate case rather than modeling an interim one**
   (ORC-114, design pass). `my-queue`'s two tabs, its `sign off`

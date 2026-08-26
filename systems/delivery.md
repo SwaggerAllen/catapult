@@ -231,6 +231,42 @@ design gates pass.
   it. Neither correction changes this system's shape, only what its
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
+- **ORC-115 (design pass) gives this system's dispatcher a derived
+  throwback target and opens, without answering, whether a container
+  instance can be a dispatch target in its own right** (`docs/dsl-
+  syntax.md` §15.10; `docs/v5-design-decisions.md` §7.8, §7.16,
+  §7.19). The dispatcher's own throwback handling — reading a gate's
+  declared `throwback:` and moving the ticket there — gains a default
+  path for the case that field is absent: fall back to the citing
+  sub-array's own non-critique agent-balled entry, computed from the
+  loaded workflow bundle at throwback time, never stored. This is the
+  same shape `flow:` resolution and the singleton-lifetime check above
+  already take (read the bundle, don't cache a derived fact), so it
+  changes what the dispatcher's throwback path reads, not how it reads
+  it. Every declared gate keeps working exactly as it does today
+  whether or not it still declares `throwback:` explicitly — the field
+  is an override once the derivation exists, never a required one.
+
+  **This system's own open question, named rather than assumed
+  answered: can a container instance be an agent dispatch target at
+  all?** `docs/v5-design-decisions.md` §7.8's own amendment records the
+  direction — `milestone`'s `setup` and `retro` folding into sub-arrays
+  of its own array rather than staying separately minted ticket-
+  skeleton types — but `setup`/`retro` today dispatch as ordinary
+  tickets precisely because this system's dispatcher has never had to
+  address a non-ticket subject. Answering this reaches ORC-9's executor
+  (what does it run against, if not a ticket's branch and PR), the
+  mutex mapping (a container instance has no file-map paths of its
+  own), and `DispatchRun`'s own keying (keyed on ticket id today); it
+  also reopens what `main`'s `blocks: [retro]` (§15.7) means once the
+  blocker is one agent step rather than a population of unresolved
+  work items — "does not complete while a queue that blocks it holds
+  work" presumes something to hold, and an agent step either has run
+  or hasn't. **Not decided here.** Until it is, `types/setup.yaml` and
+  `types/retro.yaml` stay exactly as built, and this system's
+  dispatcher gains nothing from the amendment beyond the throwback
+  default above. Filed alongside the rest of this doc's Target list,
+  for whichever pass takes it up.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-

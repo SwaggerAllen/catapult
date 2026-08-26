@@ -239,6 +239,31 @@ them.
   ticket's to close, but worth stating so a future bundle author
   hitting it reads a known gap rather than a surprise.
 
+- **A fanned-out child cannot leave its parent's workflow-axis
+  sub-array, and this is a consequence of readiness already gating,
+  not a new rule for this system to enforce** (ORC-115, design pass —
+  stated as an invariant `docs/dsl-syntax.md` §15.10's sub-array
+  grouping and ORC-116's own subflow-navigation design both lean on).
+  `walk_ready?/2`'s own predicate — `Enum.all?(targets, &(&1.status ==
+  :approved))` — already requires every node a context walk reaches to
+  be `:approved` before the tier reading that walk can dispatch; §7
+  states the same fact from the grammar side ("readiness requires all
+  targets ready. Context is the only readiness signal"). So a tier
+  positioned in a workflow sub-array *after* a gate can never become
+  ready while the tier(s) the gate's own sub-array pins remain
+  unapproved — not because anything checks the workflow-axis grouping
+  against the chain-axis node, but because there is no path to
+  `:approved` for the later tier that does not first satisfy the
+  earlier one's own context walk. **What this is not:** a claim that
+  this system reads or enforces sub-array membership at all — it
+  doesn't, and gains no new code from this entry. The invariant is
+  chain-axis readiness, restated for a workflow-axis reader (ORC-116's
+  navigation) who needs to know a fanned-out node cannot be "ahead of"
+  its own group's gate. If that reader ever needs something this
+  system doesn't already expose — the sub-array a given node's tier
+  belongs to, say — that is a new query, not evidence this invariant
+  is wrong.
+
 - **Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings
   surface, same mechanism as every other marked threshold) — enough
   headroom that a burst of events doesn't turn the convergence floor
@@ -914,6 +939,14 @@ them.
   match what's downstream of it" — is likewise untouched; Phase 4's own
   shipped `feature.yaml` runs exactly one `generation` status ahead of
   its gates, so nothing here needs the general answer to work today.
+  **Design-resolved at ORC-115, still not built here or anywhere:**
+  `docs/dsl-syntax.md` §15.10's sub-array grammar now gives "which
+  node(s) a gate reviews" a structural answer — the citing sub-array's
+  own one non-critique agent-balled entry, at the gate's declared
+  `depth:` (`docs/v5-design-decisions.md` §7.16) — but neither event
+  gains a field from that alone; the join still has to be built
+  (Phase 7), and this entry's own claim (no `body_sha`, position not
+  content) is unaffected until it is.
   **Named rather than left to be found by a fan-out: the decline check
   is project-wide and the render is per-node, and those are not the
   same scope** (fourth design-review's own minor finding). A comment

@@ -107,6 +107,22 @@ way it answered the third pass: no plane logic branches on *where in
 the array* a gate sits, any more than it branched on which type named
 it.
 
+**ORC-115 adds a grouping construct and a derived default, and neither
+extends this entry either, for the fourth pass's own reason.** A
+`statuses:` entry may now be a bare sub-array (`docs/dsl-syntax.md`
+§15.10), and a `review:` entry inside one with no declared `throwback:`
+defaults to that sub-array's own non-critique agent-balled entry rather
+than requiring the field. Neither adds a new declarable state or gate:
+a sub-array groups entries that were already declarable one at a time,
+and the default is computed from that grouping at throwback time, never
+a fact a bundle author writes down. No plane logic branches on *whether
+entries are grouped* any more than the fourth pass's move made it
+branch on *where in the array* one sits — this is the identical
+"position, not content" shape, one level more structural. What stays
+refused is unchanged: a project still cannot rewire the automation
+graph itself, only group and position the already-platform-fixed gates
+and anchors a type of its own naming passes through.
+
 ## No inbound write path from a mirrored tracker
 scope: system:delivery, system:dashboard
 

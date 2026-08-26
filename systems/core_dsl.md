@@ -374,6 +374,59 @@ context-source kinds, and audit profiles.
   entry-point load check, and the singleton-lifetime rejection check —
   ORC-104's.
 
+- **ORC-115 (design pass) narrows `throwback:` from mechanism to
+  escape hatch, and gives a `statuses:` array a grouping construct the
+  fourth ORC-105 pass's unification didn't have** (`docs/dsl-syntax
+  .md` §15.10, §13; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19).
+  A `statuses:` entry may now be a bare, unnamed sub-array holding a
+  contiguous run of the entries already legal elsewhere in the array
+  (`status:`/`review:`/`environment:`, unchanged); the loader gains
+  three checks with no exact precedent in the closed sets §13 already
+  validates — a sub-array nested inside a sub-array is a load error
+  (this pass's own grammar is flat, deliberately, see below); a
+  sub-array must hold exactly one entry whose `status:` is a
+  non-critique agent-balled system status (`generation`, `retro`,
+  `setup`, `merge` — §15.1's own `ball` column, `critique` excluded for
+  the reason §15.5 already excludes it from standing alone), zero or
+  two-or-more being a load error naming the count found; and a
+  queue-shaped anchor (`flow:`/`blocks:`) may not sit inside one. A
+  `review:` entry with no declared `throwback:` of its own now
+  defaults to its citing sub-array's one non-critique entry rather than
+  being an outstanding declaration gap — computed at throwback time
+  from the loaded bundle, never stored, the same posture `ready_scopes`
+  and staleness already take. `throwback:` itself is unchanged in
+  shape and stays legal everywhere it already was, as the explicit
+  override for a target the derivation would not pick.
+
+  **What this retires in role, not in size:** before this pass, a
+  gate's own declared `throwback:` was the only mechanism a
+  regeneration reopened through; every declared gate in
+  `bundles/default-flow/gates/**` therefore names one today. After it,
+  an author may omit `throwback:` wherever the derivation already picks
+  the node they want, and the field remains for the day it doesn't
+  (`ux-review`'s own `throwback: [pending]` — reaching past its own
+  sub-array's derived fallback, `generation`, to restart before it —
+  is that day, already present in the shipped bundle, not a
+  counterexample this pass overlooked). §15.1's fixed vocabulary loses
+  none of its three jobs (gates/environments/critique position against
+  it, chain tiers bind to it, cutover re-resolution anchors on it) —
+  only the middle job's throwback-target role, which this section's
+  derivation now shares with it rather than depending on it exclusively.
+
+  **Not decided by this pass, named rather than glossed over:** nested
+  sub-arrays (a homonym risk against `container`-skeleton nesting,
+  §15.6, this pass's own open question); a queue-shaped anchor inside a
+  sub-array, which is what folding `setup`/`retro` into `milestone`'s
+  own array would actually require — refused at load for now because
+  it reaches a dispatch question (`systems/delivery.md`'s own open
+  item) this pass does not touch; and a throwback from a gate sitting
+  outside every sub-array, targeting into one. **Not built as part of
+  this pass**, the same boundary every ORC-105 pass above already
+  draws: the loader changes this entry describes are `lib/catapult/dsl
+  /workflow.ex`'s (today's `gate_throwback_problems/2` computes
+  "earlier in the flat array," which this pass's derivation replaces
+  for the default case) — dev's diff against this record, not design's.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
