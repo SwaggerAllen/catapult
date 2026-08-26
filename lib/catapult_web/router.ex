@@ -22,7 +22,30 @@ defmodule CatapultWeb.Router do
     plug :fetch_live_flash
     plug :assign_root_layout
     plug :protect_from_forgery
-    plug :put_secure_browser_headers, %{"content-security-policy" => "default-src 'self'"}
+
+    # HSTS is set here rather than through the endpoint's `force_ssl:`
+    # (ORC-131), and the distinction is the deployment's: App Platform
+    # terminates TLS and coerces HTTP to HTTPS at its edge, with no
+    # setting to turn that off, so a public request never reaches this
+    # app over http and `Plug.SSL`'s redirect could never fire on one.
+    # The one path that does not come through the edge is App
+    # Platform's own health probe, which hits the container's port
+    # directly — an endpoint-wide `force_ssl` would answer that 301 and
+    # fail the deploy. So the redirect half buys nothing and risks the
+    # rollout; HSTS, the half the edge does not supply, is real and
+    # belongs on the browser surface alone. `/health` and `/dispatch/*`
+    # are served by `Catapult.Foundation.DispatchPlug` ahead of this
+    # router and never reach this pipeline, which is what makes putting
+    # it here safe rather than merely narrower.
+    #
+    # This is also why `mix sobelow`'s `Config.HTTPS` stays ignored on
+    # the gate line: it reads the endpoint's config for `force_ssl` and
+    # cannot see a header set in a router pipeline. The ignore's own
+    # comment carries that reason.
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" => "default-src 'self'",
+      "strict-transport-security" => "max-age=31536000"
+    }
   end
 
   # A plain function body, not a literal `{Module, :root}` opt on
