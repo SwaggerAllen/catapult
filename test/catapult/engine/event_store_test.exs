@@ -21,7 +21,7 @@ defmodule Catapult.Engine.EventStoreTest do
   end
 
   test "appends to and reads back from the real event store schema" do
-    stream_uuid = "event-store-test-#{System.unique_integer([:positive])}"
+    stream_uuid = Ecto.UUID.generate()
 
     event = %EventStore.EventData{
       event_type: "Elixir.Catapult.Engine.Events.FlowCompleted",
