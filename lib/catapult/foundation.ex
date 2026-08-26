@@ -39,9 +39,13 @@ defmodule Catapult.Foundation do
       # `Plug.Session` needs to hang a CSRF token on. No default, like
       # `database_url` and `github_token` — a build without it fails at
       # boot with the config report naming it, the same failure mode
-      # SETUP.md §2 already documents for the token.
+      # SETUP.md §2 already documents for the token. The cast enforces
+      # `Plug.Session.Cookie`'s own 64-byte floor (ORC-132): without it,
+      # a too-short value boots clean and only raises on the first
+      # request through the `:browser` pipeline, instead of naming
+      # itself in the boot report next to every other wrong variable.
       {:endpoint_secret_key_base, "FOUNDATION_ENDPOINT_SECRET_KEY_BASE",
-       cast: :string, secret: true}
+       cast: &__MODULE__.cast_endpoint_secret_key_base/1, secret: true}
     ]
   end
 
@@ -80,6 +84,20 @@ defmodule Catapult.Foundation do
 
   defp ssl_option(raw) do
     if String.contains?(raw, "sslmode=require"), do: [verify: :verify_none], else: false
+  end
+
+  # Plug.Session.Cookie's own floor (`byte_size(secret_key_base) < 64`
+  # raises `ArgumentError` there, verified against its source rather
+  # than assumed). Declaring the minimum where the value is declared is
+  # what makes a too-short seed a boot-time report line rather than a
+  # 500 on the first request through the `:browser` pipeline (ORC-132).
+  # The reason names no part of the value, same as `cast_database_url/1`
+  # above — the byte count is not the secret.
+  @spec cast_endpoint_secret_key_base(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def cast_endpoint_secret_key_base(raw) when byte_size(raw) >= 64, do: {:ok, raw}
+
+  def cast_endpoint_secret_key_base(raw) do
+    {:error, "must be at least 64 bytes (Plug.Session.Cookie's minimum), is #{byte_size(raw)}"}
   end
 
   @impl Catapult.Component
