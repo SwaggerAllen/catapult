@@ -3646,10 +3646,12 @@ a throwback's default fallback is its citing sub-array's own
 non-critique agent step, so "everything downstream of the
 regeneration" *is* "everything in this sub-array," derived from the
 same structure that already answers §7.16's open item above.
-`throwback:` retires as declared grammar (below) — the derivation
-supplies the one default a gate needs, and the "earlier in the
-effective sequence" test below is the only target rule left, never a
-second, narrower one beside it (§4.5's escape-hatch discipline).
+The derivation supplies the sub-array's own default landing point, and
+`throwback:` (below) survives beside it as a single, explicit override
+for the gate that wants a different one — never a second, narrower
+*legality* rule (§4.5's escape-hatch discipline): the "earlier in the
+effective sequence" test below is the only bound on what a decline may
+target, declared or not.
 
 **Blocked stays a single system status** (§7.6's decision, revisited
 under declarable statuses and upheld), with flavor labels for the
@@ -3711,11 +3713,17 @@ Blocked-return are the same movement on both counts now: reopen scope,
 from this section, and target legality — any earlier status in the
 ticket's effective sequence, never narrower — from the same "earlier"
 prefix this section already defines two paragraphs above.
-`throwback:` retires as declared grammar (`dsl-syntax.md` §15.10)
-because there is no remaining role for a second, narrower list to
-play; what a gate still supplies is a *default* — its citing
-sub-array's own non-critique agent step — the one-click action where
-Blocked-return's is the tracked origin.
+**Third design review: `throwback:` survives the correction above, and
+narrows.** A declared list has no remaining role once legality is
+unbounded — naming several targets said "any of these is legal," which
+is exactly the bound just retired. But a landing point is a different
+fact from a legal-target set, and it survives: `throwback:` (`dsl-
+syntax.md` §15.4) narrows to a single, optional status, the explicit
+override a gate declares when its citing sub-array's own non-critique
+agent step — the derived default, above — is not the one-click landing
+point it wants. Blocked-return has no equivalent override; its
+one-click action is always the tracked origin, because nothing groups
+it into a sub-array the way a gate's decline is grouped.
 
 **The escape valve for a genuinely unwanted step stays heavy on
 purpose.** Deciding a parked ticket does not need its security review

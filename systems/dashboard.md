@@ -121,11 +121,16 @@ conventions §13).
   "earlier in the array" test `Catapult.Dsl.Workflow
   .gate_throwback_problems/2` already runs at load time for a
   *declared* target, generalized to every runtime pick now that ORC-115
-  retires the declared list (`docs/dsl-syntax.md` §15.10, second design
-  review). `document-review`'s throwback picker offers the same full
-  earlier-prefix Blocked-return's picker already gives (`docs/ui-spec
-  .md` J4), one click landing on the citing sub-array's own derived
-  default, never bounded to a gate's own declared exits. **A decline
+  retires the declared list as a legality bound (`docs/dsl-syntax.md`
+  §15.10, second design review; a third review narrowed the field
+  itself to a single-target override on the derived default rather
+  than retiring it outright, `docs/dsl-syntax.md` §15.4). `document-
+  review`'s throwback picker offers the same full earlier-prefix
+  Blocked-return's picker already gives (`docs/ui-spec.md` J4), one
+  click landing on the gate's own declared `throwback:` when the gate
+  names one, or its citing sub-array's own derived default otherwise —
+  never bounded, either way, to a gate's own declared exits as an
+  allow-list. **A decline
   naming no comment is rejected by `DeclineGate`'s
   own aggregate state, never by either screen** — the screen surfaces
   that rejection synchronously, the same compare-and-swap conflict

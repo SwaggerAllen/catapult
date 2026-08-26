@@ -231,21 +231,24 @@ design gates pass.
   it. Neither correction changes this system's shape, only what its
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
-- **ORC-115 (design pass, corrected on a second design review) gives
+- **ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and opens,
   without answering, whether a container instance can be a dispatch
-  target in its own right** (`docs/dsl-syntax.md` §15.10; `docs/
+  target in its own right** (`docs/dsl-syntax.md` §15.4, §15.10; `docs/
   v5-design-decisions.md` §7.8, §7.16, §7.19). The dispatcher's own
-  throwback handling no longer reads a gate's declared `throwback:` at
-  all — the field retires (second design review; the first pass's
-  reading, that it stayed a bounded allow-list the command edge
+  throwback handling resolves every decline's *legality* the same way,
+  regardless of declaration — checked against "earlier in the citing
+  type's own effective sequence" (identical to how the dispatcher
+  already has to honor a Blocked-return); a gate's declared
+  `throwback:` bounds nothing here (second design review; the first
+  pass's reading, that it stayed a bounded allow-list the command edge
   enforced, rested on a `DeclineGate` enforcement claim that isn't
-  real) — and instead resolves every decline the same way: the
-  human-chosen target, checked against "earlier in the citing type's
-  own effective sequence" (identical to how the dispatcher already has
-  to honor a Blocked-return), with the citing sub-array's own
-  non-critique agent-balled entry as the one-click default when no
-  further choice is made — computed from the loaded workflow bundle at
+  real). What a gate's declared `throwback:` still supplies is a
+  *landing point* (third design review, narrowing the field to a
+  single optional status rather than retiring it): the dispatcher reads
+  it when the gate names one, and falls back otherwise to the citing
+  sub-array's own non-critique agent-balled entry as the one-click
+  default — either way computed from the loaded workflow bundle at
   throwback time, never stored. This is the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
@@ -1129,10 +1132,14 @@ design gates pass.
   threads through, per ORC-32's own entry above); `GateDeclined` moves
   it straight to `throwback_to` — no lookup needed, the event already
   names the resolved target, guaranteed reachable by the command edge's
-  own "earlier in the citing type's own array" check before dispatch
-  (`Catapult.Dsl.Workflow.gate_throwback_problems/2`'s logic, reused at
-  the command edge rather than at load time now that ORC-115 retires
-  the declared `throwback:` list it used to check, `docs/dsl-syntax.md`
+  own "earlier in the citing type's own array" check before dispatch —
+  the identical predicate `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` already runs at load time against a
+  *declared* `throwback:` (unaffected by ORC-115's narrowing of that
+  field to a single target, `docs/dsl-syntax.md` §15.4), reused at the
+  command edge as a second, runtime instance of the same check against
+  whatever the human actually picked — declared override, derived
+  default, or an earlier-prefix choice alike (`docs/dsl-syntax.md`
   §15.10). Neither clause is new mechanism beyond what this process
   manager already is;
   it is the increment ORC-32's own "what advancing past a gate

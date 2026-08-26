@@ -880,8 +880,11 @@ them.
   `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2` already
   runs at load time for a *declared* `throwback:` value, reused here
   at the command edge as a runtime check now that ORC-115 retires the
-  declared list itself, `docs/dsl-syntax.md` §15.10, second design
-  review) — is the command edge's to check, not `execute/2`'s** (dev
+  declared list as a legality bound, `docs/dsl-syntax.md` §15.10,
+  second design review — the field itself survives narrowed to a
+  single-target override on the derived default rather than retiring,
+  `docs/dsl-syntax.md` §15.4, third design review) — is the command
+  edge's to check, not `execute/2`'s** (dev
   pass correction): the container commands this
   entry pointed to as precedent validate bundle content at their own
   dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in
@@ -897,9 +900,12 @@ them.
   `MintContainer`/`AdvanceContainerQueue`, before dispatch. **A decline
   requires at least one comment; there is no free-text override.** `docs/ui-spec.md` §3.2's own `document
   -review` action set is "approve / throw back," target chosen from
-  the derived default or the earlier-prefix picker (ORC-115, second
-  design review corrects this from "the declared exits") — no reason
-  field — so the
+  the gate's own declared `throwback:` when it names one, its derived
+  default otherwise, or the earlier-prefix picker for anything else
+  (ORC-115, second design review corrects this from "the declared
+  exits" as the bound on legality; third design review restores the
+  field itself as a single-target override rather than retiring it,
+  `docs/dsl-syntax.md` §15.4) — no reason field — so the
   simpler of the two fixes design review posed for the ticket's own
   zero-comment open question is also the one the screen this ticket
   answers to actually specs: `DeclineGate` is rejected outright,
