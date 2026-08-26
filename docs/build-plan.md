@@ -167,23 +167,28 @@ Exit: the chain generates and validates artifacts for a toy seed,
 offline against the agent-port fake and live against real dispatched
 runs.
 
-## Phase 4 — The authoring loop (front-loaded Linear-as-UI)
+## Phase 4 — The authoring loop
 
 The interaction surface, built before the machinery that fully
-exercises it: tracker + host ports with memory fakes (orchestration's
-port pattern, in Elixir); the feature-ticket lifecycle subset —
-states projected to Linear, `Product design → Product review →
-Architecting → Architecture review` with gate skip-on-no-diff;
-bodies committed to a feature branch with one PR; gate review via PR
-diff; decline harvesting (review comments since last gate, bucketed
-by artifact file span, threaded as regen feedback); dashboard v0
-(the debugging minimum: event log inspection, ready_scopes
-explain-why).
+exercises it: the host port with its in-memory fake (orchestration's
+port pattern, in Elixir); the feature-ticket lifecycle projection —
+states rendered on Catapult's own surface (`screens/board.md`,
+`screens/ticket.md`, `screens/my-queue.md`), gate states drawn from
+the ticket type's own declaration (v5 §7.16;
+`bundles/default-flow/types/feature.yaml`) with gate skip-on-no-diff;
+bodies committed to a feature branch with one PR; gate review on the
+native `document-review` screen, at sentence granularity (v5 §7.17;
+`screens/document-review.md`); decline harvesting (comments since the
+gate's last resolution, threaded as regen feedback — bucketed per
+node today, not per sentence; `systems/engine.md`'s ORC-34 entry);
+UI v1, the working surface (event log inspection, ready_scopes
+explain-why, and the screens above — `docs/ui-spec.md` §5).
 
-Exit: the author files a feature ticket in Linear, watches states
-move, reviews the doc diff in a PR, declines with line comments,
-and the chain regenerates with that feedback — end to end, with no
-delivery machinery existing yet.
+Exit: the author files a feature ticket on Catapult's own surface,
+watches states move, reviews the doc diff on the document-review
+screen, declines with anchored comments, and the chain regenerates
+with that feedback — end to end, with no delivery machinery existing
+yet.
 
 ## Phase 5 — Product tier and intake
 

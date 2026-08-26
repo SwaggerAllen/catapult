@@ -256,9 +256,10 @@ validation, run correlation, its in-memory fake — is pulled forward
 into this phase from delivery's Phase 4 (`systems/delivery.md`),
 scoped to exactly what dispatch needs; the rest of the host port
 (feature-lifecycle PR management, decline harvesting) still waits for
-Phase 4. Target: review passes, regen-with-feedback threading,
-executor-profile routing, the shared seam with the runtime dialect
-kept clean.
+Phase 4. Regen-with-feedback threading has since landed (ORC-34,
+above: `feedback`/`prior_review` read straight off engine's own
+projections). Target: review passes, executor-profile routing, the
+shared seam with the runtime dialect kept clean.
 
 ## Depends on
 
