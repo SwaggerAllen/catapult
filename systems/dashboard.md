@@ -272,6 +272,56 @@ conventions §13).
   moment this ticket's dev pass lands an endpoint, that fallback
   message is what names the snapshot step as the piece still missing.
 
+  **Resolved at ORC-113's design pass, and not the way this doc had
+  assumed: the export renders stories directly and never boots the
+  application.** Boot-and-crawl is ruled out on a fact this doc had
+  not checked when it wrote the paragraph above —
+  `Catapult.Application.start/2` calls `Catapult.Boot.load!/0`
+  unconditionally, which validates every registered component's
+  declared config, including `DATABASE_URL`, `DELIVERY_GITHUB_TOKEN`
+  and `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` (`SETUP.md`'s own
+  required-env manifest, none with a default). The preview runner has
+  none of them and no Postgres to point `DATABASE_URL` at even if it
+  did (`CLAUDE.md`'s "agent runs have no BEAM… no Postgres service
+  container"). There is no runtime escape hatch, either:
+  `Catapult.Boot`'s own "bottom turtle" reasoning is that the config
+  *source* is a compile-time choice, and dev/test are the only
+  environments that select a fake one — a `MIX_ENV=prod`-shaped boot
+  gets `Catapult.Config.Env` and nothing this script does at runtime
+  can swap that. So booting the real application on the preview
+  runner was never a missing step to write; it is not buildable
+  there, at all, and no amount of dev work on `bin/preview-build.sh`
+  changes that.
+
+  The alternative costs nothing this system's own placement rule
+  didn't already spend: a story's variations are hardcoded assigns
+  rendered by a stateless function component — "no socket, no live
+  data" above is a property the export gets for free, not one it has
+  to work around. Every `storybook/screens/<name>/component.story.exs`
+  already declares its own `function/0` and `variations/0`
+  (`PhoenixStorybook.Story`'s own `:component` shape); the export
+  calls each variation's attributes straight into its story's
+  component function and writes the rendered markup to `dist/` —
+  compiled, but with `Catapult.Application` never entered, so no
+  endpoint, no supervision tree, no database. What is lost is
+  `phoenix_storybook`'s own navigation chrome (its sidebar, its live
+  search): the export's index page is generated directly from the
+  same variation list instead, one link per story and variation. That
+  is the ticket's own named tradeoff, taken because the alternative it
+  is weighed against could not have worked on this runner, not
+  defaulted into.
+
+  Assets are whatever `priv/static` already carries, which today is
+  nothing — this repo has no CSS build for the dashboard yet (no
+  `assets/` directory, no esbuild or Tailwind dependency; every
+  `badge`/`card`/`table` class in `storybook/screens/**` is
+  unstyled at runtime, in the live route exactly as much as in this
+  export). This decision does not invent that pipeline; it only
+  commits the export to relative asset paths rather than root-
+  absolute ones, since a Pages hash subdomain has no fixed base path
+  to hardcode against — whatever pipeline eventually lands carries
+  into the export the same way, unchanged.
+
   **A third piece belongs to the author, and is unnamed anywhere in
   this ticket's own path unless it is written here.**
   `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
