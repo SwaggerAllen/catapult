@@ -103,16 +103,30 @@ jobs:
       # entered the tree (v5 §2.14). `--exit` makes a finding a failing
       # exit code rather than a report nobody reads.
       #
-      # `Config.HTTPS` is ignored because there is no Phoenix endpoint
-      # to enable HTTPS on — sobelow says so itself on every run
-      # ("cannot find the router"), so the finding is about a surface
-      # that does not exist. **Remove this the moment
-      # `lib/catapult_web` lands an endpoint** (ORC-35's dev pass), at
-      # which point it stops being a false positive and starts being
-      # the check it was written to be. Named per-finding rather than
-      # absorbed into a `.sobelow-skips` baseline, for the reason
-      # `mix.exs`'s own `ignore_advisories` gives: a silent gate
-      # re-blinds itself to the next finding.
+      # `Config.HTTPS` is ignored permanently, not pending a condition
+      # (ORC-131). App Platform terminates TLS and coerces HTTP to
+      # HTTPS at its edge, with no setting to disable it, so a public
+      # request never reaches this app over http and `Plug.SSL`'s
+      # redirect could never fire on one. The one path that does not
+      # come through the edge is App Platform's own health probe, which
+      # hits the container's port directly — an endpoint `force_ssl:`
+      # sits ahead of `Catapult.Foundation.DispatchPlug` and would
+      # answer that probe with a 301, failing the deploy. So the
+      # redirect buys nothing and risks the rollout.
+      #
+      # HSTS — the half the edge does not supply — is set on
+      # `CatapultWeb.Router`'s `:browser` pipeline instead, which this
+      # check cannot see because it reads endpoint config. `/health`
+      # and `/dispatch/*` are served by `DispatchPlug` ahead of that
+      # router and never reach the pipeline, which is what makes the
+      # placement safe rather than merely narrower;
+      # `test/catapult_web/router_test.exs` asserts the absence on
+      # `/health` so moving HSTS to the endpoint turns a test red
+      # rather than a deploy.
+      #
+      # Named per-finding rather than absorbed into a `.sobelow-skips`
+      # baseline, for the reason `mix.exs`'s own `ignore_advisories`
+      # gives: a silent gate re-blinds itself to the next finding.
       - name: sobelow
         run: mix sobelow --exit --skip --ignore Config.HTTPS
 
