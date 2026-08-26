@@ -18,7 +18,10 @@
 # steps below are what's actually known (the OIDC contract, the two
 # endpoints, the inputs a dispatch carries) with the harness step
 # named as a placeholder rather than guessed at. See
-# `docs/chain-runbook.md` for how this fits into a hand-driven run.
+# `test/catapult/generation/toy_seed_chain_test.exs` (offline) and
+# `toy_seed_chain_live_test.exs` (`:live`) for how this fits into a
+# run — Catapult's own surface drives one for real (v5 §7.17); there
+# is no hand-driven runbook anymore (ORC-36 retired it).
 name: catapult-dispatch
 run-name: "catapult dispatch: ${{ inputs.run_key }}"
 
