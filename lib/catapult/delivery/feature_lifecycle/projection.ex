@@ -17,15 +17,11 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   `:queue`, `:generation` and `:critique` carry no human ball and are
   always walked through once any commit exists; a gate only counts as
   passed when `passed[position] == commit_signature` exactly — a
-  bare integer bump (a fresh commit) always reopens it. **Dormant by
-  construction today**: nothing in this phase's event vocabulary ever
-  calls `pass/2` (no gate-approval command exists until Phase 7 —
-  `systems/delivery.md`'s own "what advancing past a gate on a
-  human's word dispatches to stays open" bullet), so every resting
-  walk in Phase 4 stops at the first declared gate and stays there.
-  `pass/2` is exercised directly by this module's own tests so the
-  skip semantics are proven correct ahead of the command that will
-  call it.
+  bare integer bump (a fresh commit) always reopens it. `pass/2` is
+  called from `Catapult.Delivery.FeatureLifecycle`'s own `apply/2`
+  clause for `GateApproved` (ORC-34, `systems/delivery.md`) — the
+  gate-approval command's own call, exercised both there and directly
+  by this module's own tests.
 
   **Blocked carries no new mechanism** (`systems/delivery.md`): `
   block/2` records the position the ticket was standing at when a
@@ -100,7 +96,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
     %{state | commit_signature: sequence, blocked_from: nil, pinned_to: nil}
   end
 
-  @doc "Marks `position` passed as of the projection's current commit signature — the gate-approval command's own call, once one exists (Phase 7)."
+  @doc "Marks `position` passed as of the projection's current commit signature — called by `Catapult.Delivery.FeatureLifecycle`'s `apply/2` clause for `GateApproved` (ORC-34)."
   @spec pass(t(), Sequence.position()) :: t()
   def pass(%__MODULE__{commit_signature: sig} = state, position) do
     %{state | passed: Map.put(state.passed, position, sig)}
