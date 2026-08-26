@@ -25,6 +25,26 @@ defmodule Catapult.FoundationTest do
     assert opts[:policy]
   end
 
+  describe "seeded FOUNDATION_ENDPOINT_SECRET_KEY_BASE values" do
+    test "every seeded environment clears Plug.Session.Cookie's own 64-byte floor" do
+      # config/dev.exs and config/test.exs are pure (`import Config`, no
+      # `System.get_env`, no `Mix.env`), so each reads cleanly on its
+      # own without the parent config.exs. A conn-booting test proves
+      # nothing here (ORC-132): every seeded environment already carries
+      # a value cast through `Foundation.cast_endpoint_secret_key_base/1`
+      # at boot, so the only way this regresses is a *seed* dropping
+      # below the floor again — which is exactly what config/dev.exs did
+      # while every request-level test stayed green.
+      for {env, path} <- [dev: "config/dev.exs", test: "config/test.exs"] do
+        config = Config.Reader.read!(path, env: env)
+        {Catapult.Config.Static, seed} = config[:catapult][:config_source]
+        value = Map.fetch!(seed, "FOUNDATION_ENDPOINT_SECRET_KEY_BASE")
+
+        assert {:ok, ^value} = Foundation.cast_endpoint_secret_key_base(value)
+      end
+    end
+  end
+
   describe "cast_database_url/1" do
     test "strips the sslmode query and configures TLS explicitly" do
       assert {:ok, opts} = Foundation.cast_database_url("ecto://u:p@host/db?sslmode=require")
@@ -45,6 +65,22 @@ defmodule Catapult.FoundationTest do
     test "a URL with no host is refused" do
       assert {:error, _} = Foundation.cast_database_url("ecto:///db")
       assert {:error, _} = Foundation.cast_database_url("")
+    end
+  end
+
+  describe "cast_endpoint_secret_key_base/1" do
+    test "a value at least 64 bytes passes through" do
+      value = String.duplicate("a", 64)
+      assert {:ok, ^value} = Foundation.cast_endpoint_secret_key_base(value)
+
+      longer = String.duplicate("a", 65)
+      assert {:ok, ^longer} = Foundation.cast_endpoint_secret_key_base(longer)
+    end
+
+    test "a value under 64 bytes is refused, and its reason names no part of the value" do
+      assert {:error, reason} = Foundation.cast_endpoint_secret_key_base("s3cret")
+      refute reason =~ "s3cret"
+      assert reason =~ "64"
     end
   end
 end
