@@ -107,6 +107,12 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   @scope "lib/**/*.ex"
 
+  # Where an operator standing up an instance is already reading. A
+  # project that has invented no required variable never needs the
+  # file to exist, so naming it here costs a generated project
+  # nothing until it declares its first one.
+  @manifest "SETUP.md"
+
   @impl Mix.Task
   def run(_args) do
     Mix.Task.run("compile")
@@ -193,7 +199,7 @@ defmodule Mix.Tasks.Catapult.Audit do
 
   ## Declared ↔ the tree
 
-  # `Catapult.Audit.Declarations` holds all three, because a check nobody
+  # `Catapult.Audit.Declarations` holds all four, because a check nobody
   # can call is a check nobody tests; the task's job is to hand them the
   # composed inventory a registered check deliberately never sees.
   #
@@ -202,12 +208,20 @@ defmodule Mix.Tasks.Catapult.Audit do
   # its tree is then a read nothing can explain, which is exactly the
   # line worth printing. The two registry checks skip their own sweep
   # when their entries are empty, which is where that saving belongs.
+  #
+  # declared↔recorded is the one whose other side is not the tree, so the
+  # manifest path is the task's to name rather than the check's. Relative
+  # to the working directory, like `@scope` and for the same reason: the
+  # audit's globs are rooted there deliberately, because this task ships
+  # into every generated project (`systems/substrate.md`).
   defp declaration_problems(components) do
     inventory = Composer.inventory(components)
+    declarations = Config.declarations(components)
 
     Declarations.guardrails(inventory.processes, Catapult.Guardrails.enforceable(), @scope) ++
       Declarations.error_kinds(inventory.errors, @scope) ++
-      Declarations.config(Config.declarations(components), @scope)
+      Declarations.config(declarations, @scope) ++
+      Declarations.operator_values(declarations, @manifest, @scope)
   end
 
   ## Gates this task reports and never runs
