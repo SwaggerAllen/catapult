@@ -147,4 +147,57 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
 
     assert resting(state) == {:gate, "review"}
   end
+
+  describe "JSON round trip (ORC-120)" do
+    # `blocked_from`/`pinned_to`/`passed` all carry or key on a raw
+    # `Sequence.position()` tuple `Jason` has no `Encoder` for, so
+    # `Jason.encode!/1` on the bare struct is the reproduction this
+    # ticket names — proven directly, rather than assumed, before
+    # proving `to_wire/1`/`from_wire/1` undo it.
+    test "encoding the bare struct with a position-shaped field raises, same as Jason.encode/1 on a tuple" do
+      state = %Projection{blocked_from: {:kind, :generation}}
+
+      assert_raise Protocol.UndefinedError, fn -> Jason.encode!(Map.from_struct(state)) end
+    end
+
+    test "a fresh projection round-trips" do
+      assert Projection.new() |> Projection.to_wire() |> roundtrip() == Projection.new()
+    end
+
+    test "a projection with every field populated round-trips" do
+      state =
+        Projection.new()
+        |> Projection.commit(1)
+        |> Projection.pass({:gate, "review"})
+        |> Projection.commit(2)
+        |> Projection.block(workflow(), "feature")
+
+      assert roundtrip(Projection.to_wire(state)) == state
+    end
+
+    test "a decline-pinned kind position round-trips" do
+      state = Projection.new() |> Projection.commit(1) |> Projection.decline({:kind, :generation})
+
+      assert roundtrip(Projection.to_wire(state)) == state
+    end
+
+    test "the struct itself encodes through Jason, not by @derive but by its own Jason.Encoder implementation" do
+      state =
+        Projection.new()
+        |> Projection.commit(1)
+        |> Projection.pass({:gate, "review"})
+
+      encoded = Jason.encode!(state)
+      assert {:ok, decoded} = Jason.decode(encoded, keys: :atoms)
+      assert Projection.from_wire(decoded) == state
+    end
+
+    # Round-trips through the identical `Jason.encode!/1` +
+    # `Jason.decode!/2, keys: :atoms` shape
+    # `Commanded.Serialization.JsonSerializer` actually takes, rather
+    # than calling `to_wire/1`/`from_wire/1` directly.
+    defp roundtrip(wire) do
+      wire |> Jason.encode!() |> Jason.decode!(keys: :atoms) |> Projection.from_wire()
+    end
+  end
 end

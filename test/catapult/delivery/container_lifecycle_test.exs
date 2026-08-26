@@ -30,6 +30,8 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
   alias Catapult.Engine.Commands.OpenFlow
   alias Catapult.Engine.Commands.RequestFlagSetFlip
   alias Catapult.Engine.Store
+  alias Commanded.Serialization.JsonSerializer
+  alias Commanded.Serialization.ModuleNameTypeProvider
 
   @project "cl-project"
 
@@ -403,6 +405,33 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       container = container!("c-retired", "no-longer-declared", current_queue: "main")
 
       assert ContainerLifecycle.next_commands(workflow, container) == []
+    end
+  end
+
+  describe "JSON round trip (ORC-120)" do
+    # `Commanded.ProcessManagers.ProcessManagerInstance` calls
+    # `persist_state/2` after every handled event, serializing this
+    # exact struct through `Commanded.Serialization.JsonSerializer` —
+    # the same round trip proven against `FeatureLifecycle`. `state` is
+    # this struct's own hazard: `Jason` encodes the atom to a JSON
+    # string, and `struct/2` restores it as that bare string unless the
+    # `JsonDecoder` implementation reconstructs it.
+    test "a process manager instance round-trips through Commanded's own serializer, for every declared state" do
+      for state <- [:minted, :active, :closed] do
+        pm = %ContainerLifecycle{
+          project_id: "proj-1",
+          container_id: "container-1",
+          type_name: "milestone",
+          queue: "main",
+          state: state
+        }
+
+        type = ModuleNameTypeProvider.to_string(pm)
+
+        assert pm
+               |> JsonSerializer.serialize()
+               |> JsonSerializer.deserialize(type: type) == pm
+      end
     end
   end
 end

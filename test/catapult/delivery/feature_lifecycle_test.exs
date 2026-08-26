@@ -13,6 +13,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
   use Catapult.DataCase, async: false
 
   alias Catapult.Delivery.FeatureLifecycle
+  alias Catapult.Delivery.FeatureLifecycle.Projection
   alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Engine.Commands.ApproveDraft
   alias Catapult.Engine.Commands.ApproveGate
@@ -23,6 +24,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Router
+  alias Commanded.Serialization.JsonSerializer
+  alias Commanded.Serialization.ModuleNameTypeProvider
   alias Ecto.Adapters.SQL.Sandbox
 
   # `engine_flows.entry_node_id` is a foreign key into `engine_nodes`
@@ -269,5 +272,37 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert row.entry_node_id == "sysarch"
     assert FeatureLifecycle.status(row) == nil
+  end
+
+  describe "JSON round trip (ORC-120)" do
+    # `Commanded.ProcessManagers.ProcessManagerInstance` calls
+    # `persist_state/2` after every handled event, which serializes
+    # this exact struct through `Commanded.Serialization
+    # .JsonSerializer` — the identical round trip a real (non-
+    # `InMemory`) event store takes on every `RunFailed`/`GateDeclined`.
+    # `config/test.exs`'s adapter never exercises this path, which is
+    # this ticket's own diagnosis for why the suite never caught the
+    # crash; this test takes the real serializer rather than trusting
+    # that diagnosis by inspection alone.
+    test "a process manager instance with a populated projection round-trips through Commanded's own serializer" do
+      pm = %FeatureLifecycle{
+        project_id: "proj-1",
+        flow_id: "flow-1",
+        entry_node_id: "sysarch",
+        flow_name: "feature",
+        projection: %Projection{
+          commit_signature: 3,
+          passed: %{{:gate, "review"} => 3},
+          blocked_from: nil,
+          pinned_to: {:kind, :generation}
+        }
+      }
+
+      type = ModuleNameTypeProvider.to_string(pm)
+
+      assert pm
+             |> JsonSerializer.serialize()
+             |> JsonSerializer.deserialize(type: type) == pm
+    end
   end
 end

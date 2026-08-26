@@ -120,6 +120,25 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   is where a periodic floor belongs, beside the rest of the two-grain
   delivery machinery, not bolted on here. `FeatureLifecycle` carries
   the same shape and says so for the same reason.
+
+  **`@derive Jason.Encoder` and the `JsonDecoder` implementation below**
+  (ORC-120, folded in from a separate carried finding against the
+  identical defect `Catapult.Delivery.FeatureLifecycle` was found with):
+  `Commanded.ProcessManagers.ProcessManagerInstance` persists this
+  struct through `Commanded.Serialization.JsonSerializer` the same
+  unconditional way it does `FeatureLifecycle`'s, and without an
+  encoder that crashes real (non-`InMemory`) persistence on the first
+  write. Unlike `FeatureLifecycle`, no field here is a raw
+  `Sequence.position()`-shaped tuple — `type_name` and `queue` are both
+  `String.t() | nil` — so `@derive` alone is the whole of the encode
+  half. `state` is an atom (`:minted | :active | :closed`), which
+  `Jason` encodes to a JSON string and `struct/2` then restores as that
+  bare string rather than reconstructing the atom, in violation of this
+  struct's own `@type` — the `JsonDecoder` implementation below is
+  exactly `String.to_existing_atom/1` on the way back, safe for the
+  same reason it is everywhere else in this system: the three values
+  are compile-time literals in this module already, so they are
+  already in the atom table before any snapshot is ever read.
   """
 
   use Commanded.ProcessManagers.ProcessManager,
@@ -157,6 +176,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   alias Catapult.Engine.Store.Container
 
   @enforce_keys [:project_id, :container_id]
+  @derive Jason.Encoder
   defstruct [:project_id, :container_id, :type_name, :queue, state: :minted]
 
   @type t :: %__MODULE__{
@@ -643,4 +663,15 @@ defmodule Catapult.Delivery.ContainerLifecycle do
         error
     end
   end
+end
+
+defimpl Commanded.Serialization.JsonDecoder, for: Catapult.Delivery.ContainerLifecycle do
+  alias Catapult.Delivery.ContainerLifecycle
+
+  @doc "See `ContainerLifecycle`'s own moduledoc entry: reconstructs the atom `struct/2` leaves as a bare string after `JsonSerializer.deserialize/2`'s round trip."
+  def decode(%ContainerLifecycle{state: state} = pm) when is_binary(state) do
+    %{pm | state: String.to_existing_atom(state)}
+  end
+
+  def decode(%ContainerLifecycle{} = pm), do: pm
 end

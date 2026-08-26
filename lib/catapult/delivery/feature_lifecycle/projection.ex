@@ -53,6 +53,29 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   `resume/2`, a human resume rather than a gate throwback — now writes
   the same field, and a name that names only the first writer
   misdescribes what it holds the moment a second one exists.
+
+  **`to_wire/1`/`from_wire/1`** (ORC-120): `Commanded.ProcessManagers
+  .ProcessManagerInstance` persists `Catapult.Delivery.FeatureLifecycle`'s
+  state — this struct nested inside it — through
+  `Commanded.Serialization.JsonSerializer` after every handled event,
+  and `blocked_from`/`pinned_to` carry a raw `Sequence.position()`
+  tuple `Jason` has no `Encoder` for, exactly the shape
+  `Catapult.Engine.Events.FlowResumed`'s own moduledoc already
+  documents crashing real (non-`InMemory`) persistence over. The fix
+  extends that same precedent — two nullable strings instead of a
+  tuple — to both fields; `passed` breaks new ground the precedent
+  doesn't cover, since it is *keyed* on a position rather than merely
+  carrying one, and a JSON object's keys are always strings, so it
+  flattens to a list of `{kind, gate, signature}` records instead of a
+  map. A custom `Jason.Encoder` (below) calls `to_wire/1` rather than
+  `@derive`, since the struct's own field shapes are not what goes over
+  the wire; restoring the struct from a snapshot needs `from_wire/1`
+  called explicitly, since `Commanded.Serialization.JsonSerializer
+  .deserialize/2` builds the enclosing `FeatureLifecycle` struct via
+  `struct/2` before any decoder protocol runs, which leaves a nested
+  struct field as a bare atom-keyed map rather than reifying it —
+  `Catapult.Delivery.FeatureLifecycle`'s own `JsonDecoder`
+  implementation is what calls `from_wire/1`.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
@@ -146,6 +169,40 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   @spec blocked_origin(t()) :: Sequence.position() | nil
   def blocked_origin(%__MODULE__{blocked_from: from}), do: from
 
+  @doc "The JSON-safe map this struct's own `Jason.Encoder` (below) writes — see the moduledoc's `to_wire/1`/`from_wire/1` entry."
+  @spec to_wire(t()) :: map()
+  def to_wire(%__MODULE__{} = projection) do
+    {blocked_from_kind, blocked_from_gate} = to_columns(projection.blocked_from)
+    {pinned_to_kind, pinned_to_gate} = to_columns(projection.pinned_to)
+
+    %{
+      commit_signature: projection.commit_signature,
+      blocked_from_kind: blocked_from_kind,
+      blocked_from_gate: blocked_from_gate,
+      pinned_to_kind: pinned_to_kind,
+      pinned_to_gate: pinned_to_gate,
+      passed:
+        Enum.map(projection.passed, fn {position, signature} ->
+          {kind, gate} = to_columns(position)
+          %{kind: kind, gate: gate, signature: signature}
+        end)
+    }
+  end
+
+  @doc "The reverse of `to_wire/1`, for `Catapult.Delivery.FeatureLifecycle`'s own `JsonDecoder` implementation."
+  @spec from_wire(map()) :: t()
+  def from_wire(%{} = wire) do
+    %__MODULE__{
+      commit_signature: wire.commit_signature,
+      blocked_from: from_columns(wire.blocked_from_kind, wire.blocked_from_gate),
+      pinned_to: from_columns(wire.pinned_to_kind, wire.pinned_to_gate),
+      passed:
+        Map.new(wire.passed, fn record ->
+          {from_columns(record.kind, record.gate), record.signature}
+        end)
+    }
+  end
+
   defp passable?({:kind, kind}, %__MODULE__{commit_signature: sig})
        when kind in [:pending, :generation, :critique] do
     not is_nil(sig)
@@ -153,5 +210,27 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
 
   defp passable?({:gate, _name} = position, %__MODULE__{commit_signature: sig} = state) do
     not is_nil(sig) and Map.get(state.passed, position) == sig
+  end
+
+  defp to_columns(nil), do: {nil, nil}
+  defp to_columns({:kind, kind}), do: {to_string(kind), nil}
+  defp to_columns({:gate, name}), do: {nil, name}
+
+  # `String.to_existing_atom/1`, never `to_atom/1` — the identical
+  # discipline `Catapult.Delivery.FeatureLifecycle`'s own
+  # `unflatten_position/2` takes for the same reason: a `kind` string
+  # here only ever came from a `Sequence.position()` this same struct
+  # wrote, itself built off `Catapult.Dsl.SystemStatus`'s closed set,
+  # already in the atom table.
+  defp from_columns(nil, nil), do: nil
+  defp from_columns(kind, nil) when not is_nil(kind), do: {:kind, String.to_existing_atom(kind)}
+  defp from_columns(nil, gate) when not is_nil(gate), do: {:gate, gate}
+end
+
+defimpl Jason.Encoder, for: Catapult.Delivery.FeatureLifecycle.Projection do
+  alias Catapult.Delivery.FeatureLifecycle.Projection
+
+  def encode(%Projection{} = projection, opts) do
+    projection |> Projection.to_wire() |> Jason.Encode.map(opts)
   end
 end

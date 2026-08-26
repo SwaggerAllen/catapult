@@ -648,6 +648,96 @@ design gates pass.
   an ordinary chain-bundle flow, dispatched the same way any other
   queue's `flow:` is (`docs/v5-design-decisions.md` §7.8).
 
+- **A process manager's own persisted state is bound by the identical
+  JSON round trip its events already are — settled as a standing rule,
+  not just fixed on the one instance that crashed** (ORC-120, bug,
+  design pass). `Commanded.ProcessManagers.ProcessManagerInstance` calls
+  `persist_state/2` after every handled event, unconditionally, which
+  serializes the manager's own struct through the identical
+  `Commanded.Serialization.JsonSerializer` `config/*.exs` already names
+  for the event store — the same encoder every event struct here
+  already carries `@derive Jason.Encoder` for, and the same one
+  `Catapult.Engine.Events.FlowResumed`'s own moduledoc already
+  documents refusing a bare `Sequence.position()` tuple over, for the
+  reason recorded there: `Jason` has no `Encoder` for a raw tuple, so a
+  struct carrying one crashes real persistence on the first write, not
+  on `mix test` — the suite's `InMemory` adapter (`config/test.exs`)
+  never round-trips state through JSON at all, so this class of defect
+  is invisible to the default suite by construction, on any process
+  manager, indefinitely. `Catapult.Delivery.FeatureLifecycle` is the
+  instance this ticket found broken (no `@derive Jason.Encoder` on
+  either itself or its nested `Projection`, and `Projection`'s
+  `blocked_from`/`pinned_to`/`passed` all carry or key on raw
+  `Sequence.position()` tuples), but the rule is general and already
+  has a second instance in the identical repository state, found
+  reading this ticket's own scope rather than by a separate look:
+  `Catapult.Delivery.ContainerLifecycle` (ORC-104, above) carries no
+  `@derive Jason.Encoder` either. **Both instances are this ticket's
+  scope, not one filed and one fixed** — the two passes that found
+  `ContainerLifecycle` each declined to touch it on the correct
+  instinct that a ticket named `FeatureLifecycle` only, and the author
+  then widened the ticket itself rather than leaving a second ticket to
+  ship against a rule this doc had already written down one module
+  over. `ContainerLifecycle` differs from `FeatureLifecycle` on both
+  halves of the fix, which is why both are worth stating rather than
+  assuming the same shape twice:
+    * **Encode:** the missing `@derive Jason.Encoder`, and nothing
+      more. `type_name` and `queue` are both `String.t() | nil` — no
+      `Sequence.position()`-shaped field anywhere on this struct — so
+      none of `blocked_from`/`pinned_to`/`passed`'s flattening work
+      applies here.
+    * **Decode:** a `JsonDecoder` implementation is still required,
+      for a different reason than `FeatureLifecycle`'s. `state` is an
+      atom (`:minted | :active | :closed`); `Jason` encodes `:minted`
+      to `"minted"`, and `struct(module, data)` restores it as that
+      bare string, in violation of the struct's own `@type` — the same
+      reification gap named above for `FeatureLifecycle.projection`,
+      just not previously turned on the atom next door.
+    * **Latent, not live:** no `apply/2` or `handle/2` clause in
+      `ContainerLifecycle` matches on `state:` — every head is
+      `%__MODULE__{} = pm`, and the field is written but never
+      matched (the one `state:` match in the file is on
+      `Catapult.Engine.Store.Container`, a database row, a different
+      struct). The drift is dormant today and goes live the first time
+      a clause is added that matches on it — the reason to close it
+      now rather than after it bites, and also why it is not itself
+      gating.
+  **The fix extends existing precedent rather than inventing a
+  second one**:
+  `FlowResumed` already answers a bare position field by flattening it
+  to the two-nullable-strings shape `position_columns/1` (this doc's
+  own store columns) already uses; `FeatureLifecycle`'s `blocked_from`
+  and `pinned_to` take the same flattening. `passed` breaks new ground
+  the existing precedent doesn't cover, and is named here so the next
+  pass doesn't relitigate it: a JSON object's keys are always strings,
+  so a map *keyed* on a position — not merely carrying one — cannot
+  round-trip as a JSON object at all, flattened or not, and becomes a
+  list of flattened `{position, signature}` records instead. Restoring
+  either struct from a snapshot also needs a
+  `Commanded.Serialization.JsonDecoder` implementation, which no event
+  here has needed before now: `JsonSerializer.deserialize/2` calls
+  `struct(module, data)` and only *then* the decoder protocol, so a
+  nested struct field (`FeatureLifecycle.projection`) lands as a bare
+  atom-keyed map, never reified, unless the protocol does it — the gap
+  every event here has avoided simply by nesting no struct and needing
+  no atom reconstructed. The decision is the shape; writing the
+  encoder, the decoder and the flattening is dev's, same as always.
+
+  **Both `Commanded` internals this entry rests on are confirmed
+  against source, not restated on faith** (design review had flagged
+  them as unread — deps are in fact vendored in this checkout).
+  `ProcessManagerInstance`'s event-handling clause calls
+  `persist_state(event_number, state)` unconditionally on every
+  successful `mutate_state/2` — no flag, no opt-out
+  (`deps/commanded/lib/commanded/process_managers/process_manager_instance.ex:257`).
+  And `JsonSerializer.deserialize/2` really does build the struct
+  before the decoder protocol runs, not after: `Jason.decode!/2 |>
+  to_struct(type) |> JsonDecoder.decode()`, where `to_struct/2` is
+  `struct(struct, data)`
+  (`deps/commanded/lib/commanded/serialization/json_serializer.ex:33-41`).
+  Both claims hold exactly as this entry and the ticket's own
+  description already state them.
+
 - **Every carried finding leaves adjudicated, enforced as `retro`'s own
   completion gate — not a separate check bolted on afterward**
   (ORC-104, design pass). `retro`'s own flow, an ordinary
