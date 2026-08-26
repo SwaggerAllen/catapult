@@ -21,4 +21,28 @@ defmodule CatapultWeb.RouterTest do
 
     assert conn.status == 404
   end
+
+  describe "HSTS is on the browser surface and only there (ORC-131)" do
+    test "a :browser route carries it", %{conn: conn} do
+      conn = get(conn, "/my-queue")
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "strict-transport-security") == ["max-age=31536000"]
+    end
+
+    # The load-bearing half. HSTS lives on the `:browser` pipeline
+    # rather than the endpoint precisely so that App Platform's own
+    # health probe — which hits the container's port directly rather
+    # than through the edge that terminates TLS — is untouched. Moving
+    # it to an endpoint-wide `force_ssl:` would put `Plug.SSL` ahead of
+    # `DispatchPlug`, answer that probe with a 301 and fail the
+    # rollout. This test is what turns that from a comment into a
+    # tripwire, so assert the absence, not merely the presence above.
+    test "the health probe's path does not", %{conn: conn} do
+      conn = get(conn, "/health")
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "strict-transport-security") == []
+    end
+  end
 end

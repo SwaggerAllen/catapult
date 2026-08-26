@@ -110,9 +110,15 @@ gate line — an annotation alone disarms nothing. `--ignore
 Config.HTTPS` is scoped to a single finding rather than absorbed into
 a `.sobelow-skips` baseline, for the reason `mix.exs`'s own
 `ignore_advisories` gives: a silent gate re-blinds itself to the next
-finding. Why it is ignored, and the condition under which it stops
-being, are recorded on the gate line itself — where the edit would
-be made.
+finding. Why it is ignored is recorded on the gate line itself, where
+the edit would be made, and it is a settled decision rather than one
+waiting on a condition: App Platform coerces HTTP to HTTPS at its
+edge and offers no setting to stop it, so an endpoint `force_ssl:`
+could only ever fire on the container-local health probe, which it
+would answer with a 301 and fail the deploy. HSTS — the half the edge
+does not supply — is set on `CatapultWeb.Router`'s `:browser`
+pipeline, which `Config.HTTPS` cannot see because it reads endpoint
+config.
 
 The two blocks differ on one line only, and deliberately: the root's
 `mix deps.audit` is an alias running `hex.audit` first and `mix_audit`
