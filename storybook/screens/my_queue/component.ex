@@ -27,8 +27,12 @@ defmodule Catapult.Storybook.Screens.MyQueue do
       </div>
 
       <div role="tablist" class="tabs tabs-boxed w-fit">
-        <a role="tab" class={["tab", @tab == :assigned && "tab-active"]}>Assigned</a>
-        <a role="tab" class={["tab", @tab == :my_roles && "tab-active"]}>My roles</a>
+        <a role="tab" href="?tab=assigned" class={["tab", @tab == :assigned && "tab-active"]}>
+          Assigned
+        </a>
+        <a role="tab" href="?tab=my_roles" class={["tab", @tab == :my_roles && "tab-active"]}>
+          My roles
+        </a>
       </div>
 
       <div :if={@rows == []} class="rounded-box border border-base-300 p-8 text-center opacity-70">

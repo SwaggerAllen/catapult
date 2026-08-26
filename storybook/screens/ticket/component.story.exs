@@ -47,7 +47,7 @@ defmodule Catapult.Storybook.Screens.TicketStory do
             "Four screens, one ticket, because they share a projection surface and a command " <>
               "path — the authoring loop has no surface at all until they exist.",
           sequence: base_sequence(),
-          gate_action: %{role: "product"},
+          gate_action: %{role: "product", href: "#"},
           blocked: nil,
           conflict: nil,
           children: [],
@@ -153,7 +153,7 @@ defmodule Catapult.Storybook.Screens.TicketStory do
           title: "UI v1: the working surface, and the authoring loop's floor",
           argument: "Four screens, one ticket.",
           sequence: base_sequence(),
-          gate_action: %{role: "product"},
+          gate_action: %{role: "product", href: "#"},
           blocked: nil,
           conflict: nil,
           children: [

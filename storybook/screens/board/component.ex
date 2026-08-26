@@ -8,7 +8,7 @@ defmodule Catapult.Storybook.Screens.Board do
   board.md`). `cards`: `%{id:, title:, type:, lane_key:, children: [%{id:, lane_key:,
   lane_label:}], blocked: nil | %{flavor:, origin_label:}, gate: nil | %{role:}}` — a card's own
   lane is `blocked.origin_label`'s lane when `blocked` is set, never a separate "blocked" lane.
-  `gate` is set when the card's lane is a review gate: this module renders a link out to
+  `gate` is set when the card's lane is a review gate: `%{role:, href:}`, rendered as a link out to
   `document-review` (or `ticket`) rather than an Approve/Throw-back pair, since neither command a
   card could dispatch would carry a real `body_sha` to compare against (`screens/board.md`'s
   "Cards link to where pass-forward and pass-back are issued" — ORC-114). No `conflict` shape:
@@ -100,9 +100,9 @@ defmodule Catapult.Storybook.Screens.Board do
         </div>
 
         <div :if={@card.gate} class="card-actions justify-end pt-1">
-          <button class="btn btn-xs btn-outline">
+          <a href={@card.gate.href} class="btn btn-xs btn-outline">
             Review (<%= @card.gate.role %>) →
-          </button>
+          </a>
         </div>
       </div>
     </div>

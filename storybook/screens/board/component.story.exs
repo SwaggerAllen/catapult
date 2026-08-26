@@ -39,7 +39,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "architecture-review",
               blocked: nil,
-              gate: %{role: "architecture-review"},
+              gate: %{role: "architecture-review", href: "#"},
               children: [
                 %{id: "ORC-75-1", lane_key: "generation", lane_label: "Generation"},
                 %{id: "ORC-75-2", lane_key: "checks", lane_label: "Checks"}
@@ -98,7 +98,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "product-review",
               blocked: nil,
-              gate: %{role: "product-review"},
+              gate: %{role: "product-review", href: "#"},
               children: []
             }
           ]
@@ -121,7 +121,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "product-review",
               blocked: nil,
-              gate: %{role: "product-review"},
+              gate: %{role: "product-review", href: "#"},
               children: []
             }
           ]
