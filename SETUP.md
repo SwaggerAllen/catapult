@@ -65,6 +65,35 @@ no-hand-maintained-inventories rule applies to us too). Export the
 current spec from the dashboard if it's ever needed; that export is
 generated, therefore trustworthy.
 
+### Required variables this codebase invented — the manifest
+
+Every name here has **no default in code**, so a deploy without it
+fails at boot with the config report naming it. That is a good failure
+and the wrong moment: the merge that added the declaration is where
+somebody should have learned about it. So the list is checked.
+
+`mix catapult.audit` reads the fenced block below and holds it against
+every `config/0` declaration in `lib/**` — a declaration with no
+`default:`, not `external: true`, and not `required: false`. It fails
+on a declaration this block does not name, **and** on a name here that
+no declaration explains, so the list cannot quietly go stale in either
+direction. Adding a required variable is therefore one line here, and
+the gate that reminds you is the same one that runs on every PR.
+
+Names only; the prose entries below carry the why, the scope, and the
+footguns, and are where you should actually be reading before setting
+one.
+
+```catapult:required-env
+DELIVERY_GITHUB_TOKEN
+FOUNDATION_ENDPOINT_SECRET_KEY_BASE
+```
+
+`DATABASE_URL` is deliberately absent: it is declared `external: true`
+because App Platform injects it under a name this codebase does not
+choose, and the audit excludes those — they are required, and nobody
+here sets them.
+
 The facts a future session needs, recorded as facts:
 
 - App `catapult`, region `sfo`; app id is in

@@ -27,6 +27,46 @@ defmodule Catapult.Audit.Declarations do
       explains (ORC-48). `config/0` was the last registry with no
       declared↔used fact; ORC-4 deferred this half on a check registry
       that shipped two tickets later.
+    * **declared↔recorded** — a `config/0` value this codebase invented
+      and requires, that the operator manifest does not name (ORC-136).
+      The sixth instance, and the first whose other side is a document
+      rather than a tree.
+
+  ## Why the sixth exists at all, since the boot already catches it
+
+  Nothing is broken about the boot report: `Catapult.Boot.load!/0` fails
+  loudly and names the missing variable. What the sixth check moves is
+  the *moment*. ORC-9 added `DELIVERY_GITHUB_TOKEN` with no default;
+  `config/dev.exs` and `config/test.exs` each seed a value, so every gate
+  in every environment that runs one passed, and the first environment
+  reading the real environment was production. The declaration was a new
+  obligation on whoever deploys, and the merge that created it said
+  nothing to them.
+
+  So the fact checked is a property of the declaration alone — no
+  deployment knowledge, no comparison against a live instance, no taste:
+  **a declaration with no `default:`, not marked `external: true`, and
+  not opted out with `required: false` is a variable this codebase
+  invented that nothing outside it will ever set.** Each clause earns
+  its place:
+
+    * `default:` **is requiredness.** `Catapult.Config` treats a value as
+      required unless a default supplies one, so "no default" is the
+      requiredness fact on its own. `secret:` is orthogonal — it governs
+      redaction — and keying on it would miss a required URL or bucket
+      name, which fails exactly the same way.
+    * `external: true` **already marks the names imposed from outside**
+      (`DATABASE_URL`). Those are required and nobody here sets them, so
+      requiredness alone would fire on every one.
+    * `required: false` **is the explicit opt-out**, and is legal with no
+      default (`Catapult.Config`, `value_for/3`). A check that ignored it
+      would demand a manifest line for a value the boot is content to
+      leave `nil`.
+
+  The manifest direction prunes itself the way the escape list does: a
+  recorded name no declaration explains is reported too. A manifest that
+  only ever grows is a manifest that stops being read, and the failure
+  it is meant to prevent is somebody not reading it.
 
   A dead declaration never honours `catapult:allow`, deliberately: the
   escape excuses a *line* the parser found, and what these report is the
@@ -60,6 +100,12 @@ defmodule Catapult.Audit.Declarations do
   """
 
   alias Catapult.Audit.Source
+
+  # The info string on the manifest's fenced block. A literal here and
+  # in SETUP.md, deliberately: a check that accepted several spellings
+  # would let a block drift out of the one the audit reads while still
+  # looking to a reviewer like it was being read.
+  @fence "catapult:required-env"
 
   @doc """
   Guardrail declarations with no application under `scope`.
@@ -135,6 +181,132 @@ defmodule Catapult.Audit.Declarations do
     declared = MapSet.new(declarations, &{&1.slug, &1.key})
 
     call_problems(calls, declared) ++ dead(declarations, calls, parsed?, paths)
+  end
+
+  @doc """
+  Required variables this codebase invented that `manifest` does not record.
+
+  `declarations` is `Catapult.Config.declarations/1`, narrowed here to
+  the in-scope subjects the moduledoc describes — the manifest of the
+  tree being audited cannot be asked to carry a packaged component's
+  variables, and a report saying it should would be advice about a file
+  its author never read.
+
+  Both directions, for the reason the escape list has both: a
+  declaration the manifest misses, and a manifest line no declaration
+  explains. The second is not tidiness. The whole value of the file is
+  that an operator can read it and believe it, and a stale line is a
+  variable somebody sets for no reason and then keeps setting.
+
+  ## The manifest is delimited, not prose
+
+  `manifest` is a path; the recorded names are the lines of the first
+  fenced block opened with `#{@fence}`, one name per line, `#` starting
+  a comment. Fenced rather than a bare list because the alternative is
+  parsing the surrounding document loosely, and a check that guesses at
+  prose is a check whose author's guess is the specification — the
+  antipattern `docs/non-goals.md` names for theme tokens. Fenced rather
+  than an HTML comment because the block should be *visible*: it lands
+  in a document somebody follows while standing up an instance, and a
+  checklist they cannot see is a second place to forget.
+
+  A missing file, or a file with no such block, is not silence. It is
+  the finding, and it names every subject — but only when there is a
+  subject, so a project that has invented no required variable needs no
+  manifest and never hears about one. That matters more here than
+  elsewhere: this module ships into every project the platform builds
+  (`LICENSING.md`), most of which will never have a `SETUP.md`.
+  """
+  @spec operator_values([map()], String.t(), String.t()) :: [String.t()]
+  def operator_values(declarations, manifest, scope) do
+    # The predicate first, the scope glob only if it can matter: the
+    # empty case is every generated project that has invented nothing,
+    # and it should not pay for a wildcard to find that out.
+    case Enum.filter(declarations, &invented_and_required?/1) do
+      [] -> []
+      candidates -> against_manifest(subjects(candidates, scope), manifest)
+    end
+  end
+
+  defp subjects(candidates, scope) do
+    sources = sources(paths(scope))
+
+    Enum.filter(candidates, &in_scope?(&1.component, sources))
+  end
+
+  # The three clauses, in the moduledoc's order. `required: false` is the
+  # one ORC-136's own predicate missed: it is legal with no default, and
+  # demanding a manifest line for a value the boot leaves nil would make
+  # the check wrong in the direction that costs an author an argument.
+  defp invented_and_required?(%{opts: opts}) do
+    not Keyword.has_key?(opts, :default) and
+      Keyword.get(opts, :external, false) != true and
+      Keyword.get(opts, :required, true) != false
+  end
+
+  defp against_manifest([], _manifest), do: []
+
+  defp against_manifest(subjects, manifest) do
+    case recorded(manifest) do
+      :none -> [no_manifest(subjects, manifest)]
+      recorded -> missing(subjects, recorded) ++ stale(subjects, recorded, manifest)
+    end
+  end
+
+  defp no_manifest(subjects, manifest) do
+    "#{manifest} records no required variables (expected a fenced ```#{@fence} block) " <>
+      "and #{count(subjects)} declared with no default and no external: true: " <>
+      "#{subject_names(subjects)} — every deploy must set them and nothing tells the " <>
+      "operator so until the boot fails (ORC-136, v5 §2.2)"
+  end
+
+  defp missing(subjects, recorded) do
+    for subject <- subjects, not MapSet.member?(recorded, subject.name) do
+      "#{inspect(subject.component)} declares config key #{inspect(subject.key)} " <>
+        "(#{subject.name}) with no default and no external: true, and no manifest entry " <>
+        "records it — a deploy without it fails at boot, which is later than this merge " <>
+        "(ORC-136, conventions §4)"
+    end
+  end
+
+  defp stale(subjects, recorded, manifest) do
+    declared = MapSet.new(subjects, & &1.name)
+
+    for name <- Enum.sort(recorded), not MapSet.member?(declared, name) do
+      "#{manifest} records #{name} as a required variable and no component in scope " <>
+        "declares it that way — a line an operator would act on for nothing (ORC-136)"
+    end
+  end
+
+  defp count([_one]), do: "1 value is"
+  defp count(subjects), do: "#{length(subjects)} values are"
+
+  defp subject_names(subjects),
+    do: subjects |> Enum.map(& &1.name) |> Enum.sort() |> Enum.join(", ")
+
+  # `:none` rather than an empty set for both "no file" and "no block":
+  # they are the same finding, and distinguishing them would offer an
+  # operator a difference they cannot act on differently.
+  defp recorded(manifest) do
+    case File.read(manifest) do
+      {:ok, body} -> body |> String.split(["\r\n", "\n"]) |> block()
+      {:error, _reason} -> :none
+    end
+  end
+
+  defp block(lines) do
+    case Enum.drop_while(lines, &(String.trim(&1) != "```" <> @fence)) do
+      [] -> :none
+      [_open | rest] -> rest |> Enum.take_while(&(String.trim(&1) != "```")) |> entries()
+    end
+  end
+
+  defp entries(lines) do
+    for line <- lines,
+        entry = line |> String.split("#", parts: 2) |> hd() |> String.trim(),
+        entry != "",
+        into: MapSet.new(),
+        do: entry
   end
 
   ## Declared ↔ used, for the two registries with one name to match

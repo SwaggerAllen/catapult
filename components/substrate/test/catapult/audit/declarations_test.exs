@@ -76,6 +76,11 @@ defmodule Catapult.Audit.DeclarationsTest do
   defp guardrails(ctx),
     do: Declarations.guardrails(ctx.inventory.processes, [:max_heap_size], ctx.scope)
 
+  defp operator_values(ctx),
+    do: Declarations.operator_values(ctx.declarations, ctx.manifest, ctx.scope)
+
+  defp manifest!(ctx, body), do: File.write!(ctx.manifest, body)
+
   describe "declared ↔ applied" do
     test "an applied guardrail is not a problem", ctx do
       write(ctx.dir, """
@@ -216,6 +221,120 @@ defmodule Catapult.Audit.DeclarationsTest do
     end
   end
 
+  # The sixth check's own component, because the predicate has three
+  # clauses and `@engine` exercises one of them. Compiled into the same
+  # scope, so every value below is in-tree and the only thing under test
+  # is the manifest.
+  @operator """
+    use Catapult.Component, slug: :engine
+
+    def config do
+      [
+        {:invented, "ENGINE_INVENTED", []},
+        {:defaulted, "ENGINE_DEFAULTED", default: "x"},
+        {:imposed, "DATABASE_URL", external: true},
+        {:opted_out, "ENGINE_OPTED_OUT", required: false}
+      ]
+    end
+  """
+
+  describe "declared ↔ recorded" do
+    setup ctx do
+      component = compile!(ctx.dir, @operator)
+
+      {:ok,
+       declarations: Config.declarations([component]),
+       manifest: Path.join(ctx.dir, "SETUP.md")}
+    end
+
+    test "only the invented, required, non-external value is a subject", ctx do
+      manifest!(ctx, "```catapult:required-env\n```\n")
+
+      assert [problem] = operator_values(ctx)
+      assert problem =~ "ENGINE_INVENTED"
+      # The three clauses of the predicate, each as a name that must not
+      # appear. `required: false` is the one ORC-136's own predicate
+      # missed, and the one a later reader is likeliest to drop.
+      refute problem =~ "ENGINE_DEFAULTED"
+      refute problem =~ "DATABASE_URL"
+      refute problem =~ "ENGINE_OPTED_OUT"
+    end
+
+    test "a recorded value is silent", ctx do
+      manifest!(ctx, "```catapult:required-env\nENGINE_INVENTED\n```\n")
+
+      assert operator_values(ctx) == []
+    end
+
+    test "no manifest at all is the finding, and it names the subjects", ctx do
+      refute File.exists?(ctx.manifest)
+
+      assert [problem] = operator_values(ctx)
+      assert problem =~ "records no required variables"
+      assert problem =~ "catapult:required-env"
+      assert problem =~ "ENGINE_INVENTED"
+    end
+
+    test "a manifest with no fenced block is the same finding", ctx do
+      manifest!(ctx, "# Setup\n\nSet ENGINE_INVENTED before deploying.\n")
+
+      assert [problem] = operator_values(ctx)
+      assert problem =~ "records no required variables"
+    end
+
+    # The direction that keeps the file worth reading: a line an operator
+    # would act on, for a declaration that no longer exists.
+    test "a recorded name nothing declares is reported too", ctx do
+      manifest!(ctx, "```catapult:required-env\nENGINE_INVENTED\nENGINE_RETIRED\n```\n")
+
+      assert [problem] = operator_values(ctx)
+      assert problem =~ "ENGINE_RETIRED"
+      assert problem =~ "no component in scope"
+    end
+
+    test "both directions report together", ctx do
+      manifest!(ctx, "```catapult:required-env\nENGINE_RETIRED\n```\n")
+
+      assert [missing, stale] = operator_values(ctx)
+      assert missing =~ "ENGINE_INVENTED"
+      assert missing =~ "no manifest entry records it"
+      assert stale =~ "ENGINE_RETIRED"
+    end
+
+    test "comments and blank lines in the block are not names", ctx do
+      manifest!(ctx, """
+      ```catapult:required-env
+      # the plane's own credential
+      ENGINE_INVENTED  # set on the instance, encrypted
+
+      ```
+      """)
+
+      assert operator_values(ctx) == []
+    end
+
+    test "the block ends at its fence", ctx do
+      manifest!(ctx, """
+      ```catapult:required-env
+      ENGINE_INVENTED
+      ```
+
+      ENGINE_RETIRED is prose, not a name.
+      """)
+
+      assert operator_values(ctx) == []
+    end
+
+    # A generated project that has invented no required variable needs no
+    # manifest and must never be told to write one — this module ships
+    # into every one of them.
+    test "no subjects means no manifest is demanded", ctx do
+      refute File.exists?(ctx.manifest)
+
+      assert Declarations.operator_values([], ctx.manifest, ctx.scope) == []
+    end
+  end
+
   describe "a declaration is only dead in the tree that declares it" do
     setup ctx do
       write(ctx.dir, "defmodule A do\n  def a, do: :ok\nend\n")
@@ -234,6 +353,16 @@ defmodule Catapult.Audit.DeclarationsTest do
 
     test "nor are its config values", ctx do
       assert Declarations.config(ctx.declarations, ctx.scope) == []
+    end
+
+    # SHIPPED_TOKEN has no default and no external: true, so it is
+    # invented-and-required by the predicate — and it is not this tree's
+    # operator's to set. The manifest of the project being audited cannot
+    # be asked to carry a packaged component's variables.
+    test "nor does its required value belong in this tree's manifest", ctx do
+      manifest = Path.join(ctx.dir, "SETUP.md")
+
+      assert Declarations.operator_values(ctx.declarations, manifest, ctx.scope) == []
     end
 
     test "but a read in this tree still joins against them", ctx do
