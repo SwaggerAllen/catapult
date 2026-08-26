@@ -115,13 +115,18 @@ conventions §13).
   unanswered — `systems/engine.md`'s own ORC-34 entry leaves them so on
   purpose — but neither blocks v1, since Phase 4's own `feature.yaml`
   runs exactly one `generation` status ahead of each gate. `gate`/
-  `throwback_to` membership is validated at the command edge: whatever
-  constructs the command (dev's LiveView) checks it against the loaded
-  workflow bundle before dispatch, the same way `Catapult.Dsl.Workflow
-  .gate_throwback_problems/2` load-time-guarantees every declared
-  `throwback:` target is reachable — this is also why `document-
-  review`'s throwback picker only ever offers a gate's own declared
-  exits. **A decline naming no comment is rejected by `DeclineGate`'s
+  `throwback_to` legality is validated at the command edge: whatever
+  constructs the command (dev's LiveView) checks that `throwback_to` is
+  earlier in the citing type's own effective sequence — the same
+  "earlier in the array" test `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` already runs at load time for a
+  *declared* target, generalized to every runtime pick now that ORC-115
+  retires the declared list (`docs/dsl-syntax.md` §15.10, second design
+  review). `document-review`'s throwback picker offers the same full
+  earlier-prefix Blocked-return's picker already gives (`docs/ui-spec
+  .md` J4), one click landing on the citing sub-array's own derived
+  default, never bounded to a gate's own declared exits. **A decline
+  naming no comment is rejected by `DeclineGate`'s
   own aggregate state, never by either screen** — the screen surfaces
   that rejection synchronously, the same compare-and-swap conflict
   rendering `ticket`'s stale-transition case already specs, but does

@@ -722,9 +722,12 @@ Added with the two axes and the declarable protocol surface (v5
   `critique` entry's `depth:` is read by anything today — scheduling
   is a later consumer (v5 §7.19) — so there is no consumer to
   migrate;
-- a gate's exits (forward and throwback) resolve to states that
-  exist within the citing type's own array, and its declared
-  escalation policy is well-formed;
+- a gate's forward exit (the next entry in the citing type's own
+  array) and its declared escalation policy are well-formed. A gate
+  declares no throwback target to check here (ORC-115 retires the
+  field, `dsl-syntax.md` §15.10): a decline's target is a runtime
+  pick, checked at the command edge against the ticket's effective
+  sequence, never load-time bundle content;
 - **a `type:` name is unique in the loaded union, whatever `skeleton:`
   it declares or omits** — `container`- and `ticket`-skeleton types
   and skeleton-less types share one namespace (§15.2);
@@ -932,18 +935,18 @@ Added with sub-arrays (§15.10, ORC-115):
   target on its own (`systems/delivery.md`'s open question), so a
   queue-shaped anchor keeps its existing, ungrouped position whatever
   type declares it;
-- **a gate's `throwback:` target still resolves within the citing
-  type's own full array** (§13's existing gate-throwback check,
-  unchanged) — sub-array membership does not narrow what an explicit
-  `throwback:` may name, only what the *default*, when none is
-  declared, falls back to;
-- **a `review:` entry inside a sub-array with no declared `throwback:`
-  of its own defaults to that sub-array's one non-critique agent-balled
-  entry** — computed, never stored, the identical "derive, never hold"
-  posture `ready_scopes` and staleness already take. This is a default,
-  not a second load-time check with its own failure mode: there is
-  nothing to reject, because the check above already guarantees
-  exactly one candidate exists.
+- **there is no `throwback:` field to validate here or anywhere else
+  — it retires with this section** (second design review, below): a
+  decline's legal targets are never bundle-declared content, so
+  sub-array membership has nothing to narrow;
+- **a `review:` entry inside a sub-array resolves its one-click
+  default to that sub-array's own non-critique agent-balled entry** —
+  computed, never stored, the identical "derive, never hold" posture
+  `ready_scopes` and staleness already take. This is a default action,
+  not a bound on legality: the full set of legal targets is
+  `docs/v5-design-decisions.md` §7.19's own earlier-prefix rule, the
+  same one Blocked-return uses, and the check above only guarantees
+  the default itself is unambiguous.
 
 ## 14. Deliberately absent
 
@@ -1363,9 +1366,6 @@ depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
                                 #   accepts [first, rest] — the
                                 #   project's first traversal of this
                                 #   gate vs. every later one.
-throwback: [product-design]     # exits it may reject to; each must
-                                #   resolve within the citing type's
-                                #   own array (§13)
 escalation: author              # policy; human gates are author-owned
 ```
 
@@ -1392,6 +1392,17 @@ log because the plane records the command with its actor.
 carry `ticket_types: [feature]`; that fact is now which types' own
 `statuses:` arrays cite it, and there is exactly one place it lives —
 the citing type, not the gate.
+
+**No `throwback:` field, and none is missing (ORC-115, second design
+review).** A declared list of legal decline exits was necessary only
+while decline targets were bounded to a per-gate allow-list;
+`docs/v5-design-decisions.md` §7.19 and §15.10 below make a gate's
+decline and a Blocked-return the same rule — any earlier status in the
+citing type's own effective sequence — so there is nothing left for a
+narrower, per-gate list to bound. The one thing an explicit target
+still needs is a *default*, for the case a decline names no further
+choice, and §15.10's sub-array grouping supplies that structurally:
+the citing sub-array's own non-critique agent step.
 
 **Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
 ORC-92). A gate is a human sign-off, and a human reads the top level;
@@ -1907,61 +1918,81 @@ first-element one, since `types/feature.yaml`'s own group
 its first entry. The rule ships correct but unexercised by the shipped
 bundle until the milestone retirement lands.
 
-**`throwback:` stays exactly as declared — the same real, bounded
-allow-list of legal decline exits it always was, unaffected in shape,
-reach or runtime semantics — and the derivation only ever fills the
-gap that field's absence used to leave.** Before this section, a
-`review:` entry with an empty `throwback:` (§15.4's own default,
-`throwback: []`) had *zero* legal exits: `Catapult.Engine.Aggregate`'s
-`DeclineGate` clause requires `throwback_to` to name a member of the
-gate's own `throwback` list, so an undeclared gate could not be
-declined at all — a load-time-invisible bug, not a feature. The
-derivation replaces that gap with exactly one legal exit, computed
-rather than declared; it does not touch what a *non-empty* declared
-list means, how many targets it may name, or which are legal. §13's
-own check above already says this precisely — "sub-array membership
-does not narrow what an explicit `throwback:` may name, only what the
-*default*, when none is declared, falls back to" — and that check,
-`Catapult.Dsl.Workflow.gate_throwback_problems/2`, and the aggregate's
-membership check are all exactly as they were; this ticket amends none
-of them. `docs/v5-design-decisions.md` §4.5 already states this
-repo's position on escape hatches — general on purpose, no per-use
-kinds, because "an escape hatch that accretes special cases becomes N
-more mechanisms" — and it applies here unchanged: one field, one shape
-(§15.4's existing list-of-targets), no second derivation rule.
+**Second design review: the declared list never bounded anything, and
+the field retires.** The pass this section originally shipped held
+`throwback:` unaffected in reach — a declared, non-empty list stays
+the only legal decline targets, and the derivation only fills the
+*empty*-list gap. That reading rested on a specific factual claim, and
+the claim is false: `lib/catapult/engine/commands/decline_gate.ex`'s
+own moduledoc states plainly that `gate`/`throwback_to` membership "is
+the command edge's to check... not the aggregate's," and the command
+edge is dev's unbuilt LiveView (`systems/delivery.md`'s Phase 7). There
+is no shipped enforcement of a declared allow-list to preserve, so the
+question is an ordinary design decision, not a fact this pass could
+get right or wrong by reading code. **The author's decision, recorded
+here: a human may move a ticket anywhere that would not break the
+pipeline, and the only thing that breaks is tier ordering — a
+decline's target is bounded by "an earlier status in this ticket's
+effective sequence," the identical rule `docs/v5-design-decisions.md`
+§7.19 already gives Blocked-return, and nothing narrower.** This is
+not a new check invented for the occasion: `Catapult.Dsl.Workflow
+.gate_throwback_problems/2` already computes exactly this — `target in
+(type.statuses |> Enum.take(index))` — for a *declared* `throwback:`
+value at load time. The decision generalizes the bound already shipped
+there to every runtime pick, declared or not: one predicate, in one
+place, instead of a load-time check and a separate runtime allow-list
+that happened to agree.
 
-**The test worth stating up front, and the one this pass holds itself
-to: if the default bundle needs a *different default value* than the
-derivation on day one, the derivation is wrong.** That is a narrower
-claim than "if the default bundle declares `throwback:` at all" — a
-gate is free to name additional legal exits alongside whatever the
-derivation would pick without that being evidence against the
-derivation, because the derivation only ever computes one target and
-was never trying to be a menu. Under the rule above, the retro case
-that motivated this whole section resolves without any declaration.
-Two real default-bundle gates reach for `throwback:` regardless, and
-neither is a counterexample, for two different reasons:
+**`throwback:` retires — there is nothing left for it to do.** A
+declared list served exactly one purpose, bounding legality, and that
+purpose is gone: every target such a list could name is, by
+construction, earlier in the array, which is now legal regardless of
+declaration. The field is not repurposed into a second,
+default-overriding mechanism either — the sub-array's own non-critique
+agent step already is the derived default (above, unaffected by this
+correction), and no real default-bundle gate needs a *different* one
+(below). `docs/v5-design-decisions.md` §4.5's escape-hatch discipline
+is the reason to stop here rather than invent a new job for the field
+— "an escape hatch that accretes special cases becomes N more
+mechanisms" — and a field with zero live uses left is exactly the case
+not to keep one running. `Catapult.Dsl.Gate`'s `throwback:` field and
+`Catapult.Dsl.Workflow.gate_throwback_problems/2` are dev's to remove;
+this pass records the decision, not the diff. What survives of
+`gate_throwback_problems/2` is its logic, not its role: "is this
+target earlier in the citing type's own array" moves from a load-time
+check over declared bundle content to the runtime check the command
+edge performs against an actual pick — the identical relocation
+`Catapult.Engine.Aggregate`'s own moduledoc already draws for every
+other command on that aggregate (bundle content is the command edge's
+to check, never the aggregate's).
+
+**The day-one test still matters, restated for a default rather than a
+bound: if the default bundle needs the derivation to pick a
+*different* node than it does, the derivation is wrong.** Under the
+rule above, the retro case that motivated this whole section resolves
+without any declaration. The two real default-bundle gates that
+declare `throwback:` today are not counterexamples to the derivation,
+and — now that legality is unbounded — neither needs its declaration
+kept, for the same reason in both cases: every target either names is
+already reachable without it.
 
 - `ux-review`'s own declared `throwback: [pending]` (`bundles/
   default-flow/gates/ux-review.yaml`) names a target *outside*
-  `ux-review`'s own sub-array entirely (before `generation`, not
-  inside the group) — the derivation, which only ever resolves within
-  the citing sub-array, has no opinion on `pending` at all, so this is
-  reach the derivation was never going to have, not a case it got
-  wrong.
+  `ux-review`'s own sub-array, before the group entirely — under the
+  earlier-prefix rule, `pending` is reachable from `ux-review`
+  regardless of any declaration, so the field named a reach the
+  general rule already grants.
 - `engineering-review`'s own declared `throwback: [generation,
   ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
-  sits entirely inside the group the derivation covers, and is worth
-  naming rather than passing over: `generation` is exactly what the
-  derivation would pick as the single default, and `ux-review` is a
-  second, additional legal exit the derivation — being a single-value
-  fallback — could never offer on its own. Declaring this list is
-  ordinary use of `throwback:`'s existing multi-target shape (a
-  decliner picks which of two regenerations they mean), not a
-  replacement for a default that disagrees with it. Had the bundle
-  declared `throwback: [ux-review]` alone — dropping the target the
-  derivation already supplies — *that* would be the counterexample
-  this test is built to catch, and the shipped bundle does not do it.
+  sits entirely inside the group the derivation covers: `generation`
+  is exactly the derived default, and `ux-review` is an earlier status
+  in the same array either way. Both collapse into the general rule;
+  the declaration adds nothing a decliner could not already reach.
+
+Dropping both declarations (dev's diff against this record, under
+`bundles/**`) loses no capability — a decliner still reaches every
+status either list named, from the same picker Blocked-return already
+uses.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not
@@ -1992,34 +2023,22 @@ declared workflow gates are still `systems/delivery.md`'s Phase 7 to
 build at all — this section only gives that future build a structural
 node to pin against, where before there was none.
 
-**Design review: does `docs/v5-design-decisions.md` §7.19's "backward
-movement is one rule with two entry points" widen a declared
-`throwback:` into the same unbounded earlier-prefix picker Blocked-
-return gets? No — that paragraph unifies *reopen scope*, not *target
-legality*, and the two are separable questions with separate,
-already-settled answers.** §7.19 draws the equivalence between a
-throwback and a Blocked unblock specifically so neither rule needs its
-own reopen-scope clause — "both reopen everything downstream" is the
-entire content of "the same movement." It says nothing about which
-targets either entry point may land on, and the two were never the
-same there either: Blocked-return's own paragraph two above computes
-its target from tracked origin plus a total order and is not declared
-per anything, where a gate's declared `throwback:` is graph content a
-human reviews in a PR, on purpose (`docs/v5-design-decisions.md` §7.16;
-`docs/ui-spec.md`'s J2 and line 152 give the gate action "throw back
-(to a declared target)" in as many words, distinctly from J4's
-"pick an earlier status from the prefix" for Blocked). That the
-declared list bounds what a decline may name is real, shipped
-behavior this ticket does not touch: `Catapult.Engine.Aggregate`'s
-`DeclineGate` clause rejects a `throwback_to` outside the gate's own
-`throwback` list (ORC-34), and `systems/dashboard.md`'s own ORC-75
-entry already states the consequence in as many words — "`document-
-review`'s throwback picker only ever offers a gate's own declared
-exits." Nothing about grouping statuses into sub-arrays or deriving a
-default for the empty-list case bears on that check; it is unchanged
-in shape, reach, or runtime semantics. What actually changed is
-narrower and already stated above: an empty `throwback:` used to mean
-zero legal exits (an unreachable gate), and now means one, derived.
+**Backward movement is one rule with one target test, not two.**
+`docs/v5-design-decisions.md` §7.19's "a throwback from a review and an
+unblock to an earlier status are the same movement" was written about
+reopen scope, and that reading is correct and unchanged — "both reopen
+everything downstream" is the entire content of "the same movement."
+But the two entry points also share what counts as a legal target,
+which the section's first pass got wrong by trusting a shipped-
+behavior claim that did not hold (above: `DeclineGate` enforces no such
+list; the command edge that would does not exist yet). A gate's
+decline and a Blocked-return both resolve against the identical
+"earlier in the effective sequence" test; they differ only in their
+*default* — a throwback's one-click default is the citing sub-array's
+own non-critique agent step (this section), a Blocked-return's is the
+tracked origin status (§7.19) — and in nothing else. `docs/ui-spec.md`'s
+J2, J4 and its `ticket`-screen gate-action bullet are corrected to
+match.
 
 **Not decided here, left open:**
 
@@ -2040,9 +2059,12 @@ zero legal exits (an unreachable gate), and now means one, derived.
   dispatch target at all is `systems/delivery.md`'s open question,
   named there rather than answered here.
 - **A throwback from a gate sitting after a sub-array, targeting into
-  it.** This section fixes derivation and override for a gate *inside*
-  a group; a gate outside every sub-array throwing back into one is a
-  different case this section does not address.
+  it.** This section fixes the default for a gate *inside* a group; a
+  gate outside every sub-array throwing back into one is a different
+  case this section does not address (the general "earlier in the
+  effective sequence" legality test covers it regardless — what's
+  undecided is only whether such a gate gets a derived default of its
+  own, or must always be explicit).
 - **Whether a sub-array is a visible grouping or flattens for
   display.** `board`'s lanes read the effective sequence left to right
   (`docs/ui-spec.md` §3.1); this is a real UI decision this section
@@ -2062,11 +2084,11 @@ regeneration reopened through, which made it load-bearing rather than
 optional. After it, the vocabulary's re-resolution role (§15.1's own
 opening paragraph, and §7.19's cutover-survival rule) is untouched —
 every anchor this section discusses still exists, still fixed, still
-undeclarable — while its throwback-target role is superseded by
-derivation everywhere the derivation applies. `throwback:` does not
-retire: it is what a bundle reaches for on the day the derivation
-picks the wrong node, exactly as `ux-review`'s own declared value
-does today, and a workflow bundle with no such day never writes it.
+undeclarable — while its throwback-target role is retired outright
+rather than superseded: the derivation supplies the default, and
+`docs/v5-design-decisions.md` §7.19's earlier-prefix rule supplies
+everything else a human might pick, so there is no remaining case a
+declared list was reaching for.
 
 **`docs/v5-design-decisions.md` §7.8's own "Two agents, dispatched as
 ordinary work items" passage is amended by this section, in the

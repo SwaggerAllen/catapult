@@ -374,55 +374,62 @@ context-source kinds, and audit profiles.
   entry-point load check, and the singleton-lifetime rejection check —
   ORC-104's.
 
-- **ORC-115 (design pass) narrows `throwback:` from mechanism to
-  escape hatch, and gives a `statuses:` array a grouping construct the
-  fourth ORC-105 pass's unification didn't have** (`docs/dsl-syntax
-  .md` §15.10, §13; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19).
-  A `statuses:` entry may now be a bare, unnamed sub-array holding a
-  contiguous run of the entries already legal elsewhere in the array
-  (`status:`/`review:`/`environment:`, unchanged); the loader gains
-  three checks with no exact precedent in the closed sets §13 already
-  validates — a sub-array nested inside a sub-array is a load error
-  (this pass's own grammar is flat, deliberately, see below); a
-  sub-array must hold exactly one entry whose `status:` is a
-  non-critique agent-balled system status (`generation`, `retro`,
-  `setup`, `merge` — §15.1's own `ball` column, `critique` excluded for
-  the reason §15.5 already excludes it from standing alone), zero or
-  two-or-more being a load error naming the count found; and a
-  queue-shaped anchor (`flow:`/`blocks:`) may not sit inside one. A
-  `review:` entry with no declared `throwback:` of its own now
-  defaults to its citing sub-array's one non-critique entry rather than
-  being an outstanding declaration gap — computed at throwback time
-  from the loaded bundle, never stored, the same posture `ready_scopes`
-  and staleness already take. `throwback:` itself is unchanged in
-  shape, reach and runtime semantics: the same bounded allow-list of
-  legal decline exits the command edge already enforces
-  (`Catapult.Engine.Aggregate`'s `DeclineGate` clause, ORC-34;
-  `systems/dashboard.md`'s own ORC-75 entry), not a single value the
-  derivation's default is swapped out for.
+- **ORC-115 (design pass, corrected on a second design review)
+  retires `throwback:` outright and gives a `statuses:` array a
+  grouping construct the fourth ORC-105 pass's unification didn't have**
+  (`docs/dsl-syntax.md` §15.10, §13; `docs/v5-design-decisions.md`
+  §7.8, §7.16, §7.19). A `statuses:` entry may now be a bare, unnamed
+  sub-array holding a contiguous run of the entries already legal
+  elsewhere in the array (`status:`/`review:`/`environment:`,
+  unchanged); the loader gains three checks with no exact precedent in
+  the closed sets §13 already validates — a sub-array nested inside a
+  sub-array is a load error (this pass's own grammar is flat,
+  deliberately, see below); a sub-array must hold exactly one entry
+  whose `status:` is a non-critique agent-balled system status
+  (`generation`, `retro`, `setup`, `merge` — §15.1's own `ball` column,
+  `critique` excluded for the reason §15.5 already excludes it from
+  standing alone), zero or two-or-more being a load error naming the
+  count found; and a queue-shaped anchor (`flow:`/`blocks:`) may not
+  sit inside one. A `review:` entry's decline defaults to its citing
+  sub-array's one non-critique entry — computed at throwback time from
+  the loaded bundle, never stored, the same posture `ready_scopes` and
+  staleness already take.
 
-  **What this retires in role, not in size:** before this pass, an
-  *undeclared* `throwback:` (`[]`, §15.4's own default) left a gate
+  **The pass this entry originally recorded held `throwback:`
+  unaffected — a real, bounded allow-list stays the only legal decline
+  targets, and the derivation only fills the empty-list gap — on the
+  strength of a claim that turned out false: that `Catapult.Engine
+  .Aggregate`'s `DeclineGate` clause enforces list membership. It
+  doesn't; that check is the (unbuilt) command edge's, per the
+  module's own moduledoc.** Corrected, the author's decision is
+  recorded instead: a decline's legal targets are never narrower than
+  `docs/v5-design-decisions.md` §7.19's own Blocked-return rule — any
+  earlier status in the ticket's effective sequence — and `throwback:`
+  retires as declared grammar, because a field that only ever bounded
+  legality has nothing left to bound. `Catapult.Dsl.Gate`'s
+  `throwback:` field and `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` are dev's to remove; this pass records
+  why, not the diff. What a gate still needs and gets is a *default* —
+  its citing sub-array's own non-critique agent step, the one-click
+  landing point a bare decline takes with no further choice.
+
+  **What this retires in full, not merely in role:** before this pass,
+  an *undeclared* `throwback:` (`[]`, §15.4's own default) left a gate
   with zero legal exits — an unreachable gate, not a feature — so
   every declared gate in `bundles/default-flow/gates/**` names one
-  today out of necessity, not preference. After this pass, an author
-  may omit `throwback:` wherever the derivation already picks the sole
-  node they want, and the field remains exactly as before for every
-  other case: naming a target *outside* the citing sub-array
-  (`ux-review`'s own `throwback: [pending]`, reaching past its
-  sub-array to `pending`, which the derivation — confined to the citing
-  sub-array — was never going to reach), or naming more than one legal
-  exit alongside whatever the derivation would pick
-  (`engineering-review`'s own `throwback: [generation, ux-review]`:
-  `generation` is the derived default, `ux-review` is a second exit the
-  single-valued derivation could not itself offer). Neither is a
-  counterexample this pass overlooked; both are the field's existing
-  multi-target shape doing what it always did. §15.1's fixed vocabulary
-  loses none of its three jobs (gates/environments/critique position
-  against it, chain tiers bind to it, cutover re-resolution anchors on
-  it) — only the middle job's throwback-target role, which this
-  section's derivation now shares with it rather than depending on it
-  exclusively for the empty-list case.
+  today out of necessity. After this pass, no gate needs to declare
+  anything: the derivation supplies the default and the earlier-prefix
+  rule supplies everything else a human might pick. The two real
+  default-bundle gates that reach for `throwback:` today —
+  `ux-review`'s `[pending]` and `engineering-review`'s `[generation,
+  ux-review]` — both collapse into the general rule without loss:
+  every target either names is already reachable under it, which is
+  the day-one test's own pass/fail line (`dsl-syntax.md` §15.10).
+  §15.1's fixed vocabulary loses none of its three jobs
+  (gates/environments/critique position against it, chain tiers bind
+  to it, cutover re-resolution anchors on it) — only the middle job's
+  throwback-target role, which no longer needs any bundle-declared
+  list at all.
 
   **Not decided by this pass, named rather than glossed over:** nested
   sub-arrays (a homonym risk against `container`-skeleton nesting,
@@ -434,9 +441,11 @@ context-source kinds, and audit profiles.
   outside every sub-array, targeting into one. **Not built as part of
   this pass**, the same boundary every ORC-105 pass above already
   draws: the loader changes this entry describes are `lib/catapult/dsl
-  /workflow.ex`'s (today's `gate_throwback_problems/2` computes
-  "earlier in the flat array," which this pass's derivation replaces
-  for the default case) — dev's diff against this record, not design's.
+  /workflow.ex`'s and `lib/catapult/dsl/gate.ex`'s — the `throwback:`
+  field and its load-time check are removed, and
+  `gate_throwback_problems/2`'s "earlier in the array" logic is reused
+  at the command edge as a runtime check instead — dev's diff against
+  this record, not design's.
 
 ## Initial vs target
 

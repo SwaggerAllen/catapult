@@ -149,10 +149,11 @@ compare.
 - position in the effective sequence, with what has passed and what
   remains, and the depth this ticket sits at
 - the gate action, when this user's role holds it: **approve**
-  (transition forward) or **throw back** (to a declared target, or the
-  citing sub-array's own agent step when the gate declares none —
-  `dsl-syntax.md` §15.10 — never the earlier-prefix picker J4 gives
-  Blocked-return, a different rule for a different movement)
+  (transition forward) or **throw back** — one click to the citing
+  sub-array's own agent step (`dsl-syntax.md` §15.10's derived
+  default), or the same earlier-prefix picker J4 gives Blocked-return
+  (§7.19): one target rule for both entry points, never bounded by a
+  per-gate declaration
 - **blocked**: flavor label, origin status, and the return control —
   defaulting to the origin, with the earlier-prefix as a picker
   (§7.19); never forward
@@ -246,8 +247,11 @@ other reason the native surface wins (§7.17).
   claim rather than to a line
 - comments anchored at sentence granularity, feeding the harvesting
   rule (§7.4) — the bucket key becomes the anchored span
-- approve / throw back, with the throwback target chosen from the
-  declared exits
+- approve / throw back — one click to the derived default
+  (`dsl-syntax.md` §15.10), or pick any earlier status from the same
+  prefix J4 gives Blocked-return (§7.19, ORC-115 second design review:
+  one target rule for both movements, never a gate's own declared
+  list)
 - shows what this gate is reviewing, derived from position (§7.18) —
   whatever the chain produced at the step this gate follows
 
@@ -359,11 +363,11 @@ loop the author runs daily; success is that it is boring and that an
 empty queue is legible as "the machine has it."
 
 **J2 — sign off a design gate.** `my-queue` → `document-review` →
-per-sentence comments → approve, or throw back to a declared target,
-or — when the gate declares none — the target `dsl-syntax.md` §15.10
-derives from it. On throwback, everything downstream reopens (§7.19),
-and staleness derivation makes the re-pass free where nothing that
-gate saw changed.
+per-sentence comments → approve, or throw back — one click to the
+target `dsl-syntax.md` §15.10 derives, or pick any earlier status from
+the same prefix J4 uses (§7.19). On throwback, everything downstream
+reopens (§7.19), and staleness derivation makes the re-pass free where
+nothing that gate saw changed.
 
 **J3 — why is nothing happening.** `explain-why` → `dispatch` →
 `run-transcript`. The §7.4 promise, and the one journey with a

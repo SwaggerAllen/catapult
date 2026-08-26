@@ -874,12 +874,15 @@ them.
   correction above, both keyed by the
   `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32
   entry already establishes for this aggregate's process-manager
-  consumer (ORC-87). **`gate`/`throwback_to` membership — is `gate` a
-  key of `workflow.gates`, is `throwback_to` a member of that gate's
-  own `throwback` list (`Catapult.Dsl.Gate.throwback`,
-  load-time-resolvable per `Catapult.Dsl.Workflow`'s own
-  `gate_throwback_problems/2`) — is the command edge's to check, not
-  `execute/2`'s** (dev pass correction): the container commands this
+  consumer (ORC-87). **`gate`/`throwback_to` legality — is `gate` a
+  key of `workflow.gates`, is `throwback_to` earlier in the citing
+  type's own effective sequence (the "earlier in the array" test
+  `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2` already
+  runs at load time for a *declared* `throwback:` value, reused here
+  at the command edge as a runtime check now that ORC-115 retires the
+  declared list itself, `docs/dsl-syntax.md` §15.10, second design
+  review) — is the command edge's to check, not `execute/2`'s** (dev
+  pass correction): the container commands this
   entry pointed to as precedent validate bundle content at their own
   dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in
   `execute/2` only against the aggregate's own pure state — this
@@ -893,8 +896,10 @@ them.
   `throwback_to` the same way `ContainerLifecycle` validates
   `MintContainer`/`AdvanceContainerQueue`, before dispatch. **A decline
   requires at least one comment; there is no free-text override.** `docs/ui-spec.md` §3.2's own `document
-  -review` action set is "approve / throw back, with the throwback
-  target chosen from the declared exits" — no reason field — so the
+  -review` action set is "approve / throw back," target chosen from
+  the derived default or the earlier-prefix picker (ORC-115, second
+  design review corrects this from "the declared exits") — no reason
+  field — so the
   simpler of the two fixes design review posed for the ticket's own
   zero-comment open question is also the one the screen this ticket
   answers to actually specs: `DeclineGate` is rejected outright,

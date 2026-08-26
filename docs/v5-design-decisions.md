@@ -3646,10 +3646,10 @@ a throwback's default fallback is its citing sub-array's own
 non-critique agent step, so "everything downstream of the
 regeneration" *is* "everything in this sub-array," derived from the
 same structure that already answers §7.16's open item above.
-`throwback:`, when declared, stays exactly the bounded allow-list of
-legal exits it always was (below) — the derivation only fills the gap
-an empty one used to leave, never a second all-reopen rule beside this
-one (§4.5's escape-hatch discipline).
+`throwback:` retires as declared grammar (below) — the derivation
+supplies the one default a gate needs, and the "earlier in the
+effective sequence" test below is the only target rule left, never a
+second, narrower one beside it (§4.5's escape-hatch discipline).
 
 **Blocked stays a single system status** (§7.6's decision, revisited
 under declarable statuses and upheld), with flavor labels for the
@@ -3697,15 +3697,25 @@ staleness makes the re-pass free where nothing a review saw actually
 changed. Specifying them separately would let an unblock leave a
 stale approval standing downstream.
 
-**That equivalence is about reopen scope, not about which targets
-either entry point may land on — the two paragraphs above are
-Blocked-return's alone.** A declared gate's `throwback:` stays a
-bounded allow-list a human reviews in a PR (§7.16 above; ORC-34), not
-the tracked-origin-plus-total-order computation this section builds
-for Blocked; unifying *how far backward movement reopens* never
-implied unifying *how a legal target is chosen*, and the two were
-never the same mechanism to begin with. `dsl-syntax.md` §15.10
-(ORC-115) settles this in the one place it was raised.
+**Corrected on a second design review: the equivalence is about target
+legality too, not reopen scope alone.** The paragraph above still
+states what it always stated — both reopen everything downstream —
+but the claim that a declared gate `throwback:` stays a *bounded
+allow-list, distinct from* this section's rule rested on a
+shipped-enforcement claim that does not hold: `Catapult.Engine
+.Aggregate`'s `DeclineGate` clause enforces no such membership check
+against a gate's declared list — that validation is the command
+edge's, and the command edge does not exist yet (`dsl-syntax.md`
+§15.10 records the correction in full). A gate's decline and a
+Blocked-return are the same movement on both counts now: reopen scope,
+from this section, and target legality — any earlier status in the
+ticket's effective sequence, never narrower — from the same "earlier"
+prefix this section already defines two paragraphs above.
+`throwback:` retires as declared grammar (`dsl-syntax.md` §15.10)
+because there is no remaining role for a second, narrower list to
+play; what a gate still supplies is a *default* — its citing
+sub-array's own non-critique agent step — the one-click action where
+Blocked-return's is the tracked origin.
 
 **The escape valve for a genuinely unwanted step stays heavy on
 purpose.** Deciding a parked ticket does not need its security review
