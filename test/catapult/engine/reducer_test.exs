@@ -45,14 +45,16 @@ defmodule Catapult.Engine.ReducerTest do
             tier: "comp",
             scope_key: %{"name" => "comp1"},
             edge_name: "decomposition",
-            edge_type: :fanout
+            edge_type: :fanout,
+            status: :absent
           },
           %{
             node_id: "comp2",
             tier: "comp",
             scope_key: %{"name" => "comp2"},
             edge_name: "decomposition",
-            edge_type: :fanout
+            edge_type: :fanout,
+            status: :absent
           }
         ],
         edges: [],
