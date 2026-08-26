@@ -20,6 +20,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
   alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.OpenFlow
   alias Catapult.Engine.Commands.PostComment
+  alias Catapult.Engine.Commands.RecordRunFailure
+  alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Router
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -121,6 +123,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
       project_id: project_id,
       flow_id: flow_id,
       gate: "ux-review",
+      node_id: "sysarch",
+      body_sha: "sha-d1",
       actor_id: "human-1"
     }
 
@@ -152,6 +156,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
       project_id: project_id,
       flow_id: flow_id,
       gate: "ux-review",
+      node_id: "sysarch",
+      body_sha: "sha-d1",
       actor_id: "human-1"
     }
 
@@ -181,6 +187,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
       gate: "engineering-review",
       throwback_to: "ux-review",
       since_sequence: nil,
+      node_id: "sysarch",
+      body_sha: "sha-d1",
       actor_id: "human-1"
     }
 
@@ -188,6 +196,54 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+  end
+
+  test "RunFailed blocks the ticket, and ResumeFlow resumes it at the chosen position" do
+    project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
+    flow_id = "flow-1"
+
+    assert :ok = Router.dispatch(commit(project_id, "d0"), consistency: :strong)
+
+    open = %OpenFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      flow_name: "feature",
+      entry_node_id: "sysarch"
+    }
+
+    assert :ok = Router.dispatch(open, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:kind, :pending}
+
+    failed = %RecordRunFailure{
+      project_id: project_id,
+      node_id: "sysarch",
+      tier: "sysarch",
+      scope_key: %{},
+      run_id: "run-1",
+      reason: "usage_limit",
+      occurred_at: ~U[2026-01-02 00:00:00Z]
+    }
+
+    assert :ok = Router.dispatch(failed, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:kind, :blocked}
+    assert row.blocked_origin_kind == "pending"
+
+    resume = %ResumeFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      to: {:kind, :generation},
+      actor_id: "human-1"
+    }
+
+    assert :ok = Router.dispatch(resume, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert FeatureLifecycle.status(row) == {:kind, :generation}
+    assert row.blocked_origin_kind == nil
   end
 
   test "a flow_name matching no declared type is projected without a position" do

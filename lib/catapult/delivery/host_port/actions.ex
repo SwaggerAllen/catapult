@@ -105,6 +105,7 @@ defmodule Catapult.Delivery.HostPort.Actions do
         id: run_key,
         project_id: request.project_id,
         node_id: request.node_id,
+        flow_id: Store.current_open_flow_id(request.project_id),
         tier: request.tier,
         scope_key: request.scope_key,
         repo_owner: binding.repo_owner,

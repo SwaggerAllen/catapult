@@ -33,42 +33,48 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   flavor and the origin the work surface will want are simply that
   position, read off this projection rather than stamped onto a
   comment. `commit/2` (any subsequent `DraftCommitted`, i.e. a retry)
-  clears it and resumes the ordinary walk.
+  clears it and resumes the ordinary walk; so does `resume/2` (a human
+  resume, ORC-114).
 
   **`GateDeclined` pins the resting position the identical way**
   (ORC-34): `decline/2` records `throwback_to`'s own resolved position
-  as `thrown_back_to`, and `resting/2` reads it back before the
-  ordinary `passed`-based walk, the same precedence `blocked_from`
-  already gets — a decline is otherwise invisible until the next
-  commit, since nothing about `passed` changes the moment it lands
-  (the declined gate itself was never marked passed). `commit/2`
-  clears it exactly as it clears `blocked_from`: once a fresh commit
-  bumps `commit_signature`, the ordinary walk already lands back on
-  the thrown-back-to position on its own (any gate `passed` at the
-  now-stale signature reopens per the skip-on-no-diff rule above), so
-  the pin has nothing left to do.
+  as `pinned_to`, and `resting/2` reads it back before the ordinary
+  `passed`-based walk, the same precedence `blocked_from` already
+  gets — a decline is otherwise invisible until the next commit, since
+  nothing about `passed` changes the moment it lands (the declined
+  gate itself was never marked passed). `commit/2` clears it exactly
+  as it clears `blocked_from`: once a fresh commit bumps
+  `commit_signature`, the ordinary walk already lands back on the
+  pinned-to position on its own (any gate `passed` at the now-stale
+  signature reopens per the skip-on-no-diff rule above), so the pin
+  has nothing left to do.
+
+  **Renamed from `thrown_back_to` at ORC-114**: a second write path —
+  `resume/2`, a human resume rather than a gate throwback — now writes
+  the same field, and a name that names only the first writer
+  misdescribes what it holds the moment a second one exists.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
   alias Catapult.Dsl.Workflow
 
-  defstruct commit_signature: nil, passed: %{}, blocked_from: nil, thrown_back_to: nil
+  defstruct commit_signature: nil, passed: %{}, blocked_from: nil, pinned_to: nil
 
   @type t :: %__MODULE__{
           commit_signature: integer() | nil,
           passed: %{Sequence.position() => integer()},
           blocked_from: Sequence.position() | nil,
-          thrown_back_to: Sequence.position() | nil
+          pinned_to: Sequence.position() | nil
         }
 
   @doc "A fresh projection, before anything has committed."
   @spec new() :: t()
   def new, do: %__MODULE__{}
 
-  @doc "Folds a `DraftCommitted` at project-stream sequence `sequence`: bumps the high-water mark and clears any block or throwback pin."
+  @doc "Folds a `DraftCommitted` at project-stream sequence `sequence`: bumps the high-water mark and clears any block or pin."
   @spec commit(t(), integer()) :: t()
   def commit(%__MODULE__{} = state, sequence) when is_integer(sequence) do
-    %{state | commit_signature: sequence, blocked_from: nil, thrown_back_to: nil}
+    %{state | commit_signature: sequence, blocked_from: nil, pinned_to: nil}
   end
 
   @doc "Marks `position` passed as of the projection's current commit signature — the gate-approval command's own call, once one exists (Phase 7)."
@@ -86,14 +92,29 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   @doc "Folds a `GateDeclined`: pins the resting position at `position` (`Sequence.resolve_position/2`'s own shape for `throwback_to`) until the next commit clears it."
   @spec decline(t(), Sequence.position()) :: t()
   def decline(%__MODULE__{} = state, position) do
-    %{state | thrown_back_to: position}
+    %{state | pinned_to: position}
+  end
+
+  @doc """
+  Folds a `FlowResumed` (ORC-114): clears the `blocked_from` pin a
+  human resume is choosing to leave, at the same moment it pins the
+  resting position at the chosen `position` — distinct from `decline/2`
+  (which never touches `blocked_from`) and from `commit/2` (which
+  clears both pins without setting a fresh one; the ordinary walk
+  resumes on its own, which a human resume cannot rely on while
+  `blocked_from` is what put it there).
+  """
+  @spec resume(t(), Sequence.position()) :: t()
+  def resume(%__MODULE__{} = state, position) do
+    %{state | blocked_from: nil, pinned_to: position}
   end
 
   @doc """
   The position `workflow`'s `type_name` type and `state` resolve to
   right now: `{:kind, :blocked}` while a block is recorded, the pinned
-  throwback target while a decline is recorded and no fresher commit
-  has landed, otherwise the first position in `Sequence.positions/2`
+  position while a decline or a human resume is recorded and no
+  fresher commit has landed, otherwise the first position in
+  `Sequence.positions/2`
   not yet passable, defaulting to the last (`Sequence`'s own trailing
   reachability sentinel) once everything reachable has been — the
   sequence's own final entry is never itself passable, whatever kind
@@ -105,7 +126,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
     {:kind, :blocked}
   end
 
-  def resting(%Workflow{}, _type_name, %__MODULE__{thrown_back_to: position})
+  def resting(%Workflow{}, _type_name, %__MODULE__{pinned_to: position})
       when not is_nil(position) do
     position
   end
