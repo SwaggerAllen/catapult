@@ -35,6 +35,7 @@ defmodule Catapult.Engine.Events do
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.FlowOpenedV1
+  alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
   alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
@@ -64,7 +65,8 @@ defmodule Catapult.Engine.Events do
       {:flag_set_flipped, 1},
       {:comment_posted, 1},
       {:gate_approved, 1},
-      {:gate_declined, 1}
+      {:gate_declined, 1},
+      {:flow_resumed, 1}
     ]
   end
 
@@ -90,4 +92,5 @@ defmodule Catapult.Engine.Events do
   def module(:comment_posted, 1), do: CommentPosted
   def module(:gate_approved, 1), do: GateApproved
   def module(:gate_declined, 1), do: GateDeclined
+  def module(:flow_resumed, 1), do: FlowResumed
 end

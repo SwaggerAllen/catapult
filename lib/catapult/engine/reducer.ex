@@ -38,6 +38,7 @@ defmodule Catapult.Engine.Reducer do
   alias Catapult.Engine.Events.FlagSetFlipRequested
   alias Catapult.Engine.Events.FlowCompleted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
   alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Events.ReviewWritten
@@ -145,6 +146,12 @@ defmodule Catapult.Engine.Reducer do
   def apply(%CommentPosted{}, _metadata), do: :ok
   def apply(%GateApproved{}, _metadata), do: :ok
   def apply(%GateDeclined{}, _metadata), do: :ok
+
+  # No projection table, the identical reason as the gate pair above
+  # (ORC-114): where a human resume rests the ticket is `Catapult
+  # .Delivery.FeatureLifecycle`'s own projection to keep, not this
+  # system's.
+  def apply(%FlowResumed{}, _metadata), do: :ok
 
   ## Containers (ORC-104). Each branch writes exactly the fact its own
   ## event carries and nothing derived: which instances exist, which is

@@ -8,12 +8,15 @@ defmodule Catapult.Engine.AggregateTest do
   alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.OpenFlow
   alias Catapult.Engine.Commands.PostComment
+  alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Events.CommentPosted
   alias Catapult.Engine.Events.DraftApproved
   alias Catapult.Engine.Events.DraftCommitted
   alias Catapult.Engine.Events.FlowOpened
+  alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
   alias Catapult.Engine.Events.GateDeclined
+  alias Catapult.Engine.Events.RunFailed
 
   @committed_at ~U[2026-01-01 00:00:00Z]
   @posted_at ~U[2026-01-02 00:00:00Z]
@@ -142,31 +145,50 @@ defmodule Catapult.Engine.AggregateTest do
   end
 
   describe "ApproveGate" do
-    test "produces GateApproved unconditionally" do
-      cmd = %ApproveGate{project_id: "p1", flow_id: "f1", gate: "ux-review", actor_id: "human-1"}
+    test "produces GateApproved when the gate is open and the view is fresh" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}}}
 
-      assert %GateApproved{flow_id: "f1", gate: "ux-review"} =
-               Aggregate.execute(%Aggregate{}, cmd)
-    end
-  end
-
-  describe "DeclineGate" do
-    test "rejects a decline when no comment has landed since the gate's last resolution" do
-      cmd = %DeclineGate{
+      cmd = %ApproveGate{
         project_id: "p1",
         flow_id: "f1",
         gate: "ux-review",
-        throwback_to: "generation",
-        since_sequence: nil,
+        node_id: "n1",
+        body_sha: "sha1",
         actor_id: "human-1"
       }
 
-      assert {:error, {:engine_gate_decline_without_comment, gate: "ux-review"}} =
-               Aggregate.execute(%Aggregate{}, cmd)
+      assert %GateApproved{flow_id: "f1", gate: "ux-review"} = Aggregate.execute(agg, cmd)
     end
 
-    test "produces GateDeclined once a comment has landed since the gate's last mark" do
-      agg = %Aggregate{comment_count: 1, gate_marks: %{"ux-review" => 0}}
+    # The defect ORC-114 was filed against: two writers racing on the
+    # same still-open resolution. Verified by breaking it — see the
+    # probe recorded in this ticket's commit message.
+    test "rejects a second approval racing the first on the same still-open resolution" do
+      agg = %Aggregate{
+        nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}},
+        gate_resolutions: %{"ux-review" => :approved}
+      }
+
+      cmd = %ApproveGate{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "ux-review",
+        node_id: "n1",
+        body_sha: "sha1",
+        actor_id: "human-2"
+      }
+
+      assert {:error, {:engine_gate_already_resolved, gate: "ux-review", disposition: :approved}} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "rejects a decline racing an approval on the same still-open resolution" do
+      agg = %Aggregate{
+        nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}},
+        gate_resolutions: %{"ux-review" => :approved},
+        comment_count: 1,
+        gate_marks: %{"ux-review" => 0}
+      }
 
       cmd = %DeclineGate{
         project_id: "p1",
@@ -174,6 +196,87 @@ defmodule Catapult.Engine.AggregateTest do
         gate: "ux-review",
         throwback_to: "generation",
         since_sequence: 5,
+        node_id: "n1",
+        body_sha: "sha1",
+        actor_id: "human-2"
+      }
+
+      assert {:error, {:engine_gate_already_resolved, gate: "ux-review", disposition: :approved}} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    # The second defect design review found: a reopened *resolution*
+    # (cleared by `DraftCommitted`) still isn't a fresh *view* — a
+    # reviewer holding a stale body can approve after a regeneration
+    # commits underneath them. Verified by breaking it — see the probe
+    # recorded in this ticket's commit message.
+    test "rejects an approval whose view is a body the aggregate has already moved past" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha2"}}}
+
+      cmd = %ApproveGate{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "ux-review",
+        node_id: "n1",
+        body_sha: "sha1",
+        actor_id: "human-1"
+      }
+
+      assert {:error,
+              {:engine_stale_gate_resolution, node_id: "n1", current: "sha2", got: "sha1"}} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "rejects a resolution against a node this project has never committed" do
+      cmd = %ApproveGate{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "ux-review",
+        node_id: "no-such-node",
+        body_sha: "sha1",
+        actor_id: "human-1"
+      }
+
+      assert {:error,
+              {:engine_stale_gate_resolution, node_id: "no-such-node", current: nil, got: "sha1"}} =
+               Aggregate.execute(%Aggregate{}, cmd)
+    end
+  end
+
+  describe "DeclineGate" do
+    test "rejects a decline when no comment has landed since the gate's last resolution" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}}}
+
+      cmd = %DeclineGate{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "ux-review",
+        throwback_to: "generation",
+        since_sequence: nil,
+        node_id: "n1",
+        body_sha: "sha1",
+        actor_id: "human-1"
+      }
+
+      assert {:error, {:engine_gate_decline_without_comment, gate: "ux-review"}} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "produces GateDeclined once a comment has landed since the gate's last mark" do
+      agg = %Aggregate{
+        nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}},
+        comment_count: 1,
+        gate_marks: %{"ux-review" => 0}
+      }
+
+      cmd = %DeclineGate{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "ux-review",
+        throwback_to: "generation",
+        since_sequence: 5,
+        node_id: "n1",
+        body_sha: "sha1",
         actor_id: "human-1"
       }
 
@@ -182,7 +285,11 @@ defmodule Catapult.Engine.AggregateTest do
     end
 
     test "rejects a second decline on the same gate with no fresh comment in between" do
-      agg = %Aggregate{comment_count: 1, gate_marks: %{"ux-review" => 1}}
+      agg = %Aggregate{
+        nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}},
+        comment_count: 1,
+        gate_marks: %{"ux-review" => 1}
+      }
 
       cmd = %DeclineGate{
         project_id: "p1",
@@ -190,11 +297,48 @@ defmodule Catapult.Engine.AggregateTest do
         gate: "ux-review",
         throwback_to: "generation",
         since_sequence: 5,
+        node_id: "n1",
+        body_sha: "sha1",
         actor_id: "human-1"
       }
 
       assert {:error, {:engine_gate_decline_without_comment, gate: "ux-review"}} =
                Aggregate.execute(agg, cmd)
+    end
+  end
+
+  describe "ResumeFlow" do
+    test "produces FlowResumed when the flow is blocked" do
+      agg = %Aggregate{blocked: true}
+
+      cmd = %ResumeFlow{
+        project_id: "p1",
+        flow_id: "f1",
+        to: {:kind, :generation},
+        actor_id: "human-1"
+      }
+
+      assert %FlowResumed{flow_id: "f1", to_kind: "generation", to_gate: nil} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "flattens a gate position onto the event the same way" do
+      agg = %Aggregate{blocked: true}
+
+      cmd = %ResumeFlow{project_id: "p1", flow_id: "f1", to: {:gate, "ux-review"}}
+
+      assert %FlowResumed{to_kind: nil, to_gate: "ux-review"} = Aggregate.execute(agg, cmd)
+    end
+
+    # Verified by breaking it — see the probe recorded in this
+    # ticket's commit message: a stale resume (never blocked, or
+    # already resumed) reads identically here, which is enough for the
+    # rejection to be correct without retaining who resolved it.
+    test "rejects a resume when the flow isn't blocked" do
+      cmd = %ResumeFlow{project_id: "p1", flow_id: "f1", to: {:kind, :generation}}
+
+      assert {:error, {:engine_flow_not_blocked, flow_id: "f1"}} =
+               Aggregate.execute(%Aggregate{blocked: false}, cmd)
     end
   end
 
@@ -318,6 +462,66 @@ defmodule Catapult.Engine.AggregateTest do
         |> Aggregate.apply(declined)
 
       assert agg.gate_marks == %{"ux-review" => 1, "engineering-review" => 2}
+    end
+
+    test "GateApproved and GateDeclined each record the gate's resolution" do
+      approved = %GateApproved{project_id: "p1", flow_id: "f1", gate: "ux-review"}
+
+      declined = %GateDeclined{
+        project_id: "p1",
+        flow_id: "f1",
+        gate: "engineering-review",
+        throwback_to: "ux-review",
+        since_sequence: 1
+      }
+
+      agg = %Aggregate{} |> Aggregate.apply(approved) |> Aggregate.apply(declined)
+
+      assert agg.gate_resolutions == %{
+               "ux-review" => :approved,
+               "engineering-review" => :declined
+             }
+    end
+
+    test "a fresh commit reopens every gate resolution and unblocks the flow" do
+      agg = %Aggregate{
+        gate_resolutions: %{"ux-review" => :approved},
+        blocked: true
+      }
+
+      event = %DraftCommitted{
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        draft_id: "d1",
+        body_sha: "sha1",
+        committed_at: @committed_at
+      }
+
+      agg = Aggregate.apply(agg, event)
+
+      assert agg.gate_resolutions == %{}
+      assert agg.blocked == false
+    end
+
+    test "RunFailed blocks the flow, and FlowResumed clears it" do
+      failed = %RunFailed{
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        run_id: "run-1",
+        reason: "usage_limit",
+        occurred_at: @committed_at
+      }
+
+      agg = Aggregate.apply(%Aggregate{}, failed)
+      assert agg.blocked == true
+
+      resumed = %FlowResumed{project_id: "p1", flow_id: "f1", to_kind: "generation", to_gate: nil}
+      agg = Aggregate.apply(agg, resumed)
+      assert agg.blocked == false
     end
   end
 end

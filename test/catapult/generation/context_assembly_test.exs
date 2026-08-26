@@ -99,7 +99,9 @@ defmodule Catapult.Generation.ContextAssemblyTest do
       flow_id: "f1",
       gate: "ux-review",
       throwback_to: "pending",
-      since_sequence: nil
+      since_sequence: nil,
+      node_id: "vocab:auth",
+      body_sha: "sha1"
     }
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
