@@ -25,8 +25,16 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
       genuinely unavailable any other way — is that the two outbound
       calls the plane itself makes (reset the bound repo's fixture
       content, trigger a real `workflow_dispatch`) succeed against
-      GitHub for real. Closing the loop by hand is `docs/chain-runbook.md`'s
-      job, deliberately: a human reads the dispatched run's own log.
+      GitHub for real. Closing the loop by hand — reading the
+      dispatched run's own log — is deliberately a human's job that
+      this test does not automate; the no-polling entry above is why.
+      **ORC-36 widens which of these calls this file exercises**, past
+      `feature_expansion`'s own bypass-readiness shape: a `vocab` scope
+      minted for real off a real, `Store`-backed parent node — the
+      ordinary shape every other generation tier dispatches through —
+      gets its own real `dispatch_run` below, for the same reason
+      `IntegrationTest`'s offline decline test doesn't stop at
+      `feature_expansion` either.
     * **One bounded request per call, no retry** — the same discipline
       `Catapult.HealthLiveTest` already keeps; `Catapult.Delivery
       .HostPort.Actions` sets no explicit timeout of its own (ORC-9),
@@ -46,6 +54,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   alias Catapult.Delivery.HostPort.Actions
   alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Dsl
+  alias Catapult.Engine.Store
   alias Catapult.Engine.Store.Node
   alias Catapult.Generation.ContextAssembly
   alias Catapult.ToySeed
@@ -90,6 +99,36 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     assert {:ok, request} =
              ContextAssembly.build(loaded.chain, project_id, "feature_expansion", candidate)
 
+    assert {:ok, %{run_key: run_key}} = Actions.dispatch_run(request)
+    assert DeliveryStore.get_dispatch_run(run_key).status == :dispatched
+  end
+
+  test "dispatching a vocab regeneration against the bound repo is accepted for real" do
+    project_id = "toy-seed-live-#{System.unique_integer([:positive])}"
+    DeliveryStore.put_project_binding(project_id, @repo_owner, @repo_name)
+
+    Store.upsert_node(%{
+      id: "fe1",
+      project_id: project_id,
+      tier: "feature_expansion",
+      scope_key: %{},
+      status: :approved,
+      fields: %{}
+    })
+
+    vocab =
+      Store.mint_node(%{
+        id: "vocab:auth",
+        project_id: project_id,
+        tier: "vocab",
+        scope_key: %{"id" => "auth"},
+        parent_node_id: "fe1",
+        status: :absent
+      })
+
+    {:ok, loaded} = Dsl.load(".")
+
+    assert {:ok, request} = ContextAssembly.build(loaded.chain, project_id, "vocab", vocab)
     assert {:ok, %{run_key: run_key}} = Actions.dispatch_run(request)
     assert DeliveryStore.get_dispatch_run(run_key).status == :dispatched
   end
