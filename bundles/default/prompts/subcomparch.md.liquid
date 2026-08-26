@@ -169,7 +169,7 @@ Treat the sections as one document and check them against each other. The most c
 * Unescaped `&` and `<` inside fragment-section text (outside the XML tags themselves) are tolerated by the parser.
 * Do not emit a `<policies>` section. Subcomponents are leaves in the component tier and do not introduce new cross-cutting invariants. If you think a new policy is needed, that is structural feedback on the parent component's comparch and belongs there.
 * Do not emit a `<subcomponents>` or `<sub-dependencies>` section. Subcomponents cannot decompose further — the reducer enforces a two-level depth cap. Any internal structure you want to describe belongs in the `<private-surface>` section as prose or code, not as structural XML.
-{% if feedback %}
+{% if feedback.size > 0 %}
 
 # Revising against feedback (surgical modification)
 
