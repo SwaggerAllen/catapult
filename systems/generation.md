@@ -245,6 +245,57 @@ and validation logic and must not fork it.
   independent of a live run ever firing. It ships with the port, like
   every other fake in this codebase, and is never treated as
   disposable relative to the Actions adapter it stands in for.
+- **ORC-36, design pass: what proves the authoring loop end to end,
+  and the one assertion that cannot be waved through.** The offline
+  half extends `Catapult.Generation.IntegrationTest`'s existing shape
+  — dispatch through `HostPort.Fake` into the real commit path —
+  rather than founding a new ring: one run carries a scope past
+  commit and into the gate-review commands this system's file map
+  already owns test coverage for: `Commands.PostComment` against the
+  committed `body_sha`, `Commands.DeclineGate` with `since_sequence`
+  sourced the way production sources it
+  (`GateComments.last_resolution_sequence/2`, `systems/engine.md`'s
+  ORC-34 entry), then a second dispatch through the same fake reading
+  the regenerated context back.
+
+  The ticket names the assertion most likely to be quietly skipped,
+  and it is bucketing, not occurrence: the test must post its comment
+  against one named node, decline that node's gate, and assert that
+  the *regenerated context for that node* —
+  `ContextAssembly.build_variables/5`'s `feedback` entry — carries the
+  comment's body, **and** that a sibling node minted off the same
+  parent, never declined, regenerates with no such feedback.
+  `CommentFeedback.since_last_resolution/2` is a per-`node_id` fold
+  (`systems/engine.md`); a test asserting only "regeneration happened"
+  cannot tell that fold apart from one bucketed by project or by gate
+  — which is exactly the class of bug this same fold's history already
+  produced once (the position-based `since_sequence` inference that
+  broke the moment a workflow declared more than one gate, corrected
+  on a third design-review pass in that file). Two nodes, one
+  declined, is the cheapest fixture that makes the two hypotheses
+  disagree, and the reasoning is orchestration's own, restated here
+  because it applies: assert the thing that would go wrong, not a
+  side effect every wrong implementation produces too.
+
+  The `:live` variant extends `Catapult.Generation.ToySeedChainLiveTest`
+  under the tag and the ORC-29 non-asks this file already binds it
+  to (no polling, no round-trip closing, one bounded request per
+  call): it widens which of this loop's real outbound calls that test
+  exercises. It does not re-prove the decline-bucketing assertion
+  above live — that assertion is a fold over the plane's own event
+  log and crosses no network boundary, so a `:live` copy of it would
+  be the exact empty gate `docs/non-goals.md`'s ORC-29 entry refuses
+  (a test that could run offline, tagged to run less often instead).
+
+  `docs/chain-runbook.md`'s retirement (this same design pass) leaves
+  two references dangling in files outside `designOwnedPaths`, for
+  dev to repoint when this ticket's test work lands rather than
+  leave to be found later:
+  `test/catapult/generation/fixtures/toy_seed/catapult-dispatch.yml`'s
+  header comment, and `toy_seed_chain_live_test.exs`'s own moduledoc,
+  which names the runbook as the reason that test doesn't assert a
+  round trip — the reason still holds (above), only its citation is
+  stale.
 
 ## Initial vs target
 

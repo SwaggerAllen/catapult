@@ -96,8 +96,8 @@ the author's ask, so populating the backlog is an attended pass
 
 - **Grain: whole-deliverable tickets** (v5 §7.2's large-ticket rule,
   applied to our own backlog): one ticket per coherent system slice
-  — "the DSL loader," "the reducer + projections," "the authoring
-  loop's tracker port" — not per-function shards. Rationale as
+  — "the DSL loader," "the reducer + projections," "UI v1's working
+  surface" — not per-function shards. Rationale as
   recorded: reconciliation verifies a diff against an argument, and
   a deliverable-sized argument is what it's built to check; AI time
   makes the deliverable the natural unit.
