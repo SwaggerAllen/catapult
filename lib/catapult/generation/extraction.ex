@@ -76,7 +76,11 @@ defmodule Catapult.Generation.Extraction do
   child (matching the target tier's `identity:` field name) — the
   `mint.<name>` field values themselves are not extracted (out of
   scope, see moduledoc: no synthesis-generator commit path exists to
-  consume them yet).
+  consume them yet). `status` is `:approved` when the target tier
+  declares no `draft:` block (a join-target tier, dsl-syntax.md §3 —
+  it has no commit path of its own to ever move it off whatever this
+  writes, `systems/engine.md`'s ORC-117 entry) and `:absent`
+  otherwise.
   """
   @spec mints(element(), String.t(), [map()], Catapult.Dsl.Chain.t()) :: [map()]
   def mints(element, tier_name, edges, chain) do
@@ -86,6 +90,7 @@ defmodule Catapult.Generation.Extraction do
         edge.type == "fanout",
         {:ok, path} <- [self_sourced_path(instance.declared_in, tier_name)] do
       identity_field = identity_field(chain, instance.target)
+      status = mint_status(chain, instance.target)
 
       for instance_el <- navigate_list(element, path) do
         %{
@@ -93,7 +98,8 @@ defmodule Catapult.Generation.Extraction do
           tier: instance.target,
           scope_key: %{"id" => identity_value(identity_field, instance_el)},
           edge_name: edge.name,
-          edge_type: :fanout
+          edge_type: :fanout,
+          status: status
         }
       end
     end
@@ -222,6 +228,13 @@ defmodule Catapult.Generation.Extraction do
     case Map.fetch(tiers, tier_name) do
       {:ok, %{identity: identity}} when is_binary(identity) -> identity
       _other -> "id"
+    end
+  end
+
+  defp mint_status(%{tiers: tiers}, tier_name) do
+    case Map.fetch(tiers, tier_name) do
+      {:ok, %{draft: nil}} -> :approved
+      _other -> :absent
     end
   end
 

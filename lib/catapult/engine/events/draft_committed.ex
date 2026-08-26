@@ -37,7 +37,8 @@ defmodule Catapult.Engine.Events.DraftCommitted do
           tier: String.t(),
           scope_key: map(),
           edge_name: String.t(),
-          edge_type: :fanout
+          edge_type: :fanout,
+          status: :absent | :approved
         }
 
   @type declared_edge :: %{

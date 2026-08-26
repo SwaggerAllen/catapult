@@ -245,7 +245,7 @@ defmodule Catapult.Engine.Reducer do
       tier: mint.tier,
       scope_key: mint.scope_key,
       parent_node_id: event.node_id,
-      status: :absent
+      status: mint.status
     })
 
     Store.insert_edge(%{

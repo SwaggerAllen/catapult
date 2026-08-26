@@ -124,6 +124,121 @@ them.
   tree, not this system's over the node graph, and the readiness query
   never treats a node's children as a precondition of that node's own
   readiness — only its declared `context:` is.
+
+- **A join-target tier mints straight to `:approved`, and the mint-
+  time default is what changes — readiness needed no new rule**
+  (ORC-117, design pass). The bullet above assumed every minted child
+  eventually earns `:approved` through `DraftApproved`, and that
+  assumption is false for exactly the tiers dsl-syntax.md §3 calls a
+  **join-target tier** — one declared with no `draft:` block (`comp`,
+  `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
+  synthesis` today, though the condition that matters is "no `draft:`,"
+  not the generator kind — see below). Such a tier commits no draft, so
+  no `DraftCommitted`/`ApproveDraft` pair ever runs for it, and
+  `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{},
+  _)`) can never name it. Minted at `:absent` per the bullet above, a
+  join target sits there forever, and `walk_ready?/2`'s `status ==
+  :approved` — dsl-syntax.md §7's "readiness requires all targets
+  ready; context is the only readiness signal" — never turns true for
+  any tier whose context walk reaches it (`comparch`'s `per(comp)`
+  `self.parent.handle`, and the same shape for `subcomparch`). The
+  chain stalls at the first join target and never reaches the tiers
+  downstream of it.
+
+  **The fix is where the node is minted, not where readiness is
+  read.** `Catapult.Engine.Reducer.apply_mint/2` stops hardcoding
+  `status: :absent`; the mint entry itself now carries the status to
+  write — `:approved` when the target tier declares no `draft:`,
+  `:absent` otherwise — and the reducer copies it onto `Store
+  .mint_node/1` unchanged, the same "copy, never derive" shape every
+  other reducer branch already follows. `walk_ready?/2`
+  (`Catapult.Engine.Projections.ReadyScopes`) and its `explain/2`
+  counterpart's `walk_report/2` are **not touched**: both already read
+  `status == :approved` and nothing else, so once a join target mints
+  there directly, both keep answering off the identical predicate they
+  always did. That is the reason this shape wins over the alternative
+  design review also had in view — teaching `walk_ready?/2` to treat a
+  synthesis-generator target as satisfied regardless of status — which
+  would have put the same "is this target's tier a join target" check
+  in two independently-folded places (`ready?/2`'s boolean fold and
+  `explain/2`'s structured one) rather than one, exactly the
+  two-computations-of-one-fact shape this doc's own ORC-34 entries
+  spent three design-review passes closing elsewhere. `Node.status`
+  keeps its existing three values — `:absent`, `:drafted`, `:approved`
+  — no fourth value for "synthesized, never reviewed." A join target's
+  `:approved` is a deliberate reuse of the readiness-only reading of
+  that atom ("this node satisfies anything walking toward it"), not a
+  claim that a human or a draft was ever approved; recorded here so a
+  later pass doesn't split it into a fourth status to make the name
+  more honest; that fourth value is what `walk_ready?/2` would then
+  need to know about, reopening exactly the split this fix avoids.
+
+  **Why the condition is "no `draft:`," not "`generator: synthesis`."**
+  Every join-target tier in `bundles/default` happens to declare
+  `generator: synthesis`, but the causal fact is the missing `draft:`
+  block: that's what makes `DraftCommitted`/`DraftApproved` structurally
+  unable to name the node, and dsl-syntax.md §3 already has a name for
+  a tier in that shape — "join-target tier" — independent of which
+  `generator:` it declares. Keying the mint-time default on `tiers
+  .<target>.draft == nil` rather than on the generator atom is what
+  answers this ticket's own open question — whether the fix generalises
+  to a future `generator:` kind that also produces no draft (`external`,
+  `template` per dsl-syntax.md §3.2, neither of which happens to omit
+  `draft:` in `bundles/default` today) — without needing to revisit this
+  decision when one does: any tier a bundle author writes with no
+  `draft:` gets the same mint-time `:approved`, whatever its `generator:`
+  says.
+
+  **Where the value is computed: the command edge, not the reducer.**
+  `Catapult.Generation.Extraction.mints/4` already resolves the target
+  tier's full declaration (via `chain`) to build each mint entry's
+  `tier`/`scope_key`/`edge_name` — the same lookup that already has
+  `chain.tiers[instance.target].draft` in hand gains one more field on
+  the entry it returns, threaded unchanged through `Catapult.Engine
+  .Commands.CommitDraft`'s `mints:` and onto `DraftCommitted`'s own
+  `mint()` type. This keeps `Catapult.Engine.Events.DraftCommitted`'s
+  own moduledoc true without qualification — "extraction against the
+  bundle's `declared_in` paths happens at the command edge... never
+  inside the reducer" — rather than having `apply_mint/2` load a
+  `Chain` to answer the same question, which is exactly the impure,
+  bundle-content-dependent read this system's purity floor and the
+  fourth ORC-34 design-review correction (below) both already ruled out
+  for a different value. `system:generation` carries this ticket
+  alongside `system:engine` for that reason: the decision is engine's
+  (what a join target's status means), the computation is generation's
+  (where the tier's declaration is already being read).
+
+  **This also settles two of the ticket's other open questions.**
+  `policy` (`bundles/default/tiers/policy.yaml`) is `generator:
+  synthesis` with no `draft:`, structurally identical to `comp`/
+  `subcomp`/`resp` — checked, not assumed — so it gets the identical
+  fix. That `Extraction.mints/4`'s `id`/`alias` identity fallback is
+  verified only against `sysarch`'s own `<component alias="...">`
+  shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise
+  (the module's own comment on `identity_value/2`, and
+  `test/catapult/generation/toy_seed_chain_test.exs`'s moduledoc, which
+  is why that test still seeds those three by hand even after this
+  fix) is a real but separate gap in *identity extraction*, orthogonal
+  to a join target's *status* — this ticket closes the latter, not the
+  former. `vocab`
+  (`bundles/default/tiers/vocab.yaml`) declares a `draft:` block and is
+  unaffected, matching the ticket's own read. And `Catapult.Engine
+  .Projections.Staleness.stale?/2`'s early `:absent` clause ("not
+  stale, merely not drafted") stops matching a join target once it
+  mints at `:approved` — checked rather than assumed to be safe: every
+  join-target tier in `bundles/default` declares no `context:` of its
+  own (there is nothing to gate its own generation on, since it is
+  never dispatched — `generation_tier?/1` requires `draft` non-nil),
+  so `stale?/2`'s general clause (`Enum.any?(tier.context, ...)`)
+  degenerates to the same `false` the `:absent` short-circuit already
+  gave. **Named rather than silently relied on:** nothing at load time
+  stops a bundle from declaring `context:` on a tier with no `draft:`
+  the way `Catapult.Dsl.Tier`'s `@review_forbidden` already stops one
+  on a review tier — a gap in `core_dsl`'s own validation
+  (`lib/catapult/dsl/tier.ex`, outside this doc's file map), not this
+  ticket's to close, but worth stating so a future bundle author
+  hitting it reads a known gap rather than a surprise.
+
 - **Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings
   surface, same mechanism as every other marked threshold) — enough
   headroom that a burst of events doesn't turn the convergence floor
