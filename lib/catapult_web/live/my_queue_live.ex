@@ -13,6 +13,20 @@ defmodule CatapultWeb.MyQueueLive do
   since the two questions are protocol-real and will diverge once
   identity ships one.
 
+  **`:triage` never appears in Phase 4.** `kind_for/1` has exactly two
+  clauses — `{:kind, :blocked} -> :unblock` and `{:gate, _name} ->
+  :sign_off` — and everything else, `:triage` included, falls through
+  to `nil`. Not an omission: `bundles/default-flow/types/*.yaml`
+  declares six ticket types (feature, milestone, project, retro, seed,
+  setup) and none of them is a machinery-filed shape (the
+  enforcement/swap/maintenance filings v5 §7.3 describes), so Phase 4
+  has no protocol position that could ever resolve to "machinery-filed
+  work awaiting batch-accept." The storybook component still renders
+  and exercises a `:triage` row (`component.story.exs`) — the kind
+  stays real vocabulary, not dead code, per `screens/my-queue.md`'s
+  fixed three — but nothing in this system produces one until a
+  machinery-filed type is declared.
+
   This screen issues no commands (`screens/my-queue.md`): every row is
   a pointer into `document-review` (a `sign_off` row — every Phase 4
   gate reviews prose) or `ticket` (an `unblock` row), never a control

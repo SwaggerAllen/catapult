@@ -52,6 +52,15 @@ project, and which kind it is:
 - **triage** — machinery-filed work awaiting batch-accept (v5 §7.3). See "Deferred beyond v1"
   below for what this kind does *not* do yet.
 
+**In Phase 4, triage never actually appears.** `bundles/default-flow/types/*.yaml` declares six
+ticket types — feature, milestone, project, retro, seed, setup — and none of them is a
+machinery-filed shape (the enforcement/swap/maintenance filings §7.3 describes), so there is no
+protocol position today that resolves to a `triage` row: `MyQueueLive`'s `kind_for/1` never
+returns it. The kind stays in the fixed vocabulary above, and the storybook component still
+renders and exercises it, because it is protocol-real and the row shape needed proving ahead of a
+real source to drive it. This is a data-model absence, not a control withheld on this ticket's own
+narrow path — it clears the moment a machinery-filed type is declared, with no change needed here.
+
 There is no *decide* row and no generic "needs attention" bucket. A decision arrives as one of the
 three above or as a PR; a fourth action kind with nothing that emits it is a screen looking
 comprehensive, which `docs/ui-spec.md` §2's third rule refuses outright.
