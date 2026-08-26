@@ -139,6 +139,40 @@ defmodule Catapult do
       Engine.Events,
       Engine.Application,
       Engine.Projections.ReadyScopes,
-      Dsl
+      Dsl,
+      # ORC-75's own additions — the work surface's four v1 screens
+      # (`systems/dashboard.md`). Presentational shells, the same
+      # unindirected pattern the two above already establish:
+      Storybook.Screens.MyQueue,
+      Storybook.Screens.Board,
+      Storybook.Screens.Ticket,
+      Storybook.Screens.DocumentReview,
+      # This system's first write path (`docs/ui-spec.md` §2's rule 1 —
+      # a screen dispatches a command, never applies one itself):
+      # `Engine.Router.dispatch/2` and the command structs a LiveView's
+      # `handle_event` constructs directly, the identical "no
+      # boundary-export indirection for a struct/function this
+      # codebase already calls directly elsewhere" reasoning the read
+      # side above takes.
+      Engine.Router,
+      Engine.Commands.ApproveGate,
+      Engine.Commands.DeclineGate,
+      Engine.Commands.ResumeFlow,
+      Engine.Commands.PostComment,
+      # Read surface the four screens need beyond `Engine.Store`/
+      # `Engine.Events`/`Dsl` above: the feature-ticket lifecycle
+      # projection and its effective-sequence reader (`board`/`ticket`),
+      # the two log-position/log-fold reads `document-review`'s decline
+      # path and comment list need, one event struct `board`/`ticket`
+      # read the log for directly (`CatapultWeb.Live.EventFacts`'s own
+      # "no flavor column exists yet" note), and the loaded workflow's
+      # own gate declaration (`CatapultWeb.Live.Positions.role/2`).
+      Delivery.Store,
+      Delivery.FeatureLifecycle,
+      Delivery.FeatureLifecycle.Sequence,
+      Engine.Projections.GateComments,
+      Engine.Projections.CommentFeedback,
+      Engine.Events.RunFailed,
+      Dsl.Workflow
     ]
 end

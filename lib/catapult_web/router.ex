@@ -38,6 +38,16 @@ defmodule CatapultWeb.Router do
 
     live "/projects/:project_id/event-log", EventLogLive, :index
     live "/projects/:project_id/explain-why/:node_id", ExplainWhyLive, :show
+
+    # `my-queue` is the one cross-project route in this system, on its
+    # own stated reason (`systems/dashboard.md`'s ORC-75 narrowing of
+    # ORC-87's "every route carries a project id"): it is not a route
+    # missing a project id, it is one project-scoped read per project
+    # the actor has standing in, merged for display.
+    live "/my-queue", MyQueueLive, :index
+    live "/projects/:project_id/board", BoardLive, :index
+    live "/projects/:project_id/tickets/:flow_id", TicketLive, :show
+    live "/projects/:project_id/tickets/:flow_id/review", DocumentReviewLive, :show
   end
 
   # `phoenix_storybook` ships no static export (`bin/preview-build.sh`'s

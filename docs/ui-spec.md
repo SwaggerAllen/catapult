@@ -127,12 +127,21 @@ once, so each lane rolls up only the children it holds.
 roles own, plus lanes currently holding your tickets. The full set is
 one control away and is the exception, not the view.
 
-**Cards carry pass-forward and pass-back directly.** With lanes
-abbreviated and fan-outs collapsed, the common action has to be
-reachable without opening a ticket; the controls are the same two
-transitions the ticket screen offers, under the same
-compare-and-swap (§7.16), so a stale card fails the same way and says
-who moved it.
+**Cards link to where pass-forward and pass-back are issued, rather
+than issuing them.** `ApproveGate`/`DeclineGate` compare against the
+`body_sha` of the artifact the actor is resolving (§7.16, landed at
+ORC-114) — a real guard, not an anticipated one — and a card has no
+body to read that value from. Filling it from the projection's
+current value would make the compare pass unconditionally while the
+card looked guarded, which is worse than no guard at all. Every gate
+Phase 4's own workflow declares reviews a prose artifact, so a card's
+pass-forward/pass-back links into `document-review` (or `ticket`, for
+the same reason that screen's own gate action defers there) instead
+of dispatching from where it stands; the card still names that a gate
+is waiting. This resolves for real at ORC-116 — once a gate's node
+set is derivable, staleness is computable plane-side from any
+surface and a card needs no body view of its own to carry a real
+compare.
 
 **`ticket`** — one ticket, the detail and action surface.
 
@@ -238,8 +247,6 @@ other reason the native surface wins (§7.17).
   declared exits
 - shows what this gate is reviewing, derived from position (§7.18) —
   whatever the chain produced at the step this gate follows
-- **stale marking**: a passed gate whose artifact changed underneath
-  is shown as stale here, derived rather than stored (§7.11, §7.19)
 
 **`artifact`** — read one settled document with its provenance.
 
@@ -398,7 +405,11 @@ document's subject and nothing here changes it.)*
 
 **v2 — the reasons the native surface is better:** `ticket-graph`,
 per-sentence anchoring in `document-review`, and the comment
-navigation serving §3.1's R1/R2 — mechanism sketch-grade.
+navigation serving §3.1's R1/R2 — mechanism sketch-grade. Also v2:
+**`document-review`'s stale marking** (a passed gate whose artifact
+changed underneath it, shown as stale) — it needs a content pin on
+`GateApproved`/`GateDeclined` that §7.16 leaves open by name, and a
+stopgap pin now would be the first thing its successor deletes.
 
 **v3 — ops and scale:** `bindings`, `configuration`, `workflow`,
 `registry`, `milestone`, `triage`, the identity screens, `health`,
