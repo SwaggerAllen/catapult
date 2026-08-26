@@ -104,13 +104,116 @@ mix deps.get >/dev/null || fall_back "mix deps.get failed"
 #
 # The storybook is served at runtime by a Phoenix route — phoenix_storybook
 # ships no static export (its only mix tasks are `dev.storybook` and
-# `phx.gen.storybook`), so a static Pages deploy means booting the app and
-# snapshotting what it serves. None of that exists until the dashboard's
-# endpoint lands (`systems/dashboard.md`'s own file map, ORC-35's dev pass),
-# so until then this is a placeholder by fact rather than by choice, and it
-# says which.
+# `phx.gen.storybook`) — but per `systems/dashboard.md`'s ORC-113 decision
+# the export never boots the app to get one. Stories are stateless function
+# components by this system's own placement rule, so each variation's
+# attributes are called straight into its story's component function and
+# the rendered markup is written to dist/ directly — `Catapult.Application`
+# is never entered, so no endpoint, no supervision tree, no database is
+# needed on the runner. What is traded away is phoenix_storybook's own
+# navigation chrome; the generated index below stands in for it.
 
-[ -d "lib/catapult_web" ] ||
-  fall_back "no lib/catapult_web yet — the storybook has no endpoint to serve it"
+STORIES="$(find storybook/screens -name 'component.story.exs' 2>/dev/null)"
+[ -n "$STORIES" ] ||
+  fall_back "no storybook/screens/*/component.story.exs yet — nothing to export"
 
-fall_back "lib/catapult_web exists, but the boot-and-snapshot step is not written yet"
+mix compile >/dev/null || fall_back "mix compile failed"
+
+EXPORT_SCRIPT="$TOOLS/storybook_export.exs"
+cat >"$EXPORT_SCRIPT" <<'ELIXIR'
+out_dir = System.fetch_env!("PREVIEW_OUT")
+File.mkdir_p!(out_dir)
+
+story_files =
+  "storybook/screens/*/component.story.exs"
+  |> Path.wildcard()
+  |> Enum.sort()
+
+if story_files == [] do
+  IO.puts(:stderr, "preview export: no story files found")
+  System.halt(1)
+end
+
+screens =
+  Enum.map(story_files, fn path ->
+    slug = path |> Path.dirname() |> Path.basename()
+
+    [{module, _binary}] = Code.compile_file(path)
+
+    function = module.function()
+    variations = module.variations()
+
+    pages =
+      Enum.map(variations, fn variation ->
+        assigns = Map.new(variation.attributes)
+        rendered = function.(assigns)
+        html = Phoenix.LiveViewTest.rendered_to_string(rendered)
+
+        page = """
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <title>#{slug} — #{variation.id}</title>
+          </head>
+          <body>
+            #{html}
+          </body>
+        </html>
+        """
+
+        screen_dir = Path.join(out_dir, slug)
+        File.mkdir_p!(screen_dir)
+        file_name = "#{variation.id}.html"
+        File.write!(Path.join(screen_dir, file_name), page)
+
+        %{id: variation.id, description: Map.get(variation, :description), file: "#{slug}/#{file_name}"}
+      end)
+
+    %{slug: slug, pages: pages}
+  end)
+
+index_items =
+  Enum.map_join(screens, "\n", fn screen ->
+    links =
+      Enum.map_join(screen.pages, "\n", fn page ->
+        suffix = if page.description, do: " — #{page.description}", else: ""
+        ~s(<li><a href="#{page.file}">#{page.id}</a>#{suffix}</li>)
+      end)
+
+    """
+    <section>
+      <h2>#{screen.slug}</h2>
+      <ul>
+    #{links}
+      </ul>
+    </section>
+    """
+  end)
+
+index = """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Catapult — storybook export</title>
+  </head>
+  <body>
+    <h1>Catapult — storybook export</h1>
+    #{index_items}
+  </body>
+</html>
+"""
+
+File.write!(Path.join(out_dir, "index.html"), index)
+
+IO.puts("preview: exported #{length(screens)} screens")
+ELIXIR
+
+mkdir -p "$OUT"
+PREVIEW_OUT="$ROOT/$OUT" mix run --no-start --no-compile "$EXPORT_SCRIPT" ||
+  fall_back "the storybook export script failed"
+
+[ -f "$OUT/index.html" ] || fall_back "the export ran but produced no $OUT/index.html"
+
+echo "preview: storybook export written to $OUT"

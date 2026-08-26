@@ -272,6 +272,81 @@ conventions §13).
   moment this ticket's dev pass lands an endpoint, that fallback
   message is what names the snapshot step as the piece still missing.
 
+  **Resolved at ORC-113's design pass; the rule-out was corrected once
+  at Design review, on the merits rather than the impossibility.** The
+  export renders stories directly and never boots the application —
+  but not because booting is impossible on the preview runner, which
+  the first pass over-claimed. The design-agent job
+  (`.github/workflows/pipeline-agent-design.yml`) installs the pinned
+  toolchain with `erlef/setup-beam@v1`, runs under `MIX_ENV: test`, and
+  provisions a health-checked `postgres:16` service; `config/test.exs`
+  seeds `DATABASE_URL`,
+  `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` and `DELIVERY_GITHUB_TOKEN`
+  into `Catapult.Config.Static` for exactly that `MIX_ENV`. Under the
+  job's own environment, `Catapult.Boot.load!/0` would succeed.
+  `CLAUDE.md`'s "agent runs have no BEAM… no Postgres service
+  container" is stale against this same workflow file — a correction
+  outside this pass's own committable paths, flagged in the hand-back
+  rather than edited here.
+
+  What still stops a boot is `bin/preview-build.sh` itself, not the
+  runner. The script sets its own `export MIX_ENV=prod`,
+  unconditionally, to build the preview in the shape a real deploy
+  would; `config/prod.exs` declares no `:config_source`, so under that
+  `MIX_ENV`, `Catapult.Boot`'s compile-time default applies —
+  `{Catapult.Config.Env, []}`, the real-environment reader. Nothing in
+  the job sets `DATABASE_URL`, `DELIVERY_GITHUB_TOKEN` or
+  `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` as literal environment
+  variables (only `PGHOST`/`PGUSER`/`PGPASSWORD`, which nothing outside
+  `config/*.exs` assembles into a `DATABASE_URL`), so a boot attempted
+  from inside this script, as it stands, still fails — a fact about
+  this script's own chosen build shape, checked independently of the
+  stale `CLAUDE.md` line rather than inherited from it.
+
+  That is fixable — dev could set `MIX_ENV=test` for the export step
+  alone — so this is a real choice against a buildable alternative, not
+  a rule-out. It still lands on render-direct: stories are stateless
+  function components by this system's own placement rule, so nothing
+  about rendering them benefits from the request cycle, live PubSub or
+  persisted event store a boot would supply — the placement rule
+  already spent the effort of not needing them. Render-direct also
+  never depends on `Boot.load!/0` succeeding, so it stays correct
+  regardless of what a future component declares as required config; a
+  boot-based export would instead be one new non-defaulted `config/0`
+  entry away from a preview breaking over a change that has nothing to
+  do with the dashboard. What boot buys over render-direct is what the
+  next paragraph names — `phoenix_storybook`'s own navigation chrome —
+  already weighed and already traded for a generated index.
+
+  The alternative costs nothing this system's own placement rule
+  didn't already spend: a story's variations are hardcoded assigns
+  rendered by a stateless function component — "no socket, no live
+  data" above is a property the export gets for free, not one it has
+  to work around. Every `storybook/screens/<name>/component.story.exs`
+  already declares its own `function/0` and `variations/0`
+  (`PhoenixStorybook.Story`'s own `:component` shape); the export
+  calls each variation's attributes straight into its story's
+  component function and writes the rendered markup to `dist/` —
+  compiled, but with `Catapult.Application` never entered, so no
+  endpoint, no supervision tree, no database. What is lost is
+  `phoenix_storybook`'s own navigation chrome (its sidebar, its live
+  search): the export's index page is generated directly from the
+  same variation list instead, one link per story and variation. That
+  is the ticket's own named tradeoff, taken on merit against a
+  buildable alternative, per the correction above — not because the
+  alternative was impossible.
+
+  Assets are whatever `priv/static` already carries, which today is
+  nothing — this repo has no CSS build for the dashboard yet (no
+  `assets/` directory, no esbuild or Tailwind dependency; every
+  `badge`/`card`/`table` class in `storybook/screens/**` is
+  unstyled at runtime, in the live route exactly as much as in this
+  export). This decision does not invent that pipeline; it only
+  commits the export to relative asset paths rather than root-
+  absolute ones, since a Pages hash subdomain has no fixed base path
+  to hardcode against — whatever pipeline eventually lands carries
+  into the export the same way, unchanged.
+
   **A third piece belongs to the author, and is unnamed anywhere in
   this ticket's own path unless it is written here.**
   `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
@@ -287,6 +362,19 @@ conventions §13).
   `--ignore Config.HTTPS`, and configure `force_ssl`/HSTS on the new
   endpoint so the check passes because the surface is real, not
   because the finding is still suppressed.
+
+  **A fourth piece belongs to dev, and is unnamed anywhere in this
+  ticket's own path unless it is written here.** `preview/index.html`
+  still reads "the real storybook export replaces `preview/index.html`
+  and this page disappears" — true of a boot-based handover, false of
+  this one: render-direct writes its own `dist/index.html`, generated
+  from the same variation list, so the fallback copy stops being
+  served the moment the export succeeds, but the placeholder's own
+  prose describes a mechanism this decision didn't build.
+  `preview/index.html` is outside this pass's paths (DESIGN §5);
+  correcting or deleting its text is dev's, bundled with the export step itself
+  rather than left for whoever next reads a stale placeholder and
+  wonders which decision it is describing.
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the
