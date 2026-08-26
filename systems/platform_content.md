@@ -497,6 +497,38 @@ loader tickets carry `system:core-dsl`.
   correct, since `docs/ui-spec.md` §3.1 only ever shows one, for the
   ticket the surface is currently open to.
 
+- **A `{% if feedback %}` guard on a possibly-omitted collection tests
+  `| size > 0`, not bare truthiness** (ORC-134, design pass).
+  `Catapult.Generation.ContextAssembly.feedback_variable/3` deliberately
+  leaves `feedback` out of the rendered map on `[]` rather than setting
+  it to an empty list — that module's own moduledoc and
+  `systems/generation.md`'s ORC-34 entry give the reason, and this pass
+  leaves both unchanged. But Solid follows ordinary Liquid truthiness
+  (`deps/solid/lib/solid/unary_condition.ex`: only `nil` and `false` are
+  falsy), so every `{% if feedback %}` guard that leans on that omission
+  to stay closed — `vocab.md.liquid`, `ref.md.liquid`,
+  `subcomparch.md.liquid`, `sysarch.md.liquid`, `comparch.md.liquid`
+  (the five ORC-134 names), and `partials/_architecture_framing
+  .md.liquid` (found during this pass, not named in the ticket — it
+  carries the identical guard and is rendered by several of the five,
+  so leaving it unfixed while patching its callers reintroduces exactly
+  what this entry closes) — would render its revision section on every
+  generation the moment any future caller sets `feedback` to `[]`
+  instead of omitting it: a plane change nothing today forces, a second
+  renderer, or a hand-built test fixture. The fix stays entirely inside
+  the bundle content this doc owns: `Solid.StandardFilter.size/1`
+  already returns `0` for any non-collection input including `nil` (its
+  own catch-all clause), and `Solid.BinaryCondition.eval/1` already
+  returns `false` comparing `nil` against a number, so `{% if feedback |
+  size > 0 %}` reads correctly whichever way `feedback` arrives —
+  omitted, `[]`, or populated — with no change to `ContextAssembly` and
+  no new Solid capability. The other candidate fix — flip
+  `ContextAssembly` to always emit `feedback: []` instead of omitting it
+  — is ruled out for the same reason it was never a live bug: it would
+  edit a `lib/catapult/generation/**` contract `systems/generation.md`
+  already documents at length as deliberate, to solve a problem the
+  template-side guard above closes without touching engine code at all.
+
 ## Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
