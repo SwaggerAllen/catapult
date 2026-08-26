@@ -2,8 +2,11 @@ defmodule Catapult.Storybook.Screens.MyQueue do
   @moduledoc """
   Presentational shell for the `my-queue` screen (`screens/my-queue.md`). Stateless: every assign
   is handed down whole, nothing is fetched here, and there is no socket. The eventual LiveView owns
-  loading `rows` from the assignment and review-role projections (v5 §7.10), switching `tab`, and
-  navigating on row click — this module only renders the shape those produce.
+  loading `rows`, switching `tab`, and navigating on row click — this module only renders the shape
+  those produce. In Phase 4 both tabs' rows come from the identical read (`screens/my-queue.md`'s
+  "In Phase 4 both tabs show the identical set" — no assignee or role-holder projection exists
+  yet); `tab` still switches, since the two questions are protocol-real and will diverge once
+  identity ships one.
 
   `rows` entries: `%{id:, project_id:, project_name:, title:, status:, kind: :sign_off | :unblock
   | :triage, href:}`. `kind` is the fixed action-needed vocabulary (`screens/my-queue.md`) — no

@@ -31,7 +31,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil, assignee: nil},
+          filters: %{type: nil, label: nil},
           cards: [
             %{
               id: "ORC-75",
@@ -39,7 +39,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "architecture-review",
               blocked: nil,
-              conflict: nil,
+              gate: %{role: "architecture-review"},
               children: [
                 %{id: "ORC-75-1", lane_key: "generation", lane_label: "Generation"},
                 %{id: "ORC-75-2", lane_key: "checks", lane_label: "Checks"}
@@ -51,7 +51,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "pending",
               blocked: nil,
-              conflict: nil,
+              gate: nil,
               children: []
             }
           ]
@@ -66,7 +66,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil, assignee: nil},
+          filters: %{type: nil, label: nil},
           cards: [
             %{
               id: "ORC-40",
@@ -74,22 +74,23 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "generation",
               blocked: %{flavor: "needs-setup", origin_label: "Generation"},
-              conflict: nil,
+              gate: nil,
               children: []
             }
           ]
         }
       },
       %Variation{
-        id: :card_conflict_on_pass_forward,
+        id: :pending_gate_links_out,
         description:
-          "A pass-forward rejected by the compare-and-swap: the card shows who already moved it " <>
-            "and to where, in place, rather than silently failing.",
+          "A card sitting at a review gate: no Approve/Throw-back on the card itself — every " <>
+            "Phase 4 gate reviews prose, so the card links into document-review (or ticket) " <>
+            "rather than dispatching a command it cannot honestly compare-and-swap.",
         attributes: %{
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil, assignee: nil},
+          filters: %{type: nil, label: nil},
           cards: [
             %{
               id: "ORC-75",
@@ -97,7 +98,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "product-review",
               blocked: nil,
-              conflict: %{by: "@author", to: "Architecture review"},
+              gate: %{role: "product-review"},
               children: []
             }
           ]
@@ -106,13 +107,13 @@ defmodule Catapult.Storybook.Screens.BoardStory do
       %Variation{
         id: :filtered_and_abbreviated,
         description:
-          "Filtered by type and assignee, lanes abbreviated to the ones the viewer has standing " <>
+          "Filtered by type and label, lanes abbreviated to the ones the viewer has standing " <>
             "in — most lanes are simply not shown, not shown-and-empty.",
         attributes: %{
           project_name: "Catapult",
           lanes: Enum.filter(lanes(), &(&1.key in ["product-review", "checks"])),
           show_all_lanes: false,
-          filters: %{type: "feature", label: nil, assignee: "@author"},
+          filters: %{type: "feature", label: "priority"},
           cards: [
             %{
               id: "ORC-75",
@@ -120,7 +121,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               type: "feature",
               lane_key: "product-review",
               blocked: nil,
-              conflict: nil,
+              gate: %{role: "product-review"},
               children: []
             }
           ]
@@ -133,7 +134,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil, assignee: nil},
+          filters: %{type: nil, label: nil},
           cards: []
         }
       }

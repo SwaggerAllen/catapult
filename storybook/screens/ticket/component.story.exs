@@ -35,10 +35,11 @@ defmodule Catapult.Storybook.Screens.TicketStory do
   def variations do
     [
       %Variation{
-        id: :awaiting_your_gate,
+        id: :gate_awaiting_sign_off,
         description:
-          "Resting at a review gate the viewer's role holds: the argument, the sequence rail, " <>
-            "and the approve/throw-back controls.",
+          "Resting at a review gate: the argument, the sequence rail, and a link to " <>
+            "document-review — this screen never dispatches the gate command itself, since " <>
+            "every Phase 4 gate reviews prose.",
         attributes: %{
           id: "ORC-75",
           title: "UI v1: the working surface, and the authoring loop's floor",
@@ -46,7 +47,7 @@ defmodule Catapult.Storybook.Screens.TicketStory do
             "Four screens, one ticket, because they share a projection surface and a command " <>
               "path — the authoring loop has no surface at all until they exist.",
           sequence: base_sequence(),
-          gate_action: %{exits: [%{label: "Generation", target: "generation"}]},
+          gate_action: %{role: "product"},
           blocked: nil,
           conflict: nil,
           children: [],
@@ -55,15 +56,25 @@ defmodule Catapult.Storybook.Screens.TicketStory do
         }
       },
       %Variation{
-        id: :no_gate_held,
+        id: :no_gate_pending,
         description:
-          "Resting at the same gate, viewed by someone who doesn't hold the role — no gate " <>
-            "action rendered, everything else unchanged.",
+          "Resting at an ordinary status rather than a gate — no sign-off pending, so no gate " <>
+            "card renders.",
         attributes: %{
           id: "ORC-75",
           title: "UI v1: the working surface, and the authoring loop's floor",
           argument: "Four screens, one ticket, because they share a projection surface.",
-          sequence: base_sequence(),
+          sequence: [
+            %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
+            %{key: "generation", label: "Generation", kind: :status, role: nil, state: :current},
+            %{
+              key: "product-review",
+              label: "Product review",
+              kind: :gate,
+              role: "product",
+              state: :upcoming
+            }
+          ],
           gate_action: nil,
           blocked: nil,
           conflict: nil,
@@ -73,28 +84,11 @@ defmodule Catapult.Storybook.Screens.TicketStory do
         }
       },
       %Variation{
-        id: :rejected_transition,
-        description:
-          "A stale approve was rejected by the compare-and-swap: the conflict names who moved " <>
-            "it and to what, rendered at the point of action rather than as a later revert.",
-        attributes: %{
-          id: "ORC-75",
-          title: "UI v1: the working surface, and the authoring loop's floor",
-          argument: "Four screens, one ticket.",
-          sequence: base_sequence(),
-          gate_action: %{exits: [%{label: "Generation", target: "generation"}]},
-          blocked: nil,
-          conflict: %{by: "@author", to: "Architecture review"},
-          children: [],
-          prs: [],
-          runs: []
-        }
-      },
-      %Variation{
         id: :blocked_needs_setup,
         description:
           "Blocked, flavor needs-setup: the origin status and the return control, defaulting to " <>
-            "origin with earlier positions offered behind it — never forward.",
+            "origin with earlier positions offered behind it — never forward. Choosing one " <>
+            "dispatches ResumeFlow.",
         attributes: %{
           id: "ORC-40",
           title: "Point the README at SETUP for the reference instance",
@@ -120,6 +114,37 @@ defmodule Catapult.Storybook.Screens.TicketStory do
         }
       },
       %Variation{
+        id: :rejected_resume,
+        description:
+          "A stale ResumeFlow was rejected by the compare-and-swap — someone else already " <>
+            "resumed this ticket. The conflict names the position it moved to, not who moved " <>
+            "it (neither ResumeFlow nor the gate commands' own compare carries an actor), " <>
+            "rendered at the point of action rather than as a later revert.",
+        attributes: %{
+          id: "ORC-40",
+          title: "Point the README at SETUP for the reference instance",
+          argument: "SETUP.md §2 is the one home for the reference instance's live facts.",
+          sequence: [
+            %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
+            %{key: "generation", label: "Generation", kind: :status, role: nil, state: :current},
+            %{key: "checks", label: "Checks", kind: :status, role: nil, state: :upcoming}
+          ],
+          gate_action: nil,
+          blocked: %{
+            flavor: "needs-setup",
+            origin_label: "Generation",
+            return_options: [
+              %{label: "Generation", target: "generation"},
+              %{label: "Pending", target: "pending"}
+            ]
+          },
+          conflict: %{to: "Pending"},
+          children: [],
+          prs: [],
+          runs: []
+        }
+      },
+      %Variation{
         id: :feature_with_children,
         description:
           "A feature ticket's flat child roll-up, each child showing its own position.",
@@ -128,7 +153,7 @@ defmodule Catapult.Storybook.Screens.TicketStory do
           title: "UI v1: the working surface, and the authoring loop's floor",
           argument: "Four screens, one ticket.",
           sequence: base_sequence(),
-          gate_action: %{exits: [%{label: "Generation", target: "generation"}]},
+          gate_action: %{role: "product"},
           blocked: nil,
           conflict: nil,
           children: [

@@ -2,16 +2,17 @@ defmodule Catapult.Storybook.Screens.Board do
   @moduledoc """
   Presentational shell for the `board` screen (`screens/board.md`). Stateless: every assign is
   handed down whole, nothing is fetched here, and there is no socket. The eventual LiveView owns
-  loading `lanes` and `cards` for the selected project, applying `filters`, toggling
-  `show_all_lanes`, and issuing the pass-forward/pass-back commands under optimistic concurrency —
-  this module only renders the shape those produce, including a rejected command's conflict.
+  loading `lanes` and `cards` for the selected project and applying `filters`/`show_all_lanes`.
 
   `lanes`: `%{key:, label:, kind: :status | :gate}`, in effective-sequence order (`screens/
   board.md`). `cards`: `%{id:, title:, type:, lane_key:, children: [%{id:, lane_key:,
-  lane_label:}], blocked: nil | %{flavor:, origin_label:}, conflict: nil | %{by:, to:}}` — a card's
-  own lane is `blocked.origin_label`'s lane when `blocked` is set, never a separate "blocked" lane.
-  `conflict` is set when this card's last pass-forward/pass-back was rejected: `by` and `to` are
-  who moved it and where, rendered in place rather than as an after-the-fact revert (v5 §7.16).
+  lane_label:}], blocked: nil | %{flavor:, origin_label:}, gate: nil | %{role:}}` — a card's own
+  lane is `blocked.origin_label`'s lane when `blocked` is set, never a separate "blocked" lane.
+  `gate` is set when the card's lane is a review gate: this module renders a link out to
+  `document-review` (or `ticket`) rather than an Approve/Throw-back pair, since neither command a
+  card could dispatch would carry a real `body_sha` to compare against (`screens/board.md`'s
+  "Cards link to where pass-forward and pass-back are issued" — ORC-114). No `conflict` shape:
+  a stale-transition rejection is rendered where the command is actually issued, not here.
   """
 
   use Phoenix.Component
@@ -19,7 +20,7 @@ defmodule Catapult.Storybook.Screens.Board do
   attr :project_name, :string, required: true
   attr :lanes, :list, default: []
   attr :cards, :list, default: []
-  attr :filters, :map, default: %{type: nil, label: nil, assignee: nil}
+  attr :filters, :map, default: %{type: nil, label: nil}
   attr :show_all_lanes, :boolean, default: false
 
   def board(assigns) do
@@ -66,10 +67,7 @@ defmodule Catapult.Storybook.Screens.Board do
       <span class="text-sm opacity-70">Filters:</span>
       <span :if={@filters.type} class="badge badge-outline gap-1">type <%= @filters.type %></span>
       <span :if={@filters.label} class="badge badge-outline gap-1">label <%= @filters.label %></span>
-      <span :if={@filters.assignee} class="badge badge-outline gap-1">
-        assignee <%= @filters.assignee %>
-      </span>
-      <span :if={!@filters.type and !@filters.label and !@filters.assignee} class="text-sm opacity-50">
+      <span :if={!@filters.type and !@filters.label} class="text-sm opacity-50">
         none
       </span>
     </div>
@@ -95,22 +93,16 @@ defmodule Catapult.Storybook.Screens.Board do
           </span>
         </div>
 
-        <div :if={@card.conflict} class="alert alert-error py-1 px-2 text-xs">
-          <span>
-            Rejected — <%= @card.conflict.by %> already moved this to <%= @card.conflict.to %>.
-            Refresh and retry.
-          </span>
-        </div>
-
         <div :if={@card.children != []} class="flex flex-wrap gap-1">
           <span :for={child <- @card.children} class="badge badge-outline badge-sm font-mono">
             <%= child.id %> · <%= child.lane_label %>
           </span>
         </div>
 
-        <div class="card-actions justify-end pt-1">
-          <button class="btn btn-xs btn-outline">Throw back</button>
-          <button class="btn btn-xs btn-primary">Approve</button>
+        <div :if={@card.gate} class="card-actions justify-end pt-1">
+          <button class="btn btn-xs btn-outline">
+            Review (<%= @card.gate.role %>) →
+          </button>
         </div>
       </div>
     </div>

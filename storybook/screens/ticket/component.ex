@@ -3,15 +3,22 @@ defmodule Catapult.Storybook.Screens.Ticket do
   Presentational shell for the `ticket` screen (`screens/ticket.md`). Stateless: every assign is
   handed down whole, nothing is fetched here, and there is no socket. The eventual LiveView owns
   loading the ticket, resolving `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2` into
-  `sequence`, and issuing the gate/blocked-return commands under optimistic concurrency — this
-  module only renders the shape those produce, including a rejected command's conflict.
+  `sequence`, and issuing the blocked-return command under optimistic concurrency — this module
+  only renders the shape that produces, including a rejected command's conflict.
 
   `sequence` entries: `%{key:, label:, kind: :status | :gate, role: String.t() | nil, state:
-  :passed | :current | :upcoming}`. `gate_action`: `nil` when the viewer holds no role at the
-  current position, else `%{exits: [%{label:, target:}]}`. `blocked`: `nil` or `%{flavor:,
-  origin_label:, return_options: [%{label:, target:}]}` — `return_options` is the origin plus every
-  earlier position, never a later one (`screens/ticket.md`). `conflict`: `nil` or `%{by:, to:}`,
-  set when the last command this screen issued was rejected by the compare-and-swap (v5 §7.16).
+  :passed | :current | :upcoming}`. `gate_action`: `nil` off this ticket's current position, else
+  `%{role:}` — a pointer, not a control: every Phase 4 gate reviews prose, so this screen links to
+  `document-review` rather than dispatching `ApproveGate`/`DeclineGate` itself (`screens/
+  ticket.md`, ORC-114). `blocked`: `nil` or `%{flavor:, origin_label:, return_options: [%{label:,
+  target:}]}` — `return_options` is the origin plus every earlier position, never a later one
+  (`screens/ticket.md`), and choosing one dispatches `ResumeFlow` under the identical
+  compare-and-swap. `conflict`: `nil` or `%{to:}`, set when this screen's own last dispatch (the
+  blocked-return control — the gate action is never dispatched from here) was rejected: `to` names
+  the value the rejection recorded (the position someone else already resumed it to, or the
+  disposition a raced gate already carries), not an actor — neither `ResumeFlow` nor the gate
+  commands' own compare-and-swap carries who made the winning write (v5 §7.16,
+  `systems/dashboard.md`'s own standing decision).
   """
 
   use Phoenix.Component
@@ -40,9 +47,8 @@ defmodule Catapult.Storybook.Screens.Ticket do
 
       <div :if={@conflict} class="alert alert-error">
         <span>
-          Rejected — <span class="font-semibold"><%= @conflict.by %></span> already moved this
-          ticket to <span class="font-semibold"><%= @conflict.to %></span>. Refresh to see the
-          current state before trying again.
+          Rejected — this ticket already moved to <span class="font-semibold"><%= @conflict.to %></span>.
+          Refresh to see the current state before trying again.
         </span>
       </div>
 
@@ -50,12 +56,11 @@ defmodule Catapult.Storybook.Screens.Ticket do
 
       <div :if={@gate_action} class="card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body gap-2">
-          <h2 class="card-title text-sm">Gate action</h2>
+          <h2 class="card-title text-sm">
+            Awaiting sign-off <span class="badge badge-ghost badge-sm"><%= @gate_action.role %></span>
+          </h2>
           <div class="flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-primary">Approve</button>
-            <button :for={exit_ <- @gate_action.exits} class="btn btn-sm btn-outline">
-              Throw back to <%= exit_.label %>
-            </button>
+            <button class="btn btn-sm btn-outline">Review in document-review →</button>
           </div>
         </div>
       </div>

@@ -55,10 +55,12 @@ defmodule Catapult.Storybook.Screens.MyQueueStory do
         id: :my_roles,
         description:
           "The 'could I unblock something' view: statuses a held role owns, whether or not " <>
-            "anyone is assigned yet.",
+            "anyone is assigned yet. Renders the identical row set as Assigned in Phase 4 — no " <>
+            "assignee or role-holder projection exists yet (`screens/my-queue.md`'s own note); " <>
+            "the tab is a real protocol question that will diverge once identity ships one.",
         attributes: %{
           tab: :my_roles,
-          rows: cross_project_rows() |> Enum.take(2)
+          rows: cross_project_rows()
         }
       },
       %Variation{

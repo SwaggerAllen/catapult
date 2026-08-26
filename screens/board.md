@@ -22,7 +22,10 @@ There is no separate "workflow view" this duplicates; the lane order *is* the se
 
 **Lanes abbreviate to the ones you have standing in** — lanes your roles own, plus lanes currently
 holding your tickets. The full sequence is one control away (a "show all lanes" toggle) and is the
-exception: most days, most lanes are not where you have any business looking.
+exception: most days, most lanes are not where you have any business looking. In Phase 4 this
+degenerates the same way `my-queue`'s tabs do (`screens/my-queue.md`, `systems/dashboard.md`): no
+role-holder projection exists yet, so every gate lane is one you have standing in and the
+abbreviated view and the full one coincide until identity ships a real mapping.
 
 ## Fan-out collapses, and collapsed is the default
 
@@ -52,36 +55,42 @@ log, so `from` is not bookkeeping here the way it is on a mirrored tracker. A bl
 in its origin lane with a flavor badge (`needs-review` / `needs-setup` / failure, v5 §7.6) instead
 of the lane's ordinary status chip.
 
-## Cards carry pass-forward and pass-back directly
+## Cards link to where pass-forward and pass-back are issued, rather than issuing them
 
-With lanes abbreviated and fan-out collapsed, the common action has to be reachable without
-opening a ticket. A card exposes the same two commands `ticket` dispatches — `ApproveGate` and
-`DeclineGate` (`Catapult.Engine.Commands`, `screens/ticket.md`) — under the same optimistic-
-concurrency compare as everywhere else in this system (v5 §7.16): the command carries the status
-the card believed it was leaving, and a stale card is rejected and told who moved it, in place,
-rather than silently failing or applying the wrong transition. `screens/ticket.md` describes the
-conflict rendering once; this screen reuses it rather than defining a second version.
+`docs/ui-spec.md`'s "cards carry pass-forward and pass-back directly" is not what v1 builds, and
+this is a correction rather than a narrowing of something that worked. `ApproveGate`/`DeclineGate`
+gained a `body_sha` compare-and-swap at ORC-114 (`systems/engine.md`): the command carries the
+body the actor believes they are resolving against, and the aggregate rejects a mismatch. A card
+shows a ticket, not a body — there is nothing on it to read a real `body_sha` from. Filling the
+field from the projection's current value would make the compare pass unconditionally while the
+card *looked* guarded, which is worse than not offering the control: a guard that never rejects is
+indistinguishable, from the card, from no guard at all.
 
-**A card's own throw-back inherits `DeclineGate`'s comment requirement, unmodified.** For Phase
-4's prose-only gates, throwing back with no comment posted yet is rejected the identical
-synchronous way `screens/document-review.md` specs — a card offers the control because the
-command is real and the rejection renders in place either way, not because a comment can be left
-from the card itself. The ordinary path to a working pass-back is `document-review` first,
-then either screen to send it; the card exists for the case where a comment already went in from
-an earlier visit and the actor is back on `board` deciding what to do next.
+Every gate Phase 4's own `feature.yaml` declares reviews a prose artifact, so a card's
+pass-forward/pass-back is a link into `document-review` (or `ticket`, for the same reason
+`screens/ticket.md`'s own gate action defers there) rather than a second, competing control —
+the identical move `ticket` already makes and for the identical reason. The card still names that
+a gate is waiting and what it is, so the actor does not have to open the ticket to know there is
+something to do; it just does not dispatch from where it stands. **`ORC-116` is where this is
+expected to resolve for real** — once a gate's node set is derivable, staleness is computable
+plane-side from any surface and a card needs no body view of its own to carry a real compare. Until
+then this is a v1 scope choice, not a defect, and it is recorded here rather than silently
+narrowed so a later pass building non-prose gates does not have to rediscover why the card lost
+the control `docs/ui-spec.md` describes for it.
 
 ## Filters
 
-`type`, `label` and `assignee` in v1. `docs/ui-spec.md` also names `milestone` and `mutex label`;
-both are deferred (see below) rather than cut on the merits.
+`type` and `label` in v1. `docs/ui-spec.md` also names `milestone`, `mutex label` and `assignee`;
+all three are deferred (see below) rather than cut on the merits.
 
 ## Deferred beyond v1
 
-- **`milestone` and `mutex label` filters.** Both are real and both are cut for the same reason:
-  neither has a source to filter *against* yet inside this ticket's scope — `milestone` is a v3
-  screen and mutex labels are a design-time/CI concept with no rendered projection here today.
-  Adding the filter control ahead of something for it to query would be decoration. Add them
-  together with whichever lands first.
+- **`milestone`, `mutex label` and `assignee` filters.** All three are real and all three are cut
+  for the same reason: none has a source to filter *against* yet inside this ticket's scope —
+  `milestone` is a v3 screen, mutex labels are a design-time/CI concept with no rendered
+  projection here today, and no assignee or role-holder projection exists anywhere in this system
+  (`systems/dashboard.md`'s own standing decision — identity is Phase 7). Adding a filter control
+  ahead of something for it to query would be decoration. Add each once its source lands.
 - **The "show all lanes" toggle's own persistence** (remembering it per user) — a real nicety,
   not needed to prove the loop once through, and cheap to add once there is a place to persist a
   per-user UI preference at all.

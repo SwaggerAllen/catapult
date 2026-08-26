@@ -10,9 +10,15 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
 
   `sentences`: `%{index:, text:, change: :unchanged | :added | :removed}`, in body order.
   `comments`: `%{sentence_index:, author:, body:}` — this render's own sentence grouping, this
-  pass's comments only (`screens/document-review.md`'s "Deferred beyond v1"). `stale`: `nil` or
-  `%{approved_sha:, current_sha:}`. `decline_error`: set when the last throw-back was rejected by
-  `DeclineGate` for naming no comment since the gate's last resolution.
+  pass's comments only (`screens/document-review.md`'s "Deferred beyond v1"). No `stale` shape:
+  stale marking does not ship in v1 (`screens/document-review.md`'s "Stale marking does not ship
+  in v1", ORC-114) — `GateApproved`/`GateDeclined` carry no content identity to derive it from.
+  `decline_error`: set when the last throw-back was rejected by `DeclineGate` for naming no
+  comment since the gate's last resolution, or by the compare-and-swap for racing another writer
+  or resolving a body this screen's own view has fallen behind (`{:engine_gate_already_resolved,
+  ...}` / `{:engine_stale_gate_resolution, ...}`, ORC-114) — one rendering slot, three possible
+  causes, since all three are the aggregate refusing to produce `GateApproved`/`GateDeclined` and
+  this screen renders the refusal the identical synchronous way regardless of which one fired.
   """
 
   use Phoenix.Component
@@ -23,7 +29,6 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   attr :sentences, :list, default: []
   attr :comments, :list, default: []
   attr :gate_exits, :list, default: []
-  attr :stale, :map, default: nil
   attr :decline_error, :string, default: nil
 
   def document_review(assigns) do
@@ -34,14 +39,6 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
           <h1 class="text-xl font-semibold"><%= @tier %></h1>
           <p class="text-xs font-mono opacity-60"><%= @node_id %> · <%= @body_sha %></p>
         </div>
-      </div>
-
-      <div :if={@stale} class="alert alert-warning">
-        <span>
-          Stale — approved at <span class="font-mono"><%= @stale.approved_sha %></span>, now at
-          <span class="font-mono"><%= @stale.current_sha %></span>. Re-review before this gate
-          counts as passed again.
-        </span>
       </div>
 
       <div :if={@decline_error} class="alert alert-error">

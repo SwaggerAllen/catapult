@@ -128,6 +128,114 @@ conventions §13).
   not perform the check itself (`docs/ui-spec.md` §2 rule 1;
   `screens/document-review.md` and `screens/ticket.md` both name this
   precisely).
+
+  **Corrected again at ORC-114, which built the compare-and-swap this
+  bullet had been describing as already real.** It wasn't:
+  `ApproveGate`'s `execute/2` bound no aggregate state and emitted
+  unconditionally, and `DeclineGate`'s only check was the comment mark
+  above — neither guarded a stale transition, the exact property both
+  screens' own text asserted (`systems/engine.md`'s own entry, found
+  reading the code against §7.16, not filed as a finding by either
+  screen). `ApproveGate`/`DeclineGate` now carry `node_id` and
+  `body_sha` beside the fields above, and the aggregate gains
+  `gate_resolutions: %{gate => :approved | :declined}` (absent key
+  means open): a second writer racing the first on one still-open
+  resolution is rejected with `{:engine_gate_already_resolved, gate:,
+  disposition:}`, naming the value the loser's command conflicted
+  with; a resolution against a body the aggregate has already moved
+  past — regenerated after the actor's view was rendered — is rejected
+  separately with `{:engine_stale_gate_resolution, node_id:, current:,
+  got:}`. Both run before either event is ever produced.
+
+  **What the rejection names is the value, not the actor** — the same
+  level of detail `AdvanceContainerQueue`'s own conflict already gives
+  (`systems/engine.md`), and neither `gate_resolutions` nor the node's
+  `body_sha` carries who wrote it. `docs/ui-spec.md` §3.1's "names who
+  moved it and where" is satisfied in two parts rather than one: the
+  synchronous rejection is the "where" (which disposition already
+  landed, or that the body moved), rendered at the point of action per
+  §7.16; "who" is a follow-up read of the project's event stream for
+  the gate's most recent `GateApproved`/`GateDeclined` (both carry
+  `actor_id`), the identical "read the log for a display fact" pattern
+  `GateComments`/`CommentFeedback` already establish rather than a new
+  mechanism. `screens/ticket.md` carries this precisely; `board` reuses
+  it rather than redefining it.
+
+  **`board`'s cards do not dispatch `ApproveGate`/`DeclineGate` in v1,
+  reversing this doc's own earlier reading of `docs/ui-spec.md`'s "cards
+  carry pass-forward and pass-back directly."** Both commands now
+  require the `body_sha` of the body the actor is resolving against,
+  and a card shows a ticket, not a body — filling it from the
+  projection's current value would make the compare-and-swap pass
+  unconditionally while the card *looked* guarded, which is worse than
+  not offering the control at all. Every gate Phase 4's `feature.yaml`
+  declares reviews a prose artifact, so a card's pass-forward/pass-back
+  links into `document-review` instead, the identical move `ticket`'s
+  own gate action already makes for the same reason
+  (`screens/ticket.md`, `screens/board.md`). **`ORC-116` is where this
+  is expected to resolve for real** — once a gate's node set is
+  derivable, staleness is computable from any surface and a card needs
+  no body view of its own; until then this is a v1 scope choice, not a
+  defect.
+
+  **`ResumeFlow{project_id, flow_id, to, actor_id}` → `FlowResumed`
+  gives `ticket`'s blocked return control a real write path** (ORC-114):
+  `Catapult.Delivery.FeatureLifecycle.Projection`'s own `resting/2` had
+  no way off `{:kind, :blocked}` except a fresh commit — no command
+  existed for a human to choose a return position, which is the gap
+  `my-queue`'s `unblock` kind and `ticket`'s own "Blocked" section both
+  assumed away. `to` is validated at the command edge against the
+  effective-sequence prefix up to and including `blocked_origin`, never
+  forward (`docs/ui-spec.md` §6) — the same bundle/projection-content
+  split every other command edge on this aggregate already draws.
+  `screens/ticket.md` carries the detail.
+
+  **A ticket's title/argument, and the read both `board` and `my-queue`
+  place a ticket from, both exist now.** `argument` is a reserved
+  `fields:` name on a flow's entry tier (`docs/dsl-syntax.md` §3,
+  `systems/platform_content.md`), folded into `Catapult.Delivery.Store
+  .tickets_for_project/1` — one project-scoped read returning `id`,
+  `ticket_ref`, `flow_name`, `entry_node_id`, `status_kind`,
+  `status_gate`, `blocked_origin_kind`, `blocked_origin_gate` and
+  `argument` per open flow, which is what `board`'s lanes and
+  `my-queue`'s three action kinds both place a ticket from
+  (`systems/delivery.md`'s ORC-114 entry). `my-queue` calls it once per
+  project the actor has standing in and merges the rows, the identical
+  fan-out its own "Cross-project, deliberately" section already
+  describes for the query that predated this one.
+
+  **`document-review`'s stale marking does not ship in v1, and this is
+  a correction rather than a narrowing of something that worked.** The
+  mechanism ORC-75's own earlier draft described — deriving staleness
+  from whether a node's current `body_sha` matches what the gate's
+  approval event recorded — cannot be built: `GateApproved`/
+  `GateDeclined` carry no content identity, deliberately, and §7.16's
+  "what a passed gate pins" is left open for Phase 7/ORC-115 by name in
+  `systems/engine.md`'s own entry. `Catapult.Delivery.Store
+  .get_previous_draft_body/2` (one previous body, not a log) answers
+  the per-sentence **diff** `document-review` renders — a narrower
+  question ("what changed since the last pass") than "has what this
+  gate approved changed," which needs a content pin this ticket does
+  not have. `screens/document-review.md` drops stale marking from v1
+  rather than shipping a stopgap `body_sha` on the gate events that
+  ORC-115 would be the first thing to delete.
+- **No assignee or role-holder projection exists, and Phase 4's screens
+  render the degenerate case rather than modeling an interim one**
+  (ORC-114, design pass). `my-queue`'s two tabs, its `sign off`
+  visibility rule, and `ticket`'s "shown only when the viewer's role
+  holds the gate" all assume a human-to-role mapping; `Catapult.Engine
+  .Commands.ApproveGate`'s own moduledoc places role authorization
+  exactly where §7.16 already leaves grant evaluation — identity's, a
+  Phase 7 component that does not exist yet. Phase 4 has exactly one
+  author, so the correct rendering is the one identity will later
+  narrow rather than one this system invents ahead of it: every gate
+  action is shown to every viewer, `my-queue`'s **Assigned** and **My
+  roles** tabs read the identical underlying set (there is no
+  assignee column to tell them apart), and `board`'s `assignee` filter
+  has no source to filter against — deferred beside `milestone` and
+  `mutex label` for the identical reason. Each screen's own doc records
+  this against its own controls; this bullet is the one place a reader
+  sees why they all say it the same way.
 - **Component modules live beside their story, under
   `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
   (ORC-35 design pass — the first ticket to exercise this system's

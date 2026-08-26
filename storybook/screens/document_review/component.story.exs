@@ -37,7 +37,6 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: Enum.reject(sentences(), &(&1.change == :removed)),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
-          stale: nil,
           decline_error: nil
         }
       },
@@ -59,7 +58,6 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
             }
           ],
           gate_exits: [%{label: "Generation", target: "generation"}],
-          stale: nil,
           decline_error: nil
         }
       },
@@ -75,15 +73,16 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: sentences(),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
-          stale: nil,
           decline_error: "Name at least one comment before throwing this back."
         }
       },
       %Variation{
-        id: :stale_gate,
+        id: :resolution_conflict,
         description:
-          "A previously-passed gate whose artifact regenerated underneath it — derived, never " <>
-            "stored, and shown rather than hidden.",
+          "An approve rejected by the compare-and-swap landed at ORC-114 — either this gate was " <>
+            "already resolved by a racing writer, or the body regenerated underneath this " <>
+            "screen's own view. Rendered synchronously, at the point of action, the same slot " <>
+            "the no-comment rejection above uses.",
         attributes: %{
           node_id: "comparch:dashboard",
           tier: "comparch",
@@ -91,8 +90,9 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: sentences(),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
-          stale: %{approved_sha: "e5f6a7b", current_sha: "f9e8d7c"},
-          decline_error: nil
+          decline_error:
+            "This gate was already resolved, or the body changed underneath this view. " <>
+              "Refresh to see the current state before trying again."
         }
       }
     ]

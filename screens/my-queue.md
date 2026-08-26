@@ -24,17 +24,31 @@ bar (J1) is written against.
 Tabs are a display filter over the same underlying read, not two different queries with
 independently-evolving shapes.
 
+**In Phase 4 both tabs show the identical set.** No assignee or role-holder projection exists
+anywhere in this system yet (`systems/dashboard.md`'s own standing decision) —
+`Catapult.Engine.Commands.ApproveGate`'s own moduledoc places role authorization exactly where
+§7.16 already leaves grant evaluation, identity's, a Phase 7 component. Phase 4 has exactly one
+author, so there is no delegation to render and no role-holding to filter by yet: both tabs read
+every action-needed row across every project the actor has standing in, undifferentiated. The two
+tabs still exist as separate protocol questions — they will genuinely diverge the moment identity
+ships a real assignee and role-holder mapping — but building an interim owner or a fake filter now
+would be something for identity to replace rather than something it extends. The tab structure is
+the decision; the filtering is not this ticket's to fake.
+
 ## The action-needed set is enumerated, and nothing else is emitted
 
 Three kinds, fixed by protocol (v5 §7.10, §7.6, §7.3), each rendered as a row with the ticket, its
 project, and which kind it is:
 
-- **sign off** — a review status whose role you hold. Opens `ticket` (or `document-review` for a
-  design-gate) to actually approve or throw back; this screen names the ticket and the kind, it
-  does not carry the gate control itself.
-- **unblock** — a blocked ticket whose origin status you own. Opens `ticket`, where the return
-  control lives (defaulting to origin, earlier-prefix as a picker, never forward — `screens/
-  ticket.md`).
+- **sign off** — a review status whose role you hold — every gate in Phase 4, per the degenerate
+  rendering above. Opens `ticket` (or `document-review` for a design-gate) to actually approve or
+  throw back; this screen names the ticket and the kind, it does not carry the gate control
+  itself.
+- **unblock** — a blocked ticket whose origin status you own — every blocked ticket in Phase 4, per
+  the same degenerate rendering. Opens `ticket`, where the return control lives (defaulting to
+  origin, earlier-prefix as a picker, never forward) and is a real write as of ORC-114 —
+  `ResumeFlow{project_id, flow_id, to, actor_id}` → `FlowResumed`, closing the gap this kind
+  previously had no command behind (`screens/ticket.md`'s "Blocked" section carries the detail).
 - **triage** — machinery-filed work awaiting batch-accept (v5 §7.3). See "Deferred beyond v1"
   below for what this kind does *not* do yet.
 
@@ -42,13 +56,15 @@ There is no *decide* row and no generic "needs attention" bucket. A decision arr
 three above or as a PR; a fourth action kind with nothing that emits it is a screen looking
 comprehensive, which `docs/ui-spec.md` §2's third rule refuses outright.
 
-**This screen issues no commands.** Unlike `board`, whose cards carry pass-forward/pass-back
-directly, a queue row is a pointer: ticket, project, kind, and a link to the screen that holds the
-actual control. Collapsing that distinction — putting an approve button on a queue row — would
-make the row's state (what actions are legal, what the throwback targets are) something this
-screen has to track independently of `ticket`, for a screen whose whole job is triage-at-a-glance
-across every project the actor touches. `board` earns the direct control because it is already
-scoped to one project's cards; `my-queue` is not.
+**This screen issues no commands.** A queue row is a pointer: ticket, project, kind, and a link to
+the screen that holds the actual control — `document-review` or `ticket`, the same two screens
+`board`'s own cards now link into rather than dispatching from directly (`screens/board.md`,
+ORC-114). Collapsing that distinction — putting an approve button on a queue row — would make the
+row's state (what actions are legal, what the throwback targets are, what body a decline would be
+resolving against) something this screen has to track independently of the screen that actually
+renders it, for a screen whose whole job is triage-at-a-glance across every project the actor
+touches. Nothing in this system dispatches a gate command from a screen that isn't showing the
+body it resolves against; `my-queue` was never going to be the exception.
 
 ## Cross-project, deliberately
 
