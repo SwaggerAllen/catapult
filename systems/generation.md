@@ -39,6 +39,17 @@ and validation logic and must not fork it.
 - **Latency scales the pool, never the architecture**: slow
   generation means an autoscaling worker pool pulling from the
   queue — generation never moves in-plane.
+- **`Extraction.mints/4` decides a minted node's initial status, not
+  only its identity** (ORC-117, design pass). Building a mint entry
+  already means resolving the target tier's own declaration out of
+  `chain`; that same lookup now also reads whether the target
+  declares a `draft:` block and carries the answer on the entry
+  (`:approved` for a join target, `:absent` otherwise), rather than
+  the reducer inferring it from bundle content it isn't supposed to
+  read. The decision this answers to — what a join target's status
+  means and why readiness needed no change — is `systems/engine.md`'s;
+  this entry only records that the computation sits here rather than
+  being rediscovered as a surprise in that ticket's diff.
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
   cluster canonically, managed opt-in) are two adapters over one
