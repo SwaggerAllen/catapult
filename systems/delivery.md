@@ -233,10 +233,11 @@ design gates pass.
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
 - **ORC-115 (design pass, corrected on two later design reviews) gives
-  this system's dispatcher a derived throwback default and opens,
-  without answering, whether a container instance can be a dispatch
-  target in its own right** (`docs/dsl-syntax.md` §15.4, §15.10; `docs/
-  v5-design-decisions.md` §7.8, §7.16, §7.19). The dispatcher's own
+  this system's dispatcher a derived throwback default and names,
+  without yet answering, whether a container instance can be a
+  dispatch target in its own right** (`docs/dsl-syntax.md` §15.4,
+  §15.10; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19; answered at
+  ORC-148, below). The dispatcher's own
   throwback handling resolves every decline's *legality* the same way,
   regardless of declaration — checked against "earlier in the citing
   type's own effective sequence" (identical to how the dispatcher
@@ -254,26 +255,49 @@ design gates pass.
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 
-  **This system's own open question, named rather than assumed
-  answered: can a container instance be an agent dispatch target at
-  all?** `docs/v5-design-decisions.md` §7.8's own amendment records the
-  direction — `milestone`'s `setup` and `retro` folding into sub-arrays
-  of its own array rather than staying separately minted ticket-
-  skeleton types — but `setup`/`retro` today dispatch as ordinary
-  tickets precisely because this system's dispatcher has never had to
-  address a non-ticket subject. Answering this reaches ORC-9's executor
-  (what does it run against, if not a ticket's branch and PR), the
-  mutex mapping (a container instance has no file-map paths of its
-  own), and `DispatchRun`'s own keying (keyed on ticket id today); it
-  also reopens what `main`'s `blocks: [retro]` (§15.7) means once the
-  blocker is one agent step rather than a population of unresolved
-  work items — "does not complete while a queue that blocks it holds
-  work" presumes something to hold, and an agent step either has run
-  or hasn't. **Not decided here.** Until it is, `types/setup.yaml` and
-  `types/retro.yaml` stay exactly as built, and this system's
-  dispatcher gains nothing from the amendment beyond the throwback
-  default above. Filed alongside the rest of this doc's Target list,
-  for whichever pass takes it up.
+  **This system's own open question — can a container instance be an
+  agent dispatch target at all? — is answered at ORC-148: yes, on the
+  identical footing as a ticket instance.** Dispatching from a work
+  item with a queue and one without were never different operations,
+  only different status flows attached to the same mechanism
+  (`docs/dsl-syntax.md` §15.2, `docs/v5-design-decisions.md` §7.8) —
+  the queue was never what made something a dispatch target, so this
+  system does not need a container-shaped answer distinct from the
+  ticket-shaped one it already has. Concretely, once `setup` and
+  `retro` fold inline (below) this system's own Target build must:
+  point ORC-9's executor at the container instance's own branch and PR
+  when the dispatch subject is a container rather than a ticket; give
+  a container instance file-map paths of its own for the mutex mapping
+  to key against, the identical shape a ticket's paths already take;
+  and key `DispatchRun` on the container instance's id in that case
+  rather than assuming a ticket id. It also resolves what `main`'s
+  `blocks: [retro]` (§15.7) means once `retro` is `milestone`'s own
+  inline entry rather than a population of unresolved child tickets:
+  `main` does not complete while `retro`'s own entry is unresolved —
+  the identical "unresolved work assigned to this queue" test, applied
+  to a queue of exactly one thing that is not a queue at all. Filed
+  alongside the rest of this doc's Target list, for whichever pass
+  takes up ORC-104.
+- **ORC-148 (design pass) retires `singleton:` and the fold that
+  motivated it, closing the open question the two bullets above left
+  standing** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.7, §15.10;
+  `docs/v5-design-decisions.md` §7.8). The fifth/sixth-pass singleton
+  reading above bounded a *queue's* lifetime cardinality — the
+  mechanism `setup` and `retro` needed only because each was
+  implemented as `flow:` naming a separately minted, ticket-skeleton
+  child. Once `setup` and `retro` fold directly into `milestone`'s own
+  array as ordinary agent-balled entries — no `flow:`, no minted
+  child, `types/setup.yaml`/`types/retro.yaml` deleted — neither is a
+  queue any more, so there is no cardinality left for a field to
+  bound: "at most one, ever" falls out of there being exactly one
+  `milestone` instance and exactly one array position each occupies.
+  This system's dispatcher loses a check it was filed to build (the
+  singleton-lifetime rejection, ORC-104's) and gains the dispatch-
+  target work named above in its place — a smaller Target list, not a
+  larger one, since folding removes the separately-dispatched child
+  the old shape needed a bound for. **Not built as part of this
+  pass:** every item this bullet and the two above it name is
+  `systems/delivery.md`'s own Target list, ORC-104's to build.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -631,8 +655,9 @@ design gates pass.
   already writes to, never a second aggregate or a delivery-owned
   table standing in for one. What this system owns is the *dispatcher*
   — deciding when a queue has emptied of unresolved work, when a
-  `blocks:` sibling has cleared, when a singleton queue's one work item
-  has gone terminal and its `retro`/`setup` may be dispatched — and
+  `blocks:` sibling has cleared, and when the container's own position
+  reaches an inline agent-balled entry (`retro`/`setup`, ORC-148) and
+  it may be dispatched — and
   issuing the resulting command into engine's aggregate; engine
   validates and records it, and its new projection is what this
   system's dispatcher reads back, keeping no second copy of its own.
@@ -1222,17 +1247,19 @@ the two gates; PR + harvesting; lifecycle projected into the plane's
 own read models, which the work surface renders — there is no third
 party in this path. **Narrowed at ORC-104**: the container/queue
 machinery above — the dispatcher, mint vs. activation, the
-`blocks:`-aware completion check, the singleton-lifetime rejection,
-findings adjudication and the aggregated flag flip — lands in Phase 4
-too, ahead of the rest of Phase 7's two-grain delivery machinery
-(child lifecycle, mutex, dispatch, reconciliation, escalations, the
-maintenance watcher), for the reason the ticket record gives: no
-ticket before Phase 7 otherwise demonstrates the authoring loop closes
-over a container rather than remaining a claim about individual
-tickets. `docs/dsl-syntax.md` §15's grammar itself — the `types/<name>
-.yaml`/`gates/`/`environments/` loader, the declaration-graph
-acyclicity check, the `singleton:`/`blocks:` structural acceptance —
-is `systems/core_dsl.md`'s own file map (`lib/catapult/dsl/**`) and
+`blocks:`-aware completion check, dispatch onto an inline agent-balled
+entry (`setup`/`retro`, ORC-148 — `singleton:`'s own rejection check
+is retired rather than built, above), findings adjudication and the
+aggregated flag flip — lands in Phase 4 too, ahead of the rest of
+Phase 7's two-grain delivery machinery (child lifecycle, mutex,
+dispatch, reconciliation, escalations, the maintenance watcher), for
+the reason the ticket record gives: no ticket before Phase 7 otherwise
+demonstrates the authoring loop closes over a container rather than
+remaining a claim about individual tickets. `docs/dsl-syntax.md` §15's
+grammar itself — the `types/<name>.yaml`/`gates/`/`environments/`
+loader, the declaration-graph acyclicity check, the `blocks:`
+structural acceptance — is `systems/core_dsl.md`'s own file map
+(`lib/catapult/dsl/**`) and
 lands with this same ticket; no file-map change is needed for either
 half. **Corrected here, on author review: the touch is core_dsl +
 engine + this system + `platform_content`, not three.** The shipped

@@ -2288,76 +2288,69 @@ follows the direction each looks: `retro` —
 backward — adjudicates carried findings, scans the diff for debt,
 updates the milestone's tickets to reflect what actually landed, and
 flips the aggregated flag set (below); `setup` — forward — grooms,
-sets blockers, and fills `prep`. **Both `milestone`'s `setup` and
-`retro` anchor entries are declared `singleton: true`** (a fifth-pass
-addition, corrected at the sixth, `dsl-syntax.md` §15.7): each holds
-at most one work item, ever — not merely 0-or-1 at a time — which is
-what lets the dispatcher address *the* setup or *the* retro work item
-directly, permanently, rather than iterating a set that structurally
-never holds more than one and never re-opens once it empties. The
-bound is declared, not read off either anchor's name, since the
-grammar has spent four passes removing exactly that kind of implicit
-fact. **A second assignment to either, ever — even after the first has
-already reached `terminal` — is a loud dispatch-time error, not an
-admitted second ticket.** The fifth pass had this as "admitted and
-files `Blocked`," the same shape an unrecognized `flow:` label
-produces; the sixth pass found that shape wrong for a bound scoped to
-the queue's whole lifetime rather than its momentary population — a
-singleton queue whose one work item is already `terminal` is
-*closed*, on purpose, and admitting a second into it would treat that
-closure as an ordinary empty queue with room. What the rejected
-work's own content becomes is business logic outside the grammar's
-remit, the identical scoping line already drawn for `initialization`
-(above), not a reason to widen what "singleton" means. Both are
-**ordinary work items**:
-there is a ticket again, and it is not the thing that was removed.
-What's absent is the *pause-proxy* — a ticket standing in for
+sets blockers, and fills `prep`. **Both are ordinary agent-balled
+entries directly in `milestone`'s own array** (ORC-148, superseding
+the singleton-ticket shape below): `retro` inside the sub-array it
+shares with the sign-off gates around it, `setup` needing no sub-array
+of its own (`dsl-syntax.md` §15.2, §15.10). Neither carries `flow:`,
+and neither is dispatched as a separately minted child; each runs
+once per pass through its own position in `milestone`'s array, the
+identical guarantee "runs once, at activation" already gives `main` or
+`prep` (§15.8) — a guarantee that needs no declared bound, because
+there is exactly one `milestone` instance and exactly one array
+position for each to occupy. This is also why `singleton: true`
+(`dsl-syntax.md` §15.7) is retired rather than corrected again: it
+bounded a *queue*'s lifetime cardinality, the mechanism `setup` and
+`retro` needed only while each was a `flow:` naming a separately
+minted, ticket-skeleton child (`types/setup.yaml`, `types/retro.yaml`,
+both deleted); an inline entry was never a queue, so there is no
+cardinality left to bound. Both are still **ordinary work items**:
+what's absent is the *pause-proxy* — a ticket standing in for
 container state a borrowed tracker had nowhere else to hold
 (`dsl-syntax.md` §14's corresponding entry draws this distinction
-explicitly, so the next reader doesn't take the return of a ticket as
-a reversal). What's present is dispatched work, with its own
-chain-bundle flow and tiers, through machinery that already exists
-(§7.10's "opening a ticket IS opening a flow instance"). **Human,
-irreducibly:** manual testing across the milestone (the pipeline
-protocol's own DESIGN §10 names this the only place manual testing
-happens, and nothing here changes that), reading the `:live` verdict
-(§2.8), clearing `Blocked` tickets carrying `needs-review`, accepting
-or declining `retro`'s Triage-filed proposals.
+explicitly, so the next reader doesn't take this shape as a
+reversal). What's present is dispatched work, with the same
+chain-bundle machinery any other agent-balled entry uses (§7.10's
+"opening a ticket IS opening a flow instance" generalizes to "reaching
+an agent-balled entry IS dispatching a flow instance," ORC-148) —
+`milestone`'s own chain-bundle counterpart carries the tiers whose
+`delivery:` blocks give `setup` and `retro` their actual agent
+behavior, exactly as a ticket-skeleton type's chain gives its
+`generation` entries theirs. **Human, irreducibly:** manual testing
+across the milestone (the pipeline protocol's own DESIGN §10 names
+this the only place manual testing happens, and nothing here changes
+that), reading the `:live` verdict (§2.8), clearing `Blocked` tickets
+carrying `needs-review`, accepting or declining `retro`'s Triage-filed
+proposals.
 
-**Amended at ORC-115: the direction, not yet the shape, is that
-`setup` and `retro` stop being ordinary work items.** The paragraph
-above treats "both are ordinary work items" as the point — a
-correction of ORC-103's pause-proxy, not a reversal — and that
-correction still holds for every other queue-dispatched flow this
-document describes. But `setup` and `retro` were given their own
-ticket-skeleton types (`types/setup.yaml`, `types/retro.yaml`) for a
-narrower reason than "they are ordinary work": §15.2's own grammar,
-at the time, had no way to express a loop or a single agent step
-inside a container's own queue array, so spawning a ticket was the
-only available shape for "run one agent step, once, backward- or
-forward-looking." `dsl-syntax.md` §15.10's sub-array grammar is that
-missing shape. §15.1's own table already marks both `retro` and
-`setup` as agent-balled container positions — "backward-looking close
-of a container" and "constitutes a freshly minted container, once" —
-which reads as a sub-array's own single non-critique agent step
-sitting directly in `milestone`'s array, not as a reason to keep
-minting a separate ticket for either. **What this amends:** the
-mint-a-singleton-ticket path for `setup` and `retro` is not the
-platform's last word on them; a bundle running the agent step inline,
-against the container instance itself, is the shape §15.10 was built
-to enable. **What this does not yet decide, named rather than
-glossed over:** whether a container instance can *be* an agent
-dispatch target at all is unresolved — it reaches the executor, the
-mutex mapping, and `DispatchRun`'s own keying, none of which assume a
-non-ticket dispatch subject today, and it changes what `main`
-blocking `retro` (§15.7) means once the blocker is an agent step
-rather than a population of unresolved tickets. `systems/delivery.md`
-records this as its own open question rather than this document
-proceeding as though it were settled. Until it resolves, `setup` and
-`retro` stay exactly as built — ordinary ticket-skeleton work items,
-dispatched through `milestone`'s `flow:` — and this paragraph is the
-recorded direction the next pass designs against, not a diff to
-`bundles/default-flow/**` this pass makes.
+**Settled at ORC-148: a container instance is a legal agent dispatch
+target, on the identical footing as a ticket instance.** ORC-115 first
+named the direction — `setup` and `retro` folding into sub-arrays of
+`milestone`'s own array rather than staying separately minted
+ticket-skeleton types — and left open whether a container instance
+could be a dispatch subject at all, since the shape at the time still
+routed both through machinery built only for tickets. The question
+does not need a container-specific answer: dispatching from a work
+item with a queue and dispatching from one without are the same
+operation, attached to different status flows — the container/ticket
+split is semantic, never functional (`dsl-syntax.md` §15.2) — and the
+queue was never what made a work item a dispatch target. Concretely,
+this reaches the executor (it runs against the container instance's
+own branch and PR, not a child ticket's), the mutex mapping (a
+container instance's own file-map paths, exactly as a ticket's are
+today), and `DispatchRun`'s own keying (keyed on the container
+instance's id where it was keyed on a ticket id). It also resolves
+what `main` blocking `retro` (§15.7) means once the blocker is `retro`
+itself rather than a population of unresolved tickets: `main` does not
+complete while `retro`'s own entry is unresolved, the identical
+"unresolved work items assigned to this queue" test applied to a
+queue of exactly one thing that is not a queue at all — a ticket-count
+of zero-or-one rather than an open population, which is what
+`blocks:` already meant for any anchor whose target happens to hold
+only ever one item. `dsl-syntax.md` and `systems/delivery.md` carry
+the grammar and the dispatcher's own diff against this; this paragraph
+records the decision, not a diff to `bundles/default-flow/**`, which
+is dev's to make.
 
 The **`:live` suite** still runs once per milestone (§2.8, settled at
 ORC-105 to gate `main`'s completion specifically), and a failing
@@ -2401,8 +2394,9 @@ earlier pass's own phrasing — named nothing the loader could check.
 from** (`dsl-syntax.md` §2): a reference, the identical shape
 `catapult.yaml` already has pinning one bundle per axis, not a second
 copy of a fact the graph produces on its own. The loader checks it in
-full — the name resolves, the resolved type carries a queue-shaped
-anchor, and it is a root in the declaration graph — so a bundle that
+full — the name resolves, the resolved type carries a population
+anchor of its own, and it is a root in the declaration graph — so a
+bundle that
 loads has a starting point the loader has actually verified rather
 than one a reader has to infer from which declaration looks
 project-shaped. Worth recording alongside it: acyclicity already

@@ -451,8 +451,10 @@ them.
   while dispatched through this system's router would point the
   dependency the wrong way — `systems/delivery.md`'s own "Depends on"
   already runs delivery → engine, never the reverse. Command
-  validation — a singleton queue's lifetime bound, a queue-advance
-  naming a declared anchor, a `blocks:` relation — reads the loaded
+  validation — a queue-advance naming a declared anchor, a `blocks:`
+  relation (`singleton:`'s own lifetime bound retired at ORC-148,
+  `systems/core_dsl.md`, rather than becoming a fourth check here) —
+  reads the loaded
   `Catapult.Dsl.Workflow.t()` the identical way the reducer already
   resolves bundle semantics from the log rather than from whatever
   `core_dsl` currently has loaded (above); this system already depends

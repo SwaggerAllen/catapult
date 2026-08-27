@@ -423,12 +423,12 @@ context-source kinds, and audit profiles.
 
   **Not decided by this pass, named rather than glossed over:** nested
   sub-arrays (a homonym risk against `container`-skeleton nesting,
-  §15.6, this pass's own open question); a queue-shaped anchor inside a
-  sub-array, which is what folding `setup`/`retro` into `milestone`'s
-  own array would actually require — refused at load for now because
-  it reaches a dispatch question (`systems/delivery.md`'s own open
-  item) this pass does not touch; and a throwback from a gate sitting
-  outside every sub-array, targeting into one. **Not built as part of
+  §15.6, this pass's own open question); and a throwback from a gate
+  sitting outside every sub-array, targeting into one. (A third item
+  this pass left open — whether a population anchor could ever sit
+  inside a sub-array, and the dispatch question behind folding
+  `setup`/`retro` into `milestone`'s own array — is resolved at
+  ORC-148, below.) **Not built as part of
   this pass**, the same boundary every ORC-105 pass above already
   draws: the loader changes this entry describes are `lib/catapult/dsl
   /workflow.ex`'s and `lib/catapult/dsl/gate.ex`'s — the `throwback:`
@@ -436,6 +436,63 @@ context-source kinds, and audit profiles.
   load-time check narrows to match, and
   `gate_throwback_problems/2`'s "earlier in the array" logic is reused
   at the command edge as a runtime check for the undeclared case —
+  dev's diff against this record, not design's.
+
+- **ORC-148 (design pass) reverses the fourth pass's own governing
+  sentence — a skeleton fixes a required backbone, never an exclusive
+  membership — and retires `singleton:` outright** (`docs/dsl-syntax
+  .md` §13, §15.1, §15.2, §15.5-§15.10; `docs/v5-design-decisions.md`
+  §7.8; `systems/delivery.md`). "A container is any work item whose
+  skeleton has queues, a ticket is any work item whose skeleton has a
+  generation" (§15.2's own fourth-pass sentence) was read, in the
+  loader, as an *exclusive* membership rule: `Catapult.Dsl.Workflow
+  .container_shape_problems/2` required a `container`-skeleton type's
+  array to hold *exactly* its five fixed anchors, nothing else, and
+  `Status.parse/4`'s `queue_shaped?` — whether `flow:`/`blocks:` (and,
+  until now, `singleton:`) are legal on a given entry — was computed
+  once per type from `skeleton:` alone. Nothing in this section's own
+  prose ever argued for that exclusivity; it was the third file
+  format's residue, the same kind of accidental coupling the fourth
+  pass's own unification was written to remove from everywhere else.
+  **The fix moves the check from the type's `skeleton:` to the entry's
+  own name and content:** `flow:`/`blocks:` are now legal on a
+  *population anchor* (`prep`/`main`/`cleanup`, or any entry in a
+  skeleton-less type's array) and illegal on the fixed agent/world
+  kinds (`pending`, `generation`, `critique`, `checks`, `merge`,
+  `deploy`, `setup`, `retro`, `terminal`), whichever type's array
+  either sits in; the declaration-graph node set and `entry:`'s own
+  check both move from "is this type's `skeleton:` `container` or
+  absent" to "does this type's array hold a population anchor at all."
+  A `container`-skeleton type's required backbone (its five anchors,
+  each at least once, in order) and a `ticket`-skeleton type's (unchanged)
+  are exactly as fixed as before; what they no longer do is cap what
+  else a declaring bundle may additionally interleave from the shared
+  vocabulary. **This is what lets `setup` and `retro` fold inline:**
+  each becomes an ordinary agent-balled entry directly in `milestone`'s
+  own array — `retro` grouped with the sign-off gates around it in a
+  §15.10 sub-array (the shape ORC-115 named and left unreachable,
+  above), `setup` needing no group at all — dispatched by
+  `milestone`'s own chain-bundle tiers exactly as a `generation` entry
+  dispatches by a ticket-skeleton type's, with no `flow:` and no
+  separately minted child. `types/setup.yaml` and `types/retro.yaml`
+  are deleted rather than kept as dispatch targets (`bundles/**`,
+  dev's diff). **`singleton: true` retires rather than narrows**,
+  because the cardinality it bounded stops existing: it closed a
+  *queue* to a second assignment once populated, and `setup`/`retro`
+  stop being queues the moment they have no `flow:` to nest a child
+  through — there is exactly one `milestone` instance and exactly one
+  array position each occupies, which is the "at most one, ever"
+  property with nothing left for a field to declare. **This also
+  settles the question ORC-115 left open** — whether a container
+  instance can be an agent dispatch target at all — the same direction
+  as the rest of this reversal: dispatching from a work item with a
+  queue and one without were never different operations, only
+  different status flows attached to the identical mechanism
+  (`docs/v5-design-decisions.md` §7.8, `systems/delivery.md`'s own
+  diff against this). **Not built as part of this pass:** the loader
+  changes (`lib/catapult/dsl/status.ex`, `type.ex`, `workflow.ex`), the
+  `bundles/default-flow/**` fold itself, and the dispatcher/executor
+  work `systems/delivery.md` files against its own Target list — all
   dev's diff against this record, not design's.
 
 ## Initial vs target
