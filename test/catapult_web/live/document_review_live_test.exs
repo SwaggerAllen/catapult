@@ -53,7 +53,7 @@ defmodule CatapultWeb.DocumentReviewLiveTest do
     assert html =~ "No design gate"
   end
 
-  test "the current gate's node renders its sentences and declared throwback exits", %{
+  test "the current gate's node renders its sentences and its one throwback landing point", %{
     conn: conn
   } do
     project_id = "docreview-#{System.unique_integer([:positive])}"
@@ -63,7 +63,58 @@ defmodule CatapultWeb.DocumentReviewLiveTest do
 
     assert html =~ "sysarch"
     assert html =~ "The system uses a single event store."
+
+    # One button, not one per declared exit: `throwback:` narrowed to a
+    # single target at §15.10 because a decline lands on exactly one
+    # status. `ux-review` declares `pending`, which is a different
+    # landing point from the `generation` its own sub-array would
+    # derive — the declaration earning its keep.
     assert html =~ "Throw back to pending"
+    refute html =~ "Throw back to generation"
+  end
+
+  test "a target outside the earlier prefix is refused at the command edge", %{conn: conn} do
+    project_id = "docreview-#{System.unique_integer([:positive])}"
+    open_at_gate(project_id, "flow-1", @body)
+
+    {:ok, view, _html} = live(conn, "/projects/#{project_id}/tickets/flow-1/review")
+
+    # `deploy` sits *after* `ux-review` in `types/feature.yaml`, so it
+    # is not a legal landing point (dsl-syntax.md §15.10: earlier in
+    # the citing type's effective sequence, and nothing else). No
+    # button offers it — which is exactly why the check has to exist:
+    # `target` arrives from a client-controlled `phx-value-target`, and
+    # validating bundle content before dispatch is the command edge's
+    # job, never the aggregate's (`Commands.DeclineGate`).
+    html = render_click(view, "decline", %{"target" => "deploy"})
+
+    assert html =~ "not a legal throwback target"
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, "flow-1")
+    assert row.status_gate == "ux-review"
+  end
+
+  test "an earlier target the gate does not declare is still legal", %{conn: conn} do
+    project_id = "docreview-#{System.unique_integer([:positive])}"
+    open_at_gate(project_id, "flow-1", @body)
+
+    {:ok, view, _html} = live(conn, "/projects/#{project_id}/tickets/flow-1/review")
+    render_click(view, "open_comment_form", %{"index" => "0"})
+
+    view
+    |> form("form", %{"body" => "The second sentence needs regenerating, not rewriting."})
+    |> render_submit()
+
+    # `ux-review` declares `throwback: pending` and nothing else, but a
+    # declared target bounds nothing (§15.10) — `generation` is earlier
+    # in the array and therefore reachable, and the command edge admits
+    # it.
+    assert {:error, {:live_redirect, %{to: _to}}} =
+             render_click(view, "decline", %{"target" => "generation"})
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, "flow-1")
+    assert row.status_kind == "generation"
+    assert row.status_gate == nil
   end
 
   test "declining before any comment lands is rejected by the aggregate, rendered synchronously",

@@ -17,6 +17,19 @@ defmodule Catapult.Dsl.Workflow do
   `Catapult.Dsl.Chain`, this loader reads one directory directly and
   never resolves an `Catapult.Dsl.Extends` chain.
 
+  **Backward movement resolves here, and through one predicate**
+  (§15.10). A decline's target is legal iff it is earlier in the citing
+  type's own effective sequence — the identical test §7.19 gives a
+  Blocked-return, and the identical test this loader has always run
+  over a *declared* `throwback:`. So `gate_throwback_problems/2` and
+  the runtime pick (`throwback_targets/3`, `throwback_legal?/4`) share
+  `earlier_names/2` rather than agreeing by coincidence, and
+  `throwback_default/3` supplies the landing point: the gate's own
+  declared target, else the citing sub-array's own non-critique agent
+  step. None of it is stored — a stored default would be a second home
+  for a fact the citing type's array already carries, and a workflow
+  cutover could not re-resolve it (§15.1).
+
   Two of §13's checks need data this loader is never handed in Phase 3
   — a gate's role holders live in the identity component (Phase 7,
   v5 §7.16), and the mirror mapping lives with the outbound tracker
@@ -154,9 +167,12 @@ defmodule Catapult.Dsl.Workflow do
     |> Enum.map(fn {name, _count} -> "two or more #{label} declarations name #{inspect(name)}" end)
   end
 
-  ## Gate throwback (§13, §15.4, §15.8): each target must resolve to a
-  ## status or another cited gate *earlier in the citing type's own
-  ## array* — position lives there now, never on the gate itself.
+  ## Gate throwback (§13, §15.4, §15.8, §15.10): a declared target must
+  ## resolve to a status or another cited gate *earlier in the citing
+  ## type's own array* — position lives there now, never on the gate
+  ## itself. A gate declaring nothing has nothing to check here; its
+  ## landing point is derived at throwback time instead
+  ## (`throwback_default/3`).
 
   defp gate_throwback_problems(types, gates) do
     for {type_name, type} <- types,
@@ -164,23 +180,142 @@ defmodule Catapult.Dsl.Workflow do
         not is_nil(status.review),
         gate = Map.get(gates, status.review),
         not is_nil(gate),
-        target <- gate.throwback do
-      earlier = type.statuses |> Enum.take(index) |> Enum.map(&entry_name/1)
-
-      if target in earlier do
-        nil
-      else
-        "type #{inspect(type_name)}'s #{inspect(status.review)} (statuses[#{index}]) throwback " <>
-          "names #{inspect(target)}, which is not earlier in this type's own statuses: array " <>
-          "(§13, §15.4, §15.8)"
-      end
+        not is_nil(gate.throwback),
+        gate.throwback not in earlier_names(type, index) do
+      "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
+        "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
+        "which is not earlier in this type's own statuses: array (§13, §15.4, §15.8)"
     end
-    |> Enum.reject(&is_nil/1)
   end
 
-  defp entry_name(%Status{status: s}) when not is_nil(s), do: s
-  defp entry_name(%Status{review: r}) when not is_nil(r), do: r
-  defp entry_name(%Status{environment: e}) when not is_nil(e), do: e
+  ## The one predicate (§15.10). Everything backward-moving — the load
+  ## check above, the runtime pick below — reads legality off this.
+
+  defp earlier_names(%Type{statuses: statuses}, index) do
+    statuses |> Enum.take(index) |> Enum.map(&Status.name/1)
+  end
+
+  # Where in `type_name`'s array `gate_name` is cited, as `{type,
+  # index}`. The *first* citation, which is also the only one the rest
+  # of the system can express: a position is `{:gate, name}` with no
+  # index (`Catapult.Delivery.FeatureLifecycle.Sequence
+  # .resolve_position/2`, and the projection's own `status_gate`
+  # column), so a type citing one gate twice already has no way to say
+  # which citation a ticket is resting at.
+  defp citation(%__MODULE__{types: types}, type_name, gate_name) do
+    with {:ok, type} <- Map.fetch(types, type_name),
+         index when not is_nil(index) <-
+           Enum.find_index(type.statuses, &(&1.review == gate_name)) do
+      {type, index}
+    else
+      _not_cited -> nil
+    end
+  end
+
+  @doc """
+  Every legal landing point for a decline at `gate_name` on a ticket of
+  type `type_name`: each entry earlier than that gate in the citing
+  type's own effective sequence, in array order (§15.10).
+
+  This is the whole of legality — there is no per-gate allow-list, and
+  a gate's `throwback:` bounds nothing. `[]` when `type_name` does not
+  resolve or does not cite `gate_name`, which is a caller that has
+  paired a gate with the wrong type rather than a gate no decline can
+  leave.
+  """
+  @spec throwback_targets(t(), String.t(), String.t()) :: [String.t()]
+  def throwback_targets(%__MODULE__{} = workflow, type_name, gate_name)
+      when is_binary(type_name) and is_binary(gate_name) do
+    case citation(workflow, type_name, gate_name) do
+      {type, index} -> earlier_names(type, index)
+      nil -> []
+    end
+  end
+
+  @doc """
+  Whether `target` is a legal decline target for `gate_name` on a
+  ticket of type `type_name` (§15.10).
+
+  This is the check `Catapult.Engine.Commands.DeclineGate`'s own
+  moduledoc assigns to the command edge — bundle content is the
+  command edge's to validate, never the aggregate's — and the same one
+  `Catapult.Delivery.ContainerLifecycle.Sequence.earlier?/4` already
+  answers for a container's own array.
+  """
+  @spec throwback_legal?(t(), String.t(), String.t(), String.t()) :: boolean()
+  def throwback_legal?(%__MODULE__{} = workflow, type_name, gate_name, target)
+      when is_binary(target) do
+    target in throwback_targets(workflow, type_name, gate_name)
+  end
+
+  @doc """
+  Where a decline at `gate_name` lands by default for a ticket of type
+  `type_name` (§15.10): the gate's own declared `throwback:` when it
+  names one, otherwise the derived default — the citing sub-array's own
+  non-critique agent step.
+
+  Never the array position immediately before the gate. That reading
+  fails the shape §15.10 argues from, `[milestone-signoff, retro,
+  proposals-read]`: a gate sitting *after* its group's agent step would
+  fall back to the entry before it and re-ask a human a question they
+  already answered, instead of re-running the agent that produced the
+  thing being declined.
+
+  `nil` when the gate declares no target and cites no sub-array. That
+  is a gate with no one-click default rather than a gate that cannot be
+  declined — `throwback_targets/3` is unaffected, and every entry it
+  lists stays legal.
+
+  Also `nil` for a gate sitting *before* its own group's agent step,
+  where the derivation would otherwise name a target later than the
+  gate and so illegal by the rule above. §15.10 does not reach this
+  case: it reasons about the agent step as "the earliest entry the
+  group has," which the shape it argues from
+  (`[milestone-signoff, retro, proposals-read]`) does not satisfy for
+  its own first gate — and does not have to, since `milestone-signoff`
+  declares `throwback: main` and never derives. Deriving nothing is the
+  narrow reading; offering a one-click default the same module would
+  reject as illegal is not a defensible alternative, and inventing a
+  second derivation rule for the case is the accretion
+  `docs/v5-design-decisions.md` §4.5 warns off. Flagged in ORC-141's
+  hand-back as a gap for the record to settle.
+  """
+  @spec throwback_default(t(), String.t(), String.t()) :: String.t() | nil
+  def throwback_default(%__MODULE__{} = workflow, type_name, gate_name)
+      when is_binary(type_name) and is_binary(gate_name) do
+    case citation(workflow, type_name, gate_name) do
+      {type, index} ->
+        case Map.get(workflow.gates, gate_name) do
+          %Gate{throwback: declared} when is_binary(declared) -> declared
+          _derived -> derived_throwback(type, index)
+        end
+
+      nil ->
+        nil
+    end
+  end
+
+  defp derived_throwback(type, index) do
+    case Type.group_at(type, index) do
+      nil ->
+        nil
+
+      range ->
+        type.statuses
+        |> Enum.slice(range)
+        |> Enum.find_index(&Status.non_critique_agent_step?/1)
+        |> case do
+          nil ->
+            nil
+
+          offset when range.first + offset < index ->
+            Status.name(Enum.at(type.statuses, range.first + offset))
+
+          _not_earlier ->
+            nil
+        end
+    end
+  end
 
   ## environments (§15.4)
 
@@ -385,7 +520,8 @@ defmodule Catapult.Dsl.Workflow do
           (i == 0 or Enum.at(labels, i - 1) != {:status, "generation"})
       end)
       |> Enum.map(fn {_label, i} ->
-        "type #{inspect(type_name)}'s statuses[#{i}] is critique, which must sit immediately after a generation entry (§13, §15.5)"
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, which must " <>
+          "sit immediately after a generation entry (§13, §15.5)"
       end)
     end
     |> List.flatten()

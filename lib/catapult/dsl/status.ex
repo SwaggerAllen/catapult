@@ -35,6 +35,7 @@ defmodule Catapult.Dsl.Status do
   """
 
   alias Catapult.Dsl.Fields
+  alias Catapult.Dsl.SystemStatus
 
   defstruct [:status, :review, :environment, :flow, :depth, blocks: [], singleton: false]
 
@@ -50,12 +51,17 @@ defmodule Catapult.Dsl.Status do
 
   @entry_keys ~w(status review environment)
 
-  @doc "Parses one `statuses:` array entry."
-  @spec parse(String.t(), non_neg_integer(), term(), boolean()) ::
+  @doc """
+  Parses one `statuses:` array entry. `path` is the entry's own
+  position rendered as the author wrote it — `"statuses[3]"` at the
+  top level, `"statuses[1][2]"` inside a sub-array (§15.10) — so a
+  problem points at the YAML the author has open rather than at the
+  flattened index `Catapult.Dsl.Type` stores the entry under.
+  """
+  @spec parse(String.t(), String.t(), term(), boolean()) ::
           {:ok, t()} | {:error, [String.t()]}
-  def parse(where, index, raw, queue_shaped?) do
-    entry_where = "#{where} statuses[#{index}]"
-    do_parse(entry_where, raw, queue_shaped?)
+  def parse(where, path, raw, queue_shaped?) do
+    do_parse("#{where} #{path}", raw, queue_shaped?)
   end
 
   defp do_parse(where, %{} = raw, queue_shaped?) do
@@ -130,6 +136,41 @@ defmodule Catapult.Dsl.Status do
 
     if problems == [], do: {:ok, %__MODULE__{environment: name}}, else: {:error, problems}
   end
+
+  @doc """
+  The name this entry is addressed by — its `status:`, `review:` or
+  `environment:` value, whichever it carries. This is the vocabulary a
+  gate's `throwback:` and a decline's target both resolve against
+  (§15.4, §15.10): one flat namespace over the citing type's own
+  effective sequence.
+  """
+  @spec name(t()) :: String.t()
+  def name(%__MODULE__{status: s}) when not is_nil(s), do: s
+  def name(%__MODULE__{review: r}) when not is_nil(r), do: r
+  def name(%__MODULE__{environment: e}) when not is_nil(e), do: e
+
+  @doc """
+  Whether this entry is §15.10's sub-array anchor: a non-critique
+  agent-balled `status:` entry — `generation`, `retro`, `setup` or
+  `merge` under §15.1's `ball` column.
+
+  `critique` is excluded because it reviews a generation rather than
+  standing as one, the identical exclusion §15.5 already draws for its
+  own purpose. A `review:` or `environment:` entry is excluded by
+  construction: only a `status:` entry names a fixed system-status
+  kind, so a gate that happened to be named `merge` is not one of
+  these.
+
+  Exactly one per sub-array is a load error to violate
+  (`Catapult.Dsl.Type`), and that one entry is the fallback
+  `Catapult.Dsl.Workflow.throwback_default/3` derives.
+  """
+  @spec non_critique_agent_step?(t()) :: boolean()
+  def non_critique_agent_step?(%__MODULE__{status: nil}), do: false
+  def non_critique_agent_step?(%__MODULE__{status: "critique"}), do: false
+
+  def non_critique_agent_step?(%__MODULE__{status: status}),
+    do: SystemStatus.agent_balled?(status)
 
   @doc "Whether this entry is a `status:` (skeleton-anchor) entry, as opposed to `review:`/`environment:`."
   @spec anchor?(t()) :: boolean()

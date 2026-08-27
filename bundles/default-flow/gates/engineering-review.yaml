@@ -1,10 +1,20 @@
 review: engineering-review
 role: engineering
 depth: 0
-throwback: [generation, ux-review] # both sit earlier than this gate in
-                                    # types/feature.yaml's own array — a
-                                    # display label like "Architecting" is
-                                    # not declarable vocabulary and fails
-                                    # load (Catapult.Dsl.Workflow's
-                                    # gate_throwback_problems/2)
+throwback: ux-review               # one target, not a list (§15.10): a
+                                    # decline lands on exactly one status,
+                                    # so the field names a landing point
+                                    # rather than bounding a set. It kept
+                                    # `ux-review` over `generation` because
+                                    # `generation` is already this gate's
+                                    # derived default — the one
+                                    # non-critique agent step in the
+                                    # sub-array types/feature.yaml groups
+                                    # it into — so declaring it would only
+                                    # restate the derivation. Both stay
+                                    # legal either way: legality is
+                                    # "earlier in the citing type's
+                                    # effective sequence" and never a
+                                    # per-gate list (Catapult.Dsl.Workflow
+                                    # .throwback_targets/3)
 escalation: author

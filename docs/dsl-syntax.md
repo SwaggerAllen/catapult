@@ -1984,9 +1984,9 @@ its job; if it needs the field only to restate a target already
 reachable, that declaration is redundant and worth dropping.** Under
 the widened legality rule, the retro case that motivated this whole
 section resolves with no declaration at all — the derivation is right
-about the ordinary case. The two real default-bundle gates that
-declare `throwback:` today are read against the sharper test, not
-waved through:
+about the ordinary case. Four default-bundle gates declare
+`throwback:` today. Two sit inside `feature.yaml`'s own sub-array and
+are read against the sharper test, not waved through:
 
 - `ux-review`'s own declared `throwback: [pending]` (`bundles/
   default-flow/gates/ux-review.yaml`) names a target *outside*
@@ -2009,10 +2009,23 @@ waved through:
   declared *default* is an ordinary bundle-authoring call against
   `bundles/**`, not a fact this record needs to settle for it.
 
-Narrowing both files' `throwback:` to a single string, and dropping
-`engineering-review`'s now-redundant second element, is dev's diff
-against this record (`bundles/**`); neither file loses a landing point
-a decliner can still reach.
+The other two sit in `milestone.yaml`, which declares no sub-array at
+all — nothing in the file is ever grouped, whatever its own entries
+are. The sharper test doesn't apply to a gate with no citing
+sub-array to derive a default from; both are single-element lists
+narrowing to their one element with nothing to weigh:
+
+- `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
+  default-flow/gates/milestone-signoff.yaml`) narrows to `main`, still
+  earlier than `milestone-signoff` in `milestone.yaml`'s own array.
+- `proposals-read`'s own declared `throwback: [retro]` (`bundles/
+  default-flow/gates/proposals-read.yaml`) narrows to `retro`, still
+  earlier than `proposals-read` in the same array.
+
+Narrowing all four files' `throwback:` to a single string, and
+dropping `engineering-review`'s now-redundant second element, is
+dev's diff against this record (`bundles/**`); no file loses a landing
+point a decliner can still reach.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not

@@ -237,8 +237,10 @@ defmodule Catapult.Engine.Aggregate do
   ## original protocol fact, and the two gate sign-off commands
   ## `Catapult.Delivery.FeatureLifecycle`'s own new `interested?`
   ## clauses react to (`systems/delivery.md`). Bundle content — is
-  ## `gate` real, does `throwback_to` name a member of its own
-  ## `throwback:` list — is the command edge's to check before
+  ## `gate` real, is `throwback_to` earlier in the citing type's own
+  ## effective sequence (`Catapult.Dsl.Workflow.throwback_legal?/4`,
+  ## dsl-syntax.md §15.10 — never a per-gate declared list) — is the
+  ## command edge's to check before
   ## dispatch, same as every other command here; `execute/2` validates
   ## only the minimal aggregate-local state each command needs
   ## rejected against.
