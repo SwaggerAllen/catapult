@@ -1,4 +1,4 @@
-# v4 §1.6 "join target", carried forward (docs/non-goals.md). Same
+# v4 §1.6 "join target", carried forward. Same
 # shape as comp one level down: minted by comparch's `decomposition`
 # edge (edges/decomposition.yaml) from a <subcomponent> row, content
 # lives in the (three, not five — see subcomparch.yaml) fragments

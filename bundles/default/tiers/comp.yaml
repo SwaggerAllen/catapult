@@ -1,5 +1,4 @@
-# v4 §1.4 "join target", carried forward as-is (docs/non-goals.md
-# reverses the previous pass's collapse of this tier into comparch).
+# v4 §1.4 "join target", carried forward as-is.
 # Projection tier: no draft, no prompt: content lives entirely in the
 # fragments comparch writes onto self.parent (comparch.yaml's
 # produces:). `mint.*` fields are set when sysarch's `decomposition`

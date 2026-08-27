@@ -39,16 +39,13 @@ context:
   # self.parent (comp) -> fulfills (forward) -> resp, then resp's
   # inbound policy_application edges (reversed) -> every policy scoped
   # through this comp's own responsibility. dsl-syntax.md §7.1 is the
-  # two-hop, one-reversed grammar this needed; it didn't exist when
-  # this gap was first recorded (docs/non-goals.md carries that
-  # history — the loader gained the capability this pass rather than
-  # the bundle routing around its absence). Both entries above name
+  # two-hop, one-reversed grammar this needs. Both entries above name
   # `policy` as their target and combine into one collection
   # (dsl-syntax.md §9) — the prompt sees "every applied policy",
   # not one variable per grain. The project-global grain (no scope
   # edge at all) is deliberately not read here: `all.policy` would
   # also return every resp- and comp-scoped policy, which comparch
-  # must not see indiscriminately. Recorded in docs/non-goals.md.
+  # must not see indiscriminately.
   - all.vocab.handle
   # Project vocabulary (v5 §4.5, v4 §1.12): a flat, project-wide pool
   # with no structural relationship to comparch to walk — dsl-syntax.md

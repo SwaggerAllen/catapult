@@ -4,8 +4,7 @@
 #
 # `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node this
 # flow's downward_cascade visits below the re-approved scope, resolved
-# via `self.plan_target` (edges/plan_target.yaml). Previously `scope:
-# singleton`; see docs/non-goals.md.
+# via `self.plan_target` (edges/plan_target.yaml).
 tier: downward_propagation_plan
 scope: cascade_visit
 identity: id

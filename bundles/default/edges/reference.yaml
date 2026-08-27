@@ -9,10 +9,7 @@
 # resp binding (fulfills), not a policy scope grain
 # (policy_application). Named separately and consolidated the same
 # way (dsl-syntax.md §4.1's `instances:`) since it is one mechanism —
-# "a tier attaches a reference" — recurring at three sites. Previously
-# three files (comparch_ref, subcomparch_ref, impl_ref); recorded in
-# docs/non-goals.md as an argued deviation from the ticket's literal
-# five-name enumeration.
+# "a tier attaches a reference" — recurring at three sites.
 edge: reference
 type: reference
 instances:

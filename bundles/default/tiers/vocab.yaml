@@ -1,4 +1,4 @@
-# v4 §1.12 + v5's flat-pool reading (docs/non-goals.md, this ticket).
+# v4 §1.12 + v5's flat-pool reading.
 # child_of(feature_expansion), not v4's singleton/per(feature_id) pair —
 # per(feature_id) is not an expressible scope (per(X) takes a tier, and
 # there is no minted feature tier — seed-docs/README.md names exactly

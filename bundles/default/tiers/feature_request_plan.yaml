@@ -9,8 +9,7 @@
 # is the live pointer to which specific node this instance is
 # planning for — engine-minted at the same moment the visit node
 # itself is, since there is no body location to read it from (see
-# that file's own header). Previously `scope: singleton`; see
-# docs/non-goals.md for why that was the wrong call and what changed.
+# that file's own header).
 tier: feature_request_plan
 scope: cascade_visit
 identity: id
@@ -38,7 +37,7 @@ context:
   # this ticket's). Using it now would fail load. `input.project_doc`
   # is what remains available — the frozen original intake, not the
   # feature request's own new prose, which has no bundle-declarable
-  # home until that extension lands. Recorded in docs/non-goals.md.
+  # home until that extension lands.
   - input.project_doc
   - all.sysarch.handle
   - all.comp.handle

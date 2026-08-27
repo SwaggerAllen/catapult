@@ -25,9 +25,9 @@ context:
   - self.reference -> ref.handle
   - all.feature_expansion.handle
   # Stands in for v4's `self.related_features -> feature.handle`: v5
-  # mints no separate `feature` tier (docs/non-goals.md, vocab.yaml's
-  # own comment — a feature stays body content on feature_expansion,
-  # never a per-feature node `per(feature_id)` could name), so "the
+  # mints no separate `feature` tier (vocab.yaml's own comment — a
+  # feature stays body content on feature_expansion, never a
+  # per-feature node `per(feature_id)` could name), so "the
   # features this impl relates to" reduces to "the project's feature
   # intent", which is feature_expansion's own singleton content.
 delivery:
