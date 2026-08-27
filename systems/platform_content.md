@@ -25,8 +25,8 @@ and the two layers are never `extends:`-related.
 A separate system from core_dsl **for the mutex**: prompt iteration
 and loader development are unrelated work streams, and one label
 covering both would serialize them (v5 §7.5's watch-item logic,
-applied preemptively). Prompt tickets carry `system:platform-content`;
-loader tickets carry `system:core-dsl`.
+applied preemptively). Prompt tickets carry `system:platform_content`;
+loader tickets carry `system:core_dsl`.
 
 ## Standing decisions
 

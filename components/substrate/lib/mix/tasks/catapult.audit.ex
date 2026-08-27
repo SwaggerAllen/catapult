@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Catapult.Audit do
-  @shortdoc "Runs the structural audit (conventions §2.14 of the v5 decisions)"
+  @shortdoc "Runs the structural audit (v5 §2.14)"
   @moduledoc """
   The audit, all-problems-at-once. Four kinds of check, and the kinds are
   the interesting part:

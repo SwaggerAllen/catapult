@@ -125,7 +125,7 @@ draft:                            # omit entirely for join-target tiers
 generator: llm                    # §3.2
 prompt: prompts/comparch.md.liquid
 executor:                         # optional; how the generation runs
-  effort: max                     # effort hint (v5 §B.2.4 lineage)
+  effort: max                     # effort hint (v4 §B.2.4 lineage)
   # The design dialect's executor is agent-dispatch, always (v5 §1.2:
   # agents end-to-end); the runtime dialect uses the completion
   # adapter. Profile selection is dialect-level; `executor:` carries
