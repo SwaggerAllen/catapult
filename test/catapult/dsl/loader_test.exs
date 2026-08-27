@@ -4,7 +4,10 @@ defmodule Catapult.Dsl.LoaderTest do
   alias Catapult.Dsl.Chain
   alias Catapult.Dsl.Fixture
   alias Catapult.Dsl.Loader
+  alias Catapult.Dsl.Status
   alias Catapult.Dsl.SystemStatus
+  alias Catapult.Dsl.Type
+  alias Catapult.Dsl.Workflow
 
   @moduletag :tmp_dir
 
@@ -453,7 +456,7 @@ defmodule Catapult.Dsl.LoaderTest do
       review: product-review
       role: design
       escalation: author
-      throwback: [checks]
+      throwback: checks
       """
     })
 
@@ -469,12 +472,358 @@ defmodule Catapult.Dsl.LoaderTest do
       review: product-review
       role: design
       escalation: author
-      throwback: [generation]
+      throwback: generation
       """
     })
 
     assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.gates["product-review"].throwback == ["generation"]
+    assert loaded.workflow.gates["product-review"].throwback == "generation"
+  end
+
+  test "a throwback declared as a list is a load error", %{tmp_dir: dir} do
+    # §15.10 narrowed the field from a list to one optional target: a
+    # decline lands on exactly one status, and the list never bounded
+    # legality in the first place. The old grammar has to *fail* rather
+    # than be tolerated — a two-element list silently taking its head
+    # would drop a landing point the author declared.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      role: design
+      escalation: author
+      throwback: [generation]
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "expected a string"))
+  end
+
+  test "a gate declaring no throwback: loads, and derives its landing point instead", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.gates["product-review"].throwback == nil
+  end
+
+  ## §15.10 — sub-arrays: a bare, unnamed group of adjacent entries.
+
+  test "a sub-array flattens into the effective sequence, with its span recorded", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+    Fixture.write!(dir, %{"bundles/default-flow/types/feature.yaml" => grouped_feature!()})
+
+    assert {:ok, loaded} = Loader.load(dir)
+    type = loaded.workflow.types["feature"]
+
+    # `statuses` is the effective sequence — the group spliced in at
+    # the position its sub-array occupied, not a nested list. Every
+    # consumer that reads a type's array as an ordered sequence keeps
+    # working because the sequence it reads is unchanged.
+    assert Enum.map(type.statuses, &Status.name/1) ==
+             ~w(pending generation critique product-review checks merge deploy terminal)
+
+    # ...and `groups` is the whole of what grouping adds: one range
+    # over that sequence per sub-array. A sub-array has no key of its
+    # own, so a contiguous span is a complete representation of it.
+    assert type.groups == [1..3//1]
+    assert Type.group_at(type, 2) == 1..3//1
+    assert Type.group_at(type, 4) == nil
+  end
+
+  test "a type declaring no sub-array records no groups", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.types["feature"].groups == []
+  end
+
+  test "a sub-array nested inside a sub-array is a load error", %{tmp_dir: dir} do
+    # §15.10's grammar is flat deliberately: `container`-skeleton
+    # nesting (§15.6) already established arbitrary nesting for a
+    # different axis, and two nesting concepts that look alike is the
+    # homonym hazard that axis's own open questions warn about.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - - status: generation
+          - - review: product-review
+        - status: checks
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "sub-arrays do not nest"))
+  end
+
+  test "a sub-array holding no non-critique agent-balled entry is a load error", %{tmp_dir: dir} do
+    # Nothing for a throwback to fall back to, and nothing worth
+    # grouping.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/ux-check.yaml" => gate!("ux-check"),
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - - review: product-review
+          - review: ux-check
+        - status: checks
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "no non-critique agent-balled entry"))
+  end
+
+  test "a sub-array holding two non-critique agent-balled entries is a load error", %{
+    tmp_dir: dir
+  } do
+    # No unambiguous anchor between them, and §15.10 refuses rather
+    # than inventing a tie-break for a shape no bundle needs.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - status: checks
+        - - status: merge
+          - review: product-review
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    # `generation` and `merge` are both agent-balled, but only `merge`
+    # is inside the sub-array — so first prove the shipped-shaped group
+    # is fine, then widen it to hold both.
+    assert {:ok, _} = Loader.load(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - - status: generation
+          - status: checks
+          - status: merge
+          - review: product-review
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "2 non-critique agent-balled entries"))
+  end
+
+  test "critique does not count toward a sub-array's one agent step", %{tmp_dir: dir} do
+    # §15.5's exclusion, drawn again for §15.10's purpose: critique
+    # reviews a generation rather than standing as one. If it counted,
+    # the shipped `types/feature.yaml` group would hold two and fail.
+    Fixture.minimal!(dir)
+    Fixture.write!(dir, %{"bundles/default-flow/types/feature.yaml" => grouped_feature!()})
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a queue-shaped anchor inside a sub-array is a load error", %{tmp_dir: dir} do
+    # The milestone retirement — "singleton flows retire into
+    # sub-arrays of their parent container" — is what this would
+    # require, and §15.10 leaves it open rather than deciding it here.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/project.yaml" => """
+      type: project
+      statuses:
+        - status: build-out
+          flow: milestone
+      """,
+      "bundles/default-flow/types/milestone.yaml" => """
+      type: milestone
+      skeleton: container
+      statuses:
+        - status: setup
+          flow: feature
+        - status: prep
+          flow: feature
+        - status: main
+          flow: feature
+        - - review: product-review
+          - status: retro
+            flow: feature
+        - status: cleanup
+          flow: feature
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "may not sit inside a sub-array"))
+  end
+
+  test "dropping flow: does not smuggle a container anchor into a sub-array", %{tmp_dir: dir} do
+    # The refusal above has to survive the obvious way around it: a
+    # container's `retro` without `flow:` would be an anchor that
+    # dispatches nothing, arriving at the milestone retirement by
+    # omission rather than by decision. §15.7 still requires the field.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/project.yaml" => """
+      type: project
+      statuses:
+        - status: build-out
+          flow: milestone
+      """,
+      "bundles/default-flow/types/milestone.yaml" => """
+      type: milestone
+      skeleton: container
+      statuses:
+        - status: setup
+          flow: feature
+        - status: prep
+          flow: feature
+        - status: main
+          flow: feature
+        - - review: product-review
+          - status: retro
+        - status: cleanup
+          flow: feature
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, ~s(missing required field "flow")))
+  end
+
+  test "a problem inside a sub-array points at the path the author wrote", %{tmp_dir: dir} do
+    # Flattening costs exactly this, so every message that cites a
+    # position renders it back through `Type.declared_path/2`: past the
+    # first group an effective index no longer names a line in the
+    # file, and a reader sent to a `statuses[4]` their YAML does not
+    # have has been sent to the wrong place.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - - status: generation
+          - review: product-review
+            environment: staging
+        - status: checks
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "statuses[1][1] carries more than one"))
+  end
+
+  test "a gate declining derives its group's agent step, not the entry before it", %{
+    tmp_dir: dir
+  } do
+    # The end-to-end half of `Catapult.Dsl.WorkflowTest`'s milestone
+    # shape, on a group the loader accepts today. It has to separate
+    # three rules at once, so the agent step is neither the group's
+    # first entry nor the entry immediately before the gate:
+    #
+    #   [product-review, merge, merge-review, ship-review]
+    #
+    # naive first-element -> product-review
+    # previous position   -> merge-review
+    # §15.10's rule       -> merge
+    #
+    # The shipped bundle cannot do this: `types/feature.yaml`'s group
+    # has `generation` as both its one agent step and its first entry,
+    # so it passes under all three and proves none of them.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/merge-review.yaml" => gate!("merge-review"),
+      "bundles/default-flow/gates/ship-review.yaml" => gate!("ship-review"),
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - status: checks
+        - - review: product-review
+          - status: merge
+          - review: merge-review
+          - review: ship-review
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    workflow = loaded.workflow
+
+    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "merge"
+
+    # Legality is the earlier prefix and is bounded by no declaration —
+    # every one of these is reachable although no gate declares any.
+    assert Workflow.throwback_targets(workflow, "feature", "ship-review") ==
+             ~w(pending generation checks product-review merge merge-review)
+
+    refute Workflow.throwback_legal?(workflow, "feature", "ship-review", "deploy")
+  end
+
+  test "a declared throwback: overrides the derivation without narrowing legality", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      role: design
+      escalation: author
+      throwback: pending
+      """,
+      "bundles/default-flow/types/feature.yaml" => grouped_feature!()
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    workflow = loaded.workflow
+
+    assert Workflow.throwback_default(workflow, "feature", "product-review") == "pending"
+
+    # The derivation would have picked `generation`; declaring
+    # `pending` names a genuinely different landing point, and leaves
+    # `generation` legal anyway.
+    assert Workflow.throwback_legal?(workflow, "feature", "product-review", "generation")
   end
 
   ## §2, §15.6 — `entry:` names the root a fresh project starts from.
@@ -1459,6 +1808,32 @@ defmodule Catapult.Dsl.LoaderTest do
 
     assert {:error, :bundle, problems} = Loader.load(dir)
     assert Enum.any?(problems, &String.contains?(&1, "unknown field \"extends\""))
+  end
+
+  # A `feature` whose generation, critique and one gate form a
+  # sub-array — the shipped `types/feature.yaml` shape (§15.10).
+  defp grouped_feature!(gate \\ "product-review") do
+    """
+    type: feature
+    skeleton: ticket
+    statuses:
+      - status: pending
+      - - status: generation
+        - status: critique
+        - review: #{gate}
+      - status: checks
+      - status: merge
+      - status: deploy
+      - status: terminal
+    """
+  end
+
+  defp gate!(name) do
+    """
+    review: #{name}
+    role: design
+    escalation: author
+    """
   end
 
   defp ticket_type!(name, gates) do

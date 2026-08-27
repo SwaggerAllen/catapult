@@ -24,6 +24,23 @@ defmodule CatapultWeb.DocumentReviewLive do
   document-review.md`): `List.myers_difference/2` over each body's own
   sentence split, never sent anywhere — the aggregate never sees which
   sentence a comment sat beside.
+
+  **This module is the command edge that checks a decline's target**
+  (`Catapult.Engine.Commands.DeclineGate`'s own moduledoc: bundle
+  content is the command edge's to validate, never the aggregate's).
+  A target is legal iff it is earlier in the citing type's own
+  effective sequence — `dsl-syntax.md` §15.10's one rule, answered by
+  `Catapult.Dsl.Workflow.throwback_legal?/4`, never by a per-gate
+  declared list. The check is not belt-and-braces over the buttons this
+  screen renders: `target` arrives from a `phx-value-target` the client
+  controls, so "we only rendered legal ones" is not a property of what
+  reaches `handle_event/3`.
+
+  What it renders is a different question from what it accepts. The
+  one-click landing point is `throwback_default/3` — the gate's own
+  declared `throwback:`, else the citing sub-array's derived default —
+  and `docs/ui-spec.md` §3.2 specs a picker over the full legal prefix
+  beside it, which is not built here (ORC-141 hand-back).
   """
   use CatapultWeb, :live_view
 
@@ -31,6 +48,7 @@ defmodule CatapultWeb.DocumentReviewLive do
   alias Catapult.Delivery.FeatureLifecycle
   alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Dsl
+  alias Catapult.Dsl.Workflow
   alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.DeclineGate
   alias Catapult.Engine.Commands.PostComment
@@ -105,6 +123,14 @@ defmodule CatapultWeb.DocumentReviewLive do
   end
 
   def handle_event("decline", %{"target" => target}, socket) do
+    if target in socket.assigns.throwback_targets do
+      dispatch_decline(socket, target)
+    else
+      {:noreply, assign(socket, decline_error: illegal_target_message(target))}
+    end
+  end
+
+  defp dispatch_decline(socket, target) do
     gate_name = socket.assigns.gate.name
 
     cmd = %DeclineGate{
@@ -119,6 +145,11 @@ defmodule CatapultWeb.DocumentReviewLive do
     }
 
     dispatch_gate_command(socket, cmd)
+  end
+
+  defp illegal_target_message(target) do
+    "#{target} is not a legal throwback target — a decline may only land on a status earlier " <>
+      "in this ticket's own sequence."
   end
 
   defp dispatch_gate_command(socket, cmd) do
@@ -189,13 +220,13 @@ defmodule CatapultWeb.DocumentReviewLive do
          %{} = gate <- Map.get(workflow.gates, gate_name),
          node_id when not is_nil(node_id) <- flow.entry_node_id,
          %{} = node <- EngineStore.get_node(project_id, node_id) do
-      assign_review(socket, gate, node)
+      assign_review(socket, workflow, flow.flow_name, gate, node)
     else
       _not_at_an_open_design_gate -> assign(socket, found?: false)
     end
   end
 
-  defp assign_review(socket, gate, node) do
+  defp assign_review(socket, workflow, type_name, gate, node) do
     project_id = socket.assigns.project_id
     current_body = DeliveryStore.get_draft_body(project_id, node.id) || ""
     previous_body = DeliveryStore.get_previous_draft_body(project_id, node.id)
@@ -208,9 +239,24 @@ defmodule CatapultWeb.DocumentReviewLive do
       body_sha: node.body_sha,
       sentences: diff_sentences(previous_body, current_body),
       comments: load_comments(project_id, node.id),
-      gate_exits: Enum.map(gate.throwback, &%{label: &1, target: &1}),
+      gate_exits: gate_exits(workflow, type_name, gate.name),
+      throwback_targets: Workflow.throwback_targets(workflow, type_name, gate.name),
       decline_error: nil
     )
+  end
+
+  # One button, for the one landing point a decline has by default
+  # (§15.10) — `gate_exits` was a button per declared exit while
+  # `throwback:` was a list, and the list is gone because a decline
+  # lands on exactly one status. A gate that declares no target and
+  # sits in no sub-array derives nothing and offers no button; the
+  # `docs/ui-spec.md` §3.2 picker over `throwback_targets` is what
+  # covers that case, and it is unbuilt.
+  defp gate_exits(workflow, type_name, gate_name) do
+    case Workflow.throwback_default(workflow, type_name, gate_name) do
+      nil -> []
+      target -> [%{label: target, target: target}]
+    end
   end
 
   defp load_comments(project_id, node_id) do

@@ -200,8 +200,8 @@ defmodule Catapult.Delivery.FeatureLifecycle do
 
   # `GateDeclined` moves the ticket straight to `throwback_to` — no
   # lookup against `passed` needed, the event already names the
-  # resolved target (load-time-guaranteed reachable,
-  # `Catapult.Dsl.Workflow.gate_throwback_problems/2`).
+  # resolved target (checked earlier-in-sequence at the command edge,
+  # `Catapult.Dsl.Workflow.throwback_legal?/4`; dsl-syntax.md §15.10).
   def apply(%__MODULE__{} = pm, %GateDeclined{throwback_to: throwback_to}) do
     case load_workflow() do
       {:ok, workflow} ->

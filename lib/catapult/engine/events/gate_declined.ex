@@ -4,10 +4,14 @@ defmodule Catapult.Engine.Events.GateDeclined do
   `systems/engine.md`'s ORC-34 design pass, corrected on design
   review). Version 1.
 
-  `throwback_to` is the resolved target the gate's own `throwback:`
-  list named — load-time-guaranteed reachable
-  (`Catapult.Dsl.Workflow.gate_throwback_problems/2`) — and moves the
-  ticket's projected status straight there, no lookup needed.
+  `throwback_to` is the target the decline resolved to — the gate's own
+  declared `throwback:`, the derived default, or any other entry
+  earlier in the citing type's effective sequence (dsl-syntax.md
+  §15.10) — and moves the ticket's projected status straight there, no
+  lookup needed. Reachability is the **command edge's** guarantee
+  (`Catapult.Dsl.Workflow.throwback_legal?/4`), not a load-time one:
+  `gate_throwback_problems/2` checks a *declared* `throwback:`, and
+  since §15.10 a decline is not confined to one.
   `since_sequence` is the log position `Catapult.Engine.Projections
   .GateComments.last_resolution_sequence/2` read at the
   command-construction boundary, copied onto this event rather than

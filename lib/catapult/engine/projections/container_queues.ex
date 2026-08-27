@@ -27,8 +27,9 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
   work item may be opened into a queue (`singleton:`'s lifetime bound
   — `resolvable?/3` reports the state, `Catapult.Delivery
   .ContainerLifecycle` decides what to do about it), and which queue
-  comes next after a throwback (that is the citing type's own array
-  read against a gate's `throwback:`).
+  comes next after a throwback (that is the citing type's own array,
+  read against the gate's declared `throwback:` or the default
+  `Catapult.Dsl.Workflow.throwback_default/3` derives for it).
   """
 
   alias Catapult.Dsl.Status

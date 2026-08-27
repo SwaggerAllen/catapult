@@ -6,12 +6,19 @@ depth: 0                           # a gate reads the top level; this is
                                     # ORC-92) — fan-out reasoning belongs
                                     # to the citing type's own critique
                                     # entry instead
-throwback: [pending]               # resolves within the *citing type's*
+throwback: pending                 # resolves within the *citing type's*
                                     # own statuses: array, never against a
                                     # bundle-wide order (§15.3, §15.4) —
                                     # `pending` precedes this gate in
                                     # types/feature.yaml, which is the
-                                    # array that has to answer for it
+                                    # array that has to answer for it.
+                                    # Declared rather than derived because
+                                    # it lands somewhere else: the
+                                    # sub-array this gate sits in would
+                                    # derive `generation`, and "reject back
+                                    # to before generation ever ran" is a
+                                    # different act from "re-run
+                                    # generation" (§15.10)
 escalation: author
 # No after: (§15.3) and no ticket_types: (§15.4): position is wherever a
 # citing type's own statuses: array places its `review:` entry, and which

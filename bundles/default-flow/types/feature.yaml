@@ -4,16 +4,22 @@ skeleton: ticket                   # dsl-syntax.md §15.1: pending, then
                                     #   checks, merge, deploy, terminal
 statuses:
   - status: pending
-  - status: generation
-  - status: critique
-    depth: [2, 0]                  # carried forward from the retired
+  - - status: generation           # a bare, unnamed sub-array (§15.10):
+                                    #   generation and everything that
+                                    #   reviews it resolve together. It
+                                    #   holds exactly one non-critique
+                                    #   agent-balled entry — this one —
+                                    #   which is what both gates below
+                                    #   fall back to when they decline
+    - status: critique
+      depth: [2, 0]                # carried forward from the retired
                                     #   critique.yaml (ORC-92): 2 for a
                                     #   project's first traversal — the
                                     #   architecture chain's own deepest
                                     #   fan-out is two edges deep — 0 for
                                     #   every later traversal
-  - review: ux-review
-  - review: engineering-review
+    - review: ux-review
+    - review: engineering-review
   - status: checks
   - status: merge
   - environment: staging

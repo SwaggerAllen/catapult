@@ -91,6 +91,24 @@ defmodule Catapult.Dsl.SystemStatus do
   @spec ball(kind()) :: ball() | nil
   def ball(kind), do: Keyword.fetch!(@statuses, kind)
 
+  @agent_balled_names for {kind, :agent} <- @statuses, do: Atom.to_string(kind)
+
+  @doc """
+  Whether the status *name* `name` is agent-balled — §15.1's `ball`
+  column reading `agent`, as a string, since a `statuses:` array entry
+  carries a bundle-authored string rather than one of this module's
+  atoms (`Catapult.Dsl.Fields`'s no-`to_atom`-on-bundle-content
+  discipline).
+
+  This is the raw ball column and nothing more. dsl-syntax.md §15.10's
+  sub-array anchor rule wants the *non-critique* agent-balled entries;
+  that exclusion is drawn at its own call site, where §15.5's reason
+  for drawing it is written down, rather than folded in here where a
+  reader would have to guess which of the two questions this answers.
+  """
+  @spec agent_balled?(String.t()) :: boolean()
+  def agent_balled?(name) when is_binary(name), do: name in @agent_balled_names
+
   @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
   @spec agent_steps() :: [agent_step()]
   def agent_steps, do: @agent_steps
