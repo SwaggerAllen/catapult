@@ -1,8 +1,7 @@
-# The refactor flow's planning tier (v4 §8.2). No siege prompt exists
-# for this flow — the v4 bundle doc's own prose ("differs from
-# feature_request in scope: refactor doesn't add new functionality;
-# it reshapes how existing functionality is delivered") is the only
-# source, so this tier's prompt is authored fresh and kept small
+# The refactor flow's planning tier. No siege prompt exists for this
+# flow, and refactor differs from feature_request in scope: it adds
+# no new functionality, it reshapes how existing functionality is
+# delivered. So this tier's prompt is authored fresh and kept small
 # rather than padded to match the feature_request flow's length.
 #
 # `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node the

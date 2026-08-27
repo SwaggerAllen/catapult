@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  v4 §1.7 (seed-docs/siege-prompts/subcomparch.md). Deliberately only
+  seed-docs/siege-prompts/subcomparch.md is the prose source. Only
   three sections carried forward as fragment-bearing (technical-
   specification, public-surface, private-surface) — no <policies>
   (siege's own grammar rejects it: "subcomponents don't have
-  policies"; v4 §5.2's transitive reachability already covers a
+  policies"; transitive reachability already covers a
   subcomp from its comp's policies) and no <failure-surface> (siege
   routes failure modes through pubapi's typed return shapes instead —
   "Subcomparch has no separate <failure-surface> section", its own

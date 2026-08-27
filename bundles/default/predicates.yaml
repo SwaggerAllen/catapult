@@ -11,9 +11,8 @@
 # (dsl-syntax.md §8's addendum this pass adds): `all(<plan_tier> ->
 # resolved)`. This replaces both the previous singleton-tier reading
 # (`resolved == true`, correct only while there was exactly one plan
-# node to ask) and v4's own `count(open_visit) == 0`
-# (seed-docs/catapult-default-bundle-v4-examples.md §2.1-§2.6), which
-# still does not parse under this loader's grammar — `open_visit` was
+# node to ask) and the ported `count(open_visit) == 0`, which still
+# does not parse under this loader's grammar — `open_visit` was
 # never a declared edge or tier name, `count(<edge>) <cmp> <int>`
 # counts along a *declared edge*, and there is no `decomposed_by(...)`
 # function call in the grammar. `all(<tier> -> field)` is the smallest

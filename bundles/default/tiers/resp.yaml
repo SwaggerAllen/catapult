@@ -1,13 +1,13 @@
-# v5 restores `resp` as a tier (seed-docs/README.md, reversing v4 §2's
-# "a note on responsibilities" collapse). A projection tier — no
+# v5 makes `resp` a tier of its own (seed-docs/README.md records this
+# as one of its three deltas). A projection tier — no
 # draft, no prompt — minted by requirements' own `decomposition`
 # instance (edges/decomposition.yaml), the same join-target shape as
 # comp/subcomp below: requirements does the rotation work in one LLM
-# pass and mints one addressable node per atom, matching v4's own
-# actual `<responsibility>` grammar (name + feats, nothing else —
+# pass and mints one addressable node per atom, matching the
+# `<responsibility>` grammar it ports (name + feats, nothing else —
 # seed-docs/siege-prompts/requirements.md's rules are explicit that no
-# other field belongs here). What "restored as a tier" buys over v4's
-# field-only version: sysarch's `fulfills` edges and policy's
+# other field belongs here). What a tier buys over a field-only
+# version: sysarch's `fulfills` edges and policy's
 # `policy_application` (through-responsibility instance) edges get a
 # real node to target, so a resp survives a sysarch re-decomposition
 # and a policy scoped "through responsibilities" (v5 §4.5) survives a

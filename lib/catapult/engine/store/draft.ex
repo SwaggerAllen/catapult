@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Draft do
   @moduledoc """
-  Draft lifecycle records (`engine_drafts`, v4 §A.3.3): at most one
+  Draft lifecycle records (`engine_drafts`): at most one
   `:pending` draft per node (enforced by
   `engine_drafts_one_pending_per_node`). `committed_sequence` is the
   project-stream sequence the commit landed at, read off the recorded

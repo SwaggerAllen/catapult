@@ -5,7 +5,7 @@ defmodule Catapult.Engine.Scheduler do
   module that makes that sentence true in code — the engine writes it,
   nothing else initiates work.
 
-  `trigger/2` is rules 1-3 of v4 §A.2.7 run together: enumerate every
+  `trigger/2` is all three scheduler rules run together: enumerate every
   tier in `chain` (both a generation tier's own context-walk readiness,
   `Catapult.Engine.Projections.ReadyScopes.ready/3`, and a review
   tier's simpler rule, `.ready_review/3`), fold the two into one set of

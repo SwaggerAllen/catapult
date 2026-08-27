@@ -1,4 +1,4 @@
-# v4 §7.2/§7.3: refs wired into comparch and below only. Attached via
+# Refs are wired into comparch and below only. Attached via
 # the attach_reference write tool, which inserts a
 # <reference target="ref_id"/> row (v4's own mechanism, carried
 # forward) — the loader doesn't check declared_in shape (§13 leaves

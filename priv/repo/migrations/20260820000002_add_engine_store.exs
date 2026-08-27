@@ -90,7 +90,7 @@ defmodule Catapult.Repo.Migrations.AddEngineStore do
     end
 
     create index(:engine_drafts, [:project_id, :node_id])
-    # At most one pending draft per node (v4 §A.3.3, carried forward).
+    # At most one pending draft per node.
     create unique_index(:engine_drafts, [:node_id],
              where: "status = 'pending'",
              name: :engine_drafts_one_pending_per_node

@@ -90,7 +90,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     assert :ok = Router.dispatch(open, consistency: :strong)
 
-    # Only one pending draft per node (v4 §A.3.3): approve the
+    # Only one pending draft per node: approve the
     # scaffolding commit before a second one for the same node.
     approve = %ApproveDraft{project_id: project_id, node_id: "sysarch", draft_id: "d0"}
     assert :ok = Router.dispatch(approve, consistency: :strong)

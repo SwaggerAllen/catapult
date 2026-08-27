@@ -18,16 +18,16 @@ them.
 ## Standing decisions
 
 - **The log is the source of truth; projections are derived and
-  disposable.** Rebuild-from-zero byte-identity is a standing test
-  (v4 §A.3.2 carried forward): replaying the full log into fresh
-  projections must equal incremental state, always. This is also the
+  disposable.** Rebuild-from-zero byte-identity is a standing test:
+  replaying the full log into fresh projections must equal
+  incremental state, always. This is also the
   recovery mechanism — no projection surgery, ever.
-- **The scheduler is state-driven, not event-driven** (v4 §A.2.7):
+- **The scheduler is state-driven, not event-driven**:
   readiness is a query against current projections, so the same
   query answers "ready now" and "ready at sequence T," and there is
   no in-memory pending-set to corrupt. Fast path via PubSub;
   sweeper as the convergence floor.
-- **"Write the ready_scopes row" (v4 §A.2.7's rule 3) is a PubSub
+- **"Write the ready_scopes row" (the scheduler's rule 3) is a PubSub
   broadcast, never a table write** — the same "never materialized"
   standing decision below applies to the scheduler's own output, not
   only to the query it wraps. On each trigger the scheduler re-runs
@@ -416,7 +416,7 @@ them.
   §C.3) — already implied by "per-project aggregates" above, stated
   explicitly here because the ticket asked; both axes' events land in
   the same project stream; a project has one aggregate, not two.
-  Snapshot cadence: every 10,000 events per project (v4 §A.3.6).
+  Snapshot cadence: every 10,000 events per project.
   Neither is built in Phase 3 (snapshots stay Target, below), but the
   value is decided now rather than left for whoever builds them —
   snapshots are disposable projections like any other (v5 §8's

@@ -1,6 +1,6 @@
 defmodule Catapult.Config do
   @moduledoc """
-  The configuration layer that honors `config/0` (conventions §2.2,
+  The configuration layer that honors `config/0` (v5 §2.2,
   systems/substrate.md): every component declares what it consumes, and
   the composed application derives its configuration surface from those
   declarations. Without this the registry is documentation wearing a

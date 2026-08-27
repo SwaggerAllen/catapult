@@ -1,8 +1,8 @@
-# v4 §1.7, re-expressed (seed-docs/siege-prompts/subcomparch.md).
+# seed-docs/siege-prompts/subcomparch.md is the prose source.
 # produces: writes onto self.parent — the subcomp. Only three
 # fragments, not five: siege's own subcomparch grammar has no
 # <policies> or <failure-surface> section at all — policy
-# reachability is transitive from comp-level policies (v4 §5.2) so a
+# reachability is transitive from comp-level policies, so a
 # subcomp mints no policies of its own, and failure modes route
 # through pubapi's typed return shapes instead ("Failure-mode
 # observability through pubapi" in the source prompt). Recorded in

@@ -1,4 +1,4 @@
-# v4 §1.2, re-expressed against v5's restored `resp` tier
+# Written against v5's restored `resp` tier
 # (seed-docs/README.md): requirements still performs the
 # features→responsibilities rotation, but each atom it emits is now
 # minted as its own `resp` node (via the `decomposition` edge,

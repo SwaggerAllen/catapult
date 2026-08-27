@@ -172,7 +172,8 @@ the plane coordinates and validates; it does not generate.
 
 ### 1.3 Self-bootstrapping: descoped
 
-v4 §A.0.2 required SiegeEngine to produce byte-identical artifacts to
+Self-bootstrapping required SiegeEngine to produce byte-identical
+artifacts to
 running Catapult, then Catapult to ingest its own body files and become
 self-hosting. **Dropped.** Orchestration (the Go pipeline, as-is, plus
 bug fixes) builds and maintains Catapult.
@@ -1263,8 +1264,8 @@ kept as delivery-time visual guidance — anything the graph
 should hold that no dedicated tier models): singleton pool, `id`
 identity, full draft→review→approve lifecycle, attached via
 reference edges, consumed comparch-and-below. Out-of-cycle iteration
-is re-approval + staleness, and staleness *hints, never cascades*
-(v4 §A.6.5 kept): a ref edit surfaces its consumers in the staleness
+is re-approval + staleness, and staleness *hints, never cascades*:
+a ref edit surfaces its consumers in the staleness
 projection (§7.11 — stale is derived, never stored; no node is
 flagged); regeneration is chosen, not triggered, and choosing it
 means filing a ticket. **Refs are the one deliberate escape hatch,
@@ -1635,7 +1636,7 @@ a ticket's history no bundle change can delete. Act (4)'s flip is
 
 **Dropped from v4:** the phase machinery — `phased:` tiers, the
 `phase_plan` projection and plan rule, cross-phase delta context, the
-plan-change flow, `/run_phase` (v4 §A.7 and §B.5 in their entirety).
+plan-change flow, `/run_phase`, in their entirety.
 Rationale in §7.9: phases were a batching scheme plus a slicing
 methodology; the slicing job is already done by the feature flow's
 plan tiers, and the batching job doesn't earn a subsystem. The impl
@@ -2817,90 +2818,99 @@ normative, composed-journey checks) is specced in pieces across
 
 ### 7.12 Still open within the delivery model
 
-1. Agent-run substrate (Actions vs owned runners) and how many
-   concurrent sessions the plane dispatches — now covering *all*
-   generation, not just children (§1.2). Direction decided, shape
-   open: start on Actions with **prebaked container images** (the
-   browser/toolchain stack pulls, never builds, per firing); the
-   scale-out is an autoscaling worker pool pulling from our queue —
-   **committed as a late-delivery feature, not speculative**: the
-   validation loop's endgame needs agents that interactively drive
-   rendered apps (chromium-grade tooling), which screenshots can't
-   replace for client-locus apps. Interim validation capability:
-   Pages previews + containerized screenshot/trace jobs whose
-   artifacts agents read (orchestration's preview machinery
-   extended). Likely pool shape: actions-runner-controller on the
-   already-blessed DOKS cluster, images cached on nodes.
-   Refinements from the hosted-option pass (§8): **the execution
-   substrate is an adapter behind the dispatch port** — Actions and
-   the worker pool are two adapters over one runner-harness contract
-   (fetch rendered context, run agent, commit, report); the contract
-   is the invariant, the substrate is swappable, and the executor
-   must not grow Actions-specific assumptions outside its adapter.
-   Actions stays the default (self-hosters will use it out of
-   convenience); the pool is the latency upgrade. And **the pool
-   rides BYO like everything else**: its canonical home is the
-   customer's cluster (ARC on their DOKS — the same blessed pattern),
-   with plane-adjacent managed runners as the opt-in for zero-infra
-   customers, not the default. **The dispatch-concurrency cap is a
-   per-instance, plane-enforced `tunable` in the bindings** — this
-   open item's "how many concurrent sessions" question now has two
-   consumers (scheduler backpressure and hosted tiering), so the cap
-   is plane state from the start, never a config constant.
-   **Runner↔plane authentication (docs review pass, settled — this
-   was the review's top gap):** the Actions adapter authenticates
-   runs with **GitHub Actions OIDC** — the runner requests GitHub's
-   signed ID token and presents it as a bearer to the plane's
-   context-fetch and result-report endpoints; the plane validates
-   offline against GitHub's published JWKS and matches audience,
-   `repository`, and `run_id` against its own dispatch record. The
-   credential is therefore scoped to a single run the plane itself
-   started, expires in minutes, is minted by GitHub rather than
-   stored by anyone, and **no secret rides the dispatch inputs**
-   (which are visible-log territory — the reason a naive shared
-   token is wrong). This is the industry-standard mechanism (the
-   same tokens authenticate Actions to AWS/GCP/Vault); JWT + JWKS
-   verification is stock Elixir machinery (joken/joken_jwks-grade),
-   not custom crypto. The pool adapter mints per-dispatch capability
-   tokens delivered over the dispatch channel instead — pool
-   dispatch is plane-initiated and not publicly logged, so
-   plane-minted is safe there; cluster OIDC is the upgrade if ever
-   wanted. Corollary under both adapters: **rendered context never
-   contains bindings or credentials** — context is design content
-   only.
-   **Model credentials are a pair, and the runner harness carries
-   the failover** (credential pass): the harness's run-agent step
-   accepts `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN` —
-   both customer-side secrets per the BYO rule; the plane never
-   sees either. This is budget-path economics, not a convenience:
-   solo devs will mostly run Max subscriptions, and the
-   subscription token is what makes their marginal generation cost
-   near zero. **The order is a per-project bindings `tunable`**
-   (an ops preference — plane state by the store test), delivered
-   to the runner as an ordinary dispatch input, since a preference
-   is not a secret. Failover fires on **limit-class failures only**
-   (usage/rate limits, exhausted credits); every other failure
-   fails the run unchanged — failover is for capacity, never for
-   bugs, or a real failure gets paid for twice. The run report
-   names which credential served, so dispatch history answers
-   "when did we start spilling onto the meter" as a query, not
-   archaeology.
-   **A daily dispatch budget rides beside the concurrency cap**
-   (notifications pass): the cap bounds parallelism, not volume, and
-   an unattended system spending customer money needs both. Two
-   `tunable` thresholds per instance: **warn** (notification +
-   dashboard banner) and **cutoff** (dispatch halts; in-flight runs
-   finish; urgent notification). Alerting rides the observability
-   dogfood (Prometheus, §2.11) — a machine-shaped fact, not a
-   ticket, per §7.4's two-channel rule.
-2. Linear API/webhook limits under many child tickets — verify plan
-   limits before the plane assumes them (orchestration §14's warning,
-   inherited).
-3. The validation check inventory (§7.11) — routing settled, content
-   scattered.
-4. Pseudo-user assignability and seat economics on Linear's plan
-   (§7.10's assignment projection) — verify before relying on
-   per-step pseudo-users; the reviewer-map half works regardless.
+#### 7.12.1 Agent-run substrate
+
+Actions vs owned runners, and how many concurrent sessions the
+plane dispatches — now covering *all* generation, not just
+children (§1.2). Direction decided, shape open: start on Actions
+with **prebaked container images** (the browser/toolchain stack
+pulls, never builds, per firing); the scale-out is an autoscaling
+worker pool pulling from our queue —
+**committed as a late-delivery feature, not speculative**: the
+validation loop's endgame needs agents that interactively drive
+rendered apps (chromium-grade tooling), which screenshots can't
+replace for client-locus apps. Interim validation capability:
+Pages previews + containerized screenshot/trace jobs whose
+artifacts agents read (orchestration's preview machinery
+extended). Likely pool shape: actions-runner-controller on the
+already-blessed DOKS cluster, images cached on nodes.
+Refinements from the hosted-option pass (§8): **the execution
+substrate is an adapter behind the dispatch port** — Actions and
+the worker pool are two adapters over one runner-harness contract
+(fetch rendered context, run agent, commit, report); the contract
+is the invariant, the substrate is swappable, and the executor
+must not grow Actions-specific assumptions outside its adapter.
+Actions stays the default (self-hosters will use it out of
+convenience); the pool is the latency upgrade. And **the pool
+rides BYO like everything else**: its canonical home is the
+customer's cluster (ARC on their DOKS — the same blessed pattern),
+with plane-adjacent managed runners as the opt-in for zero-infra
+customers, not the default. **The dispatch-concurrency cap is a
+per-instance, plane-enforced `tunable` in the bindings** — this
+open item's "how many concurrent sessions" question now has two
+consumers (scheduler backpressure and hosted tiering), so the cap
+is plane state from the start, never a config constant.
+**Runner↔plane authentication (docs review pass, settled — this
+was the review's top gap):** the Actions adapter authenticates
+runs with **GitHub Actions OIDC** — the runner requests GitHub's
+signed ID token and presents it as a bearer to the plane's
+context-fetch and result-report endpoints; the plane validates
+offline against GitHub's published JWKS and matches audience,
+`repository`, and `run_id` against its own dispatch record. The
+credential is therefore scoped to a single run the plane itself
+started, expires in minutes, is minted by GitHub rather than
+stored by anyone, and **no secret rides the dispatch inputs**
+(which are visible-log territory — the reason a naive shared
+token is wrong). This is the industry-standard mechanism (the
+same tokens authenticate Actions to AWS/GCP/Vault); JWT + JWKS
+verification is stock Elixir machinery (joken/joken_jwks-grade),
+not custom crypto. The pool adapter mints per-dispatch capability
+tokens delivered over the dispatch channel instead — pool
+dispatch is plane-initiated and not publicly logged, so
+plane-minted is safe there; cluster OIDC is the upgrade if ever
+wanted. Corollary under both adapters: **rendered context never
+contains bindings or credentials** — context is design content
+only.
+**Model credentials are a pair, and the runner harness carries
+the failover** (credential pass): the harness's run-agent step
+accepts `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN` —
+both customer-side secrets per the BYO rule; the plane never
+sees either. This is budget-path economics, not a convenience:
+solo devs will mostly run Max subscriptions, and the
+subscription token is what makes their marginal generation cost
+near zero. **The order is a per-project bindings `tunable`**
+(an ops preference — plane state by the store test), delivered
+to the runner as an ordinary dispatch input, since a preference
+is not a secret. Failover fires on **limit-class failures only**
+(usage/rate limits, exhausted credits); every other failure
+fails the run unchanged — failover is for capacity, never for
+bugs, or a real failure gets paid for twice. The run report
+names which credential served, so dispatch history answers
+"when did we start spilling onto the meter" as a query, not
+archaeology.
+**A daily dispatch budget rides beside the concurrency cap**
+(notifications pass): the cap bounds parallelism, not volume, and
+an unattended system spending customer money needs both. Two
+`tunable` thresholds per instance: **warn** (notification +
+dashboard banner) and **cutoff** (dispatch halts; in-flight runs
+finish; urgent notification). Alerting rides the observability
+dogfood (Prometheus, §2.11) — a machine-shaped fact, not a
+ticket, per §7.4's two-channel rule.
+
+#### 7.12.2 Linear API and webhook limits
+
+Under many child tickets — verify plan limits before the plane
+assumes them (orchestration §14's warning, inherited).
+
+#### 7.12.3 The validation check inventory
+
+Routing settled, content scattered (§7.11).
+
+#### 7.12.4 Pseudo-user assignability and seat economics
+
+On Linear's plan (§7.10's assignment projection) — verify before
+relying on per-step pseudo-users; the reviewer-map half works
+regardless.
 
 ### 7.13 Load-bearing constants
 
@@ -3130,7 +3140,7 @@ has read "single-author / **small teams** shipping enterprise-scale
 systems" from the start, and §2.9's identity component already ships
 orgs, membership, invitations and roles-as-data. The old
 `No multi-writer projects` non-goal was the outlier, inherited from
-v4 §A.0.1 commitment 4 rather than decided here.
+v4 rather than decided here.
 
 **The two things that entry welded together, separated — one stays
 out:**

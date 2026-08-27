@@ -1,8 +1,7 @@
-# v4 §1.8, re-expressed with the phase dimension dropped entirely
-# (docs/v5-design-decisions.md §6: "Dropped from v4: the phase
-# machinery" — one impl doc per subcomponent describing the total end
-# state, `scope: per(subcomp)` rather than v4's `per(subcomp) ×
-# phase`). `<tests>` is new grammar, not a v4 port: v5 §2.8/§6 makes
+# The phase dimension is dropped entirely (v5 §6): one impl doc per
+# subcomponent describing the total end state, `scope: per(subcomp)`
+# rather than a per-subcomponent-per-phase split. `<tests>` is new
+# grammar rather than a port: v5 §2.8/§6 makes
 # it normative for reconciliation ("named test descriptions are the
 # acceptance criteria"), and there is no `<tests>` block anywhere in
 # seed-docs/siege-prompts/impl.md to draw from — authored fresh.

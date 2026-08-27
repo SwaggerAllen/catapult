@@ -1,10 +1,10 @@
 defmodule Catapult.Engine.Aggregate do
   @moduledoc """
   The per-project aggregate (`systems/engine.md`): one instance per
-  `project_id`, both bundle axes' events land in its stream (v4 §C.3
-  carried forward — one EventStore stream per project, decided
-  explicitly in the design pass even though it was already implied by
-  "per-project aggregates").
+  `project_id`, both bundle axes' events land in its stream — one
+  EventStore stream per project, decided explicitly in the design
+  pass even though it was already implied by "per-project
+  aggregates".
 
   Validates commands against the minimal state needed to reject a
   malformed sequence with a typed error (v5 §7.16's validate-or-revert)

@@ -5,8 +5,7 @@ defmodule Catapult.Engine.Projections.ContextResolver do
   (`Catapult.Dsl.Chain`) never does: the loader confirms a walk is
   *well-formed* against declarations; this module walks it against
   actual node/edge instances, which is what `Catapult.Engine
-  .Projections.Staleness` and `.ReadyScopes` are both built on
-  (v4 §A.2.5/§A.2.7).
+  .Projections.Staleness` and `.ReadyScopes` are both built on.
 
   **Initial scope**: `self`/`self.parent` and `all.<tier>` (§7, §7.2),
   including multi-hop and reversed edges (§7.1). `input.<role>` and
