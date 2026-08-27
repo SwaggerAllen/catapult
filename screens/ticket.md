@@ -31,6 +31,13 @@ This is the same data `board` renders as columns; here it renders as a single ti
 them, which is what makes "how far along is this, and what's next" answerable without cross-
 referencing the board.
 
+**Where the sequence declares a sub-array (`docs/dsl-syntax.md` §15.10), the rail groups the
+identical way `board`'s lanes do** (ORC-116, `screens/board.md`): the positions it spans sit inside
+a shared boundary, and the group's own non-critique agent step carries the same anchor badge — the
+target this ticket's own throwback would fall back to by default, when the ticket is currently a
+gate inside that group. A ticket standing at a position inside a group reads as *inside this loop*,
+not at an anonymous point in a flat row.
+
 **Depth is shown, not explained.** A ticket's fan-out depth (v5 §7.19 — 0 top level, 1 components,
 2 subcomponents) determines which positions in the type's declared sequence apply to it; the
 screen shows the resolved sequence for this ticket's own depth, not the full declared array with
@@ -101,6 +108,16 @@ silently failing.
 - the return control: **defaults to the origin status**, with every earlier position in the
   effective sequence offered as a picker behind it. **Never forward** — skipping a required
   position is a workflow-bundle change, which is a PR, not a click here (v5 §7.19).
+
+**An earlier option that sits outside the origin's own sub-array is marked as leaving it**
+(ORC-116): the origin default here and a gate's own derived default (its citing sub-array's anchor,
+`docs/dsl-syntax.md` §15.10) are both a visible fall-back to the head of a box the screen already
+draws, but the picker's remaining options reach earlier than that box too — the earlier-prefix
+legality test (§15.10) never stops at a group boundary. An option inside the current group renders
+plainly; one outside it carries a small "leaves this loop" note, so choosing it reads as an arrow
+leaving the box rather than a silent landing somewhere else. `screens/document-review.md`'s own
+throwback picker draws the identical distinction over the identical test, and cites this section
+rather than restating it.
 
 **The return control is a real write, `ResumeFlow{project_id, flow_id, to, actor_id}` →
 `FlowResumed`** (ORC-114, closing the gap this screen's own earlier draft assumed away —

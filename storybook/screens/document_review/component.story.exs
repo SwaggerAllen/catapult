@@ -29,7 +29,8 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
         id: :first_pass_clean,
         description:
           "A first review pass, nothing commented yet: added and unchanged sentences, no prior " <>
-            "body to diff against so nothing is marked removed.",
+            "body to diff against so nothing is marked removed. Only the derived default " <>
+            "throwback target exists here, so no secondary picker renders.",
         attributes: %{
           node_id: "comparch:dashboard",
           tier: "comparch",
@@ -37,6 +38,7 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: Enum.reject(sentences(), &(&1.change == :removed)),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
+          throwback_targets: [],
           decline_error: nil
         }
       },
@@ -44,7 +46,8 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
         id: :regeneration_diff_with_comment,
         description:
           "A regeneration's diff: one sentence added, one removed, and a comment anchored to " <>
-            "the sentence it's about — the anchor the harvester will bucket on.",
+            "the sentence it's about — the anchor the harvester will bucket on. A secondary " <>
+            "target (Pending) sits outside this gate's own group and is marked as leaving it.",
         attributes: %{
           node_id: "comparch:dashboard",
           tier: "comparch",
@@ -58,6 +61,9 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
             }
           ],
           gate_exits: [%{label: "Generation", target: "generation"}],
+          throwback_targets: [
+            %{label: "Pending", target: "pending", leaves_group: true}
+          ],
           decline_error: nil
         }
       },
@@ -73,6 +79,7 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: sentences(),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
+          throwback_targets: [],
           decline_error: "Name at least one comment before throwing this back."
         }
       },
@@ -90,6 +97,7 @@ defmodule Catapult.Storybook.Screens.DocumentReviewStory do
           sentences: sentences(),
           comments: [],
           gate_exits: [%{label: "Generation", target: "generation"}],
+          throwback_targets: [],
           decline_error:
             "This gate was already resolved, or the body changed underneath this view. " <>
               "Refresh to see the current state before trying again."

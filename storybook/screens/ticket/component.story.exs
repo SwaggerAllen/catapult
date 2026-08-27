@@ -12,23 +12,51 @@ defmodule Catapult.Storybook.Screens.TicketStory do
 
   defp base_sequence do
     [
-      %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
-      %{key: "generation", label: "Generation", kind: :status, role: nil, state: :passed},
+      %{
+        key: "pending",
+        label: "Pending",
+        kind: :status,
+        role: nil,
+        state: :passed,
+        group_key: nil,
+        group_anchor: false
+      },
+      %{
+        key: "generation",
+        label: "Generation",
+        kind: :status,
+        role: nil,
+        state: :passed,
+        group_key: "review-loop",
+        group_anchor: true
+      },
       %{
         key: "product-review",
         label: "Product review",
         kind: :gate,
         role: "product",
-        state: :current
+        state: :current,
+        group_key: "review-loop",
+        group_anchor: false
       },
       %{
         key: "architecture-review",
         label: "Architecture review",
         kind: :gate,
         role: "architecture",
-        state: :upcoming
+        state: :upcoming,
+        group_key: "review-loop",
+        group_anchor: false
       },
-      %{key: "checks", label: "Checks", kind: :status, role: nil, state: :upcoming}
+      %{
+        key: "checks",
+        label: "Checks",
+        kind: :status,
+        role: nil,
+        state: :upcoming,
+        group_key: nil,
+        group_anchor: false
+      }
     ]
   end
 
@@ -39,7 +67,8 @@ defmodule Catapult.Storybook.Screens.TicketStory do
         description:
           "Resting at a review gate: the argument, the sequence rail, and a link to " <>
             "document-review — this screen never dispatches the gate command itself, since " <>
-            "every Phase 4 gate reviews prose.",
+            "every Phase 4 gate reviews prose. The rail groups Generation with both review " <>
+            "gates into one boxed loop, Generation badged as the default throwback landing point.",
         attributes: %{
           id: "ORC-75",
           title: "UI v1: the working surface, and the authoring loop's floor",
@@ -65,14 +94,32 @@ defmodule Catapult.Storybook.Screens.TicketStory do
           title: "UI v1: the working surface, and the authoring loop's floor",
           argument: "Four screens, one ticket, because they share a projection surface.",
           sequence: [
-            %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
-            %{key: "generation", label: "Generation", kind: :status, role: nil, state: :current},
+            %{
+              key: "pending",
+              label: "Pending",
+              kind: :status,
+              role: nil,
+              state: :passed,
+              group_key: nil,
+              group_anchor: false
+            },
+            %{
+              key: "generation",
+              label: "Generation",
+              kind: :status,
+              role: nil,
+              state: :current,
+              group_key: nil,
+              group_anchor: false
+            },
             %{
               key: "product-review",
               label: "Product review",
               kind: :gate,
               role: "product",
-              state: :upcoming
+              state: :upcoming,
+              group_key: nil,
+              group_anchor: false
             }
           ],
           gate_action: nil,
@@ -94,9 +141,33 @@ defmodule Catapult.Storybook.Screens.TicketStory do
           title: "Point the README at SETUP for the reference instance",
           argument: "SETUP.md §2 is the one home for the reference instance's live facts.",
           sequence: [
-            %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
-            %{key: "generation", label: "Generation", kind: :status, role: nil, state: :current},
-            %{key: "checks", label: "Checks", kind: :status, role: nil, state: :upcoming}
+            %{
+              key: "pending",
+              label: "Pending",
+              kind: :status,
+              role: nil,
+              state: :passed,
+              group_key: nil,
+              group_anchor: false
+            },
+            %{
+              key: "generation",
+              label: "Generation",
+              kind: :status,
+              role: nil,
+              state: :current,
+              group_key: nil,
+              group_anchor: false
+            },
+            %{
+              key: "checks",
+              label: "Checks",
+              kind: :status,
+              role: nil,
+              state: :upcoming,
+              group_key: nil,
+              group_anchor: false
+            }
           ],
           gate_action: nil,
           blocked: %{
@@ -105,6 +176,34 @@ defmodule Catapult.Storybook.Screens.TicketStory do
             return_options: [
               %{label: "Generation", target: "generation"},
               %{label: "Pending", target: "pending"}
+            ]
+          },
+          conflict: nil,
+          children: [],
+          prs: [],
+          runs: []
+        }
+      },
+      %Variation{
+        id: :blocked_return_leaves_group,
+        description:
+          "Blocked at a gate inside the review-loop group: the return control defaults to the " <>
+            "origin, itself inside the loop, and an in-group earlier option renders plainly — " <>
+            "but the earlier-prefix reaches past the group too, and that option is marked as " <>
+            "leaving it rather than landing there silently.",
+        attributes: %{
+          id: "ORC-75",
+          title: "UI v1: the working surface, and the authoring loop's floor",
+          argument: "Four screens, one ticket.",
+          sequence: base_sequence(),
+          gate_action: nil,
+          blocked: %{
+            flavor: "needs-review",
+            origin_label: "Architecture review",
+            return_options: [
+              %{label: "Architecture review", target: "architecture-review"},
+              %{label: "Generation", target: "generation"},
+              %{label: "Pending", target: "pending", leaves_group: true}
             ]
           },
           conflict: nil,
@@ -125,9 +224,33 @@ defmodule Catapult.Storybook.Screens.TicketStory do
           title: "Point the README at SETUP for the reference instance",
           argument: "SETUP.md §2 is the one home for the reference instance's live facts.",
           sequence: [
-            %{key: "pending", label: "Pending", kind: :status, role: nil, state: :passed},
-            %{key: "generation", label: "Generation", kind: :status, role: nil, state: :current},
-            %{key: "checks", label: "Checks", kind: :status, role: nil, state: :upcoming}
+            %{
+              key: "pending",
+              label: "Pending",
+              kind: :status,
+              role: nil,
+              state: :passed,
+              group_key: nil,
+              group_anchor: false
+            },
+            %{
+              key: "generation",
+              label: "Generation",
+              kind: :status,
+              role: nil,
+              state: :current,
+              group_key: nil,
+              group_anchor: false
+            },
+            %{
+              key: "checks",
+              label: "Checks",
+              kind: :status,
+              role: nil,
+              state: :upcoming,
+              group_key: nil,
+              group_anchor: false
+            }
           ],
           gate_action: nil,
           blocked: %{

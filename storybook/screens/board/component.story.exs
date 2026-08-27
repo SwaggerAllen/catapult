@@ -12,11 +12,29 @@ defmodule Catapult.Storybook.Screens.BoardStory do
 
   defp lanes do
     [
-      %{key: "pending", label: "Pending", kind: :status},
-      %{key: "generation", label: "Generation", kind: :status},
-      %{key: "product-review", label: "Product review", kind: :gate},
-      %{key: "architecture-review", label: "Architecture review", kind: :gate},
-      %{key: "checks", label: "Checks", kind: :status}
+      %{key: "pending", label: "Pending", kind: :status, group_key: nil, group_anchor: false},
+      %{
+        key: "generation",
+        label: "Generation",
+        kind: :status,
+        group_key: "review-loop",
+        group_anchor: true
+      },
+      %{
+        key: "product-review",
+        label: "Product review",
+        kind: :gate,
+        group_key: "review-loop",
+        group_anchor: false
+      },
+      %{
+        key: "architecture-review",
+        label: "Architecture review",
+        kind: :gate,
+        group_key: "review-loop",
+        group_anchor: false
+      },
+      %{key: "checks", label: "Checks", kind: :status, group_key: nil, group_anchor: false}
     ]
   end
 
@@ -26,7 +44,9 @@ defmodule Catapult.Storybook.Screens.BoardStory do
         id: :in_flight_project,
         description:
           "The daily view: several top-level tickets across the effective sequence, one fanned " <>
-            "out into components rolled up on its own card.",
+            "out into components rolled up on its own card, sitting in a gate lane grouped with " <>
+            "Generation into one visible review-loop box — the two groupings (fan-out on the " <>
+            "card, subflow around the lanes) compose without colliding.",
         attributes: %{
           project_name: "Catapult",
           lanes: lanes(),
@@ -108,10 +128,12 @@ defmodule Catapult.Storybook.Screens.BoardStory do
         id: :filtered_and_abbreviated,
         description:
           "Filtered by type and label, lanes abbreviated to the ones the viewer has standing " <>
-            "in — most lanes are simply not shown, not shown-and-empty.",
+            "in — a reviewer's standing is the whole review-loop group here, so the group " <>
+            "renders whole rather than fractured; most lanes are simply not shown, not " <>
+            "shown-and-empty.",
         attributes: %{
           project_name: "Catapult",
-          lanes: Enum.filter(lanes(), &(&1.key in ["product-review", "checks"])),
+          lanes: Enum.filter(lanes(), &(&1.group_key == "review-loop")),
           show_all_lanes: false,
           filters: %{type: "feature", label: "priority"},
           cards: [

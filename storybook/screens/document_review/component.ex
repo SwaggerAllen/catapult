@@ -22,6 +22,23 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   ...}` / `{:engine_stale_gate_resolution, ...}`, ORC-114) — one rendering slot, three possible
   causes, since all three are the aggregate refusing to produce `GateApproved`/`GateDeclined` and
   this screen renders the refusal the identical synchronous way regardless of which one fired.
+
+  `gate_exits`: `[%{label:, target:}]` — the name predates ORC-115 and is kept to avoid an
+  unrelated churn to `document_review_live.ex` (dev's, outside this pass's reach); what it holds
+  is no longer a declared exit list. `Catapult.Dsl.Workflow.throwback_default/3` already narrows
+  this to at most one entry — the gate's own `throwback:` when it declares one, else its citing
+  sub-array's own non-critique agent step, `nil` when neither exists (`docs/dsl-syntax.md` §15.10,
+  ORC-115) — so the one entry present, if any, renders as the primary button.
+
+  `throwback_targets`: `[%{label:, target:, leaves_group: boolean}]`, default `[]` — every other
+  legal earlier position (`Catapult.Dsl.Workflow.throwback_targets/3`, minus the default above),
+  offered behind a secondary disclosure rather than as a flat list of equally-weighted buttons
+  (ORC-116, `screens/document-review.md`'s "Approve or throw back"); `leaves_group` marks a target
+  outside the gate's own sub-array, the identical annotation `screens/ticket.md`'s own
+  Blocked-return control draws. Defaults to `[]` because `document_review_live.ex` computes the
+  raw target list already but does not yet label or wire it through (its own comment: "the
+  `docs/ui-spec.md` §3.2 picker over `throwback_targets` is what covers that case, and it is
+  unbuilt") — this screen renders whatever it is handed, including nothing.
   """
 
   use Phoenix.Component
@@ -32,6 +49,7 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   attr :sentences, :list, default: []
   attr :comments, :list, default: []
   attr :gate_exits, :list, default: []
+  attr :throwback_targets, :list, default: []
   attr :decline_error, :string, default: nil
   attr :commenting_at, :integer, default: nil
 
@@ -61,7 +79,7 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
       <div class="card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body gap-2">
           <h2 class="card-title text-sm">Gate action</h2>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <button phx-click="approve" class="btn btn-sm btn-primary">Approve</button>
             <button
               :for={exit_ <- @gate_exits}
@@ -72,6 +90,19 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
               Throw back to <%= exit_.label %>
             </button>
           </div>
+          <details :if={@throwback_targets != []} class="text-xs">
+            <summary class="cursor-pointer opacity-70">Choose a different target</summary>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button
+                :for={target <- @throwback_targets}
+                phx-click="decline"
+                phx-value-target={target.target}
+                class="btn btn-xs btn-ghost"
+              >
+                <%= target.label %><span :if={Map.get(target, :leaves_group, false)} class="opacity-60"> (leaves this loop)</span>
+              </button>
+            </div>
+          </details>
           <p class="text-xs opacity-60">Throwing back requires at least one comment below.</p>
         </div>
       </div>

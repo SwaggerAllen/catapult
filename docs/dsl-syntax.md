@@ -2101,9 +2101,13 @@ are corrected to match.
   undecided is only whether such a gate gets a derived default of its
   own, or must always be explicit).
 - **Whether a sub-array is a visible grouping or flattens for
-  display.** `board`'s lanes read the effective sequence left to right
-  (`docs/ui-spec.md` §3.1); this is a real UI decision this section
-  creates and does not answer.
+  display.** Settled, not left open: visible grouping, at ORC-116.
+  `board`'s lanes render a bounded box around each sub-array's own
+  lanes, with its one non-critique agent step marked as the
+  throwback's default landing point; `ticket`'s sequence rail groups
+  the identical way. This section fixes the grammar and the
+  derivation; the rendering decision and its reasoning live in
+  `screens/board.md`, not here.
 - **Whether the `pending`-precedes-`generation`/`deploy` check (§13)
   needs a sub-array of its own head.** Settled, not left open: it does
   not. The check reads the citing type's array flattened one level —

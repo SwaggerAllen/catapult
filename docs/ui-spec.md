@@ -102,7 +102,12 @@ machine has the ball, and the screen links to `explain-why`.
 **`board`** — swim lanes for one project, the daily surface.
 
 - lanes are the effective sequence for the selected ticket type
-  (§7.19), so the board *is* the workflow, read left to right
+  (§7.19), so the board *is* the workflow, read left to right — and
+  where that sequence declares a sub-array (`dsl-syntax.md` §15.10),
+  the lanes it groups render inside a visible boundary rather than
+  flattening into the run, because a throwback's destination is only
+  legible as *this is the loop you fell back into* when the loop is
+  drawn (ORC-116)
 - one assignee, one status per ticket (§7.19's sequential decision,
   which is what makes lanes legible)
 - **blocked tickets group under the status that kicked them**, not
@@ -121,6 +126,18 @@ that is expansion, not default content. Note the grouping is *per
 lane*: one feature's components legitimately sit in several lanes at
 once, so each lane rolls up only the children it holds.
 
+**Subflow grouping (above) and fan-out grouping are different axes
+and never overlap on screen** (ORC-116). Fan-out grouping collapses a
+feature's *children* inside one lane, on the card, and is collapsed
+by default because a fan-out is unbounded. Subflow grouping wraps a
+run of *lanes themselves*, spans the lane headers, and is always
+expanded — collapsing it would hide the loop it exists to explain —
+and is bounded by however many entries a bundle author put in one
+sub-array, small by construction. A card inside a grouped lane still
+collapses its own children the ordinary way; the two mechanisms
+compose without colliding because one lives inside a card and the
+other around several lanes.
+
 **Lanes abbreviate to the ones you have standing in** — lanes your
 roles own, plus lanes currently holding your tickets. The full set is
 one control away and is the exception, not the view.
@@ -136,16 +153,27 @@ Phase 4's own workflow declares reviews a prose artifact, so a card's
 pass-forward/pass-back links into `document-review` (or `ticket`, for
 the same reason that screen's own gate action defers there) instead
 of dispatching from where it stands; the card still names that a gate
-is waiting. This resolves for real at ORC-116 — once a gate's node
-set is derivable, staleness is computable plane-side from any
-surface and a card needs no body view of its own to carry a real
-compare.
+is waiting. `dsl-syntax.md` §15.10 gives a passed gate's approval a
+structural node to pin *content identity* against, answering §7.16's
+"what a passed gate pins" — a staleness question, derivable from the
+log with no body view. That is a different mechanism from the
+command-side `body_sha` compare a dispatch needs — "the body the
+actor believes they are resolving against" — and the two answer
+different questions (`systems/engine.md`'s own distinction). A card
+still shows no body, so it still has nothing honest to supply on
+dispatch: this stays the v1 shape, and only gate *staleness display*
+— v2, §5, the join itself still Phase 7 (`systems/delivery.md`) — is
+what the node derivation actually unlocks.
 
 **`ticket`** — one ticket, the detail and action surface.
 
 - the *argument* (the human-readable case for the work, §7.2)
 - position in the effective sequence, with what has passed and what
-  remains, and the depth this ticket sits at
+  remains, and the depth this ticket sits at — grouped the same way
+  `board`'s lanes are, where the sequence declares a sub-array
+  (`dsl-syntax.md` §15.10), so a ticket sitting inside one reads as
+  *inside this loop* rather than at an anonymous point in a flat row
+  (ORC-116)
 - the gate action, when this user's role holds it: **approve**
   (transition forward) or **throw back** — one click to the gate's own
   declared landing point when it names one (`dsl-syntax.md` §15.4),
@@ -156,7 +184,9 @@ compare.
   *default* may be
 - **blocked**: flavor label, origin status, and the return control —
   defaulting to the origin, with the earlier-prefix as a picker
-  (§7.19); never forward
+  (§7.19); never forward, and an earlier target outside the origin's
+  own sub-array is marked as leaving it — the identical distinction a
+  gate's throwback picker draws over the same legality test (ORC-116)
 - child roll-up, blocking relations, linked PRs and runs
 - optimistic-concurrency feedback: a rejected transition names who
   moved it and where (§7.16), rendered as a conflict at the point of
