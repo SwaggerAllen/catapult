@@ -107,6 +107,31 @@ way it answered the third pass: no plane logic branches on *where in
 the array* a gate sits, any more than it branched on which type named
 it.
 
+**ORC-115 adds a grouping construct and a derived default, and neither
+extends this entry either, for the fourth pass's own reason.** A
+`statuses:` entry may now be a bare sub-array (`docs/dsl-syntax.md`
+§15.10), and a `review:` entry inside one always defaults its decline
+to that sub-array's own non-critique agent-balled entry — computed
+from the grouping at throwback time, never a fact a bundle author
+writes down. (A second design review corrected the field this default
+was originally scoped to replace: `throwback:` bounds no legality
+either way, since a decline's legal targets are never narrower than
+the earlier-prefix rule Blocked-return already uses. A third design
+review corrected the second's own overreach — the field survives,
+narrowed from a declared list to a single explicit override on the
+*default landing point* itself, `docs/dsl-syntax.md` §15.4 and §15.10
+— but neither correction changes what's argued here: a landing-point
+override is content a gate already declared before this ticket,
+narrowed in shape, not a new declarable fact.) Neither adds a
+new declarable state or gate: a sub-array groups entries that were
+already declarable one at a time. No plane logic branches on *whether
+entries are grouped* any more than the fourth pass's move made it
+branch on *where in the array* one sits — this is the identical
+"position, not content" shape, one level more structural. What stays
+refused is unchanged: a project still cannot rewire the automation
+graph itself, only group and position the already-platform-fixed gates
+and anchors a type of its own naming passes through.
+
 ## No inbound write path from a mirrored tracker
 scope: system:delivery, system:dashboard
 
