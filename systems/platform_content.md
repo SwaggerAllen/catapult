@@ -247,18 +247,7 @@ loader tickets carry `system:core-dsl`.
   copied from `sysarch` at the same mint moment — a plain copy made at
   mint time). Both are engine-side resolution, unvalidated at load
   time exactly as `draft.<name>` already is.
-- **No separate `fragments.yaml` or `plan.yaml` file** — a finding
-  against this ticket's own Layout section, not a design choice.
-  `Catapult.Dsl.Manifest` reads `fragments:` as an inline list *inside*
-  `bundle.yaml` (matching dsl-syntax.md §2's own worked example); there
-  is no parser anywhere in `lib/catapult/dsl/` for a standalone
-  `fragments.yaml`. `plan.yaml` (v4's phase-plan rule) has no home at
-  all: v5 §6 drops the phase machinery entirely — no `phased:` tiers,
-  no `phase_plan` projection, no plan rule — so there is nothing left
-  for such a file to declare, and `dsl-syntax.md` §1's own canonical
-  tree does not list one. `bundles/default/bundle.yaml` follows the
-  loader as merged (inline `fragments:`, no `plan.yaml`); filed as a
-  pipeline finding rather than silently deviated from.
+
 - **Five flows ship, not six** (ORC-84): `feature_request`, `refactor`,
   `bug_fix`, `downward_propagation`, `upward_propagation`. `plan_change`
   is the one flow v5 voids outright — it exists solely to recompute
@@ -416,57 +405,6 @@ loader tickets carry `system:core-dsl`.
   none ships its review tiers **inert** the moment the loader gains the
   form — nothing red anywhere, and no signal that eight review tiers
   stopped running.
-
-- **`bundles/default-flow` migrates to `dsl-syntax.md` §15's final
-  (sixth-pass) grammar in the same change that lands the §15 loader —
-  named here because that migration is this system's touch on
-  ORC-104, corrected onto the ticket's own mutex declaration by author
-  review** (ORC-104, design pass; `systems/delivery.md`'s own
-  corrected Initial-vs-target entry). The shipped content is entirely
-  pre-ORC-105: `bundle.yaml` declares no `entry:` (required, §15.6),
-  `gates/ux-review.yaml` and `gates/engineering-review.yaml` both
-  carry the retired `after:` field (§15.3) and no type declares either
-  of them at all — there is no `types/` directory yet, because
-  declared work-item types postdate this content by three ORC-105
-  passes — `environments/dev.yaml` and `environments/staging.yaml`
-  carry the same retired `after:` field, `gates/ux-review.yaml` throws
-  back to `queue`, the name this same ticket's dev pass renames to
-  `pending` (`systems/core_dsl.md`'s own already-filed entries), and
-  its comment still cites "the eleven system-status kinds" against a
-  table that is seventeen the moment this ticket's dev pass lands
-  (`systems/delivery.md` already carries this exact divergence,
-  named and attributed to this ticket, in its `queue → generation →
-  …` reachability entry). None of this is a hot edit over a populated
-  graph — no project has run against this bundle yet — so it is an
-  ordinary content rewrite, not a cutover.
-
-  **What the rewrite must produce, decided here rather than left
-  blank**: `bundle.yaml` gains `entry:` naming a new, single
-  `ticket`-skeleton `types/*.yaml` declaration — one, because this
-  bundle ships one universal review sequence today, not a
-  per-ticket-type registry, and inventing a second type this content
-  never asked for would be exactly the kind of unannounced component
-  DESIGN §2.8 flags; the standalone `critique.yaml` root file is
-  retired outright (§15.5 — the concept it named no longer exists as a
-  file, only as an inline `critique` entry paired with a `generation`
-  entry in the type's own array) and its content does not evaporate
-  with it: the ORC-92 entry above already argued `depth: [2, 0]` for
-  reviewing this chain's own fan-out, and that value carries forward
-  into the inline form rather than being re-derived; `gates/*.yaml`
-  and `environments/*.yaml` keep every field but `after:`, which §15.3
-  removes with no successor field — position becomes wherever the new
-  type's own array places the `review:`/`environment:` entry that
-  cites them; and `ux-review.yaml`'s `throwback: [queue]` becomes
-  `throwback: [pending]`, the identical rename `system_status.ex`
-  itself carries. The exact array — how many `generation`/`critique`
-  pairs, and where `environment: dev` sits relative to `environment:
-  staging` and `status: deploy` — is dev's to write, not guessed at
-  here: `dsl-syntax.md` §15.2's own worked `types/feature.yaml`
-  example declares literally this shape (two generation phases, a
-  `product-review`/`engineering-review` gate pair, a staging
-  environment promoted from dev) under different gate names, and is
-  the pattern this bundle's real migration should track rather than
-  reinvent.
 
 - **Every `<flow>_plan` tier declares `fields: argument: draft.argument`,
   closing the gap `docs/dsl-syntax.md` §3's new reserved name leaves
