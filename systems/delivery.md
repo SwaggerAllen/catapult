@@ -1188,146 +1188,46 @@ design gates pass.
   first. Real cross-ticket routing waits for Phase 7's child tickets to
   exist at all.
 
-- **Six write/read gaps [ORC-75](https://linear.app/strutco/issue/ORC-75)'s
-  dev pass filed against a working surface that had nowhere to read or
-  write from, closed together because they share one argument and one
-  reviewer question** (ORC-114, design pass). `docs/ui-spec.md` §2
-  rule 2 already names the general move — a screen needing a concept
-  the protocol lacks is a protocol change first — and each of the six
-  is that rule applied once. `ApproveGate`/`DeclineGate`'s missing
-  compare-and-swap and the new `ResumeFlow` command are
-  `systems/engine.md`'s own new entries; this entry covers the delivery
-  side of `ResumeFlow`, plus the five gaps that are delivery's alone.
+- **A screen needing a concept the protocol lacks is a protocol change
+  first, never a field added at the edge** (`docs/ui-spec.md` §2 rule
+  2). ORC-75's dev pass filed six write/read gaps against a working
+  surface with nowhere to read or write from; ORC-114 closed them
+  together because they are that one rule applied six times. The
+  shapes themselves live in the code they landed in —
+  `Catapult.Delivery.Store` and `Catapult.Engine.Commands` each carry
+  their own reasoning at the point it would be edited. What this doc
+  keeps is the four decisions that bound future work rather than
+  describe past work.
 
-  **`ResumeFlow` pins the resting position the same way `GateDeclined`
-  already does, and the field that does it is renamed to say so.**
-  `Catapult.Delivery.FeatureLifecycle.Projection`'s `thrown_back_to`
-  field becomes **`pinned_to`** — it is about to be written by a second
-  origin (a human resume, not only a gate throwback), and a field
-  named for the first writer alone misdescribes what it holds the
-  moment a second one exists; renaming it here rather than leaving
-  `thrown_back_to` to mean "thrown back, or resumed, whichever last
-  happened" is the same discipline this doc's own writing keeps
-  elsewhere. `decline/2` keeps its name and signature (a gate
-  throwback is still exactly what it records) and still sets only
-  `pinned_to`. A new `resume/2` is added beside it: `resume(state,
-  position) :: %{state | blocked_from: nil, pinned_to: position}` —
-  distinct from `decline/2` because a resume, unlike a throwback, is
-  clearing a `blocked_from` pin at the same moment it sets the new one,
-  and distinct from `commit/2` because `commit/2` clears both pins
-  without setting a fresh one (the ordinary walk resumes on its own;
-  a human resume is choosing where to sit, which the ordinary walk
-  cannot do while `blocked_from` is what put it there). `resting/2`'s
-  guard clause updates to read `pinned_to` in place of `thrown_back_to`;
-  its precedence is unchanged — `blocked_from` first, `pinned_to`
-  second, the ordinary `passed`-based walk last.
+  **Draft body history is one previous, not a log.** What the
+  per-sentence diff needs, checked against what `document-review` does
+  with it, is the prior committed body and the current one — never a
+  second-oldest, since a fresh visit always starts from the latest
+  committed body. So `put_draft_body/4` shifts rather than appends. A
+  need to diff against more than the immediately prior pass is a
+  different and much larger storage decision, not an increment on this
+  one.
 
-  `FeatureLifecycle` (the process manager) gains `interested?(%
-  Catapult.Engine.Events.FlowResumed{project_id: p, flow_id: f}) ->
-  {:continue, identity(p, f)}`, the identical shape `GateApproved`/
-  `GateDeclined` already have, and `apply(pm, %FlowResumed{to: to})
-  -> pm |> update_projection(&Projection.resume(&1, to)) |> persist()`
-  — no workflow load needed here, unlike `GateDeclined`'s own `apply/2`
-  clause, because `to` already names a resolved `Sequence.position()`
-  rather than a bundle-content string (`throwback_to`) still needing
-  `Sequence.resolve_position/2`; the command edge that builds
-  `ResumeFlow` (`systems/engine.md`'s own entry) resolves it before
-  dispatch, the same "bundle content is the command edge's to check"
-  split every other command on this aggregate already draws.
+  **The ticket-listing query is delivery's; the screens are
+  dashboard's.** `Store.tickets_for_project/1` answers what `board`'s
+  lanes and `my-queue`'s action kinds both need in one project-scoped
+  read. `my-queue` is cross-project by design, and satisfies
+  ORC-87/ORC-35's "every query carries a project id" by fanning this
+  query out once per project the actor has standing in — the rule
+  forbids a projectless read, not a screen showing more than one
+  project's rows.
 
-  **Draft body history: one previous, not a log** — the open question
-  this ticket's own record left as two different storage stories.
-  `Catapult.Delivery.Store.put_draft_body/4` today replaces on
-  conflict, destroying the predecessor `document-review`'s per-sentence
-  diff needs to diff against. What the diff actually needs, checked
-  against what `document-review` itself does with it — "the prior
-  committed body (the last `body_sha` this node held, or none on a
-  first pass) and the current one" — is exactly one predecessor, never
-  a deeper history; a fresh visit always starts from the latest
-  committed body, and nothing reads a second-oldest version anywhere
-  in this ticket's own scope. `delivery_draft_bodies` gains
-  `previous_body`/`previous_body_sha`, both nullable. `put_draft_body/4`
-  becomes a shift-then-write inside one transaction: read the row's
-  current `body`/`body_sha` (absent on a first commit), write them into
-  `previous_body`/`previous_body_sha`, then write the incoming values
-  into `body`/`body_sha` — an upsert whose `on_conflict` clause can no
-  longer be a bare column replace, since the replacement values depend
-  on the row's own prior state rather than only on the caller's
-  arguments. `Catapult.Delivery.Store.DraftBody` gains a
-  `get_previous_draft_body/2`, mirroring `get_draft_body/2`'s existing
-  shape, returning `nil` on a first pass the same way `document-review`
-  already expects ("or none on a first pass"). No N-deep history table
-  is added; a future need to diff against more than the immediately
-  prior pass is a different, larger storage decision this ticket does
-  not take.
+  **A ticket's title or argument is bundle content, not a plane
+  mechanism** (`docs/dsl-syntax.md` §3, `systems/platform_content.md`).
+  The work surface reads `fields["argument"]` off the node at a flow's
+  own `entry_node_id`, and renders blank until bundle content supplies
+  one.
 
-  **This does not touch §7.16's "what a passed gate pins," and a
-  mismatch is worth flagging rather than silently inherited.**
-  `systems/engine.md`'s own ORC-34 entry already settles that neither
-  `GateApproved` nor `GateDeclined` carries a `body_sha`, and its own
-  §7.16 cross-reference leaves "does what this gate approved still
-  match what's downstream of it" open for Phase 7, by name. ORC-75's
-  own (unmerged) `document-review` draft describes a stale-marking
-  mechanism "derived at render time from whether the node's current
-  `body_sha` matches what the gate's own approval event recorded" —
-  which the event shape settled here still cannot do; one previous body
-  answers the diff question this ticket was actually filed to close,
-  not the gate-content-pinning question, and ORC-75's own resumed pass
-  is where that mismatch needs reconciling against the recorded
-  decision, not this one.
-
-  **A ticket-listing query, project-scoped, serving both `board` and
-  `my-queue`.** `Catapult.Delivery.Store.unscheduled_work_items/1`
-  answers a different question (candidates with no `container_id`);
-  `Catapult.Engine.Store` has no list-by-project at all. `Store
-  .tickets_for_project(project_id)` joins `engine_flows` to
-  `delivery_feature_lifecycles` the same way `unscheduled_work_items/1`
-  already does, minus that function's `container_id == nil` filter,
-  and returns `id`, `ticket_ref`, `flow_name`, `entry_node_id`,
-  `status_kind`, `status_gate`, `blocked_origin_kind`,
-  `blocked_origin_gate` per open flow — everything `board`'s lanes and
-  `my-queue`'s three action kinds need to place a ticket, in one
-  project-scoped read. **This resolves this ticket's own third open
-  question in favor of the query landing here and the screens staying
-  ORC-75's.** `board` is already single-project by construction
-  (`docs/ui-spec.md` §3.1) and calls this once. `my-queue` is
-  cross-project by design (`docs/ui-spec.md` §3.1's own citation of v5
-  §7.10's "My Issues... with no filtering") but ORC-87/ORC-35's "every
-  screen's navigation and every query it issues carries a project id"
-  (`systems/dashboard.md`) narrows rather than forbids it, on that
-  rule's own stated reason — no route or query ever missing a project
-  id, not no screen ever showing more than one project's rows: `my
-  -queue` fans this same query out once per project the actor has
-  standing in and merges the rows for display, never issuing a
-  projectless read. Neither screen is this ticket's to build (this
-  ticket's own explicit scope line puts screen work in ORC-75's hands);
-  this is the query both of them were blocked on not existing.
-
-  **Runs linked back to their ticket.** `Catapult.Delivery.Store
-  .DispatchRun` carries no `flow_id`, and the only lookup is
-  `get_dispatch_run/1` by run key — no query joins a run to the flow
-  that produced it, which `docs/ui-spec.md` §3.1's `ticket` screen
-  ("linked PRs and runs") needs. `delivery_dispatch_runs` gains a
-  nullable `flow_id` column. `insert_dispatch_run/1`'s caller resolves
-  it the identical way `FeatureLifecycle` already resolves a
-  `DraftCommitted`/`RunFailed`'s flow — `Store.current_open_flow_id
-  /1` — the same Phase 4 simplification, named once and reused rather
-  than reinvented a third time, with the identical Phase 7 revisit
-  condition. `Store.dispatch_runs_for_flow(project_id, flow_id)` mirrors
-  `artifact_pushes_for_flow/2`'s existing shape exactly (filter, order
-  by `inserted_at`), giving `ticket` one project-scoped, flow-scoped
-  read for its own run list, beside the PR list `get_feature_publication
-  /2` already answers.
-
-  **A title or argument field is bundle content, not a plane
-  mechanism, and is the cheapest of the six for exactly that reason.**
-  `docs/dsl-syntax.md` §3 and `systems/platform_content.md` carry the
-  decision (this ticket's own diff to both); this doc only records
-  where the work surface reads it once it lands — `fields["argument"]`
-  off the node at a flow's own `entry_node_id`, folded into `Store
-  .tickets_for_project/1`'s own select list above once bundle content
-  supplies it, blank until then via the same unset-is-empty behavior
-  `prior_review` already relies on (`systems/engine.md`).
+  **What a passed gate pins is no longer open here.** It was §7.16's
+  standing question and the reason gate events carry no `body_sha`;
+  `docs/dsl-syntax.md` §15.10 answers it structurally (ORC-115), so a
+  surface needing gate staleness derives it there rather than
+  reintroducing a pinned field on the event.
 
 ## Initial vs target
 
