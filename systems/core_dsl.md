@@ -238,24 +238,10 @@ context-source kinds, and audit profiles.
   `prep`'s own `flow:`, which an earlier draft of this same ticket got
   wrong (it runs `setup` once per container instead of once per mint)
   — so there is nowhere `flow:` needs to name two things on one
-  declaration. **Not built as part of this pass**: the dispatcher, the
-  sweep, the scan/setup/retro machinery, and the ticket→milestone
-  `Stubbed`/`Urgent` interactions this needs to have a subject at all
-  — ORC-104's, which this entry gives a grammar to build against.
-
-  **Retiring `boundary` from `Catapult.Dsl.SystemStatus`
-  (`lib/catapult/dsl/system_status.ex:35,52`) is dev's diff, not
-  design's** (§7 of the design record, settled): the constant module
-  is core_dsl's own mapped path, and design's committable paths stop
-  at doc content. Filed against ORC-104 rather than actioned here —
-  the type and the `@agent_steps` list both still name `:boundary`
-  today, which means the loader still accepts a chain declaring
-  `agent_step: boundary` even though no tier ever has and the grammar
-  record above no longer sanctions one. That gap is real but narrow
-  (nothing in `bundles/**` declares it, so no bundle content silently
-  breaks); closing it is one line in each of two places, and belongs
-  in the same change that builds the queue grammar's loader support
-  rather than a doc-only pass touching code outside its lane.
+  declaration. The machinery this grammar drives — the dispatcher, the
+  sweep, the scan/setup/retro passes, and the ticket→milestone
+  `Stubbed`/`Urgent` interactions that give it a subject — is
+  `systems/delivery.md`'s (`Catapult.Delivery.ContainerLifecycle`).
 
 - **A fourth ORC-105 pass unified `queues/project.yaml`, `queues/
   containers/<name>.yaml` and `types/<name>.yaml` into one declaration
@@ -295,20 +281,9 @@ context-source kinds, and audit profiles.
   since v5 §3.1's fork-tailor-merge lifecycle — already the model for
   bundles and policy packs generally — turns out to be the one a
   workflow bundle was always shaped for, not a runtime-composed layer
-  (`docs/dsl-syntax.md` §11). **Not built as part of this pass**, same
-  as the third: the dispatcher, the sweep, the scan/setup/retro
-  machinery — ORC-104's, unaffected in shape by this pass beyond what
-  it inherits from the grammar being one file format instead of three.
-
-  **`queue`'s rename to `pending` in `Catapult.Dsl.SystemStatus`
-  (`lib/catapult/dsl/system_status.ex`) is dev's diff, not design's**,
-  the identical boundary the `:boundary` retirement above draws: the
-  constant module is core_dsl's own mapped path. Filed against
-  ORC-104 alongside it — the module still names the fixed-vocabulary
-  member `:queue` today, which is harmless until a bundle's own
-  container queue and a ticket's own system status need to coexist in
-  loader error messages or generated UI copy, at which point the two
-  senses collide in exactly the way the doc rename exists to prevent.
+  (`docs/dsl-syntax.md` §11). The machinery is unaffected in shape by
+  this pass beyond what it inherits from the grammar being one file
+  format instead of three.
 
 - **A fifth ORC-105 pass corrected two errors the fourth pass's own
   three-valued `skeleton:` field had baked in, and added one field**

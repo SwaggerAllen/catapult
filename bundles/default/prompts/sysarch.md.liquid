@@ -207,6 +207,18 @@ four children in this order: `<techspec>`, `<components>`,
 
 * Do not include commentary about what you are doing or how you arrived at the list. Output only the `<sysarch>` block.
 * Unescaped `&` and `<` inside `<purpose>` / `<invariant>` / `<operation>` / `<runtime>` / `<persistence>` / `<write-path>` / `<concurrency>` / `<testing>` / `<deploy>` / `<technologies>` / `<rationale>` text are fine — the parser tolerates them.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). Liquid
+  counts an empty list as truthy — only nil and false are falsy — so a
+  bare truthiness guard opens this section on every render for any
+  caller that passes an empty list instead of omitting the variable.
+  Catapult.Generation.ContextAssembly omits it today, and this guard is
+  what stops that promise from being the only thing holding the line.
+  A filter pipe (size via `|`) is not an option: a pipe inside a
+  conditional needs Solid.parse/2's filters_in_conditional_tags, and
+  the caller uses Solid.parse/1. `.size` is a property access, so it
+  parses as-is.
+{% endcomment %}
 {% if feedback.size > 0 %}
 
 # Revising against feedback (surgical modification)

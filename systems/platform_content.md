@@ -400,36 +400,22 @@ loader tickets carry `system:core-dsl`.
   `cascade_visit` and the reversed context-walk hop had before their
   own loader support landed, now closed the same way.
 
-- **Two follow-ups for the implementing pass, not this design pass's
-  to commit** (ORC-92; `docs/v5-design-decisions.md` §7.19 carries
-  the argument, `docs/dsl-syntax.md` §15.5 the form — **both files'
-  own shape changed under ORC-105's fourth pass**, below, but neither
-  recommendation does). First: `bundles/default-flow/gates/
-  engineering-review.yaml`'s `depth: 2` is wrong under §7.19's revised
-  rule — a gate is a human sign-off and reads the top level regardless
-  of how far the chain fans out, so the fix is `depth: 0`, and the
-  comment arguing fan-out ("the architecture chain fans out twice...
-  so 2 covers both levels") comes out with it; nothing about the
-  gate's `throwback:`/`role:` changes, and `after:` no longer exists
-  on a gate to change either way (`docs/dsl-syntax.md` §15.3) — the
-  gate's position is now wherever the citing type's own `statuses:`
-  array places its `review:` entry. Second: `bundles/default-flow`
-  declares no `critique` entries today, and under §7.19's opt-in
-  decision that means the default chain's eight review tiers ship
-  inert the moment the loader gains the new form — silently, since an
-  absent entry is not a load error. Recommended content, following
-  the pair's own worked argument (the project's first traversal wants
-  its fan-out reviewed; every later one returns to the top level, same
-  section): a `critique` entry, immediately after each `generation`
-  entry the architecture chain's tiers dispatch at, carrying `depth:
-  [2, 0]` — `2` because the architecture chain's own deepest fan-out
-  is two edges deep (`comp`, then `subcomp` — the same count
-  `engineering-review.yaml`'s own retired comment already established
-  correctly, just for the wrong declaration), `0` for every traversal
-  after the project's first. Neither edit is this pass's to make
-  (`bundles/**` sits outside `designOwnedPaths`); both are decided here
-  so the implementing ticket has an argued value to carry rather than
-  a blank `depth:` field to guess at.
+- **A gate reads `depth: 0`; the architecture chain's `critique`
+  entries read `depth: [2, 0]`** (ORC-92; `docs/v5-design-decisions.md`
+  §7.19 carries the argument, `docs/dsl-syntax.md` §15.5 the form). A
+  gate is a human sign-off and reads the top level however far the
+  chain fans out beneath it, so fan-out reasoning never belongs on a
+  gate — it belongs on the citing type's own `critique` entry. `[2, 0]`
+  is the pair that follows: `2` for a project's first traversal,
+  because the architecture chain's own deepest fan-out is two edges
+  (`comp`, then `subcomp`), and `0` for every later traversal, which
+  returns to the top level.
+
+  **What this closes is silence, not a wrong number.** `critique` is
+  opt-in and an absent entry is not a load error, so a chain declaring
+  none ships its review tiers **inert** the moment the loader gains the
+  form — nothing red anywhere, and no signal that eight review tiers
+  stopped running.
 
 - **`bundles/default-flow` migrates to `dsl-syntax.md` §15's final
   (sixth-pass) grammar in the same change that lands the §15 loader —
@@ -503,89 +489,31 @@ loader tickets carry `system:core-dsl`.
   correct, since `docs/ui-spec.md` §3.1 only ever shows one, for the
   ticket the surface is currently open to.
 
-- **A `{% if feedback %}` guard on a possibly-omitted collection tests
-  `.size > 0`, not bare truthiness** (ORC-134). `Catapult.Generation
-  .ContextAssembly.feedback_variable/3` deliberately leaves `feedback`
-  out of the rendered map on `[]` rather than setting it to an empty
-  list — that module's own moduledoc and `systems/generation.md`'s
-  ORC-34 entry give the reason, and this ticket leaves both unchanged.
-  But Solid follows ordinary Liquid truthiness
-  (`deps/solid/lib/solid/unary_condition.ex` — the ticket cites
-  `.../tags/unary_condition.ex`, a path that doesn't exist in this
-  dep; the file is at the top level of `lib/solid`, and this entry
-  corrects it rather than silently diverging: only `nil` and `false` are
-  falsy), so every `{% if feedback %}` guard that leans on that omission
-  to stay closed — `vocab.md.liquid`, `ref.md.liquid`,
-  `subcomparch.md.liquid`, `sysarch.md.liquid`, `comparch.md.liquid`
-  (the five ORC-134 names), and `partials/_architecture_framing
-  .md.liquid` (found during the design pass, not named in the ticket —
-  it carries the identical guard and shares the same fix, so leaving it
-  unfixed would still be a landmine for the day a caller starts passing
-  it `feedback`, even though `{% render "partials/_architecture_framing"
-  %}` is called with no `with`/`for` arguments at every site today and
-  so Solid's own scope isolation for `render` — `Solid.Tags.RenderTag`
-  builds the partial's inner `Context` with an empty `vars` map absent
-  an explicit argument — already keeps its guard from firing on any
-  caller's `feedback`, populated or not; verified by rendering
-  `vocab.md.liquid` with `feedback` populated and counting one, not two,
-  "Revising against feedback" occurrences in the output) — would render
-  its revision section on every generation the moment any future caller
-  sets `feedback` to `[]` instead of omitting it: a plane change nothing
-  today forces, a second renderer, or a hand-built test fixture.
+- **A prompt guard on a possibly-omitted collection tests `.size > 0`,
+  never bare truthiness** (ORC-134). Liquid counts an empty list as
+  truthy — only `nil` and `false` are falsy — so `{% if feedback %}`
+  opens its section on every render the moment a caller passes `[]`
+  instead of omitting the key. Six shipped prompts gate a revision
+  section this way (`vocab`, `ref`, `subcomparch`, `sysarch`,
+  `comparch`, and the shared `partials/_architecture_framing`), and the
+  rule generalizes: it is the bundle-authoring rule for any future
+  prompt gating on a collection.
 
-  The design pass that filed the fix proposed `{% if feedback | size >
-  0 %}`, reasoning from `Solid.StandardFilter.size/1`'s nil-to-`0`
-  catch-all and `Solid.BinaryCondition.eval/1`'s nil-vs-number `false`.
-  That syntax does not parse: `Solid.ConditionExpression.parse/2` only
-  accepts a filter pipe inside `if`/`elsif`/`unless` when the caller
-  passes `filters_in_conditional_tags: true` to `Solid.parse/2`
-  (`deps/solid/lib/solid.ex`'s own moduledoc states the default is
-  `false`), and `Catapult.Generation.ContextAssembly.parse_template/1`
-  calls `Solid.parse/1` with no options — confirmed by actually parsing
-  `{% if feedback | size > 0 %}` through this app's dependency tree,
-  which raises `Solid.ParserError, reason: "Expected Condition"`
-  pointing at the `|`. Enabling that flag was rejected rather than
-  reached for: it is a `Solid.parse/2` call-site change in
-  `lib/catapult/generation/**`, which is exactly the "no new Solid
-  capability" boundary the design pass drew, only missed because the
-  syntax was never actually parsed before being recorded here. What
-  this entry now records instead is `{% if feedback.size > 0 %}`:
-  `.size` is a dotted **property access**, resolved by
-  `Solid.Matcher.match/2`'s `"size"` clauses for `List`, `Map`, and
-  `BitString` (`deps/solid/lib/solid/matcher.ex`) rather than by the
-  filter pipeline, so it needs no conditional-tags flag and parses
-  under stock `Solid.parse/1`. The semantics are the ones the design
-  pass wanted: `feedback` omitted resolves the whole dotted lookup to
-  `{:error, :not_found}` (`Solid.Matcher`'s `Map` clause fails at the
-  first key), which `Solid.Argument.get/4` turns into `nil` rather than
-  a raised error since `strict_variables` is left at its `false`
-  default; `Solid.BinaryCondition.eval/1`'s `{nil, :>, v2} when
-  is_number(v2)` clause then reads `nil > 0` as `false` exactly as the
-  design pass cited; `feedback: []` resolves `.size` to `0` via the
-  `List` matcher's `Enum.count/1`, so `0 > 0` is `false`; a populated
-  `feedback` resolves to its length, `N > 0` is `true` for `N >= 1`. All
-  three shapes verified by rendering each of the six templates listed
-  above through `Solid.render/3` against the real
-  `bundles/default/prompts` tree.
-
-  **Dev adds one render test covering all six guarded templates against
-  three `feedback` shapes** — omitted, `[]`, and populated — extending
-  the existing homes rather than opening new ones:
-  `test/catapult/generation/context_assembly_test.exs` already asserts
-  the omitted and populated shapes for `vocab.md.liquid`
-  (`ContextAssemblyTest`'s own moduledoc); `test/catapult/generation
-  /integration_test.exs` already renders the real `bundles/default`
-  bundle end to end. The `[]` shape is the one to add rather than
-  extend: nothing in `ContextAssembly` produces it today, which is
-  exactly why a break there would go unnoticed, and it is the case that
-  turns this entry's Solid claims into ones the suite holds instead of
-  ones the next reader has to re-verify by reading `deps/solid` again.
-  `ContextAssembly.build/4` has no way to inject a `[]` shape (see
-  above), so that leg renders the six templates directly through
-  `Solid.parse/1` + `Solid.render/3` against the real bundle path rather
-  than through `ContextAssembly.build/4` — the same two calls
-  `ContextAssembly`'s own (private) `parse_template/1` and `render/3`
-  make, exercised at arm's length instead of duplicated.
+  **It is a rule spanning two trees, which is why it is recorded here
+  and not only in the code.** `Catapult.Generation.ContextAssembly`
+  omits `feedback` on `[]` rather than emptying it, and a guard correct
+  *only* because of that promise is one plane-side refactor from
+  silently opening — a second renderer or a hand-built fixture would do
+  it too. The plane keeps the omission and the bundle guards
+  independently, on purpose, and neither half is redundant with the
+  other. Each carries its own reason where it would be edited: the
+  templates' own `{% comment %}` blocks, and `ContextAssembly`'s
+  moduledoc. The Solid mechanics behind the spelling live there too,
+  including why a filter pipe is not available inside a conditional
+  under `Solid.parse/1`. `test/catapult/generation/context_assembly
+  _test.exs` holds all six templates against all three shapes, so these
+  are the suite's claims rather than the next reader's to re-derive by
+  reading `deps/solid`.
 
 ## Initial vs target
 
