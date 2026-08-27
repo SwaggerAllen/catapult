@@ -2011,12 +2011,11 @@ built from is `dsl-syntax.md` §15.1-§15.9. Building the dispatcher,
 the sweep, and the scan/setup/retro machinery itself is ORC-104's —
 this section settles the shape, not the diff.
 
-**A third pass registered work-item types, and inverted a filter into
-a declaration.** A type's effective status sequence used to be
-assembled by scanning every gate for a `ticket_types:` entry naming
-it; the type now names its own gates instead — `ticket_types:`
-retired from a gate's own declaration outright, one fact in one
-place. The same move that gave the container form its array applied
+**A work-item type names its own gates; a gate names no types.** A
+type's effective status sequence is its own declared array, not
+something assembled by scanning every gate for a `ticket_types:` entry
+naming it — that field is retired from a gate's declaration outright,
+so the fact lives in one place. The same move that gave the container form its array applied
 to plain ticket types too, and it collapsed `flow:` and `opens:` into
 one required field: a queue entry's `flow:` names a member of one
 shared registry, and whether that member turns out to be a plain type
@@ -2031,13 +2030,11 @@ because its own admission rule ("a state may be declared iff no plane
 logic branches on it") already covers the addition without needing to
 change.
 
-**A fourth pass found the third pass's own split was still three file
-formats for one thing, and unified them.** The third pass registered
-work-item types but kept `queues/project.yaml`, a directory of named
-containers, and a directory of named types as three separate shapes;
-author review found most of the differences among them were artifacts
-of the split rather than facts about queues or generations. **The
-governing rule: a container is any work item whose skeleton has
+**One declaration shape, not three.** `queues/project.yaml`, a
+directory of named containers and a directory of named types were
+three file formats for one thing, and most of the differences among
+them were artifacts of the split rather than facts about queues or
+generations. **The governing rule: a container is any work item whose skeleton has
 queues, a ticket is any work item whose skeleton has a generation, and
 they are otherwise interchangeable** — a milestone with a `main`
 queue, then a human sign-off gate, then a staging deployment, then
@@ -2058,15 +2055,13 @@ tiers a generation fanned into, and only a `generation` anchor —
 which neither a `container`- nor a `none`-skeleton type has — gives
 it something to select within (`dsl-syntax.md` §15.5).
 
-**A fifth pass found the fourth pass's own `none` carve-outs were two
-different mistakes wearing one design, and corrected both.** First,
-cosmetic but worth naming: `skeleton: none` was a value spent on
-exactly the fact its own absence already states. `skeleton:` is
-optional now — `ticket` and `container` are the only two real values,
-and a type declaring neither has no anchors at all (`dsl-syntax.md`
-§15.1) — which also retires the fourth pass's "at most one loaded
-`skeleton: none` declaration" load check: rootness is derived from the
-declaration graph (below), not policed by a value. Second, and
+**`skeleton:` is optional, and rootness is derived rather than
+declared.** `ticket` and `container` are the only two real values, and
+a type declaring neither has no anchors at all (`dsl-syntax.md`
+§15.1); a `skeleton: none` value would be spent on exactly the fact
+its own absence already states. Nothing polices rootness with a load
+check either — it falls out of the declaration graph (below). Second,
+and
 load-bearing rather than cosmetic: excluding the project's array from
 gates and environments read "all review happens at lower levels" as a
 claim about array *content*, when it was only ever the argument for
@@ -2080,9 +2075,8 @@ stays the one carve-out, for the reason already given — a `generation`
 anchor is what gives its depth something to select within, and no
 skeleton-less type has one.
 
-**The same fourth pass retired `after:` for the same reason it
-unified the three shapes: array position said everything `after:` did
-and more precisely.** A gate's own former predecessor field required
+**`after:` is retired: array position says everything it did, and
+more precisely.** A gate's own former predecessor field required
 one linear order for the whole bundle; with order living on each
 citing type's own array instead, two types may run the same two gates
 in different relative order, which the old model could not express
@@ -3431,11 +3425,10 @@ whole job, and the two halves are already named in `dsl-syntax.md`:
   way. Extensions compose the *language*.
 - **Instances are content** (`dsl-syntax.md` §11) — a project's
   actual gates and environments are versioned in the repo, changed by
-  PR. **Reversed at ORC-105's fourth pass: not via an `extends:`
-  layer.** This paragraph originally had them live in the workflow
-  bundle's own `extends:` layer, mirroring the chain axis's
-  `platform-elixir` base; §7.8 and `dsl-syntax.md` §11 record why that
-  does not survive contact with how bundles actually distribute
+  PR — **not via an `extends:` layer.** The chain axis's
+  `platform-elixir` base has no workflow-axis counterpart; §7.8 and
+  `dsl-syntax.md` §11 record why the analogy does not survive contact
+  with how bundles actually distribute
   (fork-tailor-merge, §3.1) and the consequence: a workflow bundle now
   carries no `extends:` field at all. The content is still repo
   content, versioned, changed by PR — only the mechanism that gets it
@@ -3521,20 +3514,18 @@ platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
 vocabulary there too, not a workflow bundle's declaration. The rule
 holds; the resemblance is what makes it worth a sentence.
 
-**`extends:` layers within an axis and never across it — narrowed
-further at ORC-105's fourth pass, below.** As first written here,
-each axis had its own base layer, and a chain extending a workflow
-(or the reverse) was a load error. This corrected §6's bundle-layering
-bullet, which had the delivery DSL shipping from the `platform-elixir`
-layer: that was exactly the weld this section broke, because it would
-tie the workflow vocabulary to one language binding. Delivery shipped
+**`extends:` layers within an axis and never across it** — a chain
+extending a workflow, or the reverse, is a load error. Shipping the
+delivery DSL from the `platform-elixir` layer would tie the workflow
+vocabulary to one language binding, which is the weld this section
+breaks. Narrowed further below: the workflow axis has no `extends:` at
+all. Delivery shipped
 from a platform *workflow* layer, which was also where the default
 gates (a UX review and an engineering review) and the default
 environments (`dev`, `staging`) lived.
 
-**Reversed at ORC-105's fourth pass (§7.8): there is no platform
-*workflow* layer, and the workflow axis has no `extends:` at all.**
-The paragraph above gave the workflow axis a base layer purely by
+**There is no platform *workflow* layer, and the workflow axis has
+no `extends:` at all** (§7.8). A base layer here would rest purely on
 analogy with the chain axis's `platform-elixir` layer, and the analogy
 does not hold: v5 §3.1 already chose fork-tailor-merge as how bundles
 and policy packs are distributed, because git has a merge story hex
@@ -3946,8 +3937,7 @@ cross-axis coupling §7.18 exists to prevent; depth already scopes
 without naming a tier for the identical reason, and a named position
 would undo that for the one case that needs it least.
 
-**`critique.yaml` was the form at ORC-92; ORC-105's fourth pass retires
-the file and folds its one field into the type declaration itself**
+**`critique` is an entry in a type's own array, not a file**
 (`dsl-syntax.md` §15.5): a `critique` entry, immediately following a
 `generation` entry in a `ticket`-skeleton type's own `statuses:`
 array, carrying the same `depth:` grammar the file used to. What moved
