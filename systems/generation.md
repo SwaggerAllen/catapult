@@ -194,48 +194,25 @@ and validation logic and must not fork it.
   post-ORC-87 shape (`get_node/2`, `edges_from/3`, `approve_node/2`
   all take `project_id` now); no new bare-id `Store` call site is
   introduced here for ORC-87 to have to find and thread later.
-- **`feedback`/`prior_review`'s source is decided, not built here, and
-  both reads land inside this system rather than routing through
-  delivery** (ORC-34, design pass; revised on design review —
-  the first draft routed both through a `Catapult.Delivery` read the
-  same shape `draft_variable/2` takes for `draft`, which made sense
-  only while `feedback` was delivery-owned cache state; neither read is
-  delivery's any longer, so the detour is gone with it).
-  `ContextAssembly.build_variables/5`'s own moduledoc marks both
-  "Target, not Initial... unset here" — what fills the hole is two
-  direct engine reads, exactly where this module already reads
-  `ContextResolver.resolve/2` and `Store.fragments/2` for everything
-  else it renders: `Engine.Projections.CommentFeedback
-  .since_last_resolution(project_id, node_id)` (`systems/engine.md`, a
-  log fold shaped like `RunFailures.count_since_commit/2` but reset at
-  the log position the triggering `GateDeclined` itself carries as
-  `since_sequence`, not at `DraftCommitted` and not inferred from
-  position in the resolution sequence — corrected on a third
-  design-review pass after a second-pass position-based inference
-  proved wrong the moment a workflow declares more than one gate, which
-  the shipped `bundles/default-flow/types/feature.yaml` already does.
-  `since_sequence` is caller-supplied on the `DeclineGate` command
-  rather than computed inside the aggregate (a fourth design-review
-  correction — `execute/2` reading the log to compute it broke this
-  system's own purity floor), populated from `GateComments
-  .last_resolution_sequence/2` at the command-construction boundary,
-  outside the aggregate; the decline's own accept/reject check is a
-  separate, purely local read of the aggregate's own state, not this
-  same query, and `systems/engine.md`'s own entry explains why the two
-  no longer needing to be textually identical is still safe — a stale
-  `since_sequence` can only widen the render's window, never narrow it
-  past a real comment) for `feedback`, rendered as an ordered
-  list of maps —
-  `%{body:, locator:, author_id:, posted_at:}`, `locator` always `nil`
-  in Phase 4 (`systems/engine.md`) — and `Engine.Store.reviews_for_node
-  (project_id, node_id)` for `prior_review`, rendered as a map
-  (`score`, `findings`, `kind`, `body_sha`), both unconditional (unlike `draft`,
-  neither is review-tier-only — `docs/dsl-syntax.md` §9/§3.3, §9 also
-  carries the two rendered shapes above now, corrected in the same
-  change). Both render blank via Solid's existing unset-is-empty
-  behavior where nothing exists yet to read. Nothing about `build/4`'s
-  own shape changes beyond two more entries in `build_variables/5`'s
-  returned map, beside `"draft"`.
+- **`feedback` and `prior_review` are read here, not routed through
+  delivery** (ORC-34). Neither is delivery-owned state, so
+  `ContextAssembly` reads both directly from the engine —
+  `Engine.Projections.CommentFeedback.since_last_resolution/2` and
+  `Engine.Store.reviews_for_node/2` — beside the
+  `ContextResolver.resolve/2` and `Store.fragments/2` reads it already
+  makes for everything else it renders. Both are unconditional, unlike
+  `draft`: neither is review-tier-only (`docs/dsl-syntax.md` §9/§3.3,
+  which also carries their rendered shapes).
+
+  Two decisions this entry deliberately does not restate, because each
+  is recorded where it would be edited: `since_sequence` is
+  caller-supplied rather than computed inside `execute/2`
+  (`Catapult.Engine.Commands.DeclineGate`, on this system's purity
+  floor), and the reset boundary is neither `DraftCommitted` nor a
+  position in the resolution sequence — `CommentFeedback`'s own
+  moduledoc names both rejected alternatives, their failure modes, and
+  the shipped bundle that breaks the second.
+
 - **The agent-port fake is scope, not test scaffolding** (the same
   standing decision `systems/llm.md` makes for the runtime's provider
   fake, made here for the same reason): canned bodies through the real
