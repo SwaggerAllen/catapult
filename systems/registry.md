@@ -19,9 +19,9 @@ of artifacts the *plane computes* and neither git nor hex can produce
 
 ## Standing decisions
 
-- ~~**Hex tooling, not hex.pm** — the mini_repo pattern.~~
-  **Revised (v5 §3.1): git for distribution, public hex.pm for public
-  publishing.** Hex's two unique capabilities — retirement signalling
+- **Git for distribution, public hex.pm for public publishing**
+  (v5 §3.1) — not the mini_repo pattern. Hex's two unique
+  capabilities — retirement signalling
   and diamond resolution — are for public code consumed by strangers;
   the single release train designs the diamond away and Catapult's own
   components appear in no advisory database, while third-party deps

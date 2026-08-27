@@ -84,9 +84,10 @@ design gates pass.
   Linear it degrades to validate-or-revert, because Linear applies
   last-write-wins and tells nobody. No plane behavior may depend on
   tracker state it didn't project.
-- ~~**Every comment the plane relies on carries a fixed marker.**~~
-  **Retired for surfaces we own** (v5 §7.17, `docs/ui-spec.md`).
-  Markers existed because an external tracker had nowhere to put
+- **Plane-authored annotations are records with kinds on surfaces we
+  own** (v5 §7.17, `docs/ui-spec.md`); the fixed-marker rule is
+  retired there. Markers existed because an external tracker had
+  nowhere to put
   typed data, so protocol state rode in prose behind a prefix and
   counts and resumes parsed it. Owning the tracker removes the
   premise: **plane-authored annotations are records with kinds**, and
@@ -398,29 +399,20 @@ design gates pass.
   comment, and not filtered out by the author-identity check above —
   not, as the first draft had it, simply "arrived as a review
   comment."
-- ~~**The Fake's forge state lives in `Catapult.Delivery.Store`, not a
-  second process.** Branches, open PRs, posted comments and check runs
-  are exactly the same shape of problem `dispatch_run` already solved:
-  state one test writes and the same test reads back, sandboxed
-  per-test under `mix test`'s async runs. `HostPort.Fake` gains no
-  GenServer identity and no in-memory map for this — new Store-owned
-  Ecto tables carry it, the same persistence substrate every other
-  delivery record already uses, so the fake stays sandbox-safe without
-  inventing a second state mechanism this system would then have to
-  keep consistent with the first.~~ **Corrected (ORC-31, design pass,
-  author review): a per-test supervised process, not a Store table.**
-  The struck claim's precedent doesn't transfer: `delivery_dispatch_runs`
-  is written by the *real* adapter as well as the fake —
-  `HostPort.Actions` opens that record on every live dispatch, because
-  it is production state the plane genuinely keeps — while branches,
-  PRs, comments and check runs have no production writer at all; GitHub
-  holds them, and the real adapter only ever reads them back. New Store
-  tables for those would exist solely for the fake, inside the plane's
-  production schema, with nothing in production ever writing a row. The
-  reason given for refusing an in-memory fake — sandbox safety under
-  `mix test`'s async runs — has an answer that needs no schema: a
-  per-test supervised process, isolated by construction, since no
-  database is involved there is no sandbox to need. `HostPort.Fake`
+- **The Fake's forge state lives in a per-test supervised process, not
+  a Store table** (ORC-31). `dispatch_run` is not the precedent it
+  looks like: `delivery_dispatch_runs` is written by the *real*
+  adapter as well as the fake — `HostPort.Actions` opens that record
+  on every live dispatch, because it is production state the plane
+  genuinely keeps. Branches, PRs, comments and check runs have no
+  production writer at all; GitHub holds them and the real adapter
+  only ever reads them back, so Store tables for those would exist
+  solely for the fake, inside the plane's production schema, with
+  nothing in production ever writing a row. The one thing a Store
+  table would have bought — sandbox safety under `mix test`'s async
+  runs — needs no schema: a per-test process is isolated by
+  construction, and with no database involved there is no sandbox to
+  need. `HostPort.Fake`
   gains a GenServer per test (started and stopped with the test, like
   any other test-owned process in this codebase) holding branches,
   PRs, comments and check runs in memory, keyed to that process — not
@@ -912,20 +904,15 @@ design gates pass.
   moment rather than earlier — nothing exists yet to protect from
   drift before a first artifact lands, so an empty branch parked
   identically to `main` gives the merge-forward machinery nothing to
-  do. ~~**Naming reuses the same composite identity everything else in
-  this doc keys a flow by** (ORC-87): `feature/<project_id>-<flow_id>`,
-  never a bare `flow_id` or a slug drawn from ticket title text, for
-  the identical collision reason `systems/engine.md`'s own ORC-87 entry
-  already gives for every other per-project id this system handles —
-  two independently-authored flows landing on the same human-readable
-  branch name is exactly the bug a caller-supplied slug invites.~~
-  **Corrected (ORC-33, design pass, author review): the id belongs in
-  the name, not as the whole of it.** The struck reasoning is right
-  that a title slug cannot *be* the identity — two independently-
-  authored flows can share a plausible title — but that argues for
-  keeping `flow_id` in the branch name, not for dropping the slug a
-  human could otherwise read: `feature/<slug>-<flow_id>`, id for
-  uniqueness, slug for what a branch list otherwise can't show. The
+  do.
+
+  **The branch name is `feature/<slug>-<flow_id>`** (ORC-33) — the id
+  for uniqueness, the slug for what a branch list otherwise cannot
+  show. A title slug cannot *be* the identity, for the collision
+  reason `systems/engine.md`'s own ORC-87 entry gives for every
+  per-project id this system handles: two independently-authored flows
+  can share a plausible title. That argues for keeping `flow_id` in
+  the name, not for dropping a slug a human could otherwise read. The
   slug is read once, off the flow's own ticket title at `FlowOpened` —
   the same declaration entry-tier already reads (`ticket: {entry:
   <tier>, ...}`, above) — lowercased, non-alphanumeric runs collapsed
@@ -933,9 +920,8 @@ design gates pass.
   branch name, slug included, is read back off the same
   `FeaturePublication` row named below rather than recomputed, so a
   title edited after the fact can't disagree with what GitHub already
-  holds — which is what answers the struck reasoning's own rename
-  worry, using machinery this bullet already has rather than avoiding
-  the slug to dodge it. `FeaturePublisher`
+  holds — which is what answers the rename worry, using machinery this
+  bullet already has rather than avoiding the slug to dodge it. `FeaturePublisher`
   records `branch_name` and `pr_number` on its
   own row the moment both calls succeed (`Catapult.Delivery.Store
   .FeaturePublication`, `delivery_feature_publications`,

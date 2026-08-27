@@ -11,9 +11,8 @@ The LiveView UI. **Screens, functionality and journeys:
 `docs/ui-spec.md`** — that document is the inventory; this one is the
 system and its file map.
 
-~~A debugging surface, not a working surface.~~ **Reversed** (v5
-§7.17, §7.4): owning the tracker makes this the working surface as
-well. It owns the work loop (`my-queue`, `board`, `ticket`,
+**The working surface, not only a debugging one** (v5 §7.17, §7.4):
+owning the tracker is what makes it one. It owns the work loop (`my-queue`, `board`, `ticket`,
 `ticket-graph`), design-gate review at sentence granularity, and —
 unchanged and still the hard part — event-log inspection,
 replay-to-sequence, ready_scopes explain-why ("what is blocking this
@@ -31,10 +30,10 @@ conventions §13).
 
 ## Standing decisions
 
-- ~~**Debugging surface for the work loop, permanently.**~~
-  **Reversed** (v5 §7.17). The temptation this line guarded against
-  is real and did not go away with it, so it has a successor with
-  teeth, in `docs/ui-spec.md` §2: reads are projections and writes
+- **This is the work loop's surface** (v5 §7.17). The temptation the
+  old debugging-surface-only line guarded against is real and did not
+  go away with it, so it has a successor with teeth, in
+  `docs/ui-spec.md` §2: reads are projections and writes
   are commands; **no screen introduces protocol vocabulary**; and
   every screen answers a named question or performs a
   protocol-defined action. The second is the one that will get cited

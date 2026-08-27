@@ -1552,20 +1552,16 @@ checks what a project declares**:
   (conventions, grammars for permission/process-inventory blocks,
   template tiers, external-node declarations, audit grammar) that
   project bundles inherit and overlay. Without it every project forks
-  the convention corpus. ~~The delivery DSL section (§7) also ships
-  from this layer.~~ ~~**Corrected at §7.18:** delivery ships from a
-  platform *workflow* layer, on the other axis.~~ **Corrected again
-  at ORC-105's fourth pass (§7.8, §7.18):** there is no platform
-  *workflow* layer either — delivery's default gates and environments
-  ship as a **template** a project's workflow bundle forks, never a
-  layer any loader composes at runtime. `extends:` itself stays exactly
-  what this bullet describes, but chain-axis only: shipping delivery
-  from the language layer would still tie the workflow vocabulary to
-  one target stack, and the whole point of the chain/workflow split is
-  still that one organization's workflow spans decompositions that
-  differ by stack — that argument survives the correction; only the
-  mechanism it argues against `extends:`-vs-fork, not the two axes
-  themselves.
+  the convention corpus.
+
+  **`extends:` is chain-axis only** (§7.8, §7.18). Delivery ships no
+  layer on the workflow axis: its default gates and environments are a
+  **template** a project's workflow bundle forks, never something a
+  loader composes at runtime. The reason the two axes are separate at
+  all is untouched by that — shipping delivery from the language layer
+  would tie the workflow vocabulary to one target stack, and the point
+  of the split is that one organization's workflow spans decompositions
+  differing by stack.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
   source for shared prompt framing across the six architecture tiers;
   per-tier files for what differs. (Siege's `_shared.py` pattern,
@@ -1867,11 +1863,11 @@ one ticket; **restore/cutover lifecycle states** (§6, §8). The rule
 exists because notification surfaces multiply on convenience, and
 every additional one is a place attention goes to die.
 
-~~**The Catapult LiveView UI is a debugging surface, not a working
-surface.**~~ **Reversed at §7.17; the screens are `docs/ui-spec.md`.**
-The original reasoning was that Linear and GitHub already unify
-comments, states and diffs, so the UI need only explain the machine.
-Owning the tracker removes the first half of that premise, and two
+**The Catapult LiveView UI is the working surface, not only a
+debugging one** (§7.17; the screens are `docs/ui-spec.md`). A UI that
+only explained the machine would be right if Linear and GitHub already
+unified comments, states and diffs. Owning the tracker removes that
+premise, and two
 things turn out to be *better* here rather than merely available: our
 documents diff per sentence rather than per line, and the ticket
 graph under a top-level ticket is a view a general tracker cannot
@@ -3250,22 +3246,11 @@ and is not against a declared one, so it becomes an audit check.
   More writers means more resets, and the constant (§7.13) was chosen
   against a single-writer rate.
 
-**What a passed gate pins — resolved (ORC-115), kept in place for the
-genealogy rather than deleted.** ~~**Resolved (ORC-84, ORC-6).** A
-review is a tier (`reviews: <tier>`, `dsl-syntax.md` §3.3), 1:1
-with the tier it reviews, its `context:` load-time-checked equal to
-the reviewed tier's own. That equality is the pin: a review node
-reads exactly the inputs its reviewed tier does, so §7.11's
-staleness-is-derived machinery already covers it without
-modification — a review node is stale precisely when the tier it
-reviews would be, and nothing separate is ever recorded or compared
-to know that. The original framing below is superseded, not wrong;
-it asked for the gate to "record what it approved," and the answer
-turned out to be that the review tier's own committed content,
-read under the same context walk, already is that record.~~
-**Mis-resolved (ORC-6, corrected).** That answered the wrong
-object. `reviews: <tier>` is the chain axis; this item names the
-declared *workflow* gate this section itself defines above
+**What a passed gate pins — resolved (ORC-115).** A chain-axis review
+tier is not the object in question: `reviews: <tier>` is 1:1 with the
+tier it reviews and its staleness already falls out of §7.11, but this
+item names the declared *workflow* gate this section itself defines
+above
 ("Approval is a status, and review states are declared"). §7.19
 draws exactly this line: a throwback reopening "the two approvals
 before it" names workflow gates, and separately exempts a review
@@ -4141,8 +4126,8 @@ to it at all anymore, rather than merely applying to an unread one.)
   exclusion is **open**: no query language, no unrecorded reads, and
   never on the generation path.
 - Tenancy default-on vs opt-in (§2.9).
-- ~~Dialyzer in the gate set (§2.13)~~ **Settled: the native
-  set-theoretic type checker instead** — in-compiler, so
+- Dialyzer in the gate set (§2.13) — **settled: the native
+  set-theoretic type checker instead**, in-compiler, so
   warnings-as-errors makes it a gate for free; Dialyzer's cost
   bought only overlap.
 - Registry notifications / push-on-release (§3.1) — seam designed,
