@@ -10,7 +10,7 @@ defmodule Catapult.Audit.Check do
   this contract too (`Catapult.Audit.Checks.WallClock`, `.ProcessName`,
   `.SecretInLog`) — hosting them anywhere else would have given
   `catapult:allow` a second implementation one ticket after it got its
-  first (docs/non-goals.md). `Catapult.Audit.Source` is the shared half:
+  first (systems/substrate.md). `Catapult.Audit.Source` is the shared half:
   a check says what a violation *is* and says nothing about reading
   files, honouring escapes or formatting a report.
 

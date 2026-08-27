@@ -71,6 +71,21 @@ seeds release task.
   the only one with a consumer, a boot half, and error messages worth
   their specificity, and `Catapult.Config` keeps them. Absorbing it
   would trade a good report for a uniform one.
+
+  **Two of v5 §2.2's names are outside the roster on purpose, for
+  different reasons** (ORC-22). There is no `docs/0` callback and
+  never will be: `docs/` is a directory whose path derives from the
+  slug (conventions §3), so there is nothing to declare and nothing
+  that can collide, and a callback returning a path the spine already
+  fixes is a derivation written twice — the failure the spine table
+  exists to prevent. `cli/0` is out on a narrower argument, and a
+  priced one: it is `api_surface/0`'s shape with an escript composer
+  instead of a router, and the retrofit cost ORC-22 pays down is the
+  cost of components having already declared their names *somewhere
+  else*. No component can declare a CLI command anywhere today,
+  because there is no escript to declare it to, so nothing shadows it
+  and nothing is deferred except a table row. The escript's arrival
+  is what adds that row.
 - **The address is positional, the policy is opts, and an opt is not
   optional for sitting in a keyword list.** Every entry carrying more
   than a name follows `config/0`'s `{key, name, opts}` grain:
@@ -185,17 +200,15 @@ seeds release task.
   class, because every adapter sends one and a class every entry
   carries separates nothing; what the field classifies is application
   data crossing the boundary in either direction.
-- **`api_surface/0` validates against a trace `defexport` does not yet
-  leave.** The macro composes a telemetry span and nothing else, so
-  nothing in the substrate can currently answer "is this function a
-  boundary export" — which is the whole of §4.4's thin-wrapper
-  enforcement. It grows an accumulating attribute and a generated
-  `__catapult_exports__/0`, in the shape of the
-  `__catapult_component__/0` beside it. The payoff outruns this
-  registry: the audit's
-  every-export-has-a-test check and its exported-mutating-function
-  permission check (v5 §2.14) are both blocked on this same fact, and
-  neither now has to invent it.
+- **`api_surface/0` validates against the trace `defexport` leaves.**
+  A telemetry span alone could not answer "is this function a boundary
+  export", which is the whole of §4.4's thin-wrapper enforcement, so
+  the macro also accumulates `@catapult_exports` and generates
+  `__catapult_exports__/0` from it, in the shape of the
+  `__catapult_component__/0` beside it. One fact, three consumers: the
+  audit's every-export-has-a-test check and its
+  exported-mutating-function permission check (v5 §2.14) read the same
+  trace rather than each inventing one.
 
   **Route identity is the path's shape, not its parameter names.**
   Collisions compare `{version, verb, path}` with every `:param`
@@ -334,6 +347,21 @@ seeds release task.
   for. The accepted cost is that values are not visible from a remote
   console without calling the accessor.
 
+  **Load-once is the rule, not merely the current implementation**
+  (ORC-4). Config is read once, before the root supervisor starts, and
+  does not change until the next boot: no watcher, no reload signal,
+  no swapping a value on a running node. A value that can change under
+  a running process is a value every reader must re-read and no reader
+  may hold — a distributed-systems problem bought in exchange for
+  redeploying, and this platform's deploy model is one environment
+  with autodeploy on green, so the redeploy is the cheap thing here.
+  It is the same boundary the flag machinery is refused at
+  (`docs/non-goals.md`): the cases that actually want live change are
+  kill switches and rollouts, which are named non-goals rather than
+  features waiting on a config watcher. Load-once is also what makes
+  `:persistent_term` correct and what lets the boot report be the only
+  report.
+
   **The store is keyed by slug, not by module** —
   `Catapult.Config.fetch!(:foundation, :health_port)` — settled at
   implementation (ORC-4). The slug is the spine every other claimed
@@ -449,7 +477,7 @@ seeds release task.
   remote is best at, and "unreachable" is exactly the `{:error, _}`
   the file source proved was load-bearing. What a remote cannot do
   through this port is push, and that limitation is not the port's to
-  fix. `docs/non-goals.md` records load-once; the thing actually
+  fix. Load-once is the rule (above); the thing actually
   standing between us and watching is the accessor's contract —
   `:persistent_term`, written once before the supervisor starts, read
   by callers who may hold what they read. A source pushing into a
@@ -1369,27 +1397,19 @@ build work at all.
   `ignore_advisories` entry matching nothing can be removed, so the
   acknowledgement expires by itself. Same property, same reason.
 - **The compile-connected ratchet is a gate line, never a constant the
-  audit reads.** Both halves of §2.14's xref item are stock:
+  audit reads.** Both halves of §2.14's xref item are stock —
   `mix xref graph --label compile-connected --fail-above N` exits 1
-  above the threshold with no code behind it, so an audit check would
-  be a second implementation of a number `mix xref` already computes.
-  The placement is the decision, and this pipeline decides it rather
-  than taste: a cap in `config/*.exs` or in the audit is a cap the
-  agent adding a compile dependency can raise in the same commit that
-  made it necessary, and a ratchet the ratcheting party can turn is not
-  one. In `qualityGates` the number sits in an author-owned file, which
-  makes "raising it is a reviewed change" literally true instead of
-  aspirational.
+  above the threshold with no code behind it — so an audit check here
+  would be a second implementation of a number `mix xref` already
+  computes. Where the number lives, and why nowhere a ticket can reach,
+  is conventions §2's.
 
-  **It arms at zero, today, in both projects** — measured, not
-  estimated: `mix xref graph --format stats` reports 0 compile
-  dependencies at the root and 0 in `components/substrate`, and
-  `--label compile-connected --fail-above 0` exits 0 in each. The
-  strongest cap this metric will ever have is available for the price
-  of a line, and every later value is a concession. That is also why
-  the erosion metric is worth arming before there is erosion to
-  measure: a baseline recorded after the first compile dependency lands
-  is a baseline that already contains it.
+  **Arm it before there is erosion to measure.** A baseline recorded
+  after the first compile dependency lands is a baseline that already
+  contains it, so the strongest cap this metric will ever have is
+  available exactly once, for the price of a line. Measured rather than
+  estimated at the time: `mix xref graph --format stats` reported 0
+  compile dependencies at the root and 0 in `components/substrate`.
 - **The audit reports a missing gate; it never runs one.** Sobelow's
   arming rule is the case that decides this. An audit that shells out
   to another gate swallows that tool's exit code and its output
@@ -1736,174 +1756,154 @@ build work at all.
   over the project default with `Map.merge`, so a boundary declaring
   any `check:` key **replaces** the apps list rather than extending it.
   There are zero such boundaries today, so no check is built for it —
-  building enforcement for a pattern with no subject is what
-  `docs/non-goals.md` refuses in three other places. The revisit
+  building enforcement for a pattern with no subject is what this
+  document refuses in three other places ("What a check may infer"). The revisit
   condition is the first `use Boundary` in this tree carrying a
   `check:` key, which is an AST predicate of exactly the shape
   `Catapult.Audit.Source` already serves.
 
+### What a check may infer (the standing limit)
+
+Every check in `mix catapult.audit` decides on facts a parser can see
+in the file in front of it. Where an honest answer would need the
+value of a variable, the check reports the call it cannot resolve
+rather than guessing, and the residue is stated rather than covered.
+One property is the reason, and it is why all of the rulings below
+came out the same way: **a shallow analysis reported as a guarantee is
+worse than a stated gap.** A check that misses is read as coverage,
+and a run that passed without checking anything is the exact defect
+these checks are filed about.
+
+Five requests for inference have been refused on that rule, recorded
+so the next pass reaching for one finds the answer rather than
+re-deriving it.
+
+- **No taint analysis for secret config values** (ORC-21). v5 §2.2
+  asks that secret-flagged values never appear in logs or error
+  payloads, and the tempting reading follows a value from the accessor
+  to a `Logger` call. A value bound to a variable, put in a map, or
+  passed to a helper is out of reach of any check that is also free of
+  false positives. The wrapper type holds the property everywhere at
+  once — a redacting `Inspect`, an explicit unwrap — and the audit
+  keeps only the exact one-hop residue: an unwrap inside a logging
+  call. If the wrapper is ever found insufficient the answer is a
+  narrower unwrap surface, not a deeper analysis.
+- **No dataflow for a computed config key**, and no reading a dynamic
+  `fetch!/2` as a wildcard (ORC-48). The cheaper alternative is the
+  one worth naming, because it is what the next pass will reach for:
+  treat `fetch!(:foundation, key)` as reading *everything*
+  `:foundation` declares, so nothing false-positives. That is a whole
+  slug's worth of coverage switched off by a call that says so
+  nowhere, in a check whose entire subject is dead declarations — the
+  silence is the defect, not the strictness. Reporting the unjoinable
+  call keeps the run red and names the cause, the same trade as
+  reporting an unparseable file instead of skipping it. A legitimate
+  computed read would be an argument for a second accessor that
+  declares what it may reach, never for the check guessing.
+- **No destination detection on a model call** (ORC-52): nothing reads
+  a URL, a hostname or a provider name out of an HTTP call's
+  arguments. At AST grade the call is `:httpc.request(:post, {url,
+  ...}, [], [])`, and whether `url` reaches a model provider is data —
+  decided at runtime, normally read from configuration. Matching a
+  provider hostname in a literal catches a spelling nobody writes and
+  reports clean on every real instance of the thing the check is named
+  after. What is built instead bans the *transport*: no plane module
+  calls a pure Erlang HTTP client (`systems/foundation.md`), which is
+  decidable, broader than conventions §11, and exact. The destination
+  is not a static fact and no amount of check will make it one.
+- **No catalogue of the ecosystem's HTTP clients** to close the Elixir
+  half (ORC-52). `check: [apps: [...]]` checks the applications it
+  names, so an Elixir HTTP client is unchecked until it is named there
+  — a real residue, carried in `systems/foundation.md`'s own sentence
+  rather than left implied. A check that knows `:tesla`, `:finch`,
+  `:mint`, `:httpoison` and the rest has a coverage list of the world
+  maintained by us, and a failure mode of silence for every client not
+  on it. The existing mechanism is better than the check would be: an
+  Elixir client cannot be called without being a dependency, a
+  dependency is a v5 §2.8 named decision visible in the same diff, and
+  the `check:` line belongs in that diff. This is the one half of
+  §11's enforcement where the thing being added announces itself.
+- **No reader-identity rule on config reads** (ORC-48) — the check
+  does not police *who* reads a key, narrowing ORC-4's own phrasing
+  out loud rather than quietly. Deciding that a call site belongs to a
+  component means a path→component map inside the task, which is the
+  layout knowledge this task refuses at its front door — worse here
+  than in the `components/*` case, because a generated project's spine
+  puts components wherever it likes and the map would be wrong rather
+  than merely absent. The substantive reason stands alone anyway:
+  `Catapult.Config.fetch!/2` takes a slug *precisely* so a reader can
+  name a value it does not own (`Catapult.Repo` reading
+  `:foundation`'s database URL is the tree's own example), and whether
+  a cross-component read is acceptable coupling is a boundary question
+  the boundary compiler already answers. The check keeps the half that
+  is a registry fact: a key nobody declared. Ownership of a *call
+  site* is not a fact the config registry holds.
+
+The same rule decides where an escape may exist, and twice the answer
+has been nowhere.
+
+- **No `catapult:allow` on either direction of the declared↔read
+  check** (ORC-48). `Catapult.Audit.Declarations` already refuses the
+  tag for what it reports — the escape excuses a *line* the parser
+  found, and a dead declaration is the absence of one — but the
+  unjoinable-read direction does name a line, so the exception is
+  refused on its own merits rather than inherited. An allow tag there
+  would silently re-arm the false-dead report the suppression exists
+  to prevent: it quiets one line by making another line lie, and the
+  lying line's advice is *delete this declaration* against a value the
+  boot requires. Both remedies are one line and always available —
+  delete the declaration, or spell the key — which is the condition
+  under which this repo has consistently declined to build an escape.
+  An escape here is a way to keep dead configuration forever, which is
+  the thing being checked.
+- **No exemption list on the boundary-apps check** (ORC-50): no ignore
+  entry, no `catapult:allow`, no per-application waiver. Three kinds
+  of application sit outside the completeness requirement and every
+  one of them is *derived*, so no name is written and none can be
+  spent — `:boundary` itself
+  (`Boundary.Checker.check_external_dep?/3` opens by excluding it),
+  applications contributing no `Elixir.*` modules
+  (`Boundary.Mix.app_modules/1` filters them out, so no list entry
+  could restrain a call into one), and path deps (read off `:path` in
+  the dep options; naming one reproduces ORC-21's defect at twelve
+  forbidden references and a red build, measured). This is the line
+  ORC-16 drew for licenses: nobody imposes a dependency on us, so the
+  fix for an unchecked application is naming it, and a waiver could
+  only ever be spent restoring the fail-open the check exists to
+  close. A fourth exclusion would have to be a fourth *mechanical*
+  fact about what Boundary can restrain, discovered the way these
+  three were, and it would arrive as a derivation rather than a list.
+
 ### The config declared↔read check (ORC-48)
 
-`config/0` was the last registry with no declared↔used fact in the
-audit, while every neighbour has one — errors are declared↔constructed,
-guardrails declared↔applied, telemetry declared↔emitted. ORC-4 deferred
-it on a stated blocker ("both of which want the check registry to grow
-first"); the registry grew two tickets later and nothing re-opened this
-half, so what follows is the design that retires the deferral rather
-than a new proposal.
+`config/0` was the last registry with no declared↔used fact while every
+neighbour had one — errors declared↔constructed, guardrails
+declared↔applied, telemetry declared↔emitted. This check closes it, and
+`Catapult.Audit.Declarations`' own moduledoc carries the design where it
+would be edited: the two directions and why they deliberately take
+different subjects, the in-tree predicate and why the destructive
+direction is what decides it, the suppression rule for an unjoinable
+read, and why no `catapult:allow` is honoured on either side. Two
+things belong here instead.
 
-**Sized honestly, because it is smaller than its neighbours.** One
-direction is already caught, late: `Catapult.Config.fetch!/2` raises on
-an undeclared key, so this moves that from a runtime raise on whichever
-code path production reaches first to a line in CI. The other direction
-is caught nowhere — a declared value nobody reads is dead configuration
-that still fails a boot when its variable is missing, and the operator
-holding that deploy is being stopped by a value the code would not have
-used.
+- **The join is exact where declared↔applied is approximate, and that
+  is a property of the accessor's signature rather than of this
+  check.** `fetch!(slug, key)` names a declaration completely — the
+  slug is the spine every claimed name hangs off and the store is
+  already keyed by it — so the join is on the pair, with none of the
+  name-shaped ambiguity `Guardrails.apply!/2`'s single `name` leaves.
+  It is why this check can afford to be strict about literals where its
+  neighbour cannot, and why the refusals in "What a check may infer"
+  above cost it nothing.
 
-- **The join key is the accessor's own two arguments, so this check is
-  exact where declared↔applied is approximate.** `fetch!(slug, key)`
-  names a declaration completely — the slug is the spine every claimed
-  name hangs off and the store is already keyed by it — so the join is
-  on the pair, and there is no name-shaped ambiguity of the sort
-  `Guardrails.apply!/2`'s single `name` leaves. That is a property of
-  the accessor's signature rather than of this check, and it is worth
-  naming because it is the reason the check can afford to be strict
-  about literals below.
-- **Two directions, one parse of the tree, and — deliberately —
-  different subjects.** *Declared and never read* takes as its subjects
-  only the declarations of components whose own source the audit's scope
-  covers. *Read and never declared* takes as its subjects every
-  `fetch!/2` call in scope, joined against **every** declaration the
-  project composes, in-scope or not.
-
-  The asymmetry is not tidiness, it is the direction this check may not
-  fail in. A component shipped from a package declares its config in a
-  module whose `lib/` is the package's, not the consumer's, so a
-  consumer's audit sweeping its own tree would find no reads for any of
-  them and report every one as dead — with the remedy the message
-  carries being *delete the declaration*, which breaks the boot of every
-  project that adopts it. A check whose advice is destructive on a tree
-  its author never read is the shape `Catapult.Audit.License`'s inert
-  state was designed against, arriving one registry over. Meanwhile the
-  reverse — a call in *this* tree naming a key nothing declares — is
-  joinable with complete information wherever the declaration lives, so
-  that direction keeps the wider subject and loses nothing.
-
-  **The predicate is not a directory name and not a dependency list:**
-  the declaring component's compile-time source (`module_info(:compile)`)
-  either is one of the files `scope` expanded to, or it is not. The scope
-  glob is already this task's only definition of *code this project
-  audits*, so the discriminator is the one fact the task is allowed to
-  hold — the same reason sobelow's predicate is `:phoenix` in the tree
-  rather than `catapult_web` on disk (the missing-gate decision
-  above). Measured on
-  the pinned toolchain rather than assumed: `Catapult.Foundation` reports
-  `<cwd>/lib/catapult/foundation.ex` and the path-dep'd `Catapult.Config`
-  reports `<cwd>/components/substrate/lib/catapult/config.ex`, which
-  `lib/**/*.ex` does not match. The task compiles before it audits, so
-  the recorded path is this run's.
-
-  This is the sibling checks' bug too, and it is fixed there in the same
-  place: `Catapult.Audit.Declarations` sweeps once for all three, and a
-  shipped component's error kinds and guardrails have exactly the same
-  false-dead problem the day one exists. Repairing config alone would
-  leave two checks with a known destructive failure mode and no ticket
-  pointing at them.
-- **A read the join cannot resolve is a problem in its own right, and
-  suppresses only what it makes unknowable.** `fetch!/2` reached with a
-  non-literal slug or key is reported at its call site. The alternative
-  is worse than it looks: ignoring it silently makes the other direction
-  report a live declaration as dead, and *that* message tells the reader
-  to delete a value the boot requires — one wrong line printed with the
-  same confidence as the right ones. So the unjoinable call is what the
-  report names, and while it stands the declarations it could have been
-  reading are not also reported dead: a non-literal key suppresses that
-  slug, a non-literal slug suppresses the direction. Suppression costs
-  no coverage, because the run is already red on the call site; what it
-  buys is that the audit prints one line per cause, and never advice
-  that would break a boot.
-
-  Implementation found a third thing that makes a read unknowable and
-  the same argument settles it: **a file in scope that does not parse
-  suppresses the dead direction, and reports nothing of its own.** Its
-  reads cannot be seen, so every declaration is a candidate false dead;
-  and the line is already owed by somebody else — the file-scoped checks
-  sweeping the identical scope report an unparseable file by contract
-  (`Catapult.Audit.Source`), so the run is red and the cause is named
-  exactly once. The task compiles before it audits, which is what makes
-  this unreachable in practice rather than merely survivable.
-
-  Neither this nor the dead direction takes `catapult:allow`, for
-  `Declarations`' standing reason and one more: an escape on an
-  unjoinable read would silently re-arm exactly the false-dead report
-  the suppression exists to prevent, so the tag would fix one line by
-  corrupting another. A declaration nobody reads is deleted and a
-  computed key is spelled; both remedies are one line and always
-  available.
-- **The check does not police *who* reads.** ORC-4's sentence says "a
-  component reading a key it did not declare", and this narrows it to
-  *a key nobody declared*, out loud, because the strict reading needs a
-  path→component map and this task may never hold one — the audit
-  learning which files belong to which component is the layout knowledge
-  the gate-set decision refuses at the task's front door. It is also the
-  right narrowing on the merits: `fetch!/2` takes a slug precisely so a
-  reader can name a value it does not own, `Catapult.Repo` is the tree's
-  own example, and whether that coupling is acceptable is a boundary
-  question the boundary compiler is the organ for.
-- **What each direction may name.** The read directions name a location
-  and spell it `path:line: message`, which is the contract every check
-  with a line owes its Credo wrapper. The dead direction names no
-  location — it reports an absence, exactly as its two siblings do — and
-  names the component, the key and **the env var**, because removing the
-  variable from the deploy environment is the other half of the remedy
-  and the variable is what an operator greps. Naming a variable is not
-  naming a value: `Catapult.Config`'s rule that no report ever quotes
-  what it rejected is untouched, and this report has no access to a
-  value at all.
-- **The runtime raise stays where it is.** `fetch!/2` keeps raising on
-  an undeclared key. CI covers `lib/**/*.ex`; a release task, a test, an
-  `iex` session and any dynamically-reached call are outside it, and an
-  accessor whose contract depended on a gate having run would be
-  correct only in the tree that ran it.
-- **Scope is the audit's `lib/**/*.ex`, so a value read only by tests is
-  dead.** That is the answer rather than an oversight: config exists for
-  the running application, and a declaration whose only reader is a test
-  is a variable every deploy must set for a value production never
-  consults. Widening the glob to cover `test/` would make exactly that
-  case report clean.
-- **The audit task loses its empty-components short circuit, and config
-  is why** (found in implementation). `declaration_problems/1` returned
-  early when a project composed nothing, which was free while both
-  checks took a registry as their subject. The read direction does not:
-  a project that composes nothing declares nothing, so a `fetch!/2` call
-  in its tree is a read *nothing* can explain — the one case where an
-  empty registry makes the report more interesting rather than less. The
-  saving stays where it belongs, on the two checks that skip their own
-  sweep when their entries are empty.
 - **`config/0` gets no census line.** The census exists because most of
-  the roster consumes nothing and an unconsumed registry rots quietly;
-  `config/0` is the registry that never had that problem — it is the one
-  with a consumer, a boot half and its own report — and from this ticket
-  a dead entry is a red build rather than a number nobody reads. A
-  second inventory surface for the one registry outside the roster table
-  would be the count restating what the check already asserts.
-- **The one hole is a renamed alias, and it announces itself.** Reads
-  are matched as qualified calls whose module's last segment is
-  `Config` — in both spellings, because the piped
-  `:engine |> Config.fetch!(:key)` is the same call reaching the parser
-  at a different arity, and leaving that unmatched would have been a
-  second hole of a worse kind (found in implementation: an arity-shaped
-  miss makes a *live* declaration report dead, and credo's SinglePipe is
-  tagged controversial, so nothing else in the gate set forbids the
-  spelling). What stays is the alias: `alias Catapult.Config, as: Cfg`
-  hides a read — a limit `Catapult.Audit.Source.alias?/2` imposes on
-  every check in the family, not a new one. Here it is the benign case, and uniquely so: hiding a
-  read does not hide a violation, it makes the declaration that read
-  serves report as dead, so the check's other direction is what surfaces
-  it. A ban that goes quiet when someone renames an alias is the failure
-  this repo cares about; a check that goes *loud* on the wrong line is a
-  bad afternoon with a correct ending.
+  the roster consumes nothing and an unconsumed registry rots quietly.
+  `config/0` is the one registry that never had that problem — it has a
+  consumer, a boot half and its own report — and from this check a dead
+  entry is a red build rather than a number nobody reads. A second
+  inventory surface here would be a count restating what the check
+  already asserts.
+
 ## Initial vs target
 
 Initial (Phase 1): behaviour + registries, export macro

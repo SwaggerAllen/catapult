@@ -27,7 +27,7 @@ defmodule Catapult.Audit.License do
 
   What neither of them is, is a path. A task that walked `components/*`
   would know where one repository keeps its components while shipping
-  into customer trees where that glob means nothing (docs/non-goals.md).
+  into customer trees where that glob means nothing (LICENSING.md).
 
   ## Arming and standard are two facts
 

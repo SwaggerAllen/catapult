@@ -313,161 +313,44 @@ them.
   reason (each must run exactly once, not once per node) instead of
   each defending a different number. Registered via `processes/0`
   like any other named process.
-- **Every table in the engine store keys by `(project_id, id)`, not
-  `id` alone** — a decision this ticket settles rather than hands
-  back, because `ReadyScopes.ready(chain, project_id, tier)` is the
-  first thing to query `engine_nodes` *by project*, and the answer
-  changes which index shape is even correct. ORC-6's migration fixed
-  the id column's *type* at `:string` rather than `:binary_id`
-  deliberately, to leave the id *scheme* open ("a deterministic,
-  content-addressed slug is an equally legal id") — but it fixed the
-  *primary key* to `id` alone in the same migration, which only one of
-  the two legal schemes actually supports. A caller-supplied string
-  being unique across every project the plane will ever build is not a
-  constraint anyone picks on purpose; `scope_key` and `handle` are
-  already how a node is addressed *within* a project
-  (`dsl-syntax.md` §3), and nothing about the command edge or a
-  bundle's own vocabulary promises more than that. The evidence
-  agrees: four `async: true` test modules deadlocked on shared bare
-  ids (`"sysarch"`, `"comp1"`, `"n1"`) before this pass, on nothing
-  more than ordinary human-readable names two authors independently
-  reached for; the fix that landed (per-module id prefixing) makes the
-  suite pass without saying whether two real projects can collide the
-  same way, because it works around the schema rather than correcting
-  it.
-
-  So the key moves to `(project_id, id)`, and `engine_nodes
-  .parent_node_id`'s self-reference becomes a composite foreign key
-  against the same pair. The same shape recurs on every sibling table
-  this migration created (`engine_edges`, `engine_fragments`,
-  `engine_drafts`, `engine_reviews`, `engine_flows`,
-  `engine_active_bundle_versions`): each keys by a caller-supplied
-  `id` alone today (an edge's `"fulfills|comp|resp"`, a draft's
-  `"draft-comp1-1"`, a bundle flip's `event.flip_id`), built the same
-  way from the same project-scoped vocabulary, so each carries the
-  identical collision risk whether or not a test has tripped over it
-  yet. `engine_edges`, `engine_fragments`, `engine_drafts` and
-  `engine_flows` each hold a `references(:engine_nodes, ...)` on a
-  single column (source/target, owner/author, node_id, entry_node_id);
-  `engine_reviews` holds one on `engine_drafts.id` instead. Every one
-  of those stops being a legal foreign key the moment the table it
-  points at gains a key column — so a fix confined to `engine_nodes`
-  alone does not migrate cleanly: it composite-keys the whole store in
-  one migration, or the foreign keys don't resolve. This is not a
-  broadening of this ticket's scope: `priv/repo/migrations/**` is
-  already this doc's mapped path (ORC-6) and every one of these
-  tables is already this ticket's file to touch — it is what
-  "composite key" turns out to mean once the foreign keys are followed
-  to their source. Writing the migration and updating every call site
-  that reads a node by id alone (`Store.get_node/1` included) is
-  dev's, as with every decision in this doc; this pass settles the
-  shape, not the diff.
-
-  **Confirmed (ORC-87): the id is a per-project slug, not globally
-  unique by construction.** The alternative was still live going into
-  this ticket — ORC-6 fixed the id column's type at `:string`
-  specifically to leave either scheme legal, and no command edge has
-  landed yet to mint one over the other. Nothing since has weakened
-  the case above, and the evidence sharpens it: the deadlock this
-  pass was filed about was not a test artifact but ordinary bundle
-  authoring — two independently-written test modules each reaching
-  for `"sysarch"`, `"comp1"`, `"n1"` on nothing more than a plausible
-  name, exactly as a bundle's own tier/scope vocabulary would.
+- **A node id is a per-project slug, not globally unique** (ORC-87).
+  ORC-6 fixed the id column's *type* at `:string` rather than
+  `:binary_id` deliberately, to leave the scheme open — but fixed the
+  primary key to `id` alone in the same migration, which only one of
+  the two legal schemes supports. This settles it the other way.
   `scope_key` and `handle` are already how a node is addressed
-  *within* a project (`dsl-syntax.md` §3); a globally-unique scheme
-  would have to either reopen the UUID door ORC-6 deliberately left
-  shut, for no gain the DSL asks for, or lean on bundle authors to
-  hand-prefix every id with the project — a convention nothing
-  enforces, and the evidence above is two authors already not
-  following it by default. Per-project slugs, kept.
+  *within* a project (`dsl-syntax.md` §3), and neither the command
+  edge nor a bundle's own vocabulary promises more than that. A
+  caller-supplied string unique across every project the plane will
+  ever build is not a constraint anyone picks on purpose, and both
+  alternatives are worse: reopen the UUID door ORC-6 deliberately shut
+  for no gain the DSL asks for, or lean on bundle authors to
+  hand-prefix every id with its project — a convention nothing
+  enforces.
 
-  **Composite primary keys are necessary and not sufficient — a
-  second class of key, not the primary key, is not project-scoped
-  either, and the migration above does not touch it.** `engine_edges`
-  carries its own idempotency key distinct from its primary key: the
-  unique index `(edge_name, source_node_id, target_node_id)` that
-  `Store.insert_edge/1` upserts against
-  (`conflict_target: [:edge_name, :source_node_id, :target_node_id]`),
-  there so a replayed `produces:` edge lands the same row rather than
-  a duplicate. It carries no `project_id` column. Two projects each
-  declaring an edge under the same name between two identically
-  spelled node ids — plausible now, since ids are project-scoped
-  slugs rather than globally unique ones — collide on this index:
-  project B's edge is either rejected on the unique constraint, or,
-  since the upsert is `on_conflict: :nothing`, silently dropped as an
-  apparent replay of project A's, leaving project B's graph missing an
-  edge with no error anywhere. This index becomes `(project_id,
-  edge_name, source_node_id, target_node_id)` in the same migration
-  that composite-keys the table. `engine_fragments` needs no
-  equivalent fix: it carries no separate unique index today —
-  `Store.insert_fragment/1` upserts on its own `id`
-  (`conflict_target: :id`, built the same `owner_node_id|kind
-  |author_node_id` way an edge's id is built from
-  `edge_name|source|target`) — so folding `project_id` into that same
-  column's primary key, which the migration above already does for
-  every table, closes this table's gap for free; there is no second
-  index here to widen.
+  **The evidence is that authors already do not follow it.** Test
+  modules deadlocked on shared bare ids — `"sysarch"`, `"comp1"`,
+  `"n1"` — before this pass, independently written and each reaching
+  for the same plausible name, exactly as a bundle's own tier and
+  scope vocabulary would. That is ordinary authoring rather than a
+  test artifact, which is why per-module id prefixing was the wrong
+  fix: it makes the suite pass without saying whether two real
+  projects can collide the same way.
 
-  **`engine_drafts` carries the same class of second key, and this
-  audit's first pass missed it** — corrected here rather than left to
-  stand: `engine_drafts_one_pending_per_node` is a partial unique
-  index on bare `node_id` (`where: status = 'pending'`), enforcing "at
-  most one pending draft per node" project-globally rather than per
-  project, the identical shape to the `engine_edges` gap above. Two
-  projects each minting a node with the same id, each calling
-  `Store.insert_draft/1` to open a pending draft for it: the first
-  succeeds, the second raises `Ecto.ConstraintError` on this index,
-  unhandled — worse than the `engine_edges` case, because
-  `insert_draft/1`'s `on_conflict: :nothing` names
-  `conflict_target: [:project_id, :id]` as its arbiter, which
-  suppresses conflict on the primary key alone and does nothing for a
-  separate unique index the same insert also violates. Widened to
-  `(project_id, node_id)` in the same migration, same shape as the
-  edges fix. The audit that closes this section is per-table, not
-  per-index: every non-project-scoped unique index has to be found,
-  and `engine_edges` and `engine_fragments` being checked first did
-  not mean the remaining five tables carried none — `engine_drafts`
-  did.
+- **Every engine table keys by `(project_id, id)` — and so does every
+  *secondary* unique index on it, which is the half that does not
+  follow from the first.** A natural key like `engine_edges`'
+  `(edge_name, source_node_id, target_node_id)` gains nothing from the
+  primary key widening, and `Repo.insert!`'s `on_conflict: :nothing`
+  names exactly one arbiter: a *different* unique index the same
+  insert violates either raises, or drops the row as an apparent
+  replay and leaves a graph silently missing an edge. The failure mode
+  is silence by construction, so a new table in this store carries the
+  obligation whether or not a test has tripped over it yet.
+  `priv/repo/migrations/20260820000003_key_engine_store_by_project.exs`
+  carries the per-table mechanics and that arbiter subtlety in full,
+  at the point either would be edited.
 
-  **The call sites this migration strands, and the shape of their
-  fix.** This ticket's own list — `Store.get_node/1`,
-  `Store.edges_from/2`, `Store.approve_node/1`,
-  `ContextResolver.landings/2`, `PredicateEvaluator.walk/2` and
-  `.bfs/4` — is not quite complete: `ContextResolver.parent_of/1`,
-  `Store.edges_to/2`, `Store.edges_from/1` (the unrestricted-reaches
-  arity) and `PredicateEvaluator.outgoing/2` read `engine_nodes` or
-  `engine_edges` by bare id the same way and are strung through the
-  same callers, so the fix is one shape applied consistently rather
-  than a list to work through case by case. None of it is a fresh
-  design question: every caller already holds a `project_id` in
-  scope — the reducer's `event.project_id` on every branch
-  (`DraftApproved` included), and every `ContextResolver`/
-  `PredicateEvaluator` entry point anchored on a `Node.t()` that
-  already carries its own `project_id`. So: thread the caller's
-  already-available `project_id` into each `Store` function above and
-  scope its query by it — no new lookup, nothing that isn't already
-  sitting in the caller's hand — and update `engine_edges`'
-  `conflict_target` to match the widened index. Dev's, per this doc's
-  standing practice; recorded here so the shape is settled before the
-  diff, not discovered mid-diff. (`lib/catapult/engine.ex`, the
-  component root, calls none of this directly and needs no change for
-  this fix — checked, not assumed, since that file sits outside this
-  doc's own path glob and outside `systems/README.md`'s unowned list,
-  a gap this ticket flagged without closing.)
-
-  **Retire the per-module test id namespacing once this lands.** The
-  `@ns`/`nid/1` prefixing in `context_resolver_test.exs`,
-  `ready_scopes_test.exs`, `staleness_test.exs` and
-  `reducer_test.exs` — added to stop an `async: true` cross-module
-  deadlock on shared bare ids — exists only because ids collide
-  across modules standing in for projects the same way two real
-  projects would collide. A composite `(project_id, id)` key (and,
-  for `engine_edges`, the widened unique index above) makes two test
-  modules' identical bare ids exactly as safe as two projects' would
-  be, which is the property this whole entry exists to guarantee, so
-  the workaround has no remaining reason to exist. Dev's diff removes
-  it in the same change: a workaround left standing after its cause
-  is fixed reads as a rule to the next author, not as history.
 - **Purity floors are absolute in this system**: no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
   inject at the command edge. Enforced by the substrate's call-graph

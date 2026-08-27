@@ -22,14 +22,20 @@ defmodule Catapult.Generation.ContextAssembly do
   `Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2`
   and `prior_review` is `Catapult.Engine.Store.reviews_for_node/2`.
   Both are left out of the variables map entirely — never set to `[]`
-  or an empty map — where nothing has been posted or reviewed yet, so
-  Solid's own unset-is-empty behavior is what a template's `{% if
-  feedback %}` sees, literally unset rather than present-but-empty:
-  Liquid's own truthiness treats an empty list as truthy (only `nil`
-  and `false` are falsy), so a `feedback` key that was always present
-  would make every shipped prompt's own `{% if feedback %}` guard
-  (`bundles/default/prompts/{vocab,ref,subcomparch,sysarch,comparch}
-  .md.liquid`) fire on every render, feedback or none.
+  or an empty map — where nothing has been posted or reviewed yet. The
+  omission is the contract: absent means nothing was posted, which is
+  the honest shape and the one this module guarantees.
+
+  It is deliberately not the only thing holding the line, because
+  Liquid's truthiness would punish it. Only `nil` and `false` are
+  falsy there, so an empty list is **truthy** and a bare
+  `{% if feedback %}` would fire on every render the moment any caller
+  set `[]` instead of omitting. The six shipped prompts that gate a
+  revision section therefore guard on `feedback.size > 0` rather than
+  on bare truthiness (ORC-134), which is correct under either shape.
+  Keep both halves: this module and `bundles/**` are edited by
+  different passes, and a guard that only works because of a promise
+  made in another tree is one refactor away from silently opening.
   """
 
   alias Catapult.Delivery
@@ -125,9 +131,8 @@ defmodule Catapult.Generation.ContextAssembly do
   # variables are always string-keyed (`render_node/2`'s own "id"/
   # "fragments" below), so this is where the two conventions meet. The
   # key is left out of `variables` entirely on `[]` rather than set to
-  # an empty list — see this module's own moduledoc for why an always-
-  # present `feedback` would misrender every shipped prompt's own
-  # `{% if feedback %}` guard.
+  # an empty list — the moduledoc has why, and why the templates guard
+  # on `feedback.size > 0` instead of trusting that omission.
   defp feedback_variable(variables, project_id, %Node{id: node_id}) do
     case CommentFeedback.since_last_resolution(project_id, node_id) do
       [] ->

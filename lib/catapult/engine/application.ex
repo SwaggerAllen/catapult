@@ -12,7 +12,7 @@ defmodule Catapult.Engine.Application do
   time*, which is a genuine compile-time dependency on the router —
   the root project's `mix xref graph --label compile-connected
   --fail-above 0` gate (conventions §2, ORC-21/ORC-49) is armed at
-  zero and cannot be raised by a ticket (`docs/non-goals.md`).
+  zero and cannot be raised by a ticket.
   `Catapult.Engine.Router` names this application directly
   (`use Commanded.Commands.Router, application: __MODULE__` there) and
   is dispatched through on its own — `Catapult.Engine.Router

@@ -241,7 +241,7 @@ documentation**, delivered by Catapult, running on DOKS.
   ported prompts meet the Polyphony seed).
 - Orchestration finish-line inventory (Phase 2) — enumerate against
   its PLAN.md when hookup starts.
-- ~~Where Catapult's reference instance deploys~~ **Settled: DO App
+- Where Catapult's reference instance deploys — **settled: DO App
   Platform.** DOKS was blessed for *generated projects* (v5 §2.5);
   Catapult is not a Catapult project — its plane is IO-bound
   coordination (agent compute lives on runners), needs no

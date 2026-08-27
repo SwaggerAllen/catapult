@@ -938,7 +938,7 @@ Added with sub-arrays (§15.10, ORC-115):
   queue-shaped anchor keeps its existing, ungrouped position whatever
   type declares it;
 - **`throwback:`'s own load-time check is unaffected by sub-array
-  membership** (third design review, below): whether the citing status
+  membership**: whether the citing status
   sits inside a sub-array or not, a declared `throwback:` need only be
   earlier in the citing type's own array — sub-array membership is not
   itself a bound, only a source of the derived default the field may
@@ -1265,15 +1265,14 @@ Everything else — which file a declaration lived in, and whether its
 array was a registered set or a fixed sequence — was the three-shape
 split talking to itself, and none of it survives as a rule to check.
 
-**Gates and environments widen onto every type, whatever `skeleton:`
-it declares or omits — a fifth-pass reversal of the fourth pass's own
-restriction.** The fourth pass's reasoning — "all review happens at
-lower levels" (§15.1) is true of the outermost scope, so a project's
-array should carry `status:` entries only — mistook an argument for
-why a project needs no *re-resolution anchor* for an argument about
-what its array may *contain*; those are different claims, and the
-governing rule at the top of this section is stated only in terms of
-ticket versus container and never mentions the project either way. A
+**Gates and environments are legal on every type, whatever
+`skeleton:` it declares or omits.** The argument for restricting a
+project's array to `status:` entries — "all review happens at lower
+levels" (§15.1) — is true of the outermost scope, but it is an
+argument for why a project needs no *re-resolution anchor*, not one
+about what its array may *contain*. Those are different claims, and
+the governing rule at the top of this section is stated only in terms
+of ticket versus container, never mentioning the project either way. A
 human sign-off between `build-out` and `iteration` (the milestone
 example above) is not a strange thing for a project to want, so it is
 admitted rather than refused on a premise that was never actually
@@ -1397,8 +1396,7 @@ carry `ticket_types: [feature]`; that fact is now which types' own
 `statuses:` arrays cite it, and there is exactly one place it lives —
 the citing type, not the gate.
 
-**`throwback:` survives, narrowed to a single target (ORC-115, third
-design review).**
+**`throwback:` is a single optional target (ORC-115).**
 
 ```yaml
 # gates/ux-review.yaml
@@ -1792,9 +1790,8 @@ lives in the parent's own file, the newly minted instance's `setup`
 entry lives in the child's — so there was never a "before `setup`"
 position to invent in the first place.
 
-**There are two ways a container's position moves backward, not one —
-an earlier draft claimed the narrower rule on a premise this same
-ticket's own fifth pass reversed.** The first, and the one that needs
+**There are two ways a container's position moves backward, not
+one.** The first, and the one that needs
 no gate at all: §15.7's queue is a query — the unresolved work items
 assigned to it — so a resolved queue un-resolves the moment its
 population refills, with no separate "container went backward" event
@@ -1844,18 +1841,19 @@ to an already-declared type, the identical shape `catapult.yaml`'s own
 declarable root the plane starts from, adding no new declarable fact
 about the automation graph itself. The `singleton:` correction changes
 what a lifetime bound means and what the dispatcher does about it, not
-what a bundle may declare: the field existed at the fifth pass, and
-this pass fixes its semantics rather than widening its surface.
+what a bundle may declare: it fixes the field's semantics rather than
+widening its surface.
 
 ### 15.10 Sub-arrays — grouping a gate around its own agent step
 
 **A `statuses:` array entry may itself be an array — a bare, unnamed
 sub-array grouping a contiguous run of the entries §15.2 already
-allows anywhere in the array** (ORC-115, design pass; `docs/non-goals
-.md`'s "No per-project restructuring of the automation protocol" entry
-gains a paragraph recording why this does not extend it further, the
-same conclusion the fourth ORC-105 pass reached for array position
-itself, §15.9 — see below). Nothing new is declarable inside one: an entry inside a
+allows anywhere in the array** (ORC-115, design pass). Grouping is
+admissible under `docs/non-goals.md`'s "No per-project restructuring
+of the automation protocol" for that entry's own stated rule — no
+plane logic branches on whether entries are grouped, any more than it
+branches on where in the array one sits (§15.9). Nothing new is
+declarable inside one: an entry inside a
 sub-array is still exactly one of `status:`, `review:` or
 `environment:` (§13's existing rule, unchanged), and a sub-array
 carries no key of its own — no `name:`, no `id:`, nothing a later
@@ -1943,59 +1941,39 @@ first-element one, since `types/feature.yaml`'s own group
 its first entry. The rule ships correct but unexercised by the shipped
 bundle until the milestone retirement lands.
 
-**Second design review: the declared list never bounded anything.**
-The pass this section originally shipped held
-`throwback:` unaffected in reach — a declared, non-empty list stays
-the only legal decline targets, and the derivation only fills the
-*empty*-list gap. That reading rested on a specific factual claim, and
-the claim is false: `lib/catapult/engine/commands/decline_gate.ex`'s
-own moduledoc states plainly that `gate`/`throwback_to` membership "is
-the command edge's to check... not the aggregate's," and the command
-edge is dev's unbuilt LiveView (`systems/delivery.md`'s Phase 7). There
-is no shipped enforcement of a declared allow-list to preserve, so the
-question is an ordinary design decision, not a fact this pass could
-get right or wrong by reading code. **The author's decision, recorded
-here: a human may move a ticket anywhere that would not break the
-pipeline, and the only thing that breaks is tier ordering — a
-decline's target is bounded by "an earlier status in this ticket's
-effective sequence," the identical rule `docs/v5-design-decisions.md`
-§7.19 already gives Blocked-return, and nothing narrower.** This is
-not a new check invented for the occasion: `Catapult.Dsl.Workflow
-.gate_throwback_problems/2` already computes exactly this — `target in
-(type.statuses |> Enum.take(index))` — for a *declared* `throwback:`
-value at load time. The decision generalizes the bound already shipped
-there to every runtime pick, declared or not: one predicate, in one
-place, instead of a load-time check and a separate runtime allow-list
-that happened to agree.
+**A decline's legal targets are "earlier in this ticket's effective
+sequence", never a per-gate declared list.** This is §7.19's rule for
+Blocked-return, and the two entry points share it: a throwback from a
+review and an unblock to an earlier status differ only in their
+*default*, not in what is reachable.
 
-**Third design review: `throwback:` keeps its second job — naming a
-landing point — and narrows from a list to a single target, rather
-than retiring.** The pass immediately above retired the field outright
-on the reasoning that a declared list served exactly one purpose
-(bounding legality) and that purpose was gone. The premise is right and
-the conclusion overreaches: `throwback:` did two jobs, not one.
-Bounding legality is the job that is gone, and stays gone — every
-target the field could ever name is, by construction, earlier in the
-array, which is now legal regardless of declaration. But the field
-also *named where a decline lands*, and that job is untouched by the
-widening: it is exactly what an escape hatch is for. The derivation
-above supplies a *default* landing point — the citing sub-array's own
-non-critique agent step — and `throwback:` is what a gate declares
-instead of that default, for the gate that wants a different one.
+A declared list never bounded anything, and that is a fact about the
+tree rather than a decision taken here.
+`lib/catapult/engine/commands/decline_gate.ex`'s own moduledoc states
+that `gate`/`throwback_to` membership "is the command edge's to
+check... not the aggregate's", and that command edge is unbuilt
+(`systems/delivery.md`'s Phase 7). There was never any shipped
+enforcement of a declared allow-list to preserve. Nor is the
+replacement bound invented for the occasion:
+`Catapult.Dsl.Workflow.gate_throwback_problems/2` already computes
+exactly it — `target in (type.statuses |> Enum.take(index))` — for a
+declared value at load time. One predicate, in one place, instead of a
+load-time check and a runtime allow-list that happened to agree.
+
+**`throwback:` survives as a single-target override on the default
+landing point.** Bounding legality is the job it no longer has;
+naming *where a decline lands* is the job it keeps, and that is what
+an escape hatch is for. The derivation above supplies the default —
+the citing sub-array's own non-critique agent step — and `throwback:`
+is what a gate declares instead of it.
 
 A list stops meaning anything the moment it stops bounding: naming
-several targets said "any of these is a legal exit," a claim about
-legality. A landing point is not a set — a decline lands on exactly one
-status — so the field narrows to a single optional target rather than
-disappearing. `Catapult.Dsl.Gate`'s `throwback: [String.t()]` narrows
-to `throwback: String.t() | nil`, and `Catapult.Dsl.Workflow
-.gate_throwback_problems/2`'s `for target <- gate.throwback` narrows to
-one membership check against the same "earlier in the citing type's
-own array" bound it already computes — dev's diff against this record,
-not this pass's to make. `docs/v5-design-decisions.md` §4.5's
-escape-hatch discipline — "an escape hatch that accretes special cases
-becomes N more mechanisms" — is why the field stops at *one* override
-rather than growing back into per-target routing: a single explicit
+several targets said "any of these is a legal exit", a claim about
+legality. A landing point is not a set, since a decline lands on
+exactly one status, so the field is a single optional target rather
+than a list. `docs/v5-design-decisions.md` §4.5's escape-hatch
+discipline — "an escape hatch that accretes special cases becomes N
+more mechanisms" — is why it stops at one override: a single explicit
 status, no per-use kinds, no second derivation rule beside the
 sub-array default.
 
@@ -2070,10 +2048,9 @@ node to pin against, where before there was none.
 unblock to an earlier status are the same movement" was written about
 reopen scope, and that reading is correct and unchanged — "both reopen
 everything downstream" is the entire content of "the same movement."
-But the two entry points also share what counts as a legal target,
-which the section's first pass got wrong by trusting a shipped-
-behavior claim that did not hold (above: `DeclineGate` enforces no such
-list; the command edge that would does not exist yet). A gate's
+The two entry points also share what counts as a legal target, for
+the reason given above: `DeclineGate` enforces no declared list, and
+the command edge that would is unbuilt. A gate's
 decline and a Blocked-return both resolve against the identical
 "earlier in the effective sequence" test; they differ only in their
 *default* — a throwback's one-click default is the citing sub-array's

@@ -72,7 +72,8 @@ defmodule Catapult.Audit.Declarations do
   escape excuses a *line* the parser found, and what these report is the
   absence of one. A declaration nobody uses is deleted, not excused. The
   config check's read direction does name a line and still declines the
-  tag, for a reason of its own (`config/2`, docs/non-goals.md).
+  tag, for a reason of its own (`config/2`; systems/substrate.md,
+  "What a check may infer").
 
   ## A declaration is only dead in the tree that declares it
 
@@ -168,7 +169,7 @@ defmodule Catapult.Audit.Declarations do
   declared*, because deciding that a call site belongs to a component
   needs a path→component map the audit may never hold, and because
   `fetch!/2` takes a slug precisely so a reader can name a value it does
-  not own (docs/non-goals.md).
+  not own (systems/substrate.md, "What a check may infer").
 
   The runtime raise stays where it is: `fetch!/2` still raises on an
   undeclared key, because this scope is `lib/**/*.ex` and a release
@@ -205,7 +206,8 @@ defmodule Catapult.Audit.Declarations do
   a comment. Fenced rather than a bare list because the alternative is
   parsing the surrounding document loosely, and a check that guesses at
   prose is a check whose author's guess is the specification — the
-  antipattern `docs/non-goals.md` names for theme tokens. Fenced rather
+  antipattern this repo refuses wherever a check would have to guess.
+  Fenced rather
   than an HTML comment because the block should be *visible*: it lands
   in a document somebody follows while standing up an instance, and a
   checklist they cannot see is a second place to forget.
@@ -442,14 +444,14 @@ defmodule Catapult.Audit.Declarations do
   defp call_problem(slug, _key, _declared) when is_atom(slug) do
     [
       "Catapult.Config.fetch!/2 reads #{inspect(slug)} under a computed key, which no " <>
-        "declaration can be joined to (spell the key; docs/non-goals.md)"
+        "declaration can be joined to (spell the key)"
     ]
   end
 
   defp call_problem(_slug, _key, _declared) do
     [
       "Catapult.Config.fetch!/2 is called with a computed slug, which no declaration can be " <>
-        "joined to (spell the slug; docs/non-goals.md)"
+        "joined to (spell the slug)"
     ]
   end
 

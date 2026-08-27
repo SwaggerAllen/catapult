@@ -15,5 +15,5 @@
 
 This document exists to force the `non_goals` input role to have real
 content, per ORC-10's scope — it is read as raft evidence, not
-asserted to shape any generated tier's output (`docs/non-goals.md`'s
+asserted to shape any generated tier's output (`systems/generation.md`'s
 ORC-10 entry: `input.<role>` resolution is Phase 4).

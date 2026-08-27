@@ -32,14 +32,12 @@ about them costs a redraw and not a release.
 
 ## 1. Why this document exists
 
-`docs/non-goals.md` used to hold **no dashboard-as-working-surface**,
-and its stated purpose was to be pointed at: "a pipeline this deep
-will generate constant temptation to grow a working UI here; this
-line exists to be pointed at." Owning the tracker reversed the entry
-but did not retire the temptation, and the entry said so — the
-warning "wants a successor rule once the screen inventory exists."
-
-This is that inventory, and §2 is that rule.
+A pipeline this deep generates constant temptation to grow a working
+UI, and owning the tracker is what made that temptation reachable
+rather than theoretical: the dashboard is now a working surface, so
+the line that used to be "there is no working surface" has to be
+replaced by a rule about what one may contain. This document is the
+screen inventory; §2 is that rule.
 
 ## 2. The three rules that bound this UI
 

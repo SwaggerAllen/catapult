@@ -69,7 +69,7 @@ defmodule Catapult.Component do
   Both opts are required and there is no default class. A default would
   make every project's audit print a policy verdict nobody asserted,
   which is the shape `mix catapult.audit`'s license check exists to
-  remove from the ladder (docs/non-goals.md); the pair also cannot be
+  remove from the ladder (LICENSING.md); the pair also cannot be
   half-defaulted, since there is no license a component "probably"
   carries. An undeclared component is reported by the audit alongside
   every other structural absence — never at compile time, because the

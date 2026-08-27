@@ -133,7 +133,7 @@ it. The compile-connected line is v5 §2.14's second half (ORC-21); the
 number's home is `pipeline.config.json` → `qualityGates` and `ci.yml`,
 both author-owned by construction, which is what makes "raising it
 needs a reviewed change" literal rather than aspirational and why a
-ticket cannot arm or raise it (`docs/non-goals.md`,
+ticket cannot arm or raise it (`docs/conventions.md` §2,
 `systems/foundation.md`). It is `0` in both projects; every later value
 is a concession.
 

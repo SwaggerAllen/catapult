@@ -9,7 +9,7 @@
 # ${seed.originating_scope}`, seed-docs/catapult-default-bundle-v4-
 # examples.md §2.3); v5 has no `seed:` block for a template to read a
 # ticket field from (Catapult.Dsl.Flow carries none — dropped with the
-# rest of v4's planning-tier machinery, docs/non-goals.md). The
+# rest of v4's planning-tier machinery). The
 # resolution isn't a bundle declaration at all: `flows/bug_fix/
 # flow.yaml`'s `ticket.entry: impl` already names which *tier* a
 # bug_fix ticket opens against (dsl-syntax.md §6); which *node* a

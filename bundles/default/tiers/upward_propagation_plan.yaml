@@ -8,7 +8,6 @@
 # `self.plan_target` (edges/plan_target.yaml), which is why this is
 # the one plan tier reaching all the way to `feature_expansion` and
 # `requirements`: the upward leg can land anywhere below the root.
-# Previously `scope: singleton`; see docs/non-goals.md.
 tier: upward_propagation_plan
 scope: cascade_visit
 identity: id

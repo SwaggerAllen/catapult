@@ -86,7 +86,18 @@ green (v5 §2.13):
     check" into a false all-clear on the supply surface.
   Accepted residue, recorded so it is not rediscovered: an advisory
   that reaches the GitHub database and not Hex's feed, on a run where
-  the mirror clone also failed, still reports clean.
+  the mirror clone also failed, still reports clean. **That residue is
+  not repaired by vendoring.** Cloning `mirego/elixir-security-
+  advisories` ourselves, asserting it non-empty and recent and failing
+  the build otherwise, makes us the maintainer of a fork of someone
+  else's mirror of the GitHub database, with its refresh cadence as
+  our build's liveness dependency. The gate is bought far more cheaply
+  by sourcing the signal from Hex, which cannot report clean from a
+  fetch it did not make. Hex's feed proving materially behind the
+  GitHub database in practice would be an argument for a real second
+  source, not for babysitting this one — and demoted is not deleted:
+  two sources disagreeing is the condition ORC-37 made legible, not a
+  defect to resolve by dropping one.
 - Advisories with **no release to move to** are acknowledged per ID in
   `mix.exs` (`hex: [ignore_advisories: [...]]`), never per package and
   never by softening the gate. Hex prints them under *Ignored
@@ -99,14 +110,22 @@ green (v5 §2.13):
 - `mix xref graph --format cycles --fail-above 0` — compile-
   dependency cycles prohibited.
 - `mix xref graph --label compile-connected --fail-above 0` — the
-  ratchet, v5 §2.14's second half. It does **not** join via the audit:
-  ORC-21 reversed that, and `docs/non-goals.md` names "a module
-  attribute in the audit" as one of the homes it refuses. The number
-  lives in `pipeline.config.json` → `qualityGates` and in `ci.yml`,
-  both author-owned by construction, which is what makes "raising it
-  needs a reviewed change" literal rather than aspirational. Armed at
-  `0` in both projects (ORC-49) — the strongest cap it will ever have,
-  and the only moment arming it was free.
+  ratchet, v5 §2.14's second half. The command is stock and already
+  exits 1, so the only question the design had to answer was where N
+  lives: `pipeline.config.json` → `qualityGates` and `ci.yml`, and
+  nowhere a ticket can reach — not `config/*.exs`, not a module
+  attribute in the audit (ORC-21 reversed that version), not a
+  checked-in baseline file. An agent that adds a compile dependency
+  could otherwise raise a cap sitting in the tree, in the same commit
+  that made it necessary, with a plausible sentence in the PR body,
+  and a ratchet the ratcheting party can turn is not a ratchet. Both
+  homes are author-owned by construction, which is what makes v5
+  §2.14's "may never rise without a reviewed change" literal rather
+  than aspirational; the accepted cost is that *lowering* it is an
+  author edit too, including on the runs where a refactor earned the
+  lower number. Armed at `0` in both projects (ORC-49) — the
+  strongest cap it will ever have, and the only moment arming it was
+  free.
 - `mix catapult.audit` — grows over time; whatever checks exist, run.
   Its greps are `Path.wildcard("lib/**/*.ex")`, rooted at the working
   directory and deliberately kept there (the task ships into every
@@ -320,6 +339,24 @@ mechanically defeats the automation (v5 §2.8).
   depend on; a live check that never runs is how "merged and green"
   quietly diverges from "actually works against the world." Both
   properties, each at its own cadence.
+
+  **The tag buys a seat in that suite and nothing else**, so it
+  belongs only on a test that crosses a real network boundary to a
+  real external system (ORC-29). A `:live` test exercising something
+  in-process, or over a listener the same job started, reproduces one
+  level in the empty gate ORC-29 was filed about — and worse than an
+  empty one: `no-tests` at least says nothing was checked, where a
+  green run over a local fixture claims the world was. A test needing
+  no deployed thing belongs in the default suite, where its
+  determinism is an asset instead of a disguise.
+
+  What follows from that for the suite's own shape — the tag as the
+  only axis rather than a `test/live/` tree, one request with a
+  bounded timeout rather than polling, a SHA asserted stamped rather
+  than equal to this checkout's, and a `test` alias that does not
+  read argv to skip migrations — is `systems/foundation.md`'s live
+  suite section, each with the cheaper wrong alternative it was
+  decided against.
 - **Ecto sandbox, async by default.** A test that can't run async
   documents why in a comment.
 - **Injected clock** (`Catapult.Clock` behaviour; `DateTime.utc_now`
@@ -332,6 +369,20 @@ mechanically defeats the automation (v5 §2.8).
 - **Structural coverage, not line coverage:** every boundary export
   has at least one test referencing it (audit-checked). No coverage
   percentage gates — they're gameable, especially by an LLM.
+- **A deprecated `use` translates to the imports the module actually
+  exercises**, not to the pair the deprecation names. `Plug.Test`'s
+  message says to import both `Plug.Test` and `Plug.Conn`, and
+  `Plug.Test.__using__/1` does expand to exactly those two lines — so
+  the mechanical translation is the one the compiler asks for. It was
+  wrong at both call sites it was first tried on (ORC-38): a module
+  that builds a conn with `conn/2` and reads `status`, `resp_body`
+  and `halted` off the struct calls nothing from `Plug.Conn`, and
+  Elixir warns about the unused import in the same place and at the
+  same volume (measured on both health tests before the rule was
+  written). A warning traded for a warning pays off the deprecation
+  and not the recurrence, which is what the work was for. A test that
+  later calls `put_req_header/3` adds the import as an ordinary
+  consequence of using it.
 - `@tag :skip` requires an annotation with a ticket key; CI rejects
   bare skips.
 - **Factories in `TestSupport`**, boundary-exported for test env

@@ -2,7 +2,7 @@ defmodule Catapult.Engine.Events do
   @moduledoc """
   The `events/0` registry (conventions §3, v5 §2.4): every event type
   this component may emit, with its version. No bare-atom form and no
-  default version (`docs/non-goals.md`) — every entry below is
+  default version (`systems/substrate.md`) — every entry below is
   `{type, version}`, spelled explicitly.
 
   `{:flow_opened, 1}` beside `{:flow_opened, 2}` is the same permanent

@@ -12,7 +12,7 @@ defmodule Catapult.Config.Env do
 
   This is also, entire, what a config library would have contributed to
   the path this platform actually needs — the reason Vapor is not a
-  substrate dependency (systems/substrate.md, docs/non-goals.md).
+  substrate dependency (systems/substrate.md).
   """
 
   @behaviour Catapult.Config.Source

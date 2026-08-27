@@ -32,6 +32,17 @@
     "lib/catapult_web/components/**"
   ],
   "nonAsksPath": "docs/non-goals.md",
+  "citationShorthands": {
+    "v5": { "path": "docs/v5-design-decisions.md" },
+    "v4": { "path": "seed-docs/catapult-spec-v4.md" },
+    "conventions": { "path": "docs/conventions.md" },
+    "Conventions": { "path": "docs/conventions.md" },
+    "dsl-syntax.md": { "path": "docs/dsl-syntax.md" },
+
+    "DESIGN": { "unchecked": "orchestration's DESIGN.md — another repository, so no path here can resolve it" },
+    "orchestration": { "unchecked": "orchestration's own docs — another repository, so no path here can resolve it" },
+    "AGPL": { "unchecked": "the AGPL-3.0 licence text, which is not a file in this tree" }
+  },
   "qualityGates": [
     "mix format --check-formatted",
     "mix credo --strict",

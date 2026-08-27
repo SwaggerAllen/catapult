@@ -203,9 +203,11 @@ loader tickets carry `system:core-dsl`.
   restriction, not a mandate to pre-wire every tier against a need
   nothing has yet. `reference` is not among this ticket's own named
   five edges (`fulfills`, `dependency`, `domain_parent`,
-  `decomposition`, `policy_application`) — `docs/non-goals.md` records
-  why folding ref attachment into one of those five would misname the
-  mechanism rather than honor "same mechanism, one name."
+  `decomposition`, `policy_application`), and folding ref attachment
+  into one of those five to hit the literal count would misname the
+  mechanism rather than honor "same mechanism, one name": ref
+  attachment is not a mint, not the comp↔resp binding, and not a
+  policy scope grain.
   **Policy scoping is v5 §4.5's three grains, never `child_of(resp)`**:
   project-global (no scope edge — a `<policy>` with neither `<required>`
   nor `<structural/>`, read via `all.policy` when a tier genuinely
@@ -225,8 +227,7 @@ loader tickets carry `system:core-dsl`.
   An earlier pass here read `comparch`'s one-hop context grammar as
   unable to reach it and left both grains unread rather than
   under-deliver the load-bearing one; design review called that the
-  wrong response to a missing construct (`docs/non-goals.md` carries
-  the reversal). `dsl-syntax.md` §7.1's hop chains and reversed hops
+  wrong response to a missing construct. `dsl-syntax.md` §7.1's hop chains and reversed hops
   (`.<edge>~`) are what changed: `comparch.yaml` now reads
   `self.parent.policy_application~ -> policy.handle` (direct grain,
   one reversed hop) and `self.parent.fulfills.policy_application~ ->
@@ -246,18 +247,7 @@ loader tickets carry `system:core-dsl`.
   copied from `sysarch` at the same mint moment — a plain copy made at
   mint time). Both are engine-side resolution, unvalidated at load
   time exactly as `draft.<name>` already is.
-- **No separate `fragments.yaml` or `plan.yaml` file** — a finding
-  against this ticket's own Layout section, not a design choice.
-  `Catapult.Dsl.Manifest` reads `fragments:` as an inline list *inside*
-  `bundle.yaml` (matching dsl-syntax.md §2's own worked example); there
-  is no parser anywhere in `lib/catapult/dsl/` for a standalone
-  `fragments.yaml`. `plan.yaml` (v4's phase-plan rule) has no home at
-  all: v5 §6 drops the phase machinery entirely — no `phased:` tiers,
-  no `phase_plan` projection, no plan rule — so there is nothing left
-  for such a file to declare, and `dsl-syntax.md` §1's own canonical
-  tree does not list one. `bundles/default/bundle.yaml` follows the
-  loader as merged (inline `fragments:`, no `plan.yaml`); filed as a
-  pipeline finding rather than silently deviated from.
+
 - **Five flows ship, not six** (ORC-84): `feature_request`, `refactor`,
   `bug_fix`, `downward_propagation`, `upward_propagation`. `plan_change`
   is the one flow v5 voids outright — it exists solely to recompute
@@ -272,13 +262,14 @@ loader tickets carry `system:core-dsl`.
   tier, since sequencing two flow-scoped tiers needs instance-level
   flow-state ("has the upstream stage closed yet") that
   "projection-time instance checks" (this ticket's own stated
-  out-of-scope) would have to supply — see `docs/non-goals.md`, which
-  is where that particular simplification still stands.
+  out-of-scope) would have to supply. Flow instance state becoming a
+  real, checkable loader or engine concept is what would reopen the
+  two-stage split, on its own merits rather than under a content
+  port.
 
   **Each flow's planning tier mints one `cascade_visit`-scoped node
   per node the flow's cascade actually visits, not one `singleton`
-  node per open instance** (design review; `docs/non-goals.md` carries
-  the reversal in full). The first pass here read v5's closed scope
+  node per open instance** (design review). The first pass here read v5's closed scope
   set as having no tier standing for "whichever tier this cascade is
   currently visiting" the way v4's informal `scaffold_tier` did, and
   concluded a real per-visited-node plan fan-out was inexpressible
@@ -304,9 +295,13 @@ loader tickets carry `system:core-dsl`.
   tier reads `ticket.findings` (dsl-syntax.md §7's "ticket thread for
   the scope", v5's replacement for v4's dropped `seed:` block) —
   `lib/catapult/dsl/dialect.ex` registers no context-source extension
-  in either dialect yet, so declaring it fails load. `docs/non-goals.md`
-  records this as a `core_dsl` delivery-system dependency, not
-  something this pass can build. Every planning tier reads
+  in either dialect yet, so declaring it fails load — measured, not
+  assumed. What is missing is a registration rather than a grammar:
+  `ticket.findings` already parses and is already spec'd, and what it
+  needs is a platform module implementing
+  `Catapult.Dsl.Extension`'s `context_sources/0` and registering
+  `"findings"`. That is `core_dsl`'s delivery-system milestone —
+  plane extension code, not bundle content. Every planning tier reads
   `input.project_doc` instead today, which is the frozen original
   intake, not the flow's own new prose.
 
@@ -394,87 +389,22 @@ loader tickets carry `system:core-dsl`.
   `cascade_visit` and the reversed context-walk hop had before their
   own loader support landed, now closed the same way.
 
-- **Two follow-ups for the implementing pass, not this design pass's
-  to commit** (ORC-92; `docs/v5-design-decisions.md` §7.19 carries
-  the argument, `docs/dsl-syntax.md` §15.5 the form — **both files'
-  own shape changed under ORC-105's fourth pass**, below, but neither
-  recommendation does). First: `bundles/default-flow/gates/
-  engineering-review.yaml`'s `depth: 2` is wrong under §7.19's revised
-  rule — a gate is a human sign-off and reads the top level regardless
-  of how far the chain fans out, so the fix is `depth: 0`, and the
-  comment arguing fan-out ("the architecture chain fans out twice...
-  so 2 covers both levels") comes out with it; nothing about the
-  gate's `throwback:`/`role:` changes, and `after:` no longer exists
-  on a gate to change either way (`docs/dsl-syntax.md` §15.3) — the
-  gate's position is now wherever the citing type's own `statuses:`
-  array places its `review:` entry. Second: `bundles/default-flow`
-  declares no `critique` entries today, and under §7.19's opt-in
-  decision that means the default chain's eight review tiers ship
-  inert the moment the loader gains the new form — silently, since an
-  absent entry is not a load error. Recommended content, following
-  the pair's own worked argument (the project's first traversal wants
-  its fan-out reviewed; every later one returns to the top level, same
-  section): a `critique` entry, immediately after each `generation`
-  entry the architecture chain's tiers dispatch at, carrying `depth:
-  [2, 0]` — `2` because the architecture chain's own deepest fan-out
-  is two edges deep (`comp`, then `subcomp` — the same count
-  `engineering-review.yaml`'s own retired comment already established
-  correctly, just for the wrong declaration), `0` for every traversal
-  after the project's first. Neither edit is this pass's to make
-  (`bundles/**` sits outside `designOwnedPaths`); both are decided here
-  so the implementing ticket has an argued value to carry rather than
-  a blank `depth:` field to guess at.
+- **A gate reads `depth: 0`; the architecture chain's `critique`
+  entries read `depth: [2, 0]`** (ORC-92; `docs/v5-design-decisions.md`
+  §7.19 carries the argument, `docs/dsl-syntax.md` §15.5 the form). A
+  gate is a human sign-off and reads the top level however far the
+  chain fans out beneath it, so fan-out reasoning never belongs on a
+  gate — it belongs on the citing type's own `critique` entry. `[2, 0]`
+  is the pair that follows: `2` for a project's first traversal,
+  because the architecture chain's own deepest fan-out is two edges
+  (`comp`, then `subcomp`), and `0` for every later traversal, which
+  returns to the top level.
 
-- **`bundles/default-flow` migrates to `dsl-syntax.md` §15's final
-  (sixth-pass) grammar in the same change that lands the §15 loader —
-  named here because that migration is this system's touch on
-  ORC-104, corrected onto the ticket's own mutex declaration by author
-  review** (ORC-104, design pass; `systems/delivery.md`'s own
-  corrected Initial-vs-target entry). The shipped content is entirely
-  pre-ORC-105: `bundle.yaml` declares no `entry:` (required, §15.6),
-  `gates/ux-review.yaml` and `gates/engineering-review.yaml` both
-  carry the retired `after:` field (§15.3) and no type declares either
-  of them at all — there is no `types/` directory yet, because
-  declared work-item types postdate this content by three ORC-105
-  passes — `environments/dev.yaml` and `environments/staging.yaml`
-  carry the same retired `after:` field, `gates/ux-review.yaml` throws
-  back to `queue`, the name this same ticket's dev pass renames to
-  `pending` (`systems/core_dsl.md`'s own already-filed entries), and
-  its comment still cites "the eleven system-status kinds" against a
-  table that is seventeen the moment this ticket's dev pass lands
-  (`systems/delivery.md` already carries this exact divergence,
-  named and attributed to this ticket, in its `queue → generation →
-  …` reachability entry). None of this is a hot edit over a populated
-  graph — no project has run against this bundle yet — so it is an
-  ordinary content rewrite, not a cutover.
-
-  **What the rewrite must produce, decided here rather than left
-  blank**: `bundle.yaml` gains `entry:` naming a new, single
-  `ticket`-skeleton `types/*.yaml` declaration — one, because this
-  bundle ships one universal review sequence today, not a
-  per-ticket-type registry, and inventing a second type this content
-  never asked for would be exactly the kind of unannounced component
-  DESIGN §2.8 flags; the standalone `critique.yaml` root file is
-  retired outright (§15.5 — the concept it named no longer exists as a
-  file, only as an inline `critique` entry paired with a `generation`
-  entry in the type's own array) and its content does not evaporate
-  with it: the ORC-92 entry above already argued `depth: [2, 0]` for
-  reviewing this chain's own fan-out, and that value carries forward
-  into the inline form rather than being re-derived; `gates/*.yaml`
-  and `environments/*.yaml` keep every field but `after:`, which §15.3
-  removes with no successor field — position becomes wherever the new
-  type's own array places the `review:`/`environment:` entry that
-  cites them; and `ux-review.yaml`'s `throwback: [queue]` becomes
-  `throwback: [pending]`, the identical rename `system_status.ex`
-  itself carries. The exact array — how many `generation`/`critique`
-  pairs, and where `environment: dev` sits relative to `environment:
-  staging` and `status: deploy` — is dev's to write, not guessed at
-  here: `dsl-syntax.md` §15.2's own worked `types/feature.yaml`
-  example declares literally this shape (two generation phases, a
-  `product-review`/`engineering-review` gate pair, a staging
-  environment promoted from dev) under different gate names, and is
-  the pattern this bundle's real migration should track rather than
-  reinvent.
+  **What this closes is silence, not a wrong number.** `critique` is
+  opt-in and an absent entry is not a load error, so a chain declaring
+  none ships its review tiers **inert** the moment the loader gains the
+  form — nothing red anywhere, and no signal that eight review tiers
+  stopped running.
 
 - **Every `<flow>_plan` tier declares `fields: argument: draft.argument`,
   closing the gap `docs/dsl-syntax.md` §3's new reserved name leaves
@@ -497,89 +427,31 @@ loader tickets carry `system:core-dsl`.
   correct, since `docs/ui-spec.md` §3.1 only ever shows one, for the
   ticket the surface is currently open to.
 
-- **A `{% if feedback %}` guard on a possibly-omitted collection tests
-  `.size > 0`, not bare truthiness** (ORC-134). `Catapult.Generation
-  .ContextAssembly.feedback_variable/3` deliberately leaves `feedback`
-  out of the rendered map on `[]` rather than setting it to an empty
-  list — that module's own moduledoc and `systems/generation.md`'s
-  ORC-34 entry give the reason, and this ticket leaves both unchanged.
-  But Solid follows ordinary Liquid truthiness
-  (`deps/solid/lib/solid/unary_condition.ex` — the ticket cites
-  `.../tags/unary_condition.ex`, a path that doesn't exist in this
-  dep; the file is at the top level of `lib/solid`, and this entry
-  corrects it rather than silently diverging: only `nil` and `false` are
-  falsy), so every `{% if feedback %}` guard that leans on that omission
-  to stay closed — `vocab.md.liquid`, `ref.md.liquid`,
-  `subcomparch.md.liquid`, `sysarch.md.liquid`, `comparch.md.liquid`
-  (the five ORC-134 names), and `partials/_architecture_framing
-  .md.liquid` (found during the design pass, not named in the ticket —
-  it carries the identical guard and shares the same fix, so leaving it
-  unfixed would still be a landmine for the day a caller starts passing
-  it `feedback`, even though `{% render "partials/_architecture_framing"
-  %}` is called with no `with`/`for` arguments at every site today and
-  so Solid's own scope isolation for `render` — `Solid.Tags.RenderTag`
-  builds the partial's inner `Context` with an empty `vars` map absent
-  an explicit argument — already keeps its guard from firing on any
-  caller's `feedback`, populated or not; verified by rendering
-  `vocab.md.liquid` with `feedback` populated and counting one, not two,
-  "Revising against feedback" occurrences in the output) — would render
-  its revision section on every generation the moment any future caller
-  sets `feedback` to `[]` instead of omitting it: a plane change nothing
-  today forces, a second renderer, or a hand-built test fixture.
+- **A prompt guard on a possibly-omitted collection tests `.size > 0`,
+  never bare truthiness** (ORC-134). Liquid counts an empty list as
+  truthy — only `nil` and `false` are falsy — so `{% if feedback %}`
+  opens its section on every render the moment a caller passes `[]`
+  instead of omitting the key. Six shipped prompts gate a revision
+  section this way (`vocab`, `ref`, `subcomparch`, `sysarch`,
+  `comparch`, and the shared `partials/_architecture_framing`), and the
+  rule generalizes: it is the bundle-authoring rule for any future
+  prompt gating on a collection.
 
-  The design pass that filed the fix proposed `{% if feedback | size >
-  0 %}`, reasoning from `Solid.StandardFilter.size/1`'s nil-to-`0`
-  catch-all and `Solid.BinaryCondition.eval/1`'s nil-vs-number `false`.
-  That syntax does not parse: `Solid.ConditionExpression.parse/2` only
-  accepts a filter pipe inside `if`/`elsif`/`unless` when the caller
-  passes `filters_in_conditional_tags: true` to `Solid.parse/2`
-  (`deps/solid/lib/solid.ex`'s own moduledoc states the default is
-  `false`), and `Catapult.Generation.ContextAssembly.parse_template/1`
-  calls `Solid.parse/1` with no options — confirmed by actually parsing
-  `{% if feedback | size > 0 %}` through this app's dependency tree,
-  which raises `Solid.ParserError, reason: "Expected Condition"`
-  pointing at the `|`. Enabling that flag was rejected rather than
-  reached for: it is a `Solid.parse/2` call-site change in
-  `lib/catapult/generation/**`, which is exactly the "no new Solid
-  capability" boundary the design pass drew, only missed because the
-  syntax was never actually parsed before being recorded here. What
-  this entry now records instead is `{% if feedback.size > 0 %}`:
-  `.size` is a dotted **property access**, resolved by
-  `Solid.Matcher.match/2`'s `"size"` clauses for `List`, `Map`, and
-  `BitString` (`deps/solid/lib/solid/matcher.ex`) rather than by the
-  filter pipeline, so it needs no conditional-tags flag and parses
-  under stock `Solid.parse/1`. The semantics are the ones the design
-  pass wanted: `feedback` omitted resolves the whole dotted lookup to
-  `{:error, :not_found}` (`Solid.Matcher`'s `Map` clause fails at the
-  first key), which `Solid.Argument.get/4` turns into `nil` rather than
-  a raised error since `strict_variables` is left at its `false`
-  default; `Solid.BinaryCondition.eval/1`'s `{nil, :>, v2} when
-  is_number(v2)` clause then reads `nil > 0` as `false` exactly as the
-  design pass cited; `feedback: []` resolves `.size` to `0` via the
-  `List` matcher's `Enum.count/1`, so `0 > 0` is `false`; a populated
-  `feedback` resolves to its length, `N > 0` is `true` for `N >= 1`. All
-  three shapes verified by rendering each of the six templates listed
-  above through `Solid.render/3` against the real
-  `bundles/default/prompts` tree.
-
-  **Dev adds one render test covering all six guarded templates against
-  three `feedback` shapes** — omitted, `[]`, and populated — extending
-  the existing homes rather than opening new ones:
-  `test/catapult/generation/context_assembly_test.exs` already asserts
-  the omitted and populated shapes for `vocab.md.liquid`
-  (`ContextAssemblyTest`'s own moduledoc); `test/catapult/generation
-  /integration_test.exs` already renders the real `bundles/default`
-  bundle end to end. The `[]` shape is the one to add rather than
-  extend: nothing in `ContextAssembly` produces it today, which is
-  exactly why a break there would go unnoticed, and it is the case that
-  turns this entry's Solid claims into ones the suite holds instead of
-  ones the next reader has to re-verify by reading `deps/solid` again.
-  `ContextAssembly.build/4` has no way to inject a `[]` shape (see
-  above), so that leg renders the six templates directly through
-  `Solid.parse/1` + `Solid.render/3` against the real bundle path rather
-  than through `ContextAssembly.build/4` — the same two calls
-  `ContextAssembly`'s own (private) `parse_template/1` and `render/3`
-  make, exercised at arm's length instead of duplicated.
+  **It is a rule spanning two trees, which is why it is recorded here
+  and not only in the code.** `Catapult.Generation.ContextAssembly`
+  omits `feedback` on `[]` rather than emptying it, and a guard correct
+  *only* because of that promise is one plane-side refactor from
+  silently opening — a second renderer or a hand-built fixture would do
+  it too. The plane keeps the omission and the bundle guards
+  independently, on purpose, and neither half is redundant with the
+  other. Each carries its own reason where it would be edited: the
+  templates' own `{% comment %}` blocks, and `ContextAssembly`'s
+  moduledoc. The Solid mechanics behind the spelling live there too,
+  including why a filter pipe is not available inside a conditional
+  under `Solid.parse/1`. `test/catapult/generation/context_assembly
+  _test.exs` holds all six templates against all three shapes, so these
+  are the suite's claims rather than the next reader's to re-derive by
+  reading `deps/solid`.
 
 ## Initial vs target
 

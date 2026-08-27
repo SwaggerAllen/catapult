@@ -157,7 +157,7 @@ reached only through their APIs per v5 §2.4).
   → Repo` in the module graph, and `mix xref graph --format cycles
   --fail-above 0` is a hard gate (conventions §2). The load being
   idempotent is what lets three entry points ask for it without
-  arranging who goes first; load-once (`docs/non-goals.md`) is what
+  arranging who goes first; load-once (`systems/substrate.md`) is what
   makes that safe rather than lucky.
 - **Boundary's strict external mode arms now, against one boundary,
   rather than later against all of them** (ORC-21). v5 §2.14 promotes
@@ -293,9 +293,9 @@ reached only through their APIs per v5 §2.4).
   passed without checking anything, which is the class ORC-37 was filed
   about and the class this ticket is filed about. Following `url` back
   to its binding is the dataflow inference this repo has refused twice
-  already, in the secret-taint entry and the computed-config-key entry
-  (`docs/non-goals.md`), each time for the same reason — a shallow
-  analysis reported as a guarantee.
+  already, in the secret-taint case and the computed-config-key case
+  (`systems/substrate.md`, "What a check may infer"), each time for
+  the same reason — a shallow analysis reported as a guarantee.
 
   **The decidable rule is one level out: no plane module calls a pure
   Erlang HTTP client.** The module in `:httpc.request/4` is a literal
@@ -591,9 +591,9 @@ reached only through their APIs per v5 §2.4).
   the dashboard router, the same way ORC-32 found none needed for its
   process manager. Settled, not carried forward: a real router that
   fails to hold `--fail-above 0` is still a finding back to the
-  author, never a self-authorized raise of the number
-  (`docs/non-goals.md`, "no compile-connected cap anywhere a ticket
-  can edit it") — that sentence just no longer describes an open
+  author, never a self-authorized raise of the number (conventions
+  §2: the cap lives nowhere a ticket can reach) — that sentence just
+  no longer describes an open
   question here, only the ordinary backstop it is everywhere else.
 
   **One caveat travels with the settled result, because the probe
