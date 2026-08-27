@@ -2009,13 +2009,11 @@ are read against the sharper test, not waved through:
   declared *default* is an ordinary bundle-authoring call against
   `bundles/**`, not a fact this record needs to settle for it.
 
-The other two sit in `milestone.yaml`, which forms no sub-array at
-all — every one of its entries is a queue-shaped anchor or a gate at
-the top level, and a queue-shaped anchor may not sit inside a
-sub-array (above), so nothing in this file ever groups. The sharper
-test doesn't apply to a gate with no citing sub-array to derive a
-default from; both are single-element lists narrowing to their one
-element with nothing to weigh:
+The other two sit in `milestone.yaml`, which declares no sub-array at
+all — nothing in the file is ever grouped, whatever its own entries
+are. The sharper test doesn't apply to a gate with no citing
+sub-array to derive a default from; both are single-element lists
+narrowing to their one element with nothing to weigh:
 
 - `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
   default-flow/gates/milestone-signoff.yaml`) narrows to `main`, still
