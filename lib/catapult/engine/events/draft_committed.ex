@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.Events.DraftCommitted do
   @moduledoc """
-  A draft body was committed for a node (v4 §A.3.1/§A.3.2 carried
-  forward, dsl-syntax.md §3). Version 1.
+  A draft body was committed for a node (dsl-syntax.md §3).
+  Version 1.
 
   The payload is fully self-describing: `mints`, `edges` and
   `produces` are already-extracted structured facts (fanout children,

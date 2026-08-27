@@ -1,4 +1,4 @@
-# v4 §1's fanout mechanism, consolidated under one name per this
+# The fanout mechanism, consolidated under one name per this
 # ticket's own instruction ("decomposition covers sysarch→comp,
 # comparch→subcomp and feature_expansion→vocab — the mechanism is the
 # same") and generalized to every fanout-minted pool in this chain:
@@ -14,7 +14,7 @@ instances:
     target: comp
     declared_in: sysarch.draft.components.component[]
     cardinality:
-      source: { min: 1 } # v4 §4.1: every project has ≥1 foundation component
+      source: { min: 1 } # every project has ≥1 foundation component
       target: { min: 1, max: 1 } # every comp has exactly one mint
 
   - source: comparch

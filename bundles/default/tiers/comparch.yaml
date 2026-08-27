@@ -1,6 +1,6 @@
-# v4 §1.5, re-expressed (seed-docs/siege-prompts/comparch.md is the
-# prose source; domain/presentational content stripped per v5 §4.1,
-# see sysarch.yaml). Decomposes: its <subcomponents> block mints one
+# seed-docs/siege-prompts/comparch.md is the prose source;
+# domain/presentational content stripped per v5 §4.1, see
+# sysarch.yaml. Decomposes: its <subcomponents> block mints one
 # subcomp per child (the `decomposition` edge's comparch->subcomp
 # instance, edges/decomposition.yaml) and its produces: writes
 # the five fragments onto self.parent — the comp, not onto the
@@ -47,7 +47,7 @@ context:
   # also return every resp- and comp-scoped policy, which comparch
   # must not see indiscriminately.
   - all.vocab.handle
-  # Project vocabulary (v5 §4.5, v4 §1.12): a flat, project-wide pool
+  # Project vocabulary (v5 §4.5): a flat, project-wide pool
   # with no structural relationship to comparch to walk — dsl-syntax.md
   # §7.2's `all.<tier>` is exactly this case. Keeps downstream prose
   # handles consistent with the terms feature_expansion already named.

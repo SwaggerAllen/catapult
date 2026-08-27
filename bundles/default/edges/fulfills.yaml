@@ -1,4 +1,4 @@
-# v4 §2.1, unchanged in shape now that resp is a real tier rather than
+# Unchanged in shape now that resp is a real tier rather than
 # a field on requirements — comp -> resp is comp's fulfills.
 edge: fulfills
 type: reference

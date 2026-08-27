@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Reducer do
   @moduledoc """
-  `(projection_state, event) -> new_projection_state` (v4 §A.3.2),
+  `(projection_state, event) -> new_projection_state`,
   generic over bundle semantics: every branch below reads only the
   event's own already-extracted payload plus, where a branch needs
   bundle semantics, `Catapult.Engine.Store.current_bundle_version/3`
@@ -16,12 +16,12 @@ defmodule Catapult.Engine.Reducer do
   `Catapult.Engine.Store` calls are the reducer's only side effect,
   and they are themselves idempotent on the same input — replaying an
   event twice lands the same rows, which is what makes
-  rebuild-from-zero a property rather than a hope (v4 §A.3.2,
-  `test/catapult/engine/reducer_test.exs`).
+  rebuild-from-zero a property rather than a hope
+  (`test/catapult/engine/reducer_test.exs`).
 
   `metadata.stream_version` is the project-stream sequence Commanded's
-  event store already assigned at append time (v4 §A.3.1's "sequence,
-  per-project monotonic") — read here, never generated.
+  event store already assigned at append time (per-project
+  monotonic) — read here, never generated.
   """
 
   alias Catapult.Engine.Events.ActiveBundleFlipped

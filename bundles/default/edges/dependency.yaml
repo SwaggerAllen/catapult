@@ -1,4 +1,4 @@
-# v4 §2.2's two halves — project-wide comp→comp and within-comp
+# Two halves — project-wide comp→comp and within-comp
 # subcomp→subcomp — one mechanism, one name (this ticket's edges
 # section: "dependency covers comp→comp and subcomp→subcomp through
 # one declaration"). Previously two files (dependency, sub_dependency);

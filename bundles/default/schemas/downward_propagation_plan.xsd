@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The downward_propagation flow's planning-tier grammar. No siege
-     source (v4 §8.2's prose is the only input) — kept small. -->
+     source; prose is the only input — kept small. -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="propagation-plan">
     <xs:complexType>

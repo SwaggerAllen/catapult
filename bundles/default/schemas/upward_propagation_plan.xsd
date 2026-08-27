@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The upward_propagation flow's planning-tier grammar. v4 §8.2 gives
-     this flow two planning tiers (an upstream assessment_plan, a
+<!-- The upward_propagation flow's planning-tier grammar. The flow it
+     ports has two planning tiers (an upstream assessment_plan, a
      downstream propagation_plan opened after the upstream re-
      approves). Simplified here to one combined planning tier —
      argued in systems/platform_content.md — since this bundle's

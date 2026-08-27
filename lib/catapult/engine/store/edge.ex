@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Edge do
   @moduledoc """
-  One row per edge instance (`engine_edges`, v4 §A.3.3): the reducer's
+  One row per edge instance (`engine_edges`): the reducer's
   fanout/dependency/reference/policy_application/synthesis facts,
   authored-only (dsl-syntax.md §4) and never derived at read time —
   derived views are context walks over these rows, not fragments.

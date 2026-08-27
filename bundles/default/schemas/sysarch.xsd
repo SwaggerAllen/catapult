@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  v4 §1.3 (seed-docs/siege-prompts/sysarch.md), with the
+  seed-docs/siege-prompts/sysarch.md is the prose source, with the
   domain/presentational split and <domain-parent> section dropped —
   v5 §4.1 replaces that mechanism with the product/backend/frontend
   split (seed-docs/README.md's second known delta); every component

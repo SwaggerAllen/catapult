@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  v4 §1.8 (seed-docs/siege-prompts/impl.md), with the phase dimension
-  dropped (docs/v5-design-decisions.md §6 — "Dropped from v4: the
-  phase machinery"; siege's own phasing rules do not carry forward).
+  seed-docs/siege-prompts/impl.md is the prose source, with the phase
+  dimension dropped (v5 §6; siege's own phasing rules do not carry
+  forward).
 
   <tests> is new grammar, authored fresh — v5 §2.8/§6 makes it
   normative ("named test descriptions are the acceptance criteria;

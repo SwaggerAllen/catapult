@@ -1,4 +1,4 @@
-# v4 §8.2's downward_propagation flow — the explicit version of what
+# The downward_propagation flow — the explicit version of what
 # staling already does implicitly (dsl-syntax.md's staling machinery
 # marks a downstream scope stale when its upstream context changes;
 # this flow drives that regeneration explicitly, scope by scope,

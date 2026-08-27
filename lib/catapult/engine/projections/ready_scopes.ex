@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Projections.ReadyScopes do
   @moduledoc """
-  The scheduler's three-rule loop (v4 §A.2.7), rules 1 and 2 — enumerate,
+  The scheduler's three-rule loop, rules 1 and 2 — enumerate,
   evaluate readiness — as a pure query against current projections
   rather than a maintained table: "the same query answers 'ready now'
   and 'ready at sequence T'" is `systems/engine.md`'s own restatement

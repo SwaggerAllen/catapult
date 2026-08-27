@@ -25,23 +25,20 @@ and the two layers are never `extends:`-related.
 A separate system from core_dsl **for the mutex**: prompt iteration
 and loader development are unrelated work streams, and one label
 covering both would serialize them (v5 §7.5's watch-item logic,
-applied preemptively). Prompt tickets carry `system:platform-content`;
-loader tickets carry `system:core-dsl`.
+applied preemptively). Prompt tickets carry `system:platform_content`;
+loader tickets carry `system:core_dsl`.
 
 ## Standing decisions
 
 - **Prompts are content, reviewed as diffs, never inline in code**
   (conventions §11). The harness iterates them; the git history is
   their changelog.
-- **The siege port preserves semantics first**
-  (`seed-docs/catapult-spec-v4.md` §B.2's mapping — vendored; this
-  citation used to read "v5 §B.2", but §B is the v4 spec's appendix
-  and never existed in `v5-design-decisions.md`): mechanical
+- **The siege port preserves semantics first**: mechanical
   f-string→Liquid conversion, then iteration via the harness —
   never both in one change, or a quality regression is
   unattributable.
-- **The meaning-engine discipline governs edits** (v4 §B.2.5,
-  SiegeEngine's hard-won rule): each tier's prompt names its
+- **The meaning-engine discipline governs edits** (SiegeEngine's
+  hard-won rule): each tier's prompt names its
   downstream reader and pushes against category-speak; if a tier's
   output is vague, fix that tier's prompt, don't pass more context
   downstream.
@@ -124,9 +121,9 @@ loader tickets carry `system:core-dsl`.
   than a `kind:` attribute on a backend component — this chain, being
   backend-only, never needs it; every component `sysarch` mints is
   simply a component. `domain_parent`'s only job in v4 was letting a
-  presentational comp read its domain parents' fan-in synthesis
-  (`seed-docs/catapult-default-bundle-v4.md` §2.3, §4.4) — with no
-  presentational kind and no fan-in tier, that job has no successor to
+  presentational comp read its domain parents' fan-in synthesis —
+  with no presentational kind and no fan-in tier, that job has no
+  successor to
   wire, so none is invented speculatively; a frontend/product-side
   parent-link edge (if one turns out to be needed) is Phase 5's
   decision when the frontend tiers it would serve actually land, not
@@ -172,7 +169,7 @@ loader tickets carry `system:core-dsl`.
   owns only `techspec`, `pubapi`, `privapi`, written by `subcomparch`:
   siege's own `subcomparch` grammar has no `<policies>` or
   `<failure-surface>` section — policy reachability is transitive
-  from the owning comp's policies (v4 §5.2), and failure modes route
+  from the owning comp's policies, and failure modes route
   through pubapi's typed return shapes instead. The fragment
   vocabulary in `bundle.yaml` stays 5 kinds either way (dsl-syntax.md
   §2's per-bundle closed set is over kinds, not over which tier owns
@@ -308,17 +305,17 @@ loader tickets carry `system:core-dsl`.
   `feature_request`'s planning-tier prompt is
   `seed-docs/siege-prompts/propose_feature.md`, ported close to
   verbatim (real source, real content). The other four have no siege
-  source — v4's bundle doc (`catapult-default-bundle-v4.md` §8.2) is
-  prose only, no shipped prompt — so their planning-tier prompts are
+  source — only prose describes them, with no shipped prompt — so
+  their planning-tier prompts are
   authored fresh and kept proportionately small rather than padded to
   match `feature_request`'s length.
 - **The `modify_*` prompts fold into each tier's own generation
   prompt as a `{% if feedback %}` section, not into the flow
   layer.** `seed-docs/siege-prompts/modify_sysarch.md`,
   `modify_comparch.md`, `modify_subcomparch.md` are not referenced by
-  any v4 flow or tier declaration (confirmed: zero hits for
-  `modify_` in `catapult-spec-v4.md` or
-  `catapult-default-bundle-v4.md` outside the file listing) — they are
+  any ported flow or tier declaration (confirmed: zero hits for
+  `modify_` in either vendored v4 document outside the file
+  listing) — they are
   siege's own generic "surgical diff against targeted feedback"
   variant, orthogonal to which flow (if any) produced the feedback.
   `dsl-syntax.md` §3's tier grammar has exactly one `prompt:` slot per

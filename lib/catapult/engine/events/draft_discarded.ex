@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.DraftDiscarded do
   @moduledoc """
-  A corrective event (v4 §A.3.1): the pending draft is discarded
+  A corrective event: the pending draft is discarded
   without approval. Version 1. State corrections happen by appending
   corrective events, never by editing or deleting the original.
   """

@@ -1,4 +1,4 @@
-# v5 §4.5 (carrying v4 §1.13 forward): the deliberate escape hatch,
+# v5 §4.5: the deliberate escape hatch,
 # stays general — no per-use kinds, no special-case lifecycles. Flat
 # pool, not literally one node: `scope: singleton` is read the same
 # loose way as vocab/policy, since `identity: id` over one node is
@@ -9,8 +9,8 @@
 # ticket's redirect §5) means no fanout mints it and no fanout it
 # mints; edges/reference.yaml (comparch/subcomparch/impl, each its own
 # instance under dsl-syntax.md §4.1) is the attachment surface, wired
-# at comparch-and-below only, matching v4 §7's "refs are
-# implementation detail" convention.
+# at comparch-and-below only: refs are an implementation detail, so
+# nothing above comparch attaches one.
 tier: ref
 scope: singleton
 identity: id

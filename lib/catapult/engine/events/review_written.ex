@@ -1,10 +1,10 @@
 defmodule Catapult.Engine.Events.ReviewWritten do
   @moduledoc """
-  A review was recorded against a draft (v4 §A.3.1, dsl-syntax.md
-  §10). Version 2, current.
+  A review was recorded against a draft (dsl-syntax.md §10).
+  Version 2, current.
 
   `score` is the platform-wide review grammar's 0-100 integer scale
-  (dsl-syntax.md §10's v4 §B.3.2 buckets) — version 1 stored a 0.0-1.0
+  (dsl-syntax.md §10's buckets) — version 1 stored a 0.0-1.0
   float, corrected here rather than silently reinterpreted, because a
   reducer branch reading an unconverted float against a `>= 61`
   threshold would silently mis-grade every historical review.

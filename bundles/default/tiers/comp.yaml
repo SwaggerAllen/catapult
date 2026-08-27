@@ -1,4 +1,4 @@
-# v4 §1.4 "join target", carried forward as-is.
+# A "join target" tier.
 # Projection tier: no draft, no prompt: content lives entirely in the
 # fragments comparch writes onto self.parent (comparch.yaml's
 # produces:). `mint.*` fields are set when sysarch's `decomposition`

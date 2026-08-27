@@ -159,7 +159,7 @@ defmodule Catapult.Dsl.Fields do
     end
   end
 
-  @typedoc "A fan-out ceiling: one depth, or `{first, rest}` (dsl-syntax.md §7.19's pair)."
+  @typedoc "A fan-out ceiling: one depth, or `{first, rest}` (v5 §7.19's pair)."
   @type depth :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}
 
   @doc """

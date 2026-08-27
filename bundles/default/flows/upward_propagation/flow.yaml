@@ -1,4 +1,4 @@
-# v4 §8.2's upward_propagation flow — the one place this bundle uses
+# The upward_propagation flow — the one place this bundle uses
 # `up_then_down` rather than `downward_cascade`: a downstream argument
 # suggests an upstream decision was wrong (a comparch flags its
 # fulfilled responsibilities as infeasible, a subcomparch flags its

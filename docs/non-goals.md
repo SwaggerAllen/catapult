@@ -127,8 +127,7 @@ other, never a state change adopted on the tracker's word.
 ## Catapult never executes target-project code
 scope: universal
 
-(v4 §A.10.5
-carried forward, sharpened): agent runs execute code in their own
+(carried forward, sharpened): agent runs execute code in their own
 CI/runner environments; the plane dispatches and observes but
 never runs generated code in-process. The plane's blast radius is
 its own.
@@ -141,7 +140,7 @@ Narrowed, deliberately, from a former `No multi-writer projects`
 entry — **small teams are supported**, and that entry contradicted
 both §1's target class ("single-author / small teams") and §2.9's
 identity component, which ships orgs, membership, invitations and
-roles-as-data. It was inherited from v4 §A.0.1 commitment 4 rather
+roles-as-data. It was inherited rather
 than decided here, and the narrowing is a reconciliation, not a
 reversal. What remains out is what v4 actually carved out: two
 people editing the same artifact body under merge semantics the
