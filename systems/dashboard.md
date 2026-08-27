@@ -284,22 +284,13 @@ conventions §13).
   authored under this placement compile, format and gate like any
   other source in the tree.
 
-  **One piece is a real gap, and it belongs to this ticket's own dev
-  pass.** `phoenix_storybook` v1.3 ships no static export — it is
-  served from a live Phoenix route, with no export task standing in
-  for one — so a static preview deploy means booting the app and
-  crawling it, and there is no endpoint to boot until
-  `lib/catapult_web` lands. `bin/preview-build.sh` already knows this:
-  it installs the pinned toolchain, resolves deps, and publishes the
-  placeholder with the reason on stdout rather than going quiet. The
-  moment this ticket's dev pass lands an endpoint, that fallback
-  message is what names the snapshot step as the piece still missing.
+  **`phoenix_storybook` v1.3 ships no static export**, so a preview
+  deploy cannot simply run one: it is served from a live Phoenix
+  route, with no export task standing in for one.
 
-  **Resolved at ORC-113's design pass; the rule-out was corrected once
-  at Design review, on the merits rather than the impossibility.** The
-  export renders stories directly and never boots the application —
-  but not because booting is impossible on the preview runner, which
-  the first pass over-claimed. The design-agent job
+  **The export renders stories directly and never boots the
+  application** (ORC-113) — on the merits, not because booting is
+  impossible on the preview runner. The design-agent job
   (`.github/workflows/pipeline-agent-design.yml`) installs the pinned
   toolchain with `erlef/setup-beam@v1`, runs under `MIX_ENV: test`, and
   provisions a health-checked `postgres:16` service; `config/test.exs`
@@ -307,10 +298,12 @@ conventions §13).
   `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` and `DELIVERY_GITHUB_TOKEN`
   into `Catapult.Config.Static` for exactly that `MIX_ENV`. Under the
   job's own environment, `Catapult.Boot.load!/0` would succeed.
-  `CLAUDE.md`'s "agent runs have no BEAM… no Postgres service
-  container" is stale against this same workflow file — a correction
-  outside this pass's own committable paths, flagged in the hand-back
-  rather than edited here.
+  `CLAUDE.md`'s "agent runs have no BEAM" is about what orchestration's
+  own `setup-pipeline` action provides — Go and nothing else, because
+  the pipeline is language-agnostic — and this project's workflow
+  layers a toolchain and a database on top of it. Both are true at
+  their own layer, so anything needing `mix` inside an agent job still
+  supplies its own.
 
   What still stops a boot is `bin/preview-build.sh` itself, not the
   runner. The script sets its own `export MIX_ENV=prod`,
@@ -370,34 +363,23 @@ conventions §13).
   to hardcode against — whatever pipeline eventually lands carries
   into the export the same way, unchanged.
 
-  **A third piece belongs to the author, and is unnamed anywhere in
-  this ticket's own path unless it is written here.**
-  `.github/workflows/ci.yml`'s sobelow step runs with `--ignore
-  Config.HTTPS`, and the comment above it says why and says when to
-  stop: there is no `Phoenix.Endpoint` yet for the finding to be about
-  (sobelow reports "cannot find the router" on every run today), and
-  the ignore is meant to come out **the moment `lib/catapult_web`
-  lands an endpoint** — which is this ticket's own dev pass. `ci.yml`
-  is author-owned (DESIGN §5); dev cannot make that edit, only trigger
-  the condition under which it should happen. Left as a comment on a
-  gate line, that trigger has nobody positioned to notice it. It has
-  to ship as an author-owned change bundled with dev's endpoint: drop
-  `--ignore Config.HTTPS`, and configure `force_ssl`/HSTS on the new
-  endpoint so the check passes because the surface is real, not
-  because the finding is still suppressed.
+  **`--ignore Config.HTTPS` on the sobelow gate is permanent, and is
+  not waiting on this system's endpoint** (ORC-131). It was once
+  recorded here as a temporary suppression to drop the moment
+  `lib/catapult_web` landed an endpoint; the endpoint landed at ORC-35
+  and the reasoning did not survive it. App Platform terminates TLS
+  and coerces HTTP to HTTPS at its edge with no setting to disable it,
+  so a public request never reaches this app over http and
+  `Plug.SSL`'s redirect could never fire on one — while the one path
+  that does not come through the edge, App Platform's own health
+  probe, would be answered with a 301 and fail the deploy. HSTS, the
+  half the edge does not supply, is set on `CatapultWeb.Router`'s
+  `:browser` pipeline, which the check cannot see because it reads
+  endpoint config. `ci.yml`'s own comment carries this, and
+  `test/catapult_web/router_test.exs` asserts HSTS is absent on
+  `/health` so moving it to the endpoint turns a test red rather than
+  a deploy.
 
-  **A fourth piece belongs to dev, and is unnamed anywhere in this
-  ticket's own path unless it is written here.** `preview/index.html`
-  still reads "the real storybook export replaces `preview/index.html`
-  and this page disappears" — true of a boot-based handover, false of
-  this one: render-direct writes its own `dist/index.html`, generated
-  from the same variation list, so the fallback copy stops being
-  served the moment the export succeeds, but the placeholder's own
-  prose describes a mechanism this decision didn't build.
-  `preview/index.html` is outside this pass's paths (DESIGN §5);
-  correcting or deleting its text is dev's, bundled with the export step itself
-  rather than left for whoever next reads a stale placeholder and
-  wonders which decision it is describing.
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the
