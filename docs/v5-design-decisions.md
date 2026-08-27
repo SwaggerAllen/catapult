@@ -2333,6 +2333,41 @@ happens, and nothing here changes that), reading the `:live` verdict
 (§2.8), clearing `Blocked` tickets carrying `needs-review`, accepting
 or declining `retro`'s Triage-filed proposals.
 
+**Amended at ORC-115: the direction, not yet the shape, is that
+`setup` and `retro` stop being ordinary work items.** The paragraph
+above treats "both are ordinary work items" as the point — a
+correction of ORC-103's pause-proxy, not a reversal — and that
+correction still holds for every other queue-dispatched flow this
+document describes. But `setup` and `retro` were given their own
+ticket-skeleton types (`types/setup.yaml`, `types/retro.yaml`) for a
+narrower reason than "they are ordinary work": §15.2's own grammar,
+at the time, had no way to express a loop or a single agent step
+inside a container's own queue array, so spawning a ticket was the
+only available shape for "run one agent step, once, backward- or
+forward-looking." `dsl-syntax.md` §15.10's sub-array grammar is that
+missing shape. §15.1's own table already marks both `retro` and
+`setup` as agent-balled container positions — "backward-looking close
+of a container" and "constitutes a freshly minted container, once" —
+which reads as a sub-array's own single non-critique agent step
+sitting directly in `milestone`'s array, not as a reason to keep
+minting a separate ticket for either. **What this amends:** the
+mint-a-singleton-ticket path for `setup` and `retro` is not the
+platform's last word on them; a bundle running the agent step inline,
+against the container instance itself, is the shape §15.10 was built
+to enable. **What this does not yet decide, named rather than
+glossed over:** whether a container instance can *be* an agent
+dispatch target at all is unresolved — it reaches the executor, the
+mutex mapping, and `DispatchRun`'s own keying, none of which assume a
+non-ticket dispatch subject today, and it changes what `main`
+blocking `retro` (§15.7) means once the blocker is an agent step
+rather than a population of unresolved tickets. `systems/delivery.md`
+records this as its own open question rather than this document
+proceeding as though it were settled. Until it resolves, `setup` and
+`retro` stay exactly as built — ordinary ticket-skeleton work items,
+dispatched through `milestone`'s `flow:` — and this paragraph is the
+recorded direction the next pass designs against, not a diff to
+`bundles/default-flow/**` this pass makes.
+
 The **`:live` suite** still runs once per milestone (§2.8, settled at
 ORC-105 to gate `main`'s completion specifically), and a failing
 verdict is exactly the sort of unresolved work `main`'s `blocks:`
@@ -3210,51 +3245,72 @@ and is not against a declared one, so it becomes an audit check.
   version while the *message* speaks in states, because the version
   is what is correct and the state is what the human needs to hear.
   Author's call: the rule as stated compares on status.
-- **What a passed gate pins.** ~~**Resolved (ORC-84, ORC-6).** A
-  review is a tier (`reviews: <tier>`, `dsl-syntax.md` §3.3), 1:1
-  with the tier it reviews, its `context:` load-time-checked equal to
-  the reviewed tier's own. That equality is the pin: a review node
-  reads exactly the inputs its reviewed tier does, so §7.11's
-  staleness-is-derived machinery already covers it without
-  modification — a review node is stale precisely when the tier it
-  reviews would be, and nothing separate is ever recorded or compared
-  to know that. The original framing below is superseded, not wrong;
-  it asked for the gate to "record what it approved," and the answer
-  turned out to be that the review tier's own committed content,
-  read under the same context walk, already is that record.~~
-  **Mis-resolved (ORC-6, corrected).** That answered the wrong
-  object. `reviews: <tier>` is the chain axis; this item names the
-  declared *workflow* gate this section itself defines above
-  ("Approval is a status, and review states are declared"). §7.19
-  draws exactly this line: a throwback reopening "the two approvals
-  before it" names workflow gates, and separately exempts a review
-  *tier* by name — "It therefore has no throwback semantics: there is
-  no passed gate downstream of it to reopen" — and a review tier
-  declares no committed artifact, so there is nothing for the
-  derivation to anchor on regardless. What the ORC-6 pass actually
-  found, correctly, is not the answer to this item but a reason it
-  never engages with a different object: a review tier needs no
-  staleness treatment at all. `systems/engine.md` records that
-  finding. This item is open again, unchanged:
-
-  A gate approves a version of an artifact; the ticket
-  then moves past it. When the artifact regenerates underneath, the
-  ticket is already downstream and the judgment it carries is stale
-  while nothing says so. §7.11's staleness-is-derived machinery is
-  the natural home — a passed gate goes stale when what it approved
-  does, and reopens — but the gate has to record what it approved for
-  that to be derivable at all. A direction, not a decision: the plane
-  already logs the transition command with its actor (this section,
-  above), so an approval event carries a sequence and the node it
-  approved has a latest-commit sequence — "did what this gate
-  approved change" may be answerable as a log join rather than a
-  stored field. Whether that holds is a workflow-gate design
-  question, for whenever gates are declared (`systems/delivery.md`'s
-  Phase 7), not this ticket's to settle.
 - **Staleness clocks under more writers.** `staleClaimGrace` measures
   from `max(Run.EndedAt, StateSince)`, so every state move resets it.
   More writers means more resets, and the constant (§7.13) was chosen
   against a single-writer rate.
+
+**What a passed gate pins — resolved (ORC-115), kept in place for the
+genealogy rather than deleted.** ~~**Resolved (ORC-84, ORC-6).** A
+review is a tier (`reviews: <tier>`, `dsl-syntax.md` §3.3), 1:1
+with the tier it reviews, its `context:` load-time-checked equal to
+the reviewed tier's own. That equality is the pin: a review node
+reads exactly the inputs its reviewed tier does, so §7.11's
+staleness-is-derived machinery already covers it without
+modification — a review node is stale precisely when the tier it
+reviews would be, and nothing separate is ever recorded or compared
+to know that. The original framing below is superseded, not wrong;
+it asked for the gate to "record what it approved," and the answer
+turned out to be that the review tier's own committed content,
+read under the same context walk, already is that record.~~
+**Mis-resolved (ORC-6, corrected).** That answered the wrong
+object. `reviews: <tier>` is the chain axis; this item names the
+declared *workflow* gate this section itself defines above
+("Approval is a status, and review states are declared"). §7.19
+draws exactly this line: a throwback reopening "the two approvals
+before it" names workflow gates, and separately exempts a review
+*tier* by name — "It therefore has no throwback semantics: there is
+no passed gate downstream of it to reopen" — and a review tier
+declares no committed artifact, so there is nothing for the
+derivation to anchor on regardless. What the ORC-6 pass actually
+found, correctly, is not the answer to this item but a reason it
+never engages with a different object: a review tier needs no
+staleness treatment at all. `systems/engine.md` records that
+finding. This item is open again, unchanged:
+
+A gate approves a version of an artifact; the ticket
+then moves past it. When the artifact regenerates underneath, the
+ticket is already downstream and the judgment it carries is stale
+while nothing says so. §7.11's staleness-is-derived machinery is
+the natural home — a passed gate goes stale when what it approved
+does, and reopens — but the gate has to record what it approved for
+that to be derivable at all. A direction, not a decision: the plane
+already logs the transition command with its actor (this section,
+above), so an approval event carries a sequence and the node it
+approved has a latest-commit sequence — "did what this gate
+approved change" may be answerable as a log join rather than a
+stored field. Whether that holds is a workflow-gate design
+question, for whenever gates are declared (`systems/delivery.md`'s
+Phase 7), not this ticket's to settle.
+
+**Resolved (ORC-115).** `dsl-syntax.md` §15.10's sub-array grouping
+gives a gate the structural referent this item was missing: a gate's
+citing sub-array holds exactly one non-critique agent-balled entry,
+by its own load-time check, so what the gate approves is that
+entry's own committed content, read at the gate's declared `depth:`
+— the same node set `critique`'s own depth already selects among
+when a critique entry shares the group. The direction left open
+above — a log join rather than a stored field — is confirmed rather
+than merely plausible: the join is against a structurally derived
+node, never a value the loader or the plane has to remember on the
+gate's own behalf, so "did what this gate approved change" reduces
+to §7.11's ordinary staleness-is-derived question, asked of the
+pinned node instead of an implied one. Building the join itself —
+reading the pinned node's latest-commit sequence against the gate's
+own approval-event sequence — is still `systems/delivery.md`'s Phase
+7, alongside the rest of declared workflow gates; this pass gives
+that future build an object to pin against, where the ORC-6 pass
+correctly found there wasn't one.
 
 ### 7.17 The tracker is ours; the host is an adapter
 
@@ -3579,6 +3635,22 @@ from a loose end into a dependency: without the pin there is no
 derivation, and all-reopen degrades into re-reviewing everything by
 hand every time.
 
+**Structural as of ORC-115, not merely affordable.** The paragraph
+above was written as a description of intended behavior with no
+mechanism enforcing it: "downstream of the regeneration" named a
+region of the array by prose, not by anything a loader or a dispatcher
+computed. `dsl-syntax.md` §15.10's sub-array grouping gives it one —
+a throwback's default fallback is its citing sub-array's own
+non-critique agent step, so "everything downstream of the
+regeneration" *is* "everything in this sub-array," derived from the
+same structure that already answers §7.16's open item above.
+The derivation supplies the sub-array's own default landing point, and
+`throwback:` (below) survives beside it as a single, explicit override
+for the gate that wants a different one — never a second, narrower
+*legality* rule (§4.5's escape-hatch discipline): the "earlier in the
+effective sequence" test below is the only bound on what a decline may
+target, declared or not.
+
 **Blocked stays a single system status** (§7.6's decision, revisited
 under declarable statuses and upheld), with flavor labels for the
 reason dimension. It is itself a system status, not a review status:
@@ -3624,6 +3696,32 @@ movement; both reopen everything downstream, and §7.11's derived
 staleness makes the re-pass free where nothing a review saw actually
 changed. Specifying them separately would let an unblock leave a
 stale approval standing downstream.
+
+**Corrected on a second design review: the equivalence is about target
+legality too, not reopen scope alone.** The paragraph above still
+states what it always stated — both reopen everything downstream —
+but the claim that a declared gate `throwback:` stays a *bounded
+allow-list, distinct from* this section's rule rested on a
+shipped-enforcement claim that does not hold: `Catapult.Engine
+.Aggregate`'s `DeclineGate` clause enforces no such membership check
+against a gate's declared list — that validation is the command
+edge's, and the command edge does not exist yet (`dsl-syntax.md`
+§15.10 records the correction in full). A gate's decline and a
+Blocked-return are the same movement on both counts now: reopen scope,
+from this section, and target legality — any earlier status in the
+ticket's effective sequence, never narrower — from the same "earlier"
+prefix this section already defines two paragraphs above.
+**Third design review: `throwback:` survives the correction above, and
+narrows.** A declared list has no remaining role once legality is
+unbounded — naming several targets said "any of these is legal," which
+is exactly the bound just retired. But a landing point is a different
+fact from a legal-target set, and it survives: `throwback:` (`dsl-
+syntax.md` §15.4) narrows to a single, optional status, the explicit
+override a gate declares when its citing sub-array's own non-critique
+agent step — the derived default, above — is not the one-click landing
+point it wants. Blocked-return has no equivalent override; its
+one-click action is always the tracked origin, because nothing groups
+it into a sub-array the way a gate's decline is grouped.
 
 **The escape valve for a genuinely unwanted step stays heavy on
 purpose.** Deciding a parked ticket does not need its security review

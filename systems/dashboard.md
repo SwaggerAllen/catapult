@@ -115,13 +115,23 @@ conventions §13).
   unanswered — `systems/engine.md`'s own ORC-34 entry leaves them so on
   purpose — but neither blocks v1, since Phase 4's own `feature.yaml`
   runs exactly one `generation` status ahead of each gate. `gate`/
-  `throwback_to` membership is validated at the command edge: whatever
-  constructs the command (dev's LiveView) checks it against the loaded
-  workflow bundle before dispatch, the same way `Catapult.Dsl.Workflow
-  .gate_throwback_problems/2` load-time-guarantees every declared
-  `throwback:` target is reachable — this is also why `document-
-  review`'s throwback picker only ever offers a gate's own declared
-  exits. **A decline naming no comment is rejected by `DeclineGate`'s
+  `throwback_to` legality is validated at the command edge: whatever
+  constructs the command (dev's LiveView) checks that `throwback_to` is
+  earlier in the citing type's own effective sequence — the same
+  "earlier in the array" test `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` already runs at load time for a
+  *declared* target, generalized to every runtime pick now that ORC-115
+  retires the declared list as a legality bound (`docs/dsl-syntax.md`
+  §15.10, second design review; a third review narrowed the field
+  itself to a single-target override on the derived default rather
+  than retiring it outright, `docs/dsl-syntax.md` §15.4). `document-
+  review`'s throwback picker offers the same full earlier-prefix
+  Blocked-return's picker already gives (`docs/ui-spec.md` J4), one
+  click landing on the gate's own declared `throwback:` when the gate
+  names one, or its citing sub-array's own derived default otherwise —
+  never bounded, either way, to a gate's own declared exits as an
+  allow-list. **A decline
+  naming no comment is rejected by `DeclineGate`'s
   own aggregate state, never by either screen** — the screen surfaces
   that rejection synchronously, the same compare-and-swap conflict
   rendering `ticket`'s stale-transition case already specs, but does
@@ -210,8 +220,9 @@ conventions §13).
   from whether a node's current `body_sha` matches what the gate's
   approval event recorded — cannot be built: `GateApproved`/
   `GateDeclined` carry no content identity, deliberately, and §7.16's
-  "what a passed gate pins" is left open for Phase 7/ORC-115 by name in
-  `systems/engine.md`'s own entry. `Catapult.Delivery.Store
+  "what a passed gate pins" was, at the time this entry was written,
+  left open for Phase 7/ORC-115 by name in `systems/engine.md`'s own
+  entry. `Catapult.Delivery.Store
   .get_previous_draft_body/2` (one previous body, not a log) answers
   the per-sentence **diff** `document-review` renders — a narrower
   question ("what changed since the last pass") than "has what this
@@ -219,6 +230,18 @@ conventions §13).
   not have. `screens/document-review.md` drops stale marking from v1
   rather than shipping a stopgap `body_sha` on the gate events that
   ORC-115 would be the first thing to delete.
+
+  **ORC-115 has since answered §7.16's item at the design level** (
+  `docs/dsl-syntax.md` §15.10; `docs/v5-design-decisions.md` §7.16):
+  what a gate pins is its citing sub-array's one non-critique
+  agent-balled entry, at the gate's declared `depth:`, derived rather
+  than stamped on the event. This is still not a `body_sha` and still
+  not built — the log join `systems/delivery.md`'s Phase 7 needs is
+  unbuilt, and this v1 scoping decision (drop stale marking rather than
+  ship a stopgap field) is unaffected. It is recorded here so a later
+  pass reads "why isn't this built yet" rather than "is this still
+  open" — the open question moved from *what* a gate pins to *building*
+  the join against the answer.
 - **No assignee or role-holder projection exists, and Phase 4's screens
   render the degenerate case rather than modeling an interim one**
   (ORC-114, design pass). `my-queue`'s two tabs, its `sign off`

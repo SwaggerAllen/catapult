@@ -231,6 +231,48 @@ design gates pass.
   it. Neither correction changes this system's shape, only what its
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
+- **ORC-115 (design pass, corrected on two later design reviews) gives
+  this system's dispatcher a derived throwback default and opens,
+  without answering, whether a container instance can be a dispatch
+  target in its own right** (`docs/dsl-syntax.md` §15.4, §15.10; `docs/
+  v5-design-decisions.md` §7.8, §7.16, §7.19). The dispatcher's own
+  throwback handling resolves every decline's *legality* the same way,
+  regardless of declaration — checked against "earlier in the citing
+  type's own effective sequence" (identical to how the dispatcher
+  already has to honor a Blocked-return); a gate's declared
+  `throwback:` bounds nothing here (second design review; the first
+  pass's reading, that it stayed a bounded allow-list the command edge
+  enforced, rested on a `DeclineGate` enforcement claim that isn't
+  real). What a gate's declared `throwback:` still supplies is a
+  *landing point* (third design review, narrowing the field to a
+  single optional status rather than retiring it): the dispatcher reads
+  it when the gate names one, and falls back otherwise to the citing
+  sub-array's own non-critique agent-balled entry as the one-click
+  default — either way computed from the loaded workflow bundle at
+  throwback time, never stored. This is the same shape `flow:`
+  resolution and the singleton-lifetime check above already take (read
+  the bundle, don't cache a derived fact).
+
+  **This system's own open question, named rather than assumed
+  answered: can a container instance be an agent dispatch target at
+  all?** `docs/v5-design-decisions.md` §7.8's own amendment records the
+  direction — `milestone`'s `setup` and `retro` folding into sub-arrays
+  of its own array rather than staying separately minted ticket-
+  skeleton types — but `setup`/`retro` today dispatch as ordinary
+  tickets precisely because this system's dispatcher has never had to
+  address a non-ticket subject. Answering this reaches ORC-9's executor
+  (what does it run against, if not a ticket's branch and PR), the
+  mutex mapping (a container instance has no file-map paths of its
+  own), and `DispatchRun`'s own keying (keyed on ticket id today); it
+  also reopens what `main`'s `blocks: [retro]` (§15.7) means once the
+  blocker is one agent step rather than a population of unresolved
+  work items — "does not complete while a queue that blocks it holds
+  work" presumes something to hold, and an agent step either has run
+  or hasn't. **Not decided here.** Until it is, `types/setup.yaml` and
+  `types/retro.yaml` stay exactly as built, and this system's
+  dispatcher gains nothing from the amendment beyond the throwback
+  default above. Filed alongside the rest of this doc's Target list,
+  for whichever pass takes it up.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -1089,9 +1131,17 @@ design gates pass.
   loaded `Catapult.Dsl.Workflow.t()` this process manager already
   threads through, per ORC-32's own entry above); `GateDeclined` moves
   it straight to `throwback_to` — no lookup needed, the event already
-  names the resolved target, load-time-guaranteed reachable by
-  `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2`. Neither
-  clause is new mechanism beyond what this process manager already is;
+  names the resolved target, guaranteed reachable by the command edge's
+  own "earlier in the citing type's own array" check before dispatch —
+  the identical predicate `Catapult.Dsl.Workflow
+  .gate_throwback_problems/2` already runs at load time against a
+  *declared* `throwback:` (unaffected by ORC-115's narrowing of that
+  field to a single target, `docs/dsl-syntax.md` §15.4), reused at the
+  command edge as a second, runtime instance of the same check against
+  whatever the human actually picked — declared override, derived
+  default, or an earlier-prefix choice alike (`docs/dsl-syntax.md`
+  §15.10). Neither clause is new mechanism beyond what this process
+  manager already is;
   it is the increment ORC-32's own "what advancing past a gate
   dispatches to stays open" bullet named and deferred, closed here on
   the aggregate side `systems/engine.md` settles and amended into that

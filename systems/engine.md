@@ -239,6 +239,31 @@ them.
   ticket's to close, but worth stating so a future bundle author
   hitting it reads a known gap rather than a surprise.
 
+- **A fanned-out child cannot leave its parent's workflow-axis
+  sub-array, and this is a consequence of readiness already gating,
+  not a new rule for this system to enforce** (ORC-115, design pass —
+  stated as an invariant `docs/dsl-syntax.md` §15.10's sub-array
+  grouping and ORC-116's own subflow-navigation design both lean on).
+  `walk_ready?/2`'s own predicate — `Enum.all?(targets, &(&1.status ==
+  :approved))` — already requires every node a context walk reaches to
+  be `:approved` before the tier reading that walk can dispatch; §7
+  states the same fact from the grammar side ("readiness requires all
+  targets ready. Context is the only readiness signal"). So a tier
+  positioned in a workflow sub-array *after* a gate can never become
+  ready while the tier(s) the gate's own sub-array pins remain
+  unapproved — not because anything checks the workflow-axis grouping
+  against the chain-axis node, but because there is no path to
+  `:approved` for the later tier that does not first satisfy the
+  earlier one's own context walk. **What this is not:** a claim that
+  this system reads or enforces sub-array membership at all — it
+  doesn't, and gains no new code from this entry. The invariant is
+  chain-axis readiness, restated for a workflow-axis reader (ORC-116's
+  navigation) who needs to know a fanned-out node cannot be "ahead of"
+  its own group's gate. If that reader ever needs something this
+  system doesn't already expose — the sub-array a given node's tier
+  belongs to, say — that is a new query, not evidence this invariant
+  is wrong.
+
 - **Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings
   surface, same mechanism as every other marked threshold) — enough
   headroom that a burst of events doesn't turn the convergence floor
@@ -732,12 +757,18 @@ them.
   correction above, both keyed by the
   `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32
   entry already establishes for this aggregate's process-manager
-  consumer (ORC-87). **`gate`/`throwback_to` membership — is `gate` a
-  key of `workflow.gates`, is `throwback_to` a member of that gate's
-  own `throwback` list (`Catapult.Dsl.Gate.throwback`,
-  load-time-resolvable per `Catapult.Dsl.Workflow`'s own
-  `gate_throwback_problems/2`) — is the command edge's to check, not
-  `execute/2`'s** (dev pass correction): the container commands this
+  consumer (ORC-87). **`gate`/`throwback_to` legality — is `gate` a
+  key of `workflow.gates`, is `throwback_to` earlier in the citing
+  type's own effective sequence (the "earlier in the array" test
+  `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2` already
+  runs at load time for a *declared* `throwback:` value, reused here
+  at the command edge as a runtime check now that ORC-115 retires the
+  declared list as a legality bound, `docs/dsl-syntax.md` §15.10,
+  second design review — the field itself survives narrowed to a
+  single-target override on the derived default rather than retiring,
+  `docs/dsl-syntax.md` §15.4, third design review) — is the command
+  edge's to check, not `execute/2`'s** (dev
+  pass correction): the container commands this
   entry pointed to as precedent validate bundle content at their own
   dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in
   `execute/2` only against the aggregate's own pure state — this
@@ -751,8 +782,13 @@ them.
   `throwback_to` the same way `ContainerLifecycle` validates
   `MintContainer`/`AdvanceContainerQueue`, before dispatch. **A decline
   requires at least one comment; there is no free-text override.** `docs/ui-spec.md` §3.2's own `document
-  -review` action set is "approve / throw back, with the throwback
-  target chosen from the declared exits" — no reason field — so the
+  -review` action set is "approve / throw back," target chosen from
+  the gate's own declared `throwback:` when it names one, its derived
+  default otherwise, or the earlier-prefix picker for anything else
+  (ORC-115, second design review corrects this from "the declared
+  exits" as the bound on legality; third design review restores the
+  field itself as a single-target override rather than retiring it,
+  `docs/dsl-syntax.md` §15.4) — no reason field — so the
   simpler of the two fixes design review posed for the ticket's own
   zero-comment open question is also the one the screen this ticket
   answers to actually specs: `DeclineGate` is rejected outright,
@@ -797,6 +833,14 @@ them.
   match what's downstream of it" — is likewise untouched; Phase 4's own
   shipped `feature.yaml` runs exactly one `generation` status ahead of
   its gates, so nothing here needs the general answer to work today.
+  **Design-resolved at ORC-115, still not built here or anywhere:**
+  `docs/dsl-syntax.md` §15.10's sub-array grammar now gives "which
+  node(s) a gate reviews" a structural answer — the citing sub-array's
+  own one non-critique agent-balled entry, at the gate's declared
+  `depth:` (`docs/v5-design-decisions.md` §7.16) — but neither event
+  gains a field from that alone; the join still has to be built
+  (Phase 7), and this entry's own claim (no `body_sha`, position not
+  content) is unaffected until it is.
   **Named rather than left to be found by a fan-out: the decline check
   is project-wide and the render is per-node, and those are not the
   same scope** (fourth design-review's own minor finding). A comment

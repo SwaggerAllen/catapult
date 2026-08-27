@@ -722,9 +722,14 @@ Added with the two axes and the declarable protocol surface (v5
   `critique` entry's `depth:` is read by anything today — scheduling
   is a later consumer (v5 §7.19) — so there is no consumer to
   migrate;
-- a gate's exits (forward and throwback) resolve to states that
-  exist within the citing type's own array, and its declared
-  escalation policy is well-formed;
+- a gate's forward exit (the next entry in the citing type's own
+  array) and its declared escalation policy are well-formed. **A
+  gate's own `throwback:`, if declared, must be earlier in the citing
+  type's own array** (§15.4, §15.10) — the one load-time check the
+  field still needs, now that it names a single landing point rather
+  than an allow-list. An *undeclared* decline's target is a runtime
+  pick, checked at the command edge against the same "earlier in the
+  effective sequence" bound, never load-time bundle content;
 - **a `type:` name is unique in the loaded union, whatever `skeleton:`
   it declares or omits** — `container`- and `ticket`-skeleton types
   and skeleton-less types share one namespace (§15.2);
@@ -909,6 +914,43 @@ whole lifetime rather than its momentary population):
   `role_holders:` and `mirror_mapping:` above, there is no later
   component this field waits on — a bundle author writes it the same
   turn they write the type it names — so it takes no opt-in exemption.
+
+Added with sub-arrays (§15.10, ORC-115):
+
+- **a `statuses:` array entry that is itself an array is a sub-array**,
+  and every entry inside one is still exactly one of `status:`,
+  `review:` or `environment:` — the existing "exactly one of these
+  three keys" rule (above) applies unchanged inside a sub-array, and a
+  sub-array nested inside a sub-array is a load error naming the
+  position (§15.10's own grammar is flat; nesting is explicitly
+  undecided, not silently accepted);
+- **a sub-array must hold exactly one entry whose `status:` is a
+  non-critique agent-balled system status** (`generation`, `retro`,
+  `setup` or `merge` — §15.1's `ball` column minus `critique`, which is
+  excluded for the same reason §15.5 already excludes it from standing
+  alone). Zero such entries or two or more is a load error naming the
+  declaration, the sub-array's position, and the count found;
+- **a `status:` entry naming a queue-shaped anchor (one carrying
+  `flow:` or `blocks:`, §13 above) may not appear inside a sub-array**
+  — a load error naming the declaration and the position. Nothing in
+  this grammar yet lets a container instance be an agent dispatch
+  target on its own (`systems/delivery.md`'s open question), so a
+  queue-shaped anchor keeps its existing, ungrouped position whatever
+  type declares it;
+- **`throwback:`'s own load-time check is unaffected by sub-array
+  membership** (third design review, below): whether the citing status
+  sits inside a sub-array or not, a declared `throwback:` need only be
+  earlier in the citing type's own array — sub-array membership is not
+  itself a bound, only a source of the derived default the field may
+  override;
+- **a `review:` entry inside a sub-array resolves its one-click
+  default to that sub-array's own non-critique agent-balled entry** —
+  computed, never stored, the identical "derive, never hold" posture
+  `ready_scopes` and staleness already take. This is a default action,
+  not a bound on legality: the full set of legal targets is
+  `docs/v5-design-decisions.md` §7.19's own earlier-prefix rule, the
+  same one Blocked-return uses, and the check above only guarantees
+  the default itself is unambiguous.
 
 ## 14. Deliberately absent
 
@@ -1328,9 +1370,6 @@ depth: 1                        # fan-out depth (v5 §7.19); omitted = 0,
                                 #   accepts [first, rest] — the
                                 #   project's first traversal of this
                                 #   gate vs. every later one.
-throwback: [product-design]     # exits it may reject to; each must
-                                #   resolve within the citing type's
-                                #   own array (§13)
 escalation: author              # policy; human gates are author-owned
 ```
 
@@ -1357,6 +1396,38 @@ log because the plane records the command with its actor.
 carry `ticket_types: [feature]`; that fact is now which types' own
 `statuses:` arrays cite it, and there is exactly one place it lives —
 the citing type, not the gate.
+
+**`throwback:` survives, narrowed to a single target (ORC-115, third
+design review).**
+
+```yaml
+# gates/ux-review.yaml
+review: ux-review
+role: design
+depth: 1
+escalation: author
+throwback: pending               # optional: an explicit landing point,
+                                  #   overriding §15.10's derived default
+```
+
+A declared *list* of legal decline exits was necessary only while
+decline targets were bounded to a per-gate allow-list;
+`docs/v5-design-decisions.md` §7.19 and §15.10 below make a gate's
+decline and a Blocked-return the same rule regardless of declaration —
+any earlier status in the citing type's own effective sequence — so a
+list has nothing left to bound, and a bare list also stops meaning
+anything once it no longer bounds: naming several targets said "any of
+these is legal," and a landing point cannot be several things at once.
+
+What survives is narrower and singular. §15.10's sub-array grouping
+gives every gate a *default* landing point — its citing sub-array's own
+non-critique agent step — for the ordinary case a decline names no
+further choice. `throwback:` is the escape hatch beside that default,
+one explicit status, for the gate that wants a different one-click
+landing point than the derivation would pick. It names no legality of
+its own: whatever it names must already be earlier in the citing type's
+own effective sequence, the identical bound §15.10 states for every
+decline, declared or not.
 
 **Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
 ORC-92). A gate is a human sign-off, and a human reads the top level;
@@ -1775,3 +1846,302 @@ about the automation graph itself. The `singleton:` correction changes
 what a lifetime bound means and what the dispatcher does about it, not
 what a bundle may declare: the field existed at the fifth pass, and
 this pass fixes its semantics rather than widening its surface.
+
+### 15.10 Sub-arrays — grouping a gate around its own agent step
+
+**A `statuses:` array entry may itself be an array — a bare, unnamed
+sub-array grouping a contiguous run of the entries §15.2 already
+allows anywhere in the array** (ORC-115, design pass). Grouping is
+admissible under `docs/non-goals.md`'s "No per-project restructuring
+of the automation protocol" for that entry's own stated rule — no
+plane logic branches on whether entries are grouped, any more than it
+branches on where in the array one sits (§15.9). Nothing new is
+declarable inside one: an entry inside a
+sub-array is still exactly one of `status:`, `review:` or
+`environment:` (§13's existing rule, unchanged), and a sub-array
+carries no key of its own — no `name:`, no `id:`, nothing a later
+declaration or a cutover could reference. The addition is structural
+only: a way to say *these entries resolve together* instead of merely
+sitting at adjacent array indices.
+
+```yaml
+statuses:
+  - status: pending
+  - - status: generation
+    - status: critique
+      depth: 1
+    - review: ux-review
+    - review: engineering-review
+  - status: checks
+  - status: merge
+  - environment: staging
+  - status: deploy
+  - status: terminal
+```
+
+**Legal wherever a `review:` or `environment:` entry is already legal
+— every type's array, whatever `skeleton:` it declares or omits
+(§15.2's fifth-pass widening) — but only a `ticket`-skeleton type has
+anything worth grouping today.** A queue-shaped anchor entry
+(`flow:`, `blocks:`) may not appear inside a sub-array — a load error,
+stated separately below — so a `container`-skeleton or skeleton-less
+type's array, whose only non-queue-shaped entries are gates and
+environments, can form a sub-array holding nothing but those, which
+groups nothing a bare array position didn't already say. This is
+deliberate rather than an oversight: letting a queue-shaped anchor
+sit inside a sub-array is exactly the "singleton flows retire into
+sub-arrays of their parent container" direction below, and it is not
+decided here (open, see below) — the grammar this section fixes is
+narrower than the direction it opens.
+
+**Exactly one non-critique agent-balled entry per sub-array — a
+load-time check, and the fact the whole derivation below rests on.**
+§15.1's `ball` column already marks `generation`, `critique`, `retro`,
+`setup` and `merge` as agent-balled; critique is excluded here because
+it reviews a generation rather than standing as one, the identical
+exclusion §15.5 already draws for a different purpose. A sub-array
+holding zero such entries has nothing for a throwback to fall back to
+and nothing worth grouping (a load error); one holding two or more —
+a `generation` and a `merge` grouped together, say — has no
+unambiguous anchor between them, and rather than inventing a
+tie-break rule for a shape the default bundle never needs, it is
+refused at load, the same posture `container` and `ticket`-skeleton
+mismatches already get (§13). Revisit condition: a real bundle need
+for a multi-agent-step group, at which point the tie-break is decided
+against that actual shape rather than guessed at now.
+
+**Default throwback falls back to the sub-array's own non-critique
+agent step, never to the array position immediately before the
+gate.** This is the reading that survives ORC-104's own milestone
+shape, `[milestone-signoff, retro, proposals-read]` (§15.2's
+`milestone.yaml` example) — a `review:` entry's position in the flat
+array is not a reliable proxy for "what it reopens" the moment a gate
+sits *after* the group's own agent step rather than before it.
+`proposals-read` declining falls back to `retro` (the group's one
+non-critique agent step), not to `milestone-signoff` (the array
+position immediately before it) — the latter would re-ask the author
+a question they already answered instead of re-running the agent that
+produced the thing they're declining. A gate declaring no `throwback:`
+of its own now resolves to this derivation rather than being an
+outstanding declaration gap; §15.4's `throwback:` field is unaffected
+in shape and stays legal wherever it already was.
+
+**The worked example is the post-retirement shape, not today's
+grammar, and says so here rather than leaving the next reader to
+check.** `bundles/default-flow/types/milestone.yaml` cites `retro` as
+a `flow:`-carrying, container-skeleton anchor today (`types/retro.yaml`
+runs its own singleton flow), and the load-time check above refuses a
+queue-shaped anchor inside a sub-array — so `[milestone-signoff, retro,
+proposals-read]` cannot legally form a sub-array until "singleton flows
+retire into sub-arrays of their parent container" (below) actually
+lands. The reasoning holds regardless: it argues from the *shape* ORC-104
+already committed to in prose, not from a sub-array the loader accepts
+today. One consequence worth naming plainly: no sub-array the default
+bundle can legally form *today* distinguishes this rule from a naive
+first-element one, since `types/feature.yaml`'s own group
+(`generation`, `critique`, `ux-review`, `engineering-review`) has
+`generation` as both the sub-array's one non-critique agent step and
+its first entry. The rule ships correct but unexercised by the shipped
+bundle until the milestone retirement lands.
+
+**Second design review: the declared list never bounded anything.**
+The pass this section originally shipped held
+`throwback:` unaffected in reach — a declared, non-empty list stays
+the only legal decline targets, and the derivation only fills the
+*empty*-list gap. That reading rested on a specific factual claim, and
+the claim is false: `lib/catapult/engine/commands/decline_gate.ex`'s
+own moduledoc states plainly that `gate`/`throwback_to` membership "is
+the command edge's to check... not the aggregate's," and the command
+edge is dev's unbuilt LiveView (`systems/delivery.md`'s Phase 7). There
+is no shipped enforcement of a declared allow-list to preserve, so the
+question is an ordinary design decision, not a fact this pass could
+get right or wrong by reading code. **The author's decision, recorded
+here: a human may move a ticket anywhere that would not break the
+pipeline, and the only thing that breaks is tier ordering — a
+decline's target is bounded by "an earlier status in this ticket's
+effective sequence," the identical rule `docs/v5-design-decisions.md`
+§7.19 already gives Blocked-return, and nothing narrower.** This is
+not a new check invented for the occasion: `Catapult.Dsl.Workflow
+.gate_throwback_problems/2` already computes exactly this — `target in
+(type.statuses |> Enum.take(index))` — for a *declared* `throwback:`
+value at load time. The decision generalizes the bound already shipped
+there to every runtime pick, declared or not: one predicate, in one
+place, instead of a load-time check and a separate runtime allow-list
+that happened to agree.
+
+**Third design review: `throwback:` keeps its second job — naming a
+landing point — and narrows from a list to a single target, rather
+than retiring.** The pass immediately above retired the field outright
+on the reasoning that a declared list served exactly one purpose
+(bounding legality) and that purpose was gone. The premise is right and
+the conclusion overreaches: `throwback:` did two jobs, not one.
+Bounding legality is the job that is gone, and stays gone — every
+target the field could ever name is, by construction, earlier in the
+array, which is now legal regardless of declaration. But the field
+also *named where a decline lands*, and that job is untouched by the
+widening: it is exactly what an escape hatch is for. The derivation
+above supplies a *default* landing point — the citing sub-array's own
+non-critique agent step — and `throwback:` is what a gate declares
+instead of that default, for the gate that wants a different one.
+
+A list stops meaning anything the moment it stops bounding: naming
+several targets said "any of these is a legal exit," a claim about
+legality. A landing point is not a set — a decline lands on exactly one
+status — so the field narrows to a single optional target rather than
+disappearing. `Catapult.Dsl.Gate`'s `throwback: [String.t()]` narrows
+to `throwback: String.t() | nil`, and `Catapult.Dsl.Workflow
+.gate_throwback_problems/2`'s `for target <- gate.throwback` narrows to
+one membership check against the same "earlier in the citing type's
+own array" bound it already computes — dev's diff against this record,
+not this pass's to make. `docs/v5-design-decisions.md` §4.5's
+escape-hatch discipline — "an escape hatch that accretes special cases
+becomes N more mechanisms" — is why the field stops at *one* override
+rather than growing back into per-target routing: a single explicit
+status, no per-use kinds, no second derivation rule beside the
+sub-array default.
+
+**The day-one test still matters, restated for a default rather than a
+bound: if the default bundle needs the field to reach a *different*
+landing point than the derivation would pick, that is the field doing
+its job; if it needs the field only to restate a target already
+reachable, that declaration is redundant and worth dropping.** Under
+the widened legality rule, the retro case that motivated this whole
+section resolves with no declaration at all — the derivation is right
+about the ordinary case. The two real default-bundle gates that
+declare `throwback:` today are read against the sharper test, not
+waved through:
+
+- `ux-review`'s own declared `throwback: [pending]` (`bundles/
+  default-flow/gates/ux-review.yaml`) names a target *outside*
+  `ux-review`'s own sub-array, before the group entirely — and a
+  *different* landing point than the derivation would pick, which is
+  `generation`, the group's own non-critique agent step. This
+  declaration is the field earning its keep: `pending` means reject all
+  the way back to before generation ever ran, not merely re-run
+  generation, and only an explicit declaration can say that. Narrowed
+  to a single target, this file is unaffected — it already named one.
+- `engineering-review`'s own declared `throwback: [generation,
+  ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
+  sits entirely inside the group the derivation covers. Its first
+  element, `generation`, already *is* the derived default, so declaring
+  it is redundant. Its second element, `ux-review`, is a genuine second
+  landing point a single-valued field can no longer express at once —
+  the list-to-scalar narrowing forces this file to keep one and drop
+  the other. Both remain legal targets either way (the earlier-prefix
+  rule reaches both regardless of declaration); which one stays the
+  declared *default* is an ordinary bundle-authoring call against
+  `bundles/**`, not a fact this record needs to settle for it.
+
+Narrowing both files' `throwback:` to a single string, and dropping
+`engineering-review`'s now-redundant second element, is dev's diff
+against this record (`bundles/**`); neither file loses a landing point
+a decliner can still reach.
+
+**Throwback reopens the whole sub-array — the all-reopen rule
+(`docs/v5-design-decisions.md` §7.19) is now definitional, not
+prose.** Falling back to the group's own non-critique agent step *is*
+"reopen everything downstream of the regeneration," restated
+structurally: there is no entry between the fallback point and any
+gate later in the same sub-array that the reopen could leave standing,
+because the fallback point is the earliest entry the group has. This
+is what closes v5 §7.19's own observation that the all-reopen rule was
+written as a description nothing enforced — a passed gate re-checked
+against a sub-array whose own agent step regenerated is exactly
+§7.11's staleness-is-derived machinery running over a structural
+boundary instead of an implied one.
+
+**This also answers `docs/v5-design-decisions.md` §7.16's open item,
+"what a passed gate pins."** A gate's citing sub-array has exactly one
+non-critique agent step (the check above), so what the gate approves
+is that step's own committed content, read at the gate's own declared
+`depth:` — the identical node set `critique`'s own depth already
+selects among when a critique entry sits in the same group (§15.5),
+generalized from "review this generation" to "this gate approves
+this generation." Staleness for the gate becomes the same derived
+join a review tier's 1:1 pin already uses (§7.16, ORC-84/ORC-6): the
+gate is stale exactly when the pinned node's own committed content has
+moved past what the gate's approval event recorded, answerable from
+the log rather than a stored field. Nothing here builds that join —
+declared workflow gates are still `systems/delivery.md`'s Phase 7 to
+build at all — this section only gives that future build a structural
+node to pin against, where before there was none.
+
+**Backward movement is one rule with one target test, not two.**
+`docs/v5-design-decisions.md` §7.19's "a throwback from a review and an
+unblock to an earlier status are the same movement" was written about
+reopen scope, and that reading is correct and unchanged — "both reopen
+everything downstream" is the entire content of "the same movement."
+But the two entry points also share what counts as a legal target,
+which the section's first pass got wrong by trusting a shipped-
+behavior claim that did not hold (above: `DeclineGate` enforces no such
+list; the command edge that would does not exist yet). A gate's
+decline and a Blocked-return both resolve against the identical
+"earlier in the effective sequence" test; they differ only in their
+*default* — a throwback's one-click default is the citing sub-array's
+own non-critique agent step (this section), a Blocked-return's is the
+tracked origin status (§7.19) — and in nothing else, except that a
+gate's default may itself be overridden by an explicitly declared
+`throwback:` (§15.4, above); Blocked-return has no analogous override,
+since nothing groups it the way a sub-array groups a gate.
+`docs/ui-spec.md`'s J2, J4 and its `ticket`-screen gate-action bullet
+are corrected to match.
+
+**Not decided here, left open:**
+
+- **Nested sub-arrays.** This section's own grammar is flat — a
+  sub-array's entries are `status:`/`review:`/`environment:` only,
+  never a further array. `container`-skeleton nesting (§15.6) already
+  established arbitrary nesting for a different axis, and two nesting
+  concepts that look alike and are not is the homonym hazard that
+  axis's own open questions already warn about. Throwback would
+  compose readably if this were allowed (fall back within the
+  innermost), but that is an argument for revisiting, not a decision
+  made now.
+- **A queue-shaped anchor inside a sub-array**, which is what
+  "singleton flows retire into sub-arrays of their parent container"
+  (below) would actually require. Refused at load for now (above), not
+  because the direction is wrong but because it reaches machinery this
+  pass does not touch: whether a container instance can be an agent
+  dispatch target at all is `systems/delivery.md`'s open question,
+  named there rather than answered here.
+- **A throwback from a gate sitting after a sub-array, targeting into
+  it.** This section fixes the default for a gate *inside* a group; a
+  gate outside every sub-array throwing back into one is a different
+  case this section does not address (the general "earlier in the
+  effective sequence" legality test covers it regardless — what's
+  undecided is only whether such a gate gets a derived default of its
+  own, or must always be explicit).
+- **Whether a sub-array is a visible grouping or flattens for
+  display.** `board`'s lanes read the effective sequence left to right
+  (`docs/ui-spec.md` §3.1); this is a real UI decision this section
+  creates and does not answer.
+- **Whether the `pending`-precedes-`generation`/`deploy` check (§13)
+  needs a sub-array of its own head.** Settled, not left open: it does
+  not. The check reads the citing type's array flattened one level —
+  a `pending` entry anywhere earlier than a `generation`, sub-array
+  membership aside, satisfies it exactly as today, because grouping
+  changes throwback derivation and reopen scope and nothing else about
+  the fixed skeleton's own shape (§15.1's table loses no entry to this
+  section, only a second job — see below).
+
+**§15.1's fixed vocabulary loses a job here, not an entry.** Before
+this section, a gate's declared `throwback:` bounded legality against
+its own declared list, which made a declared list load-bearing rather
+than optional. After it, the vocabulary's re-resolution role (§15.1's
+own opening paragraph, and §7.19's cutover-survival rule) is untouched
+— every anchor this section discusses still exists, still fixed, still
+undeclarable — while its *legality-bounding* role retires: what a
+decline may target is now "earlier in the citing type's own effective
+sequence," full stop, never a bound stated in terms of a per-gate
+declared list. This is a narrower claim than it once was: `throwback:`
+itself survives (§15.4, above), narrowed to a single override on the
+*default landing point* a decline picks — a different job from
+bounding legality, and untouched by this paragraph.
+
+**`docs/v5-design-decisions.md` §7.8's own "Two agents, dispatched as
+ordinary work items" passage is amended by this section, in the
+document that records it, not only here**: the direction that a
+milestone's `setup` and `retro` singleton flows fold into sub-arrays
+of `milestone`'s own array rather than remaining separately dispatched
+ticket-skeleton types is recorded there, alongside what stays
+undecided about it.
