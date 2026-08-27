@@ -11,8 +11,8 @@ defmodule Catapult.ToySeed do
   These are exactly the roles named across the design corpus
   (dsl-syntax.md §7.2's examples, v5-design-decisions.md's "the intake
   role list has since grown") — there is no code-level registry yet
-  (`docs/non-goals.md`'s ORC-10 entry: `input.<role>` resolution is
-  Phase 4), so this list *is* the registry until one exists.
+  (`systems/generation.md`'s ORC-10 entry: `input.<role>` resolution
+  is Phase 4), so this list *is* the registry until one exists.
   """
 
   @fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures", "toy_seed"])

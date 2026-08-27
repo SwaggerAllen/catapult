@@ -19,7 +19,7 @@ defmodule Catapult.Component.Licensing do
   under the audit — and an allowlist that ran at boot would be a
   production node refusing to start because a transitive dependency's
   license string is unrecognized. The severity that fits a legal fact is
-  CI red (`LICENSING.md`, docs/non-goals.md).
+  CI red (`LICENSING.md`).
 
   The policy — which classes are checked, against which identifiers, and
   for which reason — is `Catapult.Audit.License`'s, which reads

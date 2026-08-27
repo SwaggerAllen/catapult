@@ -111,7 +111,7 @@ defmodule Catapult.Config do
 
   Idempotent by design rather than by accident: config is read once,
   before the root supervisor starts, and does not change until the next
-  boot (docs/non-goals.md). A second call is a no-op, which is what lets
+  boot (systems/substrate.md). A second call is a no-op, which is what lets
   the entry points that are not the application — a release task, a mix
   task starting the Repo on its own — ask for the load without having to
   know whether the boot already did it.

@@ -11,7 +11,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
   instance of every edge type this bundle declares lands in the graph.
 
   **What "real" means here, and where it stops — read before editing.**
-  `docs/non-goals.md`'s ORC-10 entry proved `input.<role>` resolves
+  `systems/generation.md`'s ORC-10 entry proved `input.<role>` resolves
   `{:error, :unsupported}` for every role, which `Catapult.Engine
   .Projections.ReadyScopes.ready?/2` treats as *not ready* (not the
   vacuous-pass dsl-syntax.md §7.2 promises) — so `feature_expansion`,
@@ -54,7 +54,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
       for real; the one `reference` edge instance is seeded the same
       way as the mints above.
 
-  None of these four are fixed here — `docs/non-goals.md`'s ORC-10
+  None of these four are fixed here — `systems/generation.md`'s ORC-10
   entry and this ticket's own `Touches:` line both keep this ticket to
   `test/`, fixtures and `docs/`, and `Extraction`/`CommitPath` are
   ORC-9's already-reviewed work. Each is a real, load-bearing gap

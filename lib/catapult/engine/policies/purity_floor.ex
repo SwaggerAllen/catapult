@@ -19,8 +19,9 @@ defmodule Catapult.Engine.Policies.PurityFloor do
   other kind of local call). A call through a variable, an anonymous
   function, `apply/3`, or any other computed target is **not**
   followed — chasing it would be the dataflow inference this repo has
-  refused everywhere else it was tempting (`docs/non-goals.md`'s
-  computed-config-key and secret-taint entries). It is also not
+  refused everywhere else it was tempting (`systems/substrate.md`'s
+  "What a check may infer" — the computed-config-key and secret-taint
+  cases). It is also not
   needed: a reducer/aggregate/upcaster branch that hides its clock
   read behind a computed dispatch is a shape nobody here writes, and a
   check that guessed at it would be reporting a belief rather than a

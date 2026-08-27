@@ -8,7 +8,8 @@ defmodule Catapult.Foundation.Policies.ErlangHttp do
   This is not "no plane module calls a model provider through Erlang" —
   that would need to follow a URL back to its binding, which is data
   decided at runtime and normally read from configuration, and this
-  repo has already refused that inference twice (`docs/non-goals.md`).
+  repo has already refused that inference twice
+  (`systems/substrate.md`, "What a check may infer").
   What is decidable at this grade is the transport: `:httpc.request/4`
   and `apply(:httpc, :request, _)` name their module in the literal
   source, the same way `DateTime.utc_now` does for

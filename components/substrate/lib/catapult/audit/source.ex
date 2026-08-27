@@ -47,7 +47,7 @@ defmodule Catapult.Audit.Source do
   what the greps already emitted, and it is what a `Credo.Check` wrapper
   delegating to `run/1` needs in order to place a finding in an editor —
   the priced reversal of hosting these checks here rather than on Credo
-  (docs/non-goals.md).
+  (systems/substrate.md's enforcement roster).
 
   ## A file that does not parse is a problem, not a skip
 

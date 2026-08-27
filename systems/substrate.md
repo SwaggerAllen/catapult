@@ -200,17 +200,15 @@ seeds release task.
   class, because every adapter sends one and a class every entry
   carries separates nothing; what the field classifies is application
   data crossing the boundary in either direction.
-- **`api_surface/0` validates against a trace `defexport` does not yet
-  leave.** The macro composes a telemetry span and nothing else, so
-  nothing in the substrate can currently answer "is this function a
-  boundary export" — which is the whole of §4.4's thin-wrapper
-  enforcement. It grows an accumulating attribute and a generated
-  `__catapult_exports__/0`, in the shape of the
-  `__catapult_component__/0` beside it. The payoff outruns this
-  registry: the audit's
-  every-export-has-a-test check and its exported-mutating-function
-  permission check (v5 §2.14) are both blocked on this same fact, and
-  neither now has to invent it.
+- **`api_surface/0` validates against the trace `defexport` leaves.**
+  A telemetry span alone could not answer "is this function a boundary
+  export", which is the whole of §4.4's thin-wrapper enforcement, so
+  the macro also accumulates `@catapult_exports` and generates
+  `__catapult_exports__/0` from it, in the shape of the
+  `__catapult_component__/0` beside it. One fact, three consumers: the
+  audit's every-export-has-a-test check and its
+  exported-mutating-function permission check (v5 §2.14) read the same
+  trace rather than each inventing one.
 
   **Route identity is the path's shape, not its parameter names.**
   Collisions compare `{version, verb, path}` with every `:param`

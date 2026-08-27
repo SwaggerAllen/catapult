@@ -7,8 +7,9 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   "starts empty and no role here has a route to author a workflow file
   in a different repository, so the plane writes it there instead").
 
-  **Scope, and why it stops where it does** (`docs/non-goals.md`'s
-  ORC-29 entries bind this file as much as the offline test):
+  **Scope, and why it stops where it does** (ORC-29's live-suite
+  rules bind this file as much as the offline test —
+  `systems/foundation.md`'s live suite, conventions §9):
 
     * **No polling or retry-until-observed.** Closing the loop —
       waiting for the dispatched GitHub Actions run to actually invoke
@@ -16,8 +17,9 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
       *reachable* plane for that runner to call back to, and the only
       one that exists is the reference instance's own database
       (`SETUP.md` §2), never this job's own throwaway Postgres
-      (`docs/non-goals.md`'s "no argv-sniffing" entry: the live-suite
-      job gets a real, empty database same as every other run). A
+      (`systems/foundation.md`'s live suite: the `test` alias does
+      not read argv, so the live-suite job gets a real, empty database
+      same as every other run). A
       `dispatch_run` issued from *this* process writes its correlation
       row into a database the deployed instance's callback can never
       see, so any observed round trip here would be theater, not
