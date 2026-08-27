@@ -240,3 +240,22 @@ Each of these cost a wrong diagnosis before it was written down.
   document that records it**, not only in the system doc that
   noticed. Leaving the source of truth stating the superseded rule is
   how the next pass re-derives it.
+- **A doc's claim about the tree is not evidence about the tree.**
+  Of the "X is not built yet" sentences an audit of these docs
+  checked, half described things that had shipped and half described
+  real gaps — and nothing in the prose separated them. Check the tree
+  before repeating such a sentence or building on it, and scope the
+  check to where the thing would actually be: grepping
+  `component.ex` for `__catapult_exports__` returns nothing and so
+  "confirms" a stale doc, because the function is generated in
+  `component/api.ex`.
+- **Cite by a registered shorthand or by path.** Two thirds of this
+  repo's section citations name their document by a project shorthand
+  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10`, `v4 §A.3.1` —
+  rather than by path. `pipeline.config.json`'s `citationShorthands`
+  is what maps each to a file; an entry that cannot resolve in this
+  tree (`DESIGN`, `orchestration`, `AGPL`) carries the reason on
+  itself, so a later pass does not supply an invented path. Inventing
+  a *new* shorthand means adding a key to that file, which is
+  author-owned — a ticket cannot, so use one that exists or write the
+  path.
