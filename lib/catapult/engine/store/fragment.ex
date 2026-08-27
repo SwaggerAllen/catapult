@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Fragment do
   @moduledoc """
-  One row per authored fragment (`engine_fragments`, v4 §A.3.3): the
+  One row per authored fragment (`engine_fragments`): the
   `produces:` mechanism (dsl-syntax.md §3) — a draft writing content
   onto another node's fragment surface. Authored-only; a downstream
   tier reads it via `handle.fragments[<kind>]`, a context-walk

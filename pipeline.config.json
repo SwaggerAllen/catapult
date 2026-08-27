@@ -34,7 +34,7 @@
   "nonAsksPath": "docs/non-goals.md",
   "citationShorthands": {
     "v5": { "path": "docs/v5-design-decisions.md" },
-    "v4": { "path": "seed-docs/catapult-spec-v4.md" },
+    "v4": { "unchecked": "the vendored v4 corpus in seed-docs/ — Catapult's own docs and code deliberately do not cite it (seed-docs/README.md); a v4 section number outside seed-docs/ is a defect, and seed-docs/README.md names its own files by path" },
     "conventions": { "path": "docs/conventions.md" },
     "Conventions": { "path": "docs/conventions.md" },
     "dsl-syntax.md": { "path": "docs/dsl-syntax.md" },

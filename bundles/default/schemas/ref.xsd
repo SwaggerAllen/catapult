@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- v4 §1.13 (v5 §4.5 carries it forward unchanged in shape). -->
+<!-- The ref tier's grammar (v5 §4.5). -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <xs:complexType name="SeeAlso">

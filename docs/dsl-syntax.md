@@ -125,7 +125,7 @@ draft:                            # omit entirely for join-target tiers
 generator: llm                    # §3.2
 prompt: prompts/comparch.md.liquid
 executor:                         # optional; how the generation runs
-  effort: max                     # effort hint (v4 §B.2.4 lineage)
+  effort: max                     # effort hint
   # The design dialect's executor is agent-dispatch, always (v5 §1.2:
   # agents end-to-end); the runtime dialect uses the completion
   # adapter. Profile selection is dialect-level; `executor:` carries
@@ -425,7 +425,7 @@ legal (v5 §7.11).
 
 ## 7. Context walks
 
-Anatomy (unchanged from v4 §A.2.5): `self`, `self.parent`,
+Anatomy: `self`, `self.parent`,
 `.<edge_name>` follows a declared edge, `-> <tier>.<projection>`
 types the target and names what to read — `.handle`,
 `.handle.fragments[<kind>]`, `.synthesis`. Cardinality-many walks
@@ -505,7 +505,7 @@ v5 additions:
 
 ## 8. Predicate language
 
-Unchanged from v4 §A.2.6 and deliberately not Turing-complete. Six
+Deliberately not Turing-complete. Six
 operator families: comparison (`== != < > <= >=`), boolean
 (`AND OR NOT`), edge counting (`has_edge`, `count(...) op N`),
 existential (`exists(path where p)`), universal (`all/any(path ->
@@ -568,7 +568,7 @@ the reviewed tier's is a load-time check instead (§3.3, §13).
 Body grammars are XML-fragmented markdown validated per tier
 (`draft.root_tag` + XSD), at commit time, atomically — validation
 failure is typed feedback, never a half-committed state. The review
-grammar is platform-wide (v4 §B.3.2's `<review>` shape) and the same
+grammar is platform-wide and the same
 file backs every review tier's `grammar:` (§3.3): `<intro>`, an
 integer `<score>` (0-100, v4's buckets), and zero or more
 `<finding id="...">` — the `id` is what a comment gets anchored under

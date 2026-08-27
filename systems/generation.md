@@ -28,8 +28,8 @@ and validation logic and must not fork it.
   from the bundle; whether output is acceptable comes from the
   grammar. If coordination needs memory, the design is wrong
   somewhere upstream.
-- **Validation failure is feedback, not error** (v4 §A.1.3 carried
-  forward): a grammar-invalid commit returns a typed error the agent
+- **Validation failure is feedback, not error**: a grammar-invalid
+  commit returns a typed error the agent
   retries with, bounded; a half-committed state is impossible
   because commit-time validation gates the event.
 - **Same renderer for generation and review** (the per-tier triad

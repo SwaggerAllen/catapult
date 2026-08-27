@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The refactor flow's planning-tier grammar. No siege source (this
-     flow predates siege's own prompt corpus at this bundle's fidelity —
-     seed-docs/catapult-default-bundle-v4.md §8.2 is the only source,
-     prose only, no shipped prompt) — kept intentionally small. -->
+     flow predates siege's own prompt corpus at this bundle's fidelity,
+     and only prose describes it, with no shipped prompt) — kept
+     intentionally small. -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="refactor-plan">
     <xs:complexType>

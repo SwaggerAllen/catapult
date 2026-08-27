@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Node do
   @moduledoc """
-  One row per scope (`engine_nodes`, v4 §A.3.3 carried forward):
+  One row per scope (`engine_nodes`):
   `nodes.fields` is the per-tier field-projection column the bundle's
   `fields:` declarations write, and `status` is deliberately a closed
   set of *stored* states — `absent | drafted | approved` — because

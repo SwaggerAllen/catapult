@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Flow do
   @moduledoc """
-  Active flow records (`engine_flows`, v4 §A.3.3): one row per flow
+  Active flow records (`engine_flows`): one row per flow
   instance opened on a project — the ticket face (v5 §7.10), its
   entry node and completion state. `Target` per systems/engine.md:
   the cascade walk itself (planning-tier minting, staleness

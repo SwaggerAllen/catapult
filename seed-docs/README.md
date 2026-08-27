@@ -11,14 +11,17 @@ Provenance: `github.com/SwaggerAllen/SiegeEngine` at
 
 ## Why this exists
 
-Catapult's own documents cite this corpus and could not reach it.
-`docs/dsl-syntax.md` and `systems/platform_content.md` both cite
-"v5 §B.2" — that is **Appendix B of `catapult-spec-v4.md`**, in
-this directory, not a section of `docs/v5-design-decisions.md`.
-A design pass on ORC-7 discovered the gap the expensive way: asked
-to port siege's prompt chain, it had no siege to read, authored the
-bundle content fresh, and guessed at structure the v4 documents
-state outright. That finding is what this directory answers.
+Design passes need this corpus and could not reach it. A design pass
+on ORC-7 discovered the gap the expensive way: asked to port siege's
+prompt chain, it had no siege to read, authored the bundle content
+fresh, and guessed at structure these documents state outright. That
+finding is what this directory answers.
+
+Catapult's own docs and code do **not** cite it. They are written to
+be read without it: a v4 section number in `docs/**`, `systems/**`,
+`bundles/**` or `lib/**` is a defect, not a reference. This
+directory is for the reader porting more of siege, not for the
+reader understanding Catapult.
 
 ## Contents
 
@@ -41,12 +44,14 @@ reader does not mistake them for oversights:
 
 ### Conceptual differences
 
-- **Responsibilities.** v4 §2 "A note on responsibilities" removed
+- **Responsibilities.** `seed-docs/catapult-default-bundle-v4.md`
+  §2's "A note on responsibilities" removed
   v3's `resp` tier and made responsibilities structured fields on
   the `requirements` body. **v5 restores `resp` as a tier** and
   hangs policy scoping off it (§4.5's "through responsibilities"
   grain). Read v4's collapse as the thing v5 reversed.
-- **Domain/presentational and `fanin`.** v4 §1.9 and §4.3 build the
+- **Domain/presentational and `fanin`.**
+  `seed-docs/catapult-default-bundle-v4.md` §1.9 and §4.3 build the
   presentational surface out of domain fan-in synthesis. **v5 §4.1
   replaces that whole mechanism** with the three-way product /
   backend / frontend split. `fanin`, `domain_parent` and the
@@ -65,7 +70,8 @@ reader does not mistake them for oversights:
   for a `review_path:` to point at. Per-tier review (dsl-syntax.md
   §3.3 — its own tier, `reviews: <tier>`, not v4's nested block) and
   the platform-wide review grammar (`<score>`, each `<finding id>` —
-  v4 §B.3.2) carry forward unchanged; only the path concept is void.
+  `seed-docs/catapult-spec-v4.md` §B.3.2) carry forward unchanged;
+  only the path concept is void.
 
 ### Structural differences
 

@@ -1,15 +1,12 @@
-# The bug_fix flow's planning tier (v4 §8.2). No siege prompt exists
-# for this flow; authored fresh from the v4 bundle doc's prose
-# ("used to fix observed problems without disturbing the
-# architecture").
+# The bug_fix flow's planning tier. No siege prompt exists for this
+# flow; authored fresh, for fixing observed problems without
+# disturbing the architecture.
 #
 # `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node the
 # cascade visits, anchored at the ticket's own originating node.
-# v4's flow shape names that anchor explicitly (`walk_anchor:
-# ${seed.originating_scope}`, seed-docs/catapult-default-bundle-v4-
-# examples.md §2.3); v5 has no `seed:` block for a template to read a
-# ticket field from (Catapult.Dsl.Flow carries none — dropped with the
-# rest of v4's planning-tier machinery). The
+# v5 has no `seed:` block for a template to read a ticket field from
+# (Catapult.Dsl.Flow carries none), so the flow cannot name that
+# anchor explicitly. The
 # resolution isn't a bundle declaration at all: `flows/bug_fix/
 # flow.yaml`'s `ticket.entry: impl` already names which *tier* a
 # bug_fix ticket opens against (dsl-syntax.md §6); which *node* a

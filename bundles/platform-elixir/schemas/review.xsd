@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The platform-wide review grammar (v4 §B.3.2's <review> shape, dsl-syntax.md
-  §10, §3.3). One schema backs every review tier's `grammar:` — the triad
+  The platform-wide review grammar (dsl-syntax.md §10, §3.3). One schema
+  backs every review tier's `grammar:` — the triad
   invariant (§9 of dsl-syntax.md) means a review prompt receives the same
   context as the tier it reviews plus `draft`, so what comes back is
   structurally the same shape everywhere: a verdict, a 0-100 score a

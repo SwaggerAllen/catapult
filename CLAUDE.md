@@ -251,7 +251,7 @@ Each of these cost a wrong diagnosis before it was written down.
   `component/api.ex`.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
-  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10`, `v4 §A.3.1` —
+  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —
   rather than by path. `pipeline.config.json`'s `citationShorthands`
   is what maps each to a file; an entry that cannot resolve in this
   tree (`DESIGN`, `orchestration`, `AGPL`) carries the reason on

@@ -1,4 +1,4 @@
-# v4 §8.2's feature_request flow. Walk: downward_cascade, since a new
+# The feature_request flow. Walk: downward_cascade, since a new
 # feature's obligations flow forward from feature_expansion through
 # every tier the addition touches — the same direction ordinary
 # scaffolding already runs in, just re-opened at the top instead of

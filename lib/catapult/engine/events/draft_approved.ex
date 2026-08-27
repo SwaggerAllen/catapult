@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.DraftApproved do
   @moduledoc """
-  A pending draft was approved (v4 §A.3.1). Version 1. Approval is a
+  A pending draft was approved. Version 1. Approval is a
   status, and the transition is the record (v5 §7.16) — no separate
   approval object; who approved is `actor_id` on this event.
   """

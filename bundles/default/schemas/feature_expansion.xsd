@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  v4 §1.1 (seed-docs/siege-prompts/feature_expansion.md), re-expressed.
+  seed-docs/siege-prompts/feature_expansion.md is the prose source.
   The <vocabulary> block is narrowed from siege's version: siege embeds
   a full <vocab-entry> (definition/disambiguation/see-also) per term
   here; this bundle has this tier flag a candidate term only (name +

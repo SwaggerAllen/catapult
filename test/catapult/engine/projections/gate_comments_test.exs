@@ -36,7 +36,7 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
     )
   end
 
-  # Only one pending draft per node (v4 §A.3.3): a regeneration
+  # Only one pending draft per node: a regeneration
   # commits a fresh body for the same node, but must approve the prior
   # draft first — the same scaffolding step every real dispatch takes.
   defp approve!(project_id, node_id) do

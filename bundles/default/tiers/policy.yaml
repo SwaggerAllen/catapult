@@ -1,4 +1,4 @@
-# v4 §1.11, re-scoped per v5 §4.5's three grains: project-global (no
+# Scoped per v5 §4.5's three grains: project-global (no
 # scope edge, read via `all.policy` — dsl-syntax.md §7.2), through-
 # responsibilities (`policy_application`'s policy->resp instance — the
 # load-bearing grain, since a policy bound to a resp survives a
