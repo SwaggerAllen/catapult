@@ -1265,15 +1265,14 @@ Everything else — which file a declaration lived in, and whether its
 array was a registered set or a fixed sequence — was the three-shape
 split talking to itself, and none of it survives as a rule to check.
 
-**Gates and environments widen onto every type, whatever `skeleton:`
-it declares or omits — a fifth-pass reversal of the fourth pass's own
-restriction.** The fourth pass's reasoning — "all review happens at
-lower levels" (§15.1) is true of the outermost scope, so a project's
-array should carry `status:` entries only — mistook an argument for
-why a project needs no *re-resolution anchor* for an argument about
-what its array may *contain*; those are different claims, and the
-governing rule at the top of this section is stated only in terms of
-ticket versus container and never mentions the project either way. A
+**Gates and environments are legal on every type, whatever
+`skeleton:` it declares or omits.** The argument for restricting a
+project's array to `status:` entries — "all review happens at lower
+levels" (§15.1) — is true of the outermost scope, but it is an
+argument for why a project needs no *re-resolution anchor*, not one
+about what its array may *contain*. Those are different claims, and
+the governing rule at the top of this section is stated only in terms
+of ticket versus container, never mentioning the project either way. A
 human sign-off between `build-out` and `iteration` (the milestone
 example above) is not a strange thing for a project to want, so it is
 admitted rather than refused on a premise that was never actually
@@ -1791,9 +1790,8 @@ lives in the parent's own file, the newly minted instance's `setup`
 entry lives in the child's — so there was never a "before `setup`"
 position to invent in the first place.
 
-**There are two ways a container's position moves backward, not one —
-an earlier draft claimed the narrower rule on a premise this same
-ticket's own fifth pass reversed.** The first, and the one that needs
+**There are two ways a container's position moves backward, not
+one.** The first, and the one that needs
 no gate at all: §15.7's queue is a query — the unresolved work items
 assigned to it — so a resolved queue un-resolves the moment its
 population refills, with no separate "container went backward" event
