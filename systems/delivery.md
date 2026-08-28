@@ -14,7 +14,7 @@ them, the v5 §7 machinery in two stages: first the **authoring loop**
 feature-branch PR management, decline harvesting), later the full
 two-grain delivery (child lifecycle, mutex, dispatch, reconciliation,
 the validation loop, escalations, milestones with the `:live`-gated
-`retro` queue (ORC-105), the maintenance watcher).
+`retro` entry (ORC-105), the maintenance watcher).
 
 **There is no Tracker port, and no tracker adapter is ever built**
 (v5 §7.17). Ticket state is ours; the work surface is ours
@@ -314,7 +314,21 @@ design gates pass.
   the moment a container's position would advance into the guarded
   entry — never as a periodic or event-driven recheck against an
   already-active entry, which is what let a queue refilling mid-`retro`
-  pull the container back out of it under the retired reading.
+  pull the container back out of it under the retired reading. **This
+  states what the guard is not — a standing recheck against an entry
+  already entered — not how the dispatcher decides when to attempt the
+  entry in the first place, which a further design review found this
+  bullet left unanswered.** `ContainerLifecycle` (the process manager
+  named below) is an ordinary event-subscribed process manager, not a
+  poll loop: it re-evaluates a guarded entry's eligibility on every
+  engine event that could change the answer — most often, a work item
+  the blocking queue counted resolving out of it — and the moment a
+  `blocks:` condition reads clear, it is this same dispatcher, not a
+  human action, that issues the advance command. A container never
+  sits fully unblocked waiting to be asked forward; "checked once, at
+  the transition" is what each of those event-triggered attempts does,
+  not a claim that the dispatcher looks only a single time over the
+  container's whole life.
   Separately, reaching `terminal` gains a guard this system's dispatcher
   must enforce unconditionally — every one of a container's own queues
   holding no unresolved work — never narrower than whatever `blocks:`
@@ -823,48 +837,56 @@ design gates pass.
   Both claims hold exactly as this entry and the ticket's own
   description already state them.
 
-- **Every carried finding leaves adjudicated, enforced as `retro`'s own
-  completion gate — not a separate check bolted on afterward**
-  (ORC-104, design pass). `retro`'s own flow, an ordinary
-  agent-dispatched work item like any other (`v5-design-decisions.md`
-  §7.8), reads the findings this milestone carried and, for each,
-  either opens it under its own key (an ordinary flow instance, through
-  the same uniform dispatch above) or writes a decline with its reason
-  — a new engine event, `FindingAdjudicated`, on the aggregate `retro`'s
-  own ticket already writes into. `retro`'s own queue does not resolve
-  to `terminal` while any finding it carries lacks one of those two
-  outcomes — a completion condition internal to `retro`'s own flow, not
-  a `blocks:` relation (`dsl-syntax.md` §15.7's `blocks:` is an entry
-  guard, checked once at transition, ORC-148 design review; nothing
+- **Every carried finding leaves adjudicated, enforced as the
+  container's own close — not a check keyed to the queue name `retro`,
+  and not a separate check bolted on afterward** (ORC-104, design pass;
+  corrected to this shape at ORC-148's fold and its own design review,
+  which retired the singleton-ticket `retro` this bullet originally
+  described). `retro` is an ordinary agent-balled entry directly in
+  `milestone`'s own array (`dsl-syntax.md` §15.1-§15.2, §15.10) —
+  dispatched against the milestone container instance itself, a legal
+  dispatch target on the identical footing as a ticket
+  (`v5-design-decisions.md` §7.8) — never a separately minted ticket or
+  a `flow:` of its own. Its dispatched run reads the findings this
+  milestone carried and, for each, either opens it under its own key
+  (an ordinary flow instance, through the same uniform dispatch above)
+  or writes a decline with its reason — a new engine event,
+  `FindingAdjudicated`, on the milestone container instance's own
+  aggregate. The container does not advance past `retro` while any
+  finding it carries lacks one of those two outcomes — because an
+  unadjudicated finding is exactly that, unresolved work this container
+  is still holding — but the check is attached to the container's own
+  close, not to a queue recognized by the name `retro`: naming the
+  queue would mean the dispatcher branching on the word `retro`, which
+  is the implicit anchor meaning `dsl-syntax.md` §15.2 spent four
+  passes removing ("nothing in the loader branches on any of the three
+  words") and which §15.9's admission rule is written to keep out of
+  plane logic. Attaching it to the close says the same thing about the
+  same container without asking the grammar for a magic word, and says
+  it about *every* container — including one whose author declared no
+  backward-looking entry at all, which a `retro`-named check would have
+  let close over its findings silently. This is not a `blocks:`
+  relation either way (`dsl-syntax.md` §15.7's `blocks:` is an entry
+  guard, checked once at transition, ORC-148 design review): nothing
   gates *entry into* `retro` on its own findings, since the findings
   are what `retro` itself produces and adjudicates after it has already
-  begun) — because an unadjudicated finding is exactly that — unresolved
-  work this container is still holding.
-
-  **Amended at the dev pass: the gate is the container's own close, not
-  a queue recognized by the name `retro`.** The rule and its reason are
-  unchanged — no container leaves over a finding nobody read — but
-  attaching the check to a *named* queue would have meant the
-  dispatcher branching on the word `retro`, which is the implicit
-  anchor meaning `dsl-syntax.md` §15.2 spent four passes removing
-  ("nothing in the loader branches on any of the three words") and
-  which §15.9's admission rule is written to keep out of plane logic.
-  Attaching it to the close says the same thing about the same
-  container without asking the grammar for a magic word, and says it
-  about *every* container — including one whose author declared no
-  backward-looking queue at all, which the queue-named version would
-  have let close over its findings silently. In the shipped
-  `milestone` type the two land in the same place, because `retro` is
-  followed only by a gate, `cleanup` and `terminal`.
+  begun. **In the shipped `milestone` type, `retro` is followed by
+  `checks`, `merge` and `deploy`, then `cleanup` and `terminal`** — the
+  identical checks/merge/deploy sequence `setup` is also followed by
+  (`dsl-syntax.md` §15.2's worked example), since both are ordinary
+  agent-balled entries whose output takes the same CI/merge/promote
+  path any other agent-produced change does; the finding-adjudication
+  close gate above sits on `retro` itself, ahead of that sequence, not
+  on `cleanup`.
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
   because a flag flip is an external effect exactly like a GitHub call**
-  (ORC-104, design pass; v5 §2.10, §7.8). `retro`'s own flow computes
-  the union of `feature_flags/0`-registered flags across this
+  (ORC-104, design pass; v5 §2.10, §7.8). `retro`'s dispatched run
+  computes the union of `feature_flags/0`-registered flags across this
   milestone's member features (membership read off `systems/engine
-  .md`'s new by-reference projection) once its own queue is otherwise
-  ready to resolve — after the `:live` gate has cleared (already
+  .md`'s new by-reference projection) once the container is otherwise
+  ready to advance past it — after the `:live` gate has cleared (already
   enforced structurally: a red `:live` verdict counts as `main` still
   carrying unresolved work, so `main`'s declared `blocks: [retro]`
   keeps `retro` from being *entered* at all until it clears, §15.7's
@@ -883,10 +905,10 @@ design gates pass.
 - **Composition proposes and never commits, and proposes off the
   structured signals this system already keeps rather than
   reproducing orchestration's flat backlog view** (ORC-104, design
-  pass). `setup`'s own flow — forward-looking, dispatched the same
-  uniform way as any other queue entry — computes candidates for the
-  next container's `prep` from this system's own backlog/gating
-  projection and writes them to a new, purely computed proposal
+  pass). `setup`'s dispatched run — forward-looking, dispatched the
+  same uniform way any other agent-balled entry is — computes
+  candidates for the next container's `prep` from this system's own
+  backlog/gating projection and writes them to a new, purely computed proposal
   read-model; nothing here creates a real ticket. Committing a proposal
   into an actual `prep` entry is an ordinary ticket-open action, an
   author's to take, unchanged by this ticket and out of its scope

@@ -2379,7 +2379,16 @@ form of `blocks:` would have had `retro` interrupting itself the
 moment its own run produced the work `main`'s queue was watching for.
 A reassignment to a new status must never interrupt an already-
 dispatched flow instance; checked once, at entry, this holds by
-construction rather than by care taken in the dispatcher.
+construction rather than by care taken in the dispatcher. **"Checked
+once" describes each attempt, not how many attempts there are or who
+makes them**: this system's dispatcher is event-driven, re-attempting
+a guarded entry on every engine event that could change the guard's
+answer, and it advances the container itself the moment the guard
+reads clear — automatically, with no separate human step, the same way
+a ticket's own `checks` → `merge` transition already needs none once
+its precondition clears. `systems/delivery.md` carries the mechanism
+(`ContainerLifecycle`, its dispatcher process manager); this paragraph
+states only the semantics the mechanism has to honor.
 
 **Second, reaching `terminal` is guarded by every one of a
 container's own queues holding no unresolved work, as a platform rule

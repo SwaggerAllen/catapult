@@ -1147,14 +1147,21 @@ or `architecture` — `sysarch`, `impl`, `ref` and the rest of
 `bundles/default/tiers/**` among them, today uniformly undifferentiated
 — is bundle content, `bundles/**`, dev's diff against this record, not
 a mapping this pass assigns. **Two kinds, not one per tier, and none
-for a target class this platform doesn't have**: non-software targets
-are out of scope for v5 (`docs/non-goals.md`), so this table grows by
-the two names the shipped chain's own lifecycle already needed, not by
-a per-tier scheme guessed at against tiers that don't exist yet, and
+for a target class this platform doesn't build for — a scope local to
+this table's own growth rule, not a `docs/non-goals.md` entry** (design
+review: an earlier draft cited that file here; it carries no such
+entry, and the nearest two — "No LiveView/React mixing within one
+frontend target" and §1's audience line — answer a different question,
+so the citation was dropped rather than backfilled). This table grows
+by the two names the shipped chain's own lifecycle already needed, not
+by a per-tier scheme guessed at against tiers that don't exist yet, and
 not by a second table or a per-dialect one held in reserve against a
 possibility — if a non-software target ever arrives it brings its own
-skeleton and its own status names, the identical posture §15.1
-already takes toward `container`'s own five-anchor sequence.
+skeleton and its own status names, the identical posture §15.1 already
+takes toward `container`'s own five-anchor sequence. The reason is
+local to this table, the way §15.10 below is local to a sub-array's own
+reference rule: it spans no other system and every pass need not see
+it, so it stays here rather than in the cross-system file.
 
 **Renamed from `queue`, at this ticket's fourth pass.** A single work
 item's own wait-for-dispatch status and a container's own named queue
