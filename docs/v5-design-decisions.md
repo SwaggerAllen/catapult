@@ -2357,12 +2357,13 @@ records the decision, not a diff to `bundles/default-flow/**`, which
 is dev's to make.
 
 **A design review corrected four things about this section's own
-record, all still ORC-148's** (`dsl-syntax.md` §13, §15.1, §15.5,
-§15.7, §15.10). The pass above got the shape of `setup`/`retro`
-folding into `milestone`'s own array right and two of its own
-consequences wrong; none of the four widen what a bundle may declare —
-each is a correction to how the platform-fixed vocabulary or the
-dispatcher reads it.
+record, and a third review round corrected a fifth, all still
+ORC-148's** (`dsl-syntax.md` §13, §15.1, §15.5, §15.7, §15.8, §15.10).
+The pass above got the shape of `setup`/`retro` folding into
+`milestone`'s own array right and three of its own consequences wrong;
+none of the five widen what a bundle may declare — each is a
+correction to how the platform-fixed vocabulary or the dispatcher
+reads it.
 
 **First, `blocks:` inverts to an entry guard, checked once at the
 transition it guards, never a standing hold a projection recomputes.**
@@ -2438,6 +2439,35 @@ section and `dsl-syntax.md` §15.2/§15.10 carry — `main`'s `blocks:
 cleanly: the seventh-pass rule requiring a `blocks:` target to be a
 population anchor never fit an inline `retro` in the first place, and
 is retired along with the sentence it read from.
+
+**Fifth (a third design review, catching what the second missed): a
+container's position moves backward only on an authored transition,
+never as a side effect of a queue refilling.** The second review's own
+account of the first correction above was incomplete: inverting
+`blocks:` to a precondition checked once at entry removed the
+standing-hold reading's defect from the guard, but `dsl-syntax.md`
+§15.8 still stated the identical defect in terms of *position* rather
+than of the guard — "a resolved queue
+un-resolves the moment its population refills" as one of two ways a
+container's position moves backward, un-gated. That sentence is
+retired: a queue refilling still un-resolves that queue (§15.7 is
+unaffected), it no longer implies the container's own position moved.
+What is left is a gate's `throwback:` (§15.4) and an explicit author
+transition — concretely, the return from `retro` to `main`, which runs
+`retro`'s own sub-array (its agent step and the human gates around it)
+to completion before `main` starts churning the tickets `retro` just
+filed, rather than automatically the moment `retro`'s output lands
+back in `main` and un-resolves it. This is also the reason the second
+correction's `terminal` guard is reachable at all: the shipped
+`milestone`'s only throwback to `main` is `milestone-signoff`, placed
+*before* `retro` (`dsl-syntax.md` §15.10), so without the manual
+return `retro` filing work into `main` would leave `cleanup`/`terminal`
+blocked with no declared path back. `lib/catapult/engine/projections/
+container_queues.ex`'s resolution condition 1 and its own citation to
+§15.8 predate this correction and are dev's diff against it, not
+design's — named here so a dev pass does not carry the retired reading
+forward on the strength of a comment citing a section this pass
+changed.
 
 The **`:live` suite** still runs once per milestone (§2.8, settled at
 ORC-105 to gate `main`'s completion specifically), and a failing

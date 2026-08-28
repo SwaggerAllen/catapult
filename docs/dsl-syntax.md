@@ -2022,25 +2022,56 @@ lives in the parent's own file, the newly minted instance's `setup`
 entry lives in the child's — so there was never a "before `setup`"
 position to invent in the first place.
 
-**There are two ways a container's position moves backward, not
-one.** The first, and the one that needs
-no gate at all: §15.7's queue is a query — the unresolved work items
-assigned to it — so a resolved queue un-resolves the moment its
-population refills, with no separate "container went backward" event
-to define. An already-active instance re-visiting `prep` after new
-prep work appears is this rule in action. The second: a gate a
-container-skeleton or skeleton-less type's own array cites can throw
-back to an earlier entry in that same array (§15.4's `throwback:`,
-resolving within "the citing type's own array" exactly as it does on a
-ticket), and a container's array can cite gates now that gates and
-environments widen onto it (§15.2) — a milestone sign-off gate between
-`main` and `retro` rejecting back to `main` is an ordinary throwback,
-not a mechanism the container form lacks. **Neither needs a
-throwback-shaped argument for `setup`'s own position**, which the
-earlier, narrower draft of this section had reached for: `setup` is
-first in the minted instance's own sequence because minting and
-constituting are necessarily two different declarations (above), not
-because a container has no gates to throw back with — it does, now.
+**A container's position moves backward in exactly one way: an
+authored transition, never as a side effect of a queue's own
+population changing** (ORC-148's third design review). An earlier
+draft of this section held there were two ways — a throwback, or "a
+resolved queue un-resolving the moment its population refills, with no
+separate 'container went backward' event to define" — and the second
+is retired: it is the same defect, restated in terms of position
+rather than of a guard, that made §15.7 invert `blocks:` to a
+precondition checked once at entry. A queue refilling while the
+container had already moved past it pulling the position back is
+indistinguishable from the guard never having cleared, whether the
+thing said to move is the guard's occupancy or the container's own
+position — retiring one and keeping the other would have reopened by
+a different name exactly what the inversion closed. §15.7's queue
+remains a query — a resolved queue still un-resolves the moment its
+population refills — that fact just no longer implies anything about
+where the container's position sits; position is not a function of
+queue population.
+
+**What remains is a gate's `throwback:` and an author's own
+transition.** A gate a container-skeleton or skeleton-less type's own
+array cites can throw back to an earlier entry in that same array
+(§15.4's `throwback:`, resolving within "the citing type's own array"
+exactly as it does on a ticket), and a container's array can cite
+gates now that gates and environments widen onto it (§15.2) — a
+milestone sign-off gate between `main` and `retro` rejecting back to
+`main` is an ordinary throwback, not a mechanism the container form
+lacks. **Neither needs a throwback-shaped argument for `setup`'s own
+position**, which the earlier, narrower draft of this section had
+reached for: `setup` is first in the minted instance's own sequence
+because minting and constituting are necessarily two different
+declarations (above), not because a container has no gates to throw
+back with — it does, now.
+
+**Returning from `retro` to `main` is the author's own transition, not
+an automatic one.** Forward advance into a guard-cleared entry is
+`ContainerLifecycle`'s to make, the moment the guard reads clear
+(`docs/v5-design-decisions.md` §7.8); moving back to `main` once
+`retro` has produced its findings and filed its debt is not a guard
+clearing, so nothing computes it from queue state and no declared gate
+performs it either — the only throwback the shipped `milestone` gives
+`main` is `milestone-signoff`, and §15.10 places that gate *before*
+`retro`, not after it. An author makes the return, once they judge
+`retro`'s own sub-array — the agent step and the human gates around it
+— to have run to completion, rather than the instant `retro`'s own
+output lands in `main` and un-resolves it. This is also what lets
+§15.7's unconditional `terminal` guard ever clear at all: absent this
+manual return, `retro` filing work into `main` would leave
+`cleanup`/`terminal` blocked on a queue with no declared path back to
+reopen it.
 
 ### 15.9 The declarable-protocol narrowing, continued
 

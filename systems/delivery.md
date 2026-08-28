@@ -177,18 +177,20 @@ design gates pass.
   wants: grooming next milestone's `prep` during this milestone's own
   `main`. What this system owns, not yet built: the storage
   distinguishing "instances that exist" from "the instance that is
-  current," and the two ways a container's position moves backward — a
-  queue (a query over unresolved work items) un-resolving when its
-  population refills, or a gate the container's own array cites
-  throwing back to an earlier entry in that array. **The second way is
-  a fifth-pass correction**, not a fourth-pass fact: the fourth pass's
-  own "a container's anchor entries carry no gates, so they have no
-  `throwback:` to borrow" stopped being true the moment gates and
-  environments widened onto containers in the same pass that wrote it
-  (`docs/dsl-syntax.md` §15.2, §15.4, §15.8) — a milestone sign-off
-  gate between `main` and `retro` can throw back to `main` today, and
-  this system's dispatcher has to honor that path alongside the
-  un-resolve one, not only the one the earlier framing left standing.
+  current," and a gate the container's own array cites throwing back
+  to an earlier entry in that array. **This bullet originally read a
+  container's position as moving backward two ways, the second being
+  a gate's own throwback — a fifth-pass correction**, not a
+  fourth-pass fact: the fourth pass's own "a container's anchor
+  entries carry no gates, so they have no `throwback:` to borrow"
+  stopped being true the moment gates and environments widened onto
+  containers in the same pass that wrote it (`docs/dsl-syntax.md`
+  §15.2, §15.4, §15.8). **The first of the two — a queue un-resolving
+  when its population refills — is retired at ORC-148's third design
+  review**; see that bullet below rather than treating it as this
+  system's target behavior. A milestone sign-off gate between `main`
+  and `retro` can throw back to `main` today, and this system's
+  dispatcher has to honor that path.
   Filed against ORC-104 alongside the rest of this entry's Target list.
 - **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
   respect and closed a hole in the loader's own acyclicity check that
@@ -338,6 +340,34 @@ design gates pass.
   unaffected by the second one, and the first is a semantics correction
   to a check that already existed) — both are this system's dispatcher
   to build differently, still ORC-104's, not a larger Target list.
+- **A third design review on ORC-148 found the `blocks:` inversion
+  above left a contradiction standing: a container's position still
+  moved backward on a queue refilling, restated rather than removed**
+  (`docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md` §7.8).
+  §15.8's own "two ways a container's position moves backward" kept a
+  queue un-resolving as one of them, un-gated — the identical defect
+  the bullet above retired from `blocks:` itself, reappearing one
+  level up. **Retired: this system's dispatcher never moves a
+  container's position backward because a queue refilled.** What
+  moves it backward is a gate's `throwback:` (unchanged) or an
+  explicit author transition — concretely, returning a milestone from
+  `retro` to `main`, which `ContainerLifecycle` never performs on its
+  own. Forward advance into a guard-cleared entry stays this system's
+  dispatcher's to make automatically, the moment the guard reads clear
+  (the bullet above, unaffected); the return trip is the author's
+  action, taken once `retro`'s own sub-array — its agent step and the
+  human gates around it — has run to completion, not the instant
+  `retro`'s output lands back in `main` and un-resolves it. This is
+  also what keeps the `terminal` guard two bullets up reachable at all:
+  the shipped `milestone`'s only throwback to `main` is
+  `milestone-signoff`, sequenced *before* `retro` (`dsl-syntax.md`
+  §15.10), so absent this manual return `retro` filing work into
+  `main` would leave `cleanup`/`terminal` blocked with no declared path
+  back. `lib/catapult/engine/projections/container_queues.ex`'s
+  resolution condition 1 predates this correction and still cites
+  §15.8 for the retired reading — this system's dispatcher build
+  (ORC-104) corrects that check and its citation, not this design
+  record.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
