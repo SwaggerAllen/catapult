@@ -4174,48 +4174,63 @@ dispatch point; once it is not agent-balled, "agent-balled and not
 review-shaped" already excludes it, and the exception disappears
 rather than needing documentation.
 
-**`reconcile` is required in every ticket-skeleton array, never
-opt-in the way `critique` is.** A generation-shaped entry with no
-adjacent `critique` simply runs no auto-review — a workflow's
-prerogative. No ticket merges without having been read against its
-own argument first, so `reconcile` joins the fixed backbone alongside
-`checks`, `merge` and `deploy` rather than joining `critique`'s
-opt-in shape, positioned between `checks` and `merge`.
+**`reconcile` is required wherever `merge` appears, stated
+positionally — a design-review correction to this decision's own
+first pass, which had stated it as a `ticket`-skeleton rule.**
+`dsl-syntax.md` §15.11: a `merge` entry must be preceded, earlier in
+the same array, by a `reconcile` entry, a fact about that array's own
+contents rather than one keyed to which skeleton, if any, the citing
+type declares — reaching `container`-skeleton arrays too, which closes
+a gap the skeleton-keyed version left open (`dsl-syntax.md` §15.2's
+`milestone.yaml` worked example ran `setup` and `retro` each through a
+bare `checks → merge → deploy`, merging unread, twice). A
+generation-shaped entry with no adjacent `critique` simply runs no
+auto-review — a workflow's prerogative; nothing merges, of any
+skeleton, without having been read against its own argument first.
+`reconcile` may also recur, the way a generation-shaped entry and
+`merge` already could — `dsl-syntax.md` §15.11's own worked example
+carries two, one per phase closed, rather than one pinned between
+`checks` and a single `merge`.
 
 **Gate scope — an open question with no definition in this grammar
-before now — is derived from position relative to `reconcile`, not
-declared.** A gate earlier in a type's own effective sequence than its
-`reconcile` entry approves that tier's own artifact alone; one later
-approves what `reconcile` has already read and accepted, which may
-include every child artifact joined up into it. This settles nothing
-about what a passed gate *pins* — `dsl-syntax.md` §15.10's own answer
-to that (the sub-array's one generation-shaped entry) is unaffected
-for a gate inside a sub-array — it gives the *other* case, a gate
-positioned relative to a join rather than to a single draft, a
-structural answer for the first time. No new field: a `scope:` field
-restating what array position already determines was considered and
-rejected on the identical reasoning `throwback:`'s own narrowing
-already used (`dsl-syntax.md` §15.10) — a fact computable from
-position does not need a bundle author to restate it.
+before now — is derived from position relative to the nearest
+`reconcile` entry before it, not declared.** `reconcile` may recur
+(above), so this is not a single before/after split: a gate earlier
+than every `reconcile` in a type's own effective sequence approves
+that tier's own artifact alone; one sitting after a `reconcile`
+approves what the nearer one has already read and accepted, superseded
+again by whichever `reconcile` follows it later in the array. This
+settles nothing about what a passed gate *pins* — `dsl-syntax.md`
+§15.10's own answer to that (the sub-array's one generation-shaped
+entry) is unaffected for a gate inside a sub-array — it gives the
+*other* case, a gate positioned relative to a join rather than to a
+single draft, a structural answer for the first time. No new field: a
+`scope:` field restating what array position already determines was
+considered and rejected on the identical reasoning `throwback:`'s own
+narrowing already used (`dsl-syntax.md` §15.10) — a fact computable
+from position does not need a bundle author to restate it.
 
 **No new mechanism for the bottom-up cascade, and this was checked
-against `docs/non-goals.md` rather than assumed.** A draft of this
-decision considered implying `merge` from a sub-array's own exit or
-from "a tier's own sequence ending" — rejected, because either reading
-is plane logic branching on grouping or containment, exactly what
-`docs/non-goals.md`'s automation-protocol entry refuses and what
-`dsl-syntax.md` §15.10's own sub-array admission was careful not to
-introduce. `reconcile` and `merge` are ordinary flat backbone entries,
-exactly like `checks` and `deploy` always were — `reconcile`
-additionally carries its own `depth:`, the same as `critique` does,
-but dispatch depends on none of sub-array membership, containment, or
-the word "subflow." The bottom-up ordering this buys is a free
-consequence
-of §7.2's own child-blocks-parent rule, already recorded above: a
+against `docs/non-goals.md` rather than assumed — for either
+`reconcile`.** A draft of this decision considered implying `merge`
+from a sub-array's own exit or from "a tier's own sequence ending" —
+rejected, because either reading is plane logic branching on grouping
+or containment, exactly what `docs/non-goals.md`'s automation-protocol
+entry refuses and what `dsl-syntax.md` §15.10's own sub-array
+admission was careful not to introduce. `reconcile`, `fanout` and
+`merge` are ordinary flat backbone entries, exactly like `checks` and
+`deploy` always were — `reconcile` additionally carries its own
+`depth:`, the same as `critique` does, but dispatch depends on none of
+sub-array membership, containment, or the word "subflow." The
+bottom-up ordering this buys is a free consequence of §7.2's own
+child-blocks-parent rule, already recorded above, applied twice: a
 child finishes, and therefore merges, before its parent's completion
-is even reachable, so by the time a level's own `reconcile` runs,
-every child beneath it already has. No second mechanism reads
-completion state a second time.
+is even reachable, so by the time the first `reconcile` runs at a
+given level, every child beneath it has already merged its own
+architecture doc, and by the time the second runs, every child's own
+implementation has too — `fanout` is the status a level sits at while
+that happens. No second mechanism reads completion state a second
+time, for either join.
 
 **`depth:` widens to `reconcile`, and stays never-validated against
 the chain — a deliberate choice, not an oversight.** A gate or an

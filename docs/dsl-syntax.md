@@ -770,17 +770,31 @@ Added with the two axes and the declarable protocol surface (v5
 - **every `ticket`-skeleton type's `statuses:` array opens with
   `pending`, closes with `terminal`, and holds at least one
   generation-shaped entry (`generation`, `design` or `architecture`,
-  §15.1, in any combination), `checks`, `reconcile`, `merge` and
-  `deploy` at least once each, in that relative order** (§15.1,
-  §15.11) — a generation-shaped entry and `merge` may recur, in any
-  mix of the three generation-shaped names; `pending` and `terminal`
-  may not: first and last, exactly once. (`checks`, `reconcile` and
-  `deploy` carry no stated bound either way — one required occurrence,
-  same as before this ticket, with no exercised case yet for a second.)
-  A `ticket`-skeleton array missing every generation-shaped kind,
-  missing `checks`, `reconcile`, `merge` or `deploy`, or holding one
-  out of its fixed relative order, is a load error naming the
-  declaration and the mismatch;
+  §15.1, in any combination), `checks`, `merge` and `deploy` at least
+  once each, in that relative order** (§15.1) — a generation-shaped
+  entry, `checks`, `merge` and `reconcile` may all recur (§15.11);
+  `pending` and `terminal` may not: first and last, exactly once.
+  **`reconcile` is not named in this bullet's own required list, and
+  needs no separate ticket-skeleton rule to require it** — §15.11's
+  positional check (a `merge` entry must be preceded, earlier in the
+  same array, by a `reconcile` entry) already forces one to exist
+  wherever `merge` does, for every `merge`, `ticket`-skeleton or
+  `container`-skeleton alike, a fact about that array's own contents
+  rather than a rule keyed to which skeleton declares it (ORC-151,
+  correcting this ticket's own first pass, which had stated the
+  requirement the skeleton-keyed way §15.5's `critique` rule was
+  already rewritten once to avoid). `reconcile` recurring is exercised,
+  not hypothetical: §15.11's own worked example carries two, one
+  closing the architecture phase's own depth-scoped join and one
+  closing implementation, each ordered relative to the phase it closes
+  rather than pinned to one array position. (`deploy` carries no
+  stated bound either way — one required occurrence, same as before
+  this ticket.) A `ticket`-skeleton array missing every
+  generation-shaped kind, missing `checks`, `merge` or `deploy`, or
+  holding one out of its fixed relative order, is a load error naming
+  the declaration and the mismatch; a `merge` entry with no earlier
+  `reconcile` entry in the same array is a load error naming the
+  declaration and the position (§15.11);
 - **there is no `after:` field anywhere in this grammar** — on a
   gate, an environment, or a type's own anchor entries alike, position
   is the array index and nothing else (§15.3). A declaration carrying
@@ -1194,26 +1208,32 @@ moment `reconcile` approves, barring a conflict (which routes to
 `Blocked` the ordinary way any agent-balled entry's failure does) —
 so a non-review-shaped agent-balled filter excludes `merge` because
 it is no longer agent-balled at all, never because its name is
-checked. **Unlike `critique`, `reconcile` is not opt-in.** A
+checked. **Unlike `critique`, `reconcile` is not opt-in — and this pass states
+that fact positionally, not as a ticket-skeleton requirement.** A
 generation-shaped entry with no adjacent `critique` runs no auto-
-review at that phase (§15.5); a ticket-skeleton type cannot omit
-`reconcile` the way it can omit `critique`, because every ticket's PR
-is judged against its own argument before it merges (v5 §7.5) the
-same unconditional way every ticket's diff runs CI before it merges —
-nothing a workflow bundle declines the way it can decline critique.
-`reconcile` therefore joins the ticket-skeleton backbone alongside
-`checks`, `merge` and `deploy`, positioned between the first two:
-**`checks`, `reconcile`, `merge` and `deploy`, each at least once, in
-that relative order** (§13, below). `depth:` is legal on a `status:
-reconcile` entry the identical way it already is on `critique`
-(§15.5) — a bundle may narrow which fan-out levels see a distinct
-`reconcile` run — but presence itself is not the field that turns
-`reconcile` on; there is no entry to omit. Not a `docs/non-goals.md`
-entry for the identical reason `design`/`architecture` wasn't one:
-growing this closed table is covered by that file's own admission
-rule ("a state may be declared iff no plane logic branches on it")
-without needing a new line, because the table itself, not what's
-declarable *from* it, is what's growing.
+review at that phase (§15.5); nothing merges, `ticket`-skeleton or
+`container`-skeleton alike, without first having been read against its
+own argument (v5 §7.5), the same unconditional way every ticket's diff
+runs CI before it merges. §15.11 states the mechanism: **a `merge`
+entry must be preceded, earlier in the same array, by a `reconcile`
+entry** — a fact about that array's own contents, checked the
+identical way regardless of which `skeleton:`, if any, the citing type
+declares, rather than a rule bolted onto the ticket skeleton's own
+required-backbone list (§13). `reconcile` may recur the same way a
+generation-shaped entry and `merge` already can, each occurrence
+ordered relative to the `merge` (or the deeper phase) it closes rather
+than pinned to one array position — §15.11's own worked example
+carries two. `depth:` is legal on a `status: reconcile` entry the
+identical way it already is on `critique` (§15.5) — a bundle may
+narrow which fan-out levels a given occurrence's own join reaches —
+but presence itself is not the field that turns `reconcile` on; there
+is no entry to omit, only a `merge` left with nothing to pair it with.
+Not a `docs/non-goals.md` entry for the identical reason
+`design`/`architecture` wasn't one: growing this closed table is
+covered by that file's own admission rule ("a state may be declared
+iff no plane logic branches on it") without needing a new line,
+because the table itself, not what's declarable *from* it, is what's
+growing.
 
 **Platform-fixed in the same table `generation` already sits in — not
 bundle-authored, and not a second table.** This is what keeps this
@@ -1304,14 +1324,17 @@ how many times each may appear:
   paired with a `critique` entry, §15.5) and declared gates (§15.4),
   then `checks`, `reconcile`, `merge`, `deploy` (optionally paired
   with declared environments, §15.4), then `terminal`. A
-  generation-shaped kind and `merge` may recur — v5 §7.6's own feature
-  lifecycle above already visits one twice, once as `design` (`Product
-  design`) and once as `architecture` (`Architecting`) — `pending` and
-  `terminal` may not: first and last, exactly once. **`reconcile` is
-  required, unlike `critique`, which is opt-in** (§15.1 above): every
-  ticket-skeleton array holds at least one `reconcile` entry, between
-  `checks` and `merge`, whether or not a bundle also wants critique or
-  a human gate anywhere upstream of it.
+  generation-shaped kind, `checks`, `reconcile` and `merge` may all
+  recur — v5 §7.6's own feature lifecycle above already visits a
+  generation-shaped kind twice, once as `design` (`Product design`)
+  and once as `architecture` (`Architecting`), and §15.11's own worked
+  example visits `reconcile` twice, once per phase it closes —
+  `pending` and `terminal` may not: first and last, exactly once.
+  **`reconcile` is required wherever `merge` is, unlike `critique`,
+  which is opt-in** — not a fact this bullet states as a
+  ticket-skeleton rule, but §15.11's positional one: a `merge` entry
+  needs an earlier `reconcile` in the same array whether or not a
+  bundle also wants critique or a human gate anywhere upstream of it.
 - **`container`** — the five names fixed at this ticket's first pass:
   `setup`, `prep`, `main`, `retro`, `cleanup`, each at least once, in
   that relative order, then `terminal`, exactly once, last. This is
@@ -1455,6 +1478,10 @@ statuses:                        # the skeleton's own required backbone,
                                   #   inline (ORC-148) — dispatches by
                                   #   chain-side tier, not by flow:
   - status: checks
+  - status: reconcile            # reads setup's own PR before it
+                                  #   merges — required wherever merge
+                                  #   is, container skeleton included
+                                  #   (§15.1, §15.11)
   - status: merge
   - status: deploy
   - status: prep
@@ -1466,6 +1493,8 @@ statuses:                        # the skeleton's own required backbone,
   - status: retro                 # the container's other agent step,
                                   #   inline the identical way
   - status: checks
+  - status: reconcile            # retro's own read, the identical
+                                  #   requirement
   - status: merge
   - status: deploy
   - status: cleanup
@@ -1479,11 +1508,16 @@ statuses:                        # the skeleton's own required backbone,
 in the real bundle). `pending` is not part of `container`'s own fixed
 backbone (§15.1) and is not exactly-once the way it is for `ticket` —
 it is ordinary interleaved vocabulary here, licensing the `deploy`
-(and, transitively, the `checks`/`merge` between) each of the two
-agent steps needs (§15.1's "a `pending` precedes every `generation`
-and every `deploy`" reads as "somewhere earlier in this array," not
-"immediately before" — `feature.yaml`'s own single `pending` below
-already licenses two separate `deploy`-bound runs the identical way).
+(and, transitively, the `checks`/`reconcile`/`merge` between) each of
+the two agent steps needs (§15.1's "a `pending` precedes every
+`generation` and every `deploy`" reads as "somewhere earlier in this
+array," not "immediately before" — `feature.yaml`'s own single
+`pending` below already licenses two separate `deploy`-bound runs the
+identical way). **Each `reconcile` above is what closes the gap this
+worked example carried before this ticket's design review**: `setup`
+and `retro` each merged through a bare `checks → merge → deploy`, read
+by nothing first, which is exactly the shape the positional rule below
+(§15.1, §15.11) no longer allows — `container`-skeleton or not.
 
 ```yaml
 # types/feature.yaml
@@ -1540,12 +1574,17 @@ generations. What survives, now expressed as `skeleton:` rather than
 as a choice of file:
 
 - **the skeleton's own required backbone** (§15.1) — `pending →
-  generation → checks → merge → deploy → terminal`, each at least
-  once and pending/terminal exactly once, against `setup → prep →
-  main → retro → cleanup → terminal`, each at least once, against no
-  fixed shape at all for a type with no `skeleton:`. This is the
-  reason `container` and `ticket` are different `skeleton:` values
-  rather than one — it is the only thing left that they are.
+  generation → checks → reconcile → merge → deploy → terminal`, each
+  at least once and pending/terminal exactly once (`reconcile` itself
+  named by position, not by this bullet — §15.11's rule that a `merge`
+  entry needs an earlier `reconcile` is what actually requires it),
+  against `setup → prep → main → retro → cleanup → terminal`, each at
+  least once, against no fixed shape at all for a type with no
+  `skeleton:`. This is the reason `container` and `ticket` are
+  different `skeleton:` values rather than one — it is the only thing
+  left that they are. **`reconcile`'s own requirement is not one of
+  those things**: it reaches the `container` column too, the moment
+  that array holds a `merge` (§15.11's `milestone.yaml` above).
 - **can source a nesting edge** — any type whose array holds at least
   one population anchor (a `status:` entry carrying `flow:`, §15.7)
   can point at another container; a type with none is always a leaf in
@@ -1757,9 +1796,10 @@ what is enforced, so it is graph state, versioned, changed by PR.
 
 **`critique` and `reconcile` (§15.11) are the two review-shaped kinds
 (§15.1) — this section states `critique`'s own pairing rule;
-`reconcile`'s is stated at §15.11, since it pairs with the array's
-`checks`/`merge` position rather than with one generation-shaped
-peer, and is required rather than opt-in.**
+`reconcile`'s is stated at §15.11, since it pairs with a `merge`
+entry's own position rather than with one generation-shaped peer, may
+recur the way `merge` itself can, and is required — never opt-in —
+wherever a `merge` entry appears.**
 
 **The one carve-out, and the reason is worth stating rather than
 asserting.** A gate is depth 0 on a container the identical way it is
@@ -2289,6 +2329,9 @@ statuses:
     - review: ux-review
     - review: engineering-review
   - status: checks
+  - status: reconcile           # required wherever merge is, this
+                                 #   sub-array's own contents aside
+                                 #   (§15.1, §15.11)
   - status: merge
   - environment: staging
   - status: deploy
@@ -2587,26 +2630,36 @@ non_critique_agent_step? and status != "merge"` — inside a module
 whose own moduledoc states it branches on no status name at all
 (ORC-148's dev pass filed this as a finding rather than hiding it).
 This section splits the kind (§15.1, above): `reconcile` is now the
-review-shaped kind that does the judging, agent-balled and required in
-every ticket-skeleton array; `merge`'s own `ball` changes from `agent`
-to `plane`, since a mechanical join effected by the plane the moment
-`reconcile` approves needs no agent dispatch to do it — the exclusion
-above stops being a name check and becomes what it always meant to be:
-`merge` is absent from the inline dispatch point's target set because
-it is no longer agent-balled, not because its name is checked.
-`Status.non_critique_agent_step?/1`'s own successor (dev's diff,
-`lib/catapult/dsl/status.ex`) drops `"merge"` from the strings
-`SystemStatus.agent_balled?/1` answers true for, and
+review-shaped kind that does the judging, agent-balled; `merge`'s own
+`ball` changes from `agent` to `plane`, since a mechanical join
+effected by the plane the moment `reconcile` approves needs no agent
+dispatch to do it — the exclusion above stops being a name check and
+becomes what it always meant to be: `merge` is absent from the inline
+dispatch point's target set because it is no longer agent-balled, not
+because its name is checked. `Status.non_critique_agent_step?/1`'s own
+successor (dev's diff, `lib/catapult/dsl/status.ex`) drops `"merge"`
+from the strings `SystemStatus.agent_balled?/1` answers true for, and
 `inline_dispatch_point?/1` drops its own `status != "merge"` clause
 along with it — the predicate simplifies to "agent-balled and not
 review-shaped," with nothing left for a name check to do.
 
-**Required, not opt-in — the reason is stated once, at §15.1, and not
-repeated here beyond the cross-reference.** Every ticket-skeleton
-array holds `reconcile` at least once, between `checks` and `merge`
-(§13); a workflow bundle can decline `critique` by writing no entry
-for it, and cannot decline `reconcile` the same way, because nothing
-merges without having been read against its own argument first.
+**Required wherever `merge` appears, stated positionally rather than
+per skeleton — a correction from this ticket's own first pass, not a
+second decision.** A `merge` entry must be preceded, earlier in the
+same array, by a `reconcile` entry — a fact about that array's own
+contents, exactly the shape §15.5's own `critique` rule was already
+rewritten to avoid a skeleton-keyed version of. This is *stronger*
+than "every ticket-skeleton array holds one," the way this ticket's
+first pass stated it: it reaches `container`-skeleton arrays too, and
+closes a gap that framing left open — §15.2's `milestone.yaml` worked
+example previously ran `setup` and `retro` each through their own bare
+`checks → merge → deploy`, merging twice with nothing read first.
+Both now carry their own `reconcile`, the identical requirement a
+ticket-skeleton array has always had, no longer only because it is a
+ticket. A workflow bundle can decline `critique` by writing no entry
+for it; it cannot decline `reconcile` the same way wherever `merge`
+appears, because nothing merges, of any skeleton, without having been
+read against its own argument first (v5 §7.5).
 
 **Where `reconcile` sits, not a sub-array.** §15.10's sub-array groups
 a gate around its own generation-shaped agent step — `[generation,
@@ -2623,21 +2676,25 @@ forbids it (§13's sub-array bullet counts `reconcile` among the
 review-shaped entries a sub-array may hold any number of, the same way
 it already permitted an unbounded run of `critique`), but the shape
 this section actually describes is `reconcile` as its own array entry,
-depth-scoped like `critique` and a gate already are.
+depth-scoped like `critique` and a gate already are, and — like a
+generation-shaped entry or `merge` — free to recur (below).
 
-**Gates before `reconcile` scope to the citing tier's own artifact;
-gates after it scope to that artifact plus every child artifact
-`reconcile` has joined into it.** This is a fact this grammar has not
-had a way to state before now — `docs/v5-design-decisions.md` §7.16's
-own open item, "what a passed gate pins," had an answer for a gate
-inside a §15.10 sub-array (the sub-array's one generation-shaped
-entry) and none for a gate positioned relative to a join. `reconcile`
-gives it a second reference point: a `review:` entry earlier in the
-citing type's own effective sequence than the `reconcile` entry it
-precedes approves what that tier alone produced; one later than it
-approves what `reconcile` has already read and accepted, which may
-include work joined up from every child beneath this level. Nothing
-here builds the pinning mechanism — declared workflow gates are still
+**A gate's scope derives from its position relative to the nearest
+`reconcile` entry before it, not a single global before/after split —
+`reconcile` recurring means a gate can sit between two of them.** A
+`review:` entry earlier than every `reconcile` in the citing type's
+own effective sequence approves what that tier alone produced. One
+sitting after a `reconcile` approves what that particular `reconcile`
+has already read and accepted — every child artifact joined into it up
+to that point — which a later `reconcile` in the same array supersedes
+again: the worked example below has `architecture-review` scoped to
+the architecture-phase join alone, because a second `reconcile`
+(implementation's) still lies ahead of it. This is a fact this grammar
+has not had a way to state before now — `docs/v5-design-decisions.md`
+§7.16's own open item, "what a passed gate pins," had an answer for a
+gate inside a §15.10 sub-array (the sub-array's one generation-shaped
+entry) and none for a gate positioned relative to a join. Nothing here
+builds the pinning mechanism — declared workflow gates are still
 `systems/delivery.md`'s Phase 7 to build — this paragraph gives that
 future build a structural distinction to key on, where before there
 was only a depth number.
@@ -2655,74 +2712,119 @@ identical reasoning §15.1 above gives for `reconcile` joining the
 fixed table without an entry of its own: nothing here is newly
 declarable, only newly derivable from vocabulary that already was.
 
-**One declared `reconcile` entry, applied at every fan-out level its
-own `depth:` reaches — no separate entry per level, and no upper or
-lower bound this grammar states beyond what `depth:` already means.**
+**Two `reconcile` entries in this one array, not one — each closing a
+different phase, ordered relative to that phase rather than pinned
+once between `checks` and `merge`.** A design review on this ticket's
+first pass corrected exactly this: that pass's own worked example ran
+straight from an architecture review to `merge`, which merges the
+feature before any implementation exists — a mistake stated as a
+conclusion in that draft's own closing claim, not only in its array.
+Architecture's own fan-out produces a doc at every connected chain
+tier (sysarch, comparch, subcomparch); those need joining bottom-up
+before `architecture-review` reads a single composed document, which
+is the first `reconcile`, depth-scoped. Implementation is a separate
+phase closing separately: v5 §7.6's own feature lifecycle (§15.1)
+puts `Building` (`fanout`) between `Architecture review` and
+`Reconciling` — the feature does not merge until both the docs and the
+code are complete, so a second, unscoped `reconcile` sits after
+`fanout`, reading the composed *code* diff the way the first one read
+the composed *doc* diff. `merge` itself does not recur here (§13): it
+runs once, after implementation, inheriting its own position from the
+nearer of the two `reconcile` entries the array actually declares.
 Worked against an architecture sequence with feature at depth 0,
 component at 1, subcomponent at 2:
 
 ```yaml
 statuses:
   - status: pending
-  - status: generation                 # every connected tier, all depths
+  - status: architecture
+    depth: 2                           # every connected tier: sysarch,
+                                        #   comparch, subcomparch
   - status: critique
-    depth: 2                           # levels 0-2
+    depth: 2
   - review: comparch-review
-    depth: 2                           # levels 0-2, before reconcile:
+    depth: 2                           # before either reconcile:
                                         #   scoped to each level's own
                                         #   artifact
   - status: checks                     # no depth: field (never one of
-                                        #   the four depth-bearing sites,
-                                        #   §13) — runs at every level
-                                        #   that generates, unscoped
+                                        #   the four depth-bearing
+                                        #   sites, §13) — runs at every
+                                        #   level that generates,
+                                        #   unscoped, both occurrences
+                                        #   alike
   - status: reconcile
     depth: 1                           # levels 0-1: the 2→1 join at
                                         #   level 1, then the 1→0 join
                                         #   at level 0
   - review: architecture-review
-    depth: 1                           # levels 0-1, after reconcile:
-                                        #   scoped to artifact + children
-  - status: merge                      # no depth: field, same reason as
-                                        #   checks — runs wherever reconcile
-                                        #   (or, absent one, checks) does
+    depth: 1                           # after the first reconcile,
+                                        #   before the second: scoped
+                                        #   to the joined doc set alone
+  - status: fanout                     # Building — implementation,
+                                        #   dispatched through the same
+                                        #   spawned ticket tree
+  - status: checks
+  - status: reconcile                  # Reconciling — the composed
+                                        #   code diff against the
+                                        #   feature's own argument; no
+                                        #   depth: field, so depth 0
+                                        #   only (§15.4) — the
+                                        #   feature's own final join
+  - status: merge                      # Merged — no depth: field,
+                                        #   inheriting the nearer
+                                        #   reconcile's own depth 0
   - status: deploy
   - status: terminal
 ```
 
 `reconcile`'s own ceiling, not `checks`'s, is what keeps level 2 out
-of the join — level 2 is a leaf with nothing beneath it, so `reconcile`
-correctly selects nothing there (`checks` alone still runs at every
-level that generates, including the leaf, unscoped) — and level 0's
-own `reconcile` correctly merges into nothing further than main.
-**Neither bound needs stating as a rule**: `depth:`'s own existing
-semantics — a maximum, filtered per level, never validated against the
-chain
-(§13) — already produce both, the same way they already produce "no
-review runs deeper than a gate's own declared ceiling" for every other
-depth-bearing kind.
+of the architecture-doc join — level 2 is a leaf with nothing beneath
+it, so the first `reconcile` correctly selects nothing there (`checks`
+alone still runs at every level that generates, unscoped) — and the
+second `reconcile`'s own omitted `depth:` keeps it, and `merge` behind
+it, to level 0 alone: the feature's own single merge into main, once,
+after both phases are done. Neither bound needs stating as a rule:
+`depth:`'s own existing semantics — a maximum, filtered per level,
+never validated against the chain (§13) — already produce both, the
+same way they already produce "no review runs deeper than a gate's own
+declared ceiling" for every other depth-bearing kind.
+
+**What a component or subcomponent's own implementation work merges
+into, and whether their own `checks` at the second occurrence needs a
+join of its own, is not settled by this array.** The second
+`reconcile` and `merge` above are scoped to level 0 by their own
+omitted `depth:`, which answers the feature's own final join; it does
+not say whether level 1 and level 2 need an analogous join for their
+own implementation, dispatched through their own instance of this same
+declaration, or whether `checks` running unscoped at every level
+already covers it some other way. Left for the loader work
+(`systems/delivery.md`'s Phase 7) to settle against an actual bundle,
+not assumed here.
 
 **The bottom-up cascade this buys needs no new mechanism, and this
-section deliberately does not build one.** An earlier draft of this
-decision considered implying `merge` at "the end of a tier's own
-sub-array" or "on subflow exit" — rejected, because either reading is
-plane logic branching on grouping or on containment, exactly the
-branching `docs/non-goals.md`'s automation-protocol entry refuses and
-exactly what §15.10's own sub-array admission was careful not to
-introduce ("no plane logic branches on whether entries are grouped,
-any more than it branches on where in the array one sits"). `reconcile`
-and `merge` are ordinary flat backbone entries, exactly like `checks`
-and `deploy` always were — `reconcile` additionally carries its own
-`depth:`, the same as `critique` already does, but nothing about
-either one's dispatch depends on sub-array membership, position
-relative to any other grouping, or the word "subflow." The bottom-up
-ordering falls
-out of a rule this grammar already has: `docs/v5-design-decisions.md`
-§7.2's child-blocks-parent — a child ticket blocks its parent's own
+section deliberately does not build one — for either `reconcile`.** An
+earlier draft of this decision considered implying `merge` at "the end
+of a tier's own sub-array" or "on subflow exit" — rejected, because
+either reading is plane logic branching on grouping or on containment,
+exactly the branching `docs/non-goals.md`'s automation-protocol entry
+refuses and exactly what §15.10's own sub-array admission was careful
+not to introduce ("no plane logic branches on whether entries are
+grouped, any more than it branches on where in the array one sits").
+`reconcile`, `fanout` and `merge` are ordinary flat backbone entries,
+exactly like `checks` and `deploy` always were — `reconcile`
+additionally carries its own `depth:`, the same as `critique` already
+does, but nothing about any of their dispatch depends on sub-array
+membership, position relative to any other grouping, or the word
+"subflow." The bottom-up ordering falls out of a rule this grammar
+already has, applied twice: `docs/v5-design-decisions.md` §7.2's
+child-blocks-parent — a child ticket blocks its parent's own
 completion, so children finish, and therefore merge, before a parent
-reaches its own `reconcile`. By the time a component-level `reconcile`
-runs, every subcomponent beneath it has already reached `merge`; by
-the time the feature-level `reconcile` runs, every component has. No
-second mechanism reads "has this level's children finished" — the
-existing completion rule already answers it, for the identical reason
-depth already scopes without naming a tier: composing existing
-derived facts instead of adding a field to hold one.
+reaches its own next step. By the time the first `reconcile` runs at a
+given level, every child beneath it has already merged its own
+architecture doc; by the time the second `reconcile` runs, every
+child's own implementation has too, `fanout` itself being the status a
+level sits at while that happens. No second mechanism reads "has this
+level's children finished" for either join — the existing completion
+rule already answers it twice, for the identical reason depth already
+scopes without naming a tier: composing existing derived facts instead
+of adding a field to hold one.

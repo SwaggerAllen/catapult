@@ -505,13 +505,24 @@ context-source kinds, and audit profiles.
   declare it against. `reconcile` joins the fixed table as the second
   **review-shaped** kind alongside `critique` (the parallel category to
   "generation-shaped," named for the first time this pass), agent-balled
-  and required in every `ticket`-skeleton array between `checks` and
-  `merge` — not opt-in the way `critique` is, since no ticket merges
-  without having been read against its own argument first. `merge`'s own
-  `ball` changes from `agent` to `plane`: mechanical, effected by the
-  plane once `reconcile` approves, barring a conflict (which routes to
-  `Blocked` the ordinary way). This closes the finding ORC-148's own dev
-  pass filed against itself: `Catapult.Delivery.ContainerLifecycle
+  and required — stated positionally, not per skeleton, at this same
+  pass's own design review — wherever a `merge` entry appears: a
+  `merge` entry must be preceded, earlier in the same array, by a
+  `reconcile` entry, `container`-skeleton arrays included (closing a
+  gap the skeleton-keyed framing left open — `dsl-syntax.md` §15.2's
+  `milestone.yaml` example previously ran `setup` and `retro` each
+  through a bare `checks → merge → deploy`, merging unread), never
+  opt-in the way `critique` is, since no ticket merges without having
+  been read against its own argument first. `reconcile` may also
+  recur, the way a generation-shaped entry and `merge` already could —
+  `dsl-syntax.md` §15.11's own worked example carries two, one closing
+  the architecture phase's own depth-scoped join and one closing
+  implementation after `fanout`, rather than one pinned between
+  `checks` and a single `merge`. `merge`'s own `ball` changes from
+  `agent` to `plane`: mechanical, effected by the plane once
+  `reconcile` approves, barring a conflict (which routes to `Blocked`
+  the ordinary way). This closes the finding ORC-148's own dev pass
+  filed against itself: `Catapult.Delivery.ContainerLifecycle
   .inline_dispatch_point?/1` excluded `merge` by name, inside a module
   whose own moduledoc asserts it branches on no status name — the
   predicate generalizes to "agent-balled and not review-shaped," which
@@ -520,10 +531,12 @@ context-source kinds, and audit profiles.
   way: "non-critique agent-balled" becomes "non-review-shaped
   agent-balled," admitting any number of `reconcile` entries alongside
   `critique` ones without counting toward the sub-array's required-one
-  anchor. **New: gate scope is derived from position relative to
-  `reconcile`** — a gate earlier in a type's own array approves the
-  citing tier's own artifact; one later approves what `reconcile` has
-  already joined in from every child beneath it — closing a gap
+  anchor. **New: gate scope is derived from position relative to the
+  nearest `reconcile` before it** — a gate earlier than every
+  `reconcile` in a type's own array approves the citing tier's own
+  artifact; one sitting after a `reconcile` approves what that
+  `reconcile` has already joined in from every child beneath it,
+  superseded again by a later `reconcile` if one follows — closing a gap
   `v5-design-decisions.md` §7.16 left open (what a gate scoped to a
   join, rather than to one generation's own sub-array, approves), with
   no new field: computed from array position, the identical "derive,
@@ -535,8 +548,9 @@ context-source kinds, and audit profiles.
   loader changes (`lib/catapult/dsl/system_status.ex`'s `@statuses`
   table and `generation_shaped?/1`'s new sibling, `status.ex`'s
   `non_critique_agent_step?/1` rename and generalization, `workflow.ex`'s
-  backbone and sub-array checks widening to include `reconcile`), the
-  `bundles/**` content that declares it, and the dispatcher change
+  backbone and sub-array checks widening to include `reconcile` and the
+  new merge-preceded-by-reconcile positional check), the `bundles/**`
+  content that declares it, and the dispatcher change
   `systems/delivery.md` files against its own Target list — all dev's
   diff against this record, not design's.
 
