@@ -2334,18 +2334,23 @@ are read against the sharper test, not waved through:
   declared *default* is an ordinary bundle-authoring call against
   `bundles/**`, not a fact this record needs to settle for it.
 
-The other two sit in `milestone.yaml`, which declares no sub-array at
-all — nothing in the file is ever grouped, whatever its own entries
-are. The sharper test doesn't apply to a gate with no citing
-sub-array to derive a default from; both are single-element lists
-narrowing to their one element with nothing to weigh:
+The other two sit in `milestone.yaml`, inside the sub-array
+`[milestone-signoff, retro, proposals-read]` (§15.10 above) — so the
+sharper test applies, against `retro`, that group's own non-critique
+agent step and the derivation's default:
 
 - `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
-  default-flow/gates/milestone-signoff.yaml`) narrows to `main`, still
-  earlier than `milestone-signoff` in `milestone.yaml`'s own array.
+  default-flow/gates/milestone-signoff.yaml`) narrows to `main`, a
+  target *outside* the sub-array, before the group entirely — and a
+  *different* landing point than the derivation would pick, which is
+  `retro`. This declaration is the field earning its keep, the
+  identical shape as `ux-review`'s: rejecting the sign-off means
+  reopening the milestone's own `main` work period, not merely
+  re-running `retro`.
 - `proposals-read`'s own declared `throwback: [retro]` (`bundles/
-  default-flow/gates/proposals-read.yaml`) narrows to `retro`, still
-  earlier than `proposals-read` in the same array.
+  default-flow/gates/proposals-read.yaml`) narrows to `retro` —
+  already the derived default. This declaration is redundant, the
+  identical shape as `engineering-review`'s first element.
 
 Narrowing all four files' `throwback:` to a single string, and
 dropping `engineering-review`'s now-redundant second element, is
