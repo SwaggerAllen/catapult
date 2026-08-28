@@ -342,32 +342,42 @@ design gates pass.
   to build differently, still ORC-104's, not a larger Target list.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
-  moved backward on a queue refilling, restated rather than removed**
+  moved backward on a queue refilling, restated rather than removed
+  — and a fourth found the third's own fix over-corrected**
   (`docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md` §7.8).
   §15.8's own "two ways a container's position moves backward" kept a
   queue un-resolving as one of them, un-gated — the identical defect
   the bullet above retired from `blocks:` itself, reappearing one
   level up. **Retired: this system's dispatcher never moves a
-  container's position backward because a queue refilled.** What
-  moves it backward is a gate's `throwback:` (unchanged) or an
-  explicit author transition — concretely, returning a milestone from
-  `retro` to `main`, which `ContainerLifecycle` never performs on its
-  own. Forward advance into a guard-cleared entry stays this system's
-  dispatcher's to make automatically, the moment the guard reads clear
-  (the bullet above, unaffected); the return trip is the author's
-  action, taken once `retro`'s own sub-array — its agent step and the
-  human gates around it — has run to completion, not the instant
-  `retro`'s output lands back in `main` and un-resolves it. This is
-  also what keeps the `terminal` guard two bullets up reachable at all:
-  the shipped `milestone`'s only throwback to `main` is
-  `milestone-signoff`, sequenced *before* `retro` (`dsl-syntax.md`
-  §15.10), so absent this manual return `retro` filing work into
-  `main` would leave `cleanup`/`terminal` blocked with no declared path
-  back. `lib/catapult/engine/projections/container_queues.ex`'s
-  resolution condition 1 predates this correction and still cites
-  §15.8 for the retired reading — this system's dispatcher build
-  (ORC-104) corrects that check and its citation, not this design
-  record.
+  container's position backward because a queue refilled.** The third
+  review's own replacement named the surviving cause "an authored
+  transition," which rules out more than it means to: a `critique`
+  entry's own decline is automatic, with no author in it, and
+  `docs/v5-design-decisions.md` §7.19 requires it be structurally
+  identical to a human decline at a gate. **What moves position
+  backward is a step's own outcome — a decline, whether a `critique`
+  entry's own agent run issues it (landing back on the generation
+  entry it pairs with) or a human issues it at a gate (landing per its
+  declared or derived `throwback:`) — or an explicit author
+  transition** — concretely, returning a milestone from `retro` to
+  `main`, which `ContainerLifecycle` never performs on its own. Forward
+  advance into a guard-cleared entry stays this system's dispatcher's
+  to make automatically, the moment the guard reads clear (the bullet
+  above, unaffected); a decline's backward move is likewise this
+  system's dispatcher's to apply the moment it is issued, agent or
+  human; the `retro` → `main` return alone is the author's own action,
+  taken once `retro`'s own sub-array — its agent step and the human
+  gates around it — has run to completion, not the instant `retro`'s
+  output lands back in `main` and un-resolves it. This is also what
+  keeps the `terminal` guard two bullets up reachable at all: the
+  shipped `milestone`'s only throwback to `main` is `milestone-signoff`,
+  sequenced *before* `retro` (`dsl-syntax.md` §15.10), so absent this
+  manual return `retro` filing work into `main` would leave
+  `cleanup`/`terminal` blocked with no declared path back.
+  `lib/catapult/engine/projections/container_queues.ex`'s resolution
+  condition 1 predates this correction and still cites §15.8 for the
+  retired reading — this system's dispatcher build (ORC-104) corrects
+  that check and its citation, not this design record.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-

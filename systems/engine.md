@@ -432,11 +432,14 @@ them.
   §7.8, settling what `systems/delivery.md`'s three ORC-105 entries
   left as "not yet built... this system owns"). A container instance's
   mint, its activation, each move of its current queue — forward past
-  a resolved gate, or backward on a cited gate's throwback or an
-  explicit author transition, never on a queue's population refilling
-  (§15.8, corrected at ORC-148's third design review) — a carried
-  finding's filing or
-  decline, and a milestone's flag-set flip are none of them derivable
+  a resolved gate, or backward on a step's own outcome (a decline, from
+  a `critique` entry's own agent run, landing on the generation entry
+  it pairs with, or from a human at a gate, landing per its
+  `throwback:` — one mechanism per §7.19, not two) or an explicit
+  author transition, never on a queue's population refilling (§15.8,
+  corrected at ORC-148's third design review and again at its fourth)
+  — a carried finding's filing or decline, and a milestone's flag-set
+  flip are none of them derivable
   from anything already in the log: nobody else records "this
   milestone instance now exists" the way nobody else records "this
   draft was approved." They are original protocol facts, the identical

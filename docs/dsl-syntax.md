@@ -2022,29 +2022,58 @@ lives in the parent's own file, the newly minted instance's `setup`
 entry lives in the child's — so there was never a "before `setup`"
 position to invent in the first place.
 
-**A container's position moves backward in exactly one way: an
-authored transition, never as a side effect of a queue's own
-population changing** (ORC-148's third design review). An earlier
-draft of this section held there were two ways — a throwback, or "a
-resolved queue un-resolving the moment its population refills, with no
-separate 'container went backward' event to define" — and the second
-is retired: it is the same defect, restated in terms of position
-rather than of a guard, that made §15.7 invert `blocks:` to a
-precondition checked once at entry. A queue refilling while the
-container had already moved past it pulling the position back is
-indistinguishable from the guard never having cleared, whether the
-thing said to move is the guard's occupancy or the container's own
-position — retiring one and keeping the other would have reopened by
-a different name exactly what the inversion closed. §15.7's queue
-remains a query — a resolved queue still un-resolves the moment its
-population refills — that fact just no longer implies anything about
-where the container's position sits; position is not a function of
-queue population.
+**A container's position moves backward for one of two causes, never a
+third** (ORC-148's third design review, corrected at its fourth). The
+third review retired a defect — a queue's population changing was
+letting position move on its own — but its own fix over-corrected: it
+named the discriminator "an authored transition," which reads as
+*who* moves the position rather than *why*, and an authored-only rule
+rules out a `critique` entry's own automatic decline (§15.5), which
+`v5-design-decisions.md` §7.19 requires be structurally identical to a
+human decline at a gate — one mechanism, not two. The discriminator is
+the cause, not the author:
 
-**What remains is a gate's `throwback:` and an author's own
-transition.** A gate a container-skeleton or skeleton-less type's own
-array cites can throw back to an earlier entry in that same array
-(§15.4's `throwback:`, resolving within "the citing type's own array"
+1. **A step's own outcome moves position backward.** A decline does —
+   whether a `critique` entry's own agent run issues it, landing back
+   on the generation entry it pairs with (§15.5's fixed pairing, not a
+   declared target), or a human issues it at a gate, landing per
+   §15.4's `throwback:`. `v5-design-decisions.md` §7.19 requires these
+   two be structurally one mechanism for regeneration feedback, not
+   two; a critique decline having "no throwback semantics" (§7.19)
+   means its reopen scope is trivial — nothing is downstream of it yet
+   to reopen — not that it fails to move position at all. Automatic
+   backward movement on a critique decline is required, not merely
+   tolerated.
+2. **An explicit author transition moves position backward.** The
+   return from `retro` to `main`, below, is this: nothing declined
+   there, an author judged the sub-array complete and moved the
+   container themselves.
+3. **A queue's population changing never moves it.** This is the whole
+   of what the third review's correction retired — not automation, and
+   not backward movement in general, but position tracking a queue's
+   contents underneath a position the container has already left.
+   §15.7's queue remains a query — a resolved queue still un-resolves
+   the moment its population refills — that fact just no longer implies
+   anything about where the container's position sits; position is not
+   a function of queue population.
+
+An earlier draft of this section (the second review) held there were
+two ways position moves — a throwback, or "a resolved queue
+un-resolving the moment its population refills, with no separate
+'container went backward' event to define" — and the second of those
+is what statement 3 above retires: it was the same defect, restated in
+terms of position rather than of a guard, that made §15.7 invert
+`blocks:` to a precondition checked once at entry. A queue refilling
+while the container had already moved past it pulling the position
+back is indistinguishable from the guard never having cleared, whether
+the thing said to move is the guard's occupancy or the container's own
+position — retiring one and keeping the other would have reopened by a
+different name exactly what the inversion closed.
+
+**For a gate, a step's own outcome above means `throwback:`.** A gate
+a container-skeleton or skeleton-less type's own array cites can throw
+back to an earlier entry in that same array (§15.4's `throwback:`,
+resolving within "the citing type's own array"
 exactly as it does on a ticket), and a container's array can cite
 gates now that gates and environments widen onto it (§15.2) — a
 milestone sign-off gate between `main` and `retro` rejecting back to

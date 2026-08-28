@@ -2440,24 +2440,36 @@ cleanly: the seventh-pass rule requiring a `blocks:` target to be a
 population anchor never fit an inline `retro` in the first place, and
 is retired along with the sentence it read from.
 
-**Fifth (a third design review, catching what the second missed): a
-container's position moves backward only on an authored transition,
-never as a side effect of a queue refilling.** The second review's own
-account of the first correction above was incomplete: inverting
-`blocks:` to a precondition checked once at entry removed the
-standing-hold reading's defect from the guard, but `dsl-syntax.md`
+**Fifth (a third design review, catching what the second missed, and a
+fourth catching that the third over-corrected): a container's position
+moves backward on a step's own outcome or an explicit author
+transition, never as a side effect of a queue refilling.** The second
+review's own account of the first correction above was incomplete:
+inverting `blocks:` to a precondition checked once at entry removed
+the standing-hold reading's defect from the guard, but `dsl-syntax.md`
 §15.8 still stated the identical defect in terms of *position* rather
-than of the guard — "a resolved queue
-un-resolves the moment its population refills" as one of two ways a
-container's position moves backward, un-gated. That sentence is
-retired: a queue refilling still un-resolves that queue (§15.7 is
-unaffected), it no longer implies the container's own position moved.
-What is left is a gate's `throwback:` (§15.4) and an explicit author
-transition — concretely, the return from `retro` to `main`, which runs
-`retro`'s own sub-array (its agent step and the human gates around it)
-to completion before `main` starts churning the tickets `retro` just
-filed, rather than automatically the moment `retro`'s output lands
-back in `main` and un-resolves it. This is also the reason the second
+than of the guard — "a resolved queue un-resolves the moment its
+population refills" as one of two ways a container's position moves
+backward, un-gated. That sentence is retired: a queue refilling still
+un-resolves that queue (§15.7 is unaffected), it no longer implies the
+container's own position moved.
+
+The third review's own fix named the surviving cause "an authored
+transition," which named *who* moves the position rather than *why*,
+and ruled out more than it meant to: a `critique` entry's own decline
+is automatic, with no author in it, and §7.19 requires it be
+structurally identical to a human decline at a gate — one mechanism,
+not two, for regeneration feedback (below). What is left, correctly
+stated, is two causes: **a step's own outcome** — a decline, whether a
+`critique` entry's own agent run issues it (landing back on the
+generation entry it pairs with, §15.5) or a human issues it at a gate
+(landing per its `throwback:`, §15.4) — and **an explicit author
+transition** — concretely, the return from `retro` to `main`, which
+runs `retro`'s own sub-array (its agent step and the human gates
+around it) to completion before `main` starts churning the tickets
+`retro` just filed, rather than automatically the moment `retro`'s
+output lands back in `main` and un-resolves it. A queue's population
+changing is still never among them. This is also the reason the second
 correction's `terminal` guard is reachable at all: the shipped
 `milestone`'s only throwback to `main` is `milestone-signoff`, placed
 *before* `retro` (`dsl-syntax.md` §15.10), so without the manual
