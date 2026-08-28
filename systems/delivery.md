@@ -911,13 +911,15 @@ design gates pass.
   gates *entry into* `retro` on its own findings, since the findings
   are what `retro` itself produces and adjudicates after it has already
   begun. **In the shipped `milestone` type, `retro` is followed by
-  `checks`, `merge` and `deploy`, then `cleanup` and `terminal`** — the
-  identical checks/merge/deploy sequence `setup` is also followed by
-  (`dsl-syntax.md` §15.2's worked example), since both are ordinary
-  agent-balled entries whose output takes the same CI/merge/promote
-  path any other agent-produced change does; the finding-adjudication
-  close gate above sits on `retro` itself, ahead of that sequence, not
-  on `cleanup`.
+  `checks`, `reconcile`, `merge` and `deploy`, then `cleanup` and
+  `terminal`** — the identical checks/reconcile/merge/deploy sequence
+  `setup` is also followed by, since both are ordinary agent-balled
+  entries whose output takes the same CI/reconcile/merge/promote path
+  any other agent-produced change does (`reconcile` named at ORC-151,
+  below — before it, this sequence read `checks`, `merge` and `deploy`,
+  with the same reconciling judgment carried inside `merge` rather
+  than named separately); the finding-adjudication close gate above
+  sits on `retro` itself, ahead of that sequence, not on `cleanup`.
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
@@ -1334,6 +1336,38 @@ design gates pass.
   `docs/dsl-syntax.md` §15.10 answers it structurally (ORC-115), so a
   surface needing gate staleness derives it there rather than
   reintroducing a pinned field on the event.
+
+- **ORC-151 (design pass) retires the one named exception
+  `inline_dispatch_point?/1` has carried since ORC-148, by removing
+  what made it necessary** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.5, §7.19). `merge`'s own `ball`
+  changes from `agent` to `plane` — the mechanical join into the
+  parent branch, effected by the plane once the new `reconcile` kind
+  approves, barring a conflict — so `merge` leaves the agent-balled set
+  this function filters over entirely. `inline_dispatch_point?/1`'s
+  `not queue_shaped? and non_critique_agent_step? and status !=
+  "merge"` simplifies to "agent-balled and not review-shaped": the
+  `status != "merge"` clause has nothing left to do, since `merge`
+  is no longer a candidate the first two clauses would admit. This is
+  the correction ORC-148's own dev pass named against itself — a
+  module whose moduledoc asserts it branches on no status name,
+  carrying one name check — closed by a grammar change rather than a
+  code-only fix, because the exception was never this system's to
+  invent: `merge` was agent-balled without being a dispatch point only
+  because one kind was doing two jobs (`docs/v5-design-decisions.md`
+  §7.19). **Reconciliation itself is not this pass's to build.**
+  `reconcile` is agent-balled and dispatches like any other inline or
+  chain-tier agent-balled entry — this system's existing uniform
+  dispatch (`ContainerLifecycle.open_for/3`'s `cond`, and the ordinary
+  `ready_scopes` path for a chain-tier `reconcile` on a ticket) needs
+  no new branch to carry it, once the loader recognizes the kind — but
+  what a `reconcile` agent run actually reads, writes and approves, and
+  the mechanical merge effect `merge`'s own `plane` ball now implies,
+  are Phase 7's, the same boundary every gate-mechanism entry above
+  already draws. **Not built as part of this pass:** the loader changes
+  named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
+  merge effect itself, and any `bundles/**` content declaring
+  `reconcile` — all dev's diff against this record, not design's.
 
 ## Initial vs target
 

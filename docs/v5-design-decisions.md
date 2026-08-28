@@ -1912,7 +1912,10 @@ sitting beside it.
   composed diff, which pre-exists as the reconciliation vehicle —
   against the feature's argument, merges to main. The composition
   check orchestration's pre-merge placement "genuinely lost" comes
-  back at the feature level.
+  back at the feature level. **"Reconcile" here names the `reconcile`
+  system status** (`dsl-syntax.md` §15.1, §15.11; §7.19 below,
+  ORC-151) — the read is a distinct, required step from the mechanical
+  merge that follows it, not a description of `merge` doing both.
 - **Deploys are per-feature.** Features merge dark behind their flag
   (§2.10); post-deploy validation runs against the feature's
   affordances/states; the author's flagged-in validation happens on
@@ -4133,6 +4136,110 @@ exists. (`ticket_types:` and `after:`, both a gate's own fields at the
 time this paragraph was written, are retired outright at ORC-105 —
 §7.8 above and `dsl-syntax.md` §15.3 respectively — so neither applies
 to it at all anymore, rather than merely applying to an unread one.)
+
+**A second review status category, `reconcile`, joins `critique` as
+review-shaped — ORC-151, design pass.** `dsl-syntax.md` §15.1's fixed
+table has always had a fact missing: what an entry *does to the
+artifact*, as opposed to who holds the ball while at it. Every kind is
+either
+**generation-shaped** (`generation`, `design`, `architecture`) —
+originates an artifact — or **review-shaped** (`critique`,
+`reconcile`) — judges one that already exists. `reconcile` names what
+§7.5 above has always described as reading a produced PR against its
+own argument before merge, and what `Catapult.Dsl.SystemStatus
+.agent_steps/0` has always carried as `:reconcile` with no matching
+`phase:` to declare — until now, both the judgment and the mechanical
+join it precedes shared one kind, `merge`. `dsl-syntax.md` §15.1,
+§15.11 carries the grammar; the decision recorded here is the split
+itself and why it is a table growth rather than a bundle-declarable
+addition, the identical shape §7.8 above already used for
+`design`/`architecture`: `docs/non-goals.md`'s "No per-project
+restructuring of the automation protocol" entry covers it without
+amendment, because the admission rule it states ("a state may be
+declared iff no plane logic branches on it") is about what a bundle
+may declare, and nothing here grows that — the platform-fixed table
+itself is growing, the same way it grew for `design`/`architecture`.
+
+**`merge`'s own `ball` changes from `agent` to `plane`.** Once
+`reconcile` carries the judgment, the join into the parent branch is
+mechanical — the plane performs it the moment `reconcile` approves,
+barring a conflict, which routes to `Blocked` the ordinary way any
+agent-balled entry's failure already does. This is what removes the
+one named exception `Catapult.Delivery.ContainerLifecycle
+.inline_dispatch_point?/1` has carried since ORC-148's dev pass — a
+`status != "merge"` check inside a module whose own moduledoc asserts
+it branches on no status name at all. The predicate needed the name
+check only because `merge` was agent-balled without being a fresh
+dispatch point; once it is not agent-balled, "agent-balled and not
+review-shaped" already excludes it, and the exception disappears
+rather than needing documentation.
+
+**`reconcile` is required in every ticket-skeleton array, never
+opt-in the way `critique` is.** A generation-shaped entry with no
+adjacent `critique` simply runs no auto-review — a workflow's
+prerogative. No ticket merges without having been read against its
+own argument first, so `reconcile` joins the fixed backbone alongside
+`checks`, `merge` and `deploy` rather than joining `critique`'s
+opt-in shape, positioned between `checks` and `merge`.
+
+**Gate scope — an open question with no definition in this grammar
+before now — is derived from position relative to `reconcile`, not
+declared.** A gate earlier in a type's own effective sequence than its
+`reconcile` entry approves that tier's own artifact alone; one later
+approves what `reconcile` has already read and accepted, which may
+include every child artifact joined up into it. This settles nothing
+about what a passed gate *pins* — `dsl-syntax.md` §15.10's own answer
+to that (the sub-array's one generation-shaped entry) is unaffected
+for a gate inside a sub-array — it gives the *other* case, a gate
+positioned relative to a join rather than to a single draft, a
+structural answer for the first time. No new field: a `scope:` field
+restating what array position already determines was considered and
+rejected on the identical reasoning `throwback:`'s own narrowing
+already used (`dsl-syntax.md` §15.10) — a fact computable from
+position does not need a bundle author to restate it.
+
+**No new mechanism for the bottom-up cascade, and this was checked
+against `docs/non-goals.md` rather than assumed.** A draft of this
+decision considered implying `merge` from a sub-array's own exit or
+from "a tier's own sequence ending" — rejected, because either reading
+is plane logic branching on grouping or containment, exactly what
+`docs/non-goals.md`'s automation-protocol entry refuses and what
+`dsl-syntax.md` §15.10's own sub-array admission was careful not to
+introduce. `reconcile` and `merge` are ordinary flat backbone entries,
+exactly like `checks` and `deploy` always were — `reconcile`
+additionally carries its own `depth:`, the same as `critique` does,
+but dispatch depends on none of sub-array membership, containment, or
+the word "subflow." The bottom-up ordering this buys is a free
+consequence
+of §7.2's own child-blocks-parent rule, already recorded above: a
+child finishes, and therefore merges, before its parent's completion
+is even reachable, so by the time a level's own `reconcile` runs,
+every child beneath it already has. No second mechanism reads
+completion state a second time.
+
+**`depth:` widens to `reconcile`, and stays never-validated against
+the chain — a deliberate choice, not an oversight.** A gate or an
+environment set too shallow has always meant a level goes unreviewed
+or unpromoted, silently, by design (above: "a workflow declaring depth
+`2` against a chain that fans out once applies at the two levels that
+exist, silently. It must *not* be a load error"). `reconcile` is the
+first depth-bearing kind where a too-shallow ceiling is a structural
+gap — a level's own child work with no declared join point to merge
+into — rather than merely an under-reviewed level, and this decision
+keeps the posture identical rather than carving out an exception:
+`depth:` remains a maximum, never checked against the chain's actual
+decomposition, for the same cross-axis-coupling reason every other
+depth site already has one. Revisit condition: a real bundle
+surfacing a silently-dropped join in practice, at which point
+validating `reconcile`'s own depth against the chain is a decision
+for that evidence, not this one.
+
+**Not in this ticket's scope**, named because a reader following
+`reconcile`'s own thread might look for them here: the critique
+threshold and its conditional throwback (ORC-150) — a threshold
+becomes easier to state once review-shaped is a named category, but
+declaring one is not this decision; and ORC-150's container-dispatcher
+corrections, unaffected by anything above.
 
 ---
 

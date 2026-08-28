@@ -495,6 +495,51 @@ context-source kinds, and audit profiles.
   work `systems/delivery.md` files against its own Target list — all
   dev's diff against this record, not design's.
 
+- **ORC-151 (design pass) splits the fixed vocabulary's `merge` kind
+  in two, naming the review it always implied** (`docs/dsl-syntax.md`
+  §15.1, §13, §15.5, §15.10, new §15.11; `docs/v5-design-decisions.md`
+  §7.5, §7.19). `merge` carried two jobs at once — reading a produced
+  PR against its own argument, and mechanically joining it into the
+  parent branch — and `Catapult.Dsl.SystemStatus.agent_steps/0` has
+  carried `:reconcile` since Phase 3 with no matching `phase:` to
+  declare it against. `reconcile` joins the fixed table as the second
+  **review-shaped** kind alongside `critique` (the parallel category to
+  "generation-shaped," named for the first time this pass), agent-balled
+  and required in every `ticket`-skeleton array between `checks` and
+  `merge` — not opt-in the way `critique` is, since no ticket merges
+  without having been read against its own argument first. `merge`'s own
+  `ball` changes from `agent` to `plane`: mechanical, effected by the
+  plane once `reconcile` approves, barring a conflict (which routes to
+  `Blocked` the ordinary way). This closes the finding ORC-148's own dev
+  pass filed against itself: `Catapult.Delivery.ContainerLifecycle
+  .inline_dispatch_point?/1` excluded `merge` by name, inside a module
+  whose own moduledoc asserts it branches on no status name — the
+  predicate generalizes to "agent-balled and not review-shaped," which
+  excludes `merge` because it is no longer agent-balled, needing no name
+  check. The sub-array anchor rule (§15.10) generalizes the identical
+  way: "non-critique agent-balled" becomes "non-review-shaped
+  agent-balled," admitting any number of `reconcile` entries alongside
+  `critique` ones without counting toward the sub-array's required-one
+  anchor. **New: gate scope is derived from position relative to
+  `reconcile`** — a gate earlier in a type's own array approves the
+  citing tier's own artifact; one later approves what `reconcile` has
+  already joined in from every child beneath it — closing a gap
+  `v5-design-decisions.md` §7.16 left open (what a gate scoped to a
+  join, rather than to one generation's own sub-array, approves), with
+  no new field: computed from array position, the identical "derive,
+  don't declare" posture `throwback:`'s own default already takes. **No
+  `docs/non-goals.md` entry**, for the reason the design record gives in
+  full: growing this closed table is covered by that file's existing
+  admission rule without amendment, the same non-entry `design`/
+  `architecture` got at ORC-148. **Not built as part of this pass:** the
+  loader changes (`lib/catapult/dsl/system_status.ex`'s `@statuses`
+  table and `generation_shaped?/1`'s new sibling, `status.ex`'s
+  `non_critique_agent_step?/1` rename and generalization, `workflow.ex`'s
+  backbone and sub-array checks widening to include `reconcile`), the
+  `bundles/**` content that declares it, and the dispatcher change
+  `systems/delivery.md` files against its own Target list — all dev's
+  diff against this record, not design's.
+
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
   §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`
