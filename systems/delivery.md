@@ -145,8 +145,10 @@ design gates pass.
   container's own sequence, never a value carried on the parent's
   dispatching entry, so the two never need to be the same declaration;
   a queue's `blocks:` relation to a sibling queue in the same
-  declaration holds that sibling's entry open while the blocking queue
-  carries unresolved work items — the general form of what used to be
+  declaration guards *entry into* that sibling while the blocking queue
+  carries unresolved work items, checked once at the transition rather
+  than held continuously (corrected to this reading at the design
+  review below) — the general form of what used to be
   a single hard-coded boundary-blocking rule, now one relation the
   dispatcher reads wherever a workflow bundle declares it, milestone
   `main`→`retro` included. **The pause has no separate mechanism to
@@ -273,9 +275,10 @@ design gates pass.
   rather than assuming a ticket id. It also resolves what `main`'s
   `blocks: [retro]` (§15.7) means once `retro` is `milestone`'s own
   inline entry rather than a population of unresolved child tickets:
-  `main` does not complete while `retro`'s own entry is unresolved —
-  the identical "unresolved work assigned to this queue" test, applied
-  to a queue of exactly one thing that is not a queue at all. Filed
+  `retro` cannot be *entered* while `main`'s own queue still carries
+  unresolved work — the identical entry-guard test §15.7 states
+  generally (corrected to this reading at the design review below),
+  applied to a guarded entry that is not itself a queue. Filed
   alongside the rest of this doc's Target list, for whichever pass
   takes up ORC-104.
 - **ORC-148 (design pass) retires `singleton:` and the fold that
@@ -298,6 +301,29 @@ design gates pass.
   the old shape needed a bound for. **Not built as part of this
   pass:** every item this bullet and the two above it name is
   `systems/delivery.md`'s own Target list, ORC-104's to build.
+- **A design review on ORC-148 changed the shape of this system's own
+  `blocks:`-aware dispatcher work, filed above and still ORC-104's**
+  (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
+  §7.8). The three bullets above described `blocks:` as a standing
+  hold this system's dispatcher recomputes for as long as the guarded
+  entry carries unresolved work — wrong, corrected in place above and
+  restated here because it changes what this system builds: `blocks:`
+  is an entry guard, checked once, at the transition into the entry it
+  guards, never rechecked against the same occupancy. Concretely, this
+  system's dispatcher evaluates a `blocks:` condition exactly once, at
+  the moment a container's position would advance into the guarded
+  entry — never as a periodic or event-driven recheck against an
+  already-active entry, which is what let a queue refilling mid-`retro`
+  pull the container back out of it under the retired reading.
+  Separately, reaching `terminal` gains a guard this system's dispatcher
+  must enforce unconditionally — every one of a container's own queues
+  holding no unresolved work — never narrower than whatever `blocks:`
+  relations a bundle happened to author, so a queue nobody named in any
+  `blocks:` list still cannot be closed over on the way to `terminal`.
+  Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
+  unaffected by the second one, and the first is a semantics correction
+  to a check that already existed) — both are this system's dispatcher
+  to build differently, still ORC-104's, not a larger Target list.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -807,10 +833,13 @@ design gates pass.
   — a new engine event, `FindingAdjudicated`, on the aggregate `retro`'s
   own ticket already writes into. `retro`'s own queue does not resolve
   to `terminal` while any finding it carries lacks one of those two
-  outcomes: the same shape as a `blocks:` relation holding a queue open
-  for unresolved work, applied to findings instead of work items,
-  because an unadjudicated finding is exactly that — unresolved work
-  this container is still holding.
+  outcomes — a completion condition internal to `retro`'s own flow, not
+  a `blocks:` relation (`dsl-syntax.md` §15.7's `blocks:` is an entry
+  guard, checked once at transition, ORC-148 design review; nothing
+  gates *entry into* `retro` on its own findings, since the findings
+  are what `retro` itself produces and adjudicates after it has already
+  begun) — because an unadjudicated finding is exactly that — unresolved
+  work this container is still holding.
 
   **Amended at the dev pass: the gate is the container's own close, not
   a queue recognized by the name `retro`.** The rule and its reason are
@@ -836,8 +865,12 @@ design gates pass.
   milestone's member features (membership read off `systems/engine
   .md`'s new by-reference projection) once its own queue is otherwise
   ready to resolve — after the `:live` gate has cleared (already
-  enforced structurally: `main`'s declared `blocks: [retro]` holds
-  `retro` open for exactly this) and the author's own manual pass. The
+  enforced structurally: a red `:live` verdict counts as `main` still
+  carrying unresolved work, so `main`'s declared `blocks: [retro]`
+  keeps `retro` from being *entered* at all until it clears, §15.7's
+  entry-guard reading — `retro` never begins mid-red, so nothing has to
+  hold its result back after the fact) and the author's own manual
+  pass. The
   flip is not a plane-internal event alone: it is a
   `FunWithFlags`-backed enable call, so it follows the outbox
   discipline every other outbound act in this system already does — a

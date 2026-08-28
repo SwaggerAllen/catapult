@@ -685,9 +685,10 @@ Added with the two axes and the declarable protocol surface (v5
 - every declared gate or environment entry sits on an edge between
   **skeleton anchors** (§15.1) that exist in the citing type's own
   array, and its exits resolve within the same array (v5 §7.19);
-- a **`pending` entry precedes every `generation` and every `deploy`
-  entry in the same array**;
-- **every `generation` entry has at least one blocked exit** — a
+- a **`pending` entry precedes every generation-shaped entry
+  (`generation`, `design` or `architecture`, §15.1) and every
+  `deploy` entry in the same array**;
+- **every generation-shaped entry has at least one blocked exit** — a
   generation that can fail with nowhere to land is the
   parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19). `Blocked`
   is a single system status; return routing is a rule over the
@@ -706,22 +707,29 @@ Added with the two axes and the declarable protocol surface (v5
   came from (v5 §7.19, ORC-92). The never-validated-against-the-chain
   rule above is unaffected: a pair's two positions are still ceilings,
   never claims checked against the chain's actual fan-out;
-- **a `critique` entry must sit immediately after a `generation` entry
-  in the same type's `statuses:` array** (§15.5) — no skeleton
-  mentioned, and none is needed: a `container`-skeleton type and a
-  skeleton-less type have no `generation` anchor to sit after in the
-  first place, so this one rule already excludes both without a
-  separate skeleton check to duplicate it (a fifth-pass simplification
-  — an earlier draft named the excluded skeletons explicitly, which
-  said the same thing a second way). A `critique` entry not adjacent
-  to a `generation` entry is a load error naming the declaration and
-  the position. There is deliberately no `enabled:`
-  field anywhere in this grammar: a `generation` entry's mere absence
-  of an adjacent `critique` entry already means "does not run" (v5
-  §7.19, ORC-92). Neither a gate's, an environment's, nor a
+- **a `critique` entry must sit immediately after a generation-shaped
+  entry (`generation`, `design` or `architecture`, §15.1) in the same
+  type's `statuses:` array** (§15.5) — no skeleton mentioned, and none
+  is needed: whether a given array has a generation-shaped entry for a
+  `critique` to pair with is a fact about that array's own contents,
+  never about which skeleton, if any, the citing type declares (a
+  fifth-pass simplification, corrected again at ORC-148 for the
+  identical reason — see below — rather than reintroducing the
+  skeleton check either correction retired). A `critique` entry not
+  adjacent to a generation-shaped entry is a load error naming the
+  declaration and the position. There is deliberately no `enabled:`
+  field anywhere in this grammar: a generation-shaped entry's mere
+  absence of an adjacent `critique` entry already means "does not run"
+  (v5 §7.19, ORC-92). Neither a gate's, an environment's, nor a
   `critique` entry's `depth:` is read by anything today — scheduling
-  is a later consumer (v5 §7.19) — so there is no consumer to
-  migrate;
+  is a later consumer (v5 §7.19) — so there is no consumer to migrate.
+  **The fifth pass's own reasoning here — "a `container`-skeleton type
+  and a skeleton-less type have no generation-shaped anchor to sit
+  after in the first place" — stopped being true the moment ORC-148
+  let any type's array hold one regardless of skeleton (§15.2); the
+  rule itself needed no change, since it was never actually keyed to
+  skeleton, only the sentence explaining why skeleton needed no
+  separate mention did;**
 - a gate's forward exit (the next entry in the citing type's own
   array) and its declared escalation policy are well-formed. **A
   gate's own `throwback:`, if declared, must be earlier in the citing
@@ -742,11 +750,14 @@ Added with the two axes and the declarable protocol surface (v5
   the five out of order is a load error naming the declaration and
   the mismatch;
 - **every `ticket`-skeleton type's `statuses:` array opens with
-  `pending`, closes with `terminal`, and holds `generation`, `checks`,
-  `merge` and `deploy` at least once each, in that relative order**
-  (§15.1) — `generation` and `merge` may recur; `pending` and
-  `terminal` may not. A `ticket`-skeleton array missing one of these
-  anchors, or holding one out of its fixed relative order, is a load
+  `pending`, closes with `terminal`, and holds at least one
+  generation-shaped entry (`generation`, `design` or `architecture`,
+  §15.1, in any combination), `checks`, `merge` and `deploy` at least
+  once each, in that relative order** (§15.1) — a generation-shaped
+  entry and `merge` may recur, in any mix of the three generation-shaped
+  names; `pending` and `terminal` may not. A `ticket`-skeleton array
+  missing every generation-shaped kind, missing `checks`, `merge` or
+  `deploy`, or holding one out of its fixed relative order, is a load
   error naming the declaration and the mismatch;
 - **there is no `after:` field anywhere in this grammar** — on a
   gate, an environment, or a type's own anchor entries alike, position
@@ -822,9 +833,10 @@ cardinality it bounded):
 - **`flow:` and `blocks:` are legal on a population anchor — a
   `status:` entry named `prep`, `main` or `cleanup`, or any `status:`
   entry in a skeleton-less type's array — never on `pending`,
-  `generation`, `critique`, `checks`, `merge`, `deploy`, `setup`,
-  `retro` or `terminal`, whatever type's array cites them** (a
-  seventh-pass reversal, ORC-148: the fourth pass's own coupling to
+  `generation`, `design`, `architecture`, `critique`, `checks`,
+  `merge`, `deploy`, `setup`, `retro` or `terminal`, whatever type's
+  array cites them** (a seventh-pass reversal, ORC-148: the fourth
+  pass's own coupling to
   the citing type's `skeleton:` is retired along with the sentence it
   read from, §15.2). A population anchor names an open population of
   child work — the query §15.7 describes — so it always needs a
@@ -871,13 +883,26 @@ cardinality it bounded):
   is no unresolvable reference left inside the workflow bundle's own
   graph, only the (unaffected, unchecked) question of whether the
   chain axis ever claims the name;
-- **a `blocks:` entry must name a population anchor declared in the
-  same type's `statuses:` array** — §15.6's scoping rule made
-  mechanical: a queue cannot block something nested inside a different
-  queue's own container instances, because that queue's internals are
-  not this level's vocabulary to name. A `blocks:` entry naming a
-  queue in a different declaration, or naming this queue itself, is a
-  load error;
+- **a `blocks:` entry names an entry that is unique within the citing
+  type's own `statuses:` array — a bare top-level entry, or one that
+  belongs to a sub-array, in which case the reference is to the whole
+  sub-array** (an eighth-pass reversal, ORC-148 design review: the
+  seventh pass's own "must name a population anchor" is retired along
+  with the sentence it read from, §15.7 — a population anchor was
+  never what `blocks:` needed to guard, entry into a group is, and a
+  group's one non-critique agent-balled entry, §15.10, is ordinarily
+  the entry a `blocks:` reference actually names). **Uniqueness is a
+  property of the reference, not the declaration it lands on**: a
+  `blocks:` value resolving to zero entries, or to two or more (a name
+  reused across separate top-level entries, or appearing in more than
+  one sub-array), is a load error naming the count found — duplicate
+  entries elsewhere in the array that the reference itself doesn't
+  reach are otherwise legal, the identical posture every other
+  cross-reference check in this section already takes (validate the
+  reference, never the shape). §15.6's own scoping rule is unaffected:
+  a `blocks:` entry naming a queue in a different declaration, one
+  nested inside what *this* queue's own `flow:` opens, or this queue
+  itself, is each still a load error;
 - **the declaration graph — nodes are every type with at least one
   population anchor in its own array, edges are `flow:` references
   between them** — must be acyclic, and a type naming itself in one of
@@ -941,10 +966,12 @@ Added with sub-arrays (§15.10, ORC-115):
   position (§15.10's own grammar is flat; nesting is explicitly
   undecided, not silently accepted);
 - **a sub-array must hold exactly one entry whose `status:` is a
-  non-critique agent-balled system status** (`generation`, `retro`,
-  `setup` or `merge` — §15.1's `ball` column minus `critique`, which is
-  excluded for the same reason §15.5 already excludes it from standing
-  alone). Zero such entries or two or more is a load error naming the
+  non-critique agent-balled system status** (`generation`, `design`,
+  `architecture`, `retro`, `setup` or `merge` — §15.1's `ball` column
+  minus `critique`, which is excluded for the same reason §15.5 already
+  excludes it from standing alone; `design` and `architecture` join
+  this list at ORC-148's design review as generation-shaped kinds,
+  §15.1). Zero such entries or two or more is a load error naming the
   declaration, the sub-array's position, and the count found;
 - **Retired, ORC-148: the check refusing a population anchor (one
   carrying `flow:` or `blocks:`) inside a sub-array.** It existed
@@ -1059,7 +1086,9 @@ not declarable.
 |---|---|---|
 | `backlog` | committed to nothing yet | author |
 | `pending` | committed, awaiting dispatch capacity | plane |
-| `generation` | an agent run producing artifacts | agent |
+| `generation` | an agent run producing artifacts, undifferentiated | agent |
+| `design` | a generation run producing a product-facing artifact | agent |
+| `architecture` | a generation run producing a structural artifact | agent |
 | `critique` | an agent run reviewing a freshly produced draft | agent |
 | `fanout` | children in flight; progress rolls up | plane |
 | `checks` | CI running against produced work | world |
@@ -1079,6 +1108,54 @@ not declarable.
 drives assignee rendering; `blocked` inherits from the status that
 kicked to it.
 
+**`design` and `architecture` are named generation kinds, added at
+ORC-148's design review — the fixed table growing, not a new
+mechanism.** Both are generation-shaped in every rule this section and
+§13 state for `generation` itself — agent-balled, `pending`-preceded,
+requiring a blocked exit, recurrable, eligible for critique pairing
+(§15.5) and for a sub-array's one non-critique agent-balled entry
+(§15.10) — and "a generation-shaped kind" means the three, `generation`
+included, wherever this document uses the phrase from here on. Plain
+`generation` is unaffected and stays the right choice for a type with
+exactly one generation-shaped visit — `setup`, `retro` and `seed` all
+declare it and lose nothing here. The two named kinds exist for a type
+that wants more than one visit distinguishable from the array itself:
+v5 §7.6's own feature lifecycle has always described two —
+*Product design* and *Architecting* — and until now both had to be
+written as two indistinguishable `generation` entries, relying on
+position and the gates around each to say which was which. `design`
+and `architecture` let the array say it directly: a type wanting the
+two-visit shape writes `status: design` for the first and
+`status: architecture` for the second, each grouped with its own
+critique and gates into its own sub-array (§15.10) exactly as a bare
+`generation` entry already groups — **each generation's own review
+steps sit inside that generation's own sub-array**, whichever of the
+three kinds anchors it, never spanning two.
+
+**Platform-fixed in the same table `generation` already sits in — not
+bundle-authored, and not a second table.** This is what keeps this
+section's own cutover re-resolution intact: the anchor set a blocked
+work item re-resolves against can only be what it is *because* it is
+not declarable (this section's opening paragraph) — a bundle inventing
+its own generation-phase label would be exactly the undeclarable
+anchor set acquiring a declarable member, breaking the property that
+makes it a re-resolution anchor at all. A fixed pair of additional
+names does not: `design` and `architecture` are checked the identical
+way `generation` already is, everywhere `generation` is checked. Which
+of a bundle's own generation-shaped tiers picks `generation`, `design`
+or `architecture` — `sysarch`, `impl`, `ref` and the rest of
+`bundles/default/tiers/**` among them, today uniformly undifferentiated
+— is bundle content, `bundles/**`, dev's diff against this record, not
+a mapping this pass assigns. **Two kinds, not one per tier, and none
+for a target class this platform doesn't have**: non-software targets
+are out of scope for v5 (`docs/non-goals.md`), so this table grows by
+the two names the shipped chain's own lifecycle already needed, not by
+a per-tier scheme guessed at against tiers that don't exist yet, and
+not by a second table or a per-dialect one held in reserve against a
+possibility — if a non-software target ever arrives it brings its own
+skeleton and its own status names, the identical posture §15.1
+already takes toward `container`'s own five-anchor sequence.
+
 **Renamed from `queue`, at this ticket's fourth pass.** A single work
 item's own wait-for-dispatch status and a container's own named queue
 position (§15.2) used to share one word, and once both could appear
@@ -1093,15 +1170,16 @@ to rename), so the rename touches this file plus
 protocol — recorded as dev's diff against ORC-104, the same way
 `:boundary`'s retirement below is, not actioned here.
 
-**A `pending` precedes every `generation` and every `deploy`** — a
+**A `pending` precedes every generation-shaped entry
+(`generation`/`design`/`architecture`) and every `deploy`** — a
 load-time check (§13), not a convention. **`stubbed` is exempt from
 staleness and escalation** (v5 §7.6): nothing is stale about waiting
 deliberately.
 
 Mapping onto v5 §7.6's lifecycles, which are this vocabulary with
 every review sequence at length one — feature: `Todo`(pending) →
-*Product design*(generation) → **Product review**(review) →
-*Architecting*(generation) → **Architecture review**(review) →
+`Product design`(design) → **Product review**(review) →
+`Architecting`(architecture) → **Architecture review**(review) →
 `Building`(fanout) → `Reconciling`(merge) → `Merged`(merge) →
 `Validating`(validating) → `Shipped`(terminal). Child: `Ready for
 dev`(pending) → `In progress`(generation) → `Checks`(checks) →
@@ -1109,7 +1187,13 @@ dev`(pending) → `In progress`(generation) → `Checks`(checks) →
 `Ready for rework`(pending) / `Reworking`(generation) as the repair
 loop. The two bolded statuses are the platform workflow layer's
 default review declarations, not system statuses — which is what
-makes them replaceable.
+makes them replaceable. **`Product design` and `Architecting` name
+the `design` and `architecture` kinds directly, at ORC-148's design
+review** — before it, both were italicized prose labels standing in
+for two indistinguishable `generation` visits, told apart only by
+position and by which review followed each; the child lifecycle's own
+single visit (`In progress`) has nothing to distinguish and stays
+plain `generation`, the still-correct choice for one visit.
 
 **Two fixed skeletons, and `skeleton:` is optional — there is no
 third value standing for "neither."** A declared work-item type
@@ -1119,14 +1203,16 @@ each at least once, in the relative order given here — never their
 names, their presence, or (bar the exceptions §15.4 and §15.5 name)
 how many times each may appear:
 
-- **`ticket`** — `pending`, then any interleaving of `generation`
-  (each optionally paired with a `critique` entry, §15.5) and declared
-  gates (§15.4), then `checks`, `merge`, `deploy` (optionally paired
-  with declared environments, §15.4), then `terminal`. `generation`
-  and `merge` may recur — v5 §7.6's own feature lifecycle above
-  already visits `generation` twice (*Product design*, *Architecting*)
-  and `merge` twice (`Reconciling`, `Merged`) — `pending` and
-  `terminal` may not: first and last, exactly once.
+- **`ticket`** — `pending`, then any interleaving of a generation-shaped
+  entry (`generation`, `design` or `architecture`, each optionally
+  paired with a `critique` entry, §15.5) and declared gates (§15.4),
+  then `checks`, `merge`, `deploy` (optionally paired with declared
+  environments, §15.4), then `terminal`. A generation-shaped kind and
+  `merge` may recur — v5 §7.6's own feature lifecycle above already
+  visits one twice, once as `design` (`Product design`) and once as
+  `architecture` (`Architecting`), and `merge` twice (`Reconciling`,
+  `Merged`) — `pending` and `terminal` may not: first and last, exactly
+  once.
 - **`container`** — the five names fixed at this ticket's first pass:
   `setup`, `prep`, `main`, `retro`, `cleanup`, each at least once, in
   that relative order, then `terminal`, exactly once, last. This is
@@ -1197,7 +1283,15 @@ the presence of queues, is the one thing that generalizes.
 may name (§3): `design` (produces a design-graph artifact for a
 tier), `dev` (implements a child scope), `critique` (the review pass
 over a freshly produced draft), `reconcile`, `validate` (§7.11's
-repair loop). Adding one is a platform change, reviewed as one.
+repair loop). Adding one is a platform change, reviewed as one. **This
+list is unaffected by `design`/`architecture` joining the kinds table
+above.** The two axes answer different questions — `agent_step` says
+what broad category of run a tier is, `phase` (checked against this
+table's own `kinds/0`, not `agent_steps/0`) says which position in a
+workflow's array dispatches it — and a tier producing an architecture
+artifact is still, categorically, a `design`-agent-step run; only its
+`phase:` picks `architecture` over the older, undifferentiated
+`generation`.
 
 **`boundary` is retired from this list, and nothing replaces it
 here.** It used to name "the milestone pass" as a single static agent
@@ -1548,7 +1642,7 @@ in a bundle breaks hosted onboarding). What lives here is which
 environments exist and what promotion into one requires; that changes
 what is enforced, so it is graph state, versioned, changed by PR.
 
-### 15.5 `critique` — paired with a peer generation entry
+### 15.5 `critique` — paired with a peer generation-shaped entry
 
 **The one carve-out, and the reason is worth stating rather than
 asserting.** A gate is depth 0 on a container the identical way it is
@@ -1558,17 +1652,20 @@ to mean something, which is why the fifth pass widened both onto
 every type regardless of skeleton (§15.2). Critique is different in
 kind: its depth *selects which tiers' review runs*, which needs a
 generation to select within. **The rule is simply that a `critique`
-entry must sit immediately after a `generation` entry** — no skeleton
-named, because none needs to be: whether a given array has a
-`generation` entry for a `critique` to pair with is a fact about that
-array's own contents, not about which skeleton, if any, the citing
-type declares (a fifth-pass simplification — naming the excluded
-skeletons explicitly, as an earlier draft did, said the identical
-thing twice; a `container`-skeleton or skeleton-less type happened to
-never have one to pair with at the fifth pass only because nothing
-let it declare a bare `generation` entry at all, a restriction ORC-148
-retires, §15.2). The positional rule itself needs no update: it was
-never actually about skeletons, only about what sits where.
+entry must sit immediately after a generation-shaped entry**
+(`generation`, `design` or `architecture`, §15.1, added at ORC-148's
+design review — every rule in this section reads "a generation entry"
+as any one of the three from here on) — no skeleton named, because
+none needs to be: whether a given array has a generation-shaped entry
+for a `critique` to pair with is a fact about that array's own
+contents, not about which skeleton, if any, the citing type declares
+(a fifth-pass simplification — naming the excluded skeletons
+explicitly, as an earlier draft did, said the identical thing twice; a
+`container`-skeleton or skeleton-less type happened to never have one
+to pair with at the fifth pass only because nothing let it declare a
+bare generation-shaped entry at all, a restriction ORC-148 retires,
+§15.2). The positional rule itself needs no update: it was never
+actually about skeletons, only about what sits where.
 
 ```yaml
   - status: generation
@@ -1579,13 +1676,13 @@ never actually about skeletons, only about what sits where.
 **Configures a fixed kind; declares nothing.** `critique` is a system
 status (§15.1), not a named, reusable declaration the way a gate or
 an environment is — there is exactly one `critique`, and citing it
-more than once in a type's array (once per `generation` entry it
+more than once in a type's array (once per generation-shaped entry it
 should pair with) is the ordinary way to give two generation phases
 different depths, not two declarations of the same thing.
 
 **Presence is participation — there is no `enabled:` field.** A
-`generation` entry with no adjacent `critique` entry runs no critique
-tier at that phase, whatever the chain declares. One that does runs
+generation-shaped entry with no adjacent `critique` entry runs no
+critique tier at that phase, whatever the chain declares. One that does runs
 every review tier the chain declares at that phase, filtered to
 `depth:`'s levels, exactly as a gate's own depth filters which levels
 see it.
@@ -1612,8 +1709,8 @@ form existed changes meaning.
 
 **Two pairings, two directions — both stated rather than left for a
 reader to reconcile.** `critique` sits immediately *after* the
-`generation` entry it reviews (above): it reviews a draft that has to
-exist first. An environment sits *before* the `deploy` entry it is a
+generation-shaped entry it reviews (above): it reviews a draft that has
+to exist first. An environment sits *before* the `deploy` entry it is a
 promotion target for (§15.2's `feature` example: `environment: staging`
 precedes `status: deploy`): a promotion target has to be configured
 before anything can deploy into it. Both are "paired with" a
@@ -1718,13 +1815,17 @@ is — nesting composes through one completion rule regardless of which
 kind of type sources or targets the edge (§15.7).
 
 **No separate "blocked" anchor kind, and none is missing.** A
-container or project currently at queue Q with an unresolved blocking
-queue (§15.7's `blocks:`) is fully described by "at Q, blocked by
-`blocks:`'s target" — derivable from the declared queue graph plus
-live ticket state, the identical reasoning that keeps a queue itself
-from being stored. Introducing a stored or fixed `blocked` status
-here would be exactly the pending-work-on-the-node antipattern v5
-§7.11's staleness projection already refuses.
+container or project unable to advance into an entry `Q` because `Q`'s
+own `blocks:` target still carries unresolved work (§15.7) is fully
+described by "at [whatever precedes `Q`], guarded from `Q` by
+`blocks:`'s target" — an entry guard, checked at the transition into
+`Q`, never a state `Q` itself is ever *in* (§15.7's ORC-148 correction:
+the container is never "at `Q`, blocked," since `Q` cannot become
+current while its guard holds) — derivable from the declared queue
+graph plus live ticket state, the identical reasoning that keeps a
+queue itself from being stored. Introducing a stored or fixed
+`blocked` status here would be exactly the pending-work-on-the-node
+antipattern v5 §7.11's staleness projection already refuses.
 
 ### 15.7 Queues, dispatch, and blocking
 
@@ -1734,10 +1835,10 @@ array (§13). It carries `flow:`, required, naming a member of the
 type registry (§15.2). This is a fact about the entry's own name and
 the array it sits in, never about which `skeleton:`, if any, that
 array's own type declares as a whole (ORC-148 — see §15.2 for what
-was true before and why it changed): `generation`, `critique`,
-`pending`, `checks`, `merge`, `deploy`, `setup`, `retro` and `terminal`
-are never population anchors and never carry `flow:`, whichever type's
-array they sit in.
+was true before and why it changed): `generation`, `design`,
+`architecture`, `critique`, `pending`, `checks`, `merge`, `deploy`,
+`setup`, `retro` and `terminal` are never population anchors and never
+carry `flow:`, whichever type's array they sit in.
 
 ```yaml
   - status: main
@@ -1824,20 +1925,54 @@ type's own chain gives its `generation` entries theirs. Neither is a
 reserved agent-step slot the way `boundary` used to be (§15.1), and
 neither needs a nested type or a queue of its own to exist.
 
-**One queue may block another, declared, scoped to visible siblings
-only.** `blocks:` on a queue names other queues declared in the same
-array — a container's other anchor entries, or another entry in the
-same skeleton-less project's array — whose completion it holds open
-while this queue still carries unresolved work items; §13 rejects a
-`blocks:` entry naming a queue in a different declaration, and rejects
-one naming a queue nested inside what *this* queue's `flow:` opens.
-Reaching into a nested container's own queues would make that
-container's internals part of its interface to the level blocking it,
-exactly backwards from composability: to block on something nested,
-block on the `flow:` entry that opens it, not on what is inside it.
-`main` blocking `retro` is the instance that generalizes what used to
+**`blocks:` is an entry guard, checked once at the transition it
+guards — never a standing hold a projection recomputes** (an
+eighth-pass reversal, ORC-148 design review). An entry `E` declaring
+`blocks: [Q]` gates entry *into* `Q` (a bare entry, or a sub-array,
+named through the one entry a reference reaches inside it, above): `Q`
+cannot be *entered* while `E` itself still carries unresolved work; the
+check runs exactly once, at the moment something attempts the
+transition into `Q`, and never again against the same occupancy.
+**This is what removes the eject.** Under the retired
+standing-hold reading, a queue refilling while the guarded entry was
+already mid-run pulled the container back out of it — indistinguishable
+from the guard never having cleared. A reassignment to a new status
+must never interrupt an already-dispatched flow instance, and `retro`
+is the case that makes the distinction load-bearing rather than
+academic: `retro`'s own output lands back in `main` (adjudicated
+findings, filed debt), so a completion-hold form of `blocks:` would
+have `retro` interrupting itself the moment its own run produced the
+work `main`'s queue was watching for. Checked once, at entry, `main`
+having emptied is a precondition for *starting* `retro`, never a
+condition `retro` has to keep satisfying while it runs.
+`main blocks: [retro]` is the instance that generalizes what used to
 be a special case ("the retro can't finish while milestone work is
-open") into this one declared relation.
+open") into this one declared relation — restated precisely, now that
+completion-holding isn't the mechanism: `retro` cannot be entered while
+`main`'s own queue carries unresolved work. §13 rejects a `blocks:`
+entry naming a queue in a different declaration, and rejects one naming
+a queue nested inside what *this* queue's `flow:` opens. Reaching into
+a nested container's own queues would make that container's internals
+part of its interface to the level blocking it, exactly backwards from
+composability: to block on something nested, block on the `flow:`
+entry that opens it, not on what is inside it.
+
+**Reaching `terminal` is guarded by every one of the container's own
+queues holding no unresolved work — a platform rule, not a `blocks:`
+declaration a bundle writes or can opt out of.** This is a different
+guard from the one above, not a second spelling of it: an authored
+`blocks:` names one entry guarding one other, declared where an author
+chose to write it; the terminal guard is unconditional and reaches
+every queue-shaped anchor the container's own array declares, whether
+or not any of them is also named in some other entry's `blocks:`. A
+bundle author cannot narrow it, because narrowing it is exactly the
+shape of bug an author-declared `blocks:` graph could reintroduce by
+omission — a queue nobody thought to name in a `blocks:` list quietly
+closed over on the way to `terminal`. `cleanup`'s own resolution stays
+an ordinary entry, guarded only by whatever `blocks:` a bundle declares
+on it, if any; it is `terminal` specifically, the fixed kind every
+container-skeleton instance reaches (§15.6), that carries this
+undeclarable guard.
 
 **`initialization` is autopopulated by business logic, not
 protocol.** This grammar declares that the queue exists and, once a
@@ -1953,8 +2088,18 @@ branches on where in the array one sits (§15.9). Nothing new is
 declarable inside one: an entry inside a
 sub-array is still exactly one of `status:`, `review:` or
 `environment:` (§13's existing rule, unchanged), and a sub-array
-carries no key of its own — no `name:`, no `id:`, nothing a later
-declaration or a cutover could reference. The addition is structural
+carries no key of its own — no `name:`, no `id:`. **A sub-array stays
+anonymous, and is referenced through an entry it contains, never by a
+name of its own** (a name/id-based handle was considered and rejected
+at this ticket's design review, `docs/non-goals.md` carries no entry
+for it because the reason is local to this section, not a refusal
+worth a cross-system entry: a sub-array is a grouping of entries that
+already have names, so a second name naming the group would be a
+second way to say what the first entry inside it already says). §13's
+`blocks:` reference (above) is exactly this: `blocks: [retro]` names
+`retro`, and if `retro` sits inside a sub-array the reference reaches
+the whole group through it — resolved by containment, not by a handle
+the sub-array itself carries. The addition is structural
 only: a way to say *these entries resolve together* instead of merely
 sitting at adjacent array indices.
 
@@ -1993,9 +2138,10 @@ ceiling this grammar imposes.
 
 **Exactly one non-critique agent-balled entry per sub-array — a
 load-time check, and the fact the whole derivation below rests on.**
-§15.1's `ball` column already marks `generation`, `critique`, `retro`,
-`setup` and `merge` as agent-balled; critique is excluded here because
-it reviews a generation rather than standing as one, the identical
+§15.1's `ball` column already marks `generation`, `design`,
+`architecture`, `critique`, `retro`, `setup` and `merge` as
+agent-balled; critique is excluded here because it reviews a
+generation-shaped entry rather than standing as one, the identical
 exclusion §15.5 already draws for a different purpose. A sub-array
 holding zero such entries has nothing for a throwback to fall back to
 and nothing worth grouping (a load error); one holding two or more —

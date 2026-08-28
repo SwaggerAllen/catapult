@@ -495,6 +495,49 @@ context-source kinds, and audit profiles.
   work `systems/delivery.md` files against its own Target list — all
   dev's diff against this record, not design's.
 
+- **A design review on ORC-148 corrected two things the pass above got
+  wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
+  §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`
+  §7.8). The pass above's own worked examples — `milestone.yaml`'s
+  `main blocks: [retro]` beside `retro` folded inline with no `flow:`
+  — contradicted its own load-time rule: `blocks:` still required its
+  target to be a population anchor, which an inline `retro` is not, so
+  the shape the pass argued for would not have loaded. **`blocks:`
+  inverts to an entry guard, checked once at the transition it guards,
+  never a standing hold a projection recomputes** — `Q1 blocks: [Q2]`
+  means `Q2` cannot be *entered* while `Q1` still carries unresolved
+  work, checked exactly once, not continuously for as long as `Q2`
+  runs. This removes a real defect the standing-hold reading carried:
+  a queue refilling while the guarded entry was already mid-run pulled
+  the container back out of it, and `retro`'s own output landing back
+  in `main` would have made a completion-hold `blocks:` interrupt
+  `retro` with its own result. **Reaching `terminal` gains an
+  unconditional, undeclarable guard** — every one of a container's own
+  queues holding no unresolved work — separate from whatever `blocks:`
+  a bundle authors, so a queue nobody thought to name in some other
+  entry's `blocks:` list cannot be quietly closed over on the way to
+  `terminal`; this system's dispatcher enforces it, the loader checks
+  nothing new. **`generation`'s closed vocabulary gains two named
+  kinds, `design` and `architecture`**, both generation-shaped
+  everywhere `generation` itself is checked (backbone membership,
+  `pending`-precedes, blocked-exit, critique pairing, sub-array
+  agent-balled counting) — platform-fixed in the same table, not
+  bundle-authored, which is what a blocked ticket's re-resolution
+  anchor set needs to stay undeclarable. Plain `generation` is
+  unaffected and stays correct for a type with one generation-shaped
+  visit; `setup`, `retro` and the seed pass keep it unchanged. **A
+  sub-array is referenced by an entry it contains, never by a name of
+  its own** — `blocks:`'s own load-time check resolves its target by
+  containment, unique within the citing array, rather than requiring
+  the target to be a population anchor; a reference resolving to zero
+  or to two-or-more matches is the load error, not the shape of the
+  entry it lands on. **Not built as part of this pass**, the same
+  boundary the pass above draws: `lib/catapult/dsl/status.ex`,
+  `workflow.ex` and `system_status.ex`'s own diff against this record —
+  the `blocks:` check, the `design`/`architecture` kind additions, and
+  the dispatcher's move from a standing-hold projection to a
+  transition-time check — are dev's, not design's.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

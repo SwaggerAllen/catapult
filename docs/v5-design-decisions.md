@@ -2187,9 +2187,15 @@ not tickets — the distinction only matters the day a non-ticket work
 type exists, but the grammar doesn't assume it away.
 
 **One queue may block another, declared, and a block may only name a
-sibling.** A container or project does not leave a queue while a
-queue that blocks it holds unresolved work — which is what makes "the
-retro can't finish while milestone work is open" an instance of a
+sibling.** A queue declaring `blocks:` guards *entry into* the queue it
+names: a container or project cannot move into a blocked queue while
+the queue that blocks it still holds unresolved work — checked once,
+at the transition, corrected to this entry-guard reading at ORC-148's
+design review below (an earlier reading of this same paragraph held
+the block as a standing condition on the *blocked* queue's own
+completion, recomputed for as long as it ran; that reading is
+retired). This is what makes "the retro can't finish [be *entered*]
+while milestone work is open" an instance of a
 general rule (`main` blocking `retro`, below) rather than a special
 case, and which also closes the stranding hole ORC-103 solved
 narrowly: work in a blocking queue cannot be quietly closed over. A
@@ -2340,17 +2346,89 @@ own branch and PR, not a child ticket's), the mutex mapping (a
 container instance's own file-map paths, exactly as a ticket's are
 today), and `DispatchRun`'s own keying (keyed on the container
 instance's id where it was keyed on a ticket id). It also resolves
-what `main` blocking `retro` (§15.7) means once the blocker is `retro`
-itself rather than a population of unresolved tickets: `main` does not
-complete while `retro`'s own entry is unresolved, the identical
-"unresolved work items assigned to this queue" test applied to a
-queue of exactly one thing that is not a queue at all — a ticket-count
-of zero-or-one rather than an open population, which is what
-`blocks:` already meant for any anchor whose target happens to hold
-only ever one item. `dsl-syntax.md` and `systems/delivery.md` carry
+what `main` blocking `retro` (§15.7) means once `retro` is `milestone`'s
+own inline entry rather than a population of unresolved tickets:
+`retro` cannot be *entered* while `main`'s own queue still carries
+unresolved work — the entry-guard reading `blocks:` takes generally
+(below), applied to a guarded entry that is not itself a queue.
+`dsl-syntax.md` and `systems/delivery.md` carry
 the grammar and the dispatcher's own diff against this; this paragraph
 records the decision, not a diff to `bundles/default-flow/**`, which
 is dev's to make.
+
+**A design review corrected four things about this section's own
+record, all still ORC-148's** (`dsl-syntax.md` §13, §15.1, §15.5,
+§15.7, §15.10). The pass above got the shape of `setup`/`retro`
+folding into `milestone`'s own array right and two of its own
+consequences wrong; none of the four widen what a bundle may declare —
+each is a correction to how the platform-fixed vocabulary or the
+dispatcher reads it.
+
+**First, `blocks:` inverts to an entry guard, checked once at the
+transition it guards, never a standing hold a projection recomputes.**
+The paragraph above already reads this way (corrected in the same
+edit): `main blocks: [retro]` means `retro` cannot be *entered* while
+`main` still carries unresolved work, checked exactly once, at the
+moment something attempts to move into `retro`, not continuously for
+as long as `retro` runs. This removes a real defect the standing-hold
+reading had: a queue refilling while the guarded entry was already
+mid-run pulled the container back out of it, and `retro` is the case
+that makes this more than academic — `retro`'s own output lands back
+in `main` (adjudicated findings, filed debt), so a completion-hold
+form of `blocks:` would have had `retro` interrupting itself the
+moment its own run produced the work `main`'s queue was watching for.
+A reassignment to a new status must never interrupt an already-
+dispatched flow instance; checked once, at entry, this holds by
+construction rather than by care taken in the dispatcher.
+
+**Second, reaching `terminal` is guarded by every one of a
+container's own queues holding no unresolved work, as a platform rule
+— never something a bundle declares via `blocks:` or can opt out of.**
+An authored `blocks:` relation is one entry guarding one other,
+wherever an author chose to write it; a queue nobody thought to name
+in some other entry's `blocks:` list, left unguarded, would otherwise
+close over quietly on the way to `terminal` — exactly the stranding
+hole this section's "no boundary ticket" decision (above) already
+closed once, reopened by omission if `terminal`'s own guard depended
+on bundle-authored coverage. This system's dispatcher, not the loader,
+enforces it (`systems/delivery.md`), the identical split every other
+undeclarable-but-checked fact in this section already takes.
+
+**Third, `generation`'s closed vocabulary grows two named kinds:
+`design` and `architecture`.** One `generation` kind could not carry
+what a workflow with more than one generation-shaped visit needed to
+say — this section's own feature lifecycle (§7.6) has always described
+two, *Product design* then *Architecting*, told apart only by array
+position and by which review followed each, never by the entry itself.
+`design` and `architecture` say it directly, platform-fixed in the same
+table `generation` already sits in, not bundle-authored: that is what
+keeps a blocked ticket's re-resolution anchor set intact, since the set
+it re-resolves against can only be what it is *because* it is not
+declarable, and a bundle-invented generation-phase label would be
+exactly the undeclarable set acquiring a declarable member. Plain
+`generation` is unaffected and stays correct for a single visit —
+`setup`, `retro` and the seed pass all keep it. Which of a bundle's own
+generation-shaped chain tiers (`sysarch`, `impl`, `ref`, and the rest of
+`bundles/default/tiers/**`, today uniformly declaring
+`delivery: {phase: generation, agent_step: design}`) picks `generation`,
+`design` or `architecture` is bundle content, dev's diff against this
+record, not a mapping this pass assigns.
+
+**Fourth, a sub-array is referenced by an entry it contains, never by
+a name of its own.** Sub-arrays stay anonymous (`dsl-syntax.md` §15.10
+— no `name:`, no `id:`), and `blocks:` (and any future reference into
+one) resolves by finding the one entry the reference names and
+reaching whatever contains it: `main blocks: [retro]` reaches the
+sub-array `retro` sits in exactly the same way it would reach a bare
+top-level `retro`. Uniqueness is a property of the reference, not the
+declaration — a reference resolving to zero or to two or more matches
+is the load error; duplicate entries the reference itself never
+reaches are unaffected. This is what makes the two worked examples this
+section and `dsl-syntax.md` §15.2/§15.10 carry — `main`'s `blocks:
+[retro]` naming a `retro` that carries no `flow:` of its own — load
+cleanly: the seventh-pass rule requiring a `blocks:` target to be a
+population anchor never fit an inline `retro` in the first place, and
+is retired along with the sentence it read from.
 
 The **`:live` suite** still runs once per milestone (§2.8, settled at
 ORC-105 to gate `main`'s completion specifically), and a failing
