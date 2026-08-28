@@ -18,17 +18,19 @@ defmodule Catapult.Engine.Projections.ContainerQueuesTest do
   @project "cq-project"
 
   # A container type shaped like the shipped milestone: `main` blocks
-  # `retro`, and `setup`/`retro` are singletons.
+  # `retro`, and `setup`/`retro` are non-queue-shaped inline dispatch
+  # points (no `flow:`, ORC-148's replacement for the retired
+  # `singleton:` field).
   defp workflow do
     milestone = %Type{
       name: "milestone",
       file: "types/milestone.yaml",
       skeleton: "container",
       statuses: [
-        %Status{status: "setup", flow: "setup", singleton: true},
+        %Status{status: "setup"},
         %Status{status: "prep", flow: "feature"},
         %Status{status: "main", flow: "feature", blocks: ["retro"]},
-        %Status{status: "retro", flow: "retro", singleton: true},
+        %Status{status: "retro"},
         %Status{status: "cleanup", flow: "feature"},
         %Status{status: "terminal"}
       ]

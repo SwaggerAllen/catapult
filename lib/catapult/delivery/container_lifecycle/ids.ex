@@ -25,8 +25,7 @@ defmodule Catapult.Delivery.ContainerLifecycle.Ids do
 
   @doc """
   The instance a parent's queue mints. One per `(parent, queue)`: a
-  queue whose `flow:` nests holds one child instance at a time, and
-  §15.7's `singleton:` is what says whether it may ever hold a second.
+  queue whose `flow:` nests holds one child instance at a time.
   """
   @spec container_id(binary(), binary(), String.t()) :: binary()
   def container_id(project_id, parent_container_id, queue) do
@@ -34,11 +33,12 @@ defmodule Catapult.Delivery.ContainerLifecycle.Ids do
   end
 
   @doc """
-  The one work item a `singleton: true` queue holds. Derived from the
-  container and the queue precisely because there is at most one, ever
-  — which is what lets the dispatcher address *the* retro or *the*
-  setup work item directly, permanently, rather than iterating a set
-  that structurally never holds more than one (§15.7).
+  The one work item a non-queue-shaped inline dispatch point holds
+  (`setup`/`retro`, ORC-148). Derived from the container and the queue
+  precisely because there is at most one, ever — which is what lets the
+  dispatcher address *the* retro or *the* setup work item directly,
+  permanently, rather than iterating a set that structurally never
+  holds more than one (§15.7).
   """
   @spec work_item_id(binary(), binary(), String.t()) :: binary()
   def work_item_id(project_id, container_id, queue) do

@@ -119,7 +119,6 @@ defmodule Catapult.Delivery.ContainerLifecycle.Composition do
       type ->
         type.statuses
         |> Enum.filter(&Status.queue_shaped?/1)
-        |> Enum.reject(& &1.singleton)
         |> List.first()
         |> case do
           nil -> nil

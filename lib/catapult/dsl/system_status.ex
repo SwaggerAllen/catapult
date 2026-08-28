@@ -13,6 +13,15 @@ defmodule Catapult.Dsl.SystemStatus do
   workflow cutover (v5 §7.19) — so this module is a closed constant
   table, never a registry.
 
+  **`:design` and `:architecture` join `:generation` as named
+  generation-shaped kinds, at ORC-148's design review** (§15.1): both
+  are agent-balled, `pending`-preceded, blocked-exit-required,
+  critique-pairable and sub-array-anchor-eligible everywhere
+  `:generation` itself is — `generation_shaped?/1` is the one place
+  that set is named, rather than repeating the three-atom list at every
+  call site. Plain `:generation` is unaffected and stays correct for a
+  type with one generation-shaped visit.
+
   **Renamed from `queue` to `pending`, at ORC-104's dev pass** (§15.1):
   a single work item's own wait-for-dispatch status and a container's
   own named queue position used to share one word; once both could
@@ -36,6 +45,8 @@ defmodule Catapult.Dsl.SystemStatus do
           :backlog
           | :pending
           | :generation
+          | :design
+          | :architecture
           | :critique
           | :fanout
           | :checks
@@ -61,6 +72,8 @@ defmodule Catapult.Dsl.SystemStatus do
     {:backlog, :author},
     {:pending, :plane},
     {:generation, :agent},
+    {:design, :agent},
+    {:architecture, :agent},
     {:critique, :agent},
     {:fanout, :plane},
     {:checks, :world},
@@ -109,6 +122,19 @@ defmodule Catapult.Dsl.SystemStatus do
   @spec agent_balled?(String.t()) :: boolean()
   def agent_balled?(name) when is_binary(name), do: name in @agent_balled_names
 
+  @generation_shaped_names ~w(generation design architecture)
+
+  @doc """
+  Whether the status *name* `name` is generation-shaped —
+  `generation`, `design` or `architecture` (dsl-syntax.md §15.1): the
+  set every rule needing "a generation-shaped entry" reads (backbone
+  membership, `pending`-precedes, blocked-exit, critique pairing,
+  sub-array agent-balled counting), named once here rather than at
+  every call site.
+  """
+  @spec generation_shaped?(String.t()) :: boolean()
+  def generation_shaped?(name) when is_binary(name), do: name in @generation_shaped_names
+
   @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
   @spec agent_steps() :: [agent_step()]
   def agent_steps, do: @agent_steps
@@ -118,13 +144,14 @@ defmodule Catapult.Dsl.SystemStatus do
   def agent_step?(name), do: name in @agent_steps
 
   @doc """
-  A `pending` precedes every `generation` and every `deploy`
+  A `pending` precedes every generation-shaped kind
+  (`generation`/`design`/`architecture`) and every `deploy`
   (dsl-syntax.md §15.1, §13) — a structural fact about the fixed
   skeleton, not something any bundle declares, so it is a constant
   rather than a check over bundle content.
   """
   @spec pending_precedes?(kind()) :: boolean()
-  def pending_precedes?(kind), do: kind in [:generation, :deploy]
+  def pending_precedes?(kind), do: kind in [:generation, :design, :architecture, :deploy]
 
   @doc """
   Every non-terminal status can be kicked to `:blocked` (v5 §7.19: "the

@@ -3,9 +3,9 @@ defmodule Catapult.Dsl.Workflow do
   Loads and validates one `kind: workflow` bundle end to end
   (dsl-syntax.md §15): declared gates and environments (§15.4), and
   the unified work-item declaration `types/<name>.yaml` (§15.2) whose
-  `statuses:` array positions everything — the skeleton's own fixed
-  anchors, gate/environment citations, `flow:`/`blocks:`/`singleton:`
-  queue metadata — by array index alone. There is no `after:` anywhere
+  `statuses:` array positions everything — the skeleton's own required
+  backbone, gate/environment citations, `flow:`/`blocks:` population-
+  anchor metadata — by array index alone. There is no `after:` anywhere
   in this grammar (§15.3): position moved from a named-predecessor
   field on the gate/environment declaration itself to the citing
   type's own array, so the identical gate may run at different
@@ -58,9 +58,8 @@ defmodule Catapult.Dsl.Workflow do
           types: %{String.t() => Type.t()}
         }
 
-  @container_anchors ~w(setup prep main retro cleanup terminal)
-  @ticket_status_names ~w(pending generation critique checks merge deploy terminal)
-  @ticket_required_order ~w(generation checks merge deploy)
+  @container_required_order ~w(setup prep main retro cleanup)
+  @ticket_status_names ~w(pending generation design architecture critique checks merge deploy terminal)
 
   @doc "Loads and validates the workflow bundle named `name` under `bundles_root`."
   @spec load(String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, [String.t()]}
@@ -399,15 +398,14 @@ defmodule Catapult.Dsl.Workflow do
   # load time so a defect in that skeleton (not in any one bundle) is
   # what it would catch.
   defp generation_blocked_exit_problems do
-    if SystemStatus.can_block?(:generation) do
-      []
-    else
-      ["platform defect: the fixed system-status skeleton has no path from generation to blocked"]
+    for kind <- [:generation, :design, :architecture], not SystemStatus.can_block?(kind) do
+      "platform defect: the fixed system-status skeleton has no path from #{kind} to blocked"
     end
   end
 
   defp pending_precedes_problems do
-    for kind <- [:generation, :deploy], not SystemStatus.pending_precedes?(kind) do
+    for kind <- [:generation, :design, :architecture, :deploy],
+        not SystemStatus.pending_precedes?(kind) do
       "platform defect: the fixed system-status skeleton has no pending precedent for #{kind}"
     end
   end
@@ -433,15 +431,49 @@ defmodule Catapult.Dsl.Workflow do
     for %Status{status: s} <- type.statuses, not is_nil(s), do: s
   end
 
+  # A skeleton fixes a required backbone, never an exclusive membership
+  # (§15.1, a seventh-pass reversal, ORC-148): `setup`, `prep`, `main`,
+  # `retro`, `cleanup` must each appear at least once, in that relative
+  # order, and `terminal` exactly once, last — what a container-skeleton
+  # type's array may *additionally* hold (a bare generation, a second
+  # population anchor, gates, environments) is unbounded by this check,
+  # symmetrically with the ticket-skeleton read below.
   defp container_shape_problems(name, type) do
     names = anchor_names(type)
+    present = Enum.filter(@container_required_order, &(&1 in names))
 
-    if names == @container_anchors do
+    cond do
+      present != @container_required_order ->
+        missing = @container_required_order -- present
+
+        [
+          "type #{inspect(name)}'s statuses: is missing #{inspect(missing)} (§15.1 requires " <>
+            "setup, prep, main, retro, cleanup at least once each, in that relative order)"
+        ]
+
+      names == [] or List.last(names) != "terminal" ->
+        [
+          "type #{inspect(name)}'s statuses: must close with terminal (§15.1); got " <>
+            "#{inspect(List.last(names))}"
+        ]
+
+      Enum.count(names, &(&1 == "terminal")) > 1 ->
+        ["type #{inspect(name)}'s statuses: declares terminal more than once (§15.1)"]
+
+      true ->
+        container_relative_order_problems(name, names)
+    end
+  end
+
+  defp container_relative_order_problems(name, names) do
+    indices = for req <- @container_required_order, do: Enum.find_index(names, &(&1 == req))
+
+    if indices == Enum.sort(indices) do
       []
     else
       [
-        "type #{inspect(name)}'s statuses: must hold exactly #{inspect(@container_anchors)} " <>
-          "in that order (§15.1, §13); got #{inspect(names)}"
+        "type #{inspect(name)}'s statuses: holds setup/prep/main/retro/cleanup out of their " <>
+          "required relative order (§15.1); got #{inspect(names)}"
       ]
     end
   end
@@ -480,34 +512,47 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
+  # "At least one generation-shaped entry (generation, design or
+  # architecture, in any combination), checks, merge and deploy at
+  # least once each, in that relative order" (§15.1) — a generation-
+  # shaped kind and merge may recur; the order check below reasons over
+  # each required token's *first* occurrence, the same simplification
+  # the pre-ORC-148 check already made for `merge`'s own recurrence.
   defp ticket_relative_order_problems(name, names) do
-    present = Enum.filter(@ticket_required_order, &(&1 in names))
+    has_generation_shaped? = Enum.any?(names, &SystemStatus.generation_shaped?/1)
+    missing_fixed = for req <- ~w(checks merge deploy), req not in names, do: req
 
-    if present != @ticket_required_order do
-      missing = @ticket_required_order -- present
+    if not has_generation_shaped? or missing_fixed != [] do
+      missing = if has_generation_shaped?, do: [], else: ["a generation-shaped entry"]
 
       [
-        "type #{inspect(name)}'s statuses: is missing #{inspect(missing)} (§15.1 requires " <>
-          "generation, checks, merge, deploy at least once each)"
+        "type #{inspect(name)}'s statuses: is missing #{inspect(missing ++ missing_fixed)} " <>
+          "(§15.1 requires at least one generation-shaped entry — generation, design or " <>
+          "architecture — plus checks, merge and deploy at least once each)"
       ]
     else
-      indices = for req <- @ticket_required_order, do: Enum.find_index(names, &(&1 == req))
+      generation_index = Enum.find_index(names, &SystemStatus.generation_shaped?/1)
+      fixed_indices = for req <- ~w(checks merge deploy), do: Enum.find_index(names, &(&1 == req))
+      indices = [generation_index | fixed_indices]
 
       if indices == Enum.sort(indices) do
         []
       else
         [
-          "type #{inspect(name)}'s statuses: holds generation/checks/merge/deploy out of their " <>
-            "required relative order (§15.1); got #{inspect(names)}"
+          "type #{inspect(name)}'s statuses: holds a generation-shaped entry/checks/merge/" <>
+            "deploy out of their required relative order (§15.1); got #{inspect(names)}"
         ]
       end
     end
   end
 
   ## Critique adjacency (§13, §15.5): must sit immediately after a
-  ## generation entry in the same type's array — no skeleton check
-  ## needed, since a container/skeleton-less type never has a
-  ## generation anchor to sit after in the first place.
+  ## generation-shaped entry (generation, design or architecture) in
+  ## the same type's array — no skeleton check needed, since whether a
+  ## given array has one to pair with is a fact about that array's own
+  ## contents, never about which skeleton the citing type declares
+  ## (ORC-148: a container-skeleton or skeleton-less type may hold a
+  ## bare generation-shaped entry now too, §15.2).
 
   defp critique_adjacency_problems(types) do
     for {type_name, type} <- types do
@@ -516,15 +561,21 @@ defmodule Catapult.Dsl.Workflow do
       labels
       |> Enum.with_index()
       |> Enum.filter(fn {label, i} ->
-        label == {:status, "critique"} and
-          (i == 0 or Enum.at(labels, i - 1) != {:status, "generation"})
+        label == {:status, "critique"} and (i == 0 or not generation_shaped_label?(labels, i - 1))
       end)
       |> Enum.map(fn {_label, i} ->
         "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, which must " <>
-          "sit immediately after a generation entry (§13, §15.5)"
+          "sit immediately after a generation-shaped entry (§13, §15.5)"
       end)
     end
     |> List.flatten()
+  end
+
+  defp generation_shaped_label?(labels, index) do
+    case Enum.at(labels, index) do
+      {:status, name} -> SystemStatus.generation_shaped?(name)
+      _review_or_environment -> false
+    end
   end
 
   defp entry_label(%Status{status: s}) when not is_nil(s), do: {:status, s}
@@ -560,24 +611,34 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  ## `blocks:` scoping (§13, §15.6-§15.7): a queue may only block
-  ## another queue-shaped anchor declared in its own type's array.
+  ## `blocks:` scoping (§13, §15.7, §15.10, ORC-148 design review): a
+  ## `blocks:` entry names an entry that is unique within the citing
+  ## type's own array — a bare top-level entry, or one that belongs to
+  ## a sub-array, in which case the reference is to the whole sub-array
+  ## (resolved by containment, since a sub-array is referenced through
+  ## an entry it contains, never by a name of its own). Uniqueness is a
+  ## property of the reference, not the declaration it lands on: zero
+  ## matches or two-or-more is the load error.
 
   defp blocks_problems(types) do
     for {type_name, type} <- types,
         status <- type.statuses,
         Status.queue_shaped?(status),
         target <- status.blocks do
-      own_queue_names =
-        type.statuses |> Enum.filter(&Status.queue_shaped?/1) |> Enum.map(& &1.status)
+      matches = Enum.filter(type.statuses, &(Status.name(&1) == target))
 
       cond do
         target == status.status ->
           "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names itself (§13, §15.7)"
 
-        target not in own_queue_names ->
+        matches == [] ->
           "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
-            "which is not a queue-shaped anchor declared in the same type (§13, §15.6-§15.7)"
+            "which does not resolve to any entry in this type's own statuses: array (§13, §15.7, §15.10)"
+
+        length(matches) > 1 ->
+          "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
+            "which resolves to #{length(matches)} entries in this type's own statuses: array — " <>
+            "not unique (§13, §15.10)"
 
         true ->
           nil
@@ -587,11 +648,13 @@ defmodule Catapult.Dsl.Workflow do
   end
 
   ## Declaration graph (§13, §15.6): nodes are every type with a
-  ## queue-shaped anchor (container-skeleton or skeleton-less alike),
-  ## edges are `flow:` references between them; must be acyclic.
+  ## population anchor of its own (a fact about that type's own
+  ## declared entries, never about which skeleton, if any, it declares
+  ## — ORC-148), edges are `flow:` references between them; must be
+  ## acyclic.
 
   defp declaration_graph_nodes(types) do
-    for {name, type} <- types, type.skeleton in [nil, "container"], do: name
+    for {name, type} <- types, Enum.any?(type.statuses, &Status.queue_shaped?/1), do: name
   end
 
   defp declaration_graph_edges(types) do
@@ -639,20 +702,22 @@ defmodule Catapult.Dsl.Workflow do
       :error ->
         ["entry #{inspect(entry_name)} does not resolve to a declared type"]
 
-      {:ok, %Type{skeleton: "ticket"}} ->
-        [
-          "entry #{inspect(entry_name)} names a ticket-skeleton type, which has no queue-shaped " <>
-            "anchor to start a project from"
-        ]
-
       {:ok, %Type{}} ->
-        if entry_name in declaration_graph_roots(types) do
-          []
-        else
-          [
-            "entry #{inspect(entry_name)} is not a root in the declaration graph — some other " <>
-              "type's flow: already targets it"
-          ]
+        cond do
+          entry_name not in declaration_graph_nodes(types) ->
+            [
+              "entry #{inspect(entry_name)} names a type with no population anchor of its own " <>
+                "(§13, §15.2, §15.6) — it has nothing to start a project from"
+            ]
+
+          entry_name not in declaration_graph_roots(types) ->
+            [
+              "entry #{inspect(entry_name)} is not a root in the declaration graph — some other " <>
+                "type's flow: already targets it"
+            ]
+
+          true ->
+            []
         end
     end
   end

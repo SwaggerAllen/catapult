@@ -17,18 +17,25 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     %{workflow: workflow}
   end
 
-  test "a container's steps are its five anchors, its gates, then terminal", %{
+  test "a container's steps are its required backbone plus whatever else it declares", %{
     workflow: workflow
   } do
     names = workflow |> Sequence.steps("milestone") |> Enum.map(&Sequence.name/1)
 
     assert names == [
+             "pending",
              "setup",
+             "checks",
+             "merge",
+             "deploy",
              "prep",
              "main",
              "milestone-signoff",
              "retro",
              "proposals-read",
+             "checks",
+             "merge",
+             "deploy",
              "cleanup",
              "terminal"
            ]
@@ -51,7 +58,7 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   end
 
   test "first_step/2 is what an activation starts at", %{workflow: workflow} do
-    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "setup"
+    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "pending"
     assert Sequence.first_step(workflow, "project") |> Sequence.name() == "initialization"
   end
 

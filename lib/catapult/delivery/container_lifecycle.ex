@@ -16,27 +16,38 @@ defmodule Catapult.Delivery.ContainerLifecycle do
 
   ## What it decides, and what it refuses to decide
 
-  **Dispatch is uniform** (§15.7). What happens on entering a queue
-  follows from what the queue's `flow:` *resolves to*, never from
-  anything the queue entry itself declares:
+  **Dispatch is uniform** (§15.7). What happens on entering a position
+  follows from what the entry *is* — queue-shaped or not, agent-balled
+  or not — never from anything the entry declares by name:
 
-    * resolves to a type with a queue-shaped anchor → mint an instance
-      and, since the parent's position is already here, activate it;
-    * resolves to a `ticket`-skeleton type → the queue holds ordinary
-      work items, and this dispatcher opens one only where the
-      declaration says there is exactly one to open (see `singleton:`
-      below). It never invents ordinary ticket work: a `prep` queue's
-      population arrives by grooming, and a dispatcher that
-      manufactured entries for it would be inventing scope.
+    * a queue-shaped `flow:` resolves to a type with a population
+      anchor of its own → mint an instance and, since the parent's
+      position is already here, activate it;
+    * a queue-shaped `flow:` resolves to a type with none → the queue
+      holds ordinary work items, and this dispatcher never invents
+      them: a `prep` queue's population arrives by grooming, and a
+      dispatcher that manufactured entries for it would be inventing
+      scope;
+    * a non-queue-shaped, non-critique agent-balled entry other than
+      `merge` (`inline_dispatch_point?/1`) → open *the* one work item
+      it ever holds, once (ORC-148's replacement for a retired
+      `singleton: true` field — `setup` and `retro` are this module's
+      motivating case, since neither carries `flow:` once folded
+      directly into `milestone`'s own array).
 
-  `retro` and `setup` are not special-cased, by name or otherwise.
-  Each is an ordinary declared queue entry whose `flow:` names an
-  ordinary type, and what makes the plane open *the* one work item for
-  it is `singleton: true` — a declared fact — not its name. This is the
-  one place it would be easiest to put back the implicit-anchor-meaning
-  the grammar spent four passes removing, so it is stated: **nothing in
+  `retro` and `setup` are not special-cased **by name**: what makes the
+  plane open *the* one work item for either is that each is a
+  non-queue-shaped agent-balled entry, a declared fact about the
+  entry's own shape, not the string `"setup"` or `"retro"`. **The one
+  named exception is `merge`**, agent-balled like `setup`/`retro` but
+  never a fresh dispatch point when it appears directly in a
+  container's array — it is the *same* flow's own reconciliation step,
+  owned by the chain-tier mechanism that already tracks a flow's
+  internal generation-to-deploy progression — so `inline_dispatch_point?/1`
+  excludes it by name rather than inventing a second declared field for
+  a distinction the grammar leaves to a fixed kind. Nothing else in
   this module branches on the words `setup`, `retro`, `main`, `prep`,
-  `cleanup`, `ticket`, `container` or `milestone`.**
+  `cleanup`, `ticket`, `container` or `milestone`.
 
   **A queue holds while a sibling that blocks it carries work**
   (§15.7), and holds while any instance it minted is still open. Both
@@ -350,11 +361,12 @@ defmodule Catapult.Delivery.ContainerLifecycle do
      nothing begins. "`retro` will not begin until it clears" (v5 §7.8)
      is this: a blocked queue does not open its work item, which is the
      whole content of the hold.
-  3. **Does entering the current queue put work into it?** A queue
+  3. **Does entering the current position put work into it?** A queue
      whose `flow:` nests mints — once — and activates a child; a
-     `singleton:` entry opens its one work item. If either produced a
-     command, the queue is about to be non-empty and there is nothing
-     to advance past yet.
+     non-queue-shaped inline dispatch point (`inline_dispatch_point?/1`)
+     opens its one work item. If either produced a command, the
+     position is about to be non-empty and there is nothing to advance
+     past yet.
   4. **Otherwise, where does the position move forward to?** The next
      entry if the current one resolves, nowhere at all if it does not
      or if the next entry is a gate waiting on a human.
@@ -381,8 +393,8 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   defp forward_or_open(%Workflow{} = workflow, %Container{} = container, current) do
     case ContainerQueues.resolution(workflow, container, current) do
       # Held by a sibling that blocks it. Nothing begins here — not
-      # even a singleton's own work item, which is what "retro will not
-      # begin until it clears" actually means (v5 §7.8).
+      # even an inline dispatch point's own work item, which is what
+      # "retro will not begin until it clears" actually means (v5 §7.8).
       {:held, _holders} ->
         []
 
@@ -413,14 +425,15 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   #   * a queue-shaped `flow:` target — mint the child instance and
   #     activate it, since the parent's position is already here
   #     (§15.8: mint is what creates, reaching it is what activates);
-  #   * a `singleton: true` entry — open *the* one work item, once and
-  #     never again;
+  #   * a non-queue-shaped inline dispatch point (`setup`/`retro`,
+  #     ORC-148 — no `flow:` left to mint a child through) — open *the*
+  #     one work item, once and never again;
   #   * anything else — nothing. Ordinary ticket work arrives by
   #     grooming, and manufacturing it would be inventing scope.
   defp open_for(%Workflow{} = workflow, %Container{} = container, %Status{} = entry) do
     cond do
       nests?(workflow, entry) -> mint_child(workflow, container, entry)
-      entry.singleton -> open_singleton(workflow, container, entry)
+      inline_dispatch_point?(entry) -> open_inline(workflow, container, entry)
       true -> []
     end
   end
@@ -430,6 +443,23 @@ defmodule Catapult.Delivery.ContainerLifecycle do
       {:ok, type} -> type.skeleton in [nil, "container"]
       :error -> false
     end
+  end
+
+  # A non-queue-shaped entry (no `flow:`, so it cannot mint a child)
+  # that opens a fresh flow instance the moment the container's
+  # position reaches it — ORC-148's replacement for a `singleton: true`
+  # queue, now that `setup`/`retro` fold directly into `milestone`'s
+  # own array with no `flow:` to represent them. Scoped to
+  # `Status.non_critique_agent_step?/1`'s set minus `merge`: `merge` is
+  # agent-balled too (§15.1's `ball` column), but when it appears
+  # directly in a container's array — `setup`'s and `retro`'s own
+  # checks/merge/deploy sequence, ORC-148, dsl-syntax.md §15.2 — it is
+  # the *same* flow's own reconciliation step, tracked by the chain-tier
+  # mechanism that already owns a flow's internal generation-to-deploy
+  # progression, never a fresh thing for this dispatcher to open.
+  defp inline_dispatch_point?(%Status{status: status} = entry) do
+    not Status.queue_shaped?(entry) and Status.non_critique_agent_step?(entry) and
+      status != "merge"
   end
 
   # Three cases, and the third is the one a naive "is there an
@@ -475,11 +505,14 @@ defmodule Catapult.Delivery.ContainerLifecycle do
     end
   end
 
-  # `singleton:` is a lifetime bound, so this asks "has anything *ever*
-  # been assigned," not "is anything unresolved now" (§15.7). A closed
-  # singleton queue stays closed: that is what the declaration asked
-  # for, and there is no escape hatch to add.
-  defp open_singleton(%Workflow{} = workflow, %Container{} = container, %Status{} = entry) do
+  # `ContainerQueues.admits?/3`'s lifetime bound asks "has anything
+  # *ever* been assigned," not "is anything unresolved now" (§15.7). A
+  # closed inline dispatch point stays closed: that is what running
+  # once, at this one array position, means, and there is no escape
+  # hatch to add. `flow_name` names no declared type — an inline entry
+  # carries no `flow:` for one to resolve — so it is the entry's own
+  # name, addressed the same way `queue` already is.
+  defp open_inline(%Workflow{} = workflow, %Container{} = container, %Status{} = entry) do
     case ContainerQueues.admits?(workflow, container, entry.status) do
       {:ok, _entry} ->
         flow_id = Ids.work_item_id(container.project_id, container.id, entry.status)
@@ -488,7 +521,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
           %OpenFlow{
             project_id: container.project_id,
             flow_id: flow_id,
-            flow_name: entry.flow,
+            flow_name: entry.status,
             entry_node_id: flow_id,
             container_id: container.id,
             queue: entry.status
@@ -496,16 +529,16 @@ defmodule Catapult.Delivery.ContainerLifecycle do
         ]
 
       {:error, :singleton_closed} ->
-        # Loud, per §15.7: a second assignment to a singleton queue,
-        # ever, is an error rather than an admitted dispatch that files
-        # `Blocked` the way an unrecognized `flow:` label does. This
-        # dispatcher re-enters on every relevant event, so the ordinary
-        # path here is the queue simply having done its job; the log
-        # line is what makes a genuine second attempt visible rather
-        # than silently absorbed.
+        # Loud, per §15.7: a second assignment to a one-shot inline
+        # entry, ever, is an error rather than an admitted dispatch that
+        # files `Blocked` the way an unrecognized `flow:` label does.
+        # This dispatcher re-enters on every relevant event, so the
+        # ordinary path here is the entry simply having done its job;
+        # the log line is what makes a genuine second attempt visible
+        # rather than silently absorbed.
         Logger.debug(
-          "singleton queue #{inspect(entry.status)} on container #{container.id} is closed " <>
-            "and admits no further work (dsl-syntax.md §15.7)",
+          "inline dispatch point #{inspect(entry.status)} on container #{container.id} is " <>
+            "closed and admits no further work (dsl-syntax.md §15.7)",
           component: :delivery
         )
 
