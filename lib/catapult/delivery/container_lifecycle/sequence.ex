@@ -14,10 +14,10 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
 
   Nothing here branches on the words "ticket", "container" or
   "milestone" (§15.2), or on an anchor's name. `setup` and `retro` get
-  their behaviour from what their entries *declare* — `singleton: true`
-  and a `flow:` — not from what they are called, which is the fact the
-  grammar spent four passes removing and this module is careful not to
-  put back.
+  their behaviour from what their entries *are* — non-queue-shaped,
+  non-critique agent-balled entries with no `flow:` (ORC-148) — not
+  from what they are called, which is the fact the grammar spent four
+  passes removing and this module is careful not to put back.
   """
 
   alias Catapult.Dsl.Status

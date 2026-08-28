@@ -649,10 +649,15 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, _loaded} = Loader.load(dir)
   end
 
-  test "a queue-shaped anchor inside a sub-array is a load error", %{tmp_dir: dir} do
-    # The milestone retirement — "singleton flows retire into
-    # sub-arrays of their parent container" — is what this would
-    # require, and §15.10 leaves it open rather than deciding it here.
+  test "flow:/blocks: on setup or retro is a load error wherever they sit (§13, ORC-148)", %{
+    tmp_dir: dir
+  } do
+    # The check that used to refuse a queue-shaped anchor inside a
+    # sub-array is retired (ORC-148): the case it refused doesn't arise
+    # any more, because `flow:`/`blocks:` are illegal on `setup`/`retro`
+    # at the field level now, whichever type's array cites them —
+    # population-anchor legality moved from the citing type's
+    # `skeleton:` to the entry's own name (§15.2, §15.7).
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -682,14 +687,14 @@ defmodule Catapult.Dsl.LoaderTest do
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "may not sit inside a sub-array"))
+    assert Enum.any?(problems, &String.contains?(&1, ~s(carries unknown field "flow")))
   end
 
-  test "dropping flow: does not smuggle a container anchor into a sub-array", %{tmp_dir: dir} do
-    # The refusal above has to survive the obvious way around it: a
-    # container's `retro` without `flow:` would be an anchor that
-    # dispatches nothing, arriving at the milestone retirement by
-    # omission rather than by decision. §15.7 still requires the field.
+  test "retro folds inline, with no flow:, directly into a sub-array", %{tmp_dir: dir} do
+    # The shape the milestone retirement actually needs (ORC-148,
+    # dsl-syntax.md §15.10): `retro` grouped with the gates around it,
+    # carrying no `flow:` of its own — the load error the check above
+    # exercises is what used to block exactly this shape.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -704,11 +709,11 @@ defmodule Catapult.Dsl.LoaderTest do
       skeleton: container
       statuses:
         - status: setup
-          flow: feature
         - status: prep
           flow: feature
         - status: main
           flow: feature
+          blocks: [retro]
         - - review: product-review
           - status: retro
         - status: cleanup
@@ -717,8 +722,9 @@ defmodule Catapult.Dsl.LoaderTest do
       """
     })
 
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, ~s(missing required field "flow")))
+    assert {:ok, loaded} = Loader.load(dir)
+    retro = Enum.find(loaded.workflow.types["milestone"].statuses, &(&1.status == "retro"))
+    assert retro.flow == nil
   end
 
   test "a problem inside a sub-array points at the path the author wrote", %{tmp_dir: dir} do
@@ -845,7 +851,9 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "missing required field \"entry\""))
   end
 
-  test "entry: naming a ticket-skeleton type is a load error", %{tmp_dir: dir} do
+  test "entry: naming a ticket-skeleton type with no population anchor is a load error", %{
+    tmp_dir: dir
+  } do
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -860,7 +868,7 @@ defmodule Catapult.Dsl.LoaderTest do
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "no queue-shaped anchor"))
+    assert Enum.any?(problems, &String.contains?(&1, "no population anchor"))
   end
 
   test "entry: must name a type nothing else's flow: targets", %{tmp_dir: dir} do
@@ -890,7 +898,7 @@ defmodule Catapult.Dsl.LoaderTest do
 
   ## §15.1 — the two fixed skeletons.
 
-  test "a container-skeleton type must hold the five anchors, in order, then terminal", %{
+  test "a container-skeleton type must hold its required backbone in order, then terminal", %{
     tmp_dir: dir
   } do
     Fixture.minimal!(dir)
@@ -909,11 +917,9 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: prep
           flow: feature
         - status: setup
-          flow: feature
         - status: main
           flow: feature
         - status: retro
-          flow: feature
         - status: cleanup
           flow: feature
         - status: terminal
@@ -921,7 +927,7 @@ defmodule Catapult.Dsl.LoaderTest do
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "in that order"))
+    assert Enum.any?(problems, &String.contains?(&1, "required relative order"))
   end
 
   test "a ticket-skeleton type must open with pending and close with terminal", %{tmp_dir: dir} do
@@ -1004,7 +1010,7 @@ defmodule Catapult.Dsl.LoaderTest do
 
     assert Enum.any?(
              problems,
-             &String.contains?(&1, "not a queue-shaped anchor declared in the same type")
+             &String.contains?(&1, "does not resolve to any entry in this type's own")
            )
   end
 
@@ -1023,16 +1029,12 @@ defmodule Catapult.Dsl.LoaderTest do
       skeleton: container
       statuses:
         - status: setup
-          flow: feature
-          singleton: true
         - status: prep
           flow: feature
         - status: main
           flow: feature
           blocks: [retro]
         - status: retro
-          flow: feature
-          singleton: true
         - status: cleanup
           flow: feature
         - status: terminal
@@ -1043,9 +1045,9 @@ defmodule Catapult.Dsl.LoaderTest do
     statuses = loaded.workflow.types["milestone"].statuses
 
     assert Enum.find(statuses, &(&1.status == "main")).blocks == ["retro"]
-    assert Enum.find(statuses, &(&1.status == "setup")).singleton
-    assert Enum.find(statuses, &(&1.status == "retro")).singleton
-    refute Enum.find(statuses, &(&1.status == "main")).singleton
+    assert Enum.find(statuses, &(&1.status == "setup")).flow == nil
+    assert Enum.find(statuses, &(&1.status == "retro")).flow == nil
+    assert Enum.find(statuses, &(&1.status == "main")).flow == "feature"
   end
 
   test "opt-in role-holder check flags a gate whose role has no holders", %{tmp_dir: dir} do
@@ -1745,7 +1747,7 @@ defmodule Catapult.Dsl.LoaderTest do
 
     assert Enum.any?(
              problems,
-             &String.contains?(&1, "must sit immediately after a generation entry")
+             &String.contains?(&1, "must sit immediately after a generation-shaped entry")
            )
   end
 
@@ -1852,13 +1854,11 @@ defmodule Catapult.Dsl.LoaderTest do
     skeleton: container
     statuses:
       - status: setup
-        flow: #{flow}
       - status: prep
         flow: #{flow}
       - status: main
         flow: #{flow}
       - status: retro
-        flow: #{flow}
       - status: cleanup
         flow: #{flow}
       - status: terminal

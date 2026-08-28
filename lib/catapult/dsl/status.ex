@@ -6,14 +6,25 @@ defmodule Catapult.Dsl.Status do
   reference (`environment:`) — position is the array index the entry
   sits at in its own declaration, never a separate field (§15.3).
 
-  `flow:`, `blocks:` and `singleton:` are legal only on a queue-shaped
-  `status:` entry — a `container`-skeleton type's five anchors, or any
-  `status:` entry in a skeleton-less type's array (§15.7); `depth:` is
-  legal only on a `status: critique` entry, immediately after a
-  `generation` entry (§15.5). Whether a given `status:` entry is
-  queue-shaped depends on the *citing type's* own `skeleton:`, which
-  this module does not know — `Catapult.Dsl.Type` resolves that first
-  and passes it in.
+  `flow:` and `blocks:` are legal only on a **population anchor**: a
+  `status:` entry named `prep`, `main` or `cleanup`, or any `status:`
+  entry in a skeleton-less type's array (§15.7) — never on `pending`,
+  `generation`, `design`, `architecture`, `critique`, `checks`,
+  `merge`, `deploy`, `setup`, `retro` or `terminal`, whatever type's
+  array cites them (a seventh-pass reversal, ORC-148: a skeleton fixes
+  a required backbone, never an exclusive membership, so this is a
+  fact about the *entry's own name* and the citing type's `skeleton:`
+  being absent or not, never about which skeleton a `container`- or
+  `ticket`-skeleton type happens to declare — `Catapult.Dsl.Type`
+  resolves the citing type's `skeleton:` first and passes it in).
+  `depth:` is legal only on a `status: critique` entry, immediately
+  after a generation-shaped entry (§15.5).
+
+  **`singleton:` is retired (ORC-148, §15.7): it bounded a queue's own
+  cardinality, and once `setup`/`retro` fold inline as ordinary
+  agent-balled entries with no `flow:` of their own, neither is a
+  queue any more — there is no cardinality left for a field to
+  bound.**
 
   **`terminal` is never queue-shaped, whatever skeleton cites it.**
   §15.7 opens by describing a queue-shaped entry as "any `status:`
@@ -37,7 +48,7 @@ defmodule Catapult.Dsl.Status do
   alias Catapult.Dsl.Fields
   alias Catapult.Dsl.SystemStatus
 
-  defstruct [:status, :review, :environment, :flow, :depth, blocks: [], singleton: false]
+  defstruct [:status, :review, :environment, :flow, :depth, blocks: []]
 
   @type t :: %__MODULE__{
           status: String.t() | nil,
@@ -45,7 +56,6 @@ defmodule Catapult.Dsl.Status do
           environment: String.t() | nil,
           flow: String.t() | nil,
           blocks: [String.t()],
-          singleton: boolean(),
           depth: Fields.depth() | nil
         }
 
@@ -58,16 +68,16 @@ defmodule Catapult.Dsl.Status do
   problem points at the YAML the author has open rather than at the
   flattened index `Catapult.Dsl.Type` stores the entry under.
   """
-  @spec parse(String.t(), String.t(), term(), boolean()) ::
+  @spec parse(String.t(), String.t(), term(), String.t() | nil) ::
           {:ok, t()} | {:error, [String.t()]}
-  def parse(where, path, raw, queue_shaped?) do
-    do_parse("#{where} #{path}", raw, queue_shaped?)
+  def parse(where, path, raw, skeleton) do
+    do_parse("#{where} #{path}", raw, skeleton)
   end
 
-  defp do_parse(where, %{} = raw, queue_shaped?) do
+  defp do_parse(where, %{} = raw, skeleton) do
     case Enum.filter(@entry_keys, &Map.has_key?(raw, &1)) do
       ["status"] ->
-        parse_status_entry(where, raw, queue_shaped?)
+        parse_status_entry(where, raw, skeleton)
 
       ["review"] ->
         parse_review_entry(where, raw)
@@ -84,22 +94,33 @@ defmodule Catapult.Dsl.Status do
     end
   end
 
-  defp do_parse(where, other, _queue_shaped?) do
+  defp do_parse(where, other, _skeleton) do
     {:error, ["#{where} is #{inspect(other)}, expected a YAML mapping"]}
   end
 
-  defp parse_status_entry(where, raw, type_queue_shaped?) do
-    {name, name_problems} = Fields.require_string(raw, "status", where)
-    queue_shaped? = type_queue_shaped? and name != "terminal"
+  @population_anchor_names ~w(prep main cleanup)
 
-    {flow, blocks, singleton, shape_problems} =
+  # A population anchor (§15.7): named `prep`/`main`/`cleanup`,
+  # whatever skeleton the citing type declares or omits, or any
+  # `status:` entry at all when the citing type declares no skeleton
+  # (its whole array is author-declared queue positions, §15.1). This
+  # is a fact about the entry's own name, never about whether the
+  # citing type is `ticket`- or `container`-skeleton (ORC-148, §15.2).
+  defp population_anchor?(name, skeleton) do
+    is_nil(skeleton) or name in @population_anchor_names
+  end
+
+  defp parse_status_entry(where, raw, skeleton) do
+    {name, name_problems} = Fields.require_string(raw, "status", where)
+    queue_shaped? = population_anchor?(name, skeleton)
+
+    {flow, blocks, shape_problems} =
       if queue_shaped? do
         {flow, fp} = Fields.require_string(raw, "flow", where)
         {blocks, bp} = Fields.optional_string_list(raw, "blocks", where)
-        {singleton, sp} = Fields.optional_boolean(raw, "singleton", where, false)
-        {flow, blocks, singleton, fp ++ bp ++ sp}
+        {flow, blocks, fp ++ bp}
       else
-        {nil, [], false, []}
+        {nil, [], []}
       end
 
     {depth, depth_problems} =
@@ -107,15 +128,14 @@ defmodule Catapult.Dsl.Status do
 
     known =
       ["status"] ++
-        if(queue_shaped?, do: ["flow", "blocks", "singleton"], else: []) ++
+        if(queue_shaped?, do: ["flow", "blocks"], else: []) ++
         if(name == "critique", do: ["depth"], else: [])
 
     unknown = Fields.unknown_keys(raw, known, where)
     problems = name_problems ++ shape_problems ++ depth_problems ++ unknown
 
     if problems == [] do
-      {:ok,
-       %__MODULE__{status: name, flow: flow, blocks: blocks, singleton: singleton, depth: depth}}
+      {:ok, %__MODULE__{status: name, flow: flow, blocks: blocks, depth: depth}}
     else
       {:error, problems}
     end
@@ -151,8 +171,8 @@ defmodule Catapult.Dsl.Status do
 
   @doc """
   Whether this entry is §15.10's sub-array anchor: a non-critique
-  agent-balled `status:` entry — `generation`, `retro`, `setup` or
-  `merge` under §15.1's `ball` column.
+  agent-balled `status:` entry — `generation`, `design`, `architecture`,
+  `retro`, `setup` or `merge` under §15.1's `ball` column.
 
   `critique` is excluded because it reviews a generation rather than
   standing as one, the identical exclusion §15.5 already draws for its

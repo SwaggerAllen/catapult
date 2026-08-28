@@ -1,41 +1,62 @@
 type: milestone
-skeleton: container                # the five fixed anchors, each exactly
-                                    #   once, in exactly this order, then
-                                    #   terminal (dsl-syntax.md §15.1)
+skeleton: container                # setup, prep, main, retro, cleanup each
+                                    #   at least once, in that relative
+                                    #   order, then terminal — a required
+                                    #   backbone, never an exclusive
+                                    #   membership (dsl-syntax.md §15.1,
+                                    #   ORC-148)
 statuses:
-  - status: setup
-    flow: setup
-    singleton: true                # at most one work item, *ever* — not
-                                    #   0-or-1 at a time (§15.7): once its
-                                    #   one work item is terminal the
-                                    #   queue is permanently closed, which
-                                    #   is what the declaration asked for
-  - status: prep                   # work the milestone requires before
+  - status: pending                 # not part of container's own fixed
+                                     #   backbone (§15.1) — ordinary
+                                     #   interleaved vocabulary here,
+                                     #   licensing the deploy (and,
+                                     #   transitively, the checks/merge
+                                     #   between) each of the two agent
+                                     #   steps below needs: "somewhere
+                                     #   earlier in this array," not
+                                     #   immediately before either (§15.2)
+  - status: setup                   # the container's own forward-looking
+                                     #   agent step, inline (ORC-148) —
+                                     #   dispatches by chain-side tier, not
+                                     #   by flow:; types/setup.yaml is
+                                     #   retired along with the singleton
+                                     #   queue that used to name it
+  - status: checks
+  - status: merge
+  - status: deploy
+  - status: prep                    # work the milestone requires before
     flow: feature                   #   beginning (v5 §7.8)
   - status: main
     flow: feature
-    blocks: [retro]                # the general form of "the retro can't
-                                    #   finish while milestone work is
-                                    #   open" (§15.7) — and what holds
-                                    #   `retro` open for a red `:live`
-                                    #   verdict (v5 §2.8, §7.8)
-  - review: milestone-signoff      # the author's first transition: "my
-                                    #   manual pass is finished" (v5 §7.8's
-                                    #   irreducibly-human list). Legal on a
-                                    #   container since the fifth pass
-                                    #   widened gates onto every type
-                                    #   (§15.2)
-  - status: retro
-    flow: retro
-    singleton: true
-  - review: proposals-read         # the author's second transition: "I
-                                    #   have read the proposals." Accepting
-                                    #   or declining what `retro` filed is
-                                    #   the author's act, never the plane's
-                                    #   (v5 §7.8)
-  - status: cleanup                # work that got missed during the
+    blocks: [retro]                 # the general form of "the retro can't
+                                     #   finish while milestone work is
+                                     #   open" (§15.7) — and what holds
+                                     #   `retro` open for a red `:live`
+                                     #   verdict (v5 §2.8, §7.8). `retro`
+                                     #   sits inside the sub-array below;
+                                     #   the reference reaches the whole
+                                     #   group through it (§13, §15.10)
+  - - review: milestone-signoff     # the author's first transition: "my
+                                     #   manual pass is finished" (v5
+                                     #   §7.8's irreducibly-human list)
+    - status: retro                 # the container's other agent step,
+                                     #   inline the identical way as
+                                     #   setup, grouped with the sign-off
+                                     #   gates around it (§15.10) —
+                                     #   types/retro.yaml is retired along
+                                     #   with the singleton queue that
+                                     #   used to name it
+    - review: proposals-read        # the author's second transition: "I
+                                     #   have read the proposals." Accepting
+                                     #   or declining what retro filed is
+                                     #   the author's act, never the
+                                     #   plane's (v5 §7.8)
+  - status: checks
+  - status: merge
+  - status: deploy
+  - status: cleanup                 # work that got missed during the
     flow: feature                   #   milestone — distinct on purpose
-                                    #   from the next milestone's `prep`
-                                    #   (v5 §7.8, §4.5)
-  - status: terminal               # the fixed end kind, not a further
-                                    #   queue name (§15.6) — so no flow:
+                                     #   from the next milestone's prep
+                                     #   (v5 §7.8, §4.5)
+  - status: terminal                # the fixed end kind, not a further
+                                     #   queue name (§15.6) — so no flow:

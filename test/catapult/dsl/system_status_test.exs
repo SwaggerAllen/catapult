@@ -3,11 +3,13 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the seventeen fixed kinds, dsl-syntax.md §15.1's order" do
+  test "the nineteen fixed kinds, dsl-syntax.md §15.1's order" do
     assert SystemStatus.kinds() == [
              :backlog,
              :pending,
              :generation,
+             :design,
+             :architecture,
              :critique,
              :fanout,
              :checks,
@@ -25,10 +27,20 @@ defmodule Catapult.Dsl.SystemStatusTest do
            ]
   end
 
-  test "a pending precedes every generation and every deploy" do
+  test "a pending precedes every generation-shaped kind and every deploy" do
     assert SystemStatus.pending_precedes?(:generation)
+    assert SystemStatus.pending_precedes?(:design)
+    assert SystemStatus.pending_precedes?(:architecture)
     assert SystemStatus.pending_precedes?(:deploy)
     refute SystemStatus.pending_precedes?(:checks)
+  end
+
+  test "generation, design and architecture are the generation-shaped kinds" do
+    assert SystemStatus.generation_shaped?("generation")
+    assert SystemStatus.generation_shaped?("design")
+    assert SystemStatus.generation_shaped?("architecture")
+    refute SystemStatus.generation_shaped?("critique")
+    refute SystemStatus.generation_shaped?("merge")
   end
 
   test "every non-terminal, non-blocked status can be kicked to blocked" do

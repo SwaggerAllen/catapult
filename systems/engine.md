@@ -432,9 +432,14 @@ them.
   §7.8, settling what `systems/delivery.md`'s three ORC-105 entries
   left as "not yet built... this system owns"). A container instance's
   mint, its activation, each move of its current queue — forward past
-  a resolved gate, or backward when a queue's population refills or a
-  cited gate throws back (§15.8) — a carried finding's filing or
-  decline, and a milestone's flag-set flip are none of them derivable
+  a resolved gate, or backward on a step's own outcome (a decline, from
+  a `critique` entry's own agent run, landing on the generation entry
+  it pairs with, or from a human at a gate, landing per its
+  `throwback:` — one mechanism per §7.19, not two) or an explicit
+  author transition, never on a queue's population refilling (§15.8,
+  corrected at ORC-148's third design review and again at its fourth)
+  — a carried finding's filing or decline, and a milestone's flag-set
+  flip are none of them derivable
   from anything already in the log: nobody else records "this
   milestone instance now exists" the way nobody else records "this
   draft was approved." They are original protocol facts, the identical
@@ -451,8 +456,10 @@ them.
   while dispatched through this system's router would point the
   dependency the wrong way — `systems/delivery.md`'s own "Depends on"
   already runs delivery → engine, never the reverse. Command
-  validation — a singleton queue's lifetime bound, a queue-advance
-  naming a declared anchor, a `blocks:` relation — reads the loaded
+  validation — a queue-advance naming a declared anchor, a `blocks:`
+  relation (`singleton:`'s own lifetime bound retired at ORC-148,
+  `systems/core_dsl.md`, rather than becoming a fourth check here) —
+  reads the loaded
   `Catapult.Dsl.Workflow.t()` the identical way the reducer already
   resolves bundle semantics from the log rather than from whatever
   `core_dsl` currently has loaded (above); this system already depends
