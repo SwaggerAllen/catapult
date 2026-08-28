@@ -2114,17 +2114,21 @@ freely because a project needs no re-resolution anchor (all review
 happens at lower levels, and a workflow cutover mid-project isn't the
 hazard a cutover mid-container is). **A container's `skeleton:` is
 one kind, arbitrarily nestable, and every instance carries the
-identical fixed anchor sequence** — `setup` → `prep` → `main` →
+identical required anchor sequence** — `setup` → `prep` → `main` →
 `retro` → `cleanup`, platform-fixed, declarable by neither axis, for
 the identical re-resolution reason ticket skeletons aren't
 (`dsl-syntax.md` §15.1): the anchor a container parked mid-sequence
 falls back to when a workflow cutover changes what a queue dispatches
-underneath it. What varies per declared container is its **name** and
-what each of its five anchor entries' `flow:` *points at* — a
-registered ticket-skeleton type (a **work flow**) or another declared
-container's name (a **container flow**), the same registry either way
-(`dsl-syntax.md` §15.2) — never the anchor names, their count, or
-their order. Nothing requires a container's queues to bottom out in
+underneath it. This is a required backbone, never an exclusive
+membership (a seventh-pass reversal, ORC-148, below): a container's
+array may additionally hold a bare generation-shaped entry, a second
+population anchor, gates or environments around that backbone. What
+varies per declared container is its **name** and what each of its
+population-anchor entries' `flow:` *points at* — a registered
+ticket-skeleton type (a **work flow**) or another declared container's
+name (a **container flow**), the same registry either way
+(`dsl-syntax.md` §15.2) — never the anchor names or their required
+relative order. Nothing requires a container's queues to bottom out in
 tickets at all: with more than one work type, "is this a ticket"
 stops being definable, and a queue sequence built entirely from
 container-opening queues is legitimate. Declaring `epic` gets

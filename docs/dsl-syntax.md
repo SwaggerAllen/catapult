@@ -741,14 +741,19 @@ Added with the two axes and the declarable protocol surface (v5
 - **a `type:` name is unique in the loaded union, whatever `skeleton:`
   it declares or omits** — `container`- and `ticket`-skeleton types
   and skeleton-less types share one namespace (§15.2);
-- **every `container`-skeleton type's `statuses:` array holds exactly
-  the five platform-fixed anchor names, each exactly once, in exactly
-  this order: `setup`, `prep`, `main`, `retro`, `cleanup`, followed by
-  `terminal`** (§15.1) — the container analogue of a ticket's system
+- **every `container`-skeleton type's `statuses:` array holds the five
+  platform-fixed anchor names each at least once, in that relative
+  order — `setup`, `prep`, `main`, `retro`, `cleanup` — followed by
+  `terminal` exactly once, last** (§15.1, a seventh-pass reversal,
+  ORC-148: a skeleton fixes a required backbone, never an exclusive
+  membership, so a type's array may additionally hold anything else
+  the closed vocabulary allows around that backbone — a bare
+  generation-shaped entry, a second population anchor, gates,
+  environments) — the container analogue of a ticket's system
   statuses, declarable by neither axis for the identical
-  re-resolution reason. A missing name, a duplicate, an extra name, or
-  the five out of order is a load error naming the declaration and
-  the mismatch;
+  re-resolution reason. A missing name, a `terminal` that recurs or
+  does not close the array, or the five out of their required relative
+  order is a load error naming the declaration and the mismatch;
 - **every `ticket`-skeleton type's `statuses:` array opens with
   `pending`, closes with `terminal`, and holds at least one
   generation-shaped entry (`generation`, `design` or `architecture`,
