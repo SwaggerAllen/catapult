@@ -1599,9 +1599,10 @@ checks what a project declares**:
   label mappings. Shape settled in §7.10: tier-side `delivery:`
   annotations and flow ticket faces extend the existing syntax
   (membership declared at the member, protocol defining only the
-  slots); spawn is a plane rule at the Building transition; only
-  `states.yaml` / `types.yaml` / `escalation.yaml` remain standalone
-  — the files with no design-graph counterpart.
+  slots); spawn is a plane rule, keyed to the plan naming its own
+  children rather than to a status transition (§7.10's own amendment);
+  only `states.yaml` / `types.yaml` / `escalation.yaml` remain
+  standalone — the files with no design-graph counterpart.
 
 **Bundle evolution over a populated graph is a cutover, not an
 edit** (docs review pass). Additive changes — new tiers, new edges —
@@ -1912,7 +1913,10 @@ sitting beside it.
   composed diff, which pre-exists as the reconciliation vehicle —
   against the feature's argument, merges to main. The composition
   check orchestration's pre-merge placement "genuinely lost" comes
-  back at the feature level.
+  back at the feature level. **"Reconcile" here names the `reconcile`
+  system status** (`dsl-syntax.md` §15.1, §15.11; §7.19 below,
+  ORC-151) — the read is a distinct, required step from the mechanical
+  merge that follows it, not a description of `merge` doing both.
 - **Deploys are per-feature.** Features merge dark behind their flag
   (§2.10); post-deploy validation runs against the feature's
   affordances/states; the author's flagged-in validation happens on
@@ -1938,16 +1942,44 @@ state.
 
 - Feature lifecycle: `Todo → Product design → Product review (author)
   → Architecting → Architecture review (author — the sketch review) →
-  Building (children in flight; progress = sub-issue roll-up) →
-  Reconciling → Merged → Validating → Shipped/Done`, `Blocked`
-  anywhere. Two author gates, per orchestration's touchpoint budget;
-  entry tier (§7.3) determines which early states are skipped.
+  Implementation → Checks → Reconciling → Merged → Validating →
+  Shipped/Done`, `Blocked` anywhere. Two author gates, per
+  orchestration's touchpoint budget; entry tier (§7.3) determines which
+  early states are skipped. **No `Building` state between architecture
+  review and `Implementation`, retired along with the system status it
+  named** (`dsl-syntax.md` §15.1, §15.11, ORC-151's third design
+  review): the feature's own implementation is real dispatched work,
+  `Implementation` (named at ORC-151's fourth design review,
+  `dsl-syntax.md` §15.1), immediately after architecture review passes
+  — not a wait. What `Building` used to mark, children still in
+  flight, is now `Reconciling`'s own entry precondition rather than a
+  status of its own: once the feature's own `Implementation` and
+  `Checks` complete, the ticket sits at `Checks` for as long as its
+  own children take to finish their own subflows, which is the
+  identical dwell `Building` used to visualize, needing no separate
+  status to do it in.
 - Child lifecycle: orchestration's states nearly verbatim — `Ready
   for dev → In progress → Checks → Reconciling → Merged → Done`, plus
   `Ready for rework / Reworking`, design states gone: children are
   born past design (their design is the parent's approved docs),
   entering at `Ready for dev` by construction — which is how
-  every-ticket-gets-a-design-pass is satisfied at the parent.
+  every-ticket-gets-a-design-pass is satisfied at the parent. **This is
+  the generic shape — one undifferentiated generation-shaped visit —
+  and it is a second declared type, never the feature type
+  depth-filtered, settled at ORC-151's fourth design review**
+  (`dsl-syntax.md` §15.11): `design`/`Product design` is feature-only
+  vocabulary with no depth-based way to no-op below the root, so a
+  component or subcomponent instance cannot legally be running
+  `types/feature.yaml`'s own array. **A child spawned by architecture's
+  own recursive fan-out (comparch/subcomparch, `dsl-syntax.md` §15.11)
+  runs a third, richer type instead of this one** — `In progress` split
+  into its own `Architecting`/`Implementation` pair, each with its own
+  review, the identical split the feature lifecycle above just took —
+  because that child's own artifact needs the same reading before it
+  merges that the feature's does. An ordinary child entering directly
+  at implementation, with no architecture review of its own to run
+  (§7.3's entry-tier taxonomy), still runs this simpler bullet's own
+  shape unchanged.
 - **`Stubbed`** — machinery-filed swap tickets only (§2.16):
   committed work deliberately waiting on an external timeline. Passes
   the admission test with a distinct who-has-the-ball answer — the
@@ -2739,8 +2771,8 @@ counterpart:
   |---|---|---|---|
   | grey | `#bec2c8` | not scheduled | Backlog; Stubbed (deliberate wait — its own column is its visibility; the color needn't shout) |
   | light grey | `#e2e2e2` | queued | Todo, Ready for dev, Ready for rework |
-  | violet | `#9b8fd4` | a generation agent is working | Product design, Architecting |
-  | green | `#4cb782` | building | Building, In progress, Reworking |
+  | violet | `#9b8fd4` | a generation agent is working | Product design, Architecting, Implementation |
+  | green | `#4cb782` | building | In progress, Reworking |
   | yellow | `#f2c94c` | machinery verifying/shipping | Checks, Merged (awaiting deploy), Validating |
   | cyan | `#26b5ce` | reconcile agent | Reconciling |
   | orange | `#f2994a` | the author's sign-off | Product review, Architecture review |
@@ -2750,15 +2782,25 @@ counterpart:
   Rule two, carried with its reason: **Done is deliberately grey,
   not green** — finished work is out of mind, and green is spent on
   work in flight. Nothing reads colors back; they exist so the
-  author sees the queue without reading it.
+  author sees the queue without reading it. **`Building` drops from
+  the green row, retired along with the status it named**
+  (`dsl-syntax.md` §15.1, ORC-151's third design review): a feature
+  runs its own `Implementation` (violet, above — real dispatched work,
+  ORC-151's fourth design review), then sits at `Checks` while its own
+  children build, and `Checks` already carries the yellow row above —
+  no separate wait-status, no separate color for it.
 - `types.yaml` — ticket types, per-type lifecycles, PR topology
   (feature: base main, squash; child: base parent branch, merge).
 - `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
   markers as the only project-override surface.
 
 CI suite selection is *derived*, not declared: gate phases are
-docs-phases → `ci:docs`; Building → `ci:code`. A `ci.yaml` exists
-only if a real exception ever forces it.
+docs-phases → `ci:docs`; a ticket's own `implementation` phase
+(`dsl-syntax.md` §15.1, ORC-151's fourth design review — `Building`
+no longer names this transition, and it is real dispatched work
+rather than the bare `checks` an earlier pass stood in for it) →
+`ci:code`. A `ci.yaml`
+exists only if a real exception ever forces it.
 
 **Agents are three layers, changing at three rates.** The writer
 matrix carries *roles* only — authority, invariant across
@@ -3207,18 +3249,37 @@ graph is materialized at intake, so scopes exist from the first pass
 and `ready_scopes` ranges over them; generation dispatches per scope
 and the log carries per-scope events from the beginning. The *ticket*
 tree is a separate, deliberately coarser projection of the same
-fanout (§7.2), and its children spawn at `Building`, where the plan
-document has proved independent parallel work exists — depth earned,
-never reflexive. So during an architecture pass there is **one**
-feature ticket sitting in `Architecting` while N scopes generate
-beneath it. Per-scope pause and resume needs no early ticket fanout
-and must not be read as an argument for one.
+fanout (§7.2), and its children spawn when the plan document proves
+independent parallel work exists — depth earned, never reflexive,
+never at a status transition (§7.10's own amendment, corrected here to
+match: an earlier draft of this paragraph had children spawning "at
+`Building`," which §7.10 had already retired in favor of spawning at
+plan-node-naming time by the point this section was itself written,
+and the correction was never carried over).
 
-The consequence is about what the author sees: with no per-scope
-tickets during design, a paused pass surfaces on the parent ticket
-and on the dashboard's unbuilt-scope count, and nowhere else. That
-count is not a convenience during intake — it is the only progress
-surface there is.
+**For the architecture tree specifically, scope and ticket are the
+same grain, settled at ORC-151.** A `critique` decline needs to land
+on the one tier that produced what it declined, never on a sibling or
+a parent (`dsl-syntax.md` §15.5, §15.11) — which a ticket sitting in
+one status covering several fanned-out scopes at once cannot give it,
+since a ticket has one status at a time (§7.19). So sysarch, each
+comparch and each subcomparch dispatches through its own ticket
+instance, spawned the identical way any other component or
+subcomponent child already is, one level at a time as the plan proves
+each layer's own independent parallel work — not a second grain this
+paragraph's own distinction argues against, since the distinction
+above is about *when* graph nodes and ticket nodes each come to exist,
+not about how finely either fans out. A tier whose own critique never
+needs an independent bounce — this section's own subject, an internal
+architecture pass pausing and resuming mid-run — still dispatches per
+scope beneath whichever ticket its own fan-out level sits at; nothing
+about resumption below changes for it.
+
+The consequence is about what the author sees: a paused pass surfaces
+on the ticket currently dispatching and on the dashboard's
+unbuilt-scope count. That count is not a convenience during intake —
+it is the progress surface for whatever is not itself already a
+ticket the author can watch directly.
 
 What that requires of the executor, stated so it is built that way
 rather than discovered later:
@@ -4133,6 +4194,266 @@ exists. (`ticket_types:` and `after:`, both a gate's own fields at the
 time this paragraph was written, are retired outright at ORC-105 —
 §7.8 above and `dsl-syntax.md` §15.3 respectively — so neither applies
 to it at all anymore, rather than merely applying to an unread one.)
+
+**A second review status category, `reconcile`, joins `critique` as
+review-shaped — ORC-151, design pass.** `dsl-syntax.md` §15.1's fixed
+table has always had a fact missing: what an entry *does to the
+artifact*, as opposed to who holds the ball while at it. Every kind is
+either
+**generation-shaped** (`generation`, `design`, `architecture`) —
+originates an artifact — or **review-shaped** (`critique`,
+`reconcile`) — judges one that already exists. `reconcile` names what
+§7.5 above has always described as reading a produced PR against its
+own argument before merge, and what `Catapult.Dsl.SystemStatus
+.agent_steps/0` has always carried as `:reconcile` with no matching
+`phase:` to declare — until now, both the judgment and the mechanical
+join it precedes shared one kind, `merge`. `dsl-syntax.md` §15.1,
+§15.11 carries the grammar; the decision recorded here is the split
+itself and why it is a table growth rather than a bundle-declarable
+addition, the identical shape §7.8 above already used for
+`design`/`architecture`: `docs/non-goals.md`'s "No per-project
+restructuring of the automation protocol" entry covers it without
+amendment, because the admission rule it states ("a state may be
+declared iff no plane logic branches on it") is about what a bundle
+may declare, and nothing here grows that — the platform-fixed table
+itself is growing, the same way it grew for `design`/`architecture`.
+
+**`merge`'s own `ball` changes from `agent` to `plane`.** Once
+`reconcile` carries the judgment, the join into the parent branch is
+mechanical — the plane performs it the moment `reconcile` approves,
+barring a conflict, which routes to `Blocked` the ordinary way any
+agent-balled entry's failure already does. This is what removes the
+one named exception `Catapult.Delivery.ContainerLifecycle
+.inline_dispatch_point?/1` has carried since ORC-148's dev pass — a
+`status != "merge"` check inside a module whose own moduledoc asserts
+it branches on no status name at all. The predicate needed the name
+check only because `merge` was agent-balled without being a fresh
+dispatch point; once it is not agent-balled, "agent-balled and not
+review-shaped" already excludes it, and the exception disappears
+rather than needing documentation.
+
+**`reconcile` is required wherever `merge` appears, stated
+positionally — a design-review correction to this decision's own
+first pass, which had stated it as a `ticket`-skeleton rule.**
+`dsl-syntax.md` §15.11: a `merge` entry must be preceded, earlier in
+the same array, by a `reconcile` entry, a fact about that array's own
+contents rather than one keyed to which skeleton, if any, the citing
+type declares — reaching `container`-skeleton arrays too, which closes
+a gap the skeleton-keyed version left open (`dsl-syntax.md` §15.2's
+`milestone.yaml` worked example ran `setup` and `retro` each through a
+bare `checks → merge → deploy`, merging unread, twice). A
+generation-shaped entry with no adjacent `critique` simply runs no
+auto-review — a workflow's prerogative; nothing merges, of any
+skeleton, without having been read against its own argument first.
+`reconcile` may also recur, the way a generation-shaped entry and
+`merge` already could — `dsl-syntax.md` §15.11's own worked example
+carries two, one per phase closed, rather than one pinned between
+`checks` and a single `merge`.
+
+**Gate scope — an open question with no definition in this grammar
+before now — is derived from position relative to the nearest
+`reconcile` entry before it, not declared.** `reconcile` may recur
+(above), so this is not a single before/after split: a gate earlier
+than every `reconcile` in a type's own effective sequence approves
+that tier's own artifact alone; one sitting after a `reconcile`
+approves what the nearer one has already read and accepted, superseded
+again by whichever `reconcile` follows it later in the array — and,
+settled at this same review's third pass (below), approves content
+already merged onto the citing instance's own branch, not merely read
+by the reconcile agent. This settles nothing about what a passed gate
+*pins* — `dsl-syntax.md` §15.10's own answer to that (the sub-array's
+one generation-shaped entry) is unaffected for a gate inside a
+sub-array — it gives the *other* case, a gate positioned relative to a
+join rather than to a single draft, a structural answer for the first
+time. No new field: a `scope:` field restating what array position
+already determines was considered and rejected on the identical
+reasoning `throwback:`'s own narrowing already used (`dsl-syntax.md`
+§15.10) — a fact computable from position does not need a bundle
+author to restate it.
+
+**`fanout` retires from the fixed table, at this same review's third
+pass.** It named a status the feature ticket sat in "while children in
+flight, progress rolls up," and nothing ever dispatched from it — the
+shipped default bundle had already dropped the anchor by ORC-104. Its
+only remaining job, marking the wait before a ticket's own
+implementation-phase `reconcile` can run, is now a load-bearing
+*precondition on entering that `reconcile`* (below), not a status to
+sit in meanwhile — a real status kind needs a dispatch of its own to
+justify existing, and this one had none left. `dsl-syntax.md` §15.1,
+§15.11 carries the grammar; the edge type of the identical name
+(`Catapult.Dsl.Edge`'s `@types`, node-id minting "at fanout time") is
+untouched — this is a status-kind retirement, not a rename that
+reaches the minting mechanism architecture's own generation tier
+still uses.
+
+**Architecture's own fan-out dispatches through the ticket tree, one
+instance per tree level, rather than through one ticket spanning every
+level — settled at this same review's third pass, correcting the
+decision's own second pass.** That pass's own worked example ran a
+single `architecture, depth: 2` visit inside one ticket, dispatching
+comparch and subcomparch as scope-runs beneath it. That cannot give a
+subcomparch `critique` its own bounce: a ticket has one status at a
+time (above), so a decline on any one scope regenerates everything the
+single ticket's single visit fanned out, sysarch through subcomparch
+alike — no `depth:` value narrows a throwback to one branch, because
+depth was never able to say "only this branch." Sysarch, each comparch
+and each subcomparch instead dispatches through its own ticket
+instance of the identical declared type, spawned the way a feature's
+own component and subcomponent children already spawn — "when the
+plan node names them" (§7.10 above), recursively, one level at a time,
+wherever the plan proves independent parallel work exists — not a
+second spawn mechanism, and not a change to the grain rule (§7.2)
+that already governs how far any fan-out earns a child. §7.15's own
+account of ticket spawning is corrected to match: an earlier draft had
+children spawning "at `Building`," which this section had already
+retired in `Building`'s own favor before that correction was carried
+through everywhere it needed to be.
+
+**Merge becomes implicit for every instance but the root — the third
+pass's own largest structural change, and not a rule about subflows or
+grouping.** Two rules, read as the completion rule above applied
+twice: a ticket cannot enter its own `reconcile` until every child
+blocking its completion has finished that child's own subflow
+(§7.2's child-blocks-parent, as a precondition on entry rather than
+only on completion); and the moment a ticket enters `reconcile`, the
+plane mechanically merges every child now ready, before the reconcile
+agent run reads what they produced. `merge`'s own depth is 0 by rule,
+the identical posture a gate's own depth 0 already has — a mechanical
+join belongs to the root because "the root" is what merging into main
+means — which is what keeps `merge` out of every non-root instance's
+own effective sequence: excluded by the same ceiling mechanism as any
+entry too deep for it, nothing added. Every `ticket`-skeleton type
+still declares exactly one `merge`, reconcile-preceded, load-checked
+exactly as before; what changes is that only the root instance ever
+reaches it by its own dispatch, and every other instance's copy of the
+identical declaration means "merge, once your parent says so." **This
+withdraws a claim the second pass made, rather than merely correcting
+one it hadn't:** implying `merge` from tree shape is not plane logic
+branching on grouping, and it was never in tension with
+`docs/non-goals.md`'s automation-protocol entry — that entry's own
+admission rule is about *states*, extended by `dsl-syntax.md` §15.10
+to *groupings* of already-legal entries because a sub-array is an
+authored choice; the trigger this decision actually uses is the
+doc-graph tree's own shape, a runtime fact the plane observes the
+identical way spawning itself already does, never vocabulary a bundle
+declares or arranges.
+
+**`reconcile` does not gain a `depth:`, reversing this decision's own
+second pass.** That pass gave the first occurrence `depth: 1` and let
+the second inherit depth 0 from its own omission; both readings assume
+one ticket dispatching a join at several depths, which the correction
+above retires. Once architecture dispatches per instance, whether a
+given instance runs its own `reconcile` is a fact about that
+instance's own children — has it any work beneath it needing a join —
+never a declared ceiling: a ceiling would only restate what the tree
+already settles. `depth:` stays exactly where it narrows something the
+tree's own shape does not answer by itself, on a gate and on
+`critique`, both of which review a level regardless of whether that
+level has children at all. This also retires the widened
+never-validated-against-the-chain posture the second pass gave
+`reconcile`, along with the gap it named there: there is no ceiling
+left to set too shallow, so there is nothing left to silently drop.
+
+**A chain bundle may attach a synthesis tier to a `reconcile`
+position, and does not have to.** The `synthesis` edge type
+(`dsl-syntax.md` §4, `Catapult.Dsl.Edge`'s `@types`) already exists
+for exactly this: a generation tier with edges to child nodes and/or
+their critiques, plus the tier it synthesizes into, declaring `phase:
+reconcile`. `reconcile` the status needs no such tier to mean
+something — the mechanical merge and the reconcile agent's own read
+(§7.5 above) happen regardless, so a bundle declaring none still gets
+a real, structurally present fan-in for gate-scope and staleness
+derivation; declaring one only decides whether a human reading the
+post-join gate sees an authored document or the composed diff alone.
+
+**`implementation` joins the fixed table as a third named generation
+kind, at this same review's fourth pass.** The third pass's own worked
+example dispatched a tier's code through a second, bare `checks` entry
+— but `checks` is world-balled CI against produced work; nothing in
+that shape ever wrote the code `checks` then ran against.
+`implementation` names the generation run that actually produces it,
+generation-shaped on the identical footing `design` and `architecture`
+already stand on (`dsl-syntax.md` §15.1). It is deliberately gateless
+in the default bundle: the touchpoint budget (§7.10 above) calibrates
+a feature to two author gates, product and architecture, and a third
+keyed to implementation is the "restricted scopes carry a third
+touchpoint" exception rather than the ordinary case — architecture and
+policy are what constrain intention narrowly enough that no ordinary
+scope needs a human reading the code it produces.
+
+**Two type declarations, not one array depth-filtered — settled at
+this review's fourth pass, answering a question the third pass's own
+worked example left open.** That pass instantiated "one declared
+type… once per node the plan names," the feature ticket included, at
+depth 0 of its own array. That cannot be the feature's own type:
+`design` and its product review are feature-only, and neither `design`
+nor a bare `status:` entry carries a `depth:` field to make it no-op
+below the root the way a gate or `critique` already can. The feature
+type (design → architecture → implementation → merge, one instance,
+ever) and the type architecture's own fan-out spawns (architecture →
+implementation, recurring per tree level) are therefore two separate
+declarations sharing the vocabulary, never one array read two ways.
+This is v5 §7.6's own "Child" lifecycle, read correctly for the first
+time: a child spawned by architecture's own recursive fan-out runs
+this second, richer type — its own `In progress` split into
+`Architecting`/`Implementation`, mirroring the feature's own split —
+while an ordinary child entering directly at implementation, with no
+architecture review of its own to run, still runs §7.6's simpler
+generic shape unchanged. It is also the exercised case behind this
+ticket's own "two types declaring different ceilings" precedent
+(`dsl-syntax.md` §13's never-validated-against-the-chain posture for
+`depth:`): the fan-out type's own gates reach one level deeper than
+the feature type's ever need to, because the two types fan to
+different depths by declaration, not by anything the chain claims.
+
+**`pending` recurs, once per generation-shaped entry's own sub-array —
+a fourth-pass tightening of the original "somewhere earlier in the
+array" reading.** A single leading `pending` used to license every
+later generation-shaped entry in the same array, which satisfied the
+load-time check while leaving a second or third such entry nowhere to
+wait for dispatch capacity — invisible while `fanout` still gave a
+ticket somewhere else to sit meanwhile, load-bearing now that `fanout`
+retires (above) and `pending` is the only plane-balled wait position
+left. `dsl-syntax.md` §13 states the check in full; the consequence
+that matters here is throwback's own derived default (§15.10), which
+now falls back to a generation-shaped sub-array's own leading `pending`
+rather than straight to the generation-shaped entry itself — matching
+this section's own repair-loop mapping, `Ready for rework`(pending) /
+`Reworking`(generation), rather than skipping the queued wait every
+other entry into that status goes through.
+
+**The same declared gate may be cited twice within one type's own
+array, at this same pass.** `architecture-review`, cited once before a
+`reconcile` (scoped to the tier's own artifact) and once after
+(scoped to what that `reconcile` has joined), is the gate-and-
+environment analogue of `critique`'s own established precedent —
+citing a system status more than once to give two generation phases
+different depths. A gate is a named declaration rather than a system
+status, but the same reasoning applies: depth and scope are facts
+about a citation's *position*, not about the declaration, so two
+citations of the same gate are two positions computing two different
+answers from the identical declared `role:`/`escalation:`/`throwback:`.
+
+**`checks` sits between a generation-shaped entry and the `critique`
+that reviews it, wherever a sub-array declares both — a fifth-pass
+correction, not a new field.** Every worked example `dsl-syntax.md`
+§15.2 and §15.11 carried had `checks` running after `critique` instead,
+in two cases after the human gate as well, so a reviewer could sign off
+on a draft CI had not yet run against. Machine validation runs first:
+neither an agent's `critique` nor a human gate should spend a read on
+a draft that fails CI. `dsl-syntax.md` §13 and §15.5 carry the grammar
+— `critique`'s own adjacency rule now reads "immediately after a
+generation-shaped entry, or immediately after that entry's own
+`checks`, never before it" — and `dsl-syntax.md` §15.1's own mapping
+onto this section's lifecycles is corrected to match, one `Checks` per
+generation-shaped visit, positioned before its review.
+
+**Not in this ticket's scope**, named because a reader following
+`reconcile`'s own thread might look for them here: the critique
+threshold and its conditional throwback (ORC-150) — a threshold
+becomes easier to state once review-shaped is a named category, but
+declaring one is not this decision; and ORC-150's container-dispatcher
+corrections, unaffected by anything above.
 
 ---
 

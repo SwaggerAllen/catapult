@@ -25,10 +25,20 @@ defmodule Catapult.Dsl.Workflow do
   the runtime pick (`throwback_targets/3`, `throwback_legal?/4`) share
   `earlier_names/2` rather than agreeing by coincidence, and
   `throwback_default/3` supplies the landing point: the gate's own
-  declared target, else the citing sub-array's own non-critique agent
-  step. None of it is stored — a stored default would be a second home
-  for a fact the citing type's array already carries, and a workflow
-  cutover could not re-resolve it (§15.1).
+  declared target, else the citing sub-array's own non-review-shaped
+  agent step. None of it is stored — a stored default would be a second
+  home for a fact the citing type's array already carries, and a
+  workflow cutover could not re-resolve it (§15.1).
+
+  **A `merge` entry must be preceded, earlier in the same array, by a
+  `reconcile` entry — stated positionally rather than per skeleton, at
+  ORC-151's design review** (§15.1, §15.11): nothing merges, of any
+  skeleton, without first having been read against its own argument
+  (`docs/v5-design-decisions.md` §7.5). `merge_reconcile_problems/1`
+  checks this over every declared array, `container`-skeleton ones
+  included — closing the gap the ticket-skeleton-only framing left open
+  (`types/milestone.yaml`'s own `setup`/`retro` sequences used to merge
+  twice with nothing read first).
 
   Two of §13's checks need data this loader is never handed in Phase 3
   — a gate's role holders live in the identity component (Phase 7,
@@ -59,7 +69,7 @@ defmodule Catapult.Dsl.Workflow do
         }
 
   @container_required_order ~w(setup prep main retro cleanup)
-  @ticket_status_names ~w(pending generation design architecture critique checks merge deploy terminal)
+  @ticket_status_names ~w(pending generation design architecture implementation critique checks reconcile merge deploy terminal)
 
   @doc "Loads and validates the workflow bundle named `name` under `bundles_root`."
   @spec load(String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, [String.t()]}
@@ -112,6 +122,8 @@ defmodule Catapult.Dsl.Workflow do
         generation_blocked_exit_problems() ++
         pending_precedes_problems() ++
         skeleton_shape_problems(type_map) ++
+        merge_reconcile_problems(type_map) ++
+        pending_precedes_generation_problems(type_map) ++
         critique_adjacency_problems(type_map) ++
         flow_reference_problems(type_map) ++
         review_reference_problems(type_map, gate_map) ++
@@ -251,7 +263,7 @@ defmodule Catapult.Dsl.Workflow do
   Where a decline at `gate_name` lands by default for a ticket of type
   `type_name` (§15.10): the gate's own declared `throwback:` when it
   names one, otherwise the derived default — the citing sub-array's own
-  non-critique agent step.
+  non-review-shaped agent step.
 
   Never the array position immediately before the gate. That reading
   fails the shape §15.10 argues from, `[milestone-signoff, retro,
@@ -302,7 +314,7 @@ defmodule Catapult.Dsl.Workflow do
       range ->
         type.statuses
         |> Enum.slice(range)
-        |> Enum.find_index(&Status.non_critique_agent_step?/1)
+        |> Enum.find_index(&Status.non_review_shaped_agent_step?/1)
         |> case do
           nil ->
             nil
@@ -398,13 +410,14 @@ defmodule Catapult.Dsl.Workflow do
   # load time so a defect in that skeleton (not in any one bundle) is
   # what it would catch.
   defp generation_blocked_exit_problems do
-    for kind <- [:generation, :design, :architecture], not SystemStatus.can_block?(kind) do
+    for kind <- [:generation, :design, :architecture, :implementation],
+        not SystemStatus.can_block?(kind) do
       "platform defect: the fixed system-status skeleton has no path from #{kind} to blocked"
     end
   end
 
   defp pending_precedes_problems do
-    for kind <- [:generation, :design, :architecture, :deploy],
+    for kind <- [:generation, :design, :architecture, :implementation, :deploy],
         not SystemStatus.pending_precedes?(kind) do
       "platform defect: the fixed system-status skeleton has no pending precedent for #{kind}"
     end
@@ -501,9 +514,6 @@ defmodule Catapult.Dsl.Workflow do
             "#{inspect(List.last(names))}"
         ]
 
-      Enum.count(names, &(&1 == "pending")) > 1 ->
-        ["type #{inspect(name)}'s statuses: declares pending more than once (§15.1)"]
-
       Enum.count(names, &(&1 == "terminal")) > 1 ->
         ["type #{inspect(name)}'s statuses: declares terminal more than once (§15.1)"]
 
@@ -546,6 +556,134 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
+  ## `reconcile` before `merge` (§13, §15.11, ORC-151): a fact about the
+  ## array's own contents, checked identically whichever skeleton, if
+  ## any, the citing type declares — `merge`'s own ball is `plane`
+  ## (§15.1), so nothing merges without first having been read against
+  ## its own argument (`docs/v5-design-decisions.md` §7.5). Stated
+  ## positionally rather than folded into the ticket-skeleton backbone
+  ## list above: `reconcile` is required wherever `merge` is, not merely
+  ## once per ticket-skeleton array, and it reaches `container`-skeleton
+  ## arrays too.
+
+  defp merge_reconcile_problems(types) do
+    for {type_name, type} <- types do
+      names = anchor_names(type)
+
+      names
+      |> Enum.with_index()
+      |> Enum.filter(fn {name, i} ->
+        name == "merge" and "reconcile" not in Enum.take(names, i)
+      end)
+      |> Enum.map(fn {_name, i} ->
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, anchor_index(type, i))} is " <>
+          "merge, with no earlier reconcile entry in this type's own statuses: array (§13, §15.11)"
+      end)
+    end
+    |> List.flatten()
+  end
+
+  # `merge_reconcile_problems/1` walks anchor (`status:`) names alone, so
+  # its own index into that filtered list is not the effective-sequence
+  # index `Type.declared_path/2` expects — this re-finds the entry's
+  # real position, the same re-indexing `anchor_names/1`'s other callers
+  # would need if they rendered a path.
+  defp anchor_index(%Type{statuses: statuses}, anchor_occurrence) do
+    statuses
+    |> Enum.with_index()
+    |> Enum.filter(fn {%Status{status: s}, _i} -> not is_nil(s) end)
+    |> Enum.at(anchor_occurrence)
+    |> elem(1)
+  end
+
+  ## `pending` before every generation-shaped entry (§13, §15.1): the
+  ## first entry of that entry's own sub-array, when it sits in one
+  ## (§15.10); any earlier top-level `pending` otherwise — but never one
+  ## already spent on another generation-shaped entry. A single leading
+  ## `pending` used to license every later generation-shaped entry in
+  ## the same array; a design-review tightening retired that reading
+  ## (ORC-151) once `fanout` stopped giving a second such entry
+  ## somewhere else to sit meanwhile, so this walks the array in
+  ## declared order and tracks how many un-spent top-level `pending`s
+  ## have been seen — a grouped `pending` is never added to that pool,
+  ## since it is already dedicated to its own sub-array's entry.
+
+  defp pending_precedes_generation_problems(types) do
+    for {type_name, type} <- types do
+      type.statuses
+      |> Enum.with_index()
+      |> Enum.reduce({[], 0}, fn {status, index}, {problems, available} ->
+        pending_precedes_generation_step(type_name, type, status, index, problems, available)
+      end)
+      |> elem(0)
+    end
+    |> List.flatten()
+  end
+
+  defp pending_precedes_generation_step(
+         _type_name,
+         type,
+         %Status{status: "pending"},
+         index,
+         problems,
+         available
+       ) do
+    if is_nil(Type.group_at(type, index)) do
+      {problems, available + 1}
+    else
+      {problems, available}
+    end
+  end
+
+  defp pending_precedes_generation_step(
+         type_name,
+         type,
+         %Status{status: name},
+         index,
+         problems,
+         available
+       )
+       when is_binary(name) do
+    if SystemStatus.generation_shaped?(name) do
+      generation_pending_problem(type_name, type, index, problems, available)
+    else
+      {problems, available}
+    end
+  end
+
+  defp pending_precedes_generation_step(_type_name, _type, %Status{}, _index, problems, available) do
+    {problems, available}
+  end
+
+  defp generation_pending_problem(type_name, type, index, problems, available) do
+    case Type.group_at(type, index) do
+      nil ->
+        if available > 0 do
+          {problems, available - 1}
+        else
+          problem =
+            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
+              "generation-shaped, with no earlier pending entry left un-spent by another " <>
+              "generation-shaped entry in this type's own statuses: array (§13, §15.1) — one " <>
+              "pending per generation-shaped entry, never shared"
+
+          {[problem | problems], available}
+        end
+
+      range ->
+        if match?(%Status{status: "pending"}, Enum.at(type.statuses, range.first)) do
+          {problems, available}
+        else
+          problem =
+            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
+              "generation-shaped and grouped in a sub-array whose first entry is not pending " <>
+              "(§13, §15.1, §15.10)"
+
+          {[problem | problems], available}
+        end
+    end
+  end
+
   ## Critique adjacency (§13, §15.5): must sit immediately after a
   ## generation-shaped entry (generation, design or architecture) in
   ## the same type's array — no skeleton check needed, since whether a
@@ -561,14 +699,25 @@ defmodule Catapult.Dsl.Workflow do
       labels
       |> Enum.with_index()
       |> Enum.filter(fn {label, i} ->
-        label == {:status, "critique"} and (i == 0 or not generation_shaped_label?(labels, i - 1))
+        label == {:status, "critique"} and not critique_adjacent?(labels, i)
       end)
       |> Enum.map(fn {_label, i} ->
         "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, which must " <>
-          "sit immediately after a generation-shaped entry (§13, §15.5)"
+          "sit immediately after a generation-shaped entry, or that entry's own checks (§13, §15.5)"
       end)
     end
     |> List.flatten()
+  end
+
+  # A `critique` is adjacent when it directly follows a generation-shaped
+  # entry, or directly follows that entry's own `checks` — never before
+  # it (a fifth-design-review addition, ORC-151): `checks` runs first,
+  # so neither an agent's critique nor a human gate reads a draft CI has
+  # not yet validated.
+  defp critique_adjacent?(labels, i) do
+    i > 0 and
+      (generation_shaped_label?(labels, i - 1) or
+         (checks_label?(labels, i - 1) and i > 1 and generation_shaped_label?(labels, i - 2)))
   end
 
   defp generation_shaped_label?(labels, index) do
@@ -577,6 +726,8 @@ defmodule Catapult.Dsl.Workflow do
       _review_or_environment -> false
     end
   end
+
+  defp checks_label?(labels, index), do: Enum.at(labels, index) == {:status, "checks"}
 
   defp entry_label(%Status{status: s}) when not is_nil(s), do: {:status, s}
   defp entry_label(%Status{review: r}) when not is_nil(r), do: {:review, r}

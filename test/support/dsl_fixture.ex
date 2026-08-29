@@ -86,6 +86,7 @@ defmodule Catapult.Dsl.Fixture do
         - status: generation
         - review: product-review
         - status: checks
+        - status: reconcile
         - status: merge
         - status: deploy
         - status: terminal

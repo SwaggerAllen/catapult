@@ -495,6 +495,215 @@ context-source kinds, and audit profiles.
   work `systems/delivery.md` files against its own Target list — all
   dev's diff against this record, not design's.
 
+- **ORC-151 (design pass) splits the fixed vocabulary's `merge` kind
+  in two, naming the review it always implied** (`docs/dsl-syntax.md`
+  §15.1, §13, §15.5, §15.10, new §15.11; `docs/v5-design-decisions.md`
+  §7.5, §7.19). `merge` carried two jobs at once — reading a produced
+  PR against its own argument, and mechanically joining it into the
+  parent branch — and `Catapult.Dsl.SystemStatus.agent_steps/0` has
+  carried `:reconcile` since Phase 3 with no matching `phase:` to
+  declare it against. `reconcile` joins the fixed table as the second
+  **review-shaped** kind alongside `critique` (the parallel category to
+  "generation-shaped," named for the first time this pass), agent-balled
+  and required — stated positionally, not per skeleton, at this same
+  pass's own design review — wherever a `merge` entry appears: a
+  `merge` entry must be preceded, earlier in the same array, by a
+  `reconcile` entry, `container`-skeleton arrays included (closing a
+  gap the skeleton-keyed framing left open — `dsl-syntax.md` §15.2's
+  `milestone.yaml` example previously ran `setup` and `retro` each
+  through a bare `checks → merge → deploy`, merging unread), never
+  opt-in the way `critique` is, since no ticket merges without having
+  been read against its own argument first. `reconcile` may also
+  recur, the way a generation-shaped entry and `merge` already could —
+  `dsl-syntax.md` §15.11's own worked example carries two, one closing
+  the architecture phase's own join and one closing implementation.
+  `merge`'s own `ball` changes from `agent` to `plane`: mechanical,
+  effected by the plane once `reconcile` approves, barring a conflict
+  (which routes to `Blocked` the ordinary way). This closes the finding
+  ORC-148's own dev pass filed against itself: `Catapult.Delivery
+  .ContainerLifecycle.inline_dispatch_point?/1` excluded `merge` by
+  name, inside a module whose own moduledoc asserts it branches on no
+  status name — the predicate generalizes to "agent-balled and not
+  review-shaped," which excludes `merge` because it is no longer
+  agent-balled, needing no name check. The sub-array anchor rule
+  (§15.10) generalizes the identical way: "non-critique agent-balled"
+  becomes "non-review-shaped agent-balled," admitting any number of
+  `reconcile` entries alongside `critique` ones without counting toward
+  the sub-array's required-one anchor. **Gate scope is derived from
+  position relative to the nearest `reconcile` before it** — a gate
+  earlier than every `reconcile` in a type's own array approves the
+  citing tier's own artifact; one sitting after a `reconcile` approves
+  what that `reconcile` has already joined and, per this same ticket's
+  third design review below, already **merged** in from every child
+  beneath it, superseded again by a later `reconcile` if one follows —
+  closing a gap `v5-design-decisions.md` §7.16 left open (what a gate
+  scoped to a join, rather than to one generation's own sub-array,
+  approves), with no new field: computed from array position, the
+  identical "derive, don't declare" posture `throwback:`'s own default
+  already takes. **No `docs/non-goals.md` entry**, for the reason the
+  design record gives in full: growing this closed table is covered by
+  that file's existing admission rule without amendment, the same
+  non-entry `design`/`architecture` got at ORC-148. **Not built as part
+  of this pass:** the loader changes (`lib/catapult/dsl/system_status.ex`'s
+  `@statuses` table and `generation_shaped?/1`'s new sibling, `status
+  .ex`'s `non_critique_agent_step?/1` rename and generalization,
+  `workflow.ex`'s backbone and sub-array checks widening to include
+  `reconcile` and the new merge-preceded-by-reconcile positional
+  check), the `bundles/**` content that declares it, and the
+  dispatcher change `systems/delivery.md` files against its own Target
+  list — all dev's diff against this record, not design's.
+
+- **A third design review on this same ticket retires `fanout` from
+  the fixed table, moves architecture's own fan-out onto the ticket
+  tree, and makes `merge` implicit outside the root** (`docs/dsl-syntax.md`
+  §15.1, §13, §15.11; `docs/v5-design-decisions.md` §7.10, §7.15,
+  §7.19). Three changes, none reopening the split above:
+  **`fanout` retires**, its only remaining job (marking a feature's own
+  wait before its implementation-phase `reconcile`) now a dispatch
+  precondition rather than a status of its own — the edge type of the
+  identical name (`Catapult.Dsl.Edge`'s `@types`, node-id minting) is
+  untouched. **Architecture's own fan-out — sysarch, each comparch,
+  each subcomparch — dispatches through its own ticket instance of the
+  one declared type, spawned when the plan names it** (the existing
+  child-spawn rule, `v5-design-decisions.md` §7.10, applied
+  recursively) **rather than as `depth:`-filtered scope-runs inside one
+  ticket**, which could never give a subcomparch `critique` its own
+  bounce (a ticket has one status at a time, so one ticket's one
+  `critique` visit throws the whole tree back). `reconcile` itself
+  drops the `depth:` this ticket's second pass gave it: whether an
+  instance runs its own join is now a fact about that instance's own
+  children, never a declared ceiling. **`merge` becomes depth-0 by
+  rule and fires only at the root** — every `ticket`-skeleton type
+  still declares exactly one, reconcile-preceded, load-checked
+  unchanged; a non-root instance's own copy of that declaration never
+  reaches it by its own dispatch, and instead merges when its parent
+  enters `reconcile` (`v5-design-decisions.md` §7.2's child-blocks-parent,
+  read as a precondition on entry and, symmetrically, as the merge
+  trigger). This is not plane logic branching on grouping — the second
+  pass's own citation of `docs/non-goals.md`'s automation-protocol
+  entry against an implied-merge mechanism is withdrawn as a
+  misapplication of that entry's admission rule, which is about states
+  and, by §15.10's own extension, about groupings a bundle authors;
+  tree shape is neither. `docs/v5-design-decisions.md` §7.15's own
+  "children spawn at `Building`" passage, stale against §7.10's already-
+  recorded amendment before this pass, is corrected to match. **Not
+  built as part of this pass:** the same loader and dispatcher work
+  named above, now covering `SystemStatus.@statuses`'s `fanout` removal
+  and the tree-shape-derived `reconcile`/`merge` dispatch rather than a
+  depth-filtered one — all dev's diff against this record.
+
+- **A fourth design review on ORC-151 fixes five worked-example defects
+  the third pass's own draft left standing, and settles two questions
+  it left open** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.4, §15.5,
+  §15.10, §15.11; `docs/v5-design-decisions.md` §7.6, §7.10, §7.19).
+  **`implementation` joins the fixed table as a third named generation
+  kind** — the third pass's own worked example had dispatched a tier's
+  code through a bare second `checks`, but `checks` is world-balled CI
+  against produced work, never a generation run; deliberately gateless
+  in the shipped default (the touchpoint budget calibrates two author
+  gates, `v5-design-decisions.md` §7.10, and a third keyed to
+  implementation is that entry's own named exception, not the ordinary
+  case). **`pending` recurs, once per generation-shaped entry's own
+  sub-array**, tightening "somewhere earlier in the array" — with
+  `fanout` retired, `pending` is the only plane-balled wait position
+  left, and a shared leading `pending` licensing several sub-arrays at
+  once left later ones with nowhere to queue; throwback's own derived
+  default (§15.10) now falls back to a generation-shaped sub-array's
+  own leading `pending` rather than straight to its agent step,
+  matching the repair-loop mapping (`Ready for rework`/`Reworking`)
+  rather than skipping the queued wait. **A declared gate may now be
+  cited twice within one type's own array**, the analogue of
+  `critique`'s existing citing-it-more-than-once precedent, extended
+  from a system status to a named declaration — `architecture-review`,
+  cited once before a `reconcile` and once after, is the exercised
+  case. **Two type declarations, not one array depth-filtered**: the
+  third pass's own worked example had instantiated "one declared
+  type… once per node" with the feature ticket itself at its own depth
+  0, which cannot be `types/feature.yaml` — `design` has no `depth:`
+  field to make it no-op below the root the way a gate or `critique`
+  can — so the feature's own type and the type architecture's
+  recursive fan-out spawns are two separate declarations; this is
+  `v5-design-decisions.md` §7.6's "Child" lifecycle, read correctly for
+  the first time, not that document's own feature lifecycle
+  depth-filtered. Two further defects were comment/naming fixes with no
+  structural consequence: the worked example's own `merge` comment had
+  described children merging at their *own* dispatch of `merge` rather
+  than at their *parent's* `reconcile` (the rule was always the latter,
+  stated correctly elsewhere in the same section); and `comparch-review`
+  renamed to `architecture-review`, since naming a gate for the tier it
+  reviews is the implicit-anchor-meaning defect §11 exists to keep out,
+  and its own two positions already derive their different scopes from
+  where they sit, not from a second name. **Not built as part of this
+  pass:** the same loader and dispatcher work named above, now covering
+  the new kind, the two-type split, and the tightened `pending`/gate
+  checks — all dev's diff against this record.
+
+- **A sixth design review on ORC-151 closes one gap the fifth pass's
+  own fix left open** (`docs/dsl-syntax.md` §13, §15.5;
+  `docs/v5-design-decisions.md` §7.19). The fifth pass amended
+  `critique`'s load-time adjacency rule in §13 to admit an intervening
+  `checks` — "immediately after a generation-shaped entry, or
+  immediately after that entry's own `checks`, never before it" — but
+  the amendment landed only there. §15.5, the section §13's own
+  citation points at as the rule's other statement, still read the
+  pre-amendment sentence with no mention of `checks`, and three further
+  restatements inside §13 itself — the container/ticket-skeleton
+  interleaving passage, the `skeleton:`-decoupling section's own
+  "critique's admission" bullet, and the project-level widening
+  passage — were equally unamended, so every worked example the fifth
+  pass had just reordered was, read against any of those four sites
+  alone, a load error. All five now carry the identical caveat; §15.5's
+  own worked-example paragraph, which had
+  claimed "the adjacency rule above already says this precisely" while
+  the rule above did not yet say it, is folded into the rule statement
+  itself rather than left as a second, narrating paragraph. This is
+  the sixth consecutive round this ticket has corrected one statement
+  of a rule and left a sibling statement stale — `merge`, the reconcile
+  count, `checks`'s position, the child lifecycle, `pending`, and now
+  `critique`'s own adjacency rule against itself — so a rule with three
+  or more statements in this document (critique adjacency, `pending`
+  precedence, the depth-bearing sites, the generation-shaped kind list)
+  needs every statement edited in the same pass that changes any one of
+  them, not just the site a review happens to quote. **Not built as
+  part of this pass:** unchanged from the fifth pass's own note — the
+  loader and dispatcher work is dev's diff against this record, not
+  design's, and nothing here changes what it must cover.
+
+- **A fifth design review on ORC-151 fixes three defects the fourth
+  pass's own worked examples and lifecycle mapping left standing**
+  (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.5, §15.11;
+  `docs/v5-design-decisions.md` §7.19). **`checks` now sits between a
+  generation-shaped entry and the `critique` that reviews it**, not
+  after — every worked example had the order backwards, in two cases
+  running the human gate ahead of CI too. `critique`'s own load-time
+  adjacency rule (§13, §15.5) widens to admit an intervening `checks`
+  ("immediately after a generation-shaped entry, or immediately after
+  that entry's own `checks`, never before it"), and both worked
+  examples (`types/feature.yaml`, `types/component.yaml`) reorder to
+  match — one `checks` per generation-shaped sub-array, always ahead of
+  its `critique`. **§15.1's own lifecycle mapping is corrected to carry
+  three `Todo`s and three `Checks`, matching `feature.yaml`'s three
+  generation-shaped sub-arrays**, not the single occurrence of each it
+  showed before — a direct violation of this same ticket's own
+  `pending`-once-per-sub-array rule (§13), stated as a tracker
+  lifecycle rather than a load error. This is the fifth consecutive
+  pass the mapping and the worked example have disagreed (`merge`, the
+  reconcile count, `checks`'s position, the child lifecycle, now
+  `pending`), so the fix adds a standing instruction rather than a
+  sixth one-off correction: the two describe one type and are edited
+  together going forward. **`reconcile`'s own worked-example comments
+  are reworded from "present iff this instance has children" to match
+  how `depth:`'s own filtering is already described** — the array
+  entry is declared once for the type, unconditionally, like every
+  other entry; what varies per instance is whether its own *effective
+  sequence* selects anything from it, exactly the "derive, don't
+  declare" framing this same section already gives `depth:` itself.
+  The prior wording read as if the entry disappeared from a
+  per-instance copy of the array, which nothing here does. **Not built
+  as part of this pass:** the same loader and dispatcher work named
+  above, now covering the widened critique-adjacency check — dev's
+  diff against this record, not design's.
+
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
   §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`

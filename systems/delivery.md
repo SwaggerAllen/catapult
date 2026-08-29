@@ -32,11 +32,15 @@ orchestration uses Linear; that is a different system running a
 different loop, and it is unaffected by anything here. Catapult the
 platform does not talk to Linear at all.
 
-**Children spawn when the plan node names them, not at Building**
-(v5 §7.10): a depth-scoped gate sitting before Building is
-unclaimable unless its children exist by then. Creation is not
-dispatchability — early children sit pre-queue until the parent's
-design gates pass.
+**Children spawn when the plan node names them, not at a status
+transition** (v5 §7.10): a depth-scoped gate sitting before the
+child's own existence is unclaimable unless it exists by then.
+Creation is not dispatchability — early children sit pre-queue until
+the parent's design gates pass. **Architecture's own fan-out
+recurses the identical rule one level further, settled at ORC-151's
+third design review** (below): sysarch, each comparch and each
+subcomparch spawns its own ticket the same way, rather than
+generating as scope-runs inside one ticket.
 
 ## Standing decisions
 
@@ -911,13 +915,15 @@ design gates pass.
   gates *entry into* `retro` on its own findings, since the findings
   are what `retro` itself produces and adjudicates after it has already
   begun. **In the shipped `milestone` type, `retro` is followed by
-  `checks`, `merge` and `deploy`, then `cleanup` and `terminal`** — the
-  identical checks/merge/deploy sequence `setup` is also followed by
-  (`dsl-syntax.md` §15.2's worked example), since both are ordinary
-  agent-balled entries whose output takes the same CI/merge/promote
-  path any other agent-produced change does; the finding-adjudication
-  close gate above sits on `retro` itself, ahead of that sequence, not
-  on `cleanup`.
+  `checks`, `reconcile`, `merge` and `deploy`, then `cleanup` and
+  `terminal`** — the identical checks/reconcile/merge/deploy sequence
+  `setup` is also followed by, since both are ordinary agent-balled
+  entries whose output takes the same CI/reconcile/merge/promote path
+  any other agent-produced change does (`reconcile` named at ORC-151,
+  below — before it, this sequence read `checks`, `merge` and `deploy`,
+  with the same reconciling judgment carried inside `merge` rather
+  than named separately); the finding-adjudication close gate above
+  sits on `retro` itself, ahead of that sequence, not on `cleanup`.
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
@@ -1334,6 +1340,101 @@ design gates pass.
   `docs/dsl-syntax.md` §15.10 answers it structurally (ORC-115), so a
   surface needing gate staleness derives it there rather than
   reintroducing a pinned field on the event.
+
+- **ORC-151 (design pass) retires the one named exception
+  `inline_dispatch_point?/1` has carried since ORC-148, by removing
+  what made it necessary** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.5, §7.19). `merge`'s own `ball`
+  changes from `agent` to `plane` — the mechanical join into the
+  parent branch, effected by the plane once the new `reconcile` kind
+  approves, barring a conflict — so `merge` leaves the agent-balled set
+  this function filters over entirely. `inline_dispatch_point?/1`'s
+  `not queue_shaped? and non_critique_agent_step? and status !=
+  "merge"` simplifies to "agent-balled and not review-shaped": the
+  `status != "merge"` clause has nothing left to do, since `merge`
+  is no longer a candidate the first two clauses would admit. This is
+  the correction ORC-148's own dev pass named against itself — a
+  module whose moduledoc asserts it branches on no status name,
+  carrying one name check — closed by a grammar change rather than a
+  code-only fix, because the exception was never this system's to
+  invent: `merge` was agent-balled without being a dispatch point only
+  because one kind was doing two jobs (`docs/v5-design-decisions.md`
+  §7.19). **Reconciliation itself is not this pass's to build.**
+  `reconcile` is agent-balled and dispatches like any other inline or
+  chain-tier agent-balled entry — this system's existing uniform
+  dispatch (`ContainerLifecycle.open_for/3`'s `cond`, and the ordinary
+  `ready_scopes` path for a chain-tier `reconcile` on a ticket) needs
+  no new branch to carry it, once the loader recognizes the kind — but
+  what a `reconcile` agent run actually reads, writes and approves, and
+  the mechanical merge effect `merge`'s own `plane` ball now implies,
+  are Phase 7's, the same boundary every gate-mechanism entry above
+  already draws. **Not built as part of this pass:** the loader changes
+  named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
+  merge effect itself, and any `bundles/**` content declaring
+  `reconcile` — all dev's diff against this record, not design's.
+
+- **A third design review on this same ticket adds two facts this
+  system's own dispatcher will carry, past what the pass above scoped
+  as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
+  architecture's own fan-out (sysarch/comparch/subcomparch) now spawns
+  a ticket per tree level, the identical spawn rule this system already
+  states for a feature's component and subcomponent children (above,
+  "children spawn when the plan node names them, not at a status
+  transition") — recursed one level further than this doc's own spawn
+  discussion had needed to say so explicitly before now; a stale
+  restatement of the pre-amendment "at `Building`" rule this same
+  review found at `v5-design-decisions.md` §7.15 is corrected there,
+  not here. Second, a non-root instance's
+  own `merge` is triggered by its parent, not by its own dispatch:
+  entering `reconcile` is a precondition gated on every blocking
+  child's own subflow having finished (`v5-design-decisions.md` §7.2's
+  child-blocks-parent, read on entry rather than only on completion),
+  and reaching it is what fires the mechanical merge for every child
+  now ready — the identical `plane`-balled merge effect named above,
+  triggered from the parent's transition rather than the child's own.
+  `Catapult.Delivery.ContainerLifecycle`'s own precedent for an
+  entry-guard (its `blocks:` inversion, ORC-148, above) is the nearest
+  existing shape a dispatcher implementation would extend, not a new
+  concept this system invents; `fanout`'s own retirement (`dsl-syntax.md`
+  §15.1) removes the status `Catapult.Delivery.FeatureLifecycle.Sequence`
+  already described as vestigial, needing no further mechanism here
+  since nothing ever dispatched from it. **Not built as part of this
+  pass:**
+  the tree-spawn recursion into architecture, and the parent-triggered
+  merge cascade, both Phase 7's alongside everything the pass above
+  already deferred.
+
+- **A fourth design review on this same ticket names two facts this
+  system's own dispatcher will carry that the third pass's own worked
+  example got wrong, past what either pass scoped as "not this pass's
+  to build"** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.11;
+  `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
+  architecture's own fan-out spawns run a second, distinct type from
+  the feature ticket itself, not the feature's own array at a deeper
+  tree position** — the feature ticket dispatches through
+  `types/feature.yaml` (design → architecture → implementation →
+  merge, one instance ever); a comparch or subcomparch ticket
+  dispatches through a second declared type with no `design` phase of
+  its own, recurring per tree level, `v5-design-decisions.md` §7.6's
+  "Child" lifecycle correctly read for the first time. This system's
+  own type-registry lookup (above, "the loaded workflow is a
+  parameter, never resolved") already resolves whichever type a spawn
+  names, so the fact that a spawned child names a *different* type from
+  its parent's own is not a new capability this system needs to grow —
+  it is a fact about which type a spawn cites, `bundles/**` content
+  against this record. Second, **`implementation` is now a real
+  dispatch phase, not the vestigial `checks` occurrence the earlier
+  finding at "Reachability, settled" (above, ORC-32) already flagged as
+  written against stale module shape** — a ticket's own code generation
+  dispatches at `status: implementation` the identical way its own
+  architecture phase dispatches at `status: architecture`, both inline
+  agent-balled entries this process manager's existing uniform dispatch
+  already reaches, needing no new branch once the loader recognizes the
+  kind. **Not built as part of this pass:** the same tree-spawn
+  recursion and parent-triggered merge cascade named above, now
+  spawning a second type rather than a depth-filtered instance of one,
+  and the loader's own recognition of `implementation` — all Phase 7's.
 
 ## Initial vs target
 

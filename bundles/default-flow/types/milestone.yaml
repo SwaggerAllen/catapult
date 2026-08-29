@@ -22,6 +22,11 @@ statuses:
                                      #   retired along with the singleton
                                      #   queue that used to name it
   - status: checks
+  - status: reconcile               # required wherever merge is (ORC-151,
+                                     #   dsl-syntax.md §15.11) — setup used
+                                     #   to merge through a bare
+                                     #   checks/merge/deploy, read by
+                                     #   nothing first
   - status: merge
   - status: deploy
   - status: prep                    # work the milestone requires before
@@ -52,6 +57,8 @@ statuses:
                                      #   the author's act, never the
                                      #   plane's (v5 §7.8)
   - status: checks
+  - status: reconcile               # closes retro's own join the same way
+                                     #   (ORC-151)
   - status: merge
   - status: deploy
   - status: cleanup                 # work that got missed during the

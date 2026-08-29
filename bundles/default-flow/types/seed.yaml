@@ -7,6 +7,7 @@ statuses:
   - status: pending
   - status: generation
   - status: checks
+  - status: reconcile
   - status: merge
   - status: deploy
   - status: terminal
