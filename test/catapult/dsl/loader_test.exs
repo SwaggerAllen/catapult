@@ -348,10 +348,10 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, loaded} = Loader.load(dir)
 
     assert Enum.map(loaded.workflow.types["feature"].statuses, & &1.review) ==
-             [nil, nil, "product-review", "other-review", nil, nil, nil, nil]
+             [nil, nil, "product-review", "other-review", nil, nil, nil, nil, nil]
 
     assert Enum.map(loaded.workflow.types["defect"].statuses, & &1.review) ==
-             [nil, nil, "other-review", "product-review", nil, nil, nil, nil]
+             [nil, nil, "other-review", "product-review", nil, nil, nil, nil, nil]
   end
 
   test "a workflow bundle carrying after: on a gate is a load error", %{tmp_dir: dir} do
@@ -524,7 +524,7 @@ defmodule Catapult.Dsl.LoaderTest do
     # consumer that reads a type's array as an ordered sequence keeps
     # working because the sequence it reads is unchanged.
     assert Enum.map(type.statuses, &Status.name/1) ==
-             ~w(pending generation critique product-review checks merge deploy terminal)
+             ~w(pending generation critique product-review checks reconcile merge deploy terminal)
 
     # ...and `groups` is the whole of what grouping adds: one range
     # over that sequence per sub-array. A sub-array has no key of its
@@ -567,7 +567,9 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "sub-arrays do not nest"))
   end
 
-  test "a sub-array holding no non-critique agent-balled entry is a load error", %{tmp_dir: dir} do
+  test "a sub-array holding no non-review-shaped agent-balled entry is a load error", %{
+    tmp_dir: dir
+  } do
     # Nothing for a throwback to fall back to, and nothing worth
     # grouping.
     Fixture.minimal!(dir)
@@ -590,10 +592,10 @@ defmodule Catapult.Dsl.LoaderTest do
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "no non-critique agent-balled entry"))
+    assert Enum.any?(problems, &String.contains?(&1, "no non-review-shaped agent-balled entry"))
   end
 
-  test "a sub-array holding two non-critique agent-balled entries is a load error", %{
+  test "a sub-array holding two non-review-shaped agent-balled entries is a load error", %{
     tmp_dir: dir
   } do
     # No unambiguous anchor between them, and §15.10 refuses rather
@@ -608,16 +610,18 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: pending
         - status: generation
         - status: checks
-        - - status: merge
+        - - status: design
           - review: product-review
+        - status: reconcile
+        - status: merge
         - status: deploy
         - status: terminal
       """
     })
 
-    # `generation` and `merge` are both agent-balled, but only `merge`
-    # is inside the sub-array — so first prove the shipped-shaped group
-    # is fine, then widen it to hold both.
+    # `generation` and `design` are both non-review-shaped agent-balled,
+    # but only `design` is inside the sub-array — so first prove the
+    # shipped-shaped group is fine, then widen it to hold both.
     assert {:ok, _} = Loader.load(dir)
 
     Fixture.write!(dir, %{
@@ -628,15 +632,21 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: pending
         - - status: generation
           - status: checks
-          - status: merge
+          - status: design
           - review: product-review
+        - status: reconcile
+        - status: merge
         - status: deploy
         - status: terminal
       """
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "2 non-critique agent-balled entries"))
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "2 non-review-shaped agent-balled entries")
+           )
   end
 
   test "critique does not count toward a sub-array's one agent step", %{tmp_dir: dir} do
@@ -763,15 +773,18 @@ defmodule Catapult.Dsl.LoaderTest do
     # three rules at once, so the agent step is neither the group's
     # first entry nor the entry immediately before the gate:
     #
-    #   [product-review, merge, merge-review, ship-review]
+    #   [product-review, design, merge-review, ship-review]
     #
     # naive first-element -> product-review
     # previous position   -> merge-review
-    # §15.10's rule       -> merge
+    # §15.10's rule       -> design
     #
-    # The shipped bundle cannot do this: `types/feature.yaml`'s group
-    # has `generation` as both its one agent step and its first entry,
-    # so it passes under all three and proves none of them.
+    # `design`, not `merge`, plays this role: `merge`'s own ball is
+    # `plane` (dsl-syntax.md §15.1, ORC-151), so it is never a candidate
+    # for a sub-array's own agent step any more. The shipped bundle
+    # cannot do this: `types/feature.yaml`'s group has `generation` as
+    # both its one agent step and its first entry, so it passes under
+    # all three and proves none of them.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -785,9 +798,11 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: generation
         - status: checks
         - - review: product-review
-          - status: merge
+          - status: design
           - review: merge-review
           - review: ship-review
+        - status: reconcile
+        - status: merge
         - status: deploy
         - status: terminal
       """
@@ -796,12 +811,12 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, loaded} = Loader.load(dir)
     workflow = loaded.workflow
 
-    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "merge"
+    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "design"
 
     # Legality is the earlier prefix and is bounded by no declaration —
     # every one of these is reachable although no gate declares any.
     assert Workflow.throwback_targets(workflow, "feature", "ship-review") ==
-             ~w(pending generation checks product-review merge merge-review)
+             ~w(pending generation checks product-review design merge-review)
 
     refute Workflow.throwback_legal?(workflow, "feature", "ship-review", "deploy")
   end
@@ -1688,6 +1703,7 @@ defmodule Catapult.Dsl.LoaderTest do
           depth: [2, 0]
         - review: product-review
         - status: checks
+        - status: reconcile
         - status: merge
         - status: deploy
         - status: terminal
@@ -1712,6 +1728,7 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: generation
         - status: critique
         - status: checks
+        - status: reconcile
         - status: merge
         - status: deploy
         - status: terminal
@@ -1771,6 +1788,7 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: critique
           depth: 2
         - status: checks
+        - status: reconcile
         - status: merge
         - status: deploy
         - status: terminal
@@ -1824,6 +1842,7 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: critique
         - review: #{gate}
       - status: checks
+      - status: reconcile
       - status: merge
       - status: deploy
       - status: terminal
@@ -1842,7 +1861,13 @@ defmodule Catapult.Dsl.LoaderTest do
     entries =
       ["- status: pending", "- status: generation"] ++
         Enum.map(gates, &"- review: #{&1}") ++
-        ["- status: checks", "- status: merge", "- status: deploy", "- status: terminal"]
+        [
+          "- status: checks",
+          "- status: reconcile",
+          "- status: merge",
+          "- status: deploy",
+          "- status: terminal"
+        ]
 
     "type: #{name}\nskeleton: ticket\nstatuses:\n" <>
       Enum.map_join(entries, "\n", &("  " <> &1)) <> "\n"

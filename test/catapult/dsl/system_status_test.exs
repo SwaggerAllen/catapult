@@ -3,16 +3,18 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the nineteen fixed kinds, dsl-syntax.md §15.1's order" do
+  test "the nineteen fixed kinds, dsl-syntax.md §15.1's order (ORC-151: implementation and " <>
+         "reconcile join, fanout retires)" do
     assert SystemStatus.kinds() == [
              :backlog,
              :pending,
              :generation,
              :design,
              :architecture,
+             :implementation,
              :critique,
-             :fanout,
              :checks,
+             :reconcile,
              :merge,
              :deploy,
              :validating,
@@ -27,20 +29,36 @@ defmodule Catapult.Dsl.SystemStatusTest do
            ]
   end
 
+  test "merge is plane-balled, not agent-balled (ORC-151: the reconcile/merge split)" do
+    assert SystemStatus.ball(:merge) == :plane
+    assert SystemStatus.ball(:reconcile) == :agent
+    refute SystemStatus.agent_balled?("merge")
+    assert SystemStatus.agent_balled?("reconcile")
+  end
+
   test "a pending precedes every generation-shaped kind and every deploy" do
     assert SystemStatus.pending_precedes?(:generation)
     assert SystemStatus.pending_precedes?(:design)
     assert SystemStatus.pending_precedes?(:architecture)
+    assert SystemStatus.pending_precedes?(:implementation)
     assert SystemStatus.pending_precedes?(:deploy)
     refute SystemStatus.pending_precedes?(:checks)
   end
 
-  test "generation, design and architecture are the generation-shaped kinds" do
+  test "generation, design, architecture and implementation are the generation-shaped kinds" do
     assert SystemStatus.generation_shaped?("generation")
     assert SystemStatus.generation_shaped?("design")
     assert SystemStatus.generation_shaped?("architecture")
+    assert SystemStatus.generation_shaped?("implementation")
     refute SystemStatus.generation_shaped?("critique")
     refute SystemStatus.generation_shaped?("merge")
+  end
+
+  test "critique and reconcile are the review-shaped kinds" do
+    assert SystemStatus.review_shaped?("critique")
+    assert SystemStatus.review_shaped?("reconcile")
+    refute SystemStatus.review_shaped?("generation")
+    refute SystemStatus.review_shaped?("merge")
   end
 
   test "every non-terminal, non-blocked status can be kicked to blocked" do

@@ -191,23 +191,23 @@ defmodule Catapult.Dsl.Type do
     Status.parse(where, "statuses[#{index}][#{j}]", inner, skeleton)
   end
 
-  # Exactly one non-critique agent-balled entry per sub-array — the
+  # Exactly one non-review-shaped agent-balled entry per sub-array — the
   # fact §15.10's whole derived default rests on, and the whole of what
   # this section still checks over a sub-array's own contents. (The
   # check that once refused a queue-shaped/population-anchor entry
   # inside a sub-array is retired at ORC-148: §15.2's unification means
-  # a sub-array's one non-critique agent-balled entry no longer needs a
-  # `flow:` to exist inside a container's array in the first place, so
-  # the case it refused doesn't arise from the shape this grammar now
-  # gives `setup`/`retro`.) Which entries qualify
-  # is `Status.non_critique_agent_step?/1`'s to answer and is not
+  # a sub-array's one non-review-shaped agent-balled entry no longer
+  # needs a `flow:` to exist inside a container's array in the first
+  # place, so the case it refused doesn't arise from the shape this
+  # grammar now gives `setup`/`retro`.) Which entries qualify is
+  # `Status.non_review_shaped_agent_step?/1`'s to answer and is not
   # restated here: this check and the derivation that depends on it
   # (`Catapult.Dsl.Workflow.throwback_default/3`) must agree, and they
   # agree by asking the same function rather than by both being right.
   defp anchor_count_problems(where, index, results) do
     anchors =
       for {_j, {:ok, entry}} <- results,
-          Status.non_critique_agent_step?(entry),
+          Status.non_review_shaped_agent_step?(entry),
           do: Status.name(entry)
 
     case anchors do
@@ -216,14 +216,14 @@ defmodule Catapult.Dsl.Type do
 
       [] ->
         [
-          "#{where} statuses[#{index}] is a sub-array with no non-critique agent-balled entry " <>
-            "(§15.10 requires exactly one) — a group with nothing for a throwback to fall back " <>
-            "to groups nothing"
+          "#{where} statuses[#{index}] is a sub-array with no non-review-shaped agent-balled " <>
+            "entry (§15.10 requires exactly one) — a group with nothing for a throwback to " <>
+            "fall back to groups nothing"
         ]
 
       many ->
         [
-          "#{where} statuses[#{index}] is a sub-array with #{length(many)} non-critique " <>
+          "#{where} statuses[#{index}] is a sub-array with #{length(many)} non-review-shaped " <>
             "agent-balled entries #{inspect(many)} (§15.10 requires exactly one) — there is no " <>
             "unambiguous anchor between them, and none is invented for a shape no bundle needs"
         ]

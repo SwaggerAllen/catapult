@@ -21,6 +21,10 @@ statuses:
     - review: ux-review
     - review: engineering-review
   - status: checks
+  - status: reconcile             # reads the produced PR against its own
+                                   #   argument, before merge (dsl-syntax.md
+                                   #   §15.1, §15.11) — required wherever
+                                   #   merge is, ORC-151
   - status: merge
   - environment: staging
   - status: deploy

@@ -9,9 +9,10 @@ defmodule Catapult.Dsl.Status do
   `flow:` and `blocks:` are legal only on a **population anchor**: a
   `status:` entry named `prep`, `main` or `cleanup`, or any `status:`
   entry in a skeleton-less type's array (§15.7) — never on `pending`,
-  `generation`, `design`, `architecture`, `critique`, `checks`,
-  `merge`, `deploy`, `setup`, `retro` or `terminal`, whatever type's
-  array cites them (a seventh-pass reversal, ORC-148: a skeleton fixes
+  `generation`, `design`, `architecture`, `implementation`, `critique`,
+  `checks`, `reconcile`, `merge`, `deploy`, `setup`, `retro` or
+  `terminal`, whatever type's array cites them (a seventh-pass
+  reversal, ORC-148: a skeleton fixes
   a required backbone, never an exclusive membership, so this is a
   fact about the *entry's own name* and the citing type's `skeleton:`
   being absent or not, never about which skeleton a `container`- or
@@ -170,27 +171,32 @@ defmodule Catapult.Dsl.Status do
   def name(%__MODULE__{environment: e}) when not is_nil(e), do: e
 
   @doc """
-  Whether this entry is §15.10's sub-array anchor: a non-critique
+  Whether this entry is §15.10's sub-array anchor: a non-review-shaped
   agent-balled `status:` entry — `generation`, `design`, `architecture`,
-  `retro`, `setup` or `merge` under §15.1's `ball` column.
+  `implementation`, `retro` or `setup` under §15.1's `ball` column.
+  `merge` left this set at ORC-151: its own `ball` is now `plane` (§15.1,
+  §15.11), so it was never a candidate for this predicate to exclude by
+  name — it fails `SystemStatus.agent_balled?/1` before review-shapedness
+  is ever asked.
 
-  `critique` is excluded because it reviews a generation rather than
-  standing as one, the identical exclusion §15.5 already draws for its
-  own purpose. A `review:` or `environment:` entry is excluded by
-  construction: only a `status:` entry names a fixed system-status
-  kind, so a gate that happened to be named `merge` is not one of
-  these.
+  `critique` and `reconcile` are excluded because each reviews a
+  generation rather than standing as one — review-shaped,
+  `SystemStatus.review_shaped?/1` — the identical exclusion §15.5
+  already draws for `critique` alone, generalized rather than
+  duplicated at ORC-151. A `review:` or `environment:` entry is
+  excluded by construction: only a `status:` entry names a fixed
+  system-status kind, so a gate that happened to be named `reconcile`
+  is not one of these.
 
   Exactly one per sub-array is a load error to violate
   (`Catapult.Dsl.Type`), and that one entry is the fallback
   `Catapult.Dsl.Workflow.throwback_default/3` derives.
   """
-  @spec non_critique_agent_step?(t()) :: boolean()
-  def non_critique_agent_step?(%__MODULE__{status: nil}), do: false
-  def non_critique_agent_step?(%__MODULE__{status: "critique"}), do: false
+  @spec non_review_shaped_agent_step?(t()) :: boolean()
+  def non_review_shaped_agent_step?(%__MODULE__{status: nil}), do: false
 
-  def non_critique_agent_step?(%__MODULE__{status: status}),
-    do: SystemStatus.agent_balled?(status)
+  def non_review_shaped_agent_step?(%__MODULE__{status: status}),
+    do: SystemStatus.agent_balled?(status) and not SystemStatus.review_shaped?(status)
 
   @doc "Whether this entry is a `status:` (skeleton-anchor) entry, as opposed to `review:`/`environment:`."
   @spec anchor?(t()) :: boolean()

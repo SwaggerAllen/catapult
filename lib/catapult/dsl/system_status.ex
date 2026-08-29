@@ -22,6 +22,30 @@ defmodule Catapult.Dsl.SystemStatus do
   call site. Plain `:generation` is unaffected and stays correct for a
   type with one generation-shaped visit.
 
+  **`:implementation` joins the generation-shaped set, and `:reconcile`
+  joins the fixed table as the second review-shaped kind, at ORC-151's
+  design review** (§15.1, §15.11): `:reconcile` is the kind
+  `agent_steps/0`'s own `:reconcile` step has carried since Phase 3
+  with no matching `phase:` to declare it against — `docs/v5
+  -design-decisions.md` §7.5's "reads the child PR against the child's
+  argument" — and `:merge`'s own `ball` changes from `:agent` to
+  `:plane` in the same pass: a mechanical join effected by the plane
+  once `:reconcile` approves needs no agent dispatch. `review_shaped?/1`
+  is the sibling `generation_shaped?/1` set: `:critique` and
+  `:reconcile` each review an entry rather than standing as one, which
+  is what makes `:merge` leave the agent-balled set (§15.10's sub-array
+  anchor rule) without a name check ever being added for it —
+  `Catapult.Delivery.ContainerLifecycle.inline_dispatch_point?/1`'s own
+  `status != "merge"` clause, filed as a finding against itself at
+  ORC-148, is retired along with the exception it existed to carry.
+
+  **`:fanout` retires, at the same design review** (§15.1): it named a
+  status no tier's `delivery:` ever actually dispatched from — the
+  shipped default bundle's own `types/feature.yaml` had already dropped
+  the anchor before this pass. The edge type of the identical name
+  (`Catapult.Dsl.Edge`'s `@types`) is untouched; this is a retirement of
+  the status kind alone.
+
   **Renamed from `queue` to `pending`, at ORC-104's dev pass** (§15.1):
   a single work item's own wait-for-dispatch status and a container's
   own named queue position used to share one word; once both could
@@ -47,9 +71,10 @@ defmodule Catapult.Dsl.SystemStatus do
           | :generation
           | :design
           | :architecture
+          | :implementation
           | :critique
-          | :fanout
           | :checks
+          | :reconcile
           | :merge
           | :deploy
           | :validating
@@ -74,10 +99,11 @@ defmodule Catapult.Dsl.SystemStatus do
     {:generation, :agent},
     {:design, :agent},
     {:architecture, :agent},
+    {:implementation, :agent},
     {:critique, :agent},
-    {:fanout, :plane},
     {:checks, :world},
-    {:merge, :agent},
+    {:reconcile, :agent},
+    {:merge, :plane},
     {:deploy, :world},
     {:validating, :plane},
     {:blocked, :varies},
@@ -114,26 +140,40 @@ defmodule Catapult.Dsl.SystemStatus do
   discipline).
 
   This is the raw ball column and nothing more. dsl-syntax.md §15.10's
-  sub-array anchor rule wants the *non-critique* agent-balled entries;
-  that exclusion is drawn at its own call site, where §15.5's reason
-  for drawing it is written down, rather than folded in here where a
-  reader would have to guess which of the two questions this answers.
+  sub-array anchor rule wants the *non-review-shaped* agent-balled
+  entries; that exclusion is drawn at its own call site, where §15.5's
+  reason for drawing it is written down, rather than folded in here
+  where a reader would have to guess which of the two questions this
+  answers.
   """
   @spec agent_balled?(String.t()) :: boolean()
   def agent_balled?(name) when is_binary(name), do: name in @agent_balled_names
 
-  @generation_shaped_names ~w(generation design architecture)
+  @generation_shaped_names ~w(generation design architecture implementation)
 
   @doc """
   Whether the status *name* `name` is generation-shaped —
-  `generation`, `design` or `architecture` (dsl-syntax.md §15.1): the
-  set every rule needing "a generation-shaped entry" reads (backbone
-  membership, `pending`-precedes, blocked-exit, critique pairing,
-  sub-array agent-balled counting), named once here rather than at
-  every call site.
+  `generation`, `design`, `architecture` or `implementation`
+  (dsl-syntax.md §15.1): the set every rule needing "a generation-shaped
+  entry" reads (backbone membership, `pending`-precedes, blocked-exit,
+  critique pairing, sub-array agent-balled counting), named once here
+  rather than at every call site.
   """
   @spec generation_shaped?(String.t()) :: boolean()
   def generation_shaped?(name) when is_binary(name), do: name in @generation_shaped_names
+
+  @review_shaped_names ~w(critique reconcile)
+
+  @doc """
+  Whether the status *name* `name` is review-shaped — `critique` or
+  `reconcile` (dsl-syntax.md §15.1, added at ORC-151): an agent run
+  judging an artifact that already exists, rather than originating one.
+  This is `generation_shaped?/1`'s sibling category, and the set
+  §15.10's sub-array anchor rule excludes from its own one-required
+  count — each reviews an entry rather than standing as one.
+  """
+  @spec review_shaped?(String.t()) :: boolean()
+  def review_shaped?(name) when is_binary(name), do: name in @review_shaped_names
 
   @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
   @spec agent_steps() :: [agent_step()]
@@ -145,13 +185,14 @@ defmodule Catapult.Dsl.SystemStatus do
 
   @doc """
   A `pending` precedes every generation-shaped kind
-  (`generation`/`design`/`architecture`) and every `deploy`
-  (dsl-syntax.md §15.1, §13) — a structural fact about the fixed
-  skeleton, not something any bundle declares, so it is a constant
-  rather than a check over bundle content.
+  (`generation`/`design`/`architecture`/`implementation`) and every
+  `deploy` (dsl-syntax.md §15.1, §13) — a structural fact about the
+  fixed skeleton, not something any bundle declares, so it is a
+  constant rather than a check over bundle content.
   """
   @spec pending_precedes?(kind()) :: boolean()
-  def pending_precedes?(kind), do: kind in [:generation, :design, :architecture, :deploy]
+  def pending_precedes?(kind),
+    do: kind in [:generation, :design, :architecture, :implementation, :deploy]
 
   @doc """
   Every non-terminal status can be kicked to `:blocked` (v5 §7.19: "the

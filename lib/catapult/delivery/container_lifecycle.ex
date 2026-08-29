@@ -28,26 +28,30 @@ defmodule Catapult.Delivery.ContainerLifecycle do
       them: a `prep` queue's population arrives by grooming, and a
       dispatcher that manufactured entries for it would be inventing
       scope;
-    * a non-queue-shaped, non-critique agent-balled entry other than
-      `merge` (`inline_dispatch_point?/1`) → open *the* one work item
-      it ever holds, once (ORC-148's replacement for a retired
-      `singleton: true` field — `setup` and `retro` are this module's
-      motivating case, since neither carries `flow:` once folded
-      directly into `milestone`'s own array).
+    * a non-queue-shaped, non-review-shaped agent-balled entry
+      (`inline_dispatch_point?/1`) → open *the* one work item it ever
+      holds, once (ORC-148's replacement for a retired `singleton: true`
+      field — `setup` and `retro` are this module's motivating case,
+      since neither carries `flow:` once folded directly into
+      `milestone`'s own array).
 
   `retro` and `setup` are not special-cased **by name**: what makes the
   plane open *the* one work item for either is that each is a
-  non-queue-shaped agent-balled entry, a declared fact about the
-  entry's own shape, not the string `"setup"` or `"retro"`. **The one
-  named exception is `merge`**, agent-balled like `setup`/`retro` but
-  never a fresh dispatch point when it appears directly in a
-  container's array — it is the *same* flow's own reconciliation step,
-  owned by the chain-tier mechanism that already tracks a flow's
-  internal generation-to-deploy progression — so `inline_dispatch_point?/1`
-  excludes it by name rather than inventing a second declared field for
-  a distinction the grammar leaves to a fixed kind. Nothing else in
-  this module branches on the words `setup`, `retro`, `main`, `prep`,
-  `cleanup`, `ticket`, `container` or `milestone`.
+  non-queue-shaped, non-review-shaped agent-balled entry, a declared
+  fact about the entry's own shape, not the string `"setup"` or
+  `"retro"`. **`merge` used to be a named exception** — agent-balled
+  like `setup`/`retro` but never a fresh dispatch point, since it was
+  the *same* flow's own reconciliation step, owned by the chain-tier
+  mechanism that already tracks a flow's internal generation-to-deploy
+  progression — and `inline_dispatch_point?/1` excluded it **by name**,
+  the seam ORC-148's own dev pass filed a finding against itself for.
+  ORC-151 closes it from the grammar side rather than the code side:
+  `merge`'s own `ball` is now `plane` (dsl-syntax.md §15.1, §15.11), so
+  it is no longer agent-balled at all and leaves this predicate's
+  candidate set without a name check ever being added. Nothing in this
+  module branches on the words `setup`, `retro`, `main`, `prep`,
+  `cleanup`, `ticket`, `container` or `milestone` — nor, now, on
+  `merge`.
 
   **A queue holds while a sibling that blocks it carries work**
   (§15.7), and holds while any instance it minted is still open. Both
@@ -449,17 +453,15 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   # that opens a fresh flow instance the moment the container's
   # position reaches it — ORC-148's replacement for a `singleton: true`
   # queue, now that `setup`/`retro` fold directly into `milestone`'s
-  # own array with no `flow:` to represent them. Scoped to
-  # `Status.non_critique_agent_step?/1`'s set minus `merge`: `merge` is
-  # agent-balled too (§15.1's `ball` column), but when it appears
-  # directly in a container's array — `setup`'s and `retro`'s own
-  # checks/merge/deploy sequence, ORC-148, dsl-syntax.md §15.2 — it is
-  # the *same* flow's own reconciliation step, tracked by the chain-tier
-  # mechanism that already owns a flow's internal generation-to-deploy
-  # progression, never a fresh thing for this dispatcher to open.
-  defp inline_dispatch_point?(%Status{status: status} = entry) do
-    not Status.queue_shaped?(entry) and Status.non_critique_agent_step?(entry) and
-      status != "merge"
+  # own array with no `flow:` to represent them.
+  # `Status.non_review_shaped_agent_step?/1`'s set is exactly this
+  # dispatcher's candidate set (dsl-syntax.md §15.1, §15.11, ORC-151):
+  # `merge`'s own `ball` is `plane`, not `agent`, so it never reaches
+  # this predicate at all — it is the *same* flow's own mechanical join,
+  # effected by the plane once `reconcile` approves, never a fresh thing
+  # for this dispatcher to open.
+  defp inline_dispatch_point?(%Status{} = entry) do
+    not Status.queue_shaped?(entry) and Status.non_review_shaped_agent_step?(entry)
   end
 
   # Three cases, and the third is the one a naive "is there an
