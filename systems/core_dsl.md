@@ -638,6 +638,41 @@ context-source kinds, and audit profiles.
   the new kind, the two-type split, and the tightened `pending`/gate
   checks — all dev's diff against this record.
 
+- **A fifth design review on ORC-151 fixes three defects the fourth
+  pass's own worked examples and lifecycle mapping left standing**
+  (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.5, §15.11;
+  `docs/v5-design-decisions.md` §7.19). **`checks` now sits between a
+  generation-shaped entry and the `critique` that reviews it**, not
+  after — every worked example had the order backwards, in two cases
+  running the human gate ahead of CI too. `critique`'s own load-time
+  adjacency rule (§13, §15.5) widens to admit an intervening `checks`
+  ("immediately after a generation-shaped entry, or immediately after
+  that entry's own `checks`, never before it"), and both worked
+  examples (`types/feature.yaml`, `types/component.yaml`) reorder to
+  match — one `checks` per generation-shaped sub-array, always ahead of
+  its `critique`. **§15.1's own lifecycle mapping is corrected to carry
+  three `Todo`s and three `Checks`, matching `feature.yaml`'s three
+  generation-shaped sub-arrays**, not the single occurrence of each it
+  showed before — a direct violation of this same ticket's own
+  `pending`-once-per-sub-array rule (§13), stated as a tracker
+  lifecycle rather than a load error. This is the fifth consecutive
+  pass the mapping and the worked example have disagreed (`merge`, the
+  reconcile count, `checks`'s position, the child lifecycle, now
+  `pending`), so the fix adds a standing instruction rather than a
+  sixth one-off correction: the two describe one type and are edited
+  together going forward. **`reconcile`'s own worked-example comments
+  are reworded from "present iff this instance has children" to match
+  how `depth:`'s own filtering is already described** — the array
+  entry is declared once for the type, unconditionally, like every
+  other entry; what varies per instance is whether its own *effective
+  sequence* selects anything from it, exactly the "derive, don't
+  declare" framing this same section already gives `depth:` itself.
+  The prior wording read as if the entry disappeared from a
+  per-instance copy of the array, which nothing here does. **Not built
+  as part of this pass:** the same loader and dispatcher work named
+  above, now covering the widened critique-adjacency check — dev's
+  diff against this record, not design's.
+
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
   §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`

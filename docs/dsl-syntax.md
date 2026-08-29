@@ -735,15 +735,20 @@ Added with the two axes and the declarable protocol surface (v5
   genuinely can;
 - **a `critique` entry must sit immediately after a generation-shaped
   entry (`generation`, `design`, `architecture` or `implementation`,
-  §15.1) in the same type's `statuses:` array** (§15.5) — no skeleton mentioned, and none
-  is needed: whether a given array has a generation-shaped entry for a
-  `critique` to pair with is a fact about that array's own contents,
-  never about which skeleton, if any, the citing type declares (a
-  fifth-pass simplification, corrected again at ORC-148 for the
-  identical reason — see below — rather than reintroducing the
-  skeleton check either correction retired). A `critique` entry not
-  adjacent to a generation-shaped entry is a load error naming the
-  declaration and the position. There is deliberately no `enabled:`
+  §15.1) — immediately after that entry's own `checks`, when the same
+  sub-array declares one, and never before it (a fifth-design-review
+  addition on this ticket, ORC-151: `checks` runs first, so neither an
+  agent's `critique` nor a human gate reads a draft CI has not yet
+  validated) — in the same type's `statuses:` array** (§15.5) — no
+  skeleton mentioned, and none is needed: whether a given array has a
+  generation-shaped entry for a `critique` to pair with is a fact about
+  that array's own contents, never about which skeleton, if any, the
+  citing type declares (a fifth-pass simplification, corrected again at
+  ORC-148 for the identical reason — see below — rather than
+  reintroducing the skeleton check either correction retired). A
+  `critique` entry not adjacent to a generation-shaped entry, or to
+  that entry's own `checks` when one is declared, is a load error
+  naming the declaration and the position. There is deliberately no `enabled:`
   field anywhere in this grammar: a generation-shaped entry's mere
   absence of an adjacent `critique` entry already means "does not run"
   (v5 §7.19, ORC-92). Neither a gate's, an environment's, nor a
@@ -1391,18 +1396,30 @@ convention. **`stubbed` is exempt from staleness and escalation** (v5
 §7.6): nothing is stale about waiting deliberately.
 
 Mapping onto v5 §7.6's lifecycles, which are this vocabulary with
-every review sequence at length one — feature: `Todo`(pending) →
-`Product design`(design) → **Product review**(review) →
-`Architecting`(architecture) → **Architecture review**(review) →
+every review sequence at length one and `critique` left out of the
+picture — an internal agent step every generation-shaped visit may or
+may not pair with (§15.5's opt-in), never a tracker-facing state this
+simplified view distinguishes — feature: `Todo`(pending) →
+`Product design`(design) → `Checks`(checks) →
+**Product review**(review) → `Todo`(pending) →
+`Architecting`(architecture) → `Checks`(checks) →
+**Architecture review**(review) → `Reconciling`(reconcile) →
+**Architecture review**(review) → `Todo`(pending) →
 `Implementation`(implementation) → `Checks`(checks) →
 `Reconciling`(reconcile) → `Merged`(merge) → `Validating`(validating)
-→ `Shipped`(terminal). Child: `Ready for
+→ `Shipped`(terminal). Child (the ordinary case — a generic child
+entering directly at implementation, §7.3's entry-tier taxonomy;
+architecture's own recursive fan-out runs a second, richer type this
+one-line mapping does not inline, §15.11 below): `Ready for
 dev`(pending) → `In progress`(generation) → `Checks`(checks) →
 `Reconciling`(reconcile) → `Merged`(merge) → `Done`(terminal), with
 `Ready for rework`(pending) / `Reworking`(generation) as the repair
-loop. The two bolded statuses are the platform workflow layer's
+loop. The two bolded gate names are the platform workflow layer's
 default review declarations, not system statuses — which is what
-makes them replaceable. **`Product design` and `Architecting` name
+makes them replaceable; `Architecture review` appears twice in the
+feature chain above because the same declared gate is cited both
+before and after its `reconcile` (§15.11), not because two gates share
+a name. **`Product design` and `Architecting` name
 the `design` and `architecture` kinds directly, at ORC-148's design
 review** — before it, both were italicized prose labels standing in
 for two indistinguishable `generation` visits, told apart only by
@@ -1420,6 +1437,23 @@ no state between architecture review and `Checks` at all, which stood
 in for a bare `checks` entry §15.11's own worked example used to
 dispatch a tier's code from, a shape corrected along with the
 grammar's own addition of the kind (above).
+
+**This mapping and §15.2's `types/feature.yaml` describe the same
+type, and are edited together — a fifth-design-review standing
+practice, not a one-off fix.** The two have now disagreed across four
+consecutive earlier passes of this same ticket — about `merge`, then
+the reconcile count, then `checks`'s own position, then the child
+lifecycle's own shape — and a fifth time, on `pending`: this mapping
+showed one `Todo` against `feature.yaml`'s three, one per
+generation-shaped sub-array's own required head (§13's tightened
+pending-precedes check), which is a load-error shape stated as a
+tracker lifecycle. The mapping above now carries a `Todo` and a
+`Checks` for each of the three generation-shaped visits, matching the
+array exactly; `checks` sits before its review the same way it now
+sits before `critique` in the array itself, above. Each is one fact
+in two forms rather than two facts that happen to agree today — a
+change to either one is incomplete until the other reads the same
+way.
 
 **`Building` is retired from this mapping along with the status it
 named, at this same design review's third pass — and what replaces
@@ -1663,14 +1697,18 @@ statuses:
   - - status: pending           # the design sub-array's own head,
                                  #   required (§13's tightened check)
     - status: design
-    - status: critique
-    - review: product-review
     - status: checks            # this instance's own CI on its own
                                  #   produced draft — docs-phase, so
                                  #   ci:docs rather than ci:code (v5
                                  #   §7.10), the identical CI-selection
                                  #   rule applied here that already
-                                 #   applies to any other checks entry
+                                 #   applies to any other checks entry.
+                                 #   Runs before critique, not after
+                                 #   (§15.5): neither an agent nor a
+                                 #   human should read a draft CI has
+                                 #   not yet validated
+    - status: critique
+    - review: product-review
 
   - - status: pending           # a second, independent pending —
                                  #   this sub-array's own, not the
@@ -1680,10 +1718,15 @@ statuses:
                                  #   comparch/subcomparch are a
                                  #   separate type's own instances,
                                  #   spawned as children (§15.11)
+    - status: checks            # before critique, the identical
+                                 #   ordering the design group above
+                                 #   uses (§15.5) — and, incidentally,
+                                 #   the state reconcile below reads:
+                                 #   nothing modifies the draft between
+                                 #   here and there
     - status: critique
     - review: architecture-review     # before reconcile: this
                                        #   instance's own artifact
-    - status: checks
     - status: reconcile               # joins this feature's own
                                        #   children's merged
                                        #   architecture docs, bottom-up
@@ -1700,8 +1743,8 @@ statuses:
                                  #   no ordinary scope needs a human
                                  #   reading it (v5 §7.10's touchpoint
                                  #   budget; §15.1)
+    - status: checks            # before critique (§15.5)
     - status: critique
-    - status: checks
     - status: reconcile         # joins the feature's own children's
                                  #   merged implementation
 
@@ -2031,6 +2074,21 @@ actually about skeletons, only about what sits where.
   - status: critique              # must sit immediately after a
     depth: 1                      #   generation entry in the same array
 ```
+
+**`checks` sits between the generation-shaped entry and the `critique`
+that reviews it, wherever the same sub-array declares both — a
+fifth-design-review correction on this ticket (ORC-151), not a new
+field.** Every worked example below had `checks` running *after*
+`critique`, in two of the four cases after the human gate as well, so
+a reviewer signed off on a draft CI had not yet run against. Machine
+validation is meant to run first: neither an agent's `critique` nor a
+human gate should spend a read on a draft that fails CI. `critique`'s
+own adjacency rule (above) already says this precisely — "immediately
+after a generation-shaped entry, or immediately after that entry's own
+`checks`, never before it" — so a sub-array pairing both now reads
+`generation-shaped entry → checks → critique`; one declaring no
+`checks` of its own still pairs `critique` directly with the
+generation-shaped entry, unchanged.
 
 **Configures a fixed kind; declares nothing.** `critique` is a system
 status (§15.1), not a named, reusable declaration the way a gate or
@@ -3084,6 +3142,12 @@ statuses:
     - status: architecture             # every instance: each
                                         #   component's comparch, each
                                         #   subcomponent's subcomparch
+    - status: checks                   # no depth: field (never a
+                                        #   depth-bearing site, §13) —
+                                        #   every instance's own CI on
+                                        #   its own produced draft.
+                                        #   Before critique, not after
+                                        #   (§15.5)
     - status: critique
       depth: 1                         # reaches every instance of
                                         #   this type — the deepest
@@ -3093,15 +3157,14 @@ statuses:
                                         #   this instance's own
                                         #   sequence: scoped to this
                                         #   instance's own artifact
-    - status: checks                   # no depth: field (never a
-                                        #   depth-bearing site, §13) —
-                                        #   every instance's own CI on
-                                        #   its own produced draft
-    - status: reconcile                # present iff this instance has
-                                        #   children: absent for a
-                                        #   subcomponent (a leaf);
-                                        #   present for a component
-                                        #   (joins its subcomponents')
+    - status: reconcile                # declared once for the type,
+                                        #   like every entry here — a
+                                        #   leaf subcomponent's own
+                                        #   effective sequence selects
+                                        #   nothing from it (nothing to
+                                        #   join); a component's own
+                                        #   selects its subcomponents'
+                                        #   merge (below)
     - review: architecture-review      # after reconcile: the joined
                                         #   set — the same declared
                                         #   gate cited twice (§15.4).
@@ -3119,13 +3182,14 @@ statuses:
                                         #   `feature`'s own
                                         #   implementation group has
                                         #   none (§15.1, §15.2)
+    - status: checks                   # before critique (§15.5)
     - status: critique
-    - status: checks
-    - status: reconcile                # present iff this instance has
-                                        #   children, the identical
-                                        #   test as the first
-                                        #   occurrence, joining their
-                                        #   own merged implementation
+    - status: reconcile                # the identical selection test
+                                        #   as the first occurrence:
+                                        #   nothing at a leaf, its
+                                        #   subcomponents' merged
+                                        #   implementation at a
+                                        #   component
 
   - status: merge                      # depth-0 by rule (below): a
                                         #   non-root instance's own
@@ -3140,8 +3204,8 @@ statuses:
 ```
 
 A subcomponent instance's own effective sequence runs `pending →
-architecture → critique → architecture-review → checks → pending →
-implementation → critique → checks → terminal`-shaped, minus what
+architecture → checks → critique → architecture-review → pending →
+implementation → checks → critique → terminal`-shaped, minus what
 depth and tree shape between them exclude: no `reconcile` at either
 occurrence (a leaf, nothing to join), no second `architecture-review`
 citation (depth 0 stops short of a depth-1 instance, the identical
@@ -3262,12 +3326,13 @@ whatever its depth, runs a second generation-shaped sub-array — its own
 `implementation`, real dispatched code rather than the bare second
 `checks` an earlier pass of this section stood in for it (§15.1's own
 addition of the kind, above) — closed by the identical `reconcile` test
-its own architecture phase already ran: present iff it has children
-needing their own implementation joined up. A subcomponent's own
-`implementation` runs and its own `reconcile` does not (leaf, nothing
-to join, the identical test as the architecture phase); a component's
-own second `reconcile` joins its subcomponents' merged implementation
-the same way its first joined their merged docs. No second array
+its own architecture phase already ran, selecting nothing at a leaf
+instance's own effective sequence and its own children's merged
+implementation at an instance with children. A subcomponent's own
+`implementation` runs and its own `reconcile` selects nothing (leaf,
+nothing to join, the identical test as the architecture phase); a
+component's own second `reconcile` joins its subcomponents' merged
+implementation the same way its first joined their merged docs. No second array
 shape, no second declaration, no field distinguishing "architecture's
 own join" from "implementation's own join" beyond which sub-array a
 given instance's `reconcile` occurrence closes.

@@ -4434,6 +4434,20 @@ about a citation's *position*, not about the declaration, so two
 citations of the same gate are two positions computing two different
 answers from the identical declared `role:`/`escalation:`/`throwback:`.
 
+**`checks` sits between a generation-shaped entry and the `critique`
+that reviews it, wherever a sub-array declares both — a fifth-pass
+correction, not a new field.** Every worked example `dsl-syntax.md`
+§15.2 and §15.11 carried had `checks` running after `critique` instead,
+in two cases after the human gate as well, so a reviewer could sign off
+on a draft CI had not yet run against. Machine validation runs first:
+neither an agent's `critique` nor a human gate should spend a read on
+a draft that fails CI. `dsl-syntax.md` §13 and §15.5 carry the grammar
+— `critique`'s own adjacency rule now reads "immediately after a
+generation-shaped entry, or immediately after that entry's own
+`checks`, never before it" — and `dsl-syntax.md` §15.1's own mapping
+onto this section's lifecycles is corrected to match, one `Checks` per
+generation-shaped visit, positioned before its review.
+
 **Not in this ticket's scope**, named because a reader following
 `reconcile`'s own thread might look for them here: the critique
 threshold and its conditional throwback (ORC-150) — a threshold
