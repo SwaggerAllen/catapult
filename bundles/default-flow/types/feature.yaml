@@ -3,8 +3,13 @@ skeleton: ticket                   # dsl-syntax.md §15.1: pending, then
                                     #   generation/gates interleaved, then
                                     #   checks, merge, deploy, terminal
 statuses:
-  - status: pending
-  - - status: generation           # a bare, unnamed sub-array (§15.10):
+  - - status: pending             # the sub-array's own head (§13, §15.1,
+                                    #   a design-review tightening,
+                                    #   ORC-151): one pending per
+                                    #   generation-shaped entry, never
+                                    #   shared, so a grouped entry's own
+                                    #   pending sits inside its group
+    - status: generation           # a bare, unnamed sub-array (§15.10):
                                     #   generation and everything that
                                     #   reviews it resolve together. It
                                     #   holds exactly one non-critique

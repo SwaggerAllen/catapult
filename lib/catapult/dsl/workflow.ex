@@ -123,6 +123,7 @@ defmodule Catapult.Dsl.Workflow do
         pending_precedes_problems() ++
         skeleton_shape_problems(type_map) ++
         merge_reconcile_problems(type_map) ++
+        pending_precedes_generation_problems(type_map) ++
         critique_adjacency_problems(type_map) ++
         flow_reference_problems(type_map) ++
         review_reference_problems(type_map, gate_map) ++
@@ -513,9 +514,6 @@ defmodule Catapult.Dsl.Workflow do
             "#{inspect(List.last(names))}"
         ]
 
-      Enum.count(names, &(&1 == "pending")) > 1 ->
-        ["type #{inspect(name)}'s statuses: declares pending more than once (§15.1)"]
-
       Enum.count(names, &(&1 == "terminal")) > 1 ->
         ["type #{inspect(name)}'s statuses: declares terminal more than once (§15.1)"]
 
@@ -598,6 +596,94 @@ defmodule Catapult.Dsl.Workflow do
     |> elem(1)
   end
 
+  ## `pending` before every generation-shaped entry (§13, §15.1): the
+  ## first entry of that entry's own sub-array, when it sits in one
+  ## (§15.10); any earlier top-level `pending` otherwise — but never one
+  ## already spent on another generation-shaped entry. A single leading
+  ## `pending` used to license every later generation-shaped entry in
+  ## the same array; a design-review tightening retired that reading
+  ## (ORC-151) once `fanout` stopped giving a second such entry
+  ## somewhere else to sit meanwhile, so this walks the array in
+  ## declared order and tracks how many un-spent top-level `pending`s
+  ## have been seen — a grouped `pending` is never added to that pool,
+  ## since it is already dedicated to its own sub-array's entry.
+
+  defp pending_precedes_generation_problems(types) do
+    for {type_name, type} <- types do
+      type.statuses
+      |> Enum.with_index()
+      |> Enum.reduce({[], 0}, fn {status, index}, {problems, available} ->
+        pending_precedes_generation_step(type_name, type, status, index, problems, available)
+      end)
+      |> elem(0)
+    end
+    |> List.flatten()
+  end
+
+  defp pending_precedes_generation_step(
+         _type_name,
+         type,
+         %Status{status: "pending"},
+         index,
+         problems,
+         available
+       ) do
+    if is_nil(Type.group_at(type, index)) do
+      {problems, available + 1}
+    else
+      {problems, available}
+    end
+  end
+
+  defp pending_precedes_generation_step(
+         type_name,
+         type,
+         %Status{status: name},
+         index,
+         problems,
+         available
+       )
+       when is_binary(name) do
+    if SystemStatus.generation_shaped?(name) do
+      generation_pending_problem(type_name, type, index, problems, available)
+    else
+      {problems, available}
+    end
+  end
+
+  defp pending_precedes_generation_step(_type_name, _type, %Status{}, _index, problems, available) do
+    {problems, available}
+  end
+
+  defp generation_pending_problem(type_name, type, index, problems, available) do
+    case Type.group_at(type, index) do
+      nil ->
+        if available > 0 do
+          {problems, available - 1}
+        else
+          problem =
+            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
+              "generation-shaped, with no earlier pending entry left un-spent by another " <>
+              "generation-shaped entry in this type's own statuses: array (§13, §15.1) — one " <>
+              "pending per generation-shaped entry, never shared"
+
+          {[problem | problems], available}
+        end
+
+      range ->
+        if match?(%Status{status: "pending"}, Enum.at(type.statuses, range.first)) do
+          {problems, available}
+        else
+          problem =
+            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
+              "generation-shaped and grouped in a sub-array whose first entry is not pending " <>
+              "(§13, §15.1, §15.10)"
+
+          {[problem | problems], available}
+        end
+    end
+  end
+
   ## Critique adjacency (§13, §15.5): must sit immediately after a
   ## generation-shaped entry (generation, design or architecture) in
   ## the same type's array — no skeleton check needed, since whether a
@@ -613,14 +699,25 @@ defmodule Catapult.Dsl.Workflow do
       labels
       |> Enum.with_index()
       |> Enum.filter(fn {label, i} ->
-        label == {:status, "critique"} and (i == 0 or not generation_shaped_label?(labels, i - 1))
+        label == {:status, "critique"} and not critique_adjacent?(labels, i)
       end)
       |> Enum.map(fn {_label, i} ->
         "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, which must " <>
-          "sit immediately after a generation-shaped entry (§13, §15.5)"
+          "sit immediately after a generation-shaped entry, or that entry's own checks (§13, §15.5)"
       end)
     end
     |> List.flatten()
+  end
+
+  # A `critique` is adjacent when it directly follows a generation-shaped
+  # entry, or directly follows that entry's own `checks` — never before
+  # it (a fifth-design-review addition, ORC-151): `checks` runs first,
+  # so neither an agent's critique nor a human gate reads a draft CI has
+  # not yet validated.
+  defp critique_adjacent?(labels, i) do
+    i > 0 and
+      (generation_shaped_label?(labels, i - 1) or
+         (checks_label?(labels, i - 1) and i > 1 and generation_shaped_label?(labels, i - 2)))
   end
 
   defp generation_shaped_label?(labels, index) do
@@ -629,6 +726,8 @@ defmodule Catapult.Dsl.Workflow do
       _review_or_environment -> false
     end
   end
+
+  defp checks_label?(labels, index), do: Enum.at(labels, index) == {:status, "checks"}
 
   defp entry_label(%Status{status: s}) when not is_nil(s), do: {:status, s}
   defp entry_label(%Status{review: r}) when not is_nil(r), do: {:review, r}

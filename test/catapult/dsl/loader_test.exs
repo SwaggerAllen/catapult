@@ -529,8 +529,8 @@ defmodule Catapult.Dsl.LoaderTest do
     # ...and `groups` is the whole of what grouping adds: one range
     # over that sequence per sub-array. A sub-array has no key of its
     # own, so a contiguous span is a complete representation of it.
-    assert type.groups == [1..3//1]
-    assert Type.group_at(type, 2) == 1..3//1
+    assert type.groups == [0..3//1]
+    assert Type.group_at(type, 2) == 0..3//1
     assert Type.group_at(type, 4) == nil
   end
 
@@ -610,7 +610,8 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: pending
         - status: generation
         - status: checks
-        - - status: design
+        - - status: pending
+          - status: design
           - review: product-review
         - status: reconcile
         - status: merge
@@ -773,9 +774,9 @@ defmodule Catapult.Dsl.LoaderTest do
     # three rules at once, so the agent step is neither the group's
     # first entry nor the entry immediately before the gate:
     #
-    #   [product-review, design, merge-review, ship-review]
+    #   [pending, product-review, design, merge-review, ship-review]
     #
-    # naive first-element -> product-review
+    # naive first-element -> pending
     # previous position   -> merge-review
     # §15.10's rule       -> design
     #
@@ -783,8 +784,9 @@ defmodule Catapult.Dsl.LoaderTest do
     # `plane` (dsl-syntax.md §15.1, ORC-151), so it is never a candidate
     # for a sub-array's own agent step any more. The shipped bundle
     # cannot do this: `types/feature.yaml`'s group has `generation` as
-    # both its one agent step and its first entry, so it passes under
-    # all three and proves none of them.
+    # both its one agent step and its second entry (right after its own
+    # `pending`, §13, §15.1), so it passes under all three and proves
+    # none of them.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -797,7 +799,8 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: pending
         - status: generation
         - status: checks
-        - - review: product-review
+        - - status: pending
+          - review: product-review
           - status: design
           - review: merge-review
           - review: ship-review
@@ -816,7 +819,7 @@ defmodule Catapult.Dsl.LoaderTest do
     # Legality is the earlier prefix and is bounded by no declaration —
     # every one of these is reachable although no gate declares any.
     assert Workflow.throwback_targets(workflow, "feature", "ship-review") ==
-             ~w(pending generation checks product-review design merge-review)
+             ~w(pending generation checks pending product-review design merge-review)
 
     refute Workflow.throwback_legal?(workflow, "feature", "ship-review", "deploy")
   end
@@ -1092,6 +1095,113 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, _loaded} = Loader.load(dir)
     assert SystemStatus.pending_precedes?(:generation)
     assert SystemStatus.pending_precedes?(:deploy)
+  end
+
+  ## §13, §15.1, §15.10, ORC-151's design review: `pending` recurs, once
+  ## per generation-shaped entry's own sub-array — never shared across
+  ## several, and, when the entry is grouped, only its own group's
+  ## leading `pending` counts.
+
+  test "three sub-arrays, each headed by its own pending, load — the ticket's own worked shape",
+       %{tmp_dir: dir} do
+    # §15.2's own `types/feature.yaml`: one pending per generation-shaped
+    # phase, each the head of that phase's own sub-array.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/architecture-review.yaml" => gate!("architecture-review"),
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - - status: pending
+          - status: design
+          - status: checks
+          - status: critique
+          - review: product-review
+        - - status: pending
+          - status: architecture
+          - status: checks
+          - status: critique
+          - review: architecture-review
+          - status: reconcile
+        - - status: pending
+          - status: implementation
+          - status: checks
+          - status: critique
+          - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a generation-shaped entry grouped with no leading pending in its own sub-array is a load error",
+       %{tmp_dir: dir} do
+    # The shape a leading, un-grouped `pending` used to license (§13,
+    # §15.1): once the entry it licenses is grouped, that pending has to
+    # sit inside the same sub-array, as its own head.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - - status: generation
+          - status: critique
+          - review: product-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "grouped in a sub-array whose first entry is not pending")
+           )
+  end
+
+  test "one leading pending no longer licenses a second, later generation-shaped entry",
+       %{tmp_dir: dir} do
+    # The reading this ticket's design review retired: a single leading
+    # `pending` used to license every later generation-shaped entry in
+    # the same array. One `pending` per generation-shaped entry, never
+    # shared (§13, §15.1).
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - review: product-review
+        - status: implementation
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "one pending per generation-shaped entry, never shared")
+           )
   end
 
   test "naming discipline flags two declared statuses one hyphen-word apart", %{tmp_dir: dir} do
@@ -1768,10 +1878,73 @@ defmodule Catapult.Dsl.LoaderTest do
            )
   end
 
+  test "a critique entry immediately after a generation-shaped entry's own checks loads",
+       %{tmp_dir: dir} do
+    # §13, §15.5, a fifth-design-review addition (ORC-151): `checks`
+    # runs first, so neither an agent's critique nor a human gate reads
+    # a draft CI has not yet validated.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - status: checks
+        - status: critique
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a critique entry after checks that does not itself immediately follow a generation-shaped entry is still a load error",
+       %{tmp_dir: dir} do
+    # The widened rule admits an intervening `checks`, not any entry —
+    # `checks` itself still has to be the generation-shaped entry's own
+    # (§13, §15.5).
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - review: product-review
+        - status: checks
+        - status: critique
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "must sit immediately after a generation-shaped entry, or that entry's own checks"
+             )
+           )
+  end
+
   test "two generation entries may each carry their own critique depth", %{tmp_dir: dir} do
     # §15.5: "citing it more than once in a type's array (once per
     # generation entry it should pair with) is the ordinary way to give
-    # two generation phases different depths."
+    # two generation phases different depths." Each generation entry
+    # needs its own pending too (§13, §15.1, ORC-151): one is never
+    # shared across several.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -1784,6 +1957,7 @@ defmodule Catapult.Dsl.LoaderTest do
         - status: critique
           depth: 1
         - review: product-review
+        - status: pending
         - status: generation
         - status: critique
           depth: 2
@@ -1837,8 +2011,8 @@ defmodule Catapult.Dsl.LoaderTest do
     type: feature
     skeleton: ticket
     statuses:
-      - status: pending
-      - - status: generation
+      - - status: pending
+        - status: generation
         - status: critique
         - review: #{gate}
       - status: checks
