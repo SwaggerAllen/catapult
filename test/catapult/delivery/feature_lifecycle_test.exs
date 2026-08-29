@@ -73,6 +73,9 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert row.entry_node_id == "sysarch"
     assert FeatureLifecycle.status(row) == {:kind, :pending}
+    # No authored `name:` on `feature.yaml`'s own `pending` entry, so
+    # this defaults to the kind (dsl-syntax.md §15.12, ORC-155).
+    assert row.status_name == "pending"
   end
 
   test "a commit while the flow is open walks it to the first gate" do
@@ -99,6 +102,9 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+    # A gate's own declared name was always its whole identity
+    # (dsl-syntax.md §15.12, ORC-155) — no separate name column needed.
+    assert row.status_name == "ux-review"
   end
 
   test "GateApproved passes the gate and the ticket rests at the next entry" do

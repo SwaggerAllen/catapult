@@ -260,6 +260,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
         resting = Projection.resting(workflow, pm.flow_name, pm.projection)
         warn_unplaceable(pm, workflow, resting)
         {status_kind, status_gate} = position_columns(resting)
+        status_name = Sequence.name(workflow, pm.flow_name, resting)
 
         {blocked_origin_kind, blocked_origin_gate} =
           pm.projection |> Projection.blocked_origin() |> position_columns()
@@ -270,6 +271,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
           entry_node_id: pm.entry_node_id,
           status_kind: status_kind,
           status_gate: status_gate,
+          status_name: status_name,
           blocked_origin_kind: blocked_origin_kind,
           blocked_origin_gate: blocked_origin_gate,
           updated_sequence: pm.projection.commit_signature

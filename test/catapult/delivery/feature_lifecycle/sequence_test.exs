@@ -138,6 +138,31 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "name/3 (dsl-syntax.md §15.12, ORC-155)" do
+    setup do
+      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      %{workflow: workflow}
+    end
+
+    test "a gate's own name is its whole identity", %{workflow: workflow} do
+      assert Sequence.name(workflow, "feature", {:gate, "ux-review"}) == "ux-review"
+    end
+
+    test "a status kind with no authored name: defaults to the kind", %{workflow: workflow} do
+      assert Sequence.name(workflow, "feature", {:kind, :generation}) == "generation"
+    end
+
+    test "nil has no name", %{workflow: workflow} do
+      assert Sequence.name(workflow, "feature", nil) == nil
+    end
+
+    test "a kind absent from the type's own array falls back to the kind itself", %{
+      workflow: workflow
+    } do
+      assert Sequence.name(workflow, "feature", {:kind, :blocked}) == "blocked"
+    end
+  end
+
   defp workflow_with(status_names) do
     type = %Type{
       name: "t",

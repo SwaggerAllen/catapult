@@ -305,6 +305,7 @@ defmodule Catapult.Delivery.Store do
       entry_node_id: f.entry_node_id,
       status_kind: l.status_kind,
       status_gate: l.status_gate,
+      status_name: l.status_name,
       blocked_origin_kind: l.blocked_origin_kind,
       blocked_origin_gate: l.blocked_origin_gate,
       fields: n.fields

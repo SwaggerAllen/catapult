@@ -106,6 +106,36 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     end
   end
 
+  @doc """
+  The authored name a resting `position()` is displayed under
+  (dsl-syntax.md §15.12, ORC-155): a status kind's own `name:` — its
+  first-declared occurrence in `type_name`'s array, defaulting to the
+  kind itself — or a gate's own declared name, which was always its
+  whole identity. `nil` only for `nil` (no resting position at all).
+
+  Read for display alone; nothing branches on it, and `status_kind`/
+  `status_gate` are unaffected in shape or meaning by this (`Catapult
+  .Delivery.Store.tickets_for_project/1`). Best-effort where a kind
+  recurs under different authored names in the same type's array: this
+  reads the *first* occurrence, since disambiguating *which* occurrence
+  a resting ticket is actually at needs runtime position-tracking to
+  carry the identical namespace awareness this ticket gives the
+  loader's own reference resolution — ORC-116-adjacent future work, not
+  this one's.
+  """
+  @spec name(Workflow.t(), String.t(), position() | nil) :: String.t() | nil
+  def name(%Workflow{}, _type_name, nil), do: nil
+  def name(%Workflow{}, _type_name, {:gate, gate_name}), do: gate_name
+
+  def name(%Workflow{types: types}, type_name, {:kind, kind}) do
+    with {:ok, type} <- Map.fetch(types, type_name),
+         %Status{} = entry <- Enum.find(type.statuses, &(&1.status == Atom.to_string(kind))) do
+      Status.name(entry)
+    else
+      _not_found -> Atom.to_string(kind)
+    end
+  end
+
   defp take_through_boundary(positions) do
     {before, at_and_after} =
       Enum.split_while(positions, &(&1 != {:kind, @reachable_boundary}))
