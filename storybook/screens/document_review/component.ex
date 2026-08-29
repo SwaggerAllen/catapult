@@ -26,9 +26,9 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   `gate_exits`: `[%{label:, target:}]` — the name predates ORC-115 and is kept to avoid an
   unrelated churn to `document_review_live.ex` (dev's, outside this pass's reach); what it holds
   is no longer a declared exit list. `Catapult.Dsl.Workflow.throwback_default/3` already narrows
-  this to at most one entry — the gate's own `throwback:` when it declares one, else its citing
-  sub-array's own non-critique agent step, `nil` when neither exists (`docs/dsl-syntax.md` §15.10,
-  ORC-115) — so the one entry present, if any, renders as the primary button.
+  this to at most one entry — whatever it resolves, `nil` when it resolves nothing
+  (`docs/dsl-syntax.md` §15.10, ORC-115; the derivation itself is rendered here, not restated) —
+  so the one entry present, if any, renders as the primary button.
 
   `throwback_targets`: `[%{label:, target:, leaves_group: boolean}]`, default `[]` — every other
   legal earlier position (`Catapult.Dsl.Workflow.throwback_targets/3`, minus the default above),

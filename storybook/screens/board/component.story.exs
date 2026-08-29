@@ -10,31 +10,48 @@ defmodule Catapult.Storybook.Screens.BoardStory do
 
   def function, do: &Board.board/1
 
-  defp lanes do
+  defp lanes(group_collapsed \\ false) do
     [
-      %{key: "pending", label: "Pending", kind: :status, group_key: nil, group_anchor: false},
+      %{
+        key: "pending",
+        label: "Pending",
+        kind: :status,
+        group_key: nil,
+        group_anchor: false,
+        group_collapsed: false
+      },
       %{
         key: "generation",
         label: "Generation",
         kind: :status,
         group_key: "review-loop",
-        group_anchor: true
+        group_anchor: true,
+        group_collapsed: group_collapsed
       },
       %{
         key: "product-review",
         label: "Product review",
         kind: :gate,
         group_key: "review-loop",
-        group_anchor: false
+        group_anchor: false,
+        group_collapsed: group_collapsed
       },
       %{
         key: "architecture-review",
         label: "Architecture review",
         kind: :gate,
         group_key: "review-loop",
-        group_anchor: false
+        group_anchor: false,
+        group_collapsed: group_collapsed
       },
-      %{key: "checks", label: "Checks", kind: :status, group_key: nil, group_anchor: false}
+      %{
+        key: "checks",
+        label: "Checks",
+        kind: :status,
+        group_key: nil,
+        group_anchor: false,
+        group_collapsed: false
+      }
     ]
   end
 
@@ -44,9 +61,10 @@ defmodule Catapult.Storybook.Screens.BoardStory do
         id: :in_flight_project,
         description:
           "The daily view: several top-level tickets across the effective sequence, one fanned " <>
-            "out into components rolled up on its own card, sitting in a gate lane grouped with " <>
-            "Generation into one visible review-loop box — the two groupings (fan-out on the " <>
-            "card, subflow around the lanes) compose without colliding.",
+            "out into components — a different declared type, sharing no lane set with this " <>
+            "board — rolled up as a single aggregate count on its own card, sitting in a gate " <>
+            "lane grouped with Generation into one visible review-loop box. The two groupings " <>
+            "(fan-out on the card, subflow around the lanes) compose without colliding.",
         attributes: %{
           project_name: "Catapult",
           lanes: lanes(),
@@ -60,10 +78,8 @@ defmodule Catapult.Storybook.Screens.BoardStory do
               lane_key: "architecture-review",
               blocked: nil,
               gate: %{role: "architecture-review", href: "#"},
-              children: [
-                %{id: "ORC-75-1", lane_key: "generation", lane_label: "Generation"},
-                %{id: "ORC-75-2", lane_key: "checks", lane_label: "Checks"}
-              ]
+              children: [],
+              child_summary: %{count: 2, label: "components in flight"}
             },
             %{
               id: "ORC-36",
@@ -158,6 +174,69 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           show_all_lanes: false,
           filters: %{type: nil, label: nil},
           cards: []
+        }
+      },
+      %Variation{
+        id: :subflow_group_collapsed,
+        description:
+          "Collapsed is the default a group starts from — the box still spans its full " <>
+            "lane-count width, badged with the default throwback landing point, and names every " <>
+            "ticket sitting anywhere inside it without opening a single lane column.",
+        attributes: %{
+          project_name: "Catapult",
+          lanes: lanes(true),
+          show_all_lanes: false,
+          filters: %{type: nil, label: nil},
+          cards: [
+            %{
+              id: "ORC-75",
+              title: "UI v1: the working surface",
+              type: "feature",
+              lane_key: "architecture-review",
+              blocked: nil,
+              gate: %{role: "architecture-review", href: "#"},
+              children: [],
+              child_summary: nil
+            },
+            %{
+              id: "ORC-91",
+              title: "Wire the storybook export into the preview",
+              type: "feature",
+              lane_key: "generation",
+              blocked: nil,
+              gate: nil,
+              children: [],
+              child_summary: nil
+            }
+          ]
+        }
+      },
+      %Variation{
+        id: :same_type_children_roll_up_per_lane,
+        description:
+          "Same-type nesting — a subcomponent inside a component — reads off the identical " <>
+            "declared array as its parent, so it keeps the per-lane roll-up cross-type fan-out " <>
+            "(above) no longer can: each child names the lane it is actually sitting in.",
+        attributes: %{
+          project_name: "Catapult",
+          lanes: lanes(),
+          show_all_lanes: false,
+          filters: %{type: "component", label: nil},
+          cards: [
+            %{
+              id: "ORC-75-1",
+              title: "Board component",
+              type: "component",
+              lane_key: "architecture-review",
+              blocked: nil,
+              gate: %{role: "architecture-review", href: "#"},
+              children: [
+                %{id: "ORC-75-1-1", lane_key: "generation", lane_label: "Generation"},
+                %{id: "ORC-75-1-2", lane_key: "checks", lane_label: "Checks"}
+              ],
+              child_summary: nil
+            }
+          ]
         }
       }
     ]

@@ -33,10 +33,19 @@ referencing the board.
 
 **Where the sequence declares a sub-array (`docs/dsl-syntax.md` §15.10), the rail groups the
 identical way `board`'s lanes do** (ORC-116, `screens/board.md`): the positions it spans sit inside
-a shared boundary, and the group's own non-critique agent step carries the same anchor badge — the
-target this ticket's own throwback would fall back to by default, when the ticket is currently a
-gate inside that group. A ticket standing at a position inside a group reads as *inside this loop*,
-not at an anonymous point in a flat row.
+a shared boundary, and one entry inside it carries the same anchor badge `board` gives its own
+groups — whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group
+(`docs/dsl-syntax.md` §15.10 has the derivation), rendered rather than restated here. A ticket
+standing at a position inside a group reads as *inside this loop*, not at an anonymous point in a
+flat row.
+
+**A ticket whose own tree position is not the root never shows a `merge`/`deploy`/`terminal` entry
+of its own on this rail** (ORC-116, `docs/dsl-syntax.md` §15.11, `systems/dashboard.md`). Its own
+effective sequence stops at its own last reachable position; the rail simply ends there, and the
+ticket closes as `terminal` the moment its parent's `reconcile` merges it — v5 §7.6's `Merged →
+Done` — with no intermediate rail entry standing in for that. What a non-root ticket's own `deploy`
+means, if anything, is `docs/dsl-syntax.md` §15.11's open question, not this screen's to answer by
+inventing a rail entry for it.
 
 **Depth is shown, not explained.** A ticket's fan-out depth (v5 §7.19 — 0 top level, 1 components,
 2 subcomponents) determines which positions in the type's declared sequence apply to it; the

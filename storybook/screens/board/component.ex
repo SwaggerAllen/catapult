@@ -5,19 +5,34 @@ defmodule Catapult.Storybook.Screens.Board do
   loading `lanes` and `cards` for the selected project and applying `filters`/`show_all_lanes`.
 
   `lanes`: `%{key:, label:, kind: :status | :gate}`, in effective-sequence order (`screens/
-  board.md`), plus two fields `board_live.ex` does not compute yet and this render treats as
-  optional, `Map.get`-style, rather than required — `group_key: String.t() | nil` and
-  `group_anchor: boolean`. `group_key` is shared by every lane a declared sub-array groups
-  (`docs/dsl-syntax.md` §15.10) and absent (or `nil`) for a lane no sub-array cites;
-  `group_anchor` marks the one lane inside a group that is its non-critique agent step — the
-  target a throwback in that group falls back to by default. Contiguous lanes sharing a
-  `group_key` render inside one bounded box (`screens/board.md`'s "Sub-arrays render as a bounded
-  box around their own lanes," ORC-116); a lane carrying neither field renders exactly as it did
-  before grouping existed. This render computes the runs from the flat, ordered list handed down,
-  it does not resolve grouping itself. `cards`: `%{id:, title:, type:, lane_key:, children:
-  [%{id:, lane_key:, lane_label:}], blocked: nil | %{flavor:, origin_label:}, gate: nil |
+  board.md`) — `key` is an opaque, plane-supplied string; this render never parses it, since what
+  disambiguates two same-named positions is `systems/dashboard.md`'s own lane-key entry, not a
+  rendering concern. Plus three fields `board_live.ex` does not compute yet and this render treats
+  as optional, `Map.get`-style, rather than required — `group_key: String.t() | nil`,
+  `group_anchor: boolean` and `group_collapsed: boolean`. `group_key` is shared by every lane a
+  declared sub-array groups (`docs/dsl-syntax.md` §15.10) and absent (or `nil`) for a lane no
+  sub-array cites; `group_anchor` marks the one lane inside a group that is where a throwback in
+  that group falls back to by default — whatever `Catapult.Dsl.Workflow.throwback_default/3`
+  resolves, rendered rather than restated here. Contiguous lanes sharing a `group_key` render
+  inside one bounded box (`screens/board.md`'s "Sub-arrays render as a bounded box around their
+  own lanes," ORC-116); a lane carrying none of the three renders exactly as it did before
+  grouping existed. `group_collapsed` (default `false` when absent, so an existing caller that
+  never sends it keeps rendering expanded) switches a group between its ordinary per-lane columns
+  and the collapsed summary box (`screens/board.md`'s "A group is collapsible, and collapsed is
+  the default"). This render computes the runs from the flat, ordered list handed down; it does
+  not resolve grouping or collapse state itself — a `phx-click="toggle_group"`/
+  `phx-value-key={group_key}` is emitted for the eventual LiveView to wire.
+
+  `cards`: `%{id:, title:, type:, lane_key:, children: [%{id:, lane_key:, lane_label:}],
+  child_summary: nil | %{count:, label:}, blocked: nil | %{flavor:, origin_label:}, gate: nil |
   %{role:}}` — a card's own lane is `blocked.origin_label`'s lane when `blocked` is set, never a
-  separate "blocked" lane. `gate` is set when the card's lane is a review gate: `%{role:, href:}`,
+  separate "blocked" lane. `children` is same-type roll-up only (a subcomponent inside a
+  component, `docs/dsl-syntax.md` §15.11) since only same-type nesting shares this board's own
+  lane set, each carrying its own `lane_label`; `child_summary`, when set, is a single aggregate
+  count for children of a different declared type (a feature's own components) — there is no lane
+  of theirs on this board to attach a `lane_label` to, so it renders as a plain chip instead of a
+  per-lane list (`screens/board.md`'s "Grouping is per lane, not per card — and only within one
+  shared lane set"). `gate` is set when the card's lane is a review gate: `%{role:, href:}`,
   rendered as a link out to `document-review` (or `ticket`) rather than an Approve/Throw-back pair,
   since neither command a card could dispatch would carry a real `body_sha` to compare against
   (`screens/board.md`'s "Cards link to where pass-forward and pass-back are issued" — ORC-114, and
@@ -78,11 +93,79 @@ defmodule Catapult.Storybook.Screens.Board do
     """
   end
 
-  defp segment(%{segment: {:group, _lanes}} = assigns) do
+  defp segment(%{segment: {:group, [lane | _]}} = assigns) do
+    assigns =
+      assigns
+      |> assign(:collapsed, Map.get(lane, :group_collapsed, false))
+      |> assign(:group_key, Map.get(lane, :group_key))
+      |> assign(:group_lanes, elem(assigns.segment, 1))
+
     ~H"""
-    <div class="flex gap-4 rounded-box border border-dashed border-primary/40 bg-primary/5 p-2">
-      <.lane_column :for={lane <- elem(@segment, 1)} lane={lane} cards={@cards} />
+    <.collapsed_group :if={@collapsed} lanes={@group_lanes} cards={@cards} />
+    <div
+      :if={!@collapsed}
+      class="flex gap-4 rounded-box border border-dashed border-primary/40 bg-primary/5 p-2"
+    >
+      <.lane_column :for={lane <- @group_lanes} lane={lane} cards={@cards} />
+      <button
+        phx-click="toggle_group"
+        phx-value-key={@group_key}
+        class="btn btn-ghost btn-xs self-start"
+        title="Collapse this loop"
+      >
+        ⇤
+      </button>
     </div>
+    """
+  end
+
+  attr :lanes, :list, required: true
+  attr :cards, :list, required: true
+
+  # Collapsed: a group renders as one box, still at its full lane-count width, carrying the
+  # default-landing badge on the box itself (not on one lane inside it, since the lanes aren't
+  # drawn) plus the ids of every ticket currently sitting anywhere in the group — the two facts
+  # grouping exists to explain (`screens/board.md`'s "A group is collapsible, and collapsed is the
+  # default"). Expanding trades this summary for the ordinary per-lane columns above.
+  defp collapsed_group(assigns) do
+    anchor = Enum.find(assigns.lanes, &Map.get(&1, :group_anchor, false))
+    lane_keys = Enum.map(assigns.lanes, fn lane -> lane.key end)
+    group_cards = Enum.filter(assigns.cards, &(&1.lane_key in lane_keys))
+
+    assigns =
+      assigns
+      |> assign(:anchor, anchor)
+      |> assign(:group_key, Map.get(hd(assigns.lanes), :group_key))
+      |> assign(:group_cards, group_cards)
+
+    ~H"""
+    <button
+      phx-click="toggle_group"
+      phx-value-key={@group_key}
+      class="flex w-72 shrink-0 flex-col items-start gap-2 rounded-box border border-dashed border-primary/40 bg-primary/5 p-3 text-left"
+      title="Expand this loop"
+    >
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-sm">
+          <%= length(@lanes) %> lanes<%= if @anchor, do: " · #{@anchor.label}" %>
+        </span>
+        <span
+          :if={@anchor}
+          class="badge badge-primary badge-sm"
+          title="Default throwback landing point for this group"
+        >
+          ↺
+        </span>
+      </div>
+
+      <div :if={@group_cards != []} class="flex flex-wrap gap-1">
+        <span :for={card <- @group_cards} class="badge badge-outline badge-sm font-mono">
+          <%= card.id %>
+        </span>
+      </div>
+
+      <div :if={@group_cards == []} class="text-xs opacity-50">empty</div>
+    </button>
     """
   end
 
@@ -158,6 +241,12 @@ defmodule Catapult.Storybook.Screens.Board do
         <div :if={@card.children != []} class="flex flex-wrap gap-1">
           <span :for={child <- @card.children} class="badge badge-outline badge-sm font-mono">
             <%= child.id %> · <%= child.lane_label %>
+          </span>
+        </div>
+
+        <div :if={Map.get(@card, :child_summary)} class="flex gap-1">
+          <span class="badge badge-outline badge-sm">
+            <%= @card.child_summary.count %> <%= @card.child_summary.label %>
           </span>
         </div>
 

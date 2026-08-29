@@ -7,13 +7,15 @@ defmodule Catapult.Storybook.Screens.Ticket do
   only renders the shape that produces, including a rejected command's conflict.
 
   `sequence` entries: `%{key:, label:, kind: :status | :gate, role: String.t() | nil, state:
-  :passed | :current | :upcoming}`, plus two fields `Catapult.Delivery.FeatureLifecycle.Sequence
-  .positions/2` does not compute yet and this render treats as optional, `Map.get`-style, rather
-  than required — `group_key: String.t() | nil` and `group_anchor: boolean`, the identical pair
-  `board`'s lanes carry (`screens/board.md`'s "Sub-arrays render as a bounded box around their own
-  lanes," ORC-116). Contiguous entries sharing a `group_key` render inside one bounded box on this
-  rail too, with the group's own `group_anchor` entry badged as the target a throwback inside it
-  falls back to by default (`screens/ticket.md`'s "Where the sequence declares a sub-array"); an
+  :passed | :current | :upcoming}` — `key` is opaque, plane-supplied and never parsed here
+  (`systems/dashboard.md`'s lane-key entry has what disambiguates two same-named positions), plus
+  two fields `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2` does not compute yet and
+  this render treats as optional, `Map.get`-style, rather than required — `group_key: String.t() |
+  nil` and `group_anchor: boolean`, the identical pair `board`'s lanes carry (`screens/board.md`'s
+  "Sub-arrays render as a bounded box around their own lanes," ORC-116). Contiguous entries sharing
+  a `group_key` render inside one bounded box on this rail too, with the group's own `group_anchor`
+  entry badged as whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group —
+  rendered, not restated (`screens/ticket.md`'s "Where the sequence declares a sub-array"); an
   entry carrying neither renders exactly as it did before grouping existed. `gate_action`: `nil`
   off this ticket's current position, else `%{role:, href:}` — a pointer, not a control: every
   Phase 4 gate reviews prose, so this screen links to `document-review` rather than dispatching

@@ -58,8 +58,9 @@ downstream would ever have prose left to show it beside.
   `docs/dsl-syntax.md` §15.10 retired that bound (ORC-115), and this section's own prior citation
   of `docs/ui-spec.md` §3.2 as "the throwback target chosen from the declared exits" no longer
   matches what that section says (ORC-116 correction). The control is a single primary button
-  naming the derived default — the gate's own `throwback:` when it declares one, otherwise its
-  citing sub-array's own non-critique agent step (§15.10) — with every earlier position in the
+  naming whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves — the gate's own
+  `throwback:` when it declares one, otherwise the derived default (§15.10, rendered rather than
+  restated here) — with every earlier position in the
   effective sequence offered behind a secondary "choose a different target" disclosure: the
   identical earlier-prefix picker `screens/ticket.md`'s own Blocked-return control draws, over the
   identical legality test, and this screen reuses its "leaves this loop" annotation for an option

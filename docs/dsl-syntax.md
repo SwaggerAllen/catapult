@@ -2896,11 +2896,11 @@ are corrected to match.
 - **Whether a sub-array is a visible grouping or flattens for
   display.** Settled, not left open: visible grouping, at ORC-116.
   `board`'s lanes render a bounded box around each sub-array's own
-  lanes, with its one non-critique agent step marked as the
-  throwback's default landing point; `ticket`'s sequence rail groups
-  the identical way. This section fixes the grammar and the
-  derivation; the rendering decision and its reasoning live in
-  `screens/board.md`, not here.
+  lanes, badged with whatever this section's own `throwback_default/3`
+  resolves for the group; `ticket`'s sequence rail groups the
+  identical way. This section fixes the grammar and the derivation;
+  the rendering decision and its reasoning live in `screens/board.md`,
+  not here.
 - **Whether the `pending`-precedes-`generation`/`deploy` check (§13)
   needs a sub-array of its own head.** Reversed at this ticket's fourth
   design review: it does. §13's own tightened rule requires a

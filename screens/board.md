@@ -33,21 +33,29 @@ A `statuses:` entry that is itself an array groups a contiguous run of lanes (`d
 §15.10, ORC-115) — `generation`, its critique, and the gates that review it, in the default bundle's
 own `feature.yaml`. `board` renders that grouping visibly rather than flattening it into the run
 (ORC-116, closing the open question §15.10 left for this screen): the lanes it spans sit inside a
-shared boundary, and the group's one non-critique agent step (the sub-array's own load-time-checked
-anchor, §15.10) carries a small badge marking it as where a throwback in this group lands by
-default. This is the whole point of grouping at all — a throwback's destination is only legible as
-*this is the loop you fell back into* when the loop is drawn, and a flattened board just shows a
-gate followed by an earlier-looking lane with no visual argument for why that lane is the one.
+shared boundary, and one lane inside it carries a small badge marking it as where a throwback in
+this group lands by default. Which lane that is is not this screen's to say — it renders whatever
+`Catapult.Dsl.Workflow.throwback_default/3` resolves for the group (`docs/dsl-syntax.md` §15.10 has
+the derivation), nothing here restates the rule that picks it. This is the whole
+point of grouping at all — a throwback's destination is only legible as *this is the loop you fell
+back into* when the loop is drawn, and a flattened board just shows a gate followed by an
+earlier-looking lane with no visual argument for why that lane is the one.
 
 **A group carries no name of its own** (`docs/dsl-syntax.md` §15.10 — "no `name:`, no `id:`"), so
-the box itself is not labeled. The one fact worth surfacing is the anchor, and the anchor badge
+the box itself is not labeled. The one fact worth surfacing is the default-landing badge, and it
 carries it; inventing a group title would be naming something the grammar deliberately doesn't.
 
-**Groups are always expanded — never collapsed the way fan-out is** (below). A sub-array is
-bundle-authored content with a small, fixed width — `feature.yaml`'s own group holds four entries —
-so there is no clutter problem collapsing would solve, and collapsing would hide exactly the loop
-the grouping exists to explain. Fan-out's collapse-by-default answers a volume problem (many
-children, unbounded); this grouping doesn't have one, so it doesn't need the same default.
+**A group is collapsible, and collapsed is the default — reversing this screen's own earlier
+stance.** A sub-array's width is bundle-authored and not bounded (`docs/dsl-syntax.md` §15.2's own
+revised `feature.yaml` example already carries groups of differing size, and §15.11's worked
+`component.yaml` groups run longer still), so the "small, fixed width" argument for always-expanded
+does not hold generally, and fan-out's own collapse-by-default answers the identical volume problem
+here. **A collapsed group still has to show what the grouping exists to explain**: the box renders
+at its full lane-count width even collapsed, carrying the default-landing badge on its own boundary
+rather than on one lane inside it, plus a compact strip of the tickets currently sitting anywhere
+inside the group (their ids, not their individual lanes) — so *this loop has N tickets in it, and
+this is where a throwback lands* both read off the collapsed box without opening it. Expanding
+trades that summary for the ordinary per-lane columns.
 
 **Nested groups do not render, because they do not exist.** `docs/dsl-syntax.md` §15.10's own
 grammar is flat and nesting is explicitly left undecided rather than built; `board` never receives
@@ -56,6 +64,17 @@ a group inside a group from the loader, so there is nothing here to draw a secon
 **A group spanning lanes the abbreviation would otherwise hide degenerates the same way lane
 abbreviation itself does today** (below) — no role-holder projection exists yet, so every gate lane
 is one you have standing in and a group is never shown partially in Phase 4.
+
+**A group's own lane set, and the group itself, can differ between two tickets of the same type.**
+`docs/dsl-syntax.md` §15.11 makes an instance's own effective sequence a fact about its position in
+the doc-graph tree, not only about its declared type — a leaf instance never reaches a `reconcile`
+its own parent-shaped siblings do, and no instance but the tree's root ever reaches `merge`/`deploy`/
+`terminal` at all (`systems/dashboard.md` carries both consequences). A lane or a group a given
+card's own resolved sequence excludes is one that card is never shown in, the same "never shows a
+card it does not itself hold" rule extended from occupancy to shape; a non-root card's own last
+visible lane is whatever position its own sequence ends at, and it leaves the board for `terminal`
+directly from there once its parent's `reconcile` merges it, with no `merge`/`deploy` lane of its
+own to pass through first.
 
 ## Fan-out collapses, and collapsed is the default
 
@@ -70,11 +89,20 @@ a small per-lane count or chip on the parent card, not a nested board. Expanding
 children as a flat list with their own status, not a second swim-lane view; drilling into any of
 them is `ticket`, same as drilling into the parent.
 
-**Grouping is per lane, not per card.** A feature's children are scattered across several lanes at
-once (that is the premise above), so "expand this feature" has to mean something different in each
-lane it appears in — the `Building` lane's expansion shows only the children currently in
-`Building`, not the feature's whole child list repeated in every lane it touches. A lane never
-shows a child it does not itself hold.
+**Grouping is per lane, not per card — and only within one shared lane set.** A feature's children
+are scattered across several lanes at once (that is the premise above), so "expand this feature"
+has to mean something different in each lane it appears in — the `Building` lane's expansion shows
+only the children currently in `Building`, not the feature's whole child list repeated in every
+lane it touches. A lane never shows a child it does not itself hold.
+
+That per-lane roll-up only works when a child reads its position off the same array as its parent.
+`docs/dsl-syntax.md` §15.11 gives `component`/`subcomponent` their own declared type, sharing no
+array with `feature` — a component's own lane has no counterpart on a feature's own board at all, so
+there is no lane to roll it up into. A subcomponent inside a component is the one case that still
+shares an array (both instances of `types/component.yaml`, one level deeper), and keeps the
+per-lane roll-up above unchanged. A feature's own component children roll up as a single aggregate
+count on the card instead — however many are in flight, wherever the feature's own lane happens to
+be — since there is no lane of theirs to place a per-lane chip against.
 
 **This is a different axis from sub-array grouping (above), and the two never overlap on screen**
 (ORC-116). Fan-out grouping collapses a feature's *children* inside one lane, on the card; sub-array
@@ -150,3 +178,7 @@ all three are deferred (see below) rather than cut on the merits.
   projection. Once it isn't: decide then whether abbreviation cuts a group's member lanes to the
   ones you hold standing in, or a group renders whole the moment any one of its lanes qualifies —
   a real choice with nothing today to test it against.
+- **A collapsed group's own state, per user.** The identical nicety as the "show all lanes" toggle
+  above, and cut for the identical reason — not needed to prove the loop once, cheap once a per-user
+  preference has anywhere to live at all. Collapsed is the default every session starts from until
+  then.

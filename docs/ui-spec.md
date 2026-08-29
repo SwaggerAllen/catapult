@@ -123,20 +123,28 @@ roll-up; subcomponents group under their component the same way.
 **The first thing the board answers is which top-level tickets are in
 flight and what state their components are in** — everything below
 that is expansion, not default content. Note the grouping is *per
-lane*: one feature's components legitimately sit in several lanes at
-once, so each lane rolls up only the children it holds.
+lane*, and only within one shared lane set: one feature's components
+legitimately sit in several lanes at once, so each lane rolls up only
+the children it holds — but a component/subcomponent child reads its
+own position off a wholly separate declared type (`dsl-syntax.md`
+§15.11), sharing no lane set with `feature` at all, so that per-lane
+roll-up only applies to same-type nesting (a subcomponent inside a
+component). A feature's own component children roll up as a single
+aggregate count on the card instead, since there is no lane of theirs
+to place a per-lane chip against.
 
 **Subflow grouping (above) and fan-out grouping are different axes
 and never overlap on screen** (ORC-116). Fan-out grouping collapses a
 feature's *children* inside one lane, on the card, and is collapsed
 by default because a fan-out is unbounded. Subflow grouping wraps a
-run of *lanes themselves*, spans the lane headers, and is always
-expanded — collapsing it would hide the loop it exists to explain —
-and is bounded by however many entries a bundle author put in one
-sub-array, small by construction. A card inside a grouped lane still
-collapses its own children the ordinary way; the two mechanisms
-compose without colliding because one lives inside a card and the
-other around several lanes.
+run of *lanes themselves*, spans the lane headers, and is collapsible
+too — a sub-array's width is bundle-authored and not bounded, so it
+carries the identical volume problem — but a collapsed group still
+shows its own default-landing badge and which tickets sit inside it,
+which collapsing a plain lane does not need to. A card inside a
+grouped lane still collapses its own children the ordinary way; the
+two mechanisms compose without colliding because one lives inside a
+card and the other around several lanes.
 
 **Lanes abbreviate to the ones you have standing in** — lanes your
 roles own, plus lanes currently holding your tickets. The full set is
@@ -175,10 +183,11 @@ what the node derivation actually unlocks.
   *inside this loop* rather than at an anonymous point in a flat row
   (ORC-116)
 - the gate action, when this user's role holds it: **approve**
-  (transition forward) or **throw back** — one click to the gate's own
-  declared landing point when it names one (`dsl-syntax.md` §15.4),
-  otherwise the citing sub-array's own agent step (§15.10's derived
-  default), or the same earlier-prefix picker J4 gives Blocked-return
+  (transition forward) or **throw back** — one click to whatever
+  `Catapult.Dsl.Workflow.throwback_default/3` resolves (the gate's own
+  declared landing point when it names one, `dsl-syntax.md` §15.4,
+  otherwise the derived default, §15.10 — rendered here, not
+  restated), or the same earlier-prefix picker J4 gives Blocked-return
   (§7.19) for any other target: one legality rule for both entry
   points, never bounded by a per-gate declaration — only the one-click
   *default* may be
