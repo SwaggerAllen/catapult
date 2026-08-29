@@ -32,11 +32,15 @@ orchestration uses Linear; that is a different system running a
 different loop, and it is unaffected by anything here. Catapult the
 platform does not talk to Linear at all.
 
-**Children spawn when the plan node names them, not at Building**
-(v5 §7.10): a depth-scoped gate sitting before Building is
-unclaimable unless its children exist by then. Creation is not
-dispatchability — early children sit pre-queue until the parent's
-design gates pass.
+**Children spawn when the plan node names them, not at a status
+transition** (v5 §7.10): a depth-scoped gate sitting before the
+child's own existence is unclaimable unless it exists by then.
+Creation is not dispatchability — early children sit pre-queue until
+the parent's design gates pass. **Architecture's own fan-out
+recurses the identical rule one level further, settled at ORC-151's
+third design review** (below): sysarch, each comparch and each
+subcomparch spawns its own ticket the same way, rather than
+generating as scope-runs inside one ticket.
 
 ## Standing decisions
 
@@ -1368,6 +1372,38 @@ design gates pass.
   named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
   merge effect itself, and any `bundles/**` content declaring
   `reconcile` — all dev's diff against this record, not design's.
+
+- **A third design review on this same ticket adds two facts this
+  system's own dispatcher will carry, past what the pass above scoped
+  as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
+  architecture's own fan-out (sysarch/comparch/subcomparch) now spawns
+  a ticket per tree level, the identical spawn rule this system already
+  states for a feature's component and subcomponent children (above,
+  "children spawn when the plan node names them, not at a status
+  transition") — recursed one level further than this doc's own spawn
+  discussion had needed to say so explicitly before now; a stale
+  restatement of the pre-amendment "at `Building`" rule this same
+  review found at `v5-design-decisions.md` §7.15 is corrected there,
+  not here. Second, a non-root instance's
+  own `merge` is triggered by its parent, not by its own dispatch:
+  entering `reconcile` is a precondition gated on every blocking
+  child's own subflow having finished (`v5-design-decisions.md` §7.2's
+  child-blocks-parent, read on entry rather than only on completion),
+  and reaching it is what fires the mechanical merge for every child
+  now ready — the identical `plane`-balled merge effect named above,
+  triggered from the parent's transition rather than the child's own.
+  `Catapult.Delivery.ContainerLifecycle`'s own precedent for an
+  entry-guard (its `blocks:` inversion, ORC-148, above) is the nearest
+  existing shape a dispatcher implementation would extend, not a new
+  concept this system invents; `fanout`'s own retirement (`dsl-syntax.md`
+  §15.1) removes the status `Catapult.Delivery.FeatureLifecycle.Sequence`
+  already described as vestigial, needing no further mechanism here
+  since nothing ever dispatched from it. **Not built as part of this
+  pass:**
+  the tree-spawn recursion into architecture, and the parent-triggered
+  merge cascade, both Phase 7's alongside everything the pass above
+  already deferred.
 
 ## Initial vs target
 

@@ -516,43 +516,81 @@ context-source kinds, and audit profiles.
   been read against its own argument first. `reconcile` may also
   recur, the way a generation-shaped entry and `merge` already could —
   `dsl-syntax.md` §15.11's own worked example carries two, one closing
-  the architecture phase's own depth-scoped join and one closing
-  implementation after `fanout`, rather than one pinned between
-  `checks` and a single `merge`. `merge`'s own `ball` changes from
-  `agent` to `plane`: mechanical, effected by the plane once
-  `reconcile` approves, barring a conflict (which routes to `Blocked`
-  the ordinary way). This closes the finding ORC-148's own dev pass
-  filed against itself: `Catapult.Delivery.ContainerLifecycle
-  .inline_dispatch_point?/1` excluded `merge` by name, inside a module
-  whose own moduledoc asserts it branches on no status name — the
-  predicate generalizes to "agent-balled and not review-shaped," which
-  excludes `merge` because it is no longer agent-balled, needing no name
-  check. The sub-array anchor rule (§15.10) generalizes the identical
-  way: "non-critique agent-balled" becomes "non-review-shaped
-  agent-balled," admitting any number of `reconcile` entries alongside
-  `critique` ones without counting toward the sub-array's required-one
-  anchor. **New: gate scope is derived from position relative to the
-  nearest `reconcile` before it** — a gate earlier than every
-  `reconcile` in a type's own array approves the citing tier's own
-  artifact; one sitting after a `reconcile` approves what that
-  `reconcile` has already joined in from every child beneath it,
-  superseded again by a later `reconcile` if one follows — closing a gap
-  `v5-design-decisions.md` §7.16 left open (what a gate scoped to a
-  join, rather than to one generation's own sub-array, approves), with
-  no new field: computed from array position, the identical "derive,
-  don't declare" posture `throwback:`'s own default already takes. **No
-  `docs/non-goals.md` entry**, for the reason the design record gives in
-  full: growing this closed table is covered by that file's existing
-  admission rule without amendment, the same non-entry `design`/
-  `architecture` got at ORC-148. **Not built as part of this pass:** the
-  loader changes (`lib/catapult/dsl/system_status.ex`'s `@statuses`
-  table and `generation_shaped?/1`'s new sibling, `status.ex`'s
-  `non_critique_agent_step?/1` rename and generalization, `workflow.ex`'s
-  backbone and sub-array checks widening to include `reconcile` and the
-  new merge-preceded-by-reconcile positional check), the `bundles/**`
-  content that declares it, and the dispatcher change
-  `systems/delivery.md` files against its own Target list — all dev's
-  diff against this record, not design's.
+  the architecture phase's own join and one closing implementation.
+  `merge`'s own `ball` changes from `agent` to `plane`: mechanical,
+  effected by the plane once `reconcile` approves, barring a conflict
+  (which routes to `Blocked` the ordinary way). This closes the finding
+  ORC-148's own dev pass filed against itself: `Catapult.Delivery
+  .ContainerLifecycle.inline_dispatch_point?/1` excluded `merge` by
+  name, inside a module whose own moduledoc asserts it branches on no
+  status name — the predicate generalizes to "agent-balled and not
+  review-shaped," which excludes `merge` because it is no longer
+  agent-balled, needing no name check. The sub-array anchor rule
+  (§15.10) generalizes the identical way: "non-critique agent-balled"
+  becomes "non-review-shaped agent-balled," admitting any number of
+  `reconcile` entries alongside `critique` ones without counting toward
+  the sub-array's required-one anchor. **Gate scope is derived from
+  position relative to the nearest `reconcile` before it** — a gate
+  earlier than every `reconcile` in a type's own array approves the
+  citing tier's own artifact; one sitting after a `reconcile` approves
+  what that `reconcile` has already joined and, per this same ticket's
+  third design review below, already **merged** in from every child
+  beneath it, superseded again by a later `reconcile` if one follows —
+  closing a gap `v5-design-decisions.md` §7.16 left open (what a gate
+  scoped to a join, rather than to one generation's own sub-array,
+  approves), with no new field: computed from array position, the
+  identical "derive, don't declare" posture `throwback:`'s own default
+  already takes. **No `docs/non-goals.md` entry**, for the reason the
+  design record gives in full: growing this closed table is covered by
+  that file's existing admission rule without amendment, the same
+  non-entry `design`/`architecture` got at ORC-148. **Not built as part
+  of this pass:** the loader changes (`lib/catapult/dsl/system_status.ex`'s
+  `@statuses` table and `generation_shaped?/1`'s new sibling, `status
+  .ex`'s `non_critique_agent_step?/1` rename and generalization,
+  `workflow.ex`'s backbone and sub-array checks widening to include
+  `reconcile` and the new merge-preceded-by-reconcile positional
+  check), the `bundles/**` content that declares it, and the
+  dispatcher change `systems/delivery.md` files against its own Target
+  list — all dev's diff against this record, not design's.
+
+- **A third design review on this same ticket retires `fanout` from
+  the fixed table, moves architecture's own fan-out onto the ticket
+  tree, and makes `merge` implicit outside the root** (`docs/dsl-syntax.md`
+  §15.1, §13, §15.11; `docs/v5-design-decisions.md` §7.10, §7.15,
+  §7.19). Three changes, none reopening the split above:
+  **`fanout` retires**, its only remaining job (marking a feature's own
+  wait before its implementation-phase `reconcile`) now a dispatch
+  precondition rather than a status of its own — the edge type of the
+  identical name (`Catapult.Dsl.Edge`'s `@types`, node-id minting) is
+  untouched. **Architecture's own fan-out — sysarch, each comparch,
+  each subcomparch — dispatches through its own ticket instance of the
+  one declared type, spawned when the plan names it** (the existing
+  child-spawn rule, `v5-design-decisions.md` §7.10, applied
+  recursively) **rather than as `depth:`-filtered scope-runs inside one
+  ticket**, which could never give a subcomparch `critique` its own
+  bounce (a ticket has one status at a time, so one ticket's one
+  `critique` visit throws the whole tree back). `reconcile` itself
+  drops the `depth:` this ticket's second pass gave it: whether an
+  instance runs its own join is now a fact about that instance's own
+  children, never a declared ceiling. **`merge` becomes depth-0 by
+  rule and fires only at the root** — every `ticket`-skeleton type
+  still declares exactly one, reconcile-preceded, load-checked
+  unchanged; a non-root instance's own copy of that declaration never
+  reaches it by its own dispatch, and instead merges when its parent
+  enters `reconcile` (`v5-design-decisions.md` §7.2's child-blocks-parent,
+  read as a precondition on entry and, symmetrically, as the merge
+  trigger). This is not plane logic branching on grouping — the second
+  pass's own citation of `docs/non-goals.md`'s automation-protocol
+  entry against an implied-merge mechanism is withdrawn as a
+  misapplication of that entry's admission rule, which is about states
+  and, by §15.10's own extension, about groupings a bundle authors;
+  tree shape is neither. `docs/v5-design-decisions.md` §7.15's own
+  "children spawn at `Building`" passage, stale against §7.10's already-
+  recorded amendment before this pass, is corrected to match. **Not
+  built as part of this pass:** the same loader and dispatcher work
+  named above, now covering `SystemStatus.@statuses`'s `fanout` removal
+  and the tree-shape-derived `reconcile`/`merge` dispatch rather than a
+  depth-filtered one — all dev's diff against this record.
 
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
