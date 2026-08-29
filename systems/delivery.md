@@ -14,7 +14,7 @@ them, the v5 §7 machinery in two stages: first the **authoring loop**
 feature-branch PR management, decline harvesting), later the full
 two-grain delivery (child lifecycle, mutex, dispatch, reconciliation,
 the validation loop, escalations, milestones with the `:live`-gated
-`retro` queue (ORC-105), the maintenance watcher).
+`retro` entry (ORC-105), the maintenance watcher).
 
 **There is no Tracker port, and no tracker adapter is ever built**
 (v5 §7.17). Ticket state is ours; the work surface is ours
@@ -32,11 +32,15 @@ orchestration uses Linear; that is a different system running a
 different loop, and it is unaffected by anything here. Catapult the
 platform does not talk to Linear at all.
 
-**Children spawn when the plan node names them, not at Building**
-(v5 §7.10): a depth-scoped gate sitting before Building is
-unclaimable unless its children exist by then. Creation is not
-dispatchability — early children sit pre-queue until the parent's
-design gates pass.
+**Children spawn when the plan node names them, not at a status
+transition** (v5 §7.10): a depth-scoped gate sitting before the
+child's own existence is unclaimable unless it exists by then.
+Creation is not dispatchability — early children sit pre-queue until
+the parent's design gates pass. **Architecture's own fan-out
+recurses the identical rule one level further, settled at ORC-151's
+third design review** (below): sysarch, each comparch and each
+subcomparch spawns its own ticket the same way, rather than
+generating as scope-runs inside one ticket.
 
 ## Standing decisions
 
@@ -145,8 +149,10 @@ design gates pass.
   container's own sequence, never a value carried on the parent's
   dispatching entry, so the two never need to be the same declaration;
   a queue's `blocks:` relation to a sibling queue in the same
-  declaration holds that sibling's entry open while the blocking queue
-  carries unresolved work items — the general form of what used to be
+  declaration guards *entry into* that sibling while the blocking queue
+  carries unresolved work items, checked once at the transition rather
+  than held continuously (corrected to this reading at the design
+  review below) — the general form of what used to be
   a single hard-coded boundary-blocking rule, now one relation the
   dispatcher reads wherever a workflow bundle declares it, milestone
   `main`→`retro` included. **The pause has no separate mechanism to
@@ -175,18 +181,20 @@ design gates pass.
   wants: grooming next milestone's `prep` during this milestone's own
   `main`. What this system owns, not yet built: the storage
   distinguishing "instances that exist" from "the instance that is
-  current," and the two ways a container's position moves backward — a
-  queue (a query over unresolved work items) un-resolving when its
-  population refills, or a gate the container's own array cites
-  throwing back to an earlier entry in that array. **The second way is
-  a fifth-pass correction**, not a fourth-pass fact: the fourth pass's
-  own "a container's anchor entries carry no gates, so they have no
-  `throwback:` to borrow" stopped being true the moment gates and
-  environments widened onto containers in the same pass that wrote it
-  (`docs/dsl-syntax.md` §15.2, §15.4, §15.8) — a milestone sign-off
-  gate between `main` and `retro` can throw back to `main` today, and
-  this system's dispatcher has to honor that path alongside the
-  un-resolve one, not only the one the earlier framing left standing.
+  current," and a gate the container's own array cites throwing back
+  to an earlier entry in that array. **This bullet originally read a
+  container's position as moving backward two ways, the second being
+  a gate's own throwback — a fifth-pass correction**, not a
+  fourth-pass fact: the fourth pass's own "a container's anchor
+  entries carry no gates, so they have no `throwback:` to borrow"
+  stopped being true the moment gates and environments widened onto
+  containers in the same pass that wrote it (`docs/dsl-syntax.md`
+  §15.2, §15.4, §15.8). **The first of the two — a queue un-resolving
+  when its population refills — is retired at ORC-148's third design
+  review**; see that bullet below rather than treating it as this
+  system's target behavior. A milestone sign-off gate between `main`
+  and `retro` can throw back to `main` today, and this system's
+  dispatcher has to honor that path.
   Filed against ORC-104 alongside the rest of this entry's Target list.
 - **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
   respect and closed a hole in the loader's own acyclicity check that
@@ -233,10 +241,11 @@ design gates pass.
   dispatcher and its onboarding path each read and enforce; both are
   ORC-104's to build, alongside the rest of this entry's Target list.
 - **ORC-115 (design pass, corrected on two later design reviews) gives
-  this system's dispatcher a derived throwback default and opens,
-  without answering, whether a container instance can be a dispatch
-  target in its own right** (`docs/dsl-syntax.md` §15.4, §15.10; `docs/
-  v5-design-decisions.md` §7.8, §7.16, §7.19). The dispatcher's own
+  this system's dispatcher a derived throwback default and names,
+  without yet answering, whether a container instance can be a
+  dispatch target in its own right** (`docs/dsl-syntax.md` §15.4,
+  §15.10; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19; answered at
+  ORC-148, below). The dispatcher's own
   throwback handling resolves every decline's *legality* the same way,
   regardless of declaration — checked against "earlier in the citing
   type's own effective sequence" (identical to how the dispatcher
@@ -254,26 +263,125 @@ design gates pass.
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 
-  **This system's own open question, named rather than assumed
-  answered: can a container instance be an agent dispatch target at
-  all?** `docs/v5-design-decisions.md` §7.8's own amendment records the
-  direction — `milestone`'s `setup` and `retro` folding into sub-arrays
-  of its own array rather than staying separately minted ticket-
-  skeleton types — but `setup`/`retro` today dispatch as ordinary
-  tickets precisely because this system's dispatcher has never had to
-  address a non-ticket subject. Answering this reaches ORC-9's executor
-  (what does it run against, if not a ticket's branch and PR), the
-  mutex mapping (a container instance has no file-map paths of its
-  own), and `DispatchRun`'s own keying (keyed on ticket id today); it
-  also reopens what `main`'s `blocks: [retro]` (§15.7) means once the
-  blocker is one agent step rather than a population of unresolved
-  work items — "does not complete while a queue that blocks it holds
-  work" presumes something to hold, and an agent step either has run
-  or hasn't. **Not decided here.** Until it is, `types/setup.yaml` and
-  `types/retro.yaml` stay exactly as built, and this system's
-  dispatcher gains nothing from the amendment beyond the throwback
-  default above. Filed alongside the rest of this doc's Target list,
-  for whichever pass takes it up.
+  **This system's own open question — can a container instance be an
+  agent dispatch target at all? — is answered at ORC-148: yes, on the
+  identical footing as a ticket instance.** Dispatching from a work
+  item with a queue and one without were never different operations,
+  only different status flows attached to the same mechanism
+  (`docs/dsl-syntax.md` §15.2, `docs/v5-design-decisions.md` §7.8) —
+  the queue was never what made something a dispatch target, so this
+  system does not need a container-shaped answer distinct from the
+  ticket-shaped one it already has. Concretely, once `setup` and
+  `retro` fold inline (below) this system's own Target build must:
+  point ORC-9's executor at the container instance's own branch and PR
+  when the dispatch subject is a container rather than a ticket; give
+  a container instance file-map paths of its own for the mutex mapping
+  to key against, the identical shape a ticket's paths already take;
+  and key `DispatchRun` on the container instance's id in that case
+  rather than assuming a ticket id. It also resolves what `main`'s
+  `blocks: [retro]` (§15.7) means once `retro` is `milestone`'s own
+  inline entry rather than a population of unresolved child tickets:
+  `retro` cannot be *entered* while `main`'s own queue still carries
+  unresolved work — the identical entry-guard test §15.7 states
+  generally (corrected to this reading at the design review below),
+  applied to a guarded entry that is not itself a queue. Filed
+  alongside the rest of this doc's Target list, for whichever pass
+  takes up ORC-104.
+- **ORC-148 (design pass) retires `singleton:` and the fold that
+  motivated it, closing the open question the two bullets above left
+  standing** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.7, §15.10;
+  `docs/v5-design-decisions.md` §7.8). The fifth/sixth-pass singleton
+  reading above bounded a *queue's* lifetime cardinality — the
+  mechanism `setup` and `retro` needed only because each was
+  implemented as `flow:` naming a separately minted, ticket-skeleton
+  child. Once `setup` and `retro` fold directly into `milestone`'s own
+  array as ordinary agent-balled entries — no `flow:`, no minted
+  child, `types/setup.yaml`/`types/retro.yaml` deleted — neither is a
+  queue any more, so there is no cardinality left for a field to
+  bound: "at most one, ever" falls out of there being exactly one
+  `milestone` instance and exactly one array position each occupies.
+  This system's dispatcher loses a check it was filed to build (the
+  singleton-lifetime rejection, ORC-104's) and gains the dispatch-
+  target work named above in its place — a smaller Target list, not a
+  larger one, since folding removes the separately-dispatched child
+  the old shape needed a bound for. **Not built as part of this
+  pass:** every item this bullet and the two above it name is
+  `systems/delivery.md`'s own Target list, ORC-104's to build.
+- **A design review on ORC-148 changed the shape of this system's own
+  `blocks:`-aware dispatcher work, filed above and still ORC-104's**
+  (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
+  §7.8). The three bullets above described `blocks:` as a standing
+  hold this system's dispatcher recomputes for as long as the guarded
+  entry carries unresolved work — wrong, corrected in place above and
+  restated here because it changes what this system builds: `blocks:`
+  is an entry guard, checked once, at the transition into the entry it
+  guards, never rechecked against the same occupancy. Concretely, this
+  system's dispatcher evaluates a `blocks:` condition exactly once, at
+  the moment a container's position would advance into the guarded
+  entry — never as a periodic or event-driven recheck against an
+  already-active entry, which is what let a queue refilling mid-`retro`
+  pull the container back out of it under the retired reading. **This
+  states what the guard is not — a standing recheck against an entry
+  already entered — not how the dispatcher decides when to attempt the
+  entry in the first place, which a further design review found this
+  bullet left unanswered.** `ContainerLifecycle` (the process manager
+  named below) is an ordinary event-subscribed process manager, not a
+  poll loop: it re-evaluates a guarded entry's eligibility on every
+  engine event that could change the answer — most often, a work item
+  the blocking queue counted resolving out of it — and the moment a
+  `blocks:` condition reads clear, it is this same dispatcher, not a
+  human action, that issues the advance command. A container never
+  sits fully unblocked waiting to be asked forward; "checked once, at
+  the transition" is what each of those event-triggered attempts does,
+  not a claim that the dispatcher looks only a single time over the
+  container's whole life.
+  Separately, reaching `terminal` gains a guard this system's dispatcher
+  must enforce unconditionally — every one of a container's own queues
+  holding no unresolved work — never narrower than whatever `blocks:`
+  relations a bundle happened to author, so a queue nobody named in any
+  `blocks:` list still cannot be closed over on the way to `terminal`.
+  Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
+  unaffected by the second one, and the first is a semantics correction
+  to a check that already existed) — both are this system's dispatcher
+  to build differently, still ORC-104's, not a larger Target list.
+- **A third design review on ORC-148 found the `blocks:` inversion
+  above left a contradiction standing: a container's position still
+  moved backward on a queue refilling, restated rather than removed
+  — and a fourth found the third's own fix over-corrected**
+  (`docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md` §7.8).
+  §15.8's own "two ways a container's position moves backward" kept a
+  queue un-resolving as one of them, un-gated — the identical defect
+  the bullet above retired from `blocks:` itself, reappearing one
+  level up. **Retired: this system's dispatcher never moves a
+  container's position backward because a queue refilled.** The third
+  review's own replacement named the surviving cause "an authored
+  transition," which rules out more than it means to: a `critique`
+  entry's own decline is automatic, with no author in it, and
+  `docs/v5-design-decisions.md` §7.19 requires it be structurally
+  identical to a human decline at a gate. **What moves position
+  backward is a step's own outcome — a decline, whether a `critique`
+  entry's own agent run issues it (landing back on the generation
+  entry it pairs with) or a human issues it at a gate (landing per its
+  declared or derived `throwback:`) — or an explicit author
+  transition** — concretely, returning a milestone from `retro` to
+  `main`, which `ContainerLifecycle` never performs on its own. Forward
+  advance into a guard-cleared entry stays this system's dispatcher's
+  to make automatically, the moment the guard reads clear (the bullet
+  above, unaffected); a decline's backward move is likewise this
+  system's dispatcher's to apply the moment it is issued, agent or
+  human; the `retro` → `main` return alone is the author's own action,
+  taken once `retro`'s own sub-array — its agent step and the human
+  gates around it — has run to completion, not the instant `retro`'s
+  output lands back in `main` and un-resolves it. This is also what
+  keeps the `terminal` guard two bullets up reachable at all: the
+  shipped `milestone`'s only throwback to `main` is `milestone-signoff`,
+  sequenced *before* `retro` (`dsl-syntax.md` §15.10), so absent this
+  manual return `retro` filing work into `main` would leave
+  `cleanup`/`terminal` blocked with no declared path back.
+  `lib/catapult/engine/projections/container_queues.ex`'s resolution
+  condition 1 predates this correction and still cites §15.8 for the
+  retired reading — this system's dispatcher build (ORC-104) corrects
+  that check and its citation, not this design record.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -631,8 +739,9 @@ design gates pass.
   already writes to, never a second aggregate or a delivery-owned
   table standing in for one. What this system owns is the *dispatcher*
   — deciding when a queue has emptied of unresolved work, when a
-  `blocks:` sibling has cleared, when a singleton queue's one work item
-  has gone terminal and its `retro`/`setup` may be dispatched — and
+  `blocks:` sibling has cleared, and when the container's own position
+  reaches an inline agent-balled entry (`retro`/`setup`, ORC-148) and
+  it may be dispatched — and
   issuing the resulting command into engine's aggregate; engine
   validates and records it, and its new projection is what this
   system's dispatcher reads back, keeping no second copy of its own.
@@ -772,47 +881,64 @@ design gates pass.
   Both claims hold exactly as this entry and the ticket's own
   description already state them.
 
-- **Every carried finding leaves adjudicated, enforced as `retro`'s own
-  completion gate — not a separate check bolted on afterward**
-  (ORC-104, design pass). `retro`'s own flow, an ordinary
-  agent-dispatched work item like any other (`v5-design-decisions.md`
-  §7.8), reads the findings this milestone carried and, for each,
-  either opens it under its own key (an ordinary flow instance, through
-  the same uniform dispatch above) or writes a decline with its reason
-  — a new engine event, `FindingAdjudicated`, on the aggregate `retro`'s
-  own ticket already writes into. `retro`'s own queue does not resolve
-  to `terminal` while any finding it carries lacks one of those two
-  outcomes: the same shape as a `blocks:` relation holding a queue open
-  for unresolved work, applied to findings instead of work items,
-  because an unadjudicated finding is exactly that — unresolved work
-  this container is still holding.
-
-  **Amended at the dev pass: the gate is the container's own close, not
-  a queue recognized by the name `retro`.** The rule and its reason are
-  unchanged — no container leaves over a finding nobody read — but
-  attaching the check to a *named* queue would have meant the
-  dispatcher branching on the word `retro`, which is the implicit
-  anchor meaning `dsl-syntax.md` §15.2 spent four passes removing
-  ("nothing in the loader branches on any of the three words") and
-  which §15.9's admission rule is written to keep out of plane logic.
-  Attaching it to the close says the same thing about the same
-  container without asking the grammar for a magic word, and says it
-  about *every* container — including one whose author declared no
-  backward-looking queue at all, which the queue-named version would
-  have let close over its findings silently. In the shipped
-  `milestone` type the two land in the same place, because `retro` is
-  followed only by a gate, `cleanup` and `terminal`.
+- **Every carried finding leaves adjudicated, enforced as the
+  container's own close — not a check keyed to the queue name `retro`,
+  and not a separate check bolted on afterward** (ORC-104, design pass;
+  corrected to this shape at ORC-148's fold and its own design review,
+  which retired the singleton-ticket `retro` this bullet originally
+  described). `retro` is an ordinary agent-balled entry directly in
+  `milestone`'s own array (`dsl-syntax.md` §15.1-§15.2, §15.10) —
+  dispatched against the milestone container instance itself, a legal
+  dispatch target on the identical footing as a ticket
+  (`v5-design-decisions.md` §7.8) — never a separately minted ticket or
+  a `flow:` of its own. Its dispatched run reads the findings this
+  milestone carried and, for each, either opens it under its own key
+  (an ordinary flow instance, through the same uniform dispatch above)
+  or writes a decline with its reason — a new engine event,
+  `FindingAdjudicated`, on the milestone container instance's own
+  aggregate. The container does not advance past `retro` while any
+  finding it carries lacks one of those two outcomes — because an
+  unadjudicated finding is exactly that, unresolved work this container
+  is still holding — but the check is attached to the container's own
+  close, not to a queue recognized by the name `retro`: naming the
+  queue would mean the dispatcher branching on the word `retro`, which
+  is the implicit anchor meaning `dsl-syntax.md` §15.2 spent four
+  passes removing ("nothing in the loader branches on any of the three
+  words") and which §15.9's admission rule is written to keep out of
+  plane logic. Attaching it to the close says the same thing about the
+  same container without asking the grammar for a magic word, and says
+  it about *every* container — including one whose author declared no
+  backward-looking entry at all, which a `retro`-named check would have
+  let close over its findings silently. This is not a `blocks:`
+  relation either way (`dsl-syntax.md` §15.7's `blocks:` is an entry
+  guard, checked once at transition, ORC-148 design review): nothing
+  gates *entry into* `retro` on its own findings, since the findings
+  are what `retro` itself produces and adjudicates after it has already
+  begun. **In the shipped `milestone` type, `retro` is followed by
+  `checks`, `reconcile`, `merge` and `deploy`, then `cleanup` and
+  `terminal`** — the identical checks/reconcile/merge/deploy sequence
+  `setup` is also followed by, since both are ordinary agent-balled
+  entries whose output takes the same CI/reconcile/merge/promote path
+  any other agent-produced change does (`reconcile` named at ORC-151,
+  below — before it, this sequence read `checks`, `merge` and `deploy`,
+  with the same reconciling judgment carried inside `merge` rather
+  than named separately); the finding-adjudication close gate above
+  sits on `retro` itself, ahead of that sequence, not on `cleanup`.
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
   because a flag flip is an external effect exactly like a GitHub call**
-  (ORC-104, design pass; v5 §2.10, §7.8). `retro`'s own flow computes
-  the union of `feature_flags/0`-registered flags across this
+  (ORC-104, design pass; v5 §2.10, §7.8). `retro`'s dispatched run
+  computes the union of `feature_flags/0`-registered flags across this
   milestone's member features (membership read off `systems/engine
-  .md`'s new by-reference projection) once its own queue is otherwise
-  ready to resolve — after the `:live` gate has cleared (already
-  enforced structurally: `main`'s declared `blocks: [retro]` holds
-  `retro` open for exactly this) and the author's own manual pass. The
+  .md`'s new by-reference projection) once the container is otherwise
+  ready to advance past it — after the `:live` gate has cleared (already
+  enforced structurally: a red `:live` verdict counts as `main` still
+  carrying unresolved work, so `main`'s declared `blocks: [retro]`
+  keeps `retro` from being *entered* at all until it clears, §15.7's
+  entry-guard reading — `retro` never begins mid-red, so nothing has to
+  hold its result back after the fact) and the author's own manual
+  pass. The
   flip is not a plane-internal event alone: it is a
   `FunWithFlags`-backed enable call, so it follows the outbox
   discipline every other outbound act in this system already does — a
@@ -825,10 +951,10 @@ design gates pass.
 - **Composition proposes and never commits, and proposes off the
   structured signals this system already keeps rather than
   reproducing orchestration's flat backlog view** (ORC-104, design
-  pass). `setup`'s own flow — forward-looking, dispatched the same
-  uniform way as any other queue entry — computes candidates for the
-  next container's `prep` from this system's own backlog/gating
-  projection and writes them to a new, purely computed proposal
+  pass). `setup`'s dispatched run — forward-looking, dispatched the
+  same uniform way any other agent-balled entry is — computes
+  candidates for the next container's `prep` from this system's own
+  backlog/gating projection and writes them to a new, purely computed proposal
   read-model; nothing here creates a real ticket. Committing a proposal
   into an actual `prep` entry is an ordinary ticket-open action, an
   author's to take, unchanged by this ticket and out of its scope
@@ -1215,6 +1341,101 @@ design gates pass.
   surface needing gate staleness derives it there rather than
   reintroducing a pinned field on the event.
 
+- **ORC-151 (design pass) retires the one named exception
+  `inline_dispatch_point?/1` has carried since ORC-148, by removing
+  what made it necessary** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.5, §7.19). `merge`'s own `ball`
+  changes from `agent` to `plane` — the mechanical join into the
+  parent branch, effected by the plane once the new `reconcile` kind
+  approves, barring a conflict — so `merge` leaves the agent-balled set
+  this function filters over entirely. `inline_dispatch_point?/1`'s
+  `not queue_shaped? and non_critique_agent_step? and status !=
+  "merge"` simplifies to "agent-balled and not review-shaped": the
+  `status != "merge"` clause has nothing left to do, since `merge`
+  is no longer a candidate the first two clauses would admit. This is
+  the correction ORC-148's own dev pass named against itself — a
+  module whose moduledoc asserts it branches on no status name,
+  carrying one name check — closed by a grammar change rather than a
+  code-only fix, because the exception was never this system's to
+  invent: `merge` was agent-balled without being a dispatch point only
+  because one kind was doing two jobs (`docs/v5-design-decisions.md`
+  §7.19). **Reconciliation itself is not this pass's to build.**
+  `reconcile` is agent-balled and dispatches like any other inline or
+  chain-tier agent-balled entry — this system's existing uniform
+  dispatch (`ContainerLifecycle.open_for/3`'s `cond`, and the ordinary
+  `ready_scopes` path for a chain-tier `reconcile` on a ticket) needs
+  no new branch to carry it, once the loader recognizes the kind — but
+  what a `reconcile` agent run actually reads, writes and approves, and
+  the mechanical merge effect `merge`'s own `plane` ball now implies,
+  are Phase 7's, the same boundary every gate-mechanism entry above
+  already draws. **Not built as part of this pass:** the loader changes
+  named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
+  merge effect itself, and any `bundles/**` content declaring
+  `reconcile` — all dev's diff against this record, not design's.
+
+- **A third design review on this same ticket adds two facts this
+  system's own dispatcher will carry, past what the pass above scoped
+  as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
+  `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
+  architecture's own fan-out (sysarch/comparch/subcomparch) now spawns
+  a ticket per tree level, the identical spawn rule this system already
+  states for a feature's component and subcomponent children (above,
+  "children spawn when the plan node names them, not at a status
+  transition") — recursed one level further than this doc's own spawn
+  discussion had needed to say so explicitly before now; a stale
+  restatement of the pre-amendment "at `Building`" rule this same
+  review found at `v5-design-decisions.md` §7.15 is corrected there,
+  not here. Second, a non-root instance's
+  own `merge` is triggered by its parent, not by its own dispatch:
+  entering `reconcile` is a precondition gated on every blocking
+  child's own subflow having finished (`v5-design-decisions.md` §7.2's
+  child-blocks-parent, read on entry rather than only on completion),
+  and reaching it is what fires the mechanical merge for every child
+  now ready — the identical `plane`-balled merge effect named above,
+  triggered from the parent's transition rather than the child's own.
+  `Catapult.Delivery.ContainerLifecycle`'s own precedent for an
+  entry-guard (its `blocks:` inversion, ORC-148, above) is the nearest
+  existing shape a dispatcher implementation would extend, not a new
+  concept this system invents; `fanout`'s own retirement (`dsl-syntax.md`
+  §15.1) removes the status `Catapult.Delivery.FeatureLifecycle.Sequence`
+  already described as vestigial, needing no further mechanism here
+  since nothing ever dispatched from it. **Not built as part of this
+  pass:**
+  the tree-spawn recursion into architecture, and the parent-triggered
+  merge cascade, both Phase 7's alongside everything the pass above
+  already deferred.
+
+- **A fourth design review on this same ticket names two facts this
+  system's own dispatcher will carry that the third pass's own worked
+  example got wrong, past what either pass scoped as "not this pass's
+  to build"** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.11;
+  `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
+  architecture's own fan-out spawns run a second, distinct type from
+  the feature ticket itself, not the feature's own array at a deeper
+  tree position** — the feature ticket dispatches through
+  `types/feature.yaml` (design → architecture → implementation →
+  merge, one instance ever); a comparch or subcomparch ticket
+  dispatches through a second declared type with no `design` phase of
+  its own, recurring per tree level, `v5-design-decisions.md` §7.6's
+  "Child" lifecycle correctly read for the first time. This system's
+  own type-registry lookup (above, "the loaded workflow is a
+  parameter, never resolved") already resolves whichever type a spawn
+  names, so the fact that a spawned child names a *different* type from
+  its parent's own is not a new capability this system needs to grow —
+  it is a fact about which type a spawn cites, `bundles/**` content
+  against this record. Second, **`implementation` is now a real
+  dispatch phase, not the vestigial `checks` occurrence the earlier
+  finding at "Reachability, settled" (above, ORC-32) already flagged as
+  written against stale module shape** — a ticket's own code generation
+  dispatches at `status: implementation` the identical way its own
+  architecture phase dispatches at `status: architecture`, both inline
+  agent-balled entries this process manager's existing uniform dispatch
+  already reaches, needing no new branch once the loader recognizes the
+  kind. **Not built as part of this pass:** the same tree-spawn
+  recursion and parent-triggered merge cascade named above, now
+  spawning a second type rather than a depth-filtered instance of one,
+  and the loader's own recognition of `implementation` — all Phase 7's.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through
@@ -1222,17 +1443,19 @@ the two gates; PR + harvesting; lifecycle projected into the plane's
 own read models, which the work surface renders — there is no third
 party in this path. **Narrowed at ORC-104**: the container/queue
 machinery above — the dispatcher, mint vs. activation, the
-`blocks:`-aware completion check, the singleton-lifetime rejection,
-findings adjudication and the aggregated flag flip — lands in Phase 4
-too, ahead of the rest of Phase 7's two-grain delivery machinery
-(child lifecycle, mutex, dispatch, reconciliation, escalations, the
-maintenance watcher), for the reason the ticket record gives: no
-ticket before Phase 7 otherwise demonstrates the authoring loop closes
-over a container rather than remaining a claim about individual
-tickets. `docs/dsl-syntax.md` §15's grammar itself — the `types/<name>
-.yaml`/`gates/`/`environments/` loader, the declaration-graph
-acyclicity check, the `singleton:`/`blocks:` structural acceptance —
-is `systems/core_dsl.md`'s own file map (`lib/catapult/dsl/**`) and
+`blocks:`-aware completion check, dispatch onto an inline agent-balled
+entry (`setup`/`retro`, ORC-148 — `singleton:`'s own rejection check
+is retired rather than built, above), findings adjudication and the
+aggregated flag flip — lands in Phase 4 too, ahead of the rest of
+Phase 7's two-grain delivery machinery (child lifecycle, mutex,
+dispatch, reconciliation, escalations, the maintenance watcher), for
+the reason the ticket record gives: no ticket before Phase 7 otherwise
+demonstrates the authoring loop closes over a container rather than
+remaining a claim about individual tickets. `docs/dsl-syntax.md` §15's
+grammar itself — the `types/<name>.yaml`/`gates/`/`environments/`
+loader, the declaration-graph acyclicity check, the `blocks:`
+structural acceptance — is `systems/core_dsl.md`'s own file map
+(`lib/catapult/dsl/**`) and
 lands with this same ticket; no file-map change is needed for either
 half. **Corrected here, on author review: the touch is core_dsl +
 engine + this system + `platform_content`, not three.** The shipped

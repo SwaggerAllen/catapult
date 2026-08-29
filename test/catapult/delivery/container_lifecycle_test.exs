@@ -130,8 +130,11 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       assert [%ActivateContainer{} = cmd] = ContainerLifecycle.next_commands(workflow, container)
       assert cmd.container_id == "c-groomed"
       # Its own first declared entry, never a value carried on the
-      # parent's dispatching entry (§15.8).
-      assert cmd.queue == "setup"
+      # parent's dispatching entry (§15.8). `pending` licenses the
+      # deploy-bound runs `setup`/`retro` each need further down the
+      # array (§15.2), so it — not `setup` — is milestone's own first
+      # position now.
+      assert cmd.queue == "pending"
     end
 
     test "an active child neither re-mints nor re-activates", %{workflow: workflow} do
@@ -247,7 +250,7 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       # hold is the whole answer — the branch the shipped bundle's own
       # `main`/`retro` pair never reaches.
       workflow = blocking_workflow()
-      container = container!("c-held-late", "held-type", current_queue: "first")
+      container = container!("c-held-late", "held-type", current_queue: "generation")
       work_item!(container.id, "second", "w-blocking")
 
       assert ContainerLifecycle.next_commands(workflow, container) == []
@@ -268,17 +271,18 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
     end
   end
 
-  # `second` blocks `first` while carrying work, and `first` is a
-  # singleton — so a bug that opened work in a held queue would show up
-  # as an OpenFlow here.
+  # `second` blocks `generation` while carrying work, and `generation`
+  # is a non-queue-shaped inline dispatch point (no `flow:`, ORC-148's
+  # replacement for the retired `singleton:` field) — so a bug that
+  # opened work there would show up as an OpenFlow here.
   defp blocking_workflow do
     type = %Catapult.Dsl.Type{
       name: "held-type",
       file: "types/held-type.yaml",
       skeleton: nil,
       statuses: [
-        %Catapult.Dsl.Status{status: "first", flow: "feature", singleton: true},
-        %Catapult.Dsl.Status{status: "second", flow: "feature", blocks: ["first"]}
+        %Catapult.Dsl.Status{status: "generation"},
+        %Catapult.Dsl.Status{status: "second", flow: "feature", blocks: ["generation"]}
       ]
     }
 

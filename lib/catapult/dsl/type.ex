@@ -1,15 +1,16 @@
 defmodule Catapult.Dsl.Type do
   @moduledoc """
   One `types/<name>.yaml` declaration (dsl-syntax.md §15.2): a work
-  item, ticket or container alike — "a container is any work item
-  whose skeleton has queues, a ticket is any work item whose skeleton
-  has a generation, and the grammar gives them one declaration shape,
-  not three." `type:` names the declaration; `skeleton:` optionally
-  picks `ticket` or `container` (omitted: no anchors at all, the
-  project's own shape, §15.1); `statuses:` is the one ordered array
-  both the skeleton's own fixed anchors (§15.1) and whatever gates,
-  environments or `critique` entries the author interleaves live in —
-  array index is the only position (§15.3).
+  item, ticket or container alike, one declaration shape rather than
+  three. A skeleton fixes a required backbone, never an exclusive
+  membership (a seventh-pass reversal, ORC-148): `type:` names the
+  declaration; `skeleton:` optionally picks `ticket` or `container`
+  (omitted: no anchors at all, the project's own shape, §15.1);
+  `statuses:` is the one ordered array both the skeleton's own required
+  backbone (§15.1) and whatever else the closed vocabulary allows —
+  gates, environments, `critique` entries, a bare generation, a
+  population anchor of its own — live in, array index the only
+  position (§15.3).
 
   **Sub-arrays are stored flattened, with their spans beside them**
   (§15.10). A `statuses:` entry may itself be a bare, unnamed array
@@ -35,7 +36,7 @@ defmodule Catapult.Dsl.Type do
   Structural parsing only; every cross-reference and skeleton-shape
   check (§13) is `Catapult.Dsl.Workflow`'s job, since most of them
   (uniqueness across the loaded union, the declaration graph, `entry:`)
-  are facts about more than one declaration at once. §15.10's three
+  are facts about more than one declaration at once. §15.10's own
   sub-array checks are the exception and live here: each is a fact
   about one declaration's own array, answerable while parsing it.
   """
@@ -114,27 +115,21 @@ defmodule Catapult.Dsl.Type do
     end
   end
 
-  # A `container`-skeleton type's own `status:` entries are all
-  # queue-shaped (its five anchors); so is every `status:` entry in a
-  # skeleton-less type's array (§15.7). A `ticket`-skeleton type's
-  # `status:` entries never are — those anchors dispatch by chain-side
-  # tiers (§13).
+  # Population-anchor legality is a fact about an entry's own name (and
+  # whether the citing type declares a skeleton at all), never about
+  # which skeleton it declares (§15.7, a seventh-pass reversal,
+  # ORC-148) — `Catapult.Dsl.Status.parse/4` resolves it per entry, so
+  # this module only threads the citing type's own `skeleton:` through.
   #
-  # A sub-array's entries are parsed under the *same* queue-shapedness
-  # as the array that holds them, deliberately: a container type's
-  # `retro` still has to declare the `flow:` §15.7 requires of it, and
-  # then §15.10's own check refuses it for having one. Parsing group
-  # members as never-queue-shaped would instead let a container quietly
-  # drop `flow:` to slip an anchor into a group — the milestone
-  # retirement, arrived at by omission rather than by decision.
+  # A sub-array's entries are parsed under the identical `skeleton:` as
+  # the array that holds them — there is no separate rule for group
+  # members.
   defp parse_statuses(where, raw_statuses, skeleton) do
-    queue_shaped? = skeleton in [nil, "container"]
-
     {statuses, groups, problems} =
       raw_statuses
       |> Enum.with_index()
       |> Enum.reduce({[], [], []}, fn {raw, index}, {statuses, groups, problems} ->
-        {entries, entry_problems, group?} = parse_entry(where, raw, index, queue_shaped?)
+        {entries, entry_problems, group?} = parse_entry(where, raw, index, skeleton)
 
         groups =
           if group? and entries != [] do
@@ -155,26 +150,26 @@ defmodule Catapult.Dsl.Type do
   # otherwise also be reported as holding the wrong number of anchors,
   # which is a consequence of the first problem rather than a second
   # one to fix.
-  defp parse_entry(where, raw, index, queue_shaped?) when is_list(raw) do
+  defp parse_entry(where, raw, index, skeleton) when is_list(raw) do
     results =
       raw
       |> Enum.with_index()
       |> Enum.map(fn {inner, j} ->
-        {j, parse_group_member(where, inner, index, j, queue_shaped?)}
+        {j, parse_group_member(where, inner, index, j, skeleton)}
       end)
 
     parse_problems = for {_j, {:error, problems}} <- results, problem <- problems, do: problem
 
     if parse_problems == [] do
       entries = for {_j, {:ok, entry}} <- results, do: entry
-      {entries, sub_array_problems(where, index, results), true}
+      {entries, anchor_count_problems(where, index, results), true}
     else
       {[], parse_problems, true}
     end
   end
 
-  defp parse_entry(where, raw, index, queue_shaped?) do
-    case Status.parse(where, "statuses[#{index}]", raw, queue_shaped?) do
+  defp parse_entry(where, raw, index, skeleton) do
+    case Status.parse(where, "statuses[#{index}]", raw, skeleton) do
       {:ok, entry} -> {[entry], [], false}
       {:error, problems} -> {[], problems, false}
     end
@@ -184,7 +179,7 @@ defmodule Catapult.Dsl.Type do
   # .parse/4`'s "expected a YAML mapping" clause: a reader who nested
   # two sub-arrays needs to know nesting is refused, not that a list is
   # not a map.
-  defp parse_group_member(where, inner, index, j, _queue_shaped?) when is_list(inner) do
+  defp parse_group_member(where, inner, index, j, _skeleton) when is_list(inner) do
     {:error,
      [
        "#{where} statuses[#{index}][#{j}] is itself a sub-array — sub-arrays do not nest " <>
@@ -192,33 +187,27 @@ defmodule Catapult.Dsl.Type do
      ]}
   end
 
-  defp parse_group_member(where, inner, index, j, queue_shaped?) do
-    Status.parse(where, "statuses[#{index}][#{j}]", inner, queue_shaped?)
+  defp parse_group_member(where, inner, index, j, skeleton) do
+    Status.parse(where, "statuses[#{index}][#{j}]", inner, skeleton)
   end
 
-  # §15.10's second and third checks, over a sub-array whose members
-  # all parsed.
-  defp sub_array_problems(where, index, results) do
-    queue_problems =
-      for {j, {:ok, entry}} <- results, Status.queue_shaped?(entry) do
-        "#{where} statuses[#{index}][#{j}] is a queue-shaped anchor (flow:/blocks:), which may " <>
-          "not sit inside a sub-array (§15.10) — that is the singleton-flow retirement the " <>
-          "section leaves open, not something this grammar accepts"
-      end
-
-    queue_problems ++ anchor_count_problems(where, index, results)
-  end
-
-  # Exactly one non-critique agent-balled entry per sub-array — the
-  # fact §15.10's whole derived default rests on. Which entries qualify
-  # is `Status.non_critique_agent_step?/1`'s to answer and is not
+  # Exactly one non-review-shaped agent-balled entry per sub-array — the
+  # fact §15.10's whole derived default rests on, and the whole of what
+  # this section still checks over a sub-array's own contents. (The
+  # check that once refused a queue-shaped/population-anchor entry
+  # inside a sub-array is retired at ORC-148: §15.2's unification means
+  # a sub-array's one non-review-shaped agent-balled entry no longer
+  # needs a `flow:` to exist inside a container's array in the first
+  # place, so the case it refused doesn't arise from the shape this
+  # grammar now gives `setup`/`retro`.) Which entries qualify is
+  # `Status.non_review_shaped_agent_step?/1`'s to answer and is not
   # restated here: this check and the derivation that depends on it
   # (`Catapult.Dsl.Workflow.throwback_default/3`) must agree, and they
   # agree by asking the same function rather than by both being right.
   defp anchor_count_problems(where, index, results) do
     anchors =
       for {_j, {:ok, entry}} <- results,
-          Status.non_critique_agent_step?(entry),
+          Status.non_review_shaped_agent_step?(entry),
           do: Status.name(entry)
 
     case anchors do
@@ -227,14 +216,14 @@ defmodule Catapult.Dsl.Type do
 
       [] ->
         [
-          "#{where} statuses[#{index}] is a sub-array with no non-critique agent-balled entry " <>
-            "(§15.10 requires exactly one) — a group with nothing for a throwback to fall back " <>
-            "to groups nothing"
+          "#{where} statuses[#{index}] is a sub-array with no non-review-shaped agent-balled " <>
+            "entry (§15.10 requires exactly one) — a group with nothing for a throwback to " <>
+            "fall back to groups nothing"
         ]
 
       many ->
         [
-          "#{where} statuses[#{index}] is a sub-array with #{length(many)} non-critique " <>
+          "#{where} statuses[#{index}] is a sub-array with #{length(many)} non-review-shaped " <>
             "agent-balled entries #{inspect(many)} (§15.10 requires exactly one) — there is no " <>
             "unambiguous anchor between them, and none is invented for a shape no bundle needs"
         ]

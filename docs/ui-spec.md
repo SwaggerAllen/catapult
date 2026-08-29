@@ -259,7 +259,11 @@ ORC-105 from a single boundary point to a declared queue sequence).
   the "live, visible list of what is deliberately half-built" §7.11
   already requires
 - which queue (`setup`/`prep`/`main`/`retro`/`cleanup`) is current, and
-  any `blocks:` condition holding it there
+  — since `blocks:` is an entry guard, checked once at the transition
+  into the entry it guards, never a standing hold on an already-current
+  one (`dsl-syntax.md` §15.7, ORC-148 design review) — whichever
+  `blocks:` condition is *keeping the next queue from becoming current*,
+  if the position sits at an entry a later one's `blocks:` names
 
 **`triage`** — machinery-filed work awaiting batch-accept.
 

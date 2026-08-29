@@ -15,7 +15,8 @@ defmodule Catapult.Dsl.WorkflowTest do
   alias Catapult.Dsl.Workflow
 
   ## §15.10 — the derived default is the citing sub-array's own
-  ## non-critique agent step, never the array position before the gate.
+  ## non-review-shaped agent step, never the array position before the
+  ## gate.
 
   describe "throwback_default/3 on the shape the two rules disagree about" do
     setup do

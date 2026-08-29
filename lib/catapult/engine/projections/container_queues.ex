@@ -24,11 +24,12 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
 
   Two facts this module deliberately does *not* answer, because they
   are the dispatcher's rather than the state of record's: whether a
-  work item may be opened into a queue (`singleton:`'s lifetime bound
-  — `resolvable?/3` reports the state, `Catapult.Delivery
-  .ContainerLifecycle` decides what to do about it), and which queue
-  comes next after a throwback (that is the citing type's own array,
-  read against the gate's declared `throwback:` or the default
+  work item may be opened into a queue (a one-shot inline agent step's
+  own lifetime bound, ORC-148's replacement for the retired
+  `singleton:` field — `admits?/3` reports the state, `Catapult
+  .Delivery.ContainerLifecycle` decides what to do about it), and which
+  queue comes next after a throwback (that is the citing type's own
+  array, read against the gate's declared `throwback:` or the default
   `Catapult.Dsl.Workflow.throwback_default/3` derives for it).
   """
 
@@ -114,18 +115,23 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
        would make that container's internals part of its interface,
        exactly backwards from composability.
 
-  A non-queue-shaped entry — a `review:` gate citation, an
-  `environment:`, or `terminal` — is never `:resolved` by this
-  function: a gate is resolved by a human's transition, not by a
-  population emptying, and reporting `:open` for one is what keeps the
-  dispatcher from advancing past a human (v5 §7.8's two irreducible
-  author transitions).
+  A `review:` gate citation, an `environment:`, or `terminal` is never
+  `:resolved` by this function: a gate is resolved by a human's
+  transition, not by a population emptying, and reporting `:open` for
+  one is what keeps the dispatcher from advancing past a human (v5
+  §7.8's two irreducible author transitions). A non-queue-shaped
+  `status:` entry — an inline one-shot agent step (`setup`/`retro`,
+  ORC-148) or a fixed world/agent kind interleaved in the array
+  (`checks`/`merge`/`deploy`/`pending`) — resolves the identical way a
+  population anchor does: its own population (keyed by entry name,
+  regardless of whether it carries `flow:`) is what a work item opened
+  against it is tracked under.
   """
   @spec resolution(Workflow.t(), Container.t(), String.t()) :: resolution()
   def resolution(%Workflow{} = workflow, %Container{} = container, queue) do
     entries = entries(workflow, container)
 
-    case Enum.find(entries, &(Status.queue_shaped?(&1) and &1.status == queue)) do
+    case Enum.find(entries, &positioned_entry?(&1, queue)) do
       nil ->
         :open
 
@@ -138,6 +144,18 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
     end
   end
 
+  # Any `status:` entry a container's own position may rest at —
+  # `Status.queue_shaped?/1`'s population anchors and the inline
+  # one-shot agent steps alike (`setup`/`retro`, ORC-148), which carry
+  # no `flow:` and so are not queue-shaped, but are still addressed by
+  # name the identical way. `terminal` is excluded: it is a fixed end
+  # kind a container *reaches*, never a position resolution is asked
+  # about (§15.6).
+  defp positioned_entry?(%Status{status: status}, queue) when status not in [nil, "terminal"],
+    do: status == queue
+
+  defp positioned_entry?(%Status{}, _queue), do: false
+
   @doc """
   Whether `queue` is resolved — `resolution/3` collapsed to a boolean
   for the common call.
@@ -149,18 +167,22 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
 
   @doc """
   Whether a work item may be opened into `queue` — `{:ok, entry}`, or
-  `{:error, :singleton_closed}` when the entry declares `singleton:
-  true` and something has already been assigned to it.
+  `{:error, :singleton_closed}` when `queue` names a non-queue-shaped
+  positioned entry (an inline one-shot agent step, ORC-148's
+  `singleton:`-field replacement) and something has already been
+  assigned to it.
 
-  **The bound is over the queue's whole lifetime, not its momentary
-  population** (§15.7's sixth-pass correction). Once a singleton
-  queue's one work item reaches `terminal` the query is empty again,
-  and that emptiness is *closure*, not room: a population-scoped check
-  would read it as an opening and admit a second. `retro` and `setup`
-  are the motivating cases — a single work item moving through a flow
-  once, ever — and this is what lets the dispatcher address *the*
-  retro work item directly rather than iterating a set that
-  structurally never holds more than one.
+  **The bound is over the entry's whole lifetime, not its momentary
+  population** (§15.7's sixth-pass correction, restated after
+  `singleton:`'s own retirement). Once a one-shot entry's one work item
+  reaches `terminal` the query is empty again, and that emptiness is
+  *closure*, not room: a population-scoped check would read it as an
+  opening and admit a second. `retro` and `setup` are the motivating
+  cases — a single work item moving through a flow once, ever — and
+  this is what lets the dispatcher address *the* retro work item
+  directly rather than iterating a set that structurally never holds
+  more than one. A queue-shaped entry (`flow:` present) carries no such
+  bound: it is an ordinary open-ended queue.
 
   Not a load-time check, and it could not be: assignment history is
   live ticket state, unknowable when a bundle loads (§13).
@@ -170,19 +192,23 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
   def admits?(%Workflow{} = workflow, %Container{} = container, queue) do
     entries = entries(workflow, container)
 
-    case Enum.find(entries, &(Status.queue_shaped?(&1) and &1.status == queue)) do
+    case Enum.find(entries, &positioned_entry?(&1, queue)) do
       nil ->
         {:error, :unknown_queue}
 
-      %Status{singleton: true} = entry ->
-        if Store.queue_ever_assigned?(container.project_id, container.id, queue) do
-          {:error, :singleton_closed}
-        else
-          {:ok, entry}
-        end
-
       entry ->
-        {:ok, entry}
+        # A population anchor (`flow:` present) is an ordinary
+        # open-ended queue with no lifetime bound; a non-queue-shaped
+        # positioned entry is a one-shot inline agent step (`setup`,
+        # `retro`, ORC-148 — no `flow:` left to represent it) and gets
+        # the "at most once, ever" bound the retired `singleton:` field
+        # used to carry explicitly.
+        if Status.queue_shaped?(entry) or
+             not Store.queue_ever_assigned?(container.project_id, container.id, queue) do
+          {:ok, entry}
+        else
+          {:error, :singleton_closed}
+        end
     end
   end
 
