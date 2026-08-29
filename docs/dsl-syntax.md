@@ -1702,14 +1702,19 @@ statuses:                        # the skeleton's own required backbone,
     - review: proposals-read
   - status: cleanup
     flow: feature
-  - environment: prod             # a new declared environment (§15.4,
-                                  #   ORC-155): every feature already
-                                  #   deploys itself to staging on its
-                                  #   own account (below); this is the
-                                  #   milestone's own promotion of the
-                                  #   whole, once retro's findings are
-                                  #   adjudicated and cleanup is done
-    promote_from: staging
+  - environment: prod             # a citation, not a declaration — a
+                                  #   citing entry carries the name
+                                  #   alone (§15.4); `promote_from:`
+                                  #   lives on environments/prod.yaml's
+                                  #   own declaration (bundle content,
+                                  #   dev's). A new declared environment
+                                  #   (§15.4, ORC-155): every feature
+                                  #   already deploys itself to staging
+                                  #   on its own account (below); this
+                                  #   is the milestone's own promotion
+                                  #   of the whole, once retro's
+                                  #   findings are adjudicated and
+                                  #   cleanup is done
   - status: deploy
   - status: terminal
 ```
@@ -1756,8 +1761,10 @@ own working period, before `retro`.
 **`deploy` moves to after `cleanup`, gaining the `environment:` entry
 §15.5 requires and this file never carried.** With `setup` and `retro`
 no longer promoting anything of their own, the milestone's single
-`deploy` promotes the milestone as a whole — to `prod`
-(`promote_from: staging`), a new declared environment (§15.4) — once
+`deploy` promotes the milestone as a whole — to `prod`, a new
+declared environment (§15.4, its own `promote_from: staging` on
+`environments/prod.yaml`'s declaration, not on the citation above) —
+once
 every feature nested under `prep`/`main` has already deployed itself
 individually to `staging` through its own `feature.yaml` (above) and
 `retro`'s own findings are adjudicated and closed out through
@@ -1835,8 +1842,10 @@ statuses:
                                   #   parent enters reconcile instead,
                                   #   never by reaching this entry
                                   #   itself (§15.11)
-  - environment: staging
-    promote_from: dev
+  - environment: staging          # a citation, not a declaration — the
+                                   #   name alone; `promote_from: dev`
+                                   #   lives on environments/staging.yaml's
+                                   #   own declaration (§15.4), not here
   - status: deploy
   - status: terminal
 ```
