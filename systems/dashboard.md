@@ -258,38 +258,60 @@ conventions §13).
   `mutex label` for the identical reason. Each screen's own doc records
   this against its own controls; this bullet is the one place a reader
   sees why they all say it the same way.
-- **A lane/rail key pairs a chain node with a position, rather than
-  naming the position alone** (ORC-116). `docs/dsl-syntax.md` §15.2
-  and §15.11 both let a status name recur in one type's own array
-  (§15.11's own `component.yaml` worked example carries three
-  `pending`, three `checks` and two `reconcile`), and `CatapultWeb.Live
+- **A lane/rail key pairs an anchor's own id with a position, rather
+  than naming the position alone** (ORC-116). `docs/dsl-syntax.md`
+  §15.2 and §15.11 both let a status name recur in one type's own
+  array — §13: a generation-shaped entry, `checks`, `merge`,
+  `reconcile` and, per the tightened rule above, `pending` itself may
+  all recur; shipped `bundles/default-flow/types/milestone.yaml`
+  carries two `checks`, two `reconcile`, two `merge` and two `deploy`
+  in one `container`-skeleton array — and `CatapultWeb.Live
   .Positions.key/1` round-trips `{:kind, atom} | {:gate, name}` alone,
   with nothing distinguishing which occurrence a card or a rail entry
-  is resting at. The disambiguator does not need a new field: a
-  generation-shaped sub-array's own anchor entry already resolves to a
-  real chain node (`Catapult.Generation.NodeId.resolve/1`, off
-  `engine_nodes`' `tier` and `parent_node_id`), and every position that
-  sub-array groups — its own leading `pending` (§13's tightened check),
-  the generation-shaped entry itself, `checks`, `critique`, and any
-  gate reviewing it — takes that node's id as the other half of its
-  key. A `reconcile` entry, which sits in the flat backbone and may
-  recur without ever minting a node of its own (§15.11), keys off the
-  identical node: the nearest generation-shaped sub-array before it in
-  the same array, "the phase it closes" in that section's own words —
-  the same adjacency gate-scope derivation already reads, not a second
-  rule. `merge`, `deploy` and `terminal` need no pairing: the next
-  bullet confines all three to the tree's root instance, so none of
-  the three recurs inside one instance's own array and a bare name
-  collides with nothing. This does not reopen §15.10's rejection of a
-  second name on a sub-array — the key comes from the anchor's own
-  existing node identity, never a bundle-authored label.
+  is resting at.
+
+  The disambiguator does not need a new field: it is §15.10's own
+  anchor predicate, a sub-array's one non-review-shaped agent-balled
+  entry (`generation`, `design`, `architecture`, `implementation`,
+  `retro` or `setup`), whether or not the entry sits inside a literal
+  sub-array — `milestone.yaml`'s own `setup` is bare in the array,
+  `retro` sits in a sub-array with the sign-off gates around it, and
+  both are anchors on equal footing. Every position that entry's own
+  array segment groups — its own leading `pending` (§13's tightened
+  check), the anchor entry itself, `checks`, `critique`, any gate
+  reviewing it, and the `reconcile`, `merge` and `deploy` that close
+  the phase — takes that anchor's own id as the other half of its key,
+  found by scanning backward from the position to the nearest anchor,
+  "the phase it closes" in §13's own words for `reconcile` and no
+  different for the other three. A generation-shaped anchor's id is
+  its chain node (`Catapult.Generation.NodeId.resolve/1`, off
+  `engine_nodes`' `tier` and `parent_node_id`); `retro` and `setup`
+  mint no chain node — `Catapult.Delivery.ContainerLifecycle.Ids
+  .work_item_id/3`'s own moduledoc calls this "the same reasoning
+  `Catapult.Generation.NodeId` gives for the chain axis, one grain
+  up," a deterministic id on a different axis rather than an absence
+  of one — so their own anchor id is `work_item_id/3`'s own
+  `(container, queue)` identity instead. Either way the key comes from
+  the anchor's own existing identity, never a bundle-authored label,
+  so this does not reopen §15.10's rejection of a second name on a
+  sub-array.
+
+  Only `terminal` needs no pairing: §13 forbids its recurrence
+  outright, so a bare name collides with nothing. `merge` and `deploy`
+  do recur inside one instance's own array (`milestone.yaml`, above)
+  and pair the identical way `checks`/`reconcile` do — root-
+  confinement (next bullet) bounds which *instances* ever reach a
+  `merge` or `deploy` at all, not how many times either name appears
+  in one instance's own declaration, and the two are different facts.
 
   **Not yet covered:** §13's own sub-array bullet permits more than one
   `critique` (or a `reconcile`) inside a single group — "nothing in
   this grammar forbids it," though "ordinary bundle content is not
   expected to put it there." Two such entries in the same group would
-  still collide on the identical `(node, kind)` key; no bundle has
-  needed the shape yet, so this is named rather than solved.
+  still collide on the identical `(anchor, kind)` key; no bundle has
+  needed that particular shape yet, so it is named rather than solved
+  — distinct from the collision above, which shipped bundle content
+  already reaches and which this correction closes.
 - **A non-root instance's own lane sequence ends at its last reachable
   position — never at a `merge` or `deploy` of its own** (ORC-116,
   `docs/dsl-syntax.md` §15.11). `merge` is depth-0 by rule and a
