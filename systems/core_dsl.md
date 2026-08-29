@@ -592,6 +592,52 @@ context-source kinds, and audit profiles.
   and the tree-shape-derived `reconcile`/`merge` dispatch rather than a
   depth-filtered one — all dev's diff against this record.
 
+- **A fourth design review on ORC-151 fixes five worked-example defects
+  the third pass's own draft left standing, and settles two questions
+  it left open** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.4, §15.5,
+  §15.10, §15.11; `docs/v5-design-decisions.md` §7.6, §7.10, §7.19).
+  **`implementation` joins the fixed table as a third named generation
+  kind** — the third pass's own worked example had dispatched a tier's
+  code through a bare second `checks`, but `checks` is world-balled CI
+  against produced work, never a generation run; deliberately gateless
+  in the shipped default (the touchpoint budget calibrates two author
+  gates, `v5-design-decisions.md` §7.10, and a third keyed to
+  implementation is that entry's own named exception, not the ordinary
+  case). **`pending` recurs, once per generation-shaped entry's own
+  sub-array**, tightening "somewhere earlier in the array" — with
+  `fanout` retired, `pending` is the only plane-balled wait position
+  left, and a shared leading `pending` licensing several sub-arrays at
+  once left later ones with nowhere to queue; throwback's own derived
+  default (§15.10) now falls back to a generation-shaped sub-array's
+  own leading `pending` rather than straight to its agent step,
+  matching the repair-loop mapping (`Ready for rework`/`Reworking`)
+  rather than skipping the queued wait. **A declared gate may now be
+  cited twice within one type's own array**, the analogue of
+  `critique`'s existing citing-it-more-than-once precedent, extended
+  from a system status to a named declaration — `architecture-review`,
+  cited once before a `reconcile` and once after, is the exercised
+  case. **Two type declarations, not one array depth-filtered**: the
+  third pass's own worked example had instantiated "one declared
+  type… once per node" with the feature ticket itself at its own depth
+  0, which cannot be `types/feature.yaml` — `design` has no `depth:`
+  field to make it no-op below the root the way a gate or `critique`
+  can — so the feature's own type and the type architecture's
+  recursive fan-out spawns are two separate declarations; this is
+  `v5-design-decisions.md` §7.6's "Child" lifecycle, read correctly for
+  the first time, not that document's own feature lifecycle
+  depth-filtered. Two further defects were comment/naming fixes with no
+  structural consequence: the worked example's own `merge` comment had
+  described children merging at their *own* dispatch of `merge` rather
+  than at their *parent's* `reconcile` (the rule was always the latter,
+  stated correctly elsewhere in the same section); and `comparch-review`
+  renamed to `architecture-review`, since naming a gate for the tier it
+  reviews is the implicit-anchor-meaning defect §11 exists to keep out,
+  and its own two positions already derive their different scopes from
+  where they sit, not from a second name. **Not built as part of this
+  pass:** the same loader and dispatcher work named above, now covering
+  the new kind, the two-type split, and the tightened `pending`/gate
+  checks — all dev's diff against this record.
+
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
   §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`

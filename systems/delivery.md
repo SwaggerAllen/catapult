@@ -1405,6 +1405,37 @@ generating as scope-runs inside one ticket.
   merge cascade, both Phase 7's alongside everything the pass above
   already deferred.
 
+- **A fourth design review on this same ticket names two facts this
+  system's own dispatcher will carry that the third pass's own worked
+  example got wrong, past what either pass scoped as "not this pass's
+  to build"** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.11;
+  `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
+  architecture's own fan-out spawns run a second, distinct type from
+  the feature ticket itself, not the feature's own array at a deeper
+  tree position** — the feature ticket dispatches through
+  `types/feature.yaml` (design → architecture → implementation →
+  merge, one instance ever); a comparch or subcomparch ticket
+  dispatches through a second declared type with no `design` phase of
+  its own, recurring per tree level, `v5-design-decisions.md` §7.6's
+  "Child" lifecycle correctly read for the first time. This system's
+  own type-registry lookup (above, "the loaded workflow is a
+  parameter, never resolved") already resolves whichever type a spawn
+  names, so the fact that a spawned child names a *different* type from
+  its parent's own is not a new capability this system needs to grow —
+  it is a fact about which type a spawn cites, `bundles/**` content
+  against this record. Second, **`implementation` is now a real
+  dispatch phase, not the vestigial `checks` occurrence the earlier
+  finding at "Reachability, settled" (above, ORC-32) already flagged as
+  written against stale module shape** — a ticket's own code generation
+  dispatches at `status: implementation` the identical way its own
+  architecture phase dispatches at `status: architecture`, both inline
+  agent-balled entries this process manager's existing uniform dispatch
+  already reaches, needing no new branch once the loader recognizes the
+  kind. **Not built as part of this pass:** the same tree-spawn
+  recursion and parent-triggered merge cascade named above, now
+  spawning a second type rather than a depth-filtered instance of one,
+  and the loader's own recognition of `implementation` — all Phase 7's.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through

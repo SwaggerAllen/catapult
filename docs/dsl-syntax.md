@@ -685,9 +685,27 @@ Added with the two axes and the declarable protocol surface (v5
 - every declared gate or environment entry sits on an edge between
   **skeleton anchors** (§15.1) that exist in the citing type's own
   array, and its exits resolve within the same array (v5 §7.19);
-- a **`pending` entry precedes every generation-shaped entry
-  (`generation`, `design` or `architecture`, §15.1) and every
-  `deploy` entry in the same array**;
+- **a `pending` entry immediately precedes every generation-shaped
+  entry (`generation`, `design`, `architecture` or `implementation`,
+  §15.1) — as the first entry of that entry's own sub-array, when it
+  sits in one (§15.10); anywhere earlier in the same array, when it
+  doesn't** — a design-review tightening of the original "somewhere
+  earlier" reading, and structural rather than a bare loosening: **one
+  `pending` per generation-shaped entry, never one shared across
+  several.** A single leading `pending` used to license every later
+  generation-shaped entry in the same array (§15.2's own gloss on this
+  bullet, now retired along with the reading), which satisfied this
+  check while leaving a second or third such entry nowhere to wait for
+  dispatch capacity — invisible while `fanout` still gave a ticket
+  somewhere else to sit meanwhile, load-bearing now that `fanout`
+  retires (§15.1) and `pending` is the only plane-balled wait position
+  left in a ticket's array. A `pending` entry precedes every `deploy`
+  entry the same, looser, "somewhere earlier in the same array" way
+  this bullet always required for `deploy` — `deploy` is never grouped
+  inside a sub-array (§15.10's own anchor rule admits only a
+  generation-shaped or review-shaped entry, never `deploy`), so there
+  is no sub-array head for a `deploy`-licensing `pending` to occupy,
+  and nothing here narrows that half of the rule;
 - **every generation-shaped entry has at least one blocked exit** — a
   generation that can fail with nowhere to land is the
   parked-ticket-nobody-can-act-on failure (v5 §7.6, §7.19). `Blocked`
@@ -716,8 +734,8 @@ Added with the two axes and the declarable protocol surface (v5
   never narrow it the way a gate's or `critique`'s own ceiling
   genuinely can;
 - **a `critique` entry must sit immediately after a generation-shaped
-  entry (`generation`, `design` or `architecture`, §15.1) in the same
-  type's `statuses:` array** (§15.5) — no skeleton mentioned, and none
+  entry (`generation`, `design`, `architecture` or `implementation`,
+  §15.1) in the same type's `statuses:` array** (§15.5) — no skeleton mentioned, and none
   is needed: whether a given array has a generation-shaped entry for a
   `critique` to pair with is a fact about that array's own contents,
   never about which skeleton, if any, the citing type declares (a
@@ -764,11 +782,20 @@ Added with the two axes and the declarable protocol surface (v5
   order is a load error naming the declaration and the mismatch;
 - **every `ticket`-skeleton type's `statuses:` array opens with
   `pending`, closes with `terminal`, and holds at least one
-  generation-shaped entry (`generation`, `design` or `architecture`,
-  §15.1, in any combination), `checks`, `merge` and `deploy` at least
-  once each, in that relative order** (§15.1) — a generation-shaped
-  entry, `checks`, `merge` and `reconcile` may all recur (§15.11);
-  `pending` and `terminal` may not: first and last, exactly once.
+  generation-shaped entry (`generation`, `design`, `architecture` or
+  `implementation`, §15.1, in any combination), `checks`, `merge` and
+  `deploy` at least once each, in that relative order** (§15.1) — a
+  generation-shaped entry, `checks`, `merge`, `reconcile` and, per the
+  tightened rule above, `pending` itself may all recur (§15.11);
+  `terminal` alone may not: last, exactly once. **"Opens with
+  `pending`" reads the citing array flattened one level** — the
+  identical flattening the pending-precedes check above already uses —
+  so a first entry that is itself a sub-array whose own first member is
+  `pending` satisfies this the same way a bare leading `pending` always
+  did; a `pending`-first sub-array is in fact the only shape a
+  `ticket`-skeleton array's opening entry can take once its own first
+  generation-shaped entry is grouped, which is the ordinary case
+  (§15.10).
   **`reconcile` is not named in this bullet's own required list, and
   needs no separate ticket-skeleton rule to require it** — §15.11's
   positional check (a `merge` entry must be preceded, earlier in the
@@ -873,9 +900,10 @@ cardinality it bounded):
 - **`flow:` and `blocks:` are legal on a population anchor — a
   `status:` entry named `prep`, `main` or `cleanup`, or any `status:`
   entry in a skeleton-less type's array — never on `pending`,
-  `generation`, `design`, `architecture`, `critique`, `reconcile`,
-  `checks`, `merge`, `deploy`, `setup`, `retro` or `terminal`, whatever
-  type's array cites them** (a seventh-pass reversal, ORC-148: the fourth
+  `generation`, `design`, `architecture`, `implementation`, `critique`,
+  `reconcile`, `checks`, `merge`, `deploy`, `setup`, `retro` or
+  `terminal`, whatever type's array cites them** (a seventh-pass
+  reversal, ORC-148: the fourth
   pass's own coupling to
   the citing type's `skeleton:` is retired along with the sentence it
   read from, §15.2). A population anchor names an open population of
@@ -1007,19 +1035,25 @@ Added with sub-arrays (§15.10, ORC-115):
   undecided, not silently accepted);
 - **a sub-array must hold exactly one entry whose `status:` is a
   non-review-shaped agent-balled system status** (`generation`,
-  `design`, `architecture`, `retro` or `setup` — §15.1's `ball` column
-  minus `critique` and `reconcile`, both review-shaped and excluded for
-  the reason §15.5 already excludes `critique` from standing alone:
-  each reviews an entry rather than standing as one. `design` and
-  `architecture` joined this list at ORC-148's design review as
-  generation-shaped kinds; `merge` left it at this ticket's (ORC-151)
-  design review, its own `ball` changing from `agent` to `plane`
-  (§15.1, §15.11) — not a second exclusion beside `critique`'s, since
-  `merge` is no longer agent-balled at all and so was never a candidate
-  for this count to begin with). Any number of review-shaped entries
-  (`critique`, `reconcile`) may sit in the same sub-array alongside the
-  one anchor — unbounded for the identical reason `critique`'s own
-  count already went unbounded here. Zero non-review-shaped agent-balled
+  `design`, `architecture`, `implementation`, `retro` or `setup` —
+  §15.1's `ball` column minus `critique` and `reconcile`, both
+  review-shaped and excluded for the reason §15.5 already excludes
+  `critique` from standing alone: each reviews an entry rather than
+  standing as one. `design` and `architecture` joined this list at
+  ORC-148's design review as generation-shaped kinds, `implementation`
+  at this ticket's own fourth pass; `merge` left it at this ticket's
+  (ORC-151) first design review, its own `ball` changing from `agent`
+  to `plane` (§15.1, §15.11) — not a second exclusion beside
+  `critique`'s, since `merge` is no longer agent-balled at all and so
+  was never a candidate for this count to begin with). Any number of
+  review-shaped entries (`critique`, `reconcile`) may sit in the same
+  sub-array alongside the one anchor — unbounded for the identical
+  reason `critique`'s own count already went unbounded here. **A
+  leading `pending` does not compete for this count either** — plane-
+  balled, not agent-balled (§15.1), so a generation-shaped sub-array's
+  own required `pending` head (§13's tightened pending-precedes check,
+  above) sits in the same sub-array as its one anchor without becoming
+  a second candidate for it. Zero non-review-shaped agent-balled
   entries, or two or more, is a load error naming the declaration, the
   sub-array's position, and the count found;
 - **Retired, ORC-148: the check refusing a population anchor (one
@@ -1040,13 +1074,21 @@ Added with sub-arrays (§15.10, ORC-115):
   itself a bound, only a source of the derived default the field may
   override;
 - **a `review:` entry inside a sub-array resolves its one-click
-  default to that sub-array's own non-review-shaped agent-balled entry** —
-  computed, never stored, the identical "derive, never hold" posture
-  `ready_scopes` and staleness already take. This is a default action,
-  not a bound on legality: the full set of legal targets is
-  `docs/v5-design-decisions.md` §7.19's own earlier-prefix rule, the
-  same one Blocked-return uses, and the check above only guarantees
-  the default itself is unambiguous.
+  default to that sub-array's own earliest entry** — its own leading
+  `pending`, when the sub-array has one (every generation-shaped
+  sub-array does, per the tightened check above); otherwise its own
+  non-review-shaped agent-balled entry directly (`retro`, `setup`, or a
+  generation-shaped entry with no `pending` grouped inside it — a
+  design-review correction, fourth pass, from resolving to the
+  agent-balled anchor unconditionally). Computed, never stored, the
+  identical "derive, never hold" posture `ready_scopes` and staleness
+  already take. This is a default action, not a bound on legality: the
+  full set of legal targets is `docs/v5-design-decisions.md` §7.19's
+  own earlier-prefix rule, the same one Blocked-return uses, and the
+  check above only guarantees the default itself is unambiguous. **A
+  `review:` entry outside every sub-array has no such default to
+  resolve to and must declare `throwback:` explicitly** (§15.10, "not
+  decided here, left open," below — closed at this same pass).
 
 ## 14. Deliberately absent
 
@@ -1140,6 +1182,7 @@ not declarable.
 | `generation` | an agent run producing artifacts, undifferentiated | agent |
 | `design` | a generation run producing a product-facing artifact | agent |
 | `architecture` | a generation run producing a structural artifact | agent |
+| `implementation` | a generation run producing code against an approved architecture | agent |
 | `critique` | an agent run reviewing a freshly produced draft | agent |
 | `checks` | CI running against produced work | world |
 | `reconcile` | reads the produced PR against its own argument, before merge | agent |
@@ -1165,7 +1208,7 @@ mechanism.** Both are generation-shaped in every rule this section and
 §13 state for `generation` itself — agent-balled, `pending`-preceded,
 requiring a blocked exit, recurrable, eligible for critique pairing
 (§15.5) and for a sub-array's one non-review-shaped agent-balled entry
-(§15.10) — and "a generation-shaped kind" means the three, `generation`
+(§15.10) — and "a generation-shaped kind" means these, `generation`
 included, wherever this document uses the phrase from here on. Plain
 `generation` is unaffected and stays the right choice for a type with
 exactly one generation-shaped visit — `setup`, `retro` and `seed` all
@@ -1180,15 +1223,39 @@ two-visit shape writes `status: design` for the first and
 `status: architecture` for the second, each grouped with its own
 critique and gates into its own sub-array (§15.10) exactly as a bare
 `generation` entry already groups — **each generation's own review
-steps sit inside that generation's own sub-array**, whichever of the
-three kinds anchors it, never spanning two.
+steps sit inside that generation's own sub-array**, whichever kind
+anchors it, never spanning two.
+
+**`implementation` is a third named generation kind, added at this
+ticket's (ORC-151) fourth design review — the identical move, not a
+second mechanism.** §15.11's worked example had been dispatching a
+tier's own code through a second, bare `checks` entry, commented "this
+instance's own implementation" — but `checks` is world-balled CI
+against produced work (this table, above); nothing in that shape ever
+wrote the code `checks` then ran against. `implementation` names the
+generation run that actually produces it, generation-shaped everywhere
+the phrase means (agent-balled, `pending`-preceded — inside its own
+sub-array, §13 — recurrable, eligible for critique pairing and for a
+sub-array's own anchor), the identical footing `design` and
+`architecture` already stand on. **It is deliberately gateless in the
+default bundle, and the reason is recorded rather than left as a bare
+omission**: v5 §7.10's touchpoint budget calibrates a feature to two
+author gates, product and architecture — a third, keyed to
+implementation, is the "restricted scopes carry a third touchpoint"
+exception (v5 §7.10), not the ordinary case, because architecture and
+policy are what constrain intention narrowly enough that no ordinary
+scope needs a human reading the code it produces. A workflow bundle
+wanting a gate after `implementation` anyway simply declares one — the
+grammar refuses nothing here — but the shipped default earns its
+gatelessness from that budget rather than assuming it.
 
 **`reconcile` is a named review-shaped kind, added at this ticket's
-(ORC-151) design review — the fixed table growing a second time, the
-identical move ORC-148 made for `design`/`architecture`.** Every kind
+(ORC-151) first design review — the fixed table growing a second time,
+the identical move ORC-148 made for `design`/`architecture`.** Every kind
 this table has ever named is either **generation-shaped**
-(`generation`, `design`, `architecture`) — an agent run originating an
-artifact — or, now, **review-shaped** (`critique`, `reconcile`) — an
+(`generation`, `design`, `architecture`, `implementation`) — an agent
+run originating an artifact — or, now, **review-shaped** (`critique`,
+`reconcile`) — an
 agent run judging one that already exists. Both are agent-balled;
 what tells them apart is which side of "does this run produce the
 artifact or read it" each one sits on, and "a review-shaped kind"
@@ -1275,22 +1342,24 @@ work item re-resolves against can only be what it is *because* it is
 not declarable (this section's opening paragraph) — a bundle inventing
 its own generation-phase label would be exactly the undeclarable
 anchor set acquiring a declarable member, breaking the property that
-makes it a re-resolution anchor at all. A fixed pair of additional
-names does not: `design` and `architecture` are checked the identical
-way `generation` already is, everywhere `generation` is checked. Which
-of a bundle's own generation-shaped tiers picks `generation`, `design`
-or `architecture` — `sysarch`, `impl`, `ref` and the rest of
-`bundles/default/tiers/**` among them, today uniformly undifferentiated
-— is bundle content, `bundles/**`, dev's diff against this record, not
-a mapping this pass assigns. **Two kinds, not one per tier, and none
-for a target class this platform doesn't build for — a scope local to
-this table's own growth rule, not a `docs/non-goals.md` entry** (design
-review: an earlier draft cited that file here; it carries no such
-entry, and the nearest two — "No LiveView/React mixing within one
-frontend target" and §1's audience line — answer a different question,
-so the citation was dropped rather than backfilled). This table grows
-by the two names the shipped chain's own lifecycle already needed, not
-by a per-tier scheme guessed at against tiers that don't exist yet, and
+makes it a re-resolution anchor at all. A fixed set of additional
+names does not: `design`, `architecture` and `implementation` are
+checked the identical way `generation` already is, everywhere
+`generation` is checked. Which of a bundle's own generation-shaped
+tiers picks `generation`, `design`, `architecture` or `implementation`
+— `sysarch`, `impl`, `ref` and the rest of `bundles/default/tiers/**`
+among them, today uniformly undifferentiated — is bundle content,
+`bundles/**`, dev's diff against this record, not a mapping this pass
+assigns. **Named kinds, not one per tier, and none for a target class
+this platform doesn't build for — a scope local to this table's own
+growth rule, not a `docs/non-goals.md` entry** (design review: an
+earlier draft cited that file here; it carries no such entry, and the
+nearest two — "No LiveView/React mixing within one frontend target"
+and §1's audience line — answer a different question, so the citation
+was dropped rather than backfilled). This table grows by the names the
+shipped chain's own lifecycle already needed — three so far, added two
+passes apart rather than all at once, which is itself evidence against
+a per-tier scheme guessed at against tiers that don't exist yet — and
 not by a second table or a per-dialect one held in reserve against a
 possibility — if a non-software target ever arrives it brings its own
 skeleton and its own status names, the identical posture §15.1 already
@@ -1313,18 +1382,21 @@ to rename), so the rename touches this file plus
 protocol — recorded as dev's diff against ORC-104, the same way
 `:boundary`'s retirement below is, not actioned here.
 
-**A `pending` precedes every generation-shaped entry
-(`generation`/`design`/`architecture`) and every `deploy`** — a
-load-time check (§13), not a convention. **`stubbed` is exempt from
-staleness and escalation** (v5 §7.6): nothing is stale about waiting
-deliberately.
+**A `pending` immediately precedes every generation-shaped entry
+(`generation`/`design`/`architecture`/`implementation`), as that
+entry's own sub-array head, and precedes every `deploy` entry
+somewhere earlier in the same array** — a load-time check (§13's own
+bullet states the tightened, per-sub-array form in full), not a
+convention. **`stubbed` is exempt from staleness and escalation** (v5
+§7.6): nothing is stale about waiting deliberately.
 
 Mapping onto v5 §7.6's lifecycles, which are this vocabulary with
 every review sequence at length one — feature: `Todo`(pending) →
 `Product design`(design) → **Product review**(review) →
 `Architecting`(architecture) → **Architecture review**(review) →
-`Checks`(checks) → `Reconciling`(reconcile) → `Merged`(merge) →
-`Validating`(validating) → `Shipped`(terminal). Child: `Ready for
+`Implementation`(implementation) → `Checks`(checks) →
+`Reconciling`(reconcile) → `Merged`(merge) → `Validating`(validating)
+→ `Shipped`(terminal). Child: `Ready for
 dev`(pending) → `In progress`(generation) → `Checks`(checks) →
 `Reconciling`(reconcile) → `Merged`(merge) → `Done`(terminal), with
 `Ready for rework`(pending) / `Reworking`(generation) as the repair
@@ -1342,20 +1414,28 @@ directly, at this ticket's (ORC-151) design review** — before it, both
 were prose labels for the same `merge` kind visited twice in a row,
 told apart only by which of the two ran first; splitting them gives
 each its own name, and neither recurs to say what the other already
-says.
+says. **`Implementation` names the `implementation` kind directly, at
+this ticket's own fourth design review** — before it, this mapping had
+no state between architecture review and `Checks` at all, which stood
+in for a bare `checks` entry §15.11's own worked example used to
+dispatch a tier's code from, a shape corrected along with the
+grammar's own addition of the kind (above).
 
 **`Building` is retired from this mapping along with the status it
-named, at this same design review's third pass.** The feature's own
-implementation phase dispatches through the identical child-ticket
-tree architecture's own fan-out already does (§15.11) — spawned when
-the plan names them, not at a transition this ticket's own array
-reaches — so there is no separate period for the feature ticket to
-sit out in a status of its own: once architecture review passes, the
-feature's own next entry is an ordinary `checks`, and it stays there
-— visibly, by name — until every child has finished its own subflow
-and the feature's `reconcile` unblocks (§15.11's two interlocking
-rules). A workflow bundle wanting a friendlier label for that dwell
-than "Checks" is free to declare one; nothing here requires it.
+named, at this same design review's third pass — and what replaces
+its dwell is named explicitly at the fourth.** The feature's own
+implementation is real dispatched work now, `status: implementation`,
+not a wait: it runs on the identical ticket, immediately after
+architecture review passes, the same way the feature's own
+architecture phase already ran on it. What `Building` used to signal —
+that children are still in flight — was never a period the feature
+itself needed to *do* anything in; it is `reconcile`'s own entry
+precondition (§15.11's two interlocking rules), not a status of its
+own to sit out. Once the feature's own `implementation` entry
+completes and its `checks` passes, the ticket sits at `Checks` for as
+long as its children take to finish their own subflows — visibly, by
+name, the identical dwell `Building` used to visualize, requiring no
+separate status to do it in.
 
 **Two fixed skeletons, and `skeleton:` is optional — there is no
 third value standing for "neither."** A declared work-item type
@@ -1366,16 +1446,24 @@ names, their presence, or (bar the exceptions §15.4 and §15.5 name)
 how many times each may appear:
 
 - **`ticket`** — `pending`, then any interleaving of a generation-shaped
-  entry (`generation`, `design` or `architecture`, each optionally
-  paired with a `critique` entry, §15.5) and declared gates (§15.4),
-  then `checks`, `reconcile`, `merge`, `deploy` (optionally paired
-  with declared environments, §15.4), then `terminal`. A
-  generation-shaped kind, `checks`, `reconcile` and `merge` may all
-  recur — v5 §7.6's own feature lifecycle above already visits a
-  generation-shaped kind twice, once as `design` (`Product design`)
-  and once as `architecture` (`Architecting`), and §15.11's own worked
-  example visits `reconcile` twice, once per phase it closes —
-  `pending` and `terminal` may not: first and last, exactly once.
+  entry (`generation`, `design`, `architecture` or `implementation`,
+  each optionally paired with a `critique` entry, §15.5) and declared
+  gates (§15.4), then `checks`, `reconcile`, `merge`, `deploy`
+  (optionally paired with declared environments, §15.4), then
+  `terminal`. A generation-shaped kind, `checks`, `reconcile` and
+  `merge` may all recur — v5 §7.6's own feature lifecycle above
+  already visits a generation-shaped kind three times, as `design`
+  (`Product design`), `architecture` (`Architecting`) and
+  `implementation` (`Implementation`), and §15.11's own worked example
+  visits `reconcile` twice within the architecture phase alone, once
+  per join it closes — `terminal` may not recur: last, exactly once.
+  **`pending` may recur, once per generation-shaped entry's own
+  sub-array** (§13's own tightened check, below) — no longer "first,
+  exactly once": the array still *opens* with `pending` (flattened one
+  level, the identical reading §13's other sub-array checks already
+  give a leading entry), but a second or third generation-shaped
+  sub-array carries its own leading `pending`, not a shared one earlier
+  in the array standing in for all of them.
   **`reconcile` is required wherever `merge` is, unlike `critique`,
   which is opt-in** — not a fact this bullet states as a
   ticket-skeleton rule, but §15.11's positional one: a `merge` entry
@@ -1566,22 +1654,64 @@ by nothing first, which is exactly the shape the positional rule below
 (§15.1, §15.11) no longer allows — `container`-skeleton or not.
 
 ```yaml
-# types/feature.yaml
+# types/feature.yaml — revised at this ticket's fourth design review;
+# §15.11 works the separate type a component/subcomponent instance
+# runs, which this declaration does not depth-fan into (below)
 type: feature
 skeleton: ticket
 statuses:
-  - status: pending
-  - status: generation
-  - status: critique               # paired with the generation entry
-    depth: 1                       #   directly above it (§15.5)
-  - review: product-review
-  - status: generation              # a second visit — architecture,
-                                    #   after product review
-  - review: engineering-review
-  - status: checks
-  - status: reconcile          # reads the composed diff against the
-                                #   feature's own argument (§15.11)
-  - status: merge
+  - - status: pending           # the design sub-array's own head,
+                                 #   required (§13's tightened check)
+    - status: design
+    - status: critique
+    - review: product-review
+    - status: checks            # this instance's own CI on its own
+                                 #   produced draft — docs-phase, so
+                                 #   ci:docs rather than ci:code (v5
+                                 #   §7.10), the identical CI-selection
+                                 #   rule applied here that already
+                                 #   applies to any other checks entry
+
+  - - status: pending           # a second, independent pending —
+                                 #   this sub-array's own, not the
+                                 #   design group's shared with it
+    - status: architecture      # this instance's own artifact — the
+                                 #   feature-level sketch (sysarch);
+                                 #   comparch/subcomparch are a
+                                 #   separate type's own instances,
+                                 #   spawned as children (§15.11)
+    - status: critique
+    - review: architecture-review     # before reconcile: this
+                                       #   instance's own artifact
+    - status: checks
+    - status: reconcile               # joins this feature's own
+                                       #   children's merged
+                                       #   architecture docs, bottom-up
+                                       #   already complete by the time
+                                       #   this entry runs (§15.11)
+    - review: architecture-review     # after reconcile: the joined
+                                       #   set — the same declared
+                                       #   gate cited twice (§15.4)
+
+  - - status: pending
+    - status: implementation    # this instance's own code — no gate:
+                                 #   architecture and policy already
+                                 #   set intention narrowly enough that
+                                 #   no ordinary scope needs a human
+                                 #   reading it (v5 §7.10's touchpoint
+                                 #   budget; §15.1)
+    - status: critique
+    - status: checks
+    - status: reconcile         # joins the feature's own children's
+                                 #   merged implementation
+
+  - status: merge                # fires here because the feature is
+                                  #   always the tree's own root — a
+                                  #   non-root instance's identical
+                                  #   declaration merges when *its*
+                                  #   parent enters reconcile instead,
+                                  #   never by reaching this entry
+                                  #   itself (§15.11)
   - environment: staging
     promote_from: dev
   - status: deploy
@@ -1621,9 +1751,12 @@ as a choice of file:
 
 - **the skeleton's own required backbone** (§15.1) — `pending →
   generation → checks → reconcile → merge → deploy → terminal`, each
-  at least once and pending/terminal exactly once (`reconcile` itself
-  named by position, not by this bullet — §15.11's rule that a `merge`
-  entry needs an earlier `reconcile` is what actually requires it),
+  at least once and `terminal` exactly once, last (`pending` recurs
+  once per generation-shaped entry's own sub-array, §13's tightened
+  check — no longer "exactly once" the way it read before this ticket's
+  fourth pass; `reconcile` itself named by position, not by this bullet
+  — §15.11's rule that a `merge` entry needs an earlier `reconcile` is
+  what actually requires it),
   against `setup → prep → main → retro → cleanup → terminal`, each at
   least once, against no fixed shape at all for a type with no
   `skeleton:`. This is the reason `container` and `ticket` are
@@ -1780,6 +1913,27 @@ is wherever a citing type's `statuses:` array places its `review:` or
 `environment:` entry, and one declaration may be cited, at different
 positions, by more than one type.
 
+**The same declaration may also be cited more than once by the one
+type — settled at this ticket's fourth design review, the gate-and-
+environment analogue of §15.5's own `critique` precedent.** `critique`
+is a system status rather than a named declaration, so its own
+"citing it more than once… is the ordinary way to give two generation
+phases different depths" reads directly; a gate or an environment is a
+named, reusable declaration instead, and nothing before this pass said
+a *type's own array* — as opposed to the loaded union — could name one
+twice. It can, for the identical reason: `dsl-syntax.md` §15.11's own
+`architecture-review` cites one declared gate at two positions in the
+same type's array, once scoped to a tier's own artifact and once to
+what a `reconcile` has since joined (§15.11's own gate-scope
+derivation), each citation free to carry its own `depth:` — depth and
+scope are independent facts about a citation's *position*, not about
+the declaration, so two citations of the same gate are two positions
+computing two different answers from the identical declared `role:`,
+`escalation:` and (absent an override) derived `throwback:`. This is
+not a second declaration any more than `critique`'s second citation is:
+`gates/architecture-review.yaml` still exists exactly once, and citing
+it twice never means an author must write `role:`/`escalation:` twice.
+
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
 log because the plane records the command with its actor.
@@ -1812,7 +1966,8 @@ these is legal," and a landing point cannot be several things at once.
 
 What survives is narrower and singular. §15.10's sub-array grouping
 gives every gate a *default* landing point — its citing sub-array's own
-non-review-shaped agent step — for the ordinary case a decline names no
+earliest entry, its own leading `pending` for a generation-shaped
+group (§13) — for the ordinary case a decline names no
 further choice. `throwback:` is the escape hatch beside that default,
 one explicit status, for the gate that wants a different one-click
 landing point than the derivation would pick. It names no legality of
@@ -1856,9 +2011,10 @@ every type regardless of skeleton (§15.2). Critique is different in
 kind: its depth *selects which tiers' review runs*, which needs a
 generation to select within. **The rule is simply that a `critique`
 entry must sit immediately after a generation-shaped entry**
-(`generation`, `design` or `architecture`, §15.1, added at ORC-148's
-design review — every rule in this section reads "a generation entry"
-as any one of the three from here on) — no skeleton named, because
+(`generation`, `design`, `architecture` or `implementation`, §15.1,
+the last added at this ticket's own fourth design review — every rule
+in this section reads "a generation entry" as any one of these from
+here on) — no skeleton named, because
 none needs to be: whether a given array has a generation-shaped entry
 for a `critique` to pair with is a fact about that array's own
 contents, not about which skeleton, if any, the citing type declares
@@ -2368,8 +2524,11 @@ sitting at adjacent array indices.
 
 ```yaml
 statuses:
-  - status: pending
-  - - status: generation
+  - - status: pending          # the group's own leading entry —
+                                #   required here, not merely legal,
+                                #   once `generation` sits in a
+                                #   sub-array (§13's tightened check)
+    - status: generation
     - status: critique
       depth: 1
     - review: ux-review
@@ -2405,9 +2564,10 @@ ceiling this grammar imposes.
 **Exactly one non-review-shaped agent-balled entry per sub-array — a
 load-time check, and the fact the whole derivation below rests on.**
 §15.1's `ball` column marks `generation`, `design`, `architecture`,
-`critique`, `reconcile`, `retro` and `setup` as agent-balled (`merge`
-left this set at this ticket's, ORC-151's, design review — its own
-`ball` is now `plane`, §15.11); `critique` and `reconcile` are
+`implementation`, `critique`, `reconcile`, `retro` and `setup` as
+agent-balled (`merge` left this set at this ticket's, ORC-151's, first
+design review — its own `ball` is now `plane`, §15.11); `critique` and
+`reconcile` are
 excluded here because each reviews an entry rather than standing as
 one — review-shaped, §15.1 — the identical exclusion §15.5 already
 drew for `critique` alone, generalized rather than duplicated. A
@@ -2421,23 +2581,50 @@ mismatches already get (§13). Revisit condition: a real bundle need
 for a multi-agent-step group, at which point the tie-break is decided
 against that actual shape rather than guessed at now.
 
-**Default throwback falls back to the sub-array's own non-review-shaped
-agent step, never to the array position immediately before the
-gate.** This is the reading that survives ORC-104's own milestone
-shape, `[milestone-signoff, retro, proposals-read]` (the real
+**Default throwback falls back to the sub-array's own earliest entry,
+never to the array position immediately before the gate.** This is the
+reading that survives ORC-104's own milestone shape, `[milestone-signoff,
+retro, proposals-read]` (the real
 `bundles/default-flow/types/milestone.yaml`, not §15.2's own
 simplified `ux-review` illustration) — a `review:` entry's position in
 the flat
 array is not a reliable proxy for "what it reopens" the moment a gate
 sits *after* the group's own agent step rather than before it.
 `proposals-read` declining falls back to `retro` (the group's one
-non-review-shaped agent step), not to `milestone-signoff` (the array
+non-review-shaped agent step, and its own earliest entry — `retro`
+carries no `pending` of its own, §13's tightened rule reaching only
+generation-shaped entries), not to `milestone-signoff` (the array
 position immediately before it) — the latter would re-ask the author
 a question they already answered instead of re-running the agent that
-produced the thing they're declining. A gate declaring no `throwback:`
-of its own now resolves to this derivation rather than being an
-outstanding declaration gap; §15.4's `throwback:` field is unaffected
-in shape and stays legal wherever it already was.
+produced the thing they're declining.
+
+**For a generation-shaped sub-array, "earliest entry" is now the
+group's own leading `pending`, not the generation-shaped entry itself —
+a design-review correction, fourth pass.** §13's tightened
+pending-precedes check (above) makes every generation-shaped
+sub-array's first member its own `pending`, so the derivation this
+paragraph states — "the sub-array's own earliest entry" — already
+reaches it without a second rule: `architecture-review` declining
+falls back to `architecture`'s own leading `pending`, queueing the
+repair the same way any first dispatch queues, not straight to
+`architecture` itself. This is what v5 §7.6's own repair-loop mapping
+has always shown — `Ready for rework`(pending) / `Reworking`(generation)
+— and what an earlier reading of this derivation got wrong: landing a
+throwback directly on the generation-shaped entry skips the wait for
+dispatch capacity every other entry into that status goes through. A
+sub-array with no generation-shaped entry at all — there is no such
+shape this grammar admits (§13's own anchor-count check) — is not a
+case this correction needs to cover.
+
+A gate declaring no `throwback:` of its own now resolves to this
+derivation rather than being an outstanding declaration gap; §15.4's
+`throwback:` field is unaffected in shape and stays legal wherever it
+already was. A gate sitting *outside* every sub-array — `reconcile`
+itself is never grouped (§15.11), and a `review:` entry positioned
+after it inherits that — has no sub-array to derive an earliest entry
+from at all, and must declare `throwback:` explicitly (§15.10's own
+"not decided here, left open" list, below, closes this at the same
+pass).
 
 **The worked example is now the grammar, not a shape argued from
 prose ahead of it.** Before ORC-148, `bundles/default-flow/types
@@ -2454,13 +2641,18 @@ group, and `types/setup.yaml`/`types/retro.yaml` are deleted rather
 than dispatched to (`bundles/**` is dev's diff against this record).
 One consequence worth naming plainly: this sub-array is also the
 first shape the default bundle can legally form that actually
-distinguishes the derivation from a naive first-element one —
-`types/feature.yaml`'s own group (`generation`, `critique`,
-`ux-review`, `engineering-review`) has `generation` as both the
-sub-array's one non-review-shaped agent step and its first entry, so it
-never exercised the difference; `[milestone-signoff, retro,
-proposals-read]` has its one non-review-shaped agent step *second*, which
-only the derivation this section states gets right.
+distinguishes the derivation from a naive first-element one — before
+the pending-precedes tightening above, `types/feature.yaml`'s own
+`design` group had `design` as both the sub-array's one non-review-shaped
+agent step and its first entry, so it never exercised the difference;
+`[milestone-signoff, retro, proposals-read]` has its one
+non-review-shaped agent step *second*, which only the derivation this
+section states gets right. (Every generation-shaped sub-array now has
+its own `pending` first and its generation-shaped entry second, §13,
+so `[milestone-signoff, retro, proposals-read]` — `retro` carrying no
+`pending` of its own — is once again the sharper of the two examples;
+naming it rather than `feature.yaml`'s own groups is deliberate, not
+an oversight.)
 
 **A decline's legal targets are "earlier in this ticket's effective
 sequence", never a per-gate declared list.** This is §7.19's rule for
@@ -2485,8 +2677,11 @@ load-time check and a runtime allow-list that happened to agree.
 landing point.** Bounding legality is the job it no longer has;
 naming *where a decline lands* is the job it keeps, and that is what
 an escape hatch is for. The derivation above supplies the default —
-the citing sub-array's own non-review-shaped agent step — and `throwback:`
-is what a gate declares instead of it.
+the citing sub-array's own earliest entry, which for a generation-shaped
+group is now its own leading `pending` (§13's tightened check, a
+fourth-pass correction from resolving straight to the non-review-shaped
+agent-balled entry unconditionally) — and `throwback:` is what a gate
+declares instead of it.
 
 A list stops meaning anything the moment it stops bounding: naming
 several targets said "any of these is a legal exit", a claim about
@@ -2507,24 +2702,35 @@ the widened legality rule, the retro case that motivated this whole
 section resolves with no declaration at all — the derivation is right
 about the ordinary case. Four default-bundle gates declare
 `throwback:` today. Two sit inside `feature.yaml`'s own sub-array and
-are read against the sharper test, not waved through:
+are read against the sharper test, not waved through — and the
+tightened `pending` rule (§13, this ticket's own fourth pass) moves
+one of the two conclusions below from what an earlier pass of this
+record found:
 
 - `ux-review`'s own declared `throwback: [pending]` (`bundles/
-  default-flow/gates/ux-review.yaml`) names a target *outside*
-  `ux-review`'s own sub-array, before the group entirely — and a
-  *different* landing point than the derivation would pick, which is
-  `generation`, the group's own non-review-shaped agent step. This
-  declaration is the field earning its keep: `pending` means reject all
-  the way back to before generation ever ran, not merely re-run
-  generation, and only an explicit declaration can say that. Narrowed
-  to a single target, this file is unaffected — it already named one.
+  default-flow/gates/ux-review.yaml`) named a target *outside*
+  `ux-review`'s own sub-array, before the group entirely, under the
+  original "somewhere earlier" reading — a *different* landing point
+  than the derivation picked, which was `generation`, the group's own
+  non-review-shaped agent step. **This is reversed by the tightened
+  rule.** Once a generation-shaped sub-array carries its own leading
+  `pending` (§13), the derivation's own earliest-entry reading (above)
+  already resolves to that `pending` — the identical status
+  `ux-review`'s own declaration names. The declaration is now
+  redundant, not the field earning its keep: `dev`'s diff against this
+  record (`bundles/**`) drops it, the same way `proposals-read`'s own
+  declaration below already was.
 - `engineering-review`'s own declared `throwback: [generation,
   ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
-  sits entirely inside the group the derivation covers. Its first
-  element, `generation`, already *is* the derived default, so declaring
-  it is redundant. Its second element, `ux-review`, is a genuine second
-  landing point a single-valued field can no longer express at once —
-  the list-to-scalar narrowing forces this file to keep one and drop
+  sits entirely inside the group the derivation covers. **Its
+  conclusion also reverses.** Before the tightening, its first element,
+  `generation`, was the derived default and therefore redundant; now
+  the derived default is the group's own leading `pending`, so
+  `generation` is a genuine, non-default landing point this list still
+  needs to name explicitly — declaring it is no longer redundant. Its
+  second element, `ux-review`, remains a second landing point a
+  single-valued field cannot express alongside the first — the
+  list-to-scalar narrowing still forces this file to keep one and drop
   the other. Both remain legal targets either way (the earlier-prefix
   rule reaches both regardless of declaration); which one stays the
   declared *default* is an ordinary bundle-authoring call against
@@ -2555,16 +2761,18 @@ point a decliner can still reach.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not
-prose.** Falling back to the group's own non-review-shaped agent step *is*
+prose.** Falling back to the group's own earliest entry *is*
 "reopen everything downstream of the regeneration," restated
 structurally: there is no entry between the fallback point and any
 gate later in the same sub-array that the reopen could leave standing,
-because the fallback point is the earliest entry the group has. This
-is what closes v5 §7.19's own observation that the all-reopen rule was
-written as a description nothing enforced — a passed gate re-checked
-against a sub-array whose own agent step regenerated is exactly
-§7.11's staleness-is-derived machinery running over a structural
-boundary instead of an implied one.
+because the fallback point is, by construction, the earliest entry the
+group has — its own leading `pending` for a generation-shaped group
+(§13), its own non-review-shaped agent-balled entry directly otherwise.
+This is what closes v5 §7.19's own observation that the all-reopen rule
+was written as a description nothing enforced — a passed gate
+re-checked against a sub-array whose own agent step regenerated is
+exactly §7.11's staleness-is-derived machinery running over a
+structural boundary instead of an implied one.
 
 **This also answers `docs/v5-design-decisions.md` §7.16's open item,
 "what a passed gate pins."** A gate's citing sub-array has exactly one
@@ -2593,7 +2801,7 @@ the command edge that would is unbuilt. A gate's
 decline and a Blocked-return both resolve against the identical
 "earlier in the effective sequence" test; they differ only in their
 *default* — a throwback's one-click default is the citing sub-array's
-own non-review-shaped agent step (this section), a Blocked-return's is the
+own earliest entry (this section), a Blocked-return's is the
 tracked origin status (§7.19) — and in nothing else, except that a
 gate's default may itself be overridden by an explicitly declared
 `throwback:` (§15.4, above); Blocked-return has no analogous override,
@@ -2613,24 +2821,36 @@ are corrected to match.
   innermost), but that is an argument for revisiting, not a decision
   made now.
 - **A throwback from a gate sitting after a sub-array, targeting into
-  it.** This section fixes the default for a gate *inside* a group; a
-  gate outside every sub-array throwing back into one is a different
-  case this section does not address (the general "earlier in the
-  effective sequence" legality test covers it regardless — what's
-  undecided is only whether such a gate gets a derived default of its
-  own, or must always be explicit).
+  it.** Settled at this ticket's fourth design review, for the one case
+  the grammar actually exercises: a `review:` entry sitting outside
+  every sub-array — §15.11's own `architecture-review`, cited a second
+  time after `reconcile`, is exactly this shape — has no derived
+  default at all and must declare its own `throwback:` (§15.4). The
+  derivation above only ever had a sub-array's own contents to compute
+  a default *from*; a gate outside one has no group to derive against,
+  so there is nothing here for a future pass to compute a default out
+  of later — this is a closure, not a placeholder. The general "earlier
+  in the effective sequence" legality test still covers what such a
+  gate *may* target, regardless of whether it declares a default; what
+  this bullet closes is only whether the grammar picks one for it when
+  it doesn't.
 - **Whether a sub-array is a visible grouping or flattens for
   display.** `board`'s lanes read the effective sequence left to right
   (`docs/ui-spec.md` §3.1); this is a real UI decision this section
   creates and does not answer.
 - **Whether the `pending`-precedes-`generation`/`deploy` check (§13)
-  needs a sub-array of its own head.** Settled, not left open: it does
-  not. The check reads the citing type's array flattened one level —
-  a `pending` entry anywhere earlier than a `generation`, sub-array
-  membership aside, satisfies it exactly as today, because grouping
-  changes throwback derivation and reopen scope and nothing else about
-  the fixed skeleton's own shape (§15.1's table loses no entry to this
-  section, only a second job — see below).
+  needs a sub-array of its own head.** Reversed at this ticket's fourth
+  design review: it does. §13's own tightened rule requires a
+  generation-shaped entry's own `pending` as the first member of its
+  sub-array, when it sits in one — sub-array membership is no longer
+  incidental to this check the way it stayed for `deploy`'s own,
+  looser "somewhere earlier" reading. What does not change is
+  everything else this section computes: grouping still governs
+  throwback derivation and reopen scope and nothing about which
+  entries are legal where (§15.1's table loses no entry to this
+  section, only a second job — see below); it is specifically the
+  pending-precedes check, not the fixed skeleton's shape in general,
+  that sub-array membership now reaches into.
 
 **§15.1's fixed vocabulary loses a job here, not an entry.** Before
 this section, a gate's declared `throwback:` bounded legality against
@@ -2708,10 +2928,9 @@ appears, because nothing merges, of any skeleton, without having been
 read against its own argument first (v5 §7.5).
 
 **Where `reconcile` sits, not a sub-array.** §15.10's sub-array groups
-a gate around its own generation-shaped agent step — `[generation,
-critique, ux-review, engineering-review]` is one draft and everything
-that reviews that one draft, closely enough to share a throwback
-target. `reconcile` reviews something else: the checked, CI-passed
+a gate around its own generation-shaped agent step — `types/feature
+.yaml`'s own `design` group (§15.2) is one draft and everything that
+reviews that one draft, closely enough to share a throwback target. `reconcile` reviews something else: the checked, CI-passed
 state of a PR that may already carry more than one generation's worth
 of change and, at a level with children, the composed diff those
 children already merged up into it. It sits in the flat backbone,
@@ -2764,17 +2983,18 @@ identical reasoning §15.1 above gives for `reconcile` joining the
 fixed table without an entry of its own: nothing here is newly
 declarable, only newly derivable from vocabulary that already was.
 
-**Two `reconcile` entries in this one array, not one — each closing a
-different phase, ordered relative to that phase rather than pinned
-once between `checks` and `merge`.** Architecture's own fan-out
-produces a doc at every connected chain tier (sysarch, comparch,
-subcomparch); those need joining bottom-up before `architecture-review`
-reads a single composed document, which is the first `reconcile`.
-Implementation is a separate phase closing separately: the feature
-does not merge until both the docs and the code are complete, so a
-second `reconcile` closes the implementation phase the identical way.
-`merge` itself does not recur (§13): it runs once, at the root, after
-both phases are done (below).
+**Two `reconcile` entries per type, not one — each closing a different
+phase, ordered relative to that phase rather than pinned once between
+`checks` and `merge`.** True of both declarations this record now
+carries: `types/feature.yaml` (§15.2) and this section's own worked
+example below. Architecture's own fan-out produces a doc at every
+connected chain tier (sysarch, comparch, subcomparch); those need
+joining bottom-up before `architecture-review` reads a single composed
+document, which is the first `reconcile`. Implementation is a separate
+phase closing separately: no instance merges until both its own docs
+and its own code are complete, so a second `reconcile` closes the
+implementation phase the identical way. `merge` itself does not recur
+(§13): it runs once, at the root, after both phases are done (below).
 
 **Dispatched once per tree level, through the same ticket the level's
 own doc-graph node already has — a correction to this ticket's own
@@ -2789,18 +3009,48 @@ review throws the whole feature back and regenerates everything
 architecture fanned out, comparch included — no `depth:` value
 narrows the bounce, because depth was never able to say "only this
 branch." **Every tier from `sysarch` through `subcomparch` dispatches
-through its own ticket instance of this one declared type instead**,
-spawned the identical way a feature's own component and subcomponent
-children already spawn — "when the plan node names them," recursively,
-one level at a time, wherever the plan proves independent parallel
-work exists (`docs/v5-design-decisions.md` §7.2, §7.10 — §7.15's own
-stale restatement of children spawning "at `Building`" is corrected
-there, not a second spawn mechanism this section invents). Each
-instance computes its own **effective sequence** the
-way a single fan-out level already does (v5 §7.19's own worked
-example, `checks(2) → code review(1) → merge(2) → deploy(0)`), filtered
-against *that instance's own position in the doc-graph tree* rather
-than against a run dispatched at several depths from inside one
+through its own ticket instance instead**, spawned the identical way a
+feature's own component and subcomponent children already spawn —
+"when the plan node names them," recursively, one level at a time,
+wherever the plan proves independent parallel work exists
+(`docs/v5-design-decisions.md` §7.2, §7.10 — §7.15's own stale
+restatement of children spawning "at `Building`" is corrected there,
+not a second spawn mechanism this section invents).
+
+**Two type declarations, not one spanning the whole tree — settled at
+this ticket's fourth design review, answering the question the third
+pass's own worked example left open.** That pass instantiated "one
+declared type… once per node the plan names," feature included, at
+depth 0 of its own array. That cannot be `types/feature.yaml` itself
+(§15.2): `design` and `product-review` are feature-only — no comparch
+or subcomparch wants its own product-facing sketch — and neither
+`design` nor a bare `status:` entry carries a `depth:` field to make it
+no-op below the root the way a gate or `critique` already can (§13's
+own depth-bearing-site list is unchanged by this ticket). `feature` and
+this section's own type are therefore two separate declarations,
+sharing no array: `feature` (§15.2) has exactly one instance, ever,
+so its own two `architecture-review` citations need no `depth:` at all
+(trivially depth 0, the only level `feature` has); this section's own
+type — instantiated at component and subcomponent tickets alike, since
+a subcomponent is nothing more than a component instance with no
+children of its own — is where `depth:` does real work, because it is
+where more than one level actually exists. This is v5 §7.6's own
+"Child" lifecycle, read correctly for the first time: not `feature`'s
+array depth-filtered, a second declaration in the shared status
+vocabulary, `type:component` and `type:subcomponent` labels alike
+running it (the tracker-facing label is not the same fact as which
+`types/<name>.yaml` an instance's `statuses:` array comes from). It is
+also the exercised case behind this ticket's own "two types declaring
+different ceilings" note (§13, `depth:` never validated against the
+chain): a `component` gate's own ceiling reaches one level deeper than
+`feature`'s ever needs to, because the two types fan to different
+depths by declaration, not by anything the chain itself claims.
+
+Each instance of this section's own type computes its own **effective
+sequence** the way a single fan-out level already does (v5 §7.19's own
+worked example, `checks(2) → code review(1) → merge(2) → deploy(0)`),
+filtered against *that instance's own position in the doc-graph tree*
+rather than against a run dispatched at several depths from inside one
 ticket. `gate 1`'s depth reaches a subcomponent's own effective
 sequence the identical way it always reached a subcomponent-level
 scope run; what changes is only that the run and the ticket sitting in
@@ -2819,79 +3069,99 @@ something the tree's own shape does not answer by itself — on
 `critique` and on a gate, which review a level regardless of whether
 that level has children at all.
 
-Worked against an architecture sequence with feature at depth 0,
-component at 1, subcomponent at 2 — one declared type, instantiated
-once per node the plan names:
+Worked against a component instance at depth 0 of this type's own
+array and a subcomponent instance at depth 1 — the type §15.2's own
+`feature` spawns as children, sharing no array with it (above):
 
 ```yaml
+# types/component.yaml — a subcomponent instance runs the identical
+# declaration, one level deeper; the two are told apart by tree
+# position alone, never by a second type (above)
+type: component
+skeleton: ticket
 statuses:
-  - status: pending
-  - status: architecture               # every instance: the feature's
-                                        #   own sysarch, each
+  - - status: pending
+    - status: architecture             # every instance: each
                                         #   component's comparch, each
                                         #   subcomponent's subcomparch
-  - status: critique
-    depth: 2                           # reaches every instance — the
-                                        #   deepest level this bundle
-                                        #   fans to
-  - review: comparch-review
-    depth: 2                           # before either reconcile in
+    - status: critique
+      depth: 1                         # reaches every instance of
+                                        #   this type — the deepest
+                                        #   level it fans to
+    - review: architecture-review
+      depth: 1                         # before either reconcile in
                                         #   this instance's own
                                         #   sequence: scoped to this
                                         #   instance's own artifact
-  - status: checks                     # no depth: field (never a
+    - status: checks                   # no depth: field (never a
                                         #   depth-bearing site, §13) —
-                                        #   every instance's own CI
-                                        #   on its own produced draft
-  - status: reconcile                  # present iff this instance has
+                                        #   every instance's own CI on
+                                        #   its own produced draft
+    - status: reconcile                # present iff this instance has
                                         #   children: absent for a
                                         #   subcomponent (a leaf);
                                         #   present for a component
                                         #   (joins its subcomponents')
-                                        #   and the feature (joins its
-                                        #   components')
-  - review: architecture-review
-    depth: 1                           # reaches the feature and
-                                        #   component instances only —
-                                        #   scoped to the joined doc
-                                        #   set those two levels'
-                                        #   reconcile actually produced
-  - status: checks                     # this instance's own
-                                        #   implementation — dispatched
-                                        #   through the identical
-                                        #   ticket, no separate status
-                                        #   to wait in (§15.1)
-  - status: reconcile                  # present iff this instance has
+    - review: architecture-review      # after reconcile: the joined
+                                        #   set — the same declared
+                                        #   gate cited twice (§15.4).
+                                        #   depth 0 (the default):
+                                        #   reaches a component's own
+                                        #   instance only — a
+                                        #   subcomponent's own sequence
+                                        #   has no reconcile ahead of
+                                        #   this entry to have joined
+                                        #   anything for it to review
+
+  - - status: pending
+    - status: implementation           # this instance's own code — no
+                                        #   gate, the identical reason
+                                        #   `feature`'s own
+                                        #   implementation group has
+                                        #   none (§15.1, §15.2)
+    - status: critique
+    - status: checks
+    - status: reconcile                # present iff this instance has
                                         #   children, the identical
                                         #   test as the first
                                         #   occurrence, joining their
                                         #   own merged implementation
-  - status: merge                      # fires at the root alone —
-                                        #   every other instance's own
-                                        #   children merge when *it*
-                                        #   reaches this entry, not by
-                                        #   reaching one of their own
-                                        #   (below)
+
+  - status: merge                      # depth-0 by rule (below): a
+                                        #   non-root instance's own
+                                        #   copy never reaches this by
+                                        #   its own dispatch — every
+                                        #   component and subcomponent
+                                        #   merges when *its own
+                                        #   parent* enters reconcile
+                                        #   instead
   - status: deploy
   - status: terminal
 ```
 
 A subcomponent instance's own effective sequence runs `pending →
-architecture → critique → comparch-review → checks → checks →
-terminal`-shaped, minus what depth and tree shape between them
-exclude: no `reconcile` at either occurrence (a leaf, nothing to
-join), no `architecture-review` (depth 1 stops short of depth 2), and
-— below — no `merge`. **What `deploy` and `terminal` mean for an
-instance that is not the tree's root is not settled by this array**,
-and is named rather than assumed: `checks` and `deploy` carry no
+architecture → critique → architecture-review → checks → pending →
+implementation → critique → checks → terminal`-shaped, minus what
+depth and tree shape between them exclude: no `reconcile` at either
+occurrence (a leaf, nothing to join), no second `architecture-review`
+citation (depth 0 stops short of a depth-1 instance, the identical
+ceiling mechanism excluding any entry too deep for it), and — below —
+no `merge`. **What `deploy` and `terminal` mean for an instance that is
+not the tree's root is not settled by this array**, and is named
+rather than assumed: `checks`, `implementation` and `deploy` carry no
 depth-bearing field at all (§13), so nothing here states whether a
-non-root instance's own effective sequence reaches them the way it
+non-root instance's own effective sequence reaches `deploy` the way it
 reaches its own two `checks` occurrences, or whether that is a
 question this declaration cannot answer and a dispatcher must resolve
-some other way. Left for the loader work (`systems/delivery.md`'s
-Phase 7) against an actual bundle, the identical posture the prior
-pass of this section already took toward the question this paragraph
-now settles a different half of (below).
+some other way. **`terminal` is not the same open question** — v5
+§7.6's own Child lifecycle ends `Merged → Done`, so a non-root
+instance's own `terminal` is reached and means exactly what it always
+does, closing that instance's own ticket; what stays open is `deploy`
+alone, and by extension whatever an `environment:` entry paired with
+it would mean below the root. Left for the loader work
+(`systems/delivery.md`'s Phase 7) against an actual bundle, the
+identical posture the prior pass of this section already took toward
+the question this paragraph now narrows to just `deploy`.
 
 **`merge` is depth-0 by rule, not merely by an inherited default — the
 same posture a gate's own depth 0 already has (§15.4).** No occurrence
@@ -2988,14 +3258,16 @@ document a model wrote, or the composed diff alone.
 **What a component or subcomponent's own implementation work merges
 into is answered by this array, not left open by it — the question
 this section's own second pass left unsettled.** Every instance,
-whatever its depth, runs the identical second `checks`/`reconcile`
-pair its own architecture phase already ran: `checks` against its own
-produced code, `reconcile` iff it has children needing their own
-implementation joined up. A subcomponent's own implementation `checks`
-runs and its own second `reconcile` does not (leaf, nothing to join,
-the identical test as the architecture phase); a component's own
-second `reconcile` joins its subcomponents' merged implementation the
-same way its first joined their merged docs. No second array, no
-second declaration, no field distinguishing "architecture's own join"
-from "implementation's own join" beyond which occurrence of
-`reconcile` a given instance is currently at.
+whatever its depth, runs a second generation-shaped sub-array — its own
+`implementation`, real dispatched code rather than the bare second
+`checks` an earlier pass of this section stood in for it (§15.1's own
+addition of the kind, above) — closed by the identical `reconcile` test
+its own architecture phase already ran: present iff it has children
+needing their own implementation joined up. A subcomponent's own
+`implementation` runs and its own `reconcile` does not (leaf, nothing
+to join, the identical test as the architecture phase); a component's
+own second `reconcile` joins its subcomponents' merged implementation
+the same way its first joined their merged docs. No second array
+shape, no second declaration, no field distinguishing "architecture's
+own join" from "implementation's own join" beyond which sub-array a
+given instance's `reconcile` occurrence closes.
