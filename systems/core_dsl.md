@@ -704,6 +704,49 @@ context-source kinds, and audit profiles.
   above, now covering the widened critique-adjacency check — dev's
   diff against this record, not design's.
 
+- **ORC-155 (design pass) gives a `status:` entry a bundle-authored
+  `name:` distinct from its kind, and namespaces a position by the
+  sub-array it sits in** (`docs/dsl-syntax.md` §13, §15.1, §15.4,
+  §15.9, §15.12; `docs/v5-design-decisions.md` §7.19). ORC-151 left
+  every recurring kind — three `pending`, three `checks`, two
+  `reconcile` in `feature.yaml` alone — addressable only by kind, which
+  a card, a rail entry, a `throwback:` or a `blocks:` reference all
+  need to name unambiguously and cannot: `CatapultWeb.Live.Positions
+  .key/1` round-trips exactly the `{:kind, atom} | {:gate, name}` pair
+  the projection stores, with no way to say *which* `pending`. `name:`
+  answers it without growing §15.1's closed kind table a fourth time
+  for a need no chain lifecycle actually has (the identical reasoning
+  §15.9 already gives for `design`/`architecture`/`implementation` not
+  needing a fifth or sixth member): a position's identity is
+  `<anchor>.<name>`, the sub-array's own one non-review-shaped
+  agent-balled entry supplying the anchor (§15.10), bare at the top
+  level, one level of qualification only. **This retires the "same
+  declared gate cited twice" pattern §15.4 settled at the fourth
+  design review above**: two citations landing in the same sub-array
+  now collide under the new uniqueness-within-a-namespace check, and a
+  citation told apart from its sibling only by which side of a
+  `reconcile` it falls on is exactly the second qualification level
+  this ticket refuses. `architecture-review`, cited twice in
+  `feature.yaml` and again in §15.11's `component.yaml`, is the
+  exercised case ORC-151 left standing; ORC-155 renames the citation
+  scoped to what `reconcile` has joined to a gate of its own,
+  `architecture-synthesis-review`, in both worked examples — the two
+  already reviewed different things and now say so by name, rather
+  than by which side of a join they happen to sit on. **Also new: a
+  load-time check that no declared gate name collides with any
+  addressable status name** — safe by construction while status names
+  were platform-fixed kinds, not once a bundle can author one. **Not
+  built as part of this pass:** the loader changes (`lib/catapult/dsl
+  /status.ex`'s known-key list and its `depth:` gate, which must key on
+  kind rather than on the parsed name string now that the two can
+  differ; `workflow.ex`'s namespace/uniqueness and gate-disjointness
+  checks; `system_status.ex` is unaffected, since every predicate it
+  exports already reads kind), the projection column
+  (`Catapult.Delivery.Store.tickets_for_project/1` gains a name column
+  beside `status_kind`), and `CatapultWeb.Live.Positions`' own
+  round-trip encoding, extended to carry the qualifying anchor — all
+  dev's diff against this record, not design's.
+
 - **A design review on ORC-148 corrected two things the pass above got
   wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
   §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`
