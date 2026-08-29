@@ -240,6 +240,21 @@ Each of these cost a wrong diagnosis before it was written down.
   document that records it**, not only in the system doc that
   noticed. Leaving the source of truth stating the superseded rule is
   how the next pass re-derives it.
+- **A rule stated in more than one place is amended in every place,
+  in the same change.** `docs/dsl-syntax.md` states each load-time
+  rule at least twice by construction — §13's checklist and the §15.x
+  section that owns it — and often a third time, in a worked example
+  or §15.1's lifecycle mapping. Six consecutive design-review rounds
+  each corrected one statement and left its siblings, so the same
+  defect returned in a new place every round: §15.1's mapping against
+  §15.2's worked example five times over (`merge`, the `reconcile`
+  count, `checks`, the child lifecycle, `pending`), then §13's
+  `critique`-adjacency amendment against both §15.5's own statement
+  of that rule and §15.9's restatement of it — that last pair written
+  by one pass, in one document, minutes apart. Grep the rule's own
+  words before changing it: the second statement is rarely next to
+  the first, and a worked example left behind by an amended rule is a
+  load error nobody runs until dev.
 - **A doc's claim about the tree is not evidence about the tree.**
   Of the "X is not built yet" sentences an audit of these docs
   checked, half described things that had shipped and half described
