@@ -638,6 +638,37 @@ context-source kinds, and audit profiles.
   the new kind, the two-type split, and the tightened `pending`/gate
   checks — all dev's diff against this record.
 
+- **A sixth design review on ORC-151 closes one gap the fifth pass's
+  own fix left open** (`docs/dsl-syntax.md` §13, §15.5;
+  `docs/v5-design-decisions.md` §7.19). The fifth pass amended
+  `critique`'s load-time adjacency rule in §13 to admit an intervening
+  `checks` — "immediately after a generation-shaped entry, or
+  immediately after that entry's own `checks`, never before it" — but
+  the amendment landed only there. §15.5, the section §13's own
+  citation points at as the rule's other statement, still read the
+  pre-amendment sentence with no mention of `checks`, and three further
+  restatements inside §13 itself — the container/ticket-skeleton
+  interleaving passage, the `skeleton:`-decoupling section's own
+  "critique's admission" bullet, and the project-level widening
+  passage — were equally unamended, so every worked example the fifth
+  pass had just reordered was, read against any of those four sites
+  alone, a load error. All five now carry the identical caveat; §15.5's
+  own worked-example paragraph, which had
+  claimed "the adjacency rule above already says this precisely" while
+  the rule above did not yet say it, is folded into the rule statement
+  itself rather than left as a second, narrating paragraph. This is
+  the sixth consecutive round this ticket has corrected one statement
+  of a rule and left a sibling statement stale — `merge`, the reconcile
+  count, `checks`'s position, the child lifecycle, `pending`, and now
+  `critique`'s own adjacency rule against itself — so a rule with three
+  or more statements in this document (critique adjacency, `pending`
+  precedence, the depth-bearing sites, the generation-shaped kind list)
+  needs every statement edited in the same pass that changes any one of
+  them, not just the site a review happens to quote. **Not built as
+  part of this pass:** unchanged from the fifth pass's own note — the
+  loader and dispatcher work is dev's diff against this record, not
+  design's, and nothing here changes what it must cover.
+
 - **A fifth design review on ORC-151 fixes three defects the fourth
   pass's own worked examples and lifecycle mapping left standing**
   (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.5, §15.11;

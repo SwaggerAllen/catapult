@@ -1526,8 +1526,10 @@ anywhere), a `checks`/`merge`/`deploy` run, or a population anchor
 (`prep`/`main`/`cleanup`) opening a nested queue of its own — around
 its required backbone, whatever skeleton it declares or omits, subject
 only to the positional rules those kinds already carry elsewhere in
-this section (critique immediately after its generation, §15.5; a
-`pending` earlier in the same array than every generation or deploy it
+this section (critique immediately after its generation, or after that
+generation's own `checks` when the same sub-array declares one, never
+before it, §15.5; a `pending` earlier in the same array than every
+generation or deploy it
 licenses, above). What a bundle actually needs is unaffected: today's
 default bundle has no ticket-skeleton type wanting a population anchor
 of its own, so nothing here is exercised in that direction yet, the
@@ -1820,8 +1822,10 @@ as a choice of file:
   skeleton type nesting another container today; the grammar no longer
   refuses one the way it refused a container holding a generation.
 - **critique's admission** — a `critique` entry must sit immediately
-  after an actual `generation` entry in the same array (§15.5),
-  whichever type declares it. This was effectively a `ticket`-only
+  after an actual `generation` entry — or that entry's own `checks`,
+  when the same sub-array declares one, never before it — in the same
+  array (§15.5), whichever type declares it. This was effectively a
+  `ticket`-only
   rule while a `generation` anchor was `ticket`-only; it stays exactly
   the positional rule it always was, now simply checked against
   whatever a type's array actually contains rather than against what
@@ -1845,8 +1849,10 @@ admitted rather than refused on a premise that was never actually
 argued. Critique alone stays gated past this widening, and for a
 reason unrelated to the one above: a `generation` anchor is what gives
 its depth something to select within, so a `critique` entry is only
-ever legal immediately after an actual `generation` entry in the same
-array (§15.5) — a positional fact about that array's own contents,
+ever legal immediately after an actual `generation` entry — or that
+entry's own `checks`, when the same sub-array declares one, never
+before it — in the same array (§15.5) — a positional fact about that
+array's own contents,
 not a `skeleton:`-keyed refusal (ORC-148 makes this the same rule
 regardless of which type declares the pairing).
 
@@ -2052,12 +2058,16 @@ contains — and an environment is the same: neither needs a generation
 to mean something, which is why the fifth pass widened both onto
 every type regardless of skeleton (§15.2). Critique is different in
 kind: its depth *selects which tiers' review runs*, which needs a
-generation to select within. **The rule is simply that a `critique`
-entry must sit immediately after a generation-shaped entry**
-(`generation`, `design`, `architecture` or `implementation`, §15.1,
-the last added at this ticket's own fourth design review — every rule
-in this section reads "a generation entry" as any one of these from
-here on) — no skeleton named, because
+generation to select within. **The rule is that a `critique` entry
+must sit immediately after a generation-shaped entry — or immediately
+after that entry's own `checks`, when the same sub-array declares one,
+and never before it** (`generation`, `design`, `architecture` or
+`implementation`, §15.1, the last added at this ticket's own fourth
+design review — every rule in this section reads "a generation entry"
+as any one of these from here on). `checks` runs first when both are
+present: machine validation is meant to happen before either an
+agent's `critique` or a human gate spends a read on a draft CI has not
+yet validated. No skeleton named, because
 none needs to be: whether a given array has a generation-shaped entry
 for a `critique` to pair with is a fact about that array's own
 contents, not about which skeleton, if any, the citing type declares
@@ -2071,24 +2081,15 @@ actually about skeletons, only about what sits where.
 
 ```yaml
   - status: generation
-  - status: critique              # must sit immediately after a
-    depth: 1                      #   generation entry in the same array
+  - status: checks                 # optional; when present, critique
+  - status: critique               #   must follow it, never precede it
+    depth: 1                       #   — otherwise, critique follows
+                                    #   the generation entry directly
 ```
 
-**`checks` sits between the generation-shaped entry and the `critique`
-that reviews it, wherever the same sub-array declares both — a
-fifth-design-review correction on this ticket (ORC-151), not a new
-field.** Every worked example below had `checks` running *after*
-`critique`, in two of the four cases after the human gate as well, so
-a reviewer signed off on a draft CI had not yet run against. Machine
-validation is meant to run first: neither an agent's `critique` nor a
-human gate should spend a read on a draft that fails CI. `critique`'s
-own adjacency rule (above) already says this precisely — "immediately
-after a generation-shaped entry, or immediately after that entry's own
-`checks`, never before it" — so a sub-array pairing both now reads
-`generation-shaped entry → checks → critique`; one declaring no
-`checks` of its own still pairs `critique` directly with the
-generation-shaped entry, unchanged.
+A sub-array declaring both reads `generation-shaped entry → checks →
+critique`; one declaring no `checks` of its own still pairs `critique`
+directly with the generation-shaped entry, unchanged.
 
 **Configures a fixed kind; declares nothing.** `critique` is a system
 status (§15.1), not a named, reusable declaration the way a gate or
