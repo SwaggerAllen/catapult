@@ -297,7 +297,11 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
 
   describe "closing" do
     test "a container at its last entry requests the flag flip and closes", %{workflow: workflow} do
-      container = container!("c-close", "milestone", current_queue: "cleanup")
+      # `deploy`, not `cleanup`, is milestone's own last entry now
+      # (ORC-155 moves `deploy` after `cleanup`, gaining the `prod`
+      # environment citation the dropped `environment:` entry between
+      # them configures).
+      container = container!("c-close", "milestone", current_queue: "deploy")
 
       commands = ContainerLifecycle.next_commands(workflow, container)
 
@@ -312,7 +316,7 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
     test "a flip already requested is not requested again", %{workflow: workflow} do
       container =
         container!("c-close-2", "milestone",
-          current_queue: "cleanup",
+          current_queue: "deploy",
           flag_set_state: :requested
         )
 
@@ -333,7 +337,7 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
 
   describe "no container closes over an unadjudicated finding (v5 §7.8)" do
     setup %{workflow: workflow} do
-      container = container!("c-findings", "milestone", current_queue: "cleanup")
+      container = container!("c-findings", "milestone", current_queue: "deploy")
 
       Store.upsert_node(%{
         id: "n-reviewed",

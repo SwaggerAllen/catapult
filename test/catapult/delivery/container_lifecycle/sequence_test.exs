@@ -25,20 +25,14 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     assert names == [
              "pending",
              "setup",
-             "checks",
-             "reconcile",
-             "merge",
-             "deploy",
+             "kickoff-review",
              "prep",
              "main",
              "milestone-signoff",
              "retro",
              "proposals-read",
-             "checks",
-             "reconcile",
-             "merge",
-             "deploy",
              "cleanup",
+             "deploy",
              "terminal"
            ]
   end
@@ -70,7 +64,8 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     assert {:queue, %Status{status: "retro"}} =
              Sequence.next_step(workflow, "milestone", "milestone-signoff")
 
-    assert Sequence.next_step(workflow, "milestone", "cleanup") == :terminal
+    assert {:queue, %Status{status: "deploy"}} =
+             Sequence.next_step(workflow, "milestone", "cleanup")
   end
 
   test "earlier?/4 is the live half of the throwback check", %{workflow: workflow} do
