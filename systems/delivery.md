@@ -376,13 +376,17 @@ generating as scope-runs inside one ticket.
   `blocks:` list still cannot be closed over on the way to `terminal`.
   Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
   unaffected by the second one, and the first is a semantics correction
-  to a check that already existed) — both are built, in `Catapult
-  .Delivery.ContainerLifecycle` (ORC-175, design pass, checked against
-  the tree): `forward_or_open/3` returns `[]` on `{:held, _holders}`
-  for the entry guard, and `next_commands/2`'s walk over every step
-  behind the container's own position — re-run on every qualifying
-  engine event, never cached — is what enforces the terminal guard
-  unconditionally.
+  to a check that already existed). The entry guard is built, in
+  `Catapult.Delivery.ContainerLifecycle` (ORC-175, design pass, checked
+  against the tree): `forward_or_open/3` returns `[]` on
+  `{:held, _holders}`. The terminal guard is a rule this system's
+  dispatcher must enforce regardless of implementation: every one of a
+  container's own queues holds no unresolved work before `terminal`,
+  unconditionally, never narrower than whatever `blocks:` relations a
+  bundle happened to author. Its present enforcement is incidental to
+  the same backward-move mechanism the bullet below corrects
+  (`next_commands/2`/`earliest_unresolved/4`) — ORC-177's reconciliation
+  covers this guard's implementation too, not only the backward move.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
   moved backward on a queue refilling, restated rather than removed
@@ -426,8 +430,9 @@ generating as scope-runs inside one ticket.
   unconditionally, for any earlier queue that refills, not only at a
   `blocks:`-guarded boundary; that is the same reading
   `container_queues.ex`'s condition 1 cites. Reconciling the dispatcher
-  and that projection's condition 1 to the retirement above is Target work,
-  unticketed — ORC-104 is Done and archived and owns neither.
+  and that projection's condition 1 to the retirement above is Target
+  work, filed as ORC-177 — ORC-104 is Done and archived and owns
+  neither.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
