@@ -261,7 +261,7 @@ generating as scope-runs inside one ticket.
   generation-shaped sub-array's own leading `pending` (`docs/dsl-
   syntax.md` §13's tightened check, a fourth-pass correction from
   resolving straight to the agent-balled entry itself), the
-  non-critique agent-balled entry directly otherwise — either way
+  non-review-shaped agent-balled entry directly otherwise — either way
   computed from the loaded workflow bundle at throwback time, never
   stored. This is the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read

@@ -370,8 +370,8 @@ context-source kinds, and audit profiles.
   earliest entry — a generation-shaped sub-array's own leading
   `pending` (§13's tightened check, a fourth-pass correction from
   resolving straight to the agent-balled entry itself), not the
-  non-critique entry directly — computed at throwback time from the
-  loaded bundle, never stored, the same posture `ready_scopes` and
+  non-review-shaped entry directly — computed at throwback time from
+  the loaded bundle, never stored, the same posture `ready_scopes` and
   staleness already take.
 
   **The pass this entry originally recorded held `throwback:`
