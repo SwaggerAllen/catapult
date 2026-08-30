@@ -1545,14 +1545,25 @@ generating as scope-runs inside one ticket.
   prod` after both sub-arrays — worth recording here rather than left
   for the dev pass writing the fix to rediscover.
 
+  **The qualified lookup itself is built** (`0b36f88`):
+  `ContainerLifecycle.Sequence.next_step/3`, `step/3` and `earlier?/4`
+  now resolve against `identified_steps/2`'s namespace-qualified
+  identity — `type.statuses`, walked at its own true index and paired
+  with `Type.namespaced_positions/1`'s own `canonical` field, never
+  `steps/2`'s already-filtered list — so the hazard above is avoided
+  and a qualified `<anchor>.<name>` argument now resolves the correct
+  occurrence rather than whichever comes first.
+  `sequence_test.exs`'s "a bare name recurring across two sub-arrays"
+  describe block exercises this against a synthetic recurring-name
+  fixture, since no shipped bundle recurs a name after ORC-155.
+
   **Once that lands, `retro`'s own leading `pending` returns to
   `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
   §15.2's own passage recording the asymmetry as deliberate is rewritten
   to describe the restored, symmetric shape** — the workaround's reason
-  will no longer exist. **Not built as part of this pass:** the
-  qualified lookup in `ContainerLifecycle.Sequence`, and the
-  bundle/doc follow-on it unlocks — both dev's diff against this
-  record, not design's.
+  will no longer exist. **Not built as part of this pass:** reverting
+  that bundle asymmetry and rewriting §15.2's passage to match — both
+  still dev's diff against this record, not design's.
 
 ## Initial vs target
 

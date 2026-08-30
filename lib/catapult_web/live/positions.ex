@@ -24,16 +24,18 @@ defmodule CatapultWeb.Live.Positions do
   rule 2 is why this lands here rather than in the screen that will
   actually need it**: `ORC-116` renders subflows as a visual grouping
   and consumes this encoding rather than deriving one of its own, so
-  the vocabulary has to exist here first. Computing a real anchor for
+  the vocabulary has to exist here first. **Computing a real anchor for
   a *resting* ticket — as opposed to accepting one a caller already
-  has — is not built by this pass: `Catapult.Delivery.FeatureLifecycle
-  .Projection`'s own `passed`/`pinned_to`/`blocked_from` are keyed on
-  the bare `position()` tuple throughout, so two occurrences of the
-  identical kind in one effective sequence are already indistinguishable
-  upstream of this module, a gap ORC-116 (or whichever pass gives
-  runtime position-tracking the identical namespace awareness) closes
-  before this encoding's `anchor` argument has real per-ticket data to
-  carry on the read path.
+  has — is `resting_key/2`, below** (ORC-116): `Catapult.Delivery
+  .FeatureLifecycle.Projection`'s own `passed`/`pinned_to`/
+  `blocked_from` still key on the bare `position()` tuple throughout,
+  with no namespace attached, so `resting_key/2` resolves the anchor by
+  finding that bare position inside the citing type's own
+  `annotated_positions` instead — first match, best-effort where the
+  bare kind recurs, since disambiguating *which* occurrence a resting
+  ticket is actually at needs runtime position-tracking the projection
+  does not carry. That remaining gap is `Sequence.name/3`'s own caveat,
+  not this module's.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence

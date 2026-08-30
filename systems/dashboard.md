@@ -295,20 +295,22 @@ conventions §13).
   is a load error before this system ever sees the bundle, never a
   rendering gap for it to solve.
 
-  **What this system still has to compute, because §15.12 leaves it
-  open by its own admission** (`CatapultWeb.Live.Positions`'s own
-  moduledoc): the anchor for a *resting* ticket. `Catapult.Delivery
-  .FeatureLifecycle.Projection`'s `passed`/`pinned_to`/`blocked_from`
-  all still key on the bare `position()` tuple, with no namespace
-  attached, so two occurrences of one kind in a live ticket's own
-  effective sequence stay indistinguishable upstream of the rendering
-  layer. Dev's diff resolves this as a lookup against the loaded
-  declaration, not a runtime identity: walk the citing type's own
-  effective sequence for the sub-array, if any, containing the resting
-  position, and key off that sub-array's own anchor name; a position
-  outside every sub-array keys bare. That lookup is exactly what
-  `Positions.key/2`'s `anchor` argument is already shaped to take —
-  this system supplies the argument, not a new encoding.
+  **The anchor for a *resting* ticket — the gap §15.12 left open by its
+  own admission — is `Positions.resting_key/2`** (ORC-116).
+  `Catapult.Delivery.FeatureLifecycle.Projection`'s `passed`/
+  `pinned_to`/`blocked_from` all still key on the bare `position()`
+  tuple, with no namespace attached, so `resting_key/2` resolves this
+  as a lookup against the loaded declaration, not a runtime identity:
+  walk the citing type's own effective sequence for the sub-array, if
+  any, containing the resting position, and key off that sub-array's
+  own anchor name; a position outside every sub-array keys bare. That
+  lookup is exactly what `Positions.key/2`'s `anchor` argument is
+  already shaped to take — this system supplies the argument, not a
+  new encoding. It is first-match, best-effort where the bare kind
+  recurs: disambiguating *which* occurrence a resting ticket is
+  actually at needs runtime position-tracking the projection does not
+  carry, which stays open the same way `Sequence.name/3` already
+  admits it for the declared-lane case.
 
   Recurrence itself is unchanged from what this bullet already found:
   `docs/dsl-syntax.md` §13 still lets a generation-shaped entry,
