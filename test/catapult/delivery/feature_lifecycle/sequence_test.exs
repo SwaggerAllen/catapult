@@ -123,6 +123,75 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "annotated_positions/2 (dsl-syntax.md §15.10, ORC-116)" do
+    setup do
+      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      %{workflow: workflow}
+    end
+
+    test "feature's own leading sub-array groups pending through its gates, anchored on generation",
+         %{workflow: workflow} do
+      annotated = Sequence.annotated_positions(workflow, "feature")
+
+      assert Enum.map(annotated, & &1.position) == Sequence.positions(workflow, "feature")
+
+      assert Enum.map(annotated, & &1.group_key) ==
+               ["generation", "generation", "generation", "generation", "generation", nil]
+
+      assert Enum.map(annotated, & &1.group_anchor) ==
+               [false, true, false, false, false, false]
+    end
+
+    test "a type with no sub-array groups nothing", %{workflow: workflow} do
+      annotated = Sequence.annotated_positions(workflow, "seed")
+
+      assert Enum.all?(annotated, &(&1.group_key == nil and &1.group_anchor == false))
+    end
+
+    test "a type name that does not resolve yields no positions", %{workflow: workflow} do
+      assert Sequence.annotated_positions(workflow, "no-such-type") == []
+    end
+  end
+
+  describe "annotated_positions/2 over a sub-array that is not the sequence's own head" do
+    test "an earlier entry outside the group carries no group_key at all" do
+      # `[status, [status, review]]` — the shape §15.10 argues from
+      # (`types/milestone.yaml`'s sign-off group), built small enough
+      # to exercise "outside the group" without a container skeleton.
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{status: "generation"},
+          %Status{review: "product-review"}
+        ],
+        groups: [1..2//1]
+      }
+
+      workflow = %Workflow{
+        name: "test",
+        entry: "t",
+        gates: %{},
+        environments: %{},
+        types: %{"t" => type}
+      }
+
+      annotated = Sequence.annotated_positions(workflow, "t")
+
+      assert [
+               %{position: {:kind, :pending}, group_key: nil, group_anchor: false},
+               %{position: {:kind, :generation}, group_key: "generation", group_anchor: true},
+               %{
+                 position: {:gate, "product-review"},
+                 group_key: "generation",
+                 group_anchor: false
+               }
+             ] = annotated
+    end
+  end
+
   describe "resolve_position/2 against the shipped default-flow bundle" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")

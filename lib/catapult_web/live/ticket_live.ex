@@ -2,9 +2,9 @@ defmodule CatapultWeb.TicketLive do
   @moduledoc """
   Mounts `Catapult.Storybook.Screens.Ticket.ticket/1` (`screens/
   ticket.md`): the argument, position in the effective sequence
-  (`Catapult.Delivery.FeatureLifecycle.Sequence.positions/2`, the same
-  read `board`'s lanes come from), the blocked-return control under
-  optimistic concurrency, child roll-up, linked PRs and runs.
+  (`Catapult.Delivery.FeatureLifecycle.Sequence.annotated_positions/2`,
+  the same read `board`'s lanes come from), the blocked-return control
+  under optimistic concurrency, child roll-up, linked PRs and runs.
 
   **The gate action is a pointer, never a control this screen
   dispatches** (`screens/ticket.md`): every Phase 4 gate reviews prose,
@@ -28,6 +28,7 @@ defmodule CatapultWeb.TicketLive do
   alias Catapult.Delivery.FeatureLifecycle.Sequence
   alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Dsl
+  alias Catapult.Dsl.SystemStatus
   alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Router
   alias Catapult.Engine.Store, as: EngineStore
@@ -107,9 +108,9 @@ defmodule CatapultWeb.TicketLive do
   defp assign_ticket(socket, flow, lifecycle, workflow) do
     project_id = socket.assigns.project_id
     node = flow.entry_node_id && EngineStore.get_node(project_id, flow.entry_node_id)
-    positions = Sequence.positions(workflow, flow.flow_name)
+    positions = Sequence.annotated_positions(workflow, flow.flow_name)
     resting = FeatureLifecycle.status(lifecycle)
-    marker = if resting == {:kind, :blocked}, do: origin(lifecycle), else: resting
+    marker = if blocked_position?(resting), do: origin(lifecycle), else: resting
 
     assign(socket,
       found?: true,
@@ -125,21 +126,26 @@ defmodule CatapultWeb.TicketLive do
     )
   end
 
+  defp blocked_position?({:kind, kind}), do: SystemStatus.blocked?(kind)
+  defp blocked_position?(_position), do: false
+
   defp origin(%{blocked_origin_kind: kind, blocked_origin_gate: gate}),
     do: Positions.from_columns(kind, gate)
 
   defp sequence_rail(positions, marker, workflow) do
-    marker_index = Enum.find_index(positions, &(&1 == marker))
+    marker_index = Enum.find_index(positions, &(&1.position == marker))
 
     positions
     |> Enum.with_index()
-    |> Enum.map(fn {position, index} ->
+    |> Enum.map(fn {entry, index} ->
       %{
-        key: Positions.key(position),
-        label: Positions.label(position),
-        kind: Positions.kind(position),
-        role: Positions.role(position, workflow),
-        state: state_at(index, marker_index)
+        key: Positions.lane_key(positions, entry),
+        label: Positions.label(entry.position),
+        kind: Positions.kind(entry.position),
+        role: Positions.role(entry.position, workflow),
+        state: state_at(index, marker_index),
+        group_key: entry.group_key,
+        group_anchor: entry.group_anchor
       }
     end)
   end
@@ -158,32 +164,47 @@ defmodule CatapultWeb.TicketLive do
 
   defp gate_action(_resting, _workflow, _project_id, _flow_id), do: nil
 
-  defp blocked({:kind, :blocked}, lifecycle, positions, project_id) do
-    origin = origin(lifecycle)
+  defp blocked(resting, lifecycle, positions, project_id) do
+    if blocked_position?(resting) do
+      origin = origin(lifecycle)
 
-    %{
-      flavor: EventFacts.blocked_flavor(project_id),
-      origin_label: origin && Positions.label(origin),
-      return_options: return_options(origin, positions)
-    }
+      %{
+        flavor: EventFacts.blocked_flavor(project_id),
+        origin_label: origin && Positions.label(origin),
+        return_options: return_options(origin, positions)
+      }
+    end
   end
-
-  defp blocked(_resting, _lifecycle, _positions, _project_id), do: nil
 
   defp return_options(nil, _positions), do: []
 
   defp return_options(origin, positions) do
-    case Enum.find_index(positions, &(&1 == origin)) do
+    case Enum.find_index(positions, &(&1.position == origin)) do
       nil ->
         []
 
       origin_index ->
+        origin_entry = Enum.at(positions, origin_index)
         earlier = positions |> Enum.take(origin_index) |> Enum.reverse()
 
-        [origin | earlier]
-        |> Enum.map(&%{label: Positions.label(&1), target: Positions.key(&1)})
+        [origin_entry | earlier]
+        |> Enum.map(fn entry ->
+          %{
+            label: Positions.label(entry.position),
+            target: Positions.lane_key(positions, entry),
+            leaves_group: leaves_group?(origin_entry.group_key, entry.group_key)
+          }
+        end)
     end
   end
+
+  # `screens/ticket.md`'s "An earlier option that sits outside the
+  # origin's own sub-array is marked as leaving it" (ORC-116): only
+  # meaningful when the origin itself is inside a group — there is no
+  # loop to leave otherwise — and then true for any option in a
+  # different group, including one in no group at all.
+  defp leaves_group?(nil, _entry_group), do: false
+  defp leaves_group?(origin_group, entry_group), do: entry_group != origin_group
 
   defp current_label(%{assigns: %{sequence: sequence, blocked: blocked}}) do
     case Enum.find(sequence, &(&1.state == :current)) do

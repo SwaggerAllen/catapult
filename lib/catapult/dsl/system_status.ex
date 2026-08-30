@@ -206,4 +206,21 @@ defmodule Catapult.Dsl.SystemStatus do
   def can_block?(:terminal), do: false
   def can_block?(:blocked), do: false
   def can_block?(kind) when is_atom(kind), do: kind?(kind)
+
+  @doc """
+  Whether `name` — the atom a `position()` tuple carries or the bundle
+  string a projection column stores — names the fixed `:blocked` kind
+  (`systems/dashboard.md`'s ORC-116 entry). Blocked is a real orthogonal
+  flavor rather than an array position, so a screen branching on it is
+  correct; comparing against the literal atom or string inline, at four
+  call sites each writing the identical comparison its own way, is the
+  form ORC-151 already named as the thing to stop doing — a sixth
+  predicate here, beside `ball/1`, `agent_balled?/1`,
+  `generation_shaped?/1`, `review_shaped?/1` and `can_block?/1`, is
+  where a screen wanting this distinction grows it instead.
+  """
+  @spec blocked?(term()) :: boolean()
+  def blocked?(:blocked), do: true
+  def blocked?("blocked"), do: true
+  def blocked?(_name), do: false
 end

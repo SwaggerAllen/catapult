@@ -48,17 +48,20 @@ defmodule Catapult.Dsl.Workflow do
   absent.
 
   **A position's identity is `<anchor>.<name>` inside a sub-array, bare
-  at the top level (§15.12, ORC-155).** `namespaced_positions/1` builds
-  every entry's bare name and its namespace-qualified form once per
-  type; `resolve_reference/2` is what `gate_throwback_problems/2` and
-  `blocks_problems/1` both call to resolve a declared `throwback:`/
-  `blocks:` string against that set — bare when the bare name is
-  unique in the type, refused as ambiguous when it recurs across more
-  than one namespace, and this is the one place that decision is made.
-  `earlier_names/2` (§15.10's own backward-movement predicate) folds
-  the identical ambiguity rule into the strings it returns, so a
-  recurring bare name never silently prefers whichever occurrence
-  comes first there either.
+  at the top level (§15.12, ORC-155).** `Catapult.Dsl.Type
+  .namespaced_positions/1` builds every entry's bare name and its
+  namespace-qualified form once per type — moved there at ORC-116 so
+  `Catapult.Delivery.ContainerLifecycle.Sequence` can share the
+  identical computation for the container axis, rather than this
+  module being the only place it exists; `resolve_reference/2` is what
+  `gate_throwback_problems/2` and `blocks_problems/1` both call to
+  resolve a declared `throwback:`/`blocks:` string against that set —
+  bare when the bare name is unique in the type, refused as ambiguous
+  when it recurs across more than one namespace, and this is the one
+  place that decision is made. `earlier_names/2` (§15.10's own
+  backward-movement predicate) folds the identical ambiguity rule into
+  the strings it returns, so a recurring bare name never silently
+  prefers whichever occurrence comes first there either.
   """
 
   alias Catapult.Dsl.Environment
@@ -247,79 +250,18 @@ defmodule Catapult.Dsl.Workflow do
   ## never offers a string that would refuse to resolve if written back.
 
   defp earlier_names(%Type{} = type, index) do
+    type |> earlier_positions(index) |> Enum.map(& &1.canonical)
+  end
+
+  # `Type.namespaced_positions/1` is the one place §15.12's bare/
+  # qualified/ambiguity computation happens — `Catapult.Delivery
+  # .ContainerLifecycle.Sequence` reads it too, for the container axis
+  # (ORC-116) — so this module only filters and reshapes what it
+  # returns, never re-derives it.
+  defp earlier_positions(%Type{} = type, index) do
     type
-    |> namespaced_positions()
+    |> Type.namespaced_positions()
     |> Enum.filter(&(&1.index < index))
-    |> Enum.map(& &1.canonical)
-  end
-
-  ## §15.12: every entry's own bare name and its namespace-qualified
-  ## form, across one type's own effective sequence. A sub-array's own
-  ## anchor (§15.10's exactly-one non-review-shaped agent-balled entry)
-  ## is a top-level position — a sub-array is referenced through the
-  ## entry it contains, never through a name of its own — and every
-  ## other member of that sub-array is `<anchor-name>.<its-own-name>`.
-  ## `canonical` collapses to the bare name unless it collides with
-  ## some other entry's bare name anywhere else in the type, per
-  ## `resolve_reference/2`'s own "bare when unambiguous" rule.
-
-  defp namespaced_positions(%Type{statuses: statuses} = type) do
-    raw =
-      statuses
-      |> Enum.with_index()
-      |> Enum.map(fn {entry, index} -> raw_position(type, entry, index) end)
-
-    ambiguous_bares =
-      raw
-      |> Enum.frequencies_by(& &1.bare)
-      |> Enum.filter(fn {_bare, count} -> count > 1 end)
-      |> Enum.map(fn {bare, _count} -> bare end)
-      |> MapSet.new()
-
-    Enum.map(raw, fn position ->
-      canonical =
-        if MapSet.member?(ambiguous_bares, position.bare) do
-          position.qualified
-        else
-          position.bare
-        end
-
-      Map.put(position, :canonical, canonical)
-    end)
-  end
-
-  defp raw_position(type, entry, index) do
-    bare = Status.name(entry)
-
-    case Type.group_at(type, index) do
-      nil ->
-        top_level_position(index, entry, bare)
-
-      range ->
-        anchor_index = Enum.find(range, &non_review_shaped_agent_step_at?(type, &1))
-
-        if index == anchor_index do
-          top_level_position(index, entry, bare)
-        else
-          anchor_name = Status.name(Enum.at(type.statuses, anchor_index))
-
-          %{
-            index: index,
-            entry: entry,
-            bare: bare,
-            namespace: anchor_name,
-            qualified: "#{anchor_name}.#{bare}"
-          }
-        end
-    end
-  end
-
-  defp non_review_shaped_agent_step_at?(%Type{statuses: statuses}, index) do
-    Status.non_review_shaped_agent_step?(Enum.at(statuses, index))
-  end
-
-  defp top_level_position(index, entry, bare) do
-    %{index: index, entry: entry, bare: bare, namespace: :top_level, qualified: bare}
   end
 
   # Resolves a `blocks:`/`throwback:` reference (or any other citation
@@ -330,7 +272,7 @@ defmodule Catapult.Dsl.Workflow do
   # matches nothing at all. One level of qualification only: `ref` is
   # split on its first `.`, never re-split further.
   defp resolve_reference(%Type{} = type, ref) do
-    positions = namespaced_positions(type)
+    positions = Type.namespaced_positions(type)
 
     case String.split(ref, ".", parts: 2) do
       [_anchor, _local] ->
@@ -402,6 +344,44 @@ defmodule Catapult.Dsl.Workflow do
   end
 
   @doc """
+  `throwback_targets/3`, each target marked whether landing there
+  leaves the gate's own sub-array (§15.10, ORC-116) — the annotation
+  `screens/document-review.md`'s own secondary "choose a different
+  target" disclosure renders beside a target outside the gate's own
+  group, the identical distinction `screens/ticket.md`'s Blocked-return
+  control draws over the identical legality test.
+
+  `leaves_group` is `false` throughout when the gate itself sits in no
+  sub-array — there is no group to leave. When it does, a target still
+  inside that group reads `false`; every other target, including one
+  in no group at all, reads `true`.
+  """
+  @spec throwback_target_details(t(), String.t(), String.t()) :: [
+          %{target: String.t(), leaves_group: boolean()}
+        ]
+  def throwback_target_details(%__MODULE__{} = workflow, type_name, gate_name)
+      when is_binary(type_name) and is_binary(gate_name) do
+    case citation(workflow, type_name, gate_name) do
+      {type, index} ->
+        gate_group = Type.group_at(type, index)
+
+        type
+        |> earlier_positions(index)
+        |> Enum.map(fn pos ->
+          %{target: pos.canonical, leaves_group: leaves_group?(type, gate_group, pos.index)}
+        end)
+
+      nil ->
+        []
+    end
+  end
+
+  defp leaves_group?(_type, nil, _target_index), do: false
+
+  defp leaves_group?(type, gate_group, target_index),
+    do: Type.group_at(type, target_index) != gate_group
+
+  @doc """
   Where a decline at `gate_name` lands by default for a ticket of type
   `type_name` (§15.10): the gate's own declared `throwback:` when it
   names one, otherwise the derived default — the citing sub-array's own
@@ -454,17 +434,11 @@ defmodule Catapult.Dsl.Workflow do
         nil
 
       range ->
-        type.statuses
-        |> Enum.slice(range)
-        |> Enum.find_index(&Status.non_review_shaped_agent_step?/1)
-        |> case do
-          nil ->
-            nil
+        case Type.anchor_index(type, range) do
+          anchor_index when not is_nil(anchor_index) and anchor_index < index ->
+            Status.name(Enum.at(type.statuses, anchor_index))
 
-          offset when range.first + offset < index ->
-            Status.name(Enum.at(type.statuses, range.first + offset))
-
-          _not_earlier ->
+          _nil_or_not_earlier ->
             nil
         end
     end
@@ -893,7 +867,7 @@ defmodule Catapult.Dsl.Workflow do
 
   defp top_level_name_problems(type_name, type) do
     type
-    |> namespaced_positions()
+    |> Type.namespaced_positions()
     |> Enum.filter(&(&1.namespace == :top_level))
     |> duplicate_bare_name_problems(fn bare ->
       "type #{inspect(type_name)}'s top-level statuses: array names #{inspect(bare)} more " <>
@@ -945,7 +919,7 @@ defmodule Catapult.Dsl.Workflow do
 
   defp gate_status_disjointness_problems(types, gates) do
     for {type_name, type} <- types,
-        position <- namespaced_positions(type),
+        position <- Type.namespaced_positions(type),
         not is_nil(position.entry.status),
         {gate_name, gate} <- gates,
         gate_name in Enum.uniq([position.bare, position.qualified]) do

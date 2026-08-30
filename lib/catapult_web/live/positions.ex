@@ -102,4 +102,50 @@ defmodule CatapultWeb.Live.Positions do
   end
 
   def role({:kind, _kind}, %Catapult.Dsl.Workflow{}), do: nil
+
+  @doc """
+  The round-trippable `key/2` for one entry of `Sequence
+  .annotated_positions/2`'s own list (ORC-116) — qualified
+  `<anchor>.<name>` when this entry's own bare position recurs
+  elsewhere in `positions` (its own `group_key`, the recurring
+  sub-array's anchor), bare otherwise. The ordinary case — no `types/
+  *.yaml` this system ships recurs a kind across two sub-arrays today
+  (`docs/dsl-syntax.md` §15.2's own note) — is unaffected: every
+  position keeps the identical bare encoding `key/1` has always
+  produced.
+  """
+  @spec lane_key([Sequence.annotated_position()], Sequence.annotated_position()) :: String.t()
+  def lane_key(positions, %{position: position, group_key: group_key}) do
+    if ambiguous?(positions, position) do
+      key(position, group_key)
+    else
+      key(position)
+    end
+  end
+
+  defp ambiguous?(positions, position) do
+    Enum.count(positions, &(&1.position == position)) > 1
+  end
+
+  @doc """
+  The lane/rail key a *resting* ticket's own bare `position()` maps to
+  — the identical qualification `lane_key/2` gives the declared lane,
+  resolved by finding that position inside the citing type's own
+  `annotated_positions` (`systems/dashboard.md`'s own "what this
+  system still has to compute" entry, ORC-116). First match,
+  best-effort where the bare kind recurs: disambiguating *which*
+  occurrence a resting ticket is actually at needs runtime
+  position-tracking this system does not carry (`Sequence.name/3`'s
+  own identical caveat). `nil` for `nil` (no resting position at all)
+  or a position this type's own sequence does not contain.
+  """
+  @spec resting_key([Sequence.annotated_position()], position() | nil) :: String.t() | nil
+  def resting_key(_positions, nil), do: nil
+
+  def resting_key(positions, position) do
+    case Enum.find(positions, &(&1.position == position)) do
+      nil -> nil
+      entry -> lane_key(positions, entry)
+    end
+  end
 end

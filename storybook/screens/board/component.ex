@@ -7,9 +7,10 @@ defmodule Catapult.Storybook.Screens.Board do
   `lanes`: `%{key:, label:, kind: :status | :gate}`, in effective-sequence order (`screens/
   board.md`) — `key` is an opaque, plane-supplied string; this render never parses it, since what
   disambiguates two same-named positions is `systems/dashboard.md`'s own lane-key entry, not a
-  rendering concern. Plus three fields `board_live.ex` does not compute yet and this render treats
-  as optional, `Map.get`-style, rather than required — `group_key: String.t() | nil`,
-  `group_anchor: boolean` and `group_collapsed: boolean`. `group_key` is shared by every lane a
+  rendering concern. Plus three fields — `group_key: String.t() | nil`, `group_anchor: boolean` and
+  `group_collapsed: boolean` — `board_live.ex` computes end to end (dev's diff, ORC-116), still
+  read `Map.get`-style rather than required so a lane carrying none of the three (a bundle with no
+  sub-array at all) renders exactly as before grouping existed. `group_key` is shared by every lane a
   declared sub-array groups (`docs/dsl-syntax.md` §15.10) and absent (or `nil`) for a lane no
   sub-array cites; `group_anchor` marks the one lane inside a group that is where a throwback in
   that group falls back to by default — whatever `Catapult.Dsl.Workflow.throwback_default/3`
@@ -21,7 +22,9 @@ defmodule Catapult.Storybook.Screens.Board do
   and the collapsed summary box (`screens/board.md`'s "A group is collapsible, and collapsed is
   the default"). This render computes the runs from the flat, ordered list handed down; it does
   not resolve grouping or collapse state itself — a `phx-click="toggle_group"`/
-  `phx-value-key={group_key}` is emitted for the eventual LiveView to wire.
+  `phx-value-key={group_key}` is emitted, and `board_live.ex`'s own `handle_event("toggle_group",
+  ...)` is what flips a `group_key` between the two (dev's diff, ORC-116) — collapsed is still
+  every session's own starting state, per-socket, never persisted past it.
 
   `cards`: `%{id:, title:, type:, lane_key:, children: [%{id:, lane_key:, lane_label:}],
   child_summary: nil | %{count:, label:}, blocked: nil | %{flavor:, origin_label:}, gate: nil |

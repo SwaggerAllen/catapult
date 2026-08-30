@@ -173,6 +173,11 @@ defmodule Catapult do
       Engine.Projections.GateComments,
       Engine.Projections.CommentFeedback,
       Engine.Events.RunFailed,
-      Dsl.Workflow
+      Dsl.Workflow,
+      # `SystemStatus.blocked?/1` (ORC-116, `systems/dashboard.md`'s
+      # own entry): a screen branching on the fixed `:blocked` kind
+      # asks the vocabulary's own predicate rather than comparing
+      # against the literal atom/string inline.
+      Dsl.SystemStatus
     ]
 end

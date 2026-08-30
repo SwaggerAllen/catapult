@@ -31,14 +31,13 @@ defmodule Catapult.Storybook.Screens.DocumentReview do
   so the one entry present, if any, renders as the primary button.
 
   `throwback_targets`: `[%{label:, target:, leaves_group: boolean}]`, default `[]` — every other
-  legal earlier position (`Catapult.Dsl.Workflow.throwback_targets/3`, minus the default above),
-  offered behind a secondary disclosure rather than as a flat list of equally-weighted buttons
-  (ORC-116, `screens/document-review.md`'s "Approve or throw back"); `leaves_group` marks a target
-  outside the gate's own sub-array, the identical annotation `screens/ticket.md`'s own
-  Blocked-return control draws. Defaults to `[]` because `document_review_live.ex` computes the
-  raw target list already but does not yet label or wire it through (its own comment: "the
-  `docs/ui-spec.md` §3.2 picker over `throwback_targets` is what covers that case, and it is
-  unbuilt") — this screen renders whatever it is handed, including nothing.
+  legal earlier position (`Catapult.Dsl.Workflow.throwback_target_details/3`, minus the default
+  above), offered behind a secondary disclosure rather than as a flat list of equally-weighted
+  buttons (ORC-116, `screens/document-review.md`'s "Approve or throw back"); `leaves_group` marks a
+  target outside the gate's own sub-array, the identical annotation `screens/ticket.md`'s own
+  Blocked-return control draws. `document_review_live.ex` wires this end to end (dev's diff, ORC-116)
+  — `[]` still renders (a gate whose only legal targets are all the default, or none at all), this
+  screen just never sees it for `ux-review`/`engineering-review` in the shipped bundle.
   """
 
   use Phoenix.Component

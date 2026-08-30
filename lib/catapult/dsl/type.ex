@@ -241,6 +241,110 @@ defmodule Catapult.Dsl.Type do
   end
 
   @doc """
+  `range`'s own anchor — the absolute `statuses` index of its one
+  non-review-shaped agent-balled entry (§15.10's own invariant, checked
+  at load time so a loaded type's own group always has exactly one).
+  `nil` only for a `range` this type does not actually hold as one of
+  its own `groups` — not a case a caller handing back a `group_at/2`
+  result should ever see.
+
+  The one place this lookup happens: `Catapult.Dsl.Workflow
+  .throwback_default/3`'s own derivation and this module's
+  `namespaced_positions/1` both need "which entry in this group is the
+  anchor" and ask this rather than each re-deriving it.
+  """
+  @spec anchor_index(t(), Range.t()) :: non_neg_integer() | nil
+  def anchor_index(%__MODULE__{statuses: statuses}, %Range{} = range) do
+    Enum.find(range, &Status.non_review_shaped_agent_step?(Enum.at(statuses, &1)))
+  end
+
+  @typedoc """
+  One `statuses:` entry's own namespaced identity (§15.12): `index` is
+  its absolute position in `statuses`; `bare` is its own authored name
+  (`Status.name/1`); `namespace` is `:top_level` for an entry no
+  sub-array cites or that is itself its own sub-array's anchor, else
+  the anchor's own bare name; `qualified` is always `<anchor>.<bare>`
+  for a non-anchor group member, `bare` otherwise; `canonical` is
+  `qualified` when `bare` recurs elsewhere in the same type's own
+  array, `bare` otherwise — the one string a reference resolves
+  against and a legal-target list offers back (`resolve_reference/2`'s
+  "bare when unambiguous" rule).
+  """
+  @type namespaced_entry :: %{
+          index: non_neg_integer(),
+          entry: Status.t(),
+          bare: String.t(),
+          namespace: String.t() | :top_level,
+          qualified: String.t(),
+          canonical: String.t()
+        }
+
+  @doc """
+  Every entry in `type`'s own effective sequence, paired with its own
+  namespaced identity (§15.12) — the one place that computation is
+  made, shared by `Catapult.Dsl.Workflow`'s reference resolution and
+  legal-target listing (ticket axis) and `Catapult.Delivery
+  .ContainerLifecycle.Sequence`'s own qualified lookup (container axis,
+  ORC-116) rather than each re-deriving the identical bare/qualified/
+  ambiguity rule.
+  """
+  @spec namespaced_positions(t()) :: [namespaced_entry()]
+  def namespaced_positions(%__MODULE__{statuses: statuses} = type) do
+    raw =
+      statuses
+      |> Enum.with_index()
+      |> Enum.map(fn {entry, index} -> raw_position(type, entry, index) end)
+
+    ambiguous_bares =
+      raw
+      |> Enum.frequencies_by(& &1.bare)
+      |> Enum.filter(fn {_bare, count} -> count > 1 end)
+      |> Enum.map(fn {bare, _count} -> bare end)
+      |> MapSet.new()
+
+    Enum.map(raw, fn position ->
+      canonical =
+        if MapSet.member?(ambiguous_bares, position.bare) do
+          position.qualified
+        else
+          position.bare
+        end
+
+      Map.put(position, :canonical, canonical)
+    end)
+  end
+
+  defp raw_position(type, entry, index) do
+    bare = Status.name(entry)
+
+    case group_at(type, index) do
+      nil ->
+        top_level_position(index, entry, bare)
+
+      range ->
+        anchor_index = anchor_index(type, range)
+
+        if index == anchor_index do
+          top_level_position(index, entry, bare)
+        else
+          anchor_name = Status.name(Enum.at(type.statuses, anchor_index))
+
+          %{
+            index: index,
+            entry: entry,
+            bare: bare,
+            namespace: anchor_name,
+            qualified: "#{anchor_name}.#{bare}"
+          }
+        end
+    end
+  end
+
+  defp top_level_position(index, entry, bare) do
+    %{index: index, entry: entry, bare: bare, namespace: :top_level, qualified: bare}
+  end
+
+  @doc """
   Effective-sequence index `index` rendered as the path the author
   actually wrote — `"statuses[3]"`, or `"statuses[1][2]"` for an entry
   inside a sub-array (§15.10).

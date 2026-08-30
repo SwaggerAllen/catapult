@@ -71,6 +71,17 @@ defmodule CatapultWeb.DocumentReviewLiveTest do
     # derive — the declaration earning its keep.
     assert html =~ "Throw back to pending"
     refute html =~ "Throw back to generation"
+
+    # The secondary "choose a different target" disclosure offers
+    # every other legal target — `generation`, earlier than `ux-review`
+    # in `types/feature.yaml`'s own array — behind the primary button
+    # rather than as an equally-weighted one (`screens/document-
+    # review.md`'s own picker, ORC-116). Both `pending` and `ux-review`
+    # sit in the type's one leading sub-array, so nothing here leaves
+    # it.
+    assert html =~ "Choose a different target"
+    assert html =~ "generation"
+    refute html =~ "leaves this loop"
   end
 
   test "a target outside the earlier prefix is refused at the command edge", %{conn: conn} do
