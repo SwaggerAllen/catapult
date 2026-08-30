@@ -2138,15 +2138,17 @@ anything once it no longer bounds: naming several targets said "any of
 these is legal," and a landing point cannot be several things at once.
 
 What survives is narrower and singular. §15.10's sub-array grouping
-gives every gate a *default* landing point — its citing sub-array's own
+gives most gates a *default* landing point — its citing sub-array's own
 earliest entry, its own leading `pending` for a generation-shaped
-group (§13) — for the ordinary case a decline names no
-further choice. `throwback:` is the escape hatch beside that default,
-one explicit status, for the gate that wants a different one-click
-landing point than the derivation would pick. It names no legality of
-its own: whatever it names must already be earlier in the citing type's
-own effective sequence, the identical bound §15.10 states for every
-decline, declared or not.
+group (§13) — for the ordinary case a decline names no further choice.
+A gate sitting first in its own sub-array, or in no sub-array at all,
+has no earlier entry there to fall back to, so this derivation gives it
+no default. `throwback:` is the escape hatch beside that default, one
+explicit status, for the gate that wants a different one-click landing
+point than the derivation would pick, or that has no derived default to
+begin with. It names no legality of its own: whatever it names must
+already be earlier in the citing type's own effective sequence, the
+identical bound §15.10 states for every decline, declared or not.
 
 **Depth 0 is the rule for a gate, not merely its default** (v5 §7.19,
 ORC-92). A gate is a human sign-off, and a human reads the top level;
@@ -2893,10 +2895,11 @@ status, no per-use kinds, no second derivation rule beside the
 sub-array default.
 
 **The day-one test still matters, restated for a default rather than a
-bound: if the default bundle needs the field to reach a *different*
-landing point than the derivation would pick, that is the field doing
-its job; if it needs the field only to restate a target already
-reachable, that declaration is redundant and worth dropping.** Under
+bound: if the default bundle needs the field to reach a landing point
+the derivation cannot supply — a *different* one than it would pick, or
+one it names no legal target for at all — that is the field doing its
+job; if it needs the field only to restate a target already reachable,
+that declaration is redundant and worth dropping.** Under
 the widened legality rule, the retro case that motivated this whole
 section resolves with no declaration at all — the derivation is right
 about the ordinary case. Four default-bundle gates declare
@@ -2936,18 +2939,25 @@ record found:
 
 The other two sit in `milestone.yaml`, inside the sub-array
 `[milestone-signoff, pending, retro, proposals-read]` (§15.10 above) —
-so the sharper test applies, against `retro`'s own leading `pending`,
-that group's derivation's default now that `retro`'s group carries one
-too:
+so the sharper test applies: whether each entry's own declared
+`throwback:` matches the group's derived default, `retro`'s own
+leading `pending`, or the entry sits where the derivation names no
+legal target at all:
 
 - `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
   default-flow/gates/milestone-signoff.yaml`) narrows to `main`, a
-  target *outside* the sub-array, before the group entirely — and a
-  *different* landing point than the derivation would pick, which is
-  `retro`'s own leading `pending`. This declaration is the field
-  earning its keep, the identical shape as `ux-review`'s: rejecting the
+  target *outside* the sub-array, before the group entirely. The
+  derivation names no landing point here at all: `milestone-signoff`
+  sits first in its own sub-array, so the sub-array's own earliest
+  entry — the derivation's fallback — is `milestone-signoff` itself,
+  and nothing in the group is earlier in the effective sequence than
+  the gate that would decline it. This declaration is mandatory, not an
+  override of a derived default — the identical gap the "gate sitting
+  outside every sub-array... must declare `throwback:` explicitly" rule
+  above closes for a gate with no group at all, reached here by a gate
+  that has one but finds no legal target inside it. Rejecting the
   sign-off means reopening the milestone's own `main` work period, not
-  merely re-running `retro`.
+  re-running `retro`.
 - `proposals-read`'s own declared `throwback: [retro]` (`bundles/
   default-flow/gates/proposals-read.yaml`) narrows to `retro` itself,
   skipping the dispatch-wait its own leading `pending` now interposes.

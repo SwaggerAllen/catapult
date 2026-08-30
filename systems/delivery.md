@@ -1573,22 +1573,37 @@ generating as scope-runs inside one ticket.
   decision, not this entry's — this ticket supplies the data such a
   pass would consume, nothing in `system:dashboard`.
 
-  **A record written before this ticket decodes with no anchor, and
-  that decodes correctly, with no backfill.** `Projection.from_wire/1`
-  reads its new `blocked_from_anchor`/`pinned_to_anchor` fields with a
+  **On the ticket axis, a record written before this ticket decodes
+  with no anchor, and that decodes correctly, with no backfill.**
+  `Projection.from_wire/1` reads its new
+  `blocked_from_anchor`/`pinned_to_anchor` fields with a
   tolerant default rather than the dot access the existing `_kind`/
   `_gate` pairs use, because every `Commanded.ProcessManagers
   .ProcessManagerInstance` snapshot committed before this ticket
   predates the field entirely, and `from_wire/1` runs on exactly such a
   snapshot on every process restart. A missing anchor decodes as `nil`
   — the unqualified identity that position always was, since no bundle
-  recurred a bare name before this ticket landed. `container
-  .current_queue` needs no equivalent handling: `canonical`
-  (`Type.namespaced_positions/1`) is already a plain string, bare when
-  unambiguous and `<anchor>.<name>` only once a name recurs, so a row
-  written before this ticket already holds exactly the string this
-  ticket's own reads expect — the column's shape doesn't change, only
-  what a bundle is now free to put in it.
+  recurred a bare name before this ticket landed.
+
+  **`container.current_queue` needs its own handling, and a different
+  one: `canonical` is a property of the array a name sits in, not of
+  the occurrence.** `Type.namespaced_positions/1` qualifies every
+  occurrence of a name by its frequency over the whole type's
+  `statuses`, so a name's canonical form can change out from under a
+  row already written, if something makes it recur that didn't before.
+  That is exactly what this same ticket's own revert of `milestone
+  .yaml`'s asymmetry does: `retro`'s group gains its own leading
+  `pending`, and `pending` — one occurrence in `milestone.yaml` until
+  this diff — becomes two, `setup.pending` and `retro.pending`. A row
+  written before this ticket holds the bare string `pending`, correct
+  and unambiguous when written, and matches neither qualified form once
+  the revert ships. A migration, landing in the same deploy as the
+  bundle revert, backfills every `engine_containers.current_queue` row
+  holding the bare value `pending` to `setup.pending` — the only
+  occurrence that could have produced such a row, since `retro`'s own
+  `pending` does not exist until this same diff adds it, and no
+  in-flight container can already be resting on a position that didn't
+  exist yet.
 
   **The kind/gate discrimination is unaffected in shape, the same way
   the loader-level fix above left `status_kind`/`status_gate`
@@ -1623,7 +1638,10 @@ generating as scope-runs inside one ticket.
   (`docs/dsl-syntax.md` §15.2) — the canonical identity is what makes
   `setup.pending` and `retro.pending` distinct positions rather than one
   bare name arriving twice. Reverting that bundle to the symmetric
-  shape is this ticket's own dev diff, alongside the plumbing above.
+  shape, the plumbing above, and the `current_queue` backfill migration
+  are one dev diff — the migration has to land no later than the bundle
+  revert it exists to protect against, not merely somewhere in the same
+  ticket.
 
 ## Initial vs target
 
