@@ -1573,6 +1573,23 @@ generating as scope-runs inside one ticket.
   decision, not this entry's — this ticket supplies the data such a
   pass would consume, nothing in `system:dashboard`.
 
+  **A record written before this ticket decodes with no anchor, and
+  that decodes correctly, with no backfill.** `Projection.from_wire/1`
+  reads its new `blocked_from_anchor`/`pinned_to_anchor` fields with a
+  tolerant default rather than the dot access the existing `_kind`/
+  `_gate` pairs use, because every `Commanded.ProcessManagers
+  .ProcessManagerInstance` snapshot committed before this ticket
+  predates the field entirely, and `from_wire/1` runs on exactly such a
+  snapshot on every process restart. A missing anchor decodes as `nil`
+  — the unqualified identity that position always was, since no bundle
+  recurred a bare name before this ticket landed. `container
+  .current_queue` needs no equivalent handling: `canonical`
+  (`Type.namespaced_positions/1`) is already a plain string, bare when
+  unambiguous and `<anchor>.<name>` only once a name recurs, so a row
+  written before this ticket already holds exactly the string this
+  ticket's own reads expect — the column's shape doesn't change, only
+  what a bundle is now free to put in it.
+
   **The kind/gate discrimination is unaffected in shape, the same way
   the loader-level fix above left `status_kind`/`status_gate`
   unaffected.** A position is still either a kind or a gate —
@@ -1587,10 +1604,9 @@ generating as scope-runs inside one ticket.
   qualifying field, so `unflatten_position/2` resolves a resume target
   correctly only for the unambiguous case — ORC-155's own "bare when
   unambiguous" rule already covers exactly that case elsewhere. Checked
-  against `docs/non-goals.md` (`system:dashboard`, since this decision's
-  consequences reach `CatapultWeb.Live.Positions`); nothing there blocks
-  it, and this entry touches neither `system:engine` nor
-  `system:dashboard`.
+  against `docs/non-goals.md`, since this decision's consequences reach
+  `CatapultWeb.Live.Positions`; nothing there blocks it, and this entry
+  touches neither `system:engine` nor `system:dashboard`.
 
   **The loader is not where this closes, and no load-time warning is
   the decision here.** §15.12's own uniqueness-within-a-namespace check

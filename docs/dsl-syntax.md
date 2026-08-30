@@ -2778,19 +2778,22 @@ against that actual shape rather than guessed at now.
 **Default throwback falls back to the sub-array's own earliest entry,
 never to the array position immediately before the gate.** This is the
 reading that survives ORC-104's own milestone shape, `[milestone-signoff,
-retro, proposals-read]` (the real
+pending, retro, proposals-read]` (the real
 `bundles/default-flow/types/milestone.yaml`, not §15.2's own
 simplified `ux-review` illustration) — a `review:` entry's position in
 the flat
 array is not a reliable proxy for "what it reopens" the moment a gate
 sits *after* the group's own agent step rather than before it.
-`proposals-read` declining falls back to `retro` (the group's one
-non-review-shaped agent step, and its own earliest entry — `retro`
-carries no `pending` of its own, §13's tightened rule reaching only
-generation-shaped entries), not to `milestone-signoff` (the array
-position immediately before it) — the latter would re-ask the author
-a question they already answered instead of re-running the agent that
-produced the thing they're declining.
+`proposals-read` declining falls back to `retro`'s own leading
+`pending` — the group's earliest entry that is a legal target at all,
+the identical fourth-pass correction the next paragraph states for a
+generation-shaped sub-array, extended here because `retro`'s own group
+now leads with a `pending` too (§15.2), even though `retro` isn't one
+of §13's generation-shaped kinds and nothing requires it to — not to
+`milestone-signoff` (the array position immediately before `retro`) —
+the latter would re-ask the author a question they already answered
+instead of re-running the agent that produced the thing they're
+declining.
 
 **For a generation-shaped sub-array, "earliest entry" is now the
 group's own leading `pending`, not the generation-shaped entry itself —
@@ -2839,14 +2842,16 @@ distinguishes the derivation from a naive first-element one — before
 the pending-precedes tightening above, `types/feature.yaml`'s own
 `design` group had `design` as both the sub-array's one non-review-shaped
 agent step and its first entry, so it never exercised the difference;
-`[milestone-signoff, retro, proposals-read]` has its one
-non-review-shaped agent step *second*, which only the derivation this
-section states gets right. (Every generation-shaped sub-array now has
-its own `pending` first and its generation-shaped entry second, §13,
-so `[milestone-signoff, retro, proposals-read]` — `retro` carrying no
-`pending` of its own — is once again the sharper of the two examples;
-naming it rather than `feature.yaml`'s own groups is deliberate, not
-an oversight.)
+`[milestone-signoff, pending, retro, proposals-read]` has a `review:`
+entry — `milestone-signoff` — leading the group instead, which only
+the derivation this section states gets right. (Every generation-shaped
+sub-array now has its own `pending` first, §13, so a naive
+first-array-element reading already lands on the right answer there
+too and no longer exercises the distinction this section draws;
+`[milestone-signoff, pending, retro, proposals-read]` still does,
+because its own leading entry is a review rather than a legal
+throwback target at all — naming it rather than `feature.yaml`'s own
+groups is deliberate, not an oversight.)
 
 **A decline's legal targets are "earlier in this ticket's effective
 sequence", never a per-gate declared list.** This is §7.19's rule for
@@ -2912,8 +2917,7 @@ record found:
   already resolves to that `pending` — the identical status
   `ux-review`'s own declaration names. The declaration is now
   redundant, not the field earning its keep: `dev`'s diff against this
-  record (`bundles/**`) drops it, the same way `proposals-read`'s own
-  declaration below already was.
+  record (`bundles/**`) drops it.
 - `engineering-review`'s own declared `throwback: [generation,
   ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
   sits entirely inside the group the derivation covers. **Its
@@ -2931,22 +2935,30 @@ record found:
   `bundles/**`, not a fact this record needs to settle for it.
 
 The other two sit in `milestone.yaml`, inside the sub-array
-`[milestone-signoff, retro, proposals-read]` (§15.10 above) — so the
-sharper test applies, against `retro`, that group's own non-review-shaped
-agent step and the derivation's default:
+`[milestone-signoff, pending, retro, proposals-read]` (§15.10 above) —
+so the sharper test applies, against `retro`'s own leading `pending`,
+that group's derivation's default now that `retro`'s group carries one
+too:
 
 - `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
   default-flow/gates/milestone-signoff.yaml`) narrows to `main`, a
   target *outside* the sub-array, before the group entirely — and a
   *different* landing point than the derivation would pick, which is
-  `retro`. This declaration is the field earning its keep, the
-  identical shape as `ux-review`'s: rejecting the sign-off means
-  reopening the milestone's own `main` work period, not merely
-  re-running `retro`.
+  `retro`'s own leading `pending`. This declaration is the field
+  earning its keep, the identical shape as `ux-review`'s: rejecting the
+  sign-off means reopening the milestone's own `main` work period, not
+  merely re-running `retro`.
 - `proposals-read`'s own declared `throwback: [retro]` (`bundles/
-  default-flow/gates/proposals-read.yaml`) narrows to `retro` —
-  already the derived default. This declaration is redundant, the
-  identical shape as `engineering-review`'s first element.
+  default-flow/gates/proposals-read.yaml`) narrows to `retro` itself,
+  skipping the dispatch-wait its own leading `pending` now interposes.
+  **This declaration's conclusion also reverses, the identical shape as
+  `engineering-review`'s first element.** Before `retro`'s group carried
+  its own leading `pending` (§15.2), `retro` itself was the derived
+  default and declaring it was redundant; now the derived default is
+  `retro`'s own leading `pending`, so naming `retro` explicitly is a
+  genuine, non-default landing point this file needs to keep declaring
+  — the same reversal `generation`'s declaration on `engineering-review`
+  underwent above, and for the identical reason.
 
 Narrowing all four files' `throwback:` to a single string, and
 dropping `engineering-review`'s now-redundant second element, is
