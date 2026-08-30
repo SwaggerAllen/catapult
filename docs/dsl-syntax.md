@@ -1694,9 +1694,10 @@ statuses:                        # the skeleton's own required backbone,
     flow: feature
     blocks: [retro]
   - - review: milestone-signoff   # a declared gate (§15.4), positioned
-                                  #   here. No leading pending of its own
-                                  #   the way setup's group above takes
-                                  #   one (ORC-155) — see below
+                                  #   here
+    - status: pending             # retro's own leading entry, the
+                                  #   identical dispatch-wait convention
+                                  #   setup's group takes above (ORC-155)
     - status: retro                 # the container's other agent step,
                                   #   inline the identical way
     - review: proposals-read
@@ -1724,63 +1725,25 @@ statuses:                        # the skeleton's own required backbone,
 (§15.10 works the full shape, grouped with the gates around `retro`
 in the real bundle). `pending` is not part of `container`'s own fixed
 backbone (§15.1) and is not exactly-once the way it is for `ticket`;
-**`setup` above leads its own sub-array with a `pending` of its own —
-an authored choice, not a grammar requirement** (ORC-155): neither
-`setup` nor `retro` is generation-shaped (§13's tightened
-pending-precedes bullet reaches only `generation`, `design`,
+**Both `setup` and `retro` lead their own sub-array with a `pending`
+of their own — an authored choice, not a grammar requirement**
+(ORC-155): neither `setup` nor `retro` is generation-shaped (§13's
+tightened pending-precedes bullet reaches only `generation`, `design`,
 `architecture` and `implementation`), so nothing here forces it, but
 the identical dispatch-wait convention every generation-shaped
-sub-array already carries is worth giving an agent step too, now that
-it is a named, addressable entry in its own right (§15.12) rather than
-a bare, unnamed kind occurrence.
+sub-array already carries is worth giving each agent step too, now
+that each is a named, addressable entry in its own right (§15.12)
+rather than a bare, unnamed kind occurrence.
 
-**`retro`'s own group takes no leading `pending` the identical way —
-this is the one place the two groups are asymmetric, and deliberately
-so** (ORC-155's own dev pass): a second `pending` would share its bare
-name with setup's, and while §15.12's own load-time check would demand
-nothing here — the two would resolve to two distinct namespaced
-positions, `setup.pending` and `retro.pending`, and no `blocks:` or
-`throwback:` in this declaration ever cites either bare — the
-*runtime* position a live container instance rests at is not one of
-those checks' business. `Catapult.Delivery.ContainerLifecycle.Sequence`
-addresses a position by its bare `status:`/`review:` value alone, with
-no namespace concept at all (§15.12 reaches the loader's own
-cross-reference resolution, never this module). A container that
-completed `main` and physically reached `retro`'s own `pending` would
-have its `current_queue` recorded as the bare string `"pending"`,
-indistinguishable from `setup`'s — `Sequence.next_step/3`'s own
-`Enum.find_index/2` resolves to whichever occurrence comes first, and
-silently walks the container backward to `setup`'s own successor
-instead of forward to `milestone-signoff`. Reproduced against this
-exact shape before this sentence was written. `retro`'s group is left
-in its pre-ORC-155 shape instead: `[milestone-signoff, retro,
-proposals-read]`, with `retro` still deriving fine as the group's own
-anchor for `proposals-read`'s throwback default.
-
-Giving container position-tracking the identical namespace awareness
-was **`ORC-116`'s own design scope** (widened here on exactly this
-reproduction), and `systems/delivery.md`'s own ORC-116 entry records
-what landed: `Sequence`'s three lookups resolve a qualified
-`<anchor>.<name>` identity the same way the loader does, instead of
-comparing against the bare name `Sequence.name/1` returns — a bare,
-ambiguous argument now resolves to nothing rather than the wrong
-occurrence.
-
-**No caller in the tree supplies a qualified argument, so the fix
-lands only at ORC-171** (`systems/delivery.md`'s own entry, corrected
-in place rather than left to read as closed): `container.current_queue`
-— the value every dispatcher comparison actually uses — is still
-populated from `Sequence.name/1`'s own bare display string, never the
-qualified identity the lookup functions can now accept. `retro`'s
-group keeps its pre-ORC-155 shape for exactly that reason: the grammar
-itself admits the symmetric one — §15.12's namespace-qualified
-positions make `setup.pending` and `retro.pending` distinct — but
-`current_queue` is still read and compared as a bare string, so a
-second `pending` here would still be indistinguishable from `setup`'s
-at runtime. `systems/delivery.md`'s ORC-171 entry records the decision
-to carry the qualified identity through `current_queue` end to end;
-that entry and `milestone.yaml`'s own inline comment are where this
-asymmetry's status is tracked, not this passage.
+`setup.pending` and `retro.pending` share a bare name and nothing
+else. §15.12's namespace-qualified identity is what a position *is*,
+not only what the loader's own cross-reference resolution checks at
+load time: `Catapult.Delivery.ContainerLifecycle.Sequence`'s lookups
+resolve that same qualified `<anchor>.<name>` identity
+(`systems/delivery.md`'s ORC-116 entry), and `container.current_queue`
+— the value every dispatcher comparison reads — carries it end to end
+too (`systems/delivery.md`'s ORC-171 entry). A container resting at
+`retro`'s own `pending` is never resolved as `setup`'s.
 
 **Neither `setup` nor `retro` carries `checks`, `merge` or
 `reconcile` any more — a correction to this section's own worked
