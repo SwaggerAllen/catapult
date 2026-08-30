@@ -3472,8 +3472,8 @@ Phase 7), not this ticket's to settle.
 
 **Resolved (ORC-115).** `dsl-syntax.md` §15.10's sub-array grouping
 gives a gate the structural referent this item was missing: a gate's
-citing sub-array holds exactly one non-critique agent-balled entry,
-by its own load-time check, so what the gate approves is that
+citing sub-array holds exactly one non-review-shaped agent-balled
+entry, by its own load-time check, so what the gate approves is that
 entry's own committed content, read at the gate's declared `depth:`
 — the same node set `critique`'s own depth already selects among
 when a critique entry shares the group. The direction left open
