@@ -257,13 +257,13 @@ generating as scope-runs inside one ticket.
   *landing point* (third design review, narrowing the field to a
   single optional status rather than retiring it): the dispatcher reads
   it when the gate names one, and falls back otherwise to the citing
-  sub-array's own earliest entry as the one-click default — a
-  generation-shaped sub-array's own leading `pending` (`docs/dsl-
-  syntax.md` §13's tightened check, a fourth-pass correction from
-  resolving straight to the agent-balled entry itself), the
-  non-review-shaped agent-balled entry directly otherwise — either way
-  computed from the loaded workflow bundle at throwback time, never
-  stored. This is the same shape `flow:`
+  sub-array's own earliest entry as the one-click default — its own
+  leading `pending`, when the sub-array has one (every generation-
+  shaped sub-array does, `docs/dsl-syntax.md` §13's tightened check),
+  its own non-review-shaped agent-balled entry directly otherwise (a
+  design-review correction, fourth pass, from resolving to that entry
+  unconditionally) — either way computed from the loaded workflow
+  bundle at throwback time, never stored. This is the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 

@@ -361,18 +361,21 @@ context-source kinds, and audit profiles.
   validates — a sub-array nested inside a sub-array is a load error
   (this pass's own grammar is flat, deliberately, see below); a
   sub-array must hold exactly one entry whose `status:` is a
-  non-critique agent-balled system status (`generation`, `retro`,
-  `setup`, `merge` — §15.1's own `ball` column, `critique` excluded for
-  the reason §15.5 already excludes it from standing alone), zero or
+  non-review-shaped agent-balled system status (`generation`, `design`,
+  `architecture`, `implementation`, `retro` or `setup` — §15.1's own
+  `ball` column minus `critique` and `reconcile`, both review-shaped
+  and excluded for the reason §15.5 already excludes `critique` from
+  standing alone; `merge` is not a candidate either, its own `ball`
+  having moved from `agent` to `plane`, ORC-151), zero or
   two-or-more being a load error naming the count found; and a
   queue-shaped anchor (`flow:`/`blocks:`) may not sit inside one. A
   `review:` entry's decline defaults to its citing sub-array's own
-  earliest entry — a generation-shaped sub-array's own leading
-  `pending` (§13's tightened check, a fourth-pass correction from
-  resolving straight to the agent-balled entry itself), not the
-  non-review-shaped entry directly — computed at throwback time from
-  the loaded bundle, never stored, the same posture `ready_scopes` and
-  staleness already take.
+  earliest entry — its own leading `pending`, when the sub-array has
+  one (every generation-shaped sub-array does, §13's tightened check),
+  its own non-review-shaped entry directly otherwise (a fourth-pass
+  correction from resolving to that entry unconditionally) — computed
+  at throwback time from the loaded bundle, never stored, the same
+  posture `ready_scopes` and staleness already take.
 
   **The pass this entry originally recorded held `throwback:`
   unaffected — a real, bounded allow-list stays the only legal decline
