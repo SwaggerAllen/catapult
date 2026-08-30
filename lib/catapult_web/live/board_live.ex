@@ -48,7 +48,7 @@ defmodule CatapultWeb.BoardLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    filters = %{type: presence(params["type"]), label: nil}
+    filters = %{type: presence(params["type"])}
     show_all_lanes = params["all"] == "true"
 
     {:noreply,

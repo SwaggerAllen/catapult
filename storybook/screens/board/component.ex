@@ -48,7 +48,7 @@ defmodule Catapult.Storybook.Screens.Board do
   attr :project_name, :string, required: true
   attr :lanes, :list, default: []
   attr :cards, :list, default: []
-  attr :filters, :map, default: %{type: nil, label: nil}
+  attr :filters, :map, default: %{type: nil}
   attr :show_all_lanes, :boolean, default: false
 
   def board(assigns) do
@@ -214,8 +214,7 @@ defmodule Catapult.Storybook.Screens.Board do
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-sm opacity-70">Filters:</span>
       <span :if={@filters.type} class="badge badge-outline gap-1">type <%= @filters.type %></span>
-      <span :if={@filters.label} class="badge badge-outline gap-1">label <%= @filters.label %></span>
-      <span :if={!@filters.type and !@filters.label} class="text-sm opacity-50">
+      <span :if={!@filters.type} class="text-sm opacity-50">
         none
       </span>
     </div>
