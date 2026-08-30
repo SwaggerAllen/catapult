@@ -258,60 +258,66 @@ conventions §13).
   `mutex label` for the identical reason. Each screen's own doc records
   this against its own controls; this bullet is the one place a reader
   sees why they all say it the same way.
-- **A lane/rail key pairs an anchor's own id with a position, rather
-  than naming the position alone** (ORC-116). `docs/dsl-syntax.md`
-  §15.2 and §15.11 both let a status name recur in one type's own
-  array — §13: a generation-shaped entry, `checks`, `merge`,
-  `reconcile` and, per the tightened rule above, `pending` itself may
-  all recur; shipped `bundles/default-flow/types/milestone.yaml`
-  carries two `checks`, two `reconcile`, two `merge` and two `deploy`
-  in one `container`-skeleton array — and `CatapultWeb.Live
-  .Positions.key/1` round-trips `{:kind, atom} | {:gate, name}` alone,
-  with nothing distinguishing which occurrence a card or a rail entry
-  is resting at.
+- **A lane/rail key is a position's own namespaced identity
+  (`docs/dsl-syntax.md` §15.12), rendered through `CatapultWeb.Live
+  .Positions.key/2` rather than paired by this system** (ORC-116,
+  superseding this bullet's own prior scan-and-pair scheme after
+  ORC-155 landed the namespacing rule this system had been assembling
+  by hand). §15.10's own anchor predicate — a sub-array's one
+  non-review-shaped agent-balled entry (`generation`, `design`,
+  `architecture`, `implementation`, `retro` or `setup`) — still picks
+  the entry a group keys off; what §15.12 changes is what supplies the
+  *other half* of the key. A `status:` entry now carries a
+  bundle-authored `name:` (defaulting to its kind), and an anchor's own
+  name *is* the sub-array's namespace: every other entry sharing that
+  sub-array addresses as `<anchor-name>.<its-own-name>`, a top-level
+  entry addresses bare, and the loader refuses a colliding pair before
+  a bundle ever ships (§15.12's own uniqueness check). `Positions
+  .key/2` already encodes exactly this — `"kind:" <> anchor <> "." <>
+  name` when given an anchor, the identical bare `"kind:" <> name` it
+  has always produced otherwise — so a lane or rail key is that string,
+  not a runtime identity this system derives.
 
-  The disambiguator does not need a new field: it is §15.10's own
-  anchor predicate, a sub-array's one non-review-shaped agent-balled
-  entry (`generation`, `design`, `architecture`, `implementation`,
-  `retro` or `setup`), whether or not the entry sits inside a literal
-  sub-array — `milestone.yaml`'s own `setup` is bare in the array,
-  `retro` sits in a sub-array with the sign-off gates around it, and
-  both are anchors on equal footing. Every position that entry's own
-  array segment groups — its own leading `pending` (§13's tightened
-  check), the anchor entry itself, `checks`, `critique`, any gate
-  reviewing it, and the `reconcile`, `merge` and `deploy` that close
-  the phase — takes that anchor's own id as the other half of its key,
-  found by scanning backward from the position to the nearest anchor,
-  "the phase it closes" in §13's own words for `reconcile` and no
-  different for the other three. A generation-shaped anchor's id is
-  its chain node (`Catapult.Generation.NodeId.resolve/1`, off
-  `engine_nodes`' `tier` and `parent_node_id`); `retro` and `setup`
-  mint no chain node — `Catapult.Delivery.ContainerLifecycle.Ids
-  .work_item_id/3`'s own moduledoc calls this "the same reasoning
-  `Catapult.Generation.NodeId` gives for the chain axis, one grain
-  up," a deterministic id on a different axis rather than an absence
-  of one — so their own anchor id is `work_item_id/3`'s own
-  `(container, queue)` identity instead. Either way the key comes from
-  the anchor's own existing identity, never a bundle-authored label,
-  so this does not reopen §15.10's rejection of a second name on a
-  sub-array.
+  **This retires the whole of the prior scheme, not just its collision
+  case.** There is no more scanning backward to the nearest anchor, no
+  `Catapult.Generation.NodeId.resolve/1` chain-node id and no
+  `Catapult.Delivery.ContainerLifecycle.Ids.work_item_id/3` work-item
+  id standing in as the anchor's own identity — both were needed only
+  because the prior scheme had no bundle-authored name to key on and
+  had to borrow one from a runtime concept instead. §15.12's namespace
+  is a fact about the loaded declaration alone, so the key for any
+  position is available the moment the workflow loads, with no read
+  against `engine_nodes` or a container's own queue identity. The
+  "Not yet covered" gap this bullet used to carry — two `critique` or
+  `reconcile` entries in one sub-array colliding on the same
+  `(anchor, kind)` pair — closes the same way: §15.12 requires distinct
+  `name:`s the moment two entries share a sub-array, so the collision
+  is a load error before this system ever sees the bundle, never a
+  rendering gap for it to solve.
 
-  Only `terminal` needs no pairing: §13 forbids its recurrence
-  outright, so a bare name collides with nothing. `merge` and `deploy`
-  do recur inside one instance's own array (`milestone.yaml`, above)
-  and pair the identical way `checks`/`reconcile` do — root-
-  confinement (next bullet) bounds which *instances* ever reach a
-  `merge` or `deploy` at all, not how many times either name appears
-  in one instance's own declaration, and the two are different facts.
+  **What this system still has to compute, because §15.12 leaves it
+  open by its own admission** (`CatapultWeb.Live.Positions`'s own
+  moduledoc): the anchor for a *resting* ticket. `Catapult.Delivery
+  .FeatureLifecycle.Projection`'s `passed`/`pinned_to`/`blocked_from`
+  all still key on the bare `position()` tuple, with no namespace
+  attached, so two occurrences of one kind in a live ticket's own
+  effective sequence stay indistinguishable upstream of the rendering
+  layer. Dev's diff resolves this as a lookup against the loaded
+  declaration, not a runtime identity: walk the citing type's own
+  effective sequence for the sub-array, if any, containing the resting
+  position, and key off that sub-array's own anchor name; a position
+  outside every sub-array keys bare. That lookup is exactly what
+  `Positions.key/2`'s `anchor` argument is already shaped to take —
+  this system supplies the argument, not a new encoding.
 
-  **Not yet covered:** §13's own sub-array bullet permits more than one
-  `critique` (or a `reconcile`) inside a single group — "nothing in
-  this grammar forbids it," though "ordinary bundle content is not
-  expected to put it there." Two such entries in the same group would
-  still collide on the identical `(anchor, kind)` key; no bundle has
-  needed that particular shape yet, so it is named rather than solved
-  — distinct from the collision above, which shipped bundle content
-  already reaches and which this correction closes.
+  Recurrence itself is unchanged from what this bullet already found:
+  `docs/dsl-syntax.md` §13 still lets a generation-shaped entry,
+  `checks`, `merge`, `reconcile` and `pending` all recur, and `merge`,
+  `deploy` and `terminal` need no carve-out of their own — each is an
+  ordinary bare top-level name whenever it sits outside a sub-array
+  (true of every recurrence in the current `bundles/default-flow`
+  types), and the namespace rule above already covers a bare top-level
+  name without naming any of the three specifically.
 - **A non-root instance's own lane sequence ends at its last reachable
   position — never at a `merge` or `deploy` of its own** (ORC-116,
   `docs/dsl-syntax.md` §15.11). `merge` is depth-0 by rule and a
