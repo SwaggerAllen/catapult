@@ -972,6 +972,57 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "must open with pending"))
   end
 
+  test "a ticket-skeleton type may additionally hold a population-anchor entry like retro",
+       %{tmp_dir: dir} do
+    # ORC-172: a skeleton fixes a required backbone, never an exclusive
+    # membership (§15.1) — `retro` is not part of the ticket-skeleton's
+    # required backbone, but it is still a fixed system-status kind, so
+    # a ticket-skeleton array citing it is legal.
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: retro
+        - status: terminal
+      """
+    })
+
+    assert {:ok, _loaded} = Loader.load(dir)
+  end
+
+  test "a ticket-skeleton type declaring a name outside the fixed vocabulary is a load error",
+       %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: bogus
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+    assert Enum.any?(problems, &String.contains?(&1, "not part of the ticket"))
+  end
+
   test "a queue-shaped entry's flow: must name a declared type", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
 
