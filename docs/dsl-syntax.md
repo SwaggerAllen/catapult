@@ -1093,7 +1093,13 @@ Added with sub-arrays (§15.10, ORC-115):
   check above only guarantees the default itself is unambiguous. **A
   `review:` entry outside every sub-array has no such default to
   resolve to and must declare `throwback:` explicitly** (§15.10, "not
-  decided here, left open," below — closed at this same pass).
+  decided here, left open," below — closed at this same pass). **Nor
+  does one sitting inside a sub-array but before that sub-array's own
+  earliest entry** — the derivation would name a target later than the
+  gate, illegal under the earlier-prefix rule this same bullet already
+  defers to, so there is no one-click default here either, and the
+  gate must declare `throwback:` explicitly the same way (§15.10,
+  settled at ORC-141 and this ticket).
 
 Added with named positions (§15.12, ORC-155):
 
@@ -2842,6 +2848,31 @@ after it inherits that — has no sub-array to derive an earliest entry
 from at all, and must declare `throwback:` explicitly (§15.10's own
 "not decided here, left open" list, below, closes this at the same
 pass).
+
+**A gate sitting *inside* a sub-array but *before* that group's own
+agent step also derives nothing, settled at ORC-141** — the mirror
+case of the one above, reached from the opposite direction. The
+derivation names the group's own earliest entry regardless of where in
+the array the gate declining sits, and "earlier in the citing type's
+own effective sequence" (above) is what makes a decline's target legal
+at all; the moment the gate itself sits before that earliest entry, the
+derivation would name a target *later* than the gate, which the
+legality rule already refuses. `milestone-signoff` is this shape in the
+shipped bundle: index 3 in `[milestone-signoff, retro,
+proposals-read]`, one entry before `retro`, its group's own agent step
+at index 4. There is no one-click default to fall back to here, not an
+inconvenient one this section failed to name — offering `retro` anyway
+would hand a decliner a target the same load rejects as illegal for a
+declared `throwback:`, and inventing a second derivation rule for this
+one shape is exactly the accretion `docs/v5-design-decisions.md` §4.5
+warns off. A gate in this position must declare `throwback:` explicitly
+the same way one sitting outside every sub-array must, for a different
+structural reason — no bundle currently needs the distinction, since
+`milestone-signoff` already declares `throwback: main`. Legality is
+unaffected either way: every earlier status, `retro` included, stays a
+legal decline target for `milestone-signoff` should a bundle ever
+declare one there; this settles only which target (if any) the loader
+offers with no declaration at all.
 
 **The worked example is now the grammar, not a shape argued from
 prose ahead of it.** Before ORC-148, `bundles/default-flow/types
