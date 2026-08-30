@@ -111,6 +111,22 @@ still collapses its own children the ordinary way — the two compose without co
 lives inside a card and the other around several lanes, so nothing on screen is ever ambiguous about
 which grouping it belongs to.
 
+## Child roll-up has no data source in Phase 4
+
+Everything above describes the shape the roll-up takes once there is data to roll up — a per-lane
+chip, a feature's card-level count across the component-type boundary. There is no data yet:
+`Catapult.Engine.Store.Flow` carries no parent-flow reference, and fan-out below a top-level
+ticket is a node/tier concept today — `parent_node_id` on `Catapult.Engine.Store.Node` is
+doc-graph scope structure an architecture ticket's own generation walks, a chain-axis concept, not
+a ticket-delivery one — not a second flow instance. There is no query "these flows are this
+ticket's children" to run, so every card's roll-up renders as an honest `children: []` rather than
+a nested board or an aggregate count: the current data model, not a choice this screen makes to
+hide anything (`systems/dashboard.md` carries the standing decision).
+
+Not gating: the source is `docs/build-plan.md`'s Phase 7 two-grain machinery — spawn and child
+lifecycle, minting a child as its own addressable flow correlated to the parent that spawned it —
+and nothing ahead of Phase 7 depends on it landing first.
+
 ## Blocked groups under the status that kicked it
 
 Not a lane of its own. `blocked_origin` (v5 §7.19, `FeatureLifecycle.Projection.blocked_origin/1`)

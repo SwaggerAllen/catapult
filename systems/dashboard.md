@@ -361,6 +361,25 @@ conventions §13).
   roll up as one aggregate count on the card, wherever the feature's
   own lane happens to be, rather than projected onto a lane that
   doesn't exist for them.
+- **Child roll-up has no data source in Phase 4, and the two bullets above
+  don't close that gap — they answer shape, not source** (ORC-129, naming
+  what "wait for fan-out-as-separate-flows" above was shorthand for).
+  `Catapult.Engine.Store.Flow` carries no parent-flow reference, and the
+  `parent_node_id` that `Catapult.Engine.Store.Node` does carry is
+  doc-graph scope structure — the chain-axis tiers an architecture
+  ticket's own generation walks — not a ticket-delivery relationship, so
+  there is no second flow instance and no query "these flows are this
+  ticket's children" to run. §15.11's declared fan-out depth is what let
+  the two bullets above resolve a card's own lane set and roll-up shape
+  from the type alone, with no instance data needed; enumerating which
+  flows are actually a given ticket's children is a different question,
+  and it stays open. `board` and `ticket` both render an honest
+  `children: []` rather than a nested board or a narrowed count
+  (`screens/board.md`, `screens/ticket.md`). Not gating: the source is
+  `docs/build-plan.md`'s Phase 7 two-grain machinery — spawn and child
+  lifecycle, minting a child as its own addressable flow correlated to
+  the parent that spawned it — and nothing ahead of Phase 7 depends on it
+  landing first.
 - **A screen or LiveView branches on `Catapult.Dsl.SystemStatus`'s own
   predicates, never on a status-name literal** (ORC-116, generalizing
   the correction ORC-151's own dev pass already made to `Catapult
