@@ -144,6 +144,15 @@ A flat list of this ticket's children with their own current position — not a 
 the fan-out tree (`ticket-graph`'s job, and explicitly out of this ticket's scope). Each child
 opens as its own `ticket`.
 
+**There is no data source for this list in Phase 4.** `Catapult.Engine.Store.Flow` carries no
+parent-flow reference — fan-out below a top-level ticket is a node/tier concept today
+(`parent_node_id` on `Catapult.Engine.Store.Node` is doc-graph scope structure, not a
+ticket-delivery relationship), not a second flow instance — so this screen renders an honest empty
+list rather than a hidden or narrowed one (`systems/dashboard.md`'s standing decision;
+`screens/board.md`'s identical gap on its own roll-up). It waits on `docs/build-plan.md`'s Phase 7
+two-grain machinery (spawn, child lifecycle), and nothing ahead of Phase 7 depends on it landing
+first.
+
 ## Linked PRs and runs
 
 The PRs and agent runs this ticket's own work produced, as a plain list — a name, a status, and a
