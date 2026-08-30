@@ -290,6 +290,13 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   # because the fix — a chain flow whose `ticket:` face uses a label
   # some declared type actually carries — is an authoring correction
   # nobody makes without being told.
+  #
+  # Narrowed at ORC-176: `resting` is only `nil` for a `pm.flow_name`
+  # `Sequence.positions/2` truly has no sequence for — a declared-type
+  # lookup that failed and isn't one of the closed inline-dispatch-point
+  # kinds either (that module's own moduledoc). `setup`/`retro` resolve
+  # there now, so this clause no longer fires for either, without a
+  # `flow_name`-shaped exception carried here.
   defp warn_unplaceable(%__MODULE__{} = pm, %Workflow{types: types}, nil) do
     unless Map.has_key?(types, pm.flow_name) do
       Logger.warning(

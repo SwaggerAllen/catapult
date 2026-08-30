@@ -29,9 +29,25 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   them. An `environment:` citation is absent for a different reason,
   which outlives the reachability boundary: it is not a resting
   position at all (see `to_position/1`).
+
+  **An inline dispatch point has no `types/<name>.yaml` to read this
+  from at all** (`systems/delivery.md`'s ORC-176 design pass):
+  `Catapult.Delivery.ContainerLifecycle.open_inline/3` opens `setup`/
+  `retro` with `flow_name` set to the entry's own literal name, never a
+  declared type. When `type_name` fails to resolve above, this module
+  asks the identical question `ContainerLifecycle.inline_dispatch_point?/1`
+  already answers before opening one — agent-balled and not
+  review-shaped (`SystemStatus.agent_balled?/1`,
+  `SystemStatus.review_shaped?/1`) — and, if so, returns a fixed
+  two-entry sequence instead of an empty one: the kind's own `pending`,
+  then the kind itself, and nothing after, since neither flow runs its
+  own `checks`/`reconcile`/`merge`/`deploy` (ORC-155). Anything else is
+  still the authoring bug `Catapult.Delivery.FeatureLifecycle
+  .warn_unplaceable/3` logs.
   """
 
   alias Catapult.Dsl.Status
+  alias Catapult.Dsl.SystemStatus
   alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
 
@@ -63,9 +79,11 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   and including `#{inspect(@reachable_boundary)}` — the first position
   this phase's machinery cannot yet advance past.
 
-  Returns `[]` if `type_name` does not resolve in `workflow` (logged
-  and skipped by the caller, `Catapult.Delivery.FeatureLifecycle`,
-  exactly as an unloadable bundle already is).
+  Returns `[]` if `type_name` neither resolves in `workflow` nor names
+  an inline dispatch point's own fixed sequence (see the moduledoc's
+  ORC-176 entry) — logged and skipped by the caller,
+  `Catapult.Delivery.FeatureLifecycle`, exactly as an unloadable bundle
+  already is.
   """
   @spec positions(Workflow.t(), String.t()) :: [position()]
   def positions(%Workflow{} = workflow, type_name) do
@@ -94,7 +112,26 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
         |> Enum.map(fn {position, index} -> annotate(type, position, index) end)
 
       :error ->
-        []
+        inline_dispatch_positions(type_name)
+    end
+  end
+
+  # `type_name` is an inline dispatch point's own literal entry name
+  # (`ContainerLifecycle.open_inline/3`), never a declared type — the
+  # moduledoc's ORC-176 entry. Ungrouped: there is no declared array
+  # for `Type.group_at/2` to read a sub-array off.
+  defp inline_dispatch_positions(type_name) do
+    if SystemStatus.agent_balled?(type_name) and not SystemStatus.review_shaped?(type_name) do
+      [
+        %{position: {:kind, :pending}, group_key: nil, group_anchor: false},
+        %{
+          position: {:kind, String.to_existing_atom(type_name)},
+          group_key: nil,
+          group_anchor: false
+        }
+      ]
+    else
+      []
     end
   end
 

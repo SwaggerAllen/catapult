@@ -60,6 +60,38 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "positions/2 for an inline dispatch point (ORC-176)" do
+    setup do
+      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      %{workflow: workflow}
+    end
+
+    # `setup`/`retro` fold directly into `milestone`'s own array
+    # (ORC-148) and never resolve as a `types/<name>.yaml` name — the
+    # shipped bundle declares no such type.
+    test "setup resolves to its own fixed pending/setup sequence", %{workflow: workflow} do
+      assert Sequence.positions(workflow, "setup") == [{:kind, :pending}, {:kind, :setup}]
+    end
+
+    test "retro resolves to its own fixed pending/retro sequence", %{workflow: workflow} do
+      assert Sequence.positions(workflow, "retro") == [{:kind, :pending}, {:kind, :retro}]
+    end
+
+    test "a review-shaped name is not treated as an inline dispatch point", %{workflow: workflow} do
+      # `critique` is agent-balled but review-shaped — never one of
+      # `ContainerLifecycle.open_inline/3`'s candidates — so an unresolved
+      # `critique` type name is still the authoring bug `warn_unplaceable/3`
+      # describes, not a fixed sequence.
+      assert Sequence.positions(workflow, "critique") == []
+    end
+
+    test "a plane-balled name is not treated as an inline dispatch point", %{workflow: workflow} do
+      # `merge`'s own `ball` is `plane` since ORC-151 — it fails
+      # `SystemStatus.agent_balled?/1` before review-shapedness is asked.
+      assert Sequence.positions(workflow, "merge") == []
+    end
+  end
+
   describe "positions/2 reads the citing type's own array" do
     test "a type declaring no critique entry has no critique position" do
       workflow = workflow_with(["pending", "generation", "checks"])
@@ -150,6 +182,15 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
     test "a type name that does not resolve yields no positions", %{workflow: workflow} do
       assert Sequence.annotated_positions(workflow, "no-such-type") == []
+    end
+
+    test "an inline dispatch point's fixed sequence is ungrouped (ORC-176)", %{
+      workflow: workflow
+    } do
+      annotated = Sequence.annotated_positions(workflow, "setup")
+
+      assert Enum.map(annotated, & &1.position) == Sequence.positions(workflow, "setup")
+      assert Enum.all?(annotated, &(&1.group_key == nil and &1.group_anchor == false))
     end
   end
 
