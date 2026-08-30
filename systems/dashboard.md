@@ -511,16 +511,46 @@ conventions §13).
   buildable alternative, per the correction above — not because the
   alternative was impossible.
 
-  Assets are whatever `priv/static` already carries, which today is
-  nothing — this repo has no CSS build for the dashboard yet (no
-  `assets/` directory, no esbuild or Tailwind dependency; every
-  `badge`/`card`/`table` class in `storybook/screens/**` is
-  unstyled at runtime, in the live route exactly as much as in this
-  export). This decision does not invent that pipeline; it only
-  commits the export to relative asset paths rather than root-
-  absolute ones, since a Pages hash subdomain has no fixed base path
-  to hardcode against — whatever pipeline eventually lands carries
-  into the export the same way, unchanged.
+  **The CSS build is Tailwind's standalone CLI, wrapped by the
+  `:tailwind` Mix package, with daisyUI vendored rather than resolved
+  through npm** (ORC-183, design pass). No Node or npm dependency
+  anywhere in the toolchain — the same discipline `bin/preview-build.sh`
+  already keeps for OTP/Elixir itself (`Where things actually run`,
+  `CLAUDE.md`), and the standalone CLI has no npm resolution to lean on
+  in the first place. daisyUI ships as two vendored plugin files,
+  `assets/vendor/daisyui.js` and `assets/vendor/daisyui-theme.js`,
+  referenced from `assets/css/app.css` by a relative `@plugin` — Tailwind
+  v4's CSS-native plugin/import syntax, no `tailwind.config.js` needed —
+  the same shape Phoenix's own 1.8 generator settled on for the
+  identical constraint. `mix assets.build` (dev) and `mix assets.deploy`
+  (minified, then `phx.digest`, prod) compile to
+  `priv/static/assets/app.css`; the release `Dockerfile` runs
+  `assets.deploy` in its build stage, before `mix release`, so the
+  digested CSS ships inside the image. `:tailwind` takes no `boundary:
+  check: apps:` entry — a build-time tool with `runtime: false`, never
+  started as part of the release, the same treatment `credo`/`sobelow`/
+  `mix_audit` already get in `mix.exs` and for the identical reason.
+
+  `CatapultWeb.Endpoint` gains a `Plug.Static` serving `priv/static` at
+  `/assets` — absent today, so the live route serves no static asset of
+  any kind yet, not only unstyled daisyUI classes.
+
+  The export above already committed to relative asset paths rather than
+  root-absolute ones, since a Pages hash subdomain has no fixed base path
+  to hardcode against; this pipeline carries into the export the same
+  way, unchanged reasoning, now with something to carry — the export
+  copies `priv/static/assets/app.css` into `dist/assets/app.css` and
+  each generated page links it with a relative `href`.
+
+  `assets/**` is on this doc's own file map but is not design-owned
+  (`pipeline.config.json`'s `designOwnedPaths` names `screens/**`,
+  `storybook/**`, `systems/*.md`, `docs/*.md`, nothing under `assets/`):
+  this paragraph is the decision dev's diff is written against, not a
+  change this pass makes itself. That diff also touches `mix.exs`,
+  `Dockerfile` and `bin/preview-build.sh` — each unowned by any file map
+  (`systems/README.md`), git's textual conflict detection standing in
+  for a mutex on those three the same way it already does for every
+  other ticket that adds a dependency or touches the toolchain.
 
   **`--ignore Config.HTTPS` on the sobelow gate is permanent, and is
   not waiting on this system's endpoint** (ORC-131). It was once
