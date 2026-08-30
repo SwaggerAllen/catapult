@@ -450,6 +450,33 @@ loader tickets carry `system:core_dsl`.
   are the suite's claims rather than the next reader's to re-derive by
   reading `deps/solid`.
 
+- **`delivery.phase` across `bundles/default/tiers/**` stays uniformly
+  `generation` — deferred, not an oversight** (ORC-179). `dsl-syntax.md`
+  §15.1 and v5 §7.6 name `design` and `architecture` (and, added later,
+  `implementation`) as this content's own call to make among its
+  generation-shaped tiers, and this pass verified rather than assumed
+  before declining to make it. `delivery.phase` has exactly one reader
+  in the tree — `Catapult.Dsl.Chain`'s load-time check that its value
+  names a real system-status kind (`lib/catapult/dsl/chain.ex`) — so no
+  shipped behavior branches on which named kind a tier picks today.
+  The one shipped type that could use the split, `types/feature.yaml`,
+  still declares a single unnamed sub-array holding one
+  `status: generation` entry, not the `design`-then-`architecture` pair
+  v5 §7.6's "Product design → … → Architecting" lifecycle describes;
+  the second declared type §7.6 names for architecture's own recursive
+  fan-out (an `Architecting`/`Implementation` child, `dsl-syntax.md`
+  §15.11) has not shipped at all. Picking `design`/`architecture`
+  values for some of the 13 tiers currently reading `phase: generation`
+  — `sysarch`, `impl`, `ref` and the rest — ahead of that type split
+  would be a guess the split, once it lands, may well contradict, and
+  the tiers v5 and `dsl-syntax.md` cite as the illustrative case
+  (`sysarch`, `impl`, `ref`) are not on their own a coherent group to
+  relabel without leaving their sibling tiers newly inconsistent.
+  Resolving this is one piece of work — `feature.yaml`'s own split, the
+  new child type, and the tier-level values together — not a per-tier
+  relabeling done in isolation. Recorded so a future pass has this
+  reasoning rather than re-deriving or re-discovering the gap.
+
 ## Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
