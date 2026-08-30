@@ -13,10 +13,11 @@ defmodule CatapultWeb.MyQueueLive do
   since the two questions are protocol-real and will diverge once
   identity ships one.
 
-  **`:triage` never appears in Phase 4.** `kind_for/1` has exactly two
-  clauses — `{:kind, :blocked} -> :unblock` and `{:gate, _name} ->
-  :sign_off` — and everything else, `:triage` included, falls through
-  to `nil`. Not an omission: `bundles/default-flow/types/*.yaml`
+  **`:triage` never appears in Phase 4.** `kind_for/1` resolves to
+  `:unblock` for the fixed `:blocked` kind (`Catapult.Dsl.SystemStatus
+  .blocked?/1`, ORC-116 — never a literal `:blocked` atom compared
+  inline) and `:sign_off` for any gate; everything else, `:triage`
+  included, falls through to `nil`. Not an omission: `bundles/default-flow/types/*.yaml`
   declares six ticket types (feature, milestone, project, retro, seed,
   setup) and none of them is a machinery-filed shape (the
   enforcement/swap/maintenance filings v5 §7.3 describes), so Phase 4
@@ -35,6 +36,7 @@ defmodule CatapultWeb.MyQueueLive do
   use CatapultWeb, :live_view
 
   alias Catapult.Delivery.Store, as: DeliveryStore
+  alias Catapult.Dsl.SystemStatus
   alias Catapult.Engine.Store, as: EngineStore
   alias CatapultWeb.Live.Positions
 
@@ -84,7 +86,7 @@ defmodule CatapultWeb.MyQueueLive do
     end
   end
 
-  defp kind_for({:kind, :blocked}), do: :unblock
+  defp kind_for({:kind, kind}), do: if(SystemStatus.blocked?(kind), do: :unblock)
   defp kind_for({:gate, _name}), do: :sign_off
   defp kind_for(_position), do: nil
 

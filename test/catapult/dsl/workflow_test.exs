@@ -118,6 +118,19 @@ defmodule Catapult.Dsl.WorkflowTest do
       refute Workflow.throwback_legal?(workflow, "milestone", "proposals-read", "proposals-read")
     end
 
+    test "throwback_target_details/3 marks a target outside the gate's own group as leaving it",
+         %{workflow: workflow} do
+      details = Workflow.throwback_target_details(workflow, "milestone", "proposals-read")
+
+      assert details == [
+               %{target: "setup", leaves_group: true},
+               %{target: "prep", leaves_group: true},
+               %{target: "main", leaves_group: true},
+               %{target: "milestone-signoff", leaves_group: false},
+               %{target: "retro", leaves_group: false}
+             ]
+    end
+
     test "a type or gate that does not resolve yields no targets and no default", %{
       workflow: workflow
     } do
@@ -159,6 +172,13 @@ defmodule Catapult.Dsl.WorkflowTest do
                ["pending", "generation"]
 
       assert Workflow.throwback_legal?(workflow, "feature", "product-review", "generation")
+
+      # A gate outside every sub-array has no group of its own to
+      # leave, so nothing it can decline back to reads `leaves_group`.
+      assert Workflow.throwback_target_details(workflow, "feature", "product-review") == [
+               %{target: "pending", leaves_group: false},
+               %{target: "generation", leaves_group: false}
+             ]
     end
   end
 

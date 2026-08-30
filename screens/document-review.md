@@ -53,12 +53,21 @@ downstream would ever have prose left to show it beside.
   ticket's projected status to the next entry past this gate (`systems/delivery.md`'s ORC-34
   entry).
 - **Throw back** — `Commands.DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
-  node_id, body_sha, actor_id}` → `GateDeclined`, `throwback_to` chosen from the gate's own
-  declared exits (never a free-text target, and never a reason field — `docs/ui-spec.md` §3.2's own
-  action set is "approve / throw back... with the throwback target chosen from the declared
-  exits"). **At least one comment is required, and it is `DeclineGate`'s own aggregate state that
-  enforces it, not this screen**: the aggregate keeps a project-wide comment counter and a per-gate
-  mark of that counter's value as of the gate's last resolution, and rejects the command outright
+  node_id, body_sha, actor_id}` → `GateDeclined`. `throwback_to` is never a free-text target and
+  never carries a reason field, but it is no longer chosen from a per-gate declared list either —
+  `docs/dsl-syntax.md` §15.10 retired that bound (ORC-115), and this section's own prior citation
+  of `docs/ui-spec.md` §3.2 as "the throwback target chosen from the declared exits" no longer
+  matches what that section says (ORC-116 correction). The control is a single primary button
+  naming whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves — the gate's own
+  `throwback:` when it declares one, otherwise the derived default (§15.10, rendered rather than
+  restated here) — with every earlier position in the
+  effective sequence offered behind a secondary "choose a different target" disclosure: the
+  identical earlier-prefix picker `screens/ticket.md`'s own Blocked-return control draws, over the
+  identical legality test, and this screen reuses its "leaves this loop" annotation for an option
+  outside the gate's own group rather than restating it. **At least one comment is required, and
+  it is `DeclineGate`'s own aggregate state that enforces it, not this screen**: the aggregate
+  keeps a project-wide comment counter and a per-gate mark of that counter's value as of the
+  gate's last resolution, and rejects the command outright
   when nothing has advanced the counter past `gate`'s own mark since — pure aggregate state, no
   store read (`systems/engine.md`'s ORC-34 entry, fourth design-review correction). This screen
   surfaces that rejection **synchronously, at the point of action** — the identical compare-and-swap

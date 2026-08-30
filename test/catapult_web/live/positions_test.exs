@@ -49,4 +49,45 @@ defmodule CatapultWeb.Live.PositionsTest do
       assert Positions.key({:kind, :checks}, nil) == Positions.key({:kind, :checks})
     end
   end
+
+  describe "lane_key/2 and resting_key/2 (ORC-116)" do
+    test "an unambiguous position keeps the identical bare encoding key/1 has always produced" do
+      positions = [
+        %{position: {:kind, :pending}, group_key: "generation", group_anchor: false},
+        %{position: {:kind, :generation}, group_key: "generation", group_anchor: true},
+        %{position: {:kind, :checks}, group_key: nil, group_anchor: false}
+      ]
+
+      assert Positions.lane_key(positions, Enum.at(positions, 0)) == "kind:pending"
+      assert Positions.lane_key(positions, Enum.at(positions, 2)) == "kind:checks"
+    end
+
+    test "a bare kind recurring across two entries is qualified by its own group" do
+      positions = [
+        %{position: {:kind, :pending}, group_key: "setup", group_anchor: false},
+        %{position: {:kind, :setup}, group_key: "setup", group_anchor: true},
+        %{position: {:kind, :pending}, group_key: "retro", group_anchor: false},
+        %{position: {:kind, :retro}, group_key: "retro", group_anchor: true}
+      ]
+
+      assert Positions.lane_key(positions, Enum.at(positions, 0)) == "kind:setup.pending"
+      assert Positions.lane_key(positions, Enum.at(positions, 2)) == "kind:retro.pending"
+    end
+
+    test "resting_key/2 finds a bare resting position's own lane key, first match" do
+      positions = [
+        %{position: {:kind, :pending}, group_key: "generation", group_anchor: false},
+        %{position: {:kind, :generation}, group_key: "generation", group_anchor: true}
+      ]
+
+      assert Positions.resting_key(positions, {:kind, :generation}) == "kind:generation"
+    end
+
+    test "resting_key/2 is nil for nil or a position the list does not contain" do
+      positions = [%{position: {:kind, :checks}, group_key: nil, group_anchor: false}]
+
+      assert Positions.resting_key(positions, nil) == nil
+      assert Positions.resting_key(positions, {:kind, :merge}) == nil
+    end
+  end
 end

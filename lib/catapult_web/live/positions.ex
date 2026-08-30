@@ -24,16 +24,18 @@ defmodule CatapultWeb.Live.Positions do
   rule 2 is why this lands here rather than in the screen that will
   actually need it**: `ORC-116` renders subflows as a visual grouping
   and consumes this encoding rather than deriving one of its own, so
-  the vocabulary has to exist here first. Computing a real anchor for
+  the vocabulary has to exist here first. **Computing a real anchor for
   a *resting* ticket — as opposed to accepting one a caller already
-  has — is not built by this pass: `Catapult.Delivery.FeatureLifecycle
-  .Projection`'s own `passed`/`pinned_to`/`blocked_from` are keyed on
-  the bare `position()` tuple throughout, so two occurrences of the
-  identical kind in one effective sequence are already indistinguishable
-  upstream of this module, a gap ORC-116 (or whichever pass gives
-  runtime position-tracking the identical namespace awareness) closes
-  before this encoding's `anchor` argument has real per-ticket data to
-  carry on the read path.
+  has — is `resting_key/2`, below** (ORC-116): `Catapult.Delivery
+  .FeatureLifecycle.Projection`'s own `passed`/`pinned_to`/
+  `blocked_from` still key on the bare `position()` tuple throughout,
+  with no namespace attached, so `resting_key/2` resolves the anchor by
+  finding that bare position inside the citing type's own
+  `annotated_positions` instead — first match, best-effort where the
+  bare kind recurs, since disambiguating *which* occurrence a resting
+  ticket is actually at needs runtime position-tracking the projection
+  does not carry. That remaining gap is `Sequence.name/3`'s own caveat,
+  not this module's.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
@@ -102,4 +104,50 @@ defmodule CatapultWeb.Live.Positions do
   end
 
   def role({:kind, _kind}, %Catapult.Dsl.Workflow{}), do: nil
+
+  @doc """
+  The round-trippable `key/2` for one entry of `Sequence
+  .annotated_positions/2`'s own list (ORC-116) — qualified
+  `<anchor>.<name>` when this entry's own bare position recurs
+  elsewhere in `positions` (its own `group_key`, the recurring
+  sub-array's anchor), bare otherwise. The ordinary case — no `types/
+  *.yaml` this system ships recurs a kind across two sub-arrays today
+  (`docs/dsl-syntax.md` §15.2's own note) — is unaffected: every
+  position keeps the identical bare encoding `key/1` has always
+  produced.
+  """
+  @spec lane_key([Sequence.annotated_position()], Sequence.annotated_position()) :: String.t()
+  def lane_key(positions, %{position: position, group_key: group_key}) do
+    if ambiguous?(positions, position) do
+      key(position, group_key)
+    else
+      key(position)
+    end
+  end
+
+  defp ambiguous?(positions, position) do
+    Enum.count(positions, &(&1.position == position)) > 1
+  end
+
+  @doc """
+  The lane/rail key a *resting* ticket's own bare `position()` maps to
+  — the identical qualification `lane_key/2` gives the declared lane,
+  resolved by finding that position inside the citing type's own
+  `annotated_positions` (`systems/dashboard.md`'s own "what this
+  system still has to compute" entry, ORC-116). First match,
+  best-effort where the bare kind recurs: disambiguating *which*
+  occurrence a resting ticket is actually at needs runtime
+  position-tracking this system does not carry (`Sequence.name/3`'s
+  own identical caveat). `nil` for `nil` (no resting position at all)
+  or a position this type's own sequence does not contain.
+  """
+  @spec resting_key([Sequence.annotated_position()], position() | nil) :: String.t() | nil
+  def resting_key(_positions, nil), do: nil
+
+  def resting_key(positions, position) do
+    case Enum.find(positions, &(&1.position == position)) do
+      nil -> nil
+      entry -> lane_key(positions, entry)
+    end
+  end
 end

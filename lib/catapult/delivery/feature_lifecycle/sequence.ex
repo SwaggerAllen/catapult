@@ -32,10 +32,25 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   """
 
   alias Catapult.Dsl.Status
+  alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
 
   @typedoc "One stop in the effective sequence: a fixed system-status kind, or a declared gate by its own name."
   @type position :: {:kind, atom()} | {:gate, String.t()}
+
+  @typedoc """
+  One `positions/2` entry, paired with the sub-array it belongs to
+  (dsl-syntax.md §15.10, ORC-116). `group_key` is shared by every
+  entry a declared sub-array spans — the group's own anchor's bare
+  name — and `nil` for an entry no sub-array cites. `group_anchor`
+  marks the one entry inside a group that `Catapult.Dsl.Workflow
+  .throwback_default/3` would derive a decline back to.
+  """
+  @type annotated_position :: %{
+          position: position(),
+          group_key: String.t() | nil,
+          group_anchor: boolean()
+        }
 
   # The first position gated behind machinery Phase 4 doesn't have yet
   # (`systems/delivery.md`'s reachability bullet) — everything at or
@@ -53,16 +68,49 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   exactly as an unloadable bundle already is).
   """
   @spec positions(Workflow.t(), String.t()) :: [position()]
-  def positions(%Workflow{types: types}, type_name) do
+  def positions(%Workflow{} = workflow, type_name) do
+    workflow |> annotated_positions(type_name) |> Enum.map(& &1.position)
+  end
+
+  @doc """
+  `positions/2`, each entry paired with the sub-array it belongs to
+  (§15.10) — `board`/`ticket` render the grouping this produces
+  (`screens/board.md`'s "Sub-arrays render as a bounded box around
+  their own lanes," ORC-116). Resolved off the true `statuses:` index,
+  never off this list's own filtered position — an `environment:`
+  entry ahead of a group would otherwise misalign one against the
+  other, the identical hazard `systems/delivery.md`'s own ORC-116 entry
+  records for the container axis.
+  """
+  @spec annotated_positions(Workflow.t(), String.t()) :: [annotated_position()]
+  def annotated_positions(%Workflow{types: types}, type_name) do
     case Map.fetch(types, type_name) do
       {:ok, type} ->
         type.statuses
-        |> Enum.map(&to_position/1)
-        |> Enum.reject(&is_nil/1)
+        |> Enum.with_index()
+        |> Enum.map(fn {entry, index} -> {to_position(entry), index} end)
+        |> Enum.reject(fn {position, _index} -> is_nil(position) end)
         |> take_through_boundary()
+        |> Enum.map(fn {position, index} -> annotate(type, position, index) end)
 
       :error ->
         []
+    end
+  end
+
+  defp annotate(type, position, index) do
+    case Type.group_at(type, index) do
+      nil ->
+        %{position: position, group_key: nil, group_anchor: false}
+
+      range ->
+        anchor_index = Type.anchor_index(type, range)
+
+        %{
+          position: position,
+          group_key: anchor_index && Status.name(Enum.at(type.statuses, anchor_index)),
+          group_anchor: index == anchor_index
+        }
     end
   end
 
@@ -136,9 +184,11 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     end
   end
 
-  defp take_through_boundary(positions) do
+  defp take_through_boundary(indexed_positions) do
     {before, at_and_after} =
-      Enum.split_while(positions, &(&1 != {:kind, @reachable_boundary}))
+      Enum.split_while(indexed_positions, fn {position, _index} ->
+        position != {:kind, @reachable_boundary}
+      end)
 
     case at_and_after do
       [] -> before

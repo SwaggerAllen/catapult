@@ -39,8 +39,12 @@ defmodule CatapultWeb.DocumentReviewLive do
   What it renders is a different question from what it accepts. The
   one-click landing point is `throwback_default/3` — the gate's own
   declared `throwback:`, else the citing sub-array's derived default —
-  and `docs/ui-spec.md` §3.2 specs a picker over the full legal prefix
-  beside it, which is not built here (ORC-141 hand-back).
+  rendered as the primary button; `docs/ui-spec.md` §3.2's own picker
+  over the full legal prefix beside it renders too, at ORC-116, behind
+  a secondary "choose a different target" disclosure — every other
+  legal target, each marked whether landing there leaves the gate's
+  own sub-array (`Catapult.Dsl.Workflow.throwback_target_details/3`,
+  `screens/document-review.md`'s own "Approve or throw back").
   """
   use CatapultWeb, :live_view
 
@@ -123,7 +127,7 @@ defmodule CatapultWeb.DocumentReviewLive do
   end
 
   def handle_event("decline", %{"target" => target}, socket) do
-    if target in socket.assigns.throwback_targets do
+    if target in socket.assigns.legal_targets do
       dispatch_decline(socket, target)
     else
       {:noreply, assign(socket, decline_error: illegal_target_message(target))}
@@ -200,6 +204,7 @@ defmodule CatapultWeb.DocumentReviewLive do
       sentences={@sentences}
       comments={@comments}
       gate_exits={@gate_exits}
+      throwback_targets={@throwback_targets}
       decline_error={@decline_error}
       commenting_at={@commenting_at}
     />
@@ -230,6 +235,7 @@ defmodule CatapultWeb.DocumentReviewLive do
     project_id = socket.assigns.project_id
     current_body = DeliveryStore.get_draft_body(project_id, node.id) || ""
     previous_body = DeliveryStore.get_previous_draft_body(project_id, node.id)
+    default = Workflow.throwback_default(workflow, type_name, gate.name)
 
     assign(socket,
       found?: true,
@@ -239,8 +245,9 @@ defmodule CatapultWeb.DocumentReviewLive do
       body_sha: node.body_sha,
       sentences: diff_sentences(previous_body, current_body),
       comments: load_comments(project_id, node.id),
-      gate_exits: gate_exits(workflow, type_name, gate.name),
-      throwback_targets: Workflow.throwback_targets(workflow, type_name, gate.name),
+      gate_exits: gate_exits(default),
+      throwback_targets: secondary_targets(workflow, type_name, gate.name, default),
+      legal_targets: Workflow.throwback_targets(workflow, type_name, gate.name),
       decline_error: nil
     )
   end
@@ -249,14 +256,21 @@ defmodule CatapultWeb.DocumentReviewLive do
   # (§15.10) — `gate_exits` was a button per declared exit while
   # `throwback:` was a list, and the list is gone because a decline
   # lands on exactly one status. A gate that declares no target and
-  # sits in no sub-array derives nothing and offers no button; the
-  # `docs/ui-spec.md` §3.2 picker over `throwback_targets` is what
-  # covers that case, and it is unbuilt.
-  defp gate_exits(workflow, type_name, gate_name) do
-    case Workflow.throwback_default(workflow, type_name, gate_name) do
-      nil -> []
-      target -> [%{label: target, target: target}]
-    end
+  # sits in no sub-array derives nothing and offers no button.
+  defp gate_exits(nil), do: []
+  defp gate_exits(target), do: [%{label: target, target: target}]
+
+  # `docs/ui-spec.md` §3.2's own picker over the full legal prefix,
+  # minus the target already offered as the primary button above.
+  # `legal_targets` (`handle_event/3`'s own field, the raw string list
+  # `Workflow.throwback_targets/3` returns) is what the command edge's
+  # legality check reads — a distinct assign from this render shape,
+  # never the other way around.
+  defp secondary_targets(workflow, type_name, gate_name, default) do
+    workflow
+    |> Workflow.throwback_target_details(type_name, gate_name)
+    |> Enum.reject(&(&1.target == default))
+    |> Enum.map(&%{label: &1.target, target: &1.target, leaves_group: &1.leaves_group})
   end
 
   defp load_comments(project_id, node_id) do

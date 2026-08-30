@@ -27,6 +27,55 @@ degenerates the same way `my-queue`'s tabs do (`screens/my-queue.md`, `systems/d
 role-holder projection exists yet, so every gate lane is one you have standing in and the
 abbreviated view and the full one coincide until identity ships a real mapping.
 
+## Sub-arrays render as a bounded box around their own lanes
+
+A `statuses:` entry that is itself an array groups a contiguous run of lanes (`docs/dsl-syntax.md`
+§15.10, ORC-115) — `generation`, its critique, and the gates that review it, in the default bundle's
+own `feature.yaml`. `board` renders that grouping visibly rather than flattening it into the run
+(ORC-116, closing the open question §15.10 left for this screen): the lanes it spans sit inside a
+shared boundary, and one lane inside it carries a small badge marking it as where a throwback in
+this group lands by default. Which lane that is is not this screen's to say — it renders whatever
+`Catapult.Dsl.Workflow.throwback_default/3` resolves for the group (`docs/dsl-syntax.md` §15.10 has
+the derivation), nothing here restates the rule that picks it. This is the whole
+point of grouping at all — a throwback's destination is only legible as *this is the loop you fell
+back into* when the loop is drawn, and a flattened board just shows a gate followed by an
+earlier-looking lane with no visual argument for why that lane is the one.
+
+**A group carries no name of its own** (`docs/dsl-syntax.md` §15.10 — "no `name:`, no `id:`"), so
+the box itself is not labeled. The one fact worth surfacing is the default-landing badge, and it
+carries it; inventing a group title would be naming something the grammar deliberately doesn't.
+
+**A group is collapsible, and collapsed is the default — reversing this screen's own earlier
+stance.** A sub-array's width is bundle-authored and not bounded (`docs/dsl-syntax.md` §15.2's own
+revised `feature.yaml` example already carries groups of differing size, and §15.11's worked
+`component.yaml` groups run longer still), so the "small, fixed width" argument for always-expanded
+does not hold generally, and fan-out's own collapse-by-default answers the identical volume problem
+here. **A collapsed group still has to show what the grouping exists to explain**: the box renders
+at its full lane-count width even collapsed, carrying the default-landing badge on its own boundary
+rather than on one lane inside it, plus a compact strip of the tickets currently sitting anywhere
+inside the group (their ids, not their individual lanes) — so *this loop has N tickets in it, and
+this is where a throwback lands* both read off the collapsed box without opening it. Expanding
+trades that summary for the ordinary per-lane columns.
+
+**Nested groups do not render, because they do not exist.** `docs/dsl-syntax.md` §15.10's own
+grammar is flat and nesting is explicitly left undecided rather than built; `board` never receives
+a group inside a group from the loader, so there is nothing here to draw a second boundary around.
+
+**A group spanning lanes the abbreviation would otherwise hide degenerates the same way lane
+abbreviation itself does today** (below) — no role-holder projection exists yet, so every gate lane
+is one you have standing in and a group is never shown partially in Phase 4.
+
+**A group's own lane set, and the group itself, can differ between two tickets of the same type.**
+`docs/dsl-syntax.md` §15.11 makes an instance's own effective sequence a fact about its position in
+the doc-graph tree, not only about its declared type — a leaf instance never reaches a `reconcile`
+its own parent-shaped siblings do, and no instance but the tree's root ever reaches `merge`/`deploy`/
+`terminal` at all (`systems/dashboard.md` carries both consequences). A lane or a group a given
+card's own resolved sequence excludes is one that card is never shown in, the same "never shows a
+card it does not itself hold" rule extended from occupancy to shape; a non-root card's own last
+visible lane is whatever position its own sequence ends at, and it leaves the board for `terminal`
+directly from there once its parent's `reconcile` merges it, with no `merge`/`deploy` lane of its
+own to pass through first.
+
 ## Fan-out collapses, and collapsed is the default
 
 A feature ticket's children legitimately sit in several lanes at once — the feature might be at
@@ -40,11 +89,27 @@ a small per-lane count or chip on the parent card, not a nested board. Expanding
 children as a flat list with their own status, not a second swim-lane view; drilling into any of
 them is `ticket`, same as drilling into the parent.
 
-**Grouping is per lane, not per card.** A feature's children are scattered across several lanes at
-once (that is the premise above), so "expand this feature" has to mean something different in each
-lane it appears in — the `Building` lane's expansion shows only the children currently in
-`Building`, not the feature's whole child list repeated in every lane it touches. A lane never
-shows a child it does not itself hold.
+**Grouping is per lane, not per card — and only within one shared lane set.** A feature's children
+are scattered across several lanes at once (that is the premise above), so "expand this feature"
+has to mean something different in each lane it appears in — the `Building` lane's expansion shows
+only the children currently in `Building`, not the feature's whole child list repeated in every
+lane it touches. A lane never shows a child it does not itself hold.
+
+That per-lane roll-up only works when a child reads its position off the same array as its parent.
+`docs/dsl-syntax.md` §15.11 gives `component`/`subcomponent` their own declared type, sharing no
+array with `feature` — a component's own lane has no counterpart on a feature's own board at all, so
+there is no lane to roll it up into. A subcomponent inside a component is the one case that still
+shares an array (both instances of `types/component.yaml`, one level deeper), and keeps the
+per-lane roll-up above unchanged. A feature's own component children roll up as a single aggregate
+count on the card instead — however many are in flight, wherever the feature's own lane happens to
+be — since there is no lane of theirs to place a per-lane chip against.
+
+**This is a different axis from sub-array grouping (above), and the two never overlap on screen**
+(ORC-116). Fan-out grouping collapses a feature's *children* inside one lane, on the card; sub-array
+grouping wraps a run of *lanes themselves*, spanning the lane headers. A card inside a grouped lane
+still collapses its own children the ordinary way — the two compose without colliding because one
+lives inside a card and the other around several lanes, so nothing on screen is ever ambiguous about
+which grouping it belongs to.
 
 ## Blocked groups under the status that kicked it
 
@@ -71,12 +136,22 @@ pass-forward/pass-back is a link into `document-review` (or `ticket`, for the sa
 `screens/ticket.md`'s own gate action defers there) rather than a second, competing control —
 the identical move `ticket` already makes and for the identical reason. The card still names that
 a gate is waiting and what it is, so the actor does not have to open the ticket to know there is
-something to do; it just does not dispatch from where it stands. **`ORC-116` is where this is
-expected to resolve for real** — once a gate's node set is derivable, staleness is computable
-plane-side from any surface and a card needs no body view of its own to carry a real compare. Until
-then this is a v1 scope choice, not a defect, and it is recorded here rather than silently
-narrowed so a later pass building non-prose gates does not have to rediscover why the card lost
-the control `docs/ui-spec.md` describes for it.
+something to do; it just does not dispatch from where it stands.
+
+**This was expected to resolve for real at ORC-116, and it does not** — checked here rather than
+assumed. `docs/dsl-syntax.md` §15.10 does give a passed gate's approval a structural node to pin
+*content identity* against, which answers §7.16's "what a passed gate pins." But that is a staleness
+question — "has what this gate approved changed" — answerable from a log join with no body view,
+and it is a different mechanism from the command-side `body_sha` compare a dispatch needs, which is
+"the body the actor believes they are resolving against" (`systems/engine.md`'s own distinction
+between the two; `systems/delivery.md`'s note that the staleness half is what §15.10 actually
+closed). A card still shows no body, so it still has nothing honest to supply on `ApproveGate`/
+`DeclineGate`'s own compare, whatever the node derivation settles — the interim named above does not
+end here. What the derivation *does* unlock is gate staleness display, `docs/ui-spec.md`'s own v2
+stage (§5), with the join itself still unbuilt (`systems/delivery.md`'s Phase 7). This is a v1 scope
+choice, not a defect, and it is recorded here rather than silently narrowed so a later pass building
+non-prose gates does not have to rediscover why the card lost the control `docs/ui-spec.md`
+describes for it.
 
 ## Filters
 
@@ -98,3 +173,12 @@ all three are deferred (see below) rather than cut on the merits.
   collapses" above) — this is the closest thing to `ticket-graph`'s downstream tree that a lane
   view could grow into, and growing it here would be the same sketch-grade mechanism the ticket
   names as out of scope, arrived at from a different screen.
+- **A sub-array group cut in half by real lane abbreviation.** Moot today (see "Sub-arrays render
+  as a bounded box" above) since abbreviation is a no-op until identity ships a role-holder
+  projection. Once it isn't: decide then whether abbreviation cuts a group's member lanes to the
+  ones you hold standing in, or a group renders whole the moment any one of its lanes qualifies —
+  a real choice with nothing today to test it against.
+- **A collapsed group's own state, per user.** The identical nicety as the "show all lanes" toggle
+  above, and cut for the identical reason — not needed to prove the loop once, cheap once a per-user
+  preference has anywhere to live at all. Collapsed is the default every session starts from until
+  then.

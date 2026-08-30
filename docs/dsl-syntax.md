@@ -1745,9 +1745,7 @@ positions, `setup.pending` and `retro.pending`, and no `blocks:` or
 those checks' business. `Catapult.Delivery.ContainerLifecycle.Sequence`
 addresses a position by its bare `status:`/`review:` value alone, with
 no namespace concept at all (§15.12 reaches the loader's own
-cross-reference resolution, never this module — deliberately: giving
-container position-tracking the identical namespace awareness is
-ORC-116-adjacent future work, not this ticket's). A container that
+cross-reference resolution, never this module). A container that
 completed `main` and physically reached `retro`'s own `pending` would
 have its `current_queue` recorded as the bare string `"pending"`,
 indistinguishable from `setup`'s — `Sequence.next_step/3`'s own
@@ -1758,6 +1756,17 @@ exact shape before this sentence was written. `retro`'s group is left
 in its pre-ORC-155 shape instead: `[milestone-signoff, retro,
 proposals-read]`, with `retro` still deriving fine as the group's own
 anchor for `proposals-read`'s throwback default.
+
+Giving container position-tracking the identical namespace awareness
+is **this ticket's own scope** (`ORC-116`'s design pass widened it
+here on exactly this reproduction) rather than adjacent future work —
+`systems/delivery.md`'s own ORC-116 entry records the decision:
+`Sequence`'s lookups resolve a qualified `<anchor>.<name>` identity the
+same way the loader does, instead of comparing against the bare name
+`Sequence.name/1` returns today. That fix is dev's diff against this
+declaration, not this pass's to build; once it lands, `retro`'s own
+leading `pending` returns above, this passage's asymmetry note comes
+out with it, and this file states the restored, symmetric shape.
 
 **Neither `setup` nor `retro` carries `checks`, `merge` or
 `reconcile` any more — a correction to this section's own worked
@@ -3045,9 +3054,13 @@ are corrected to match.
   this bullet closes is only whether the grammar picks one for it when
   it doesn't.
 - **Whether a sub-array is a visible grouping or flattens for
-  display.** `board`'s lanes read the effective sequence left to right
-  (`docs/ui-spec.md` §3.1); this is a real UI decision this section
-  creates and does not answer.
+  display.** Settled, not left open: visible grouping, at ORC-116.
+  `board`'s lanes render a bounded box around each sub-array's own
+  lanes, badged with whatever this section's own `throwback_default/3`
+  resolves for the group; `ticket`'s sequence rail groups the
+  identical way. This section fixes the grammar and the derivation;
+  the rendering decision and its reasoning live in `screens/board.md`,
+  not here.
 - **Whether the `pending`-precedes-`generation`/`deploy` check (§13)
   needs a sub-array of its own head.** Reversed at this ticket's fourth
   design review: it does. §13's own tightened rule requires a

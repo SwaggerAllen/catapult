@@ -121,4 +121,20 @@ defmodule CatapultWeb.TicketLiveTest do
 
     assert html =~ "Rejected"
   end
+
+  test "the rail groups feature's own leading sub-array with the derived-throwback badge", %{
+    conn: conn
+  } do
+    project_id = "ticket-#{System.unique_integer([:positive])}"
+    open_at_gate(project_id, "flow-1")
+
+    {:ok, _view, html} = live(conn, "/projects/#{project_id}/tickets/flow-1")
+
+    # `pending`/`generation`/`critique`/`ux-review`/`engineering-review`
+    # (`types/feature.yaml`'s own sub-array) render inside one bounded
+    # box on the rail, with `generation` — the derived-throwback anchor
+    # — badged (`screens/ticket.md`'s own grouping, ORC-116).
+    assert html =~ "rounded-box border border-dashed border-primary/40"
+    assert html =~ "Default throwback landing point for this group"
+  end
 end

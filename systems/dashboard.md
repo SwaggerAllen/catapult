@@ -258,6 +258,130 @@ conventions §13).
   `mutex label` for the identical reason. Each screen's own doc records
   this against its own controls; this bullet is the one place a reader
   sees why they all say it the same way.
+- **A lane/rail key is a position's own namespaced identity
+  (`docs/dsl-syntax.md` §15.12), rendered through `CatapultWeb.Live
+  .Positions.key/2` rather than paired by this system** (ORC-116,
+  superseding this bullet's own prior scan-and-pair scheme after
+  ORC-155 landed the namespacing rule this system had been assembling
+  by hand). §15.10's own anchor predicate — a sub-array's one
+  non-review-shaped agent-balled entry (`generation`, `design`,
+  `architecture`, `implementation`, `retro` or `setup`) — still picks
+  the entry a group keys off; what §15.12 changes is what supplies the
+  *other half* of the key. A `status:` entry now carries a
+  bundle-authored `name:` (defaulting to its kind), and an anchor's own
+  name *is* the sub-array's namespace: every other entry sharing that
+  sub-array addresses as `<anchor-name>.<its-own-name>`, a top-level
+  entry addresses bare, and the loader refuses a colliding pair before
+  a bundle ever ships (§15.12's own uniqueness check). `Positions
+  .key/2` already encodes exactly this — `"kind:" <> anchor <> "." <>
+  name` when given an anchor, the identical bare `"kind:" <> name` it
+  has always produced otherwise — so a lane or rail key is that string,
+  not a runtime identity this system derives.
+
+  **This retires the whole of the prior scheme, not just its collision
+  case.** There is no more scanning backward to the nearest anchor, no
+  `Catapult.Generation.NodeId.resolve/1` chain-node id and no
+  `Catapult.Delivery.ContainerLifecycle.Ids.work_item_id/3` work-item
+  id standing in as the anchor's own identity — both were needed only
+  because the prior scheme had no bundle-authored name to key on and
+  had to borrow one from a runtime concept instead. §15.12's namespace
+  is a fact about the loaded declaration alone, so the key for any
+  position is available the moment the workflow loads, with no read
+  against `engine_nodes` or a container's own queue identity. The
+  "Not yet covered" gap this bullet used to carry — two `critique` or
+  `reconcile` entries in one sub-array colliding on the same
+  `(anchor, kind)` pair — closes the same way: §15.12 requires distinct
+  `name:`s the moment two entries share a sub-array, so the collision
+  is a load error before this system ever sees the bundle, never a
+  rendering gap for it to solve.
+
+  **The anchor for a *resting* ticket — the gap §15.12 left open by its
+  own admission — is `Positions.resting_key/2`** (ORC-116).
+  `Catapult.Delivery.FeatureLifecycle.Projection`'s `passed`/
+  `pinned_to`/`blocked_from` all still key on the bare `position()`
+  tuple, with no namespace attached, so `resting_key/2` resolves this
+  as a lookup against the loaded declaration, not a runtime identity:
+  walk the citing type's own effective sequence for the sub-array, if
+  any, containing the resting position, and key off that sub-array's
+  own anchor name; a position outside every sub-array keys bare. That
+  lookup is exactly what `Positions.key/2`'s `anchor` argument is
+  already shaped to take — this system supplies the argument, not a
+  new encoding. It is first-match, best-effort where the bare kind
+  recurs: disambiguating *which* occurrence a resting ticket is
+  actually at needs runtime position-tracking the projection does not
+  carry, which stays open the same way `Sequence.name/3` already
+  admits it for the declared-lane case.
+
+  Recurrence itself is unchanged from what this bullet already found:
+  `docs/dsl-syntax.md` §13 still lets a generation-shaped entry,
+  `checks`, `merge`, `reconcile` and `pending` all recur, and `merge`,
+  `deploy` and `terminal` need no carve-out of their own — each is an
+  ordinary bare top-level name whenever it sits outside a sub-array
+  (true of every recurrence in the current `bundles/default-flow`
+  types), and the namespace rule above already covers a bare top-level
+  name without naming any of the three specifically.
+- **A non-root instance's own lane sequence ends at its last reachable
+  position — never at a `merge` or `deploy` of its own** (ORC-116,
+  `docs/dsl-syntax.md` §15.11). `merge` is depth-0 by rule and a
+  non-root ticket merges only through its parent's `reconcile`, so
+  `board` and `ticket` render no `merge`, `deploy` or `terminal` lane
+  for one; its own effective sequence simply stops short of that
+  machinery, the same way `Sequence`'s own `@reachable_boundary`
+  already stops every instance's sequence short of `merge` today. The
+  card leaves the board the moment the parent's `reconcile` resolves
+  it, direct to `terminal` — v5 §7.6's `Merged → Done`, settled
+  independent of tree position — with no lane in between to render it
+  in. What a non-root instance's own `deploy` would mean stays exactly
+  as open as `docs/dsl-syntax.md` §15.11 leaves it; this bullet only
+  says the board renders nothing for that gap, not what fills it.
+- **`board`'s lane set is derived per tree shape, not per declared
+  type** (ORC-116, reversing ORC-129's own "wait for fan-out-as-
+  separate-flows" — `docs/dsl-syntax.md` §15.11 is that). A leaf and
+  an instance with children read different effective sequences off the
+  identical array (§15.11's own "a leaf instance has nothing to join"),
+  so a lane set keyed on `type_name` alone shows a `reconcile` column
+  no leaf card ever reaches. `board` resolves this the way `ticket`
+  already resolves fan-out depth for one ticket (`screens/ticket.md`'s
+  "depth is shown, not explained"): a type's lane set is the union of
+  every tree-shape's own effective sequence, and a lane never shows a
+  card whose own resolved sequence excludes it — `screens/board.md`'s
+  existing "a lane never shows a child it does not itself hold" rule,
+  extended from membership to shape.
+- **Cross-type fan-out roll-up is a card-level count, not a per-lane
+  one** (ORC-116). `docs/dsl-syntax.md` §15.11 gives `component`/
+  `subcomponent` their own declared type, sharing no array with
+  `feature` ("two type declarations, not one spanning the whole
+  tree"), so a component's own position has no corresponding lane on a
+  feature's board at all — `docs/ui-spec.md` §3.1's "each lane rolls up
+  only the children it holds" assumed children read off the parent's
+  own lane set, which no longer holds across this boundary. Same-type
+  nesting — a subcomponent inside a component — keeps the per-lane
+  roll-up `screens/board.md` already describes, since both instances
+  read the identical array; a feature's own component children instead
+  roll up as one aggregate count on the card, wherever the feature's
+  own lane happens to be, rather than projected onto a lane that
+  doesn't exist for them.
+- **A screen or LiveView branches on `Catapult.Dsl.SystemStatus`'s own
+  predicates, never on a status-name literal** (ORC-116, generalizing
+  the correction ORC-151's own dev pass already made to `Catapult
+  .Delivery.ContainerLifecycle.inline_dispatch_point?/1` when it
+  retired that module's `status != "merge"` check). `Positions`'s
+  `{:kind, atom}` shape puts the raw status atom within reach of every
+  LiveView that touches it, and four call sites already match on one
+  directly (below). Blocked is a real orthogonal flavor rather than an
+  array position, so branching on it is correct; the form is what
+  ORC-151 already named as the thing to stop doing. `SystemStatus`
+  already exports `ball/1`, `agent_balled?/1`, `generation_shaped?/1`,
+  `review_shaped?/1` and `can_block?/1`; a screen wanting a distinction
+  none of those five draws grows a sixth predicate there instead of
+  re-deriving the answer locally. Dev's diff (`lib/catapult_web/**` is
+  outside this pass's own reach) — recorded here as the rule that diff
+  is written against, not a code change this pass makes.
+
+  Four call sites match today: `{:kind, :blocked}` at
+  `ticket_live.ex:112,161`, `board_live.ex:124` and
+  `my_queue_live.ex:87`; `%{status_kind: "blocked"}` at
+  `board_live.ex:137`.
 - **Component modules live beside their story, under
   `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
   (ORC-35 design pass — the first ticket to exercise this system's

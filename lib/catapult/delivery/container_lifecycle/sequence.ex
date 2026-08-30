@@ -18,6 +18,19 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   non-review-shaped agent-balled entries with no `flow:` (ORC-148) — not
   from what they are called, which is the fact the grammar spent four
   passes removing and this module is careful not to put back.
+
+  **`next_step/3`, `step/3` and `earlier?/4` resolve a name against its
+  own namespace-qualified identity, not the bare name `name/1` returns
+  — the identical fix `Catapult.Dsl.Workflow` already gives the ticket
+  axis at §15.12, extended to this one at ORC-116** (`systems
+  /delivery.md`'s own entry). `steps/2`'s own bare list is unaffected,
+  and unqualified today: every `types/*.yaml` this system ships avoids
+  a recurring bare name across two sub-arrays (`docs/dsl-syntax.md`
+  §15.2's own note on `types/milestone.yaml`'s asymmetry), so every
+  existing caller — `container.current_queue` included, itself a bare
+  string — keeps resolving exactly as before. What changes is that a
+  *qualified* `<anchor>.<name>` argument now resolves correctly too,
+  rather than only ever matching whichever occurrence comes first.
   """
 
   alias Catapult.Dsl.Status
@@ -46,14 +59,8 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   Phase 7's, and guessing here would pre-empt it).
   """
   @spec steps(Workflow.t(), String.t()) :: [step()]
-  def steps(%Workflow{types: types}, type_name) do
-    case Map.fetch(types, type_name) do
-      {:ok, %Type{statuses: statuses}} ->
-        statuses |> Enum.map(&to_step/1) |> Enum.reject(&is_nil/1)
-
-      :error ->
-        []
-    end
+  def steps(%Workflow{} = workflow, type_name) do
+    workflow |> identified_steps(type_name) |> Enum.map(&elem(&1, 1))
   end
 
   @doc """
@@ -71,22 +78,36 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   @doc """
   The step immediately after the one named `current`, or `nil` when
   `current` is the last (or is not in this type's array at all).
+
+  `current` is matched against this type's own namespace-qualified
+  identity (§15.12), not the bare `name/1` a step reads — an
+  unambiguous name (the ordinary case; every `types/*.yaml` this
+  system ships today) resolves exactly as before, and a name that
+  recurs across more than one sub-array — indistinguishable to a bare
+  lookup, `systems/delivery.md`'s own ORC-116 entry — resolves
+  correctly once `current` is itself qualified `<anchor>.<name>`.
   """
   @spec next_step(Workflow.t(), String.t(), String.t()) :: step() | nil
   def next_step(%Workflow{} = workflow, type_name, current) do
-    steps = steps(workflow, type_name)
+    identified = identified_steps(workflow, type_name)
 
-    case Enum.find_index(steps, &(name(&1) == current)) do
+    case Enum.find_index(identified, &(elem(&1, 0) == current)) do
       nil -> nil
-      index -> Enum.at(steps, index + 1)
+      index -> identified |> Enum.at(index + 1) |> step_at()
     end
   end
 
-  @doc "The step named `name`, or `nil`."
+  @doc "The step named `name` (bare or namespace-qualified, `next_step/3`'s own note), or `nil`."
   @spec step(Workflow.t(), String.t(), String.t()) :: step() | nil
   def step(%Workflow{} = workflow, type_name, name) do
-    workflow |> steps(type_name) |> Enum.find(&(name(&1) == name))
+    workflow |> identified_steps(type_name) |> Enum.find_value(&step_if(&1, name))
   end
+
+  defp step_at(nil), do: nil
+  defp step_at({_canonical, step}), do: step
+
+  defp step_if({canonical, step}, name) when canonical == name, do: step
+  defp step_if(_identified, _name), do: nil
 
   @doc """
   The name a step is addressed by — a queue's own `status:`, a gate's
@@ -110,7 +131,7 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   """
   @spec earlier?(Workflow.t(), String.t(), String.t(), String.t()) :: boolean()
   def earlier?(%Workflow{} = workflow, type_name, from, target) do
-    names = workflow |> steps(type_name) |> Enum.map(&name/1)
+    names = workflow |> identified_steps(type_name) |> Enum.map(&elem(&1, 0))
 
     case {Enum.find_index(names, &(&1 == from)), Enum.find_index(names, &(&1 == target))} do
       {nil, _} -> false
@@ -128,4 +149,30 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   defp to_step(%Status{status: status} = entry) when not is_nil(status), do: {:queue, entry}
   defp to_step(%Status{review: gate}) when not is_nil(gate), do: {:gate, gate}
   defp to_step(%Status{environment: env}) when not is_nil(env), do: nil
+
+  # `type.statuses`, walked once at its own true index, paired with
+  # each entry's own namespace-qualified identity (`Catapult.Dsl.Type
+  # .namespaced_positions/1`, §15.12) and reduced to the navigable
+  # step it becomes — never `steps/2`'s own already-filtered list,
+  # whose index an `environment:` entry ahead of a group would
+  # misalign against `type.statuses`'s own (`systems/delivery.md`'s
+  # own ORC-116 entry). `canonical` is bare unless this entry's own
+  # bare name recurs elsewhere in the type, exactly `Catapult.Dsl
+  # .Workflow`'s identical rule for the ticket axis.
+  defp identified_steps(%Workflow{types: types}, type_name) do
+    case Map.fetch(types, type_name) do
+      {:ok, %Type{statuses: statuses} = type} ->
+        canonical_by_index =
+          type |> Type.namespaced_positions() |> Map.new(&{&1.index, &1.canonical})
+
+        statuses
+        |> Enum.with_index()
+        |> Enum.map(fn {entry, index} -> {to_step(entry), index} end)
+        |> Enum.reject(fn {step, _index} -> is_nil(step) end)
+        |> Enum.map(fn {step, index} -> {Map.fetch!(canonical_by_index, index), step} end)
+
+      :error ->
+        []
+    end
+  end
 end

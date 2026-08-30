@@ -7,14 +7,28 @@ defmodule Catapult.Storybook.Screens.Ticket do
   only renders the shape that produces, including a rejected command's conflict.
 
   `sequence` entries: `%{key:, label:, kind: :status | :gate, role: String.t() | nil, state:
-  :passed | :current | :upcoming}`. `gate_action`: `nil` off this ticket's current position, else
-  `%{role:, href:}` — a pointer, not a control: every Phase 4 gate reviews prose, so this screen
-  links to `document-review` rather than dispatching `ApproveGate`/`DeclineGate` itself (`screens/
-  ticket.md`, ORC-114). `blocked`: `nil` or `%{flavor:, origin_label:, return_options: [%{label:,
-  target:}]}` — `return_options` is the origin plus every earlier position, never a later one
-  (`screens/ticket.md`), and choosing one (`phx-click="resume"`, `phx-value-target={opt.target}`)
-  dispatches `ResumeFlow` under the identical compare-and-swap. `conflict`: `nil` or `%{to:}`, set
-  when this screen's own last dispatch (the
+  :passed | :current | :upcoming}` — `key` is opaque, plane-supplied and never parsed here
+  (`systems/dashboard.md`'s lane-key entry has what disambiguates two same-named positions), plus
+  two fields `ticket_live.ex` computes off `Sequence.annotated_positions/2` (dev's diff, ORC-116)
+  and this render still treats as optional, `Map.get`-style, rather than required — `group_key:
+  String.t() | nil` and `group_anchor: boolean`, the identical pair `board`'s lanes carry (`screens/board.md`'s
+  "Sub-arrays render as a bounded box around their own lanes," ORC-116). Contiguous entries sharing
+  a `group_key` render inside one bounded box on this rail too, with the group's own `group_anchor`
+  entry badged as whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group —
+  rendered, not restated (`screens/ticket.md`'s "Where the sequence declares a sub-array"); an
+  entry carrying neither renders exactly as it did before grouping existed. `gate_action`: `nil`
+  off this ticket's current position, else `%{role:, href:}` — a pointer, not a control: every
+  Phase 4 gate reviews prose, so this screen links to `document-review` rather than dispatching
+  `ApproveGate`/`DeclineGate` itself (`screens/ticket.md`, ORC-114). `blocked`: `nil` or
+  `%{flavor:, origin_label:, return_options: [%{label:, target:, leaves_group: boolean}]}` —
+  `return_options` is the origin plus every earlier position, never a later one (`screens/
+  ticket.md`), the first entry is always the one primary choice (the origin, unchanged from
+  before this pass), and `leaves_group` — optional, `Map.get`-style, same reason as above — marks
+  an option outside the origin's own sub-array (`screens/ticket.md`'s "An earlier option that sits
+  outside the origin's own sub-array is marked as leaving it," ORC-116). Choosing one
+  (`phx-click="resume"`, `phx-value-target={opt.target}`) dispatches `ResumeFlow` under the
+  identical compare-and-swap. `conflict`: `nil` or `%{to:}`, set when this screen's own last
+  dispatch (the
   blocked-return control — the gate action is never dispatched from here) was rejected: `to` names
   the value the rejection recorded (the position someone else already resumed it to, or the
   disposition a raced gate already carries), not an actor — neither `ResumeFlow` nor the gate
@@ -79,7 +93,10 @@ defmodule Catapult.Storybook.Screens.Ticket do
               phx-value-target={opt.target}
               class={["btn btn-sm", i == 0 && "btn-primary", i != 0 && "btn-outline"]}
             >
-              Return to <%= opt.label %>
+              Return to <%= opt.label %><span
+                :if={Map.get(opt, :leaves_group, false)}
+                class="opacity-60"
+              > (leaves this loop)</span>
             </button>
           </div>
         </div>
@@ -123,22 +140,80 @@ defmodule Catapult.Storybook.Screens.Ticket do
   attr :sequence, :list, required: true
 
   defp sequence_rail(assigns) do
-    assigns = assign(assigns, :last_key, assigns.sequence |> List.last() |> then(&(&1 && &1.key)))
+    assigns =
+      assigns
+      |> assign(:last_key, assigns.sequence |> List.last() |> then(&(&1 && &1.key)))
+      |> assign(:segments, rail_segments(assigns.sequence))
 
     ~H"""
     <ol class="flex flex-wrap items-center gap-1 text-xs">
-      <li :for={pos <- @sequence} class="flex items-center gap-1">
-        <span class={[
-          "badge",
-          pos.state == :passed && "badge-success",
-          pos.state == :current && "badge-primary",
-          pos.state == :upcoming && "badge-ghost"
-        ]}>
-          <%= pos.label %><%= if pos.kind == :gate and pos.role, do: " (#{pos.role})" %>
-        </span>
-        <span :if={pos.key != @last_key} class="opacity-30">→</span>
-      </li>
+      <.rail_segment :for={segment <- @segments} segment={segment} last_key={@last_key} />
     </ol>
+    """
+  end
+
+  # Groups the flat, ordered `sequence` the same way `board`'s own `segments/1` groups lanes
+  # (`screens/board.md`'s "Sub-arrays render as a bounded box") — a pure grouping of what was
+  # already handed down, not a resolution of anything. `group_key` is read with `Map.get/2`
+  # because `Sequence.positions/2` does not supply it yet (moduledoc) — a missing key groups
+  # exactly like an explicit `nil`.
+  defp rail_segments(sequence) do
+    sequence
+    |> Enum.chunk_by(&Map.get(&1, :group_key))
+    |> Enum.flat_map(fn [pos | _] = chunk ->
+      if Map.get(pos, :group_key), do: [{:group, chunk}], else: Enum.map(chunk, &{:pos, &1})
+    end)
+  end
+
+  attr :segment, :any, required: true
+  attr :last_key, :any, required: true
+
+  defp rail_segment(%{segment: {:pos, pos}} = assigns) do
+    assigns = assign(assigns, :pos, pos)
+
+    ~H"""
+    <li class="flex items-center gap-1">
+      <.rail_badge pos={@pos} />
+      <span :if={@pos.key != @last_key} class="opacity-30">→</span>
+    </li>
+    """
+  end
+
+  defp rail_segment(%{segment: {:group, positions}} = assigns) do
+    assigns =
+      assigns
+      |> assign(:positions, positions)
+      |> assign(:group_last_key, positions |> List.last() |> Map.fetch!(:key))
+
+    ~H"""
+    <li class="flex items-center gap-1">
+      <span class="flex items-center gap-1 rounded-box border border-dashed border-primary/40 bg-primary/5 px-2 py-1">
+        <%= for pos <- @positions do %>
+          <.rail_badge pos={pos} />
+          <span :if={pos.key != @group_last_key} class="opacity-30">→</span>
+        <% end %>
+      </span>
+      <span :if={@group_last_key != @last_key} class="opacity-30">→</span>
+    </li>
+    """
+  end
+
+  attr :pos, :map, required: true
+
+  defp rail_badge(assigns) do
+    ~H"""
+    <span class={[
+      "badge",
+      @pos.state == :passed && "badge-success",
+      @pos.state == :current && "badge-primary",
+      @pos.state == :upcoming && "badge-ghost"
+    ]}>
+      <%= @pos.label %><%= if @pos.kind == :gate and @pos.role, do: " (#{@pos.role})" %>
+      <span
+        :if={Map.get(@pos, :group_anchor, false)}
+        title="Default throwback landing point for this group"
+      >↺</span>
+    </span>
     """
   end
 end
