@@ -85,7 +85,12 @@ defmodule Catapult.Dsl.Workflow do
         }
 
   @container_required_order ~w(setup prep main retro cleanup)
-  @ticket_status_names ~w(pending generation design architecture implementation critique checks reconcile merge deploy terminal)
+  # The full fixed vocabulary (§15.1), not the ticket-skeleton's required
+  # backbone: a ticket-skeleton array may additionally hold any other
+  # anchor (e.g. a population anchor like `retro`/`setup`), so membership
+  # here is checked against every kind, not the subset `ticket_relative_
+  # order_problems/2` requires.
+  @ticket_status_names Enum.map(SystemStatus.kinds(), &Atom.to_string/1)
 
   @doc "Loads and validates the workflow bundle named `name` under `bundles_root`."
   @spec load(String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, [String.t()]}
