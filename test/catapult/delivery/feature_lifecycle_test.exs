@@ -280,6 +280,33 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert FeatureLifecycle.status(row) == nil
   end
 
+  test "an inline dispatch point's own flow_name projects at :pending, not without a position (ORC-176)" do
+    # `ContainerLifecycle.open_inline/3` opens `setup`/`retro` with
+    # `flow_name` set to the entry's own literal name — no declared
+    # `types/<name>.yaml` to resolve against. Before ORC-176 this fell
+    # through to the same "no position" outcome the test above proves
+    # for a genuine authoring bug; `setup` is agent-balled and not
+    # review-shaped (`Sequence`'s own moduledoc), so it now resolves.
+    project_id = "feature-lifecycle-#{System.unique_integer([:positive])}"
+    flow_id = "flow-setup"
+
+    assert :ok = Router.dispatch(commit(project_id, "d0"), consistency: :strong)
+
+    open = %OpenFlow{
+      project_id: project_id,
+      flow_id: flow_id,
+      flow_name: "setup",
+      entry_node_id: "sysarch"
+    }
+
+    assert :ok = Router.dispatch(open, consistency: :strong)
+
+    row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+    assert row.entry_node_id == "sysarch"
+    assert FeatureLifecycle.status(row) == {:kind, :pending}
+    assert row.status_name == "pending"
+  end
+
   describe "JSON round trip (ORC-120)" do
     # `Commanded.ProcessManagers.ProcessManagerInstance` calls
     # `persist_state/2` after every handled event, which serializes

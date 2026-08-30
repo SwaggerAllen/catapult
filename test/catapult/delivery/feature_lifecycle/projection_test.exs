@@ -91,6 +91,24 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     assert Projection.resting(workflow(), "no-such-type", Projection.new()) == nil
   end
 
+  describe "resting/3 for an inline dispatch point (ORC-176)" do
+    # `setup`/`retro` carry no `types/<name>.yaml` of their own
+    # (`Sequence`'s own moduledoc) — `workflow()` above declares none —
+    # so this exercises `Sequence.positions/2`'s fixed two-entry
+    # fallback rather than a declared array.
+    defp resting_setup(state), do: Projection.resting(workflow(), "setup", state)
+
+    test "rests at pending before the first commit" do
+      assert resting_setup(Projection.new()) == {:kind, :pending}
+    end
+
+    test "a commit walks it to setup, its own last and only further position" do
+      state = Projection.commit(Projection.new(), 1)
+
+      assert resting_setup(state) == {:kind, :setup}
+    end
+  end
+
   test "a decline pins the resting position at its own throwback target" do
     state =
       Projection.new()
