@@ -1559,17 +1559,15 @@ generating as scope-runs inside one ticket.
   supplies a qualified `<anchor>.<name>` argument, corrected at ORC-171,
   below.**
 
-  **`retro`'s own leading `pending` returns to
-  `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
-  §15.2's own passage recording the asymmetry as deliberate is rewritten
-  to describe the restored, symmetric shape, once the identity flowing
-  through the dispatcher is itself qualified — not merely once
-  `Sequence`'s own lookups could accept one.** Those are different
-  facts, and ORC-171's own finding, below, is that only the first had
-  landed. **Not built as part of this pass:** the dispatcher-side
-  plumbing itself (ORC-171); reverting the bundle asymmetry and
-  rewriting §15.2's passage remain dev's diff against whichever record
-  closes last.
+  **A lookup accepting a qualified argument is not the same fact as a
+  caller supplying one — and only the first had landed here.**
+  `docs/dsl-syntax.md` §15.2 records why
+  `bundles/default-flow/types/milestone.yaml` keeps `retro`'s group
+  asymmetric today: the identity flowing through `ContainerLifecycle`'s
+  own dispatcher is still the bare name `Sequence.name/1` returns, not
+  the qualified identity these three lookups can now accept. Closing
+  that caller-side gap is the ORC-171 entry below, not a further
+  widening of this one's own scope.
 
 - **ORC-171 (design pass) finds ORC-116's own qualified lookup has no
   caller, and gives both axes' runtime position-tracking the canonical
@@ -1650,10 +1648,11 @@ generating as scope-runs inside one ticket.
   the way in.
 
   **Not built as part of this pass:** the dispatcher- and
-  process-manager-side plumbing on both axes, the wire-format migration,
-  reverting `bundles/default-flow/types/milestone.yaml`'s own asymmetry
-  and rewriting `docs/dsl-syntax.md` §15.2 to match — all dev's diff
-  against this record, not design's.
+  process-manager-side plumbing on both axes, and the wire-format
+  migration — dev's diff against this record, not design's. Whether and
+  when `bundles/default-flow/types/milestone.yaml`'s own asymmetry
+  reverts, and `docs/dsl-syntax.md` §15.2's passage records it, is that
+  diff's to settle, not this record's to predict.
 
 ## Initial vs target
 

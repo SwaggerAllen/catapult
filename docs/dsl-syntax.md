@@ -1771,13 +1771,16 @@ lands only at ORC-171** (`systems/delivery.md`'s own entry, corrected
 in place rather than left to read as closed): `container.current_queue`
 — the value every dispatcher comparison actually uses — is still
 populated from `Sequence.name/1`'s own bare display string, never the
-qualified identity the lookup functions can now accept. `retro`'s own
-leading `pending` returns to
-`bundles/default-flow/types/milestone.yaml`, and this passage's
-asymmetry note comes out with it and is rewritten to describe the
-restored, symmetric shape, only once that caller-side plumbing lands —
-dev's diff against `systems/delivery.md`'s ORC-171 entry, not yet
-built.
+qualified identity the lookup functions can now accept. `retro`'s
+group keeps its pre-ORC-155 shape for exactly that reason: the grammar
+itself admits the symmetric one — §15.12's namespace-qualified
+positions make `setup.pending` and `retro.pending` distinct — but
+`current_queue` is still read and compared as a bare string, so a
+second `pending` here would still be indistinguishable from `setup`'s
+at runtime. `systems/delivery.md`'s ORC-171 entry records the decision
+to carry the qualified identity through `current_queue` end to end;
+that entry and `milestone.yaml`'s own inline comment are where this
+asymmetry's status is tracked, not this passage.
 
 **Neither `setup` nor `retro` carries `checks`, `merge` or
 `reconcile` any more — a correction to this section's own worked
