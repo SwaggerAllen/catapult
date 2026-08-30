@@ -1095,6 +1095,31 @@ Added with sub-arrays (§15.10, ORC-115):
   resolve to and must declare `throwback:` explicitly** (§15.10, "not
   decided here, left open," below — closed at this same pass).
 
+Added with named positions (§15.12, ORC-155):
+
+- **a `status:` entry's optional `name:` defaults to its `status:`
+  (kind) value when omitted** — a plain string, never atomized
+  (`Catapult.Dsl.Fields`'s no-`to_atom`-on-bundle-content discipline,
+  unchanged);
+- **every name is unique within its own namespace — the top-level
+  array, or a given sub-array — whether authored or defaulted.** A
+  sub-array's own anchor counts as a member of its own namespace for
+  this check; two entries in the same sub-array (or two bare top-level
+  entries, or a bare entry and another sub-array's anchor) resolving to
+  the same name, one or both by default, is a load error naming the
+  declaration, the namespace, and the name found more than once
+  (§15.12);
+- **a bare reference (`blocks:`, `throwback:`, or any other citation
+  into a `statuses:` array) that resolves inside more than one
+  namespace is a load error naming the reference and every namespace it
+  matched** — never resolved to whichever occurrence comes first.
+  Qualifying it `<anchor>.<name>` (§15.12) is what a bundle author
+  writes to disambiguate;
+- **no declared gate's own name collides with any addressable status
+  name, bare or namespace-qualified, in the loaded union** — a load
+  error naming both declarations and, when the status name is
+  namespace-qualified, the namespace it collided from (§15.12).
+
 ## 14. Deliberately absent
 
 Recorded so nobody re-adds them: **phases** (v5 §6 — dropped
@@ -1404,7 +1429,7 @@ simplified view distinguishes — feature: `Todo`(pending) →
 **Product review**(review) → `Todo`(pending) →
 `Architecting`(architecture) → `Checks`(checks) →
 **Architecture review**(review) → `Reconciling`(reconcile) →
-**Architecture review**(review) → `Todo`(pending) →
+**Architecture synthesis review**(review) → `Todo`(pending) →
 `Implementation`(implementation) → `Checks`(checks) →
 `Reconciling`(reconcile) → `Merged`(merge) → `Validating`(validating)
 → `Shipped`(terminal). Child (the ordinary case — a generic child
@@ -1414,12 +1439,18 @@ one-line mapping does not inline, §15.11 below): `Ready for
 dev`(pending) → `In progress`(generation) → `Checks`(checks) →
 `Reconciling`(reconcile) → `Merged`(merge) → `Done`(terminal), with
 `Ready for rework`(pending) / `Reworking`(generation) as the repair
-loop. The two bolded gate names are the platform workflow layer's
-default review declarations, not system statuses — which is what
-makes them replaceable; `Architecture review` appears twice in the
-feature chain above because the same declared gate is cited both
-before and after its `reconcile` (§15.11), not because two gates share
-a name. **`Product design` and `Architecting` name
+loop. The bolded gate names are the platform workflow layer's default
+review declarations, not system statuses — which is what makes them
+replaceable. **`Architecture review` and `Architecture synthesis
+review` are two distinct declared gates, at this ticket's (ORC-155)
+design review** — before it, one declared gate was cited both before
+and after its `reconcile` (§15.11), which read as the same review
+running twice rather than as two different reviews of two different
+things; a gate now needs a name of its own to be addressed at all
+once a bundle can author a status entry's own name the identical way
+(§15.12), and a position told apart only by which side of `reconcile`
+it sits on is exactly the second level of qualification that section
+refuses. **`Product design` and `Architecting` name
 the `design` and `architecture` kinds directly, at ORC-148's design
 review** — before it, both were italicized prose labels standing in
 for two indistinguishable `generation` visits, told apart only by
@@ -1643,32 +1674,48 @@ skeleton: container              # ticket | container | omit for none (§15.1)
 statuses:                        # the skeleton's own required backbone,
                                   #   plus whatever else is declared,
                                   #   in array order (§15.3)
-  - status: pending
-  - status: setup                # the container's own agent step,
+  - - status: pending            # setup's own leading entry (ORC-155) —
+                                  #   not a grammar requirement, since
+                                  #   setup is not generation-shaped
+                                  #   (§13), but the identical
+                                  #   dispatch-wait convention, authored
+                                  #   for the identical reason
+    - status: setup               # the container's own agent step,
                                   #   inline (ORC-148) — dispatches by
                                   #   chain-side tier, not by flow:
-  - status: checks
-  - status: reconcile            # reads setup's own PR before it
-                                  #   merges — required wherever merge
-                                  #   is, container skeleton included
-                                  #   (§15.1, §15.11)
-  - status: merge
-  - status: deploy
+    - review: kickoff-review      # a human reads the milestone's own
+                                  #   plan before prep/main ever open
+                                  #   (ORC-155) — named for what it
+                                  #   reviews, never for the anchor it
+                                  #   sits beside (§11)
   - status: prep
     flow: feature
   - status: main
     flow: feature
     blocks: [retro]
-  - review: ux-review             # a declared gate (§15.4), positioned here
-  - status: retro                 # the container's other agent step,
+  - - review: milestone-signoff   # a declared gate (§15.4), positioned
+                                  #   here. No leading pending of its own
+                                  #   the way setup's group above takes
+                                  #   one (ORC-155) — see below
+    - status: retro                 # the container's other agent step,
                                   #   inline the identical way
-  - status: checks
-  - status: reconcile            # retro's own read, the identical
-                                  #   requirement
-  - status: merge
-  - status: deploy
+    - review: proposals-read
   - status: cleanup
-    flow: tech-debt
+    flow: feature
+  - environment: prod             # a citation, not a declaration — a
+                                  #   citing entry carries the name
+                                  #   alone (§15.4); `promote_from:`
+                                  #   lives on environments/prod.yaml's
+                                  #   own declaration (bundle content,
+                                  #   dev's). A new declared environment
+                                  #   (§15.4, ORC-155): every feature
+                                  #   already deploys itself to staging
+                                  #   on its own account (below); this
+                                  #   is the milestone's own promotion
+                                  #   of the whole, once retro's
+                                  #   findings are adjudicated and
+                                  #   cleanup is done
+  - status: deploy
   - status: terminal
 ```
 
@@ -1676,18 +1723,77 @@ statuses:                        # the skeleton's own required backbone,
 `types/setup.yaml` and `types/retro.yaml` into this declaration
 (§15.10 works the full shape, grouped with the gates around `retro`
 in the real bundle). `pending` is not part of `container`'s own fixed
-backbone (§15.1) and is not exactly-once the way it is for `ticket` —
-it is ordinary interleaved vocabulary here, licensing the `deploy`
-(and, transitively, the `checks`/`reconcile`/`merge` between) each of
-the two agent steps needs (§15.1's "a `pending` precedes every
-`generation` and every `deploy`" reads as "somewhere earlier in this
-array," not "immediately before" — `feature.yaml`'s own single
-`pending` below already licenses two separate `deploy`-bound runs the
-identical way). **Each `reconcile` above is what closes the gap this
-worked example carried before this ticket's design review**: `setup`
-and `retro` each merged through a bare `checks → merge → deploy`, read
-by nothing first, which is exactly the shape the positional rule below
-(§15.1, §15.11) no longer allows — `container`-skeleton or not.
+backbone (§15.1) and is not exactly-once the way it is for `ticket`;
+**`setup` above leads its own sub-array with a `pending` of its own —
+an authored choice, not a grammar requirement** (ORC-155): neither
+`setup` nor `retro` is generation-shaped (§13's tightened
+pending-precedes bullet reaches only `generation`, `design`,
+`architecture` and `implementation`), so nothing here forces it, but
+the identical dispatch-wait convention every generation-shaped
+sub-array already carries is worth giving an agent step too, now that
+it is a named, addressable entry in its own right (§15.12) rather than
+a bare, unnamed kind occurrence.
+
+**`retro`'s own group takes no leading `pending` the identical way —
+this is the one place the two groups are asymmetric, and deliberately
+so** (ORC-155's own dev pass): a second `pending` would share its bare
+name with setup's, and while §15.12's own load-time check would demand
+nothing here — the two would resolve to two distinct namespaced
+positions, `setup.pending` and `retro.pending`, and no `blocks:` or
+`throwback:` in this declaration ever cites either bare — the
+*runtime* position a live container instance rests at is not one of
+those checks' business. `Catapult.Delivery.ContainerLifecycle.Sequence`
+addresses a position by its bare `status:`/`review:` value alone, with
+no namespace concept at all (§15.12 reaches the loader's own
+cross-reference resolution, never this module — deliberately: giving
+container position-tracking the identical namespace awareness is
+ORC-116-adjacent future work, not this ticket's). A container that
+completed `main` and physically reached `retro`'s own `pending` would
+have its `current_queue` recorded as the bare string `"pending"`,
+indistinguishable from `setup`'s — `Sequence.next_step/3`'s own
+`Enum.find_index/2` resolves to whichever occurrence comes first, and
+silently walks the container backward to `setup`'s own successor
+instead of forward to `milestone-signoff`. Reproduced against this
+exact shape before this sentence was written. `retro`'s group is left
+in its pre-ORC-155 shape instead: `[milestone-signoff, retro,
+proposals-read]`, with `retro` still deriving fine as the group's own
+anchor for `proposals-read`'s throwback default.
+
+**Neither `setup` nor `retro` carries `checks`, `merge` or
+`reconcile` any more — a correction to this section's own worked
+example, not a further widening of what the grammar allows.** A
+design review once added `checks → reconcile → merge → deploy` to each
+agent step here to close a real gap: both used to merge through a bare
+`checks → merge → deploy`, read by nothing first, which the
+merge-preceded-by-reconcile rule (§15.1, §15.11) no longer permits.
+That gap does not reopen — the rule is unchanged, and reaches this
+declaration the moment it holds a `merge` — but the premise under it
+has: **neither `setup` nor `retro` produces code any more.** `setup`
+pushes the milestone's own kickoff work to `prep`; `retro`'s findings
+push to `cleanup`, and the docs-pruning pass `retro` used to run and
+merge directly is now an ordinary `cleanup` ticket instead. With
+nothing either agent step itself produces left to check or join, the
+sequence that used to close the unread-merge gap has nothing left to
+close, and this declaration's own array holds no `merge` at all —
+**feature flows (`prep`, `main`) are the only things that merge**, each
+through its own `feature.yaml` instance, never through `milestone`'s.
+`setup` gains a review gate of its own in the sequence's place —
+`kickoff-review`, named for what it reviews rather than for the
+anchor it sits beside (§11) — the same kind of human checkpoint
+`milestone-signoff` already gives the other side of the container's
+own working period, before `retro`.
+
+**`deploy` moves to after `cleanup`, gaining the `environment:` entry
+§15.5 requires and this file never carried.** With `setup` and `retro`
+no longer promoting anything of their own, the milestone's single
+`deploy` promotes the milestone as a whole — to `prod`, a new
+declared environment (§15.4, its own `promote_from: staging` on
+`environments/prod.yaml`'s declaration, not on the citation above) —
+once
+every feature nested under `prep`/`main` has already deployed itself
+individually to `staging` through its own `feature.yaml` (above) and
+`retro`'s own findings are adjudicated and closed out through
+`cleanup`.
 
 ```yaml
 # types/feature.yaml — revised at this ticket's fourth design review;
@@ -1734,9 +1840,13 @@ statuses:
                                        #   architecture docs, bottom-up
                                        #   already complete by the time
                                        #   this entry runs (§15.11)
-    - review: architecture-review     # after reconcile: the joined
-                                       #   set — the same declared
-                                       #   gate cited twice (§15.4)
+    - review: architecture-synthesis-review  # after reconcile: the
+                                       #   joined set — a separate
+                                       #   declared gate (§15.4), not
+                                       #   the same one cited twice
+                                       #   (ORC-155, §15.12): the two
+                                       #   review different things and
+                                       #   now say so by name
 
   - - status: pending
     - status: implementation    # this instance's own code — no gate:
@@ -1757,8 +1867,10 @@ statuses:
                                   #   parent enters reconcile instead,
                                   #   never by reaching this entry
                                   #   itself (§15.11)
-  - environment: staging
-    promote_from: dev
+  - environment: staging          # a citation, not a declaration — the
+                                   #   name alone; `promote_from: dev`
+                                   #   lives on environments/staging.yaml's
+                                   #   own declaration (§15.4), not here
   - status: deploy
   - status: terminal
 ```
@@ -1808,7 +1920,12 @@ as a choice of file:
   different `skeleton:` values rather than one — it is the only thing
   left that they are. **`reconcile`'s own requirement is not one of
   those things**: it reaches the `container` column too, the moment
-  that array holds a `merge` (§15.11's `milestone.yaml` above).
+  that array holds a `merge` — a conditional, not a standing fact
+  about every `container`-skeleton array, and the shipped `milestone`
+  declaration above no longer exercises it, having dropped `merge`
+  entirely once `setup` and `retro` stopped producing anything to merge
+  (§15.2's own worked example, ORC-155). `feature.yaml`'s own `merge`,
+  above, is the record's live example of the rule this bullet states.
 - **can source a nesting edge** — any type whose array holds at least
   one population anchor (a `status:` entry carrying `flow:`, §15.7)
   can point at another container; a type with none is always a leaf in
@@ -1964,24 +2081,45 @@ positions, by more than one type.
 
 **The same declaration may also be cited more than once by the one
 type — settled at this ticket's fourth design review, the gate-and-
-environment analogue of §15.5's own `critique` precedent.** `critique`
-is a system status rather than a named declaration, so its own
-"citing it more than once… is the ordinary way to give two generation
-phases different depths" reads directly; a gate or an environment is a
-named, reusable declaration instead, and nothing before this pass said
-a *type's own array* — as opposed to the loaded union — could name one
-twice. It can, for the identical reason: `dsl-syntax.md` §15.11's own
-`architecture-review` cites one declared gate at two positions in the
-same type's array, once scoped to a tier's own artifact and once to
-what a `reconcile` has since joined (§15.11's own gate-scope
-derivation), each citation free to carry its own `depth:` — depth and
-scope are independent facts about a citation's *position*, not about
-the declaration, so two citations of the same gate are two positions
-computing two different answers from the identical declared `role:`,
-`escalation:` and (absent an override) derived `throwback:`. This is
-not a second declaration any more than `critique`'s second citation is:
-`gates/architecture-review.yaml` still exists exactly once, and citing
-it twice never means an author must write `role:`/`escalation:` twice.
+environment analogue of §15.5's own `critique` precedent, and narrowed
+at ORC-155's design review once positions gained names of their own
+(§15.12).** `critique` is a system status rather than a named
+declaration, so its own "citing it more than once… is the ordinary way
+to give two generation phases different depths" reads directly; a gate
+or an environment is a named, reusable declaration instead, and
+nothing before the fourth pass said a *type's own array* — as opposed
+to the loaded union — could name one twice. It can, for the identical
+reason: two citations of the same gate are two positions computing two
+different answers from the identical declared `role:`, `escalation:`
+and (absent an override) derived `throwback:`, each free to carry its
+own `depth:` — depth and scope are independent facts about a
+citation's *position*, not about the declaration. This is not a second
+declaration any more than `critique`'s second citation is: the
+declared gate file still exists exactly once, and citing it twice
+never means an author must write `role:`/`escalation:` twice.
+
+**The two citations still need to be told apart, though, and §15.12's
+namespacing is what does it — one level, derived from whichever
+sub-array a citation sits in, never from which side of a `reconcile`
+it happens to fall on.** Two citations landing in two different
+namespaces (one inside a sub-array, one at the top level; or one in
+each of two different sub-arrays) resolve to two distinct
+namespace-qualified positions and need nothing further. Two citations
+landing in the *same* namespace do not, and this is a load error
+(§15.12's own uniqueness-within-a-namespace check) rather than a
+tie-break the loader invents: §15.11's own worked example used to cite
+one gate, `architecture-review`, twice inside the identical sub-array
+— once before its `reconcile`, once after — which this record cited
+as the exercised case for the rule above. ORC-155 renames the second
+citation to a gate of its own, `architecture-synthesis-review`,
+instead: the two already reviewed different things (a tier's own
+artifact, versus what a `reconcile` has since joined), and a citation
+told apart from its sibling only by which side of a `reconcile` it
+sits on is exactly the second level of qualification §15.12 refuses.
+No worked example in this record now cites one gate twice within a
+single type; the general capability stated above is unaffected and
+remains legal wherever the two citations land in distinguishable
+namespaces.
 
 Approval is the transition itself (v5 §7.16) — there is no approval
 object, and no `approvers:` list. Who approved is answerable from the
@@ -2554,6 +2692,17 @@ and `retro` stop being queues at all (§15.7), there is no cardinality
 left for a field to bound — not a fact moved elsewhere, a fact that
 stopped existing.
 
+**Nor does ORC-155's `name:` field (§15.12).** A status entry's
+authored name is read by nothing plane-side — every predicate and
+every branch this document names still reads the entry's `status:`
+(kind), never its `name:` — so it is not a state in the admission
+rule's sense at all, only a label a human or a screen reads. Namespacing
+positions by their sub-array anchor and refusing an ambiguous bare
+reference are both checks the loader runs over a bundle's own array,
+the identical "no plane logic branches on it" territory §15.10's own
+sub-array grouping already occupies (above) — nothing here reaches
+further than a fact about which string names which entry.
+
 ### 15.10 Sub-arrays — grouping a gate around its own agent step
 
 **A `statuses:` array entry may itself be an array — a bare, unnamed
@@ -2880,14 +3029,16 @@ are corrected to match.
   innermost), but that is an argument for revisiting, not a decision
   made now.
 - **A throwback from a gate sitting after a sub-array, targeting into
-  it.** Settled at this ticket's fourth design review, for the one case
-  the grammar actually exercises: a `review:` entry sitting outside
-  every sub-array — §15.11's own `architecture-review`, cited a second
-  time after `reconcile`, is exactly this shape — has no derived
-  default at all and must declare its own `throwback:` (§15.4). The
-  derivation above only ever had a sub-array's own contents to compute
-  a default *from*; a gate outside one has no group to derive against,
-  so there is nothing here for a future pass to compute a default out
+  it.** Settled at this ticket's fourth design review: a `review:`
+  entry sitting outside every sub-array has no derived default at all
+  and must declare its own `throwback:` (§15.4) — no worked example in
+  this record currently takes this shape (both of §15.11's own
+  architecture-phase gates sit inside their sub-array, ORC-155, §15.12),
+  so this closes the question ahead of a bundle actually needing it.
+  The derivation above only ever had a sub-array's own contents to
+  compute a default *from*; a gate outside one has no group to derive
+  against, so there is nothing here for a future pass to compute a
+  default out
   of later — this is a closure, not a placeholder. The general "earlier
   in the effective sequence" legality test still covers what such a
   gate *may* target, regardless of whether it declares a default; what
@@ -2977,14 +3128,20 @@ rewritten to avoid a skeleton-keyed version of. This is *stronger*
 than "every ticket-skeleton array holds one," the way this ticket's
 first pass stated it: it reaches `container`-skeleton arrays too, and
 closes a gap that framing left open — §15.2's `milestone.yaml` worked
-example previously ran `setup` and `retro` each through their own bare
-`checks → merge → deploy`, merging twice with nothing read first.
-Both now carry their own `reconcile`, the identical requirement a
-ticket-skeleton array has always had, no longer only because it is a
-ticket. A workflow bundle can decline `critique` by writing no entry
+example once ran `setup` and `retro` each through their own bare
+`checks → merge → deploy`, merging twice with nothing read first,
+before this same section gave each its own `reconcile` instead. **The
+rule is unchanged and still reaches `container`-skeleton arrays; only
+`milestone.yaml`'s own worked example still needing to exercise it does
+not** (ORC-155): neither `setup` nor `retro` produces code any longer,
+so neither merges, and §15.2's current declaration holds no `merge` at
+all — the requirement above is satisfied vacuously there, not
+dropped. A workflow bundle can decline `critique` by writing no entry
 for it; it cannot decline `reconcile` the same way wherever `merge`
 appears, because nothing merges, of any skeleton, without having been
-read against its own argument first (v5 §7.5).
+read against its own argument first (v5 §7.5) — `feature.yaml` (§15.2)
+remains this record's own live example of a `merge` and the `reconcile`
+it requires.
 
 **Where `reconcile` sits, not a sub-array.** §15.10's sub-array groups
 a gate around its own generation-shaped agent step — `types/feature
@@ -3012,9 +3169,10 @@ own effective sequence approves what that tier alone produced. One
 sitting after a `reconcile` approves what that particular `reconcile`
 has already read and accepted — every child artifact joined into it up
 to that point — which a later `reconcile` in the same array supersedes
-again: the worked example below has `architecture-review` scoped to
-the architecture-phase join alone, because a second `reconcile`
-(implementation's) still lies ahead of it. This is a fact this grammar
+again: the worked example below has `architecture-synthesis-review`
+scoped to the architecture-phase join alone, never superseded by
+implementation's own later `reconcile` because nothing after it cites
+that gate again. This is a fact this grammar
 has not had a way to state before now — `docs/v5-design-decisions.md`
 §7.16's own open item, "what a passed gate pins," had an answer for a
 gate inside a §15.10 sub-array (the sub-array's one generation-shaped
@@ -3048,8 +3206,8 @@ phase, ordered relative to that phase rather than pinned once between
 carries: `types/feature.yaml` (§15.2) and this section's own worked
 example below. Architecture's own fan-out produces a doc at every
 connected chain tier (sysarch, comparch, subcomparch); those need
-joining bottom-up before `architecture-review` reads a single composed
-document, which is the first `reconcile`. Implementation is a separate
+joining bottom-up before `architecture-synthesis-review` reads a
+single composed document, which is the first `reconcile`. Implementation is a separate
 phase closing separately: no instance merges until both its own docs
 and its own code are complete, so a second `reconcile` closes the
 implementation phase the identical way. `merge` itself does not recur
@@ -3088,7 +3246,8 @@ no-op below the root the way a gate or `critique` already can (§13's
 own depth-bearing-site list is unchanged by this ticket). `feature` and
 this section's own type are therefore two separate declarations,
 sharing no array: `feature` (§15.2) has exactly one instance, ever,
-so its own two `architecture-review` citations need no `depth:` at all
+so its own two architecture-phase gates — `architecture-review` and
+`architecture-synthesis-review` — need no `depth:` at all
 (trivially depth 0, the only level `feature` has); this section's own
 type — instantiated at component and subcomponent tickets alike, since
 a subcomponent is nothing more than a component instance with no
@@ -3166,9 +3325,11 @@ statuses:
                                         #   join); a component's own
                                         #   selects its subcomponents'
                                         #   merge (below)
-    - review: architecture-review      # after reconcile: the joined
-                                        #   set — the same declared
-                                        #   gate cited twice (§15.4).
+    - review: architecture-synthesis-review  # after reconcile: the
+                                        #   joined set — a separate
+                                        #   declared gate (§15.4), not
+                                        #   the same one cited twice
+                                        #   (ORC-155, §15.12).
                                         #   depth 0 (the default):
                                         #   reaches a component's own
                                         #   instance only — a
@@ -3208,7 +3369,7 @@ A subcomponent instance's own effective sequence runs `pending →
 architecture → checks → critique → architecture-review → pending →
 implementation → checks → critique → terminal`-shaped, minus what
 depth and tree shape between them exclude: no `reconcile` at either
-occurrence (a leaf, nothing to join), no second `architecture-review`
+occurrence (a leaf, nothing to join), no `architecture-synthesis-review`
 citation (depth 0 stops short of a depth-1 instance, the identical
 ceiling mechanism excluding any entry too deep for it), and — below —
 no `merge`. **What `deploy` and `terminal` mean for an instance that is
@@ -3337,3 +3498,132 @@ implementation the same way its first joined their merged docs. No second array
 shape, no second declaration, no field distinguishing "architecture's
 own join" from "implementation's own join" beyond which sub-array a
 given instance's `reconcile` occurrence closes.
+
+### 15.12 A status entry's own name, and positions namespaced by it
+
+**A `status:` entry carries a bundle-authored `name:`, distinct from
+its kind, defaulting to the kind when omitted** (ORC-155). §15.1's
+kind table is unchanged and unchallenged by this — the closed,
+undeclarable platform vocabulary every load-time predicate and every
+plane branch reads stays exactly what it was, and nothing here grows
+it or lets a bundle invent a member. What a bundle now authors is a
+second, independent fact: what to *call* a given occurrence of a kind.
+Before this section, telling two occurrences of the same kind apart
+meant growing the kind table itself — `design`, `architecture` and
+`implementation` are three names for what would otherwise be three
+indistinguishable `generation` visits (§15.1, ORC-148/this ticket's
+fourth pass) — which works only as long as a chain lifecycle's own
+visits are few and fixed enough to deserve a platform-wide name each.
+A bundle wanting two `critique` entries in one array, three `pending`
+entries, or two `checks` entries has no such platform-wide need and
+gets none: `name:` tells them apart without asking `docs/non-goals.md`'s
+admission rule ("a state may be declared iff no plane logic branches on
+it") to admit a fourth or fifth generation-shaped kind that no chain
+lifecycle actually wants — nothing branches on a `name:`, so nothing
+here is a state being declared in that rule's sense, only a label.
+
+```yaml
+- status: critique
+  name: second-look        # optional; defaults to "critique"
+```
+
+**A position's identity is `<anchor>.<name>` inside a sub-array, bare
+at the top level — derived, never declared.** §15.10 already fixes
+exactly one non-review-shaped agent-balled entry per sub-array; that
+entry's own name (bundle-authored, or its kind by default) *is* the
+sub-array's namespace, the identical way a sub-array is already
+referenced through the entry it contains rather than through a name
+of its own (§15.10). Every other entry sharing that sub-array — its
+leading `pending`, an intervening `checks`, a `critique` or
+`reconcile`, a `review:` citation — is addressed as
+`<anchor-name>.<its-own-name>`; an entry outside every sub-array is
+addressed by its own bare name, the top-level array being its own
+namespace. **One level only, and nothing qualifies an anchor by
+anything it sits after or before** — a `reconcile` included: §15.11's
+own gate-scope derivation is a fact about array order, read to decide
+what a gate approves, never a second namespace level a position's
+*identity* also carries. Two entries told apart only by which side of
+a `reconcile` they fall on are not automatically namespace-distinct by
+that fact alone; §15.4 above states what follows when that is the only
+thing telling them apart.
+
+**Names are unique within their own namespace — the top-level array,
+and each sub-array — a load-time check.** No two entries sharing one
+sub-array may resolve to the same name, the sub-array's own anchor
+included (it is as much a member of its own namespace as anything else
+inside it), and no two top-level entries — bare ones, or the anchors of
+other sub-arrays — may share a name either. A default that would
+collide (two undeclared `checks` entries in one sub-array, say, both
+defaulting to the name `checks`) is exactly as much a load error as a
+declared collision naming the same string twice on purpose; the fix is
+identical either way — an explicit `name:` on at least one of them.
+
+**A reference stays bare when it is unambiguous and must qualify when
+it is not — ambiguity is a load error, never a silent pick.** `blocks:`,
+`throwback:`, and any other reference into a `statuses:` array resolve
+against the full set of namespaced positions the citing type's own
+array declares. A bare name resolving inside exactly one namespace
+resolves there; a bare name recurring across more than one namespace —
+three sub-arrays each with their own `pending`, the shape this
+ticket's own argument opens with — has no single answer and is refused
+at load rather than silently resolved to whichever occurrence happens
+to come first, the identical posture every other cross-reference in
+this grammar already takes (§13: validate the reference, never guess
+the shape). `<anchor>.<name>` is what a bundle author writes instead.
+
+**A declared gate's own name stays disjoint from every addressable
+status name in the loaded union — a new load-time check.**
+`Catapult.Delivery.FeatureLifecycle.Sequence.resolve_position/2` has
+always decided whether a bare string names a gate or a status kind by
+membership in the workflow's own declared gate set alone, and its own
+documentation states this is safe because "a gate name is never also a
+declared status kind" — true only because a gate's bundle-chosen name
+and a status's platform-fixed kind were drawn from vocabularies that
+could not collide by construction: a bundle could cite the kind
+`pending`, never declare it. A bundle-authored status `name:` breaks
+that guarantee — nothing stops an author writing `name: ux-review` on
+a `status:` entry inside a bundle that also declares a gate named
+`ux-review`. The loader now checks, across the whole loaded union,
+that no declared gate name collides with any addressable status name,
+bare or namespace-qualified, refusing the bundle at load rather than
+letting a runtime resolution silently pick one meaning. Without this
+check a collision resolves to `{:gate, name}` unconditionally and an
+unrecognized name raises inside `String.to_existing_atom` — both on
+the throwback path, both invisible until a decline actually fires,
+which is the failure mode this check moves to load time instead.
+
+**Every load-time predicate, and every plane branch, still reads the
+kind — never the name.** Nothing above changes what
+`SystemStatus.agent_balled?/1`, `.generation_shaped?/1`,
+`.review_shaped?/1`, `Status.non_review_shaped_agent_step?/1`, or
+`Catapult.Dsl.Workflow`'s own `{:status, name} ->
+SystemStatus.generation_shaped?(name)` branch on: the kind is the only
+thing any of them has ever needed, and the authored name is purely a
+label a human or a screen reads. This reaches a site that does not
+look like predicate work: whether a `status:` entry admits `depth:` is
+a fact about its *kind* (today, whether it is `critique`) and must
+stay one — a `critique` entry given an authored `name:` is still a
+`critique` for every purpose this grammar or the plane cares about,
+`depth:` included, and a check keyed to the authored name instead
+would silently stop admitting `depth:` the moment a bundle renamed the
+entry that carries it.
+
+**The projection keeps `status_kind` and gains a name beside it.**
+`Catapult.Delivery.Store.tickets_for_project/1`'s `status_kind`/
+`status_gate` columns are unaffected in shape and meaning — a gate's
+own name was always its whole identity, and a status's kind is still
+what every downstream branch reads. What is added is the authored
+`name:` a status entry carries, read for display and for reference
+resolution alone; `String.to_existing_atom` keeps operating on the
+kind at every site it already does, and the name is a string that is
+never atomized — the identical discipline `Catapult.Dsl.Fields`
+already holds every other piece of bundle content to.
+
+**Namespacing does not compose with depth.** A subcomponent's own
+effective sequence (§15.11) reaches the identical declared type its
+parent component does, at a deeper tree level — depth is a fact about
+how far a declaration fans out, orthogonal to which sub-array a given
+entry sits in within one instance's own array. `<anchor>.<name>` is the
+whole of a position's identity within one instance's own effective
+sequence, whatever depth that instance runs at; nothing here adds a
+depth-keyed axis to it.

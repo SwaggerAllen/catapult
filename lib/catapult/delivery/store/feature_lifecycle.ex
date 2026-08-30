@@ -16,6 +16,13 @@ defmodule Catapult.Delivery.Store.FeatureLifecycle do
   `blocked_origin_kind`/`blocked_origin_gate` carry the same shape for
   the position the ticket was standing at when it was last kicked to
   `:blocked`, read here rather than stamped onto a comment.
+
+  **`status_name` sits beside `status_kind`, unaffected in shape or
+  meaning** (dsl-syntax.md §15.12, ORC-155): a status entry's own
+  bundle-authored `name:`, defaulting to its kind, read for display
+  alone — nothing branches on it, and `status_kind` is still what every
+  downstream branch reads. A gate's own name was always its whole
+  identity, so `status_gate` needs no name column of its own beside it.
   """
 
   use Ecto.Schema
@@ -28,6 +35,7 @@ defmodule Catapult.Delivery.Store.FeatureLifecycle do
     field :entry_node_id, :string
     field :status_kind, :string
     field :status_gate, :string
+    field :status_name, :string
     field :blocked_origin_kind, :string
     field :blocked_origin_gate, :string
     field :updated_sequence, :integer

@@ -46,6 +46,19 @@ defmodule Catapult.Dsl.Workflow do
   add-on (Phase 4+, v5 §7.17) — so both are **opt-in**: passed via
   `role_holders`/`mirror_mapping` in `opts`, skipped (not failed) when
   absent.
+
+  **A position's identity is `<anchor>.<name>` inside a sub-array, bare
+  at the top level (§15.12, ORC-155).** `namespaced_positions/1` builds
+  every entry's bare name and its namespace-qualified form once per
+  type; `resolve_reference/2` is what `gate_throwback_problems/2` and
+  `blocks_problems/1` both call to resolve a declared `throwback:`/
+  `blocks:` string against that set — bare when the bare name is
+  unique in the type, refused as ambiguous when it recurs across more
+  than one namespace, and this is the one place that decision is made.
+  `earlier_names/2` (§15.10's own backward-movement predicate) folds
+  the identical ambiguity rule into the strings it returns, so a
+  recurring bare name never silently prefers whichever occurrence
+  comes first there either.
   """
 
   alias Catapult.Dsl.Environment
@@ -125,6 +138,8 @@ defmodule Catapult.Dsl.Workflow do
         merge_reconcile_problems(type_map) ++
         pending_precedes_generation_problems(type_map) ++
         critique_adjacency_problems(type_map) ++
+        name_uniqueness_problems(type_map) ++
+        gate_status_disjointness_problems(type_map, gate_map) ++
         flow_reference_problems(type_map) ++
         review_reference_problems(type_map, gate_map) ++
         environment_reference_problems(type_map, env_map) ++
@@ -192,18 +207,145 @@ defmodule Catapult.Dsl.Workflow do
         gate = Map.get(gates, status.review),
         not is_nil(gate),
         not is_nil(gate.throwback),
-        gate.throwback not in earlier_names(type, index) do
-      "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
-        "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
-        "which is not earlier in this type's own statuses: array (§13, §15.4, §15.8)"
+        problem = gate_throwback_problem(type_name, type, index, status, gate) do
+      problem
+    end
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # A declared `throwback:` is resolved the identical way a `blocks:`
+  # reference is (§15.12): a bare recurring across more than one
+  # namespace is its own, specific load error, distinct from "does not
+  # resolve at all" — both collapse to "not earlier" once resolved,
+  # since a resolved-but-later position is exactly as illegal as one
+  # that never resolved.
+  defp gate_throwback_problem(type_name, type, index, status, gate) do
+    case resolve_reference(type, gate.throwback) do
+      {:ambiguous, namespaces} ->
+        "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
+          "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
+          "which resolves inside more than one namespace #{inspect(namespaces)} — qualify it " <>
+          "<anchor>.<name> (§13, §15.12)"
+
+      {:ok, %{index: target_index}} when target_index < index ->
+        nil
+
+      _not_earlier_or_not_found ->
+        "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
+          "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
+          "which is not earlier in this type's own statuses: array (§13, §15.4, §15.8)"
     end
   end
 
   ## The one predicate (§15.10). Everything backward-moving — the load
   ## check above, the runtime pick below — reads legality off this.
+  ## `canonical` (§15.12) is `earlier_names/2`'s bare name unless that
+  ## bare name recurs elsewhere in the same type, in which case only
+  ## the qualified form is offered — the identical "stays bare when
+  ## unambiguous" rule `resolve_reference/2` enforces on the way in,
+  ## applied here on the way out so a decline's own legal-target list
+  ## never offers a string that would refuse to resolve if written back.
 
-  defp earlier_names(%Type{statuses: statuses}, index) do
-    statuses |> Enum.take(index) |> Enum.map(&Status.name/1)
+  defp earlier_names(%Type{} = type, index) do
+    type
+    |> namespaced_positions()
+    |> Enum.filter(&(&1.index < index))
+    |> Enum.map(& &1.canonical)
+  end
+
+  ## §15.12: every entry's own bare name and its namespace-qualified
+  ## form, across one type's own effective sequence. A sub-array's own
+  ## anchor (§15.10's exactly-one non-review-shaped agent-balled entry)
+  ## is a top-level position — a sub-array is referenced through the
+  ## entry it contains, never through a name of its own — and every
+  ## other member of that sub-array is `<anchor-name>.<its-own-name>`.
+  ## `canonical` collapses to the bare name unless it collides with
+  ## some other entry's bare name anywhere else in the type, per
+  ## `resolve_reference/2`'s own "bare when unambiguous" rule.
+
+  defp namespaced_positions(%Type{statuses: statuses} = type) do
+    raw =
+      statuses
+      |> Enum.with_index()
+      |> Enum.map(fn {entry, index} -> raw_position(type, entry, index) end)
+
+    ambiguous_bares =
+      raw
+      |> Enum.frequencies_by(& &1.bare)
+      |> Enum.filter(fn {_bare, count} -> count > 1 end)
+      |> Enum.map(fn {bare, _count} -> bare end)
+      |> MapSet.new()
+
+    Enum.map(raw, fn position ->
+      canonical =
+        if MapSet.member?(ambiguous_bares, position.bare) do
+          position.qualified
+        else
+          position.bare
+        end
+
+      Map.put(position, :canonical, canonical)
+    end)
+  end
+
+  defp raw_position(type, entry, index) do
+    bare = Status.name(entry)
+
+    case Type.group_at(type, index) do
+      nil ->
+        top_level_position(index, entry, bare)
+
+      range ->
+        anchor_index = Enum.find(range, &non_review_shaped_agent_step_at?(type, &1))
+
+        if index == anchor_index do
+          top_level_position(index, entry, bare)
+        else
+          anchor_name = Status.name(Enum.at(type.statuses, anchor_index))
+
+          %{
+            index: index,
+            entry: entry,
+            bare: bare,
+            namespace: anchor_name,
+            qualified: "#{anchor_name}.#{bare}"
+          }
+        end
+    end
+  end
+
+  defp non_review_shaped_agent_step_at?(%Type{statuses: statuses}, index) do
+    Status.non_review_shaped_agent_step?(Enum.at(statuses, index))
+  end
+
+  defp top_level_position(index, entry, bare) do
+    %{index: index, entry: entry, bare: bare, namespace: :top_level, qualified: bare}
+  end
+
+  # Resolves a `blocks:`/`throwback:` reference (or any other citation
+  # into a `statuses:` array) against `type`'s own namespaced positions
+  # (§15.12): `{:ok, position}` for an unambiguous match — bare or
+  # `<anchor>.<name>` — `{:ambiguous, namespaces}` when a bare
+  # reference matches more than one namespace, `:error` when it
+  # matches nothing at all. One level of qualification only: `ref` is
+  # split on its first `.`, never re-split further.
+  defp resolve_reference(%Type{} = type, ref) do
+    positions = namespaced_positions(type)
+
+    case String.split(ref, ".", parts: 2) do
+      [_anchor, _local] ->
+        case Enum.find(positions, &(&1.qualified == ref)) do
+          nil -> :error
+          position -> {:ok, position}
+        end
+
+      [_bare] ->
+        case Enum.filter(positions, &(&1.bare == ref)) do
+          [] -> :error
+          [position] -> {:ok, position}
+          many -> {:ambiguous, Enum.map(many, & &1.namespace)}
+        end
+    end
   end
 
   # Where in `type_name`'s array `gate_name` is cited, as `{type,
@@ -733,6 +875,103 @@ defmodule Catapult.Dsl.Workflow do
   defp entry_label(%Status{review: r}) when not is_nil(r), do: {:review, r}
   defp entry_label(%Status{environment: e}) when not is_nil(e), do: {:environment, e}
 
+  ## Name uniqueness within a namespace (§13, §15.12, ORC-155): the
+  ## top-level array is one namespace, and each sub-array is its own —
+  ## the sub-array's own anchor counts as a member of its own
+  ## namespace, exactly as much as anything else inside it. A default
+  ## that would collide (two undeclared `checks` entries in one
+  ## sub-array, both defaulting to the name `checks`) is exactly as
+  ## much a load error as a declared collision naming the same string
+  ## twice on purpose.
+
+  defp name_uniqueness_problems(types) do
+    for {type_name, type} <- types do
+      top_level_name_problems(type_name, type) ++ group_name_problems(type_name, type)
+    end
+    |> List.flatten()
+  end
+
+  defp top_level_name_problems(type_name, type) do
+    type
+    |> namespaced_positions()
+    |> Enum.filter(&(&1.namespace == :top_level))
+    |> duplicate_bare_name_problems(fn bare ->
+      "type #{inspect(type_name)}'s top-level statuses: array names #{inspect(bare)} more " <>
+        "than once (§13, §15.12 requires unique names within a namespace)"
+    end)
+  end
+
+  defp group_name_problems(type_name, type) do
+    for range <- type.groups do
+      range
+      |> Enum.map(&{&1, Status.name(Enum.at(type.statuses, &1))})
+      |> duplicate_bare_name_pairs()
+      |> Enum.map(fn bare ->
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, range.first)} sub-array names " <>
+          "#{inspect(bare)} more than once (§13, §15.10, §15.12 requires unique names within a " <>
+          "namespace)"
+      end)
+    end
+    |> List.flatten()
+  end
+
+  defp duplicate_bare_name_problems(positions, message) do
+    positions
+    |> Enum.map(& &1.bare)
+    |> duplicate_bare_names()
+    |> Enum.map(message)
+  end
+
+  defp duplicate_bare_name_pairs(pairs) do
+    pairs |> Enum.map(fn {_index, bare} -> bare end) |> duplicate_bare_names()
+  end
+
+  defp duplicate_bare_names(bares) do
+    bares
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_bare, count} -> count > 1 end)
+    |> Enum.map(fn {bare, _count} -> bare end)
+  end
+
+  ## Gate/status name disjointness (§13, §15.12, ORC-155):
+  ## `Catapult.Delivery.FeatureLifecycle.Sequence.resolve_position/2`
+  ## decides gate-vs-status by membership in the workflow's own
+  ## declared gate set alone, safe only as long as a gate's own name
+  ## never collides with any addressable status name — bare or
+  ## namespace-qualified — in the loaded union. Without this check a
+  ## collision resolves to `{:gate, name}` unconditionally and an
+  ## unrecognized name raises inside `String.to_existing_atom`, both on
+  ## the throwback path and both invisible until a decline fires.
+
+  defp gate_status_disjointness_problems(types, gates) do
+    for {type_name, type} <- types,
+        position <- namespaced_positions(type),
+        not is_nil(position.entry.status),
+        {gate_name, gate} <- gates,
+        gate_name in Enum.uniq([position.bare, position.qualified]) do
+      gate_status_collision_problem(type_name, type, position, gate_name, gate)
+    end
+  end
+
+  defp gate_status_collision_problem(
+         type_name,
+         type,
+         %{bare: bare, qualified: bare} = position,
+         gate_name,
+         gate
+       ) do
+    "gate #{inspect(gate_name)} (#{gate.file}) collides with type #{inspect(type_name)}'s " <>
+      "status name #{inspect(bare)} (#{Type.declared_path(type, position.index)}) — a declared " <>
+      "gate's own name must stay disjoint from every addressable status name (§13, §15.12)"
+  end
+
+  defp gate_status_collision_problem(type_name, type, position, gate_name, gate) do
+    "gate #{inspect(gate_name)} (#{gate.file}) collides with type #{inspect(type_name)}'s " <>
+      "status name #{inspect(position.bare)} in the #{inspect(position.namespace)} namespace " <>
+      "(#{inspect(position.qualified)}, #{Type.declared_path(type, position.index)}) — a " <>
+      "declared gate's own name must stay disjoint from every addressable status name (§13, §15.12)"
+  end
+
   ## `flow:`/`review:`/`environment:` cross-references (§13)
 
   defp flow_reference_problems(types) do
@@ -776,26 +1015,29 @@ defmodule Catapult.Dsl.Workflow do
         status <- type.statuses,
         Status.queue_shaped?(status),
         target <- status.blocks do
-      matches = Enum.filter(type.statuses, &(Status.name(&1) == target))
-
-      cond do
-        target == status.status ->
-          "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names itself (§13, §15.7)"
-
-        matches == [] ->
-          "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
-            "which does not resolve to any entry in this type's own statuses: array (§13, §15.7, §15.10)"
-
-        length(matches) > 1 ->
-          "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
-            "which resolves to #{length(matches)} entries in this type's own statuses: array — " <>
-            "not unique (§13, §15.10)"
-
-        true ->
-          nil
-      end
+      blocks_problem(type_name, type, status, target)
     end
     |> Enum.reject(&is_nil/1)
+  end
+
+  defp blocks_problem(type_name, _type, status, target) when target == status.status do
+    "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names itself (§13, §15.7)"
+  end
+
+  defp blocks_problem(type_name, type, status, target) do
+    case resolve_reference(type, target) do
+      {:ok, _position} ->
+        nil
+
+      {:ambiguous, namespaces} ->
+        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
+          "which resolves inside more than one namespace #{inspect(namespaces)} — qualify it " <>
+          "<anchor>.<name> (§13, §15.7, §15.12)"
+
+      :error ->
+        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
+          "which does not resolve to any entry in this type's own statuses: array (§13, §15.7, §15.10)"
+    end
   end
 
   ## Declaration graph (§13, §15.6): nodes are every type with a

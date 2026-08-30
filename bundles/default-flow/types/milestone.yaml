@@ -6,29 +6,22 @@ skeleton: container                # setup, prep, main, retro, cleanup each
                                     #   membership (dsl-syntax.md §15.1,
                                     #   ORC-148)
 statuses:
-  - status: pending                 # not part of container's own fixed
-                                     #   backbone (§15.1) — ordinary
-                                     #   interleaved vocabulary here,
-                                     #   licensing the deploy (and,
-                                     #   transitively, the checks/merge
-                                     #   between) each of the two agent
-                                     #   steps below needs: "somewhere
-                                     #   earlier in this array," not
-                                     #   immediately before either (§15.2)
-  - status: setup                   # the container's own forward-looking
+  - - status: pending               # setup's own leading entry (ORC-155)
+                                     #   — not a grammar requirement,
+                                     #   since setup is not
+                                     #   generation-shaped (§13), but the
+                                     #   identical dispatch-wait
+                                     #   convention every generation-
+                                     #   shaped sub-array already carries
+    - status: setup                 # the container's own forward-looking
                                      #   agent step, inline (ORC-148) —
-                                     #   dispatches by chain-side tier, not
-                                     #   by flow:; types/setup.yaml is
-                                     #   retired along with the singleton
-                                     #   queue that used to name it
-  - status: checks
-  - status: reconcile               # required wherever merge is (ORC-151,
-                                     #   dsl-syntax.md §15.11) — setup used
-                                     #   to merge through a bare
-                                     #   checks/merge/deploy, read by
-                                     #   nothing first
-  - status: merge
-  - status: deploy
+                                     #   dispatches by chain-side tier,
+                                     #   not by flow:
+    - review: kickoff-review        # a human reads the milestone's own
+                                     #   plan before prep/main ever open
+                                     #   (ORC-155) — named for what it
+                                     #   reviews, never for the anchor it
+                                     #   sits beside (§11)
   - status: prep                    # work the milestone requires before
     flow: feature                   #   beginning (v5 §7.8)
   - status: main
@@ -41,29 +34,48 @@ statuses:
                                      #   sits inside the sub-array below;
                                      #   the reference reaches the whole
                                      #   group through it (§13, §15.10)
-  - - review: milestone-signoff     # the author's first transition: "my
-                                     #   manual pass is finished" (v5
-                                     #   §7.8's irreducibly-human list)
-    - status: retro                 # the container's other agent step,
-                                     #   inline the identical way as
-                                     #   setup, grouped with the sign-off
-                                     #   gates around it (§15.10) —
-                                     #   types/retro.yaml is retired along
-                                     #   with the singleton queue that
-                                     #   used to name it
-    - review: proposals-read        # the author's second transition: "I
-                                     #   have read the proposals." Accepting
-                                     #   or declining what retro filed is
-                                     #   the author's act, never the
-                                     #   plane's (v5 §7.8)
-  - status: checks
-  - status: reconcile               # closes retro's own join the same way
-                                     #   (ORC-151)
-  - status: merge
+  - - review: milestone-signoff      # the author's first transition: "my
+                                      #   manual pass is finished" (v5
+                                      #   §7.8's irreducibly-human list).
+                                      #   No leading pending of its own —
+                                      #   unlike setup's group above, this
+                                      #   one would collide, bare, with
+                                      #   that one (§15.12's own
+                                      #   uniqueness check is a load-time
+                                      #   concern; the collision that
+                                      #   actually rules it out here is a
+                                      #   runtime one, ContainerLifecycle
+                                      #   .Sequence's own bare-name lookup
+                                      #   having no namespace awareness —
+                                      #   see dsl-syntax.md §15.2)
+    - status: retro                  # the container's other agent step,
+                                      #   inline the identical way as
+                                      #   setup, grouped with the sign-off
+                                      #   gates around it (§15.10)
+    - review: proposals-read         # the author's second transition: "I
+                                      #   have read the proposals."
+                                      #   Accepting or declining what
+                                      #   retro filed is the author's act,
+                                      #   never the plane's (v5 §7.8)
+  - status: cleanup                  # work that got missed during the
+    flow: feature                    #   milestone — distinct on purpose
+                                      #   from the next milestone's prep
+                                      #   (v5 §7.8, §4.5). Neither this
+                                      #   nor retro produces code any
+                                      #   longer (ORC-155): feature flows
+                                      #   (prep, main) are the only things
+                                      #   that merge, each through its own
+                                      #   feature.yaml instance
+  - environment: prod                # a citation, not a declaration — the
+                                      #   milestone's own promotion of the
+                                      #   whole, once every feature nested
+                                      #   under prep/main has already
+                                      #   deployed itself individually to
+                                      #   staging and retro's own findings
+                                      #   are adjudicated and cleanup is
+                                      #   done (ORC-155). promote_from:
+                                      #   lives on environments/prod.yaml's
+                                      #   own declaration (§15.4)
   - status: deploy
-  - status: cleanup                 # work that got missed during the
-    flow: feature                   #   milestone — distinct on purpose
-                                     #   from the next milestone's prep
-                                     #   (v5 §7.8, §4.5)
-  - status: terminal                # the fixed end kind, not a further
-                                     #   queue name (§15.6) — so no flow:
+  - status: terminal                 # the fixed end kind, not a further
+                                      #   queue name (§15.6) — so no flow:
