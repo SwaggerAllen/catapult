@@ -272,21 +272,34 @@ generating as scope-runs inside one ticket.
   the queue was never what made something a dispatch target, so this
   system does not need a container-shaped answer distinct from the
   ticket-shaped one it already has. Concretely, once `setup` and
-  `retro` fold inline (below) this system's own Target build must:
-  point ORC-9's executor at the container instance's own branch and PR
-  when the dispatch subject is a container rather than a ticket; give
-  a container instance file-map paths of its own for the mutex mapping
-  to key against, the identical shape a ticket's paths already take;
-  and key `DispatchRun` on the container instance's id in that case
-  rather than assuming a ticket id. It also resolves what `main`'s
-  `blocks: [retro]` (§15.7) means once `retro` is `milestone`'s own
-  inline entry rather than a population of unresolved child tickets:
-  `retro` cannot be *entered* while `main`'s own queue still carries
-  unresolved work — the identical entry-guard test §15.7 states
-  generally (corrected to this reading at the design review below),
-  applied to a guarded entry that is not itself a queue. Filed
-  alongside the rest of this doc's Target list, for whichever pass
-  takes up ORC-104.
+  `retro` fold inline (built at ORC-148, below) this system's own
+  Target build must still: point ORC-9's executor at the container
+  instance's own branch and PR when the dispatch subject is a container
+  rather than a ticket; give a container instance file-map paths of its
+  own for the mutex mapping to key against, the identical shape a
+  ticket's paths already take; and key `DispatchRun` on the container
+  instance's id in that case rather than assuming a ticket id.
+  **Neither ORC-104 nor ORC-148 built any of the three** (ORC-175,
+  design pass): `setup`/`retro` dispatch today
+  (`Catapult.Delivery.ContainerLifecycle.open_inline/3`) by minting a
+  synthetic per-entry flow (`ContainerLifecycle.Ids.work_item_id/3`,
+  keyed on `project_id`/`container_id`/queue, not the container's own
+  id) and routing it through the ordinary ticket-shaped branch/PR/
+  file-map/`DispatchRun` path instead — functionally sufficient for
+  what dispatches today, since each inline entry gets its own PR
+  rather than needing to share the container's, but not what this
+  paragraph describes. `lib/catapult/delivery/dispatch.ex`'s
+  `HostPort.request` still carries no branch or file-map field, and
+  `store/dispatch_run.ex` keys on `flow_id`, never a container id. It
+  also resolves what `main`'s `blocks: [retro]` (§15.7) means once
+  `retro` is `milestone`'s own inline entry rather than a population of
+  unresolved child tickets: `retro` cannot be *entered* while `main`'s
+  own queue still carries unresolved work — the identical entry-guard
+  test §15.7 states generally (corrected to this reading at the design
+  review below), applied to a guarded entry that is not itself a
+  queue. Target (Phase 7), unticketed: revisit when a container-owned
+  dispatch identity — not today's per-entry synthetic flow — is
+  actually needed.
 - **ORC-148 (design pass) retires `singleton:` and the fold that
   motivated it, closing the open question the two bullets above left
   standing** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.7, §15.10;
@@ -301,12 +314,16 @@ generating as scope-runs inside one ticket.
   bound: "at most one, ever" falls out of there being exactly one
   `milestone` instance and exactly one array position each occupies.
   This system's dispatcher loses a check it was filed to build (the
-  singleton-lifetime rejection, ORC-104's) and gains the dispatch-
-  target work named above in its place — a smaller Target list, not a
-  larger one, since folding removes the separately-dispatched child
-  the old shape needed a bound for. **Not built as part of this
-  pass:** every item this bullet and the two above it name is
-  `systems/delivery.md`'s own Target list, ORC-104's to build.
+  singleton-lifetime rejection, ORC-104's, retired rather than built)
+  and gains the dispatch-target work named above in its place — a
+  smaller Target list, not a larger one, since folding removes the
+  separately-dispatched child the old shape needed a bound for. **Not
+  built as part of this pass:** every item this bullet and the two
+  above it name was `systems/delivery.md`'s own Target list, filed as
+  ORC-104's to build — true when written, no longer true of the
+  dispatch-target item once ORC-104 and this ticket's own dev pass had
+  both shipped without it (ORC-175, design pass; corrected on that
+  item's own bullet above).
 - **A design review on ORC-148 changed the shape of this system's own
   `blocks:`-aware dispatcher work, filed above and still ORC-104's**
   (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
