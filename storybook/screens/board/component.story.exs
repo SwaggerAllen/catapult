@@ -69,7 +69,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil},
+          filters: %{type: nil},
           cards: [
             %{
               id: "ORC-75",
@@ -102,7 +102,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil},
+          filters: %{type: nil},
           cards: [
             %{
               id: "ORC-40",
@@ -126,7 +126,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil},
+          filters: %{type: nil},
           cards: [
             %{
               id: "ORC-75",
@@ -143,15 +143,14 @@ defmodule Catapult.Storybook.Screens.BoardStory do
       %Variation{
         id: :filtered_and_abbreviated,
         description:
-          "Filtered by type and label, lanes abbreviated to the ones the viewer has standing " <>
-            "in — a reviewer's standing is the whole review-loop group here, so the group " <>
-            "renders whole rather than fractured; most lanes are simply not shown, not " <>
-            "shown-and-empty.",
+          "Filtered by type, lanes abbreviated to the ones the viewer has standing in — a " <>
+            "reviewer's standing is the whole review-loop group here, so the group renders " <>
+            "whole rather than fractured; most lanes are simply not shown, not shown-and-empty.",
         attributes: %{
           project_name: "Catapult",
           lanes: Enum.filter(lanes(), &(&1.group_key == "review-loop")),
           show_all_lanes: false,
-          filters: %{type: "feature", label: "priority"},
+          filters: %{type: "feature"},
           cards: [
             %{
               id: "ORC-75",
@@ -172,7 +171,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil},
+          filters: %{type: nil},
           cards: []
         }
       },
@@ -186,7 +185,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(true),
           show_all_lanes: false,
-          filters: %{type: nil, label: nil},
+          filters: %{type: nil},
           cards: [
             %{
               id: "ORC-75",
@@ -221,7 +220,7 @@ defmodule Catapult.Storybook.Screens.BoardStory do
           project_name: "Catapult",
           lanes: lanes(),
           show_all_lanes: false,
-          filters: %{type: "component", label: nil},
+          filters: %{type: "component"},
           cards: [
             %{
               id: "ORC-75-1",

@@ -155,11 +155,19 @@ describes for it.
 
 ## Filters
 
-`type` and `label` in v1. `docs/ui-spec.md` also names `milestone`, `mutex label` and `assignee`;
-all three are deferred (see below) rather than cut on the merits.
+`type` in v1. `docs/ui-spec.md` also names `label`, `milestone`, `mutex label` and `assignee`; all
+four are deferred (see below) rather than cut on the merits.
 
 ## Deferred beyond v1
 
+- **`label` filter — cut, and not on the same footing as the other three below.** `label`'s only
+  namesake in the DSL is a chain bundle's own `ticket: labels:` (`docs/dsl-syntax.md` §6): authored
+  per `flow.yaml` at bundle-authoring time, matched against a queue entry to decide which type it
+  opens as. It is never persisted per open flow/ticket instance, and it is not even the same
+  vocabulary as the workflow-axis type name a ticket opens under — no load-time binding connects the
+  two (`docs/dsl-syntax.md` §15.7). So there is no per-instance label anywhere in this system for a
+  filter to query, and unlike the three below, nothing currently on this project's roadmap creates
+  one — this is not "add it once the source lands," there is no source in view.
 - **`milestone`, `mutex label` and `assignee` filters.** All three are real and all three are cut
   for the same reason: none has a source to filter *against* yet inside this ticket's scope —
   `milestone` is a v3 screen, mutex labels are a design-time/CI concept with no rendered
