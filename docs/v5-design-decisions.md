@@ -3814,10 +3814,12 @@ above was written as a description of intended behavior with no
 mechanism enforcing it: "downstream of the regeneration" named a
 region of the array by prose, not by anything a loader or a dispatcher
 computed. `dsl-syntax.md` §15.10's sub-array grouping gives it one —
-a throwback's default fallback is its citing sub-array's own
-non-critique agent step, so "everything downstream of the
-regeneration" *is* "everything in this sub-array," derived from the
-same structure that already answers §7.16's open item above.
+a throwback's default fallback is its citing sub-array's own earliest
+entry, its own leading `pending` for a generation-shaped group (§13's
+tightened check, a fourth-pass correction from resolving straight to
+the agent step), so "everything downstream of the regeneration" *is*
+"everything in this sub-array," derived from the same structure that
+already answers §7.16's open item above.
 The derivation supplies the sub-array's own default landing point, and
 `throwback:` (below) survives beside it as a single, explicit override
 for the gate that wants a different one — never a second, narrower

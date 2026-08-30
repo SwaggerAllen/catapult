@@ -366,10 +366,13 @@ context-source kinds, and audit profiles.
   the reason §15.5 already excludes it from standing alone), zero or
   two-or-more being a load error naming the count found; and a
   queue-shaped anchor (`flow:`/`blocks:`) may not sit inside one. A
-  `review:` entry's decline defaults to its citing sub-array's one
-  non-critique entry — computed at throwback time from the loaded
-  bundle, never stored, the same posture `ready_scopes` and staleness
-  already take.
+  `review:` entry's decline defaults to its citing sub-array's own
+  earliest entry — a generation-shaped sub-array's own leading
+  `pending` (§13's tightened check, a fourth-pass correction from
+  resolving straight to the agent-balled entry itself), not the
+  non-critique entry directly — computed at throwback time from the
+  loaded bundle, never stored, the same posture `ready_scopes` and
+  staleness already take.
 
   **The pass this entry originally recorded held `throwback:`
   unaffected — a real, bounded allow-list stays the only legal decline
@@ -386,8 +389,9 @@ context-source kinds, and audit profiles.
   Unbounded legality removes only one of `throwback:`'s two jobs. It
   bounded legality, and that job is gone. It also named a decline's
   *landing point* — the one-click action a bare decline takes — and
-  that job is untouched: the sub-array's own non-critique agent step is
-  the derived default, and `throwback:` is what a gate declares
+  that job is untouched: the sub-array's own earliest entry — its own
+  leading `pending` for a generation-shaped group, §13 — is the
+  derived default, and `throwback:` is what a gate declares
   instead, for the gate that wants a different one. A list stops
   meaning anything the moment it stops bounding (naming several targets
   said "any of these is legal," a legality claim), so the field narrows

@@ -257,9 +257,13 @@ generating as scope-runs inside one ticket.
   *landing point* (third design review, narrowing the field to a
   single optional status rather than retiring it): the dispatcher reads
   it when the gate names one, and falls back otherwise to the citing
-  sub-array's own non-critique agent-balled entry as the one-click
-  default — either way computed from the loaded workflow bundle at
-  throwback time, never stored. This is the same shape `flow:`
+  sub-array's own earliest entry as the one-click default — a
+  generation-shaped sub-array's own leading `pending` (`docs/dsl-
+  syntax.md` §13's tightened check, a fourth-pass correction from
+  resolving straight to the agent-balled entry itself), the
+  non-critique agent-balled entry directly otherwise — either way
+  computed from the loaded workflow bundle at throwback time, never
+  stored. This is the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 
