@@ -1515,13 +1515,35 @@ generating as scope-runs inside one ticket.
   ticket axis.
 
   **The fix mirrors the ticket-axis one rather than inventing a second
-  mechanism:** `steps/2`'s own entries carry enough of the loaded
-  declaration — which sub-array, if any, an entry sits in, and that
-  sub-array's own anchor name — to resolve a qualified `<anchor>.<name>`
+  mechanism, and the data it needs is on `Type`, not on `Status`.**
+  `%Catapult.Dsl.Type{}` already carries `groups: [Range.t()]` — one
+  `Range` per sub-array, over `statuses` — beside `statuses` itself
+  (its own moduledoc: "`groups` holds one `Range` per sub-array over
+  that sequence"); a group has no identity of its own beyond that span
+  and the anchor sitting inside it (§15.10). `steps/2` reads only
+  `%Type{statuses: statuses}` today and drops `groups` on the pattern
+  match — the field is not missing, it is discarded. The fix reads
+  `groups` alongside `statuses` to resolve a qualified `<anchor>.<name>`
   identity the same way the loader does; `next_step/3`, `step/3` and
   `earlier?/4` compare against that qualified identity instead of the
   bare name `name/1` returns today, and a caller naming an unambiguous
   (non-recurring) position keeps resolving exactly as before.
+
+  **One hazard the fix has to hold, not create: `groups`' ranges index
+  into `statuses`, and `steps/2`'s output does not share that
+  indexing.** `to_step/1` returns `nil` for an `environment:` entry and
+  `steps/2` rejects every `nil`, so a step's position in `steps/2`'s
+  output is only the same as its index in `statuses` when no
+  `environment:` entry sits ahead of it. §15.10 admits an
+  `environment:` wherever a `review:` is legal — inside a sub-array,
+  not only after one — so a fix that walks `groups`' `Range`s against
+  `statuses` directly (never against the filtered `steps/2` list) holds
+  regardless; one that reuses `steps/2`'s existing index space would
+  break silently, off by one, the day a bundle puts an `environment:`
+  ahead of a group. Latent today only because
+  `bundles/default-flow/types/milestone.yaml` puts its `environment:
+  prod` after both sub-arrays — worth recording here rather than left
+  for the dev pass writing the fix to rediscover.
 
   **Once that lands, `retro`'s own leading `pending` returns to
   `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
