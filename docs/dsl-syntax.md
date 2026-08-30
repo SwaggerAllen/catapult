@@ -1745,9 +1745,7 @@ positions, `setup.pending` and `retro.pending`, and no `blocks:` or
 those checks' business. `Catapult.Delivery.ContainerLifecycle.Sequence`
 addresses a position by its bare `status:`/`review:` value alone, with
 no namespace concept at all (§15.12 reaches the loader's own
-cross-reference resolution, never this module — deliberately: giving
-container position-tracking the identical namespace awareness is
-ORC-116-adjacent future work, not this ticket's). A container that
+cross-reference resolution, never this module). A container that
 completed `main` and physically reached `retro`'s own `pending` would
 have its `current_queue` recorded as the bare string `"pending"`,
 indistinguishable from `setup`'s — `Sequence.next_step/3`'s own
@@ -1758,6 +1756,17 @@ exact shape before this sentence was written. `retro`'s group is left
 in its pre-ORC-155 shape instead: `[milestone-signoff, retro,
 proposals-read]`, with `retro` still deriving fine as the group's own
 anchor for `proposals-read`'s throwback default.
+
+Giving container position-tracking the identical namespace awareness
+is **this ticket's own scope** (`ORC-116`'s design pass widened it
+here on exactly this reproduction) rather than adjacent future work —
+`systems/delivery.md`'s own ORC-116 entry records the decision:
+`Sequence`'s lookups resolve a qualified `<anchor>.<name>` identity the
+same way the loader does, instead of comparing against the bare name
+`Sequence.name/1` returns today. That fix is dev's diff against this
+declaration, not this pass's to build; once it lands, `retro`'s own
+leading `pending` returns above, this passage's asymmetry note comes
+out with it, and this file states the restored, symmetric shape.
 
 **Neither `setup` nor `retro` carries `checks`, `merge` or
 `reconcile` any more — a correction to this section's own worked

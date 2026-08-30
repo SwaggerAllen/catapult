@@ -1486,6 +1486,52 @@ generating as scope-runs inside one ticket.
   own encoding change, are this system's and dashboard's, both dev's
   diff against this record, not design's.
 
+- **ORC-116 widens to give `ContainerLifecycle.Sequence` the identical
+  namespace awareness the entry above gave this system's ticket-axis
+  positions** (`docs/dsl-syntax.md` §15.2, §15.12) — a design review on
+  this ticket found the container axis has the identical gap and no
+  fix, only a bundle shaped to dodge it. `Sequence.next_step/3` and
+  `Sequence.earlier?/4` both resolve a position with `Enum.find_index/2`
+  against the bare name `Sequence.name/1` returns — a `status:`'s own
+  `status`, a `review:`'s own gate name — with no anchor concept at
+  all, so two occurrences of one kind in a single container's array are
+  not merely unlabeled the way a bare ticket-axis `position()` was
+  before ORC-155; they are **indistinguishable to the lookup itself**,
+  which resolves to whichever comes first. `docs/dsl-syntax.md` §15.2
+  names the reproduction directly: a container that physically reached
+  `retro`'s own `pending` would record `current_queue` as the bare
+  string `"pending"` and `next_step/3` would walk it backward to
+  `setup`'s own successor instead of forward to `milestone-signoff`.
+
+  **Not hypothetical, and not answered by keeping the bundle
+  asymmetric.** `bundles/default-flow/types/milestone.yaml` avoids the
+  collision today only by withholding `retro`'s own leading `pending` —
+  the one asymmetry between its two agent-step groups, and
+  `docs/dsl-syntax.md` §15.2 records it as a workaround rather than a
+  rule ("this is the one place the two groups are asymmetric, and
+  deliberately so"). That is a bundle shaped around a lookup's own
+  blind spot, not a bundle expressing a real constraint — the identical
+  position the loader-side fix above was written to retire for the
+  ticket axis.
+
+  **The fix mirrors the ticket-axis one rather than inventing a second
+  mechanism:** `steps/2`'s own entries carry enough of the loaded
+  declaration — which sub-array, if any, an entry sits in, and that
+  sub-array's own anchor name — to resolve a qualified `<anchor>.<name>`
+  identity the same way the loader does; `next_step/3`, `step/3` and
+  `earlier?/4` compare against that qualified identity instead of the
+  bare name `name/1` returns today, and a caller naming an unambiguous
+  (non-recurring) position keeps resolving exactly as before.
+
+  **Once that lands, `retro`'s own leading `pending` returns to
+  `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
+  §15.2's own passage recording the asymmetry as deliberate is rewritten
+  to describe the restored, symmetric shape** — the workaround's reason
+  will no longer exist. **Not built as part of this pass:** the
+  qualified lookup in `ContainerLifecycle.Sequence`, and the
+  bundle/doc follow-on it unlocks — both dev's diff against this
+  record, not design's.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through
