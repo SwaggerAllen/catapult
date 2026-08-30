@@ -2858,21 +2858,22 @@ own effective sequence" (above) is what makes a decline's target legal
 at all; the moment the gate itself sits before that earliest entry, the
 derivation would name a target *later* than the gate, which the
 legality rule already refuses. `milestone-signoff` is this shape in the
-shipped bundle: index 3 in `[milestone-signoff, retro,
-proposals-read]`, one entry before `retro`, its group's own agent step
-at index 4. There is no one-click default to fall back to here, not an
-inconvenient one this section failed to name — offering `retro` anyway
-would hand a decliner a target the same load rejects as illegal for a
-declared `throwback:`, and inventing a second derivation rule for this
-one shape is exactly the accretion `docs/v5-design-decisions.md` §4.5
-warns off. A gate in this position must declare `throwback:` explicitly
-the same way one sitting outside every sub-array must, for a different
-structural reason — no bundle currently needs the distinction, since
+shipped bundle: `[milestone-signoff, retro, proposals-read]`, one
+entry before its own group's agent step, `retro`. There is no
+one-click default to fall back to here, not an inconvenient one this
+section failed to name — offering `retro` anyway would hand a decliner
+a target the same load rejects as illegal for a declared `throwback:`,
+and inventing a second derivation rule for this one shape is exactly
+the accretion `docs/v5-design-decisions.md` §4.5 warns off. A gate in
+this position must declare `throwback:` explicitly the same way one
+sitting outside every sub-array must, for a different structural
+reason — no bundle currently needs the distinction, since
 `milestone-signoff` already declares `throwback: main`. Legality is
-unaffected either way: every earlier status, `retro` included, stays a
-legal decline target for `milestone-signoff` should a bundle ever
-declare one there; this settles only which target (if any) the loader
-offers with no declaration at all.
+unaffected either way: every status earlier than `milestone-signoff`
+itself stays a legal decline target for it should a bundle ever
+declare one there — `retro` is not among them, sitting after rather
+than before; this settles only which target (if any) the loader offers
+with no declaration at all.
 
 **The worked example is now the grammar, not a shape argued from
 prose ahead of it.** Before ORC-148, `bundles/default-flow/types
