@@ -160,13 +160,24 @@ generating as scope-runs inside one ticket.
   container or the project currently sits in (`docs/v5-design-
   decisions.md` §7.3, §7.10), which falls out of ordinary priority
   dispatch rather than needing a ticket-carried flag against its
-  milestone the way ORC-103's draft required. Storage for "which queue
-  a given container or the project is currently at," the
-  `blocks:`-aware dispatcher, the declaration-graph acyclicity check
-  that bounds nesting (`docs/dsl-syntax.md` §13), the
-  `:live`-gates-`retro` interlock (§2.8), and the scan/setup/retro
-  machinery itself are Target (Phase 7), filed as ORC-104 and blocked
-  on this record; this entry is the shape it builds against.
+  milestone the way ORC-103's draft required. Of the rest this entry
+  named, three are built (ORC-175, design pass, checked against the
+  tree): storage for "which queue a given container or the project is
+  currently at" is `engine_containers.current_queue`/
+  `current_queue_sequence` (`lib/catapult/engine/store/container.ex`);
+  the `blocks:`-aware dispatcher is `Catapult.Delivery
+  .ContainerLifecycle` (below); and the declaration-graph acyclicity
+  check that bounds nesting (`docs/dsl-syntax.md` §13) is
+  `Catapult.Dsl.Workflow.declaration_graph_problems/1`, already
+  skeleton-agnostic per ORC-148. "The scan/setup/retro machinery
+  itself" is superseded rather than built as this entry originally
+  framed it: `setup`/`retro` fold directly into `milestone`'s own
+  array as inline agent-balled entries, with no separate scan step
+  (ORC-148, below). The `:live`-gates-`retro` interlock (§2.8) is the
+  one item here still unbuilt — no `:live`-verdict signal exists
+  anywhere in this system yet, and it needs the maintenance watcher
+  this doc's own Initial-vs-target section still files to Phase 7 —
+  and stays Target (Phase 7), unticketed.
 - **Mint is not activation, and this system's dispatcher is the one
   that has to hold the two apart** (ORC-105's fourth pass, design
   pass; `docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md`
@@ -179,10 +190,14 @@ generating as scope-runs inside one ticket.
   its own `setup` entry"; "minted one at a time as the prior one
   closes") and both are wrong for the case this system explicitly
   wants: grooming next milestone's `prep` during this milestone's own
-  `main`. What this system owns, not yet built: the storage
-  distinguishing "instances that exist" from "the instance that is
-  current," and a gate the container's own array cites throwing back
-  to an earlier entry in that array. **This bullet originally read a
+  `main`. What this system owns is built (ORC-175, design pass,
+  checked against the tree): the storage distinguishing "instances
+  that exist" from "the instance that is current" is
+  `Catapult.Delivery.ContainerLifecycle`'s own `state` field
+  (`:minted | :active | :closed`), and a gate's throwback is a human's
+  `AdvanceContainerQueue` with `reason: :throwback`, checked against
+  `ContainerLifecycle.Sequence.earlier?/4` — the live half of the
+  check the loader can only make statically. **This bullet originally read a
   container's position as moving backward two ways, the second being
   a gate's own throwback — a fifth-pass correction**, not a
   fourth-pass fact: the fourth pass's own "a container's anchor
@@ -194,8 +209,7 @@ generating as scope-runs inside one ticket.
   review**; see that bullet below rather than treating it as this
   system's target behavior. A milestone sign-off gate between `main`
   and `retro` can throw back to `main` today, and this system's
-  dispatcher has to honor that path.
-  Filed against ORC-104 alongside the rest of this entry's Target list.
+  dispatcher honors that path exactly this way.
 - **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
   respect and closed a hole in the loader's own acyclicity check that
   this system's dispatcher would otherwise have inherited** (design
@@ -208,17 +222,19 @@ generating as scope-runs inside one ticket.
   wrong, corrected at the sixth pass below** — see that bullet rather
   than treating "admitted and files `Blocked`" as this system's
   target behavior. Separately, the declaration-graph acyclicity check
-  ORC-104 is filed to build (above) now has to treat a skeleton-less
-  type — the project included — as a graph node, not only a
-  `container`-skeleton type: the fourth pass's narrower node set
-  excluded the exact edge a project/container cycle runs on
-  (`milestone.main` → `flow: project`, `project.build-out` → `flow:
-  milestone`), so a loader built against the fourth pass's own record
-  would have let that cycle through. Nothing in this system's own
-  dispatch logic changes shape from the acyclicity correction — it is
-  about what the loader accepts before this system ever sees a bundle
-  — but the Target build has to read the corrected record, not the
-  superseded one.
+  (above) now has to treat a skeleton-less type — the project
+  included — as a graph node, not only a `container`-skeleton type:
+  the fourth pass's narrower node set excluded the exact edge a
+  project/container cycle runs on (`milestone.main` → `flow: project`,
+  `project.build-out` → `flow: milestone`), so a loader built against
+  the fourth pass's own record would have let that cycle through.
+  Built, checked against the tree (ORC-175, design pass):
+  `Catapult.Dsl.Workflow.declaration_graph_nodes/1` is explicitly
+  skeleton-agnostic (ORC-148), so a project/container cycle on that
+  edge is caught by `DslGraph.acyclic?/1` against the corrected node
+  set, not the superseded one. Nothing in this system's own dispatch
+  logic changes shape from the acyclicity correction — it is about
+  what the loader accepts before this system ever sees a bundle.
 - **A sixth ORC-105 pass corrected the fifth pass's own singleton
   reading and gave this system's dispatcher a fact to check that the
   loader cannot: which type a fresh project actually starts from**
@@ -238,8 +254,15 @@ generating as scope-runs inside one ticket.
   project-shaped, the identical inference this record's own earlier
   passes leaned on informally without the loader ever having checked
   it. Neither correction changes this system's shape, only what its
-  dispatcher and its onboarding path each read and enforce; both are
-  ORC-104's to build, alongside the rest of this entry's Target list.
+  dispatcher and its onboarding path each read and enforce. Checked
+  against the tree (ORC-175, design pass): the singleton-lifetime
+  rejection this paragraph describes is retired rather than built,
+  superseded before either half shipped (ORC-148, below). The `entry:`
+  read is built at load time — `Catapult.Dsl.Manifest` reads it off
+  `bundle.yaml` and `Workflow.entry_problems/2` validates it resolves
+  to a declaration-graph root — but nothing yet dispatches a fresh
+  project from it; wiring an onboarding path to that read stays Target
+  (Phase 7), unticketed.
 - **ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and names,
   without yet answering, whether a container instance can be a
@@ -317,15 +340,9 @@ generating as scope-runs inside one ticket.
   singleton-lifetime rejection, ORC-104's, retired rather than built)
   and gains the dispatch-target work named above in its place — a
   smaller Target list, not a larger one, since folding removes the
-  separately-dispatched child the old shape needed a bound for. **Not
-  built as part of this pass:** every item this bullet and the two
-  above it name was `systems/delivery.md`'s own Target list, filed as
-  ORC-104's to build — true when written, no longer true of the
-  dispatch-target item once ORC-104 and this ticket's own dev pass had
-  both shipped without it (ORC-175, design pass; corrected on that
-  item's own bullet above).
+  separately-dispatched child the old shape needed a bound for.
 - **A design review on ORC-148 changed the shape of this system's own
-  `blocks:`-aware dispatcher work, filed above and still ORC-104's**
+  `blocks:`-aware dispatcher work, filed above**
   (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
   §7.8). The three bullets above described `blocks:` as a standing
   hold this system's dispatcher recomputes for as long as the guarded
@@ -359,8 +376,13 @@ generating as scope-runs inside one ticket.
   `blocks:` list still cannot be closed over on the way to `terminal`.
   Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
   unaffected by the second one, and the first is a semantics correction
-  to a check that already existed) — both are this system's dispatcher
-  to build differently, still ORC-104's, not a larger Target list.
+  to a check that already existed) — both are built, in `Catapult
+  .Delivery.ContainerLifecycle` (ORC-175, design pass, checked against
+  the tree): `forward_or_open/3` returns `[]` on `{:held, _holders}`
+  for the entry guard, and `next_commands/2`'s walk over every step
+  behind the container's own position — re-run on every qualifying
+  engine event, never cached — is what enforces the terminal guard
+  unconditionally.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
   moved backward on a queue refilling, restated rather than removed
@@ -397,8 +419,15 @@ generating as scope-runs inside one ticket.
   `cleanup`/`terminal` blocked with no declared path back.
   `lib/catapult/engine/projections/container_queues.ex`'s resolution
   condition 1 predates this correction and still cites §15.8 for the
-  retired reading — this system's dispatcher build (ORC-104) corrects
-  that check and its citation, not this design record.
+  retired reading. **Not built to match, checked against the tree**
+  (ORC-175, design pass): `Catapult.Delivery.ContainerLifecycle`'s own
+  `next_commands/2`/`earliest_unresolved/4` — its moduledoc's own "two
+  backward moves" section — still perform exactly the retired move,
+  unconditionally, for any earlier queue that refills, not only at a
+  `blocks:`-guarded boundary; that is the same reading
+  `container_queues.ex`'s condition 1 cites. Reconciling the dispatcher
+  and that projection's condition 1 to the retirement above is Target work,
+  unticketed — ORC-104 is Done and archived and owns neither.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
