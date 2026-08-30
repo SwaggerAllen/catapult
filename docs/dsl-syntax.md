@@ -1758,15 +1758,26 @@ proposals-read]`, with `retro` still deriving fine as the group's own
 anchor for `proposals-read`'s throwback default.
 
 Giving container position-tracking the identical namespace awareness
-is **this ticket's own scope** (`ORC-116`'s design pass widened it
-here on exactly this reproduction) rather than adjacent future work —
-`systems/delivery.md`'s own ORC-116 entry records the decision:
-`Sequence`'s lookups resolve a qualified `<anchor>.<name>` identity the
-same way the loader does, instead of comparing against the bare name
-`Sequence.name/1` returns today. That fix is dev's diff against this
-declaration, not this pass's to build; once it lands, `retro`'s own
-leading `pending` returns above, this passage's asymmetry note comes
-out with it, and this file states the restored, symmetric shape.
+was **`ORC-116`'s own design scope** (widened here on exactly this
+reproduction), and `systems/delivery.md`'s own ORC-116 entry records
+what landed: `Sequence`'s three lookups resolve a qualified
+`<anchor>.<name>` identity the same way the loader does, instead of
+comparing against the bare name `Sequence.name/1` returns — a bare,
+ambiguous argument now resolves to nothing rather than the wrong
+occurrence.
+
+**No caller in the tree supplies a qualified argument, so the fix
+lands only at ORC-171** (`systems/delivery.md`'s own entry, corrected
+in place rather than left to read as closed): `container.current_queue`
+— the value every dispatcher comparison actually uses — is still
+populated from `Sequence.name/1`'s own bare display string, never the
+qualified identity the lookup functions can now accept. `retro`'s own
+leading `pending` returns to
+`bundles/default-flow/types/milestone.yaml`, and this passage's
+asymmetry note comes out with it and is rewritten to describe the
+restored, symmetric shape, only once that caller-side plumbing lands —
+dev's diff against `systems/delivery.md`'s ORC-171 entry, not yet
+built.
 
 **Neither `setup` nor `retro` carries `checks`, `merge` or
 `reconcile` any more — a correction to this section's own worked
