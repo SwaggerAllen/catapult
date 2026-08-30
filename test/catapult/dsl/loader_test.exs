@@ -818,8 +818,11 @@ defmodule Catapult.Dsl.LoaderTest do
 
     # Legality is the earlier prefix and is bounded by no declaration —
     # every one of these is reachable although no gate declares any.
+    # The sub-array's own leading `pending` collides, bare, with the
+    # top-level `pending` before it — two namespaces, one name — so it
+    # is offered qualified rather than silently preferred (§15.12).
     assert Workflow.throwback_targets(workflow, "feature", "ship-review") ==
-             ~w(pending generation checks pending product-review design merge-review)
+             ~w(pending generation checks design.pending product-review design merge-review)
 
     refute Workflow.throwback_legal?(workflow, "feature", "ship-review", "deploy")
   end
@@ -1944,7 +1947,9 @@ defmodule Catapult.Dsl.LoaderTest do
     # generation entry it should pair with) is the ordinary way to give
     # two generation phases different depths." Each generation entry
     # needs its own pending too (§13, §15.1, ORC-151): one is never
-    # shared across several.
+    # shared across several. None of these three pairs are grouped into
+    # a sub-array, so each recurring kind needs its own authored `name:`
+    # to stay unique in the top-level namespace (§15.12, ORC-155).
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -1953,13 +1958,19 @@ defmodule Catapult.Dsl.LoaderTest do
       skeleton: ticket
       statuses:
         - status: pending
+          name: first-pending
         - status: generation
+          name: first-generation
         - status: critique
+          name: first-critique
           depth: 1
         - review: product-review
         - status: pending
+          name: second-pending
         - status: generation
+          name: second-generation
         - status: critique
+          name: second-critique
           depth: 2
         - status: checks
         - status: reconcile
@@ -1977,6 +1988,219 @@ defmodule Catapult.Dsl.LoaderTest do
       |> Enum.map(& &1.depth)
 
     assert depths == [1, 2]
+  end
+
+  ## §15.12, ORC-155 — a status entry's own name, and positions
+  ## namespaced by their sub-array anchor.
+
+  test "a status entry's name: defaults to its kind when omitted", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    assert {:ok, loaded} = Loader.load(dir)
+
+    generation =
+      Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "generation"))
+
+    assert Status.name(generation) == "generation"
+  end
+
+  test "an authored name: is read back distinct from the kind", %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: generation
+          name: build-the-thing
+        - review: product-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+
+    generation =
+      Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "generation"))
+
+    assert generation.status == "generation"
+    assert Status.name(generation) == "build-the-thing"
+  end
+
+  test "a renamed critique entry still admits depth: — the check reads kind, not name", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - - status: pending
+          - status: generation
+          - status: critique
+            name: second-look
+            depth: [2, 0]
+          - review: product-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+
+    critique = Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "critique"))
+    assert Status.name(critique) == "second-look"
+    assert critique.depth == {2, 0}
+  end
+
+  test "the same gate cited twice inside one sub-array collides (§15.4's own namespace-uniqueness check)",
+       %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - - status: pending
+          - status: generation
+          - status: checks
+          - status: critique
+          - review: product-review
+          - review: product-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "sub-array names \"product-review\" more than once (§13, §15.10, §15.12"
+             )
+           )
+  end
+
+  test "a bare reference recurring across more than one namespace is refused, not silently picked",
+       %{tmp_dir: dir} do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/second-review.yaml" => gate!("second-review"),
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - - status: pending
+          - status: generation
+          - review: product-review
+        - - status: pending
+          - status: architecture
+          - review: second-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """,
+      "bundles/default-flow/gates/product-review.yaml" => """
+      review: product-review
+      role: design
+      escalation: author
+      throwback: pending
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(&1, "resolves inside more than one namespace")
+           )
+  end
+
+  test "qualifying an ambiguous reference <anchor>.<name> resolves it unambiguously", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - - status: pending
+          - status: generation
+          - review: product-review
+        - - status: pending
+          - status: architecture
+          - review: second-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """,
+      "bundles/default-flow/gates/second-review.yaml" => """
+      review: second-review
+      role: design
+      escalation: author
+      throwback: generation.pending
+      """
+    })
+
+    assert {:ok, loaded} = Loader.load(dir)
+    assert loaded.workflow.gates["second-review"].throwback == "generation.pending"
+  end
+
+  test "a declared gate colliding with an addressable status name is a load error", %{
+    tmp_dir: dir
+  } do
+    Fixture.minimal!(dir)
+
+    Fixture.write!(dir, %{
+      "bundles/default-flow/gates/architecture.yaml" => gate!("architecture"),
+      "bundles/default-flow/types/feature.yaml" => """
+      type: feature
+      skeleton: ticket
+      statuses:
+        - status: pending
+        - status: architecture
+        - review: product-review
+        - status: checks
+        - status: reconcile
+        - status: merge
+        - status: deploy
+        - status: terminal
+      """
+    })
+
+    assert {:error, :bundle, problems} = Loader.load(dir)
+
+    assert Enum.any?(
+             problems,
+             &String.contains?(
+               &1,
+               "collides with type \"feature\"'s status name \"architecture\""
+             )
+           )
   end
 
   ## §11, §13 — a workflow bundle is forked, never layered.

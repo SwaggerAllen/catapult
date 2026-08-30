@@ -4238,10 +4238,15 @@ first pass, which had stated it as a `ticket`-skeleton rule.**
 `dsl-syntax.md` §15.11: a `merge` entry must be preceded, earlier in
 the same array, by a `reconcile` entry, a fact about that array's own
 contents rather than one keyed to which skeleton, if any, the citing
-type declares — reaching `container`-skeleton arrays too, which closes
-a gap the skeleton-keyed version left open (`dsl-syntax.md` §15.2's
-`milestone.yaml` worked example ran `setup` and `retro` each through a
-bare `checks → merge → deploy`, merging unread, twice). A
+type declares — reaching `container`-skeleton arrays too, which closed
+a gap the skeleton-keyed version left open: `dsl-syntax.md` §15.2's
+`milestone.yaml` worked example once ran `setup` and `retro` each
+through a bare `checks → merge → deploy`, merging unread, twice, before
+gaining a `reconcile` of its own for each. **The rule still reaches
+`container`-skeleton arrays; `milestone.yaml` itself no longer
+exercises it** (ORC-155) — neither `setup` nor `retro` produces code
+any more, so neither merges, and the current declaration holds no
+`merge` at all. A
 generation-shaped entry with no adjacent `critique` simply runs no
 auto-review — a workflow's prerogative; nothing merges, of any
 skeleton, without having been read against its own argument first.
@@ -4423,16 +4428,30 @@ this section's own repair-loop mapping, `Ready for rework`(pending) /
 other entry into that status goes through.
 
 **The same declared gate may be cited twice within one type's own
-array, at this same pass.** `architecture-review`, cited once before a
-`reconcile` (scoped to the tier's own artifact) and once after
-(scoped to what that `reconcile` has joined), is the gate-and-
+array — but only when the two citations land in distinguishable
+namespaces, a narrowing at ORC-155's design review to what this same
+pass first settled without that condition.** This is the gate-and-
 environment analogue of `critique`'s own established precedent —
 citing a system status more than once to give two generation phases
-different depths. A gate is a named declaration rather than a system
-status, but the same reasoning applies: depth and scope are facts
-about a citation's *position*, not about the declaration, so two
-citations of the same gate are two positions computing two different
-answers from the identical declared `role:`/`escalation:`/`throwback:`.
+different depths — for the identical reason: depth and scope are
+facts about a citation's *position*, not about the declaration, so two
+citations of the same gate can compute two different answers from the
+identical declared `role:`/`escalation:`/`throwback:` only when
+something actually distinguishes the two positions. Once a status
+entry can carry a bundle-authored name of its own (`dsl-syntax.md`
+§15.12), a position's identity is namespaced by the sub-array it sits
+in, one level deep — and two citations sharing one sub-array are not
+distinguished by that scheme merely because one sits before a
+`reconcile` and the other after it: a citation told apart from its
+sibling only by which side of a `reconcile` it falls on needs a second
+level of qualification namespacing refuses to add. `architecture-review`
+was this pass's own exercised case for the rule as first stated — cited
+once before a `reconcile`, scoped to the tier's own artifact, and once
+after, scoped to what that `reconcile` has joined, both inside the
+identical sub-array. ORC-155 renames the second citation instead: two
+distinct declared gates, `architecture-review` and
+`architecture-synthesis-review`, each reviewing what its own name says
+rather than being told apart by a join neither name mentions.
 
 **`checks` sits between a generation-shaped entry and the `critique`
 that reviews it, wherever a sub-array declares both — a fifth-pass

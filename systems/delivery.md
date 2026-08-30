@@ -915,15 +915,23 @@ generating as scope-runs inside one ticket.
   gates *entry into* `retro` on its own findings, since the findings
   are what `retro` itself produces and adjudicates after it has already
   begun. **In the shipped `milestone` type, `retro` is followed by
-  `checks`, `reconcile`, `merge` and `deploy`, then `cleanup` and
-  `terminal`** — the identical checks/reconcile/merge/deploy sequence
-  `setup` is also followed by, since both are ordinary agent-balled
-  entries whose output takes the same CI/reconcile/merge/promote path
-  any other agent-produced change does (`reconcile` named at ORC-151,
-  below — before it, this sequence read `checks`, `merge` and `deploy`,
-  with the same reconciling judgment carried inside `merge` rather
-  than named separately); the finding-adjudication close gate above
-  sits on `retro` itself, ahead of that sequence, not on `cleanup`.
+  `proposals-read`, then `cleanup`, `deploy` and `terminal` — no
+  `checks`, `reconcile` or `merge` at all, a correction at ORC-155 to
+  what this bullet said before it.** `retro` used to be followed by the
+  identical checks/reconcile/merge/deploy sequence `setup` was also
+  followed by (`reconcile` named at ORC-151; before that, the sequence
+  read `checks`, `merge` and `deploy`, with the same reconciling
+  judgment carried inside `merge` rather than named separately) — but
+  that sequence closed a gap real only while `retro` merged something
+  of its own. ORC-155 removes the gap along with its premise: `retro`
+  produces no code, pushing its findings to `cleanup` rather than
+  merging a docs-pruning draft directly, so there is nothing left for
+  `checks`/`reconcile`/`merge` to check, join or land. The
+  finding-adjudication close gate above is unaffected by any of this —
+  it sits on `retro` itself, ahead of whatever follows it, never on
+  `cleanup` — and neither is `setup`'s own identical shape: both agent
+  steps drop the same three entries for the same reason, `setup` gaining
+  a `kickoff-review` gate in their place (`dsl-syntax.md` §15.2, §15.12).
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
@@ -1435,6 +1443,48 @@ generating as scope-runs inside one ticket.
   recursion and parent-triggered merge cascade named above, now
   spawning a second type rather than a depth-filtered instance of one,
   and the loader's own recognition of `implementation` — all Phase 7's.
+
+- **ORC-155 (design pass) gives `Sequence.resolve_position/2` a
+  disjointness check it has been trusting rather than enforcing, and
+  gives every `position()` a namespaced identity beyond kind or gate
+  name alone** (`dsl-syntax.md` §13, §15.1, §15.4, §15.12;
+  `v5-design-decisions.md` §7.19). `resolve_position/2`'s own doc
+  states plainly why membership in `workflow.gates` alone has always
+  been enough to tell a gate from a status: "a gate name is never also
+  a declared status kind (the two live in disjoint vocabularies)." That
+  was true only because a status's whole identity was a platform-fixed
+  kind no bundle could author; ORC-155 lets a bundle name a `status:`
+  entry, and nothing before this pass stopped that name colliding with
+  a declared gate. Left unchecked, a collision resolves to `{:gate,
+  name}` unconditionally and a name matching neither raises inside
+  `String.to_existing_atom` — both on the throwback path, both
+  invisible until a decline actually fires. The load-time check
+  `dsl-syntax.md` §15.12 adds closes this the same way every other gap
+  in this class closes, at load rather than at the first decline that
+  exercises it.
+
+  **Separately, and for the reason `CatapultWeb.Live.Positions`' own
+  moduledoc already gives** — a card, a rail entry, a `throwback:` and
+  a `blocks:` reference all name a position that may recur (three
+  `pending`, three `checks`, two `reconcile` in `feature.yaml` alone) —
+  **a bare `position()` is no longer a sufficient identity on its own.**
+  `<anchor>.<name>` (§15.12) is the qualified form; this system's own
+  `status_kind`/`status_gate` projection columns
+  (`Store.tickets_for_project/1`) are unaffected in shape — a gate's
+  name was always its whole identity, and a status's kind is still what
+  every downstream branch here reads — and gain a `name` column beside
+  `status_kind`, read for display and reference resolution only,
+  never atomized. `Positions.key/1`'s own round-trip encoding needs the
+  qualifying anchor to stay a *stable* encoding once two occurrences of
+  one kind can appear in the same effective sequence, which ORC-116
+  is why this matters now rather than later (`docs/ui-spec.md` §2 rule
+  2: that ticket cannot introduce the vocabulary it needs to render
+  subflows as groupings, only consume what this one defines). **Not
+  built as part of this pass:** `resolve_position/2`'s own disjointness
+  check and the namespace/uniqueness checks are `lib/catapult/dsl/**`'s
+  (core_dsl's diff, above); the projection column, and `Positions`'
+  own encoding change, are this system's and dashboard's, both dev's
+  diff against this record, not design's.
 
 ## Initial vs target
 

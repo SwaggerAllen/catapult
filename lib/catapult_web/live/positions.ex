@@ -10,6 +10,30 @@ defmodule CatapultWeb.Live.Positions do
   Rendering only: no screen introduces a vocabulary of its own here
   (`docs/ui-spec.md` §2) — every function below is a pure reshape of a
   position the engine/delivery layer already produced.
+
+  **`key/2` carries an optional namespace-qualifying anchor beside the
+  position it encodes** (dsl-syntax.md §15.12, ORC-155): a bare
+  `position()` stopped being a sufficient identity the moment a bundle
+  could recur one kind across more than one sub-array — three
+  `pending`, three `checks`, two `reconcile` in one type's array is
+  legal now, and a bare `"kind:pending"` key cannot tell any of them
+  apart. `<anchor>.<name>` (§15.12) is the qualified form; `anchor` is
+  `nil` for a position this ticket's own effective sequence never
+  repeats, which keeps every existing `key/1` call site — and the
+  encoding it has always produced — unchanged. **`docs/ui-spec.md` §2
+  rule 2 is why this lands here rather than in the screen that will
+  actually need it**: `ORC-116` renders subflows as a visual grouping
+  and consumes this encoding rather than deriving one of its own, so
+  the vocabulary has to exist here first. Computing a real anchor for
+  a *resting* ticket — as opposed to accepting one a caller already
+  has — is not built by this pass: `Catapult.Delivery.FeatureLifecycle
+  .Projection`'s own `passed`/`pinned_to`/`blocked_from` are keyed on
+  the bare `position()` tuple throughout, so two occurrences of the
+  identical kind in one effective sequence are already indistinguishable
+  upstream of this module, a gap ORC-116 (or whichever pass gives
+  runtime position-tracking the identical namespace awareness) closes
+  before this encoding's `anchor` argument has real per-ticket data to
+  carry on the read path.
   """
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
@@ -22,15 +46,41 @@ defmodule CatapultWeb.Live.Positions do
   def from_columns(kind, nil), do: {:kind, String.to_existing_atom(kind)}
   def from_columns(_kind, gate), do: {:gate, gate}
 
-  @doc "A stable string encoding for a position, safe to round-trip through a `phx-value-*`/query-string param and back through `decode_key/1`."
-  @spec key(position()) :: String.t()
-  def key({:kind, kind}), do: "kind:" <> Atom.to_string(kind)
-  def key({:gate, name}), do: "gate:" <> name
+  @doc """
+  A stable string encoding for a position, safe to round-trip through a
+  `phx-value-*`/query-string param and back through `decode_key/1`.
+  `anchor` (§15.12) qualifies it `<anchor>.<name>` when given — omitted
+  or `nil`, the encoding is exactly what it has always been.
+  """
+  @spec key(position(), String.t() | nil) :: String.t()
+  def key(position, anchor \\ nil)
+  def key({:kind, kind}, nil), do: "kind:" <> Atom.to_string(kind)
+  def key({:kind, kind}, anchor), do: "kind:" <> anchor <> "." <> Atom.to_string(kind)
+  def key({:gate, name}, nil), do: "gate:" <> name
+  def key({:gate, name}, anchor), do: "gate:" <> anchor <> "." <> name
 
-  @doc "The inverse of `key/1`."
+  @doc """
+  The inverse of `key/1` — the bare position, an anchor `key/2` carried
+  dropped rather than returned, so every existing caller (a decline or
+  resume target, always a bare position) keeps working unchanged.
+  `decode_anchor/1` is the qualifying anchor's own half of the pair.
+  """
   @spec decode_key(String.t()) :: position()
-  def decode_key("kind:" <> kind), do: {:kind, String.to_existing_atom(kind)}
-  def decode_key("gate:" <> name), do: {:gate, name}
+  def decode_key(encoded), do: encoded |> split_key() |> elem(0)
+
+  @doc "The qualifying anchor `key/2` encoded, or `nil` when `encoded` carries none."
+  @spec decode_anchor(String.t()) :: String.t() | nil
+  def decode_anchor(encoded), do: encoded |> split_key() |> elem(1)
+
+  defp split_key("kind:" <> rest), do: split_rest(rest, &{:kind, String.to_existing_atom(&1)})
+  defp split_key("gate:" <> rest), do: split_rest(rest, &{:gate, &1})
+
+  defp split_rest(rest, to_position) do
+    case String.split(rest, ".", parts: 2) do
+      [anchor, name] -> {to_position.(name), anchor}
+      [name] -> {to_position.(name), nil}
+    end
+  end
 
   @doc "A human-readable label — the citing type's own status name or a declared gate's own name, title-cased for a status."
   @spec label(position()) :: String.t()

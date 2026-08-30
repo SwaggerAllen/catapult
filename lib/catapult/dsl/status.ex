@@ -44,15 +44,26 @@ defmodule Catapult.Dsl.Status do
   the type registry, `blocks:` scoped to the same array, the
   skeleton's own fixed anchor set and relative order) is
   `Catapult.Dsl.Workflow`'s job (dsl-syntax.md §13).
+
+  **A `status:` entry carries an optional `name:`, distinct from its
+  kind, defaulting to the kind when omitted** (§15.12, ORC-155): what a
+  bundle authors is what to *call* a given occurrence of a kind, never
+  a new kind — every load-time predicate and every plane branch keeps
+  reading `status` (the kind), never `name`. Namespacing positions by
+  their sub-array anchor and resolving a `blocks:`/`throwback:`
+  reference against that namespace is `Catapult.Dsl.Workflow`'s job,
+  the identical division this module already draws for every other
+  cross-reference.
   """
 
   alias Catapult.Dsl.Fields
   alias Catapult.Dsl.SystemStatus
 
-  defstruct [:status, :review, :environment, :flow, :depth, blocks: []]
+  defstruct [:status, :name, :review, :environment, :flow, :depth, blocks: []]
 
   @type t :: %__MODULE__{
           status: String.t() | nil,
+          name: String.t() | nil,
           review: String.t() | nil,
           environment: String.t() | nil,
           flow: String.t() | nil,
@@ -112,8 +123,9 @@ defmodule Catapult.Dsl.Status do
   end
 
   defp parse_status_entry(where, raw, skeleton) do
-    {name, name_problems} = Fields.require_string(raw, "status", where)
-    queue_shaped? = population_anchor?(name, skeleton)
+    {kind, kind_problems} = Fields.require_string(raw, "status", where)
+    {name, name_problems} = Fields.optional_string(raw, "name", where)
+    queue_shaped? = population_anchor?(kind, skeleton)
 
     {flow, blocks, shape_problems} =
       if queue_shaped? do
@@ -124,19 +136,22 @@ defmodule Catapult.Dsl.Status do
         {nil, [], []}
       end
 
+    # `depth:` is legal on a `critique` *kind*, whatever a bundle
+    # authors as its own `name:` (§15.12, ORC-155) — this reads `kind`,
+    # never `name`, so a renamed critique entry keeps admitting it.
     {depth, depth_problems} =
-      if name == "critique", do: Fields.depth(raw, where), else: {nil, []}
+      if kind == "critique", do: Fields.depth(raw, where), else: {nil, []}
 
     known =
-      ["status"] ++
+      ["status", "name"] ++
         if(queue_shaped?, do: ["flow", "blocks"], else: []) ++
-        if(name == "critique", do: ["depth"], else: [])
+        if(kind == "critique", do: ["depth"], else: [])
 
     unknown = Fields.unknown_keys(raw, known, where)
-    problems = name_problems ++ shape_problems ++ depth_problems ++ unknown
+    problems = kind_problems ++ name_problems ++ shape_problems ++ depth_problems ++ unknown
 
     if problems == [] do
-      {:ok, %__MODULE__{status: name, flow: flow, blocks: blocks, depth: depth}}
+      {:ok, %__MODULE__{status: kind, name: name, flow: flow, blocks: blocks, depth: depth}}
     else
       {:error, problems}
     end
@@ -159,14 +174,16 @@ defmodule Catapult.Dsl.Status do
   end
 
   @doc """
-  The name this entry is addressed by — its `status:`, `review:` or
-  `environment:` value, whichever it carries. This is the vocabulary a
-  gate's `throwback:` and a decline's target both resolve against
-  (§15.4, §15.10): one flat namespace over the citing type's own
-  effective sequence.
+  The bare name this entry is addressed by — a `status:` entry's own
+  authored `name:`, defaulting to its `status:` (kind) when omitted
+  (§15.12, ORC-155), or a `review:`/`environment:` entry's citation
+  value. This is the *bare* form only: whether a reference to it must
+  be namespace-qualified `<anchor>.<name>` because this bare name
+  recurs elsewhere in the citing type's own array is
+  `Catapult.Dsl.Workflow`'s job to resolve, not this module's.
   """
   @spec name(t()) :: String.t()
-  def name(%__MODULE__{status: s}) when not is_nil(s), do: s
+  def name(%__MODULE__{status: s, name: n}) when not is_nil(s), do: n || s
   def name(%__MODULE__{review: r}) when not is_nil(r), do: r
   def name(%__MODULE__{environment: e}) when not is_nil(e), do: e
 

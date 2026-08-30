@@ -1,0 +1,19 @@
+review: kickoff-review
+role: author                       # the author's own manual pass across
+                                    #   the milestone's kickoff plan — the
+                                    #   identical irreducibly-human role
+                                    #   milestone-signoff.yaml already
+                                    #   gives the other side of the
+                                    #   container's own working period
+                                    #   (v5 §7.8)
+depth: 0
+throwback: setup                   # the derived default, stated for
+                                    #   clarity the same way
+                                    #   proposals-read.yaml states its own
+                                    #   (dsl-syntax.md §15.10): this gate
+                                    #   sits after its own group's agent
+                                    #   step, setup, so declining it
+                                    #   re-runs setup rather than
+                                    #   restating a question already
+                                    #   answered
+escalation: author
