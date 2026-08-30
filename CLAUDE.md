@@ -255,6 +255,21 @@ Each of these cost a wrong diagnosis before it was written down.
   words before changing it: the second statement is rarely next to
   the first, and a worked example left behind by an amended rule is a
   load error nobody runs until dev.
+- **Never write a sentence a merge will falsify.** "This passage is
+  rewritten once X lands," or "once that fix lands the workaround's
+  reason no longer exists" — a record written that way is right until
+  the moment it matters and wrong immediately after, with nothing
+  watching. It is a stale rule arrived at from the other direction,
+  and worse in one respect: the staleness is *scheduled*, so the pass
+  that writes it already knows the document will be wrong and ships it
+  anyway. Write the rule the grammar states. Where the shipped tree
+  deviates from it, the deviation belongs where a reader of the tree
+  meets it — an inline comment in the file that deviates, and the
+  ticket that closes it — never in the document that states the rule.
+  A record carrying one bundle's pending fix holds a fact with a
+  shorter life than itself. The same reading catches the mirror image:
+  a record describing a fix as landed because an earlier entry said it
+  would. Check the tree, not the neighbouring entry.
 - **A doc's claim about the tree is not evidence about the tree.**
   Of the "X is not built yet" sentences an audit of these docs
   checked, half described things that had shipped and half described
