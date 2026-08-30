@@ -123,6 +123,14 @@ ticket's children" to run, so every card's roll-up renders as an honest `childre
 a nested board or an aggregate count: the current data model, not a choice this screen makes to
 hide anything (`systems/dashboard.md` carries the standing decision).
 
+The same missing fact costs more than the children list. "A group's own lane set, and the group
+itself, can differ between two tickets of the same type" (above) relies on knowing whether a
+*given instance* has children — a leaf never reaches `reconcile`, so a lane keyed only on type and
+depth cannot exclude it there. That is the identical relationship this section says is absent, so
+today a leaf card can sit in a `reconcile` lane it never reaches; the per-card exclusion rule reads
+as a design intent this data model cannot yet enforce, not as working behavior with a gap next to
+it (`systems/dashboard.md`'s ORC-129 entry has the detail).
+
 Not gating: the source is `docs/build-plan.md`'s Phase 7 two-grain machinery — spawn and child
 lifecycle, minting a child as its own addressable flow correlated to the parent that spawned it —
 and nothing ahead of Phase 7 depends on it landing first.

@@ -361,21 +361,38 @@ conventions §13).
   roll up as one aggregate count on the card, wherever the feature's
   own lane happens to be, rather than projected onto a lane that
   doesn't exist for them.
-- **Child roll-up has no data source in Phase 4, and the two bullets above
-  don't close that gap — they answer shape, not source** (ORC-129, naming
-  what "wait for fan-out-as-separate-flows" above was shorthand for).
+- **Child roll-up has no data source in Phase 4, and of the two bullets
+  above, only one fully closes on the type alone — the other's own
+  per-card rule needs the same missing data** (ORC-129, naming what "wait
+  for fan-out-as-separate-flows" above was shorthand for).
   `Catapult.Engine.Store.Flow` carries no parent-flow reference, and the
   `parent_node_id` that `Catapult.Engine.Store.Node` does carry is
   doc-graph scope structure — the chain-axis tiers an architecture
   ticket's own generation walks — not a ticket-delivery relationship, so
   there is no second flow instance and no query "these flows are this
-  ticket's children" to run. §15.11's declared fan-out depth is what let
-  the two bullets above resolve a card's own lane set and roll-up shape
-  from the type alone, with no instance data needed; enumerating which
-  flows are actually a given ticket's children is a different question,
-  and it stays open. `board` and `ticket` both render an honest
-  `children: []` rather than a nested board or a narrowed count
-  (`screens/board.md`, `screens/ticket.md`). Not gating: the source is
+  ticket's children" to run.
+
+  §15.11's declared fan-out depth is what lets the roll-up-shape bullet
+  (cross-type count vs. per-lane) resolve entirely from the type, and
+  what lets the bullet above it resolve a type's own lane set — the union
+  of every tree-shape's effective sequence — the same way. That bullet's
+  other rule does not clear the same bar: "a lane never shows a card
+  whose own resolved sequence excludes it" means knowing whether **this
+  instance** has children, and `docs/dsl-syntax.md` says twice that no
+  declaration states that — "whether a given instance runs [`reconcile`]
+  is a fact about that instance's own children, not a declared ceiling"
+  (§15.11; restated at §13). That fact takes exactly the relationship
+  this bullet says is missing: `board` cannot distinguish a leaf card
+  from one with children, both reading the identical type-and-depth
+  sequence, so a leaf card can sit in a `reconcile` lane it never
+  reaches — the case that rule exists to prevent. Enumerating which flows
+  are a given ticket's actual children is the same fact under a
+  different name, not a second gap.
+
+  `board` and `ticket` both render an honest `children: []` rather than a
+  nested board or a narrowed count (`screens/board.md`,
+  `screens/ticket.md`); `board`'s per-card lane exclusion goes unenforced
+  for the identical reason. Not gating: the source is
   `docs/build-plan.md`'s Phase 7 two-grain machinery — spawn and child
   lifecycle, minting a child as its own addressable flow correlated to
   the parent that spawned it — and nothing ahead of Phase 7 depends on it
