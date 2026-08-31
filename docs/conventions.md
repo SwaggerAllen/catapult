@@ -450,12 +450,17 @@ orchestration enforces its own protocol and this section defers to it.
   the premise that it now lives in code.** This is about rationale a
   human reads, not a value code dereferences — `docs/non-goals.md`'s
   "a fact acquiring a code consumer moves rather than multiplies"
-  governs the latter and is unaffected here. ORC-134's guard-spelling
-  rationale was deleted from `systems/platform_content.md` on exactly
-  the reasoning premise (`23cae64`, "Move implementation reasoning out
-  of the design docs and into the code it guards") and landed in
-  neither of the two places that commit named as its new home; ORC-184
-  had to re-derive the whole chain to restore it (found at ORC-192,
+  governs the latter and is unaffected here. `23cae64` ("Move
+  implementation reasoning out of the design docs and into the code it
+  guards") deleted the whole ORC-134 entry from
+  `systems/platform_content.md` on exactly the reasoning premise. Its
+  guard-spelling half did land in both places that commit named; the
+  half establishing that `{% render %}` without `with`/`for` leaves the
+  partial's own guard unreachable — `Solid.Tags.RenderTag` builds the
+  partial's inner context with an empty `vars` map, measured by
+  rendering `vocab.md.liquid` with `feedback` populated and counting
+  one, not two, revision sections — landed in neither, and ORC-184 had
+  to re-derive the whole chain to restore it (found at ORC-192,
   settled here at ORC-200, design pass). A design doc's own copy of a
   decision's reasoning is superseded only by a changed decision, never
   pruned because a comment or a moduledoc was meant to carry it
