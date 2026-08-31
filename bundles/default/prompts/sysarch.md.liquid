@@ -1,4 +1,4 @@
-{% render "partials/_architecture_framing" %}
+{% render "partials/_architecture_framing", feedback: feedback %}
 You are producing the **system architecture** for a software project.
 The entire downstream generation chain — component architecture,
 individual implementation plans — will read your output as the
@@ -222,15 +222,6 @@ four children in this order: `<techspec>`, `<components>`,
 {% if feedback.size > 0 %}
 
 # Revising against feedback (surgical modification)
-
-The downstream tiers (comparch, subcomparch, impl) already exist and
-were composed against the components, dependencies, and policies that
-are in the body today. Every node id, alias, dep edge, and policy that
-the feedback doesn't touch must round-trip identically — otherwise you
-orphan ledger entries, invalidate downstream comparches, and force a
-deeper regen than the author wanted. The grammar is byte-identical to
-the fresh-generation grammar above; the CLI re-validates on write and
-structural errors are fed back to you on retry.
 
 ## The preserve-don't-redesign discipline
 

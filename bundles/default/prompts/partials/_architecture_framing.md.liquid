@@ -41,21 +41,15 @@ Two disciplines carry across every tier in this pipeline:
 
 # Revising against feedback
 
-You are not starting from a blank page. The current committed draft is
-below, along with feedback on it. This is a **surgical modification**,
-not a redesign: your job is to make the changes the feedback actually
-asks for and emit the full body back, verbatim, everywhere the
-feedback is silent. Sections the feedback doesn't mention are sticky —
-copy them forward unchanged rather than re-deriving them, even if you
-would have written them differently from scratch. Re-deriving
-untouched sections is how a small, targeted fix turns into an
-unreviewable full rewrite three regenerations later.
-
-Current draft:
-
-{{ draft }}
+This is not a fresh generation: feedback has already been posted
+against a prior version of this node's output. You don't have that
+prior output's body here — work from the same upstream context this
+prompt gives you for a fresh generation, together with the feedback
+below, and produce the revised artifact.
 
 Feedback:
 
-{{ feedback }}
+{% for entry in feedback %}
+* {{ entry.body }} (from {{ entry.author_id }}, {{ entry.posted_at }})
+{% endfor %}
 {% endif %}

@@ -1,4 +1,4 @@
-{% render "partials/_architecture_framing" %}
+{% render "partials/_architecture_framing", feedback: feedback %}
 You are producing the **architecture document** for a single component.
 This is the **last compression step** before implementation. Your
 `<public-surface>` fragment is the only thing dependent components
@@ -471,15 +471,6 @@ most-cited defects in this tier live**:
 {% if feedback.size > 0 %}
 
 # Revising against feedback (surgical modification)
-
-The downstream tiers (subcomparch, impl) already exist and were
-composed against the subcomponents, `<owns>` blocks, dependencies,
-pubapi, and failure surface that are in the body today. Every
-subcomponent alias, `<owns>` claim, dep edge, and section that the
-feedback doesn't touch must round-trip identically — otherwise you
-orphan ledger entries, invalidate downstream subcomparches and impls,
-and force a deeper regen than the author wanted. The CLI re-validates
-on write.
 
 ## The preserve-don't-redesign discipline
 

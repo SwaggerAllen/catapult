@@ -1,4 +1,4 @@
-{% render "partials/_architecture_framing" %}
+{% render "partials/_architecture_framing", feedback: feedback %}
 You are producing the **subcomponent architecture document** for a
 single subcomponent — a leaf in the component tree. This is the
 **final articulation layer** before implementation. Your
@@ -184,13 +184,6 @@ Treat the sections as one document and check them against each other. The most c
 {% if feedback.size > 0 %}
 
 # Revising against feedback (surgical modification)
-
-The downstream tier (impl) already exists and was composed against the
-techspec, pubapi, privapi, processes, and dependencies sections in the
-body today. Anything the feedback doesn't touch must round-trip
-identically — otherwise the impl underneath this sub goes stale and
-forces a regen the author didn't ask for. The CLI re-validates on
-write.
 
 ## The preserve-don't-redesign discipline
 
