@@ -3472,8 +3472,8 @@ Phase 7), not this ticket's to settle.
 
 **Resolved (ORC-115).** `dsl-syntax.md` §15.10's sub-array grouping
 gives a gate the structural referent this item was missing: a gate's
-citing sub-array holds exactly one non-critique agent-balled entry,
-by its own load-time check, so what the gate approves is that
+citing sub-array holds exactly one non-review-shaped agent-balled
+entry, by its own load-time check, so what the gate approves is that
 entry's own committed content, read at the gate's declared `depth:`
 — the same node set `critique`'s own depth already selects among
 when a critique entry shares the group. The direction left open
@@ -3814,10 +3814,12 @@ above was written as a description of intended behavior with no
 mechanism enforcing it: "downstream of the regeneration" named a
 region of the array by prose, not by anything a loader or a dispatcher
 computed. `dsl-syntax.md` §15.10's sub-array grouping gives it one —
-a throwback's default fallback is its citing sub-array's own
-non-critique agent step, so "everything downstream of the
-regeneration" *is* "everything in this sub-array," derived from the
-same structure that already answers §7.16's open item above.
+a throwback's default fallback is its citing sub-array's own earliest
+entry, its own leading `pending` for a generation-shaped group (§13's
+tightened check, a fourth-pass correction from resolving straight to
+the agent step), so "everything downstream of the regeneration" *is*
+"everything in this sub-array," derived from the same structure that
+already answers §7.16's open item above.
 The derivation supplies the sub-array's own default landing point, and
 `throwback:` (below) survives beside it as a single, explicit override
 for the gate that wants a different one — never a second, narrower
@@ -3889,11 +3891,11 @@ prefix this section already defines two paragraphs above.
 narrows.** A declared list has no remaining role once legality is
 unbounded — naming several targets said "any of these is legal," which
 is exactly the bound just retired. But a landing point is a different
-fact from a legal-target set, and it survives: `throwback:` (`dsl-
-syntax.md` §15.4) narrows to a single, optional status, the explicit
-override a gate declares when its citing sub-array's own non-critique
-agent step — the derived default, above — is not the one-click landing
-point it wants. Blocked-return has no equivalent override; its
+fact from a legal-target set, and it survives: `throwback:`
+(`dsl-syntax.md` §15.4) narrows to a single, optional status, the
+explicit override a gate declares when its citing sub-array's own
+earliest entry — the derived default, above — is not the one-click
+landing point it wants. Blocked-return has no equivalent override; its
 one-click action is always the tracked origin, because nothing groups
 it into a sub-array the way a gate's decline is grouped.
 
