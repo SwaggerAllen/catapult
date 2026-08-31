@@ -1933,7 +1933,7 @@ generating as scope-runs inside one ticket.
   namespaced.kind_ambiguous, do: namespaced.namespace, else: nil`.
 
   `resolve_kind_reference/3` (`sequence.ex:258-262`), called from
-  `resolve_position/3` (`sequence.ex:244`), carries two independent
+  `resolve_position/3` (`sequence.ex:239-246`), carries two independent
   instances. Its own `anchor` line (`sequence.ex:261`) is the identical
   `canonical == bare` test as `annotate/4`'s, corrected the same way.
   Separately, it hands the resolved position's **`bare`** field —

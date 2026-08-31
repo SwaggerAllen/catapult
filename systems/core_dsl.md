@@ -818,7 +818,7 @@ context-source kinds, and audit profiles.
   is what pulls it apart from the first: does this entry's own
   *runtime position* — its `status:`/`review:`/`environment:` value,
   the field every `position()` constructor reads and `name:` never
-  touches (this doc's ORC-155 entry above: "every load-time predicate,
+  touches (`docs/dsl-syntax.md` §15.12: "Every load-time predicate,
   and every plane branch, still reads the kind — never the name") —
   recur elsewhere in the array, so that two occurrences collide once
   reduced to `{:kind, atom}` and need their anchor carried at runtime
@@ -837,11 +837,16 @@ context-source kinds, and audit profiles.
   exercised a per-occurrence override so never hit it.
 
   The two sets are not one a subset of the other, so neither is safe
-  to derive from the other: `status: pending` beside `status: checks,
-  name: pending` recur on bare with **distinct** kinds — a real
-  reference ambiguity (`blocks: [pending]` cannot pick one), no
-  runtime collision at all, since the two resolve to different
-  `position()` shapes. Two distinct-`name:` `status: pending` entries
+  to derive from the other: `status: pending` in one sub-array beside
+  `status: checks, name: pending` in another recur on bare with
+  **distinct** kinds — a real reference ambiguity (`blocks: [pending]`
+  cannot pick one), no runtime collision at all, since the two resolve
+  to different `position()` shapes. The two namespaces are what makes
+  that bundle legal to write at all: §15.12's own uniqueness check
+  ("Names are unique within their own namespace — the top-level array,
+  and each sub-array") refuses the same pair sharing one namespace at
+  load, so the case worth modelling here is only ever the one that
+  spans two. Two distinct-`name:` `status: pending` entries
   are the opposite — no reference ambiguity, each name resolves to
   exactly one entry — but a real runtime collision. `bare`/`qualified`/
   `canonical` keep meaning exactly what ORC-155 gave them, unchanged,
