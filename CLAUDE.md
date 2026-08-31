@@ -286,6 +286,26 @@ Each of these cost a wrong diagnosis before it was written down.
   `component.ex` for `__catapult_exports__` returns nothing and so
   "confirms" a stale doc, because the function is generated in
   `component/api.ex`.
+- **A number in prose is a claim no later pass re-derives.** One
+  milestone's design reviews caught eight, every one already read
+  past by at least one pass: "four default-bundle gates" (five),
+  "six shipped prompts" (five — the sixth was a file whose copy the
+  same paragraph called inert), "three `checks`" (attributed to a
+  worked example carrying two), "all four files" (five), "one of the
+  two conclusions" (both), "9 call sites" (13), "index 3 … index 4"
+  (matching no indexing the code uses), and "all three citations and
+  the type" (three things, counted as four). One survived three
+  passes, because each read the neighbouring sentence's figure
+  instead of the tree. **Enumerate wherever the members are
+  nameable**: "five shipped prompts (`vocab`, `ref`, `subcomparch`,
+  `sysarch`, `comparch`)" is checkable in a way "six" is not, and the
+  pass that has to add a member finds a list rather than a digit.
+- **Naming some of the sites a rule reaches makes the next pass treat
+  that list as all of them.** An entry named two dev-owned sites
+  contradicting a rule it had just corrected; the dev pass fixed both
+  and left a third, unnamed, stale in a file it had open. Name every
+  site, or state the predicate that finds them — a partial list reads
+  as a checklist rather than as an example.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
   — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —
