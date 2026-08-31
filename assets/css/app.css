@@ -1,0 +1,13 @@
+@import "tailwindcss" source(none);
+@source "../../lib/catapult_web";
+@source "../../storybook/screens";
+
+@plugin "../vendor/daisyui.js";
+@plugin "../vendor/daisyui-theme.js" {
+  name: "light";
+  default: true;
+}
+@plugin "../vendor/daisyui-theme.js" {
+  name: "dark";
+  prefersdark: true;
+}
