@@ -1573,6 +1573,28 @@ generating as scope-runs inside one ticket.
   decision, not this entry's — this ticket supplies the data such a
   pass would consume, nothing in `system:dashboard`.
 
+  **An inline dispatch point's own two synthesized entries carry the
+  identical field, set to `nil`.** `FeatureLifecycle.Sequence
+  .annotated_positions/2`'s inline-dispatch fallback (this system's
+  own ORC-176 entry, below) builds `setup`/`retro`'s fixed `pending`/
+  kind pair by hand, with no declared type's `groups:` array behind
+  either entry — the same reason each already carries `group_key:
+  nil`. `Type.namespaced_positions/1`'s own qualification is a
+  property of a name's position inside a declared type's `statuses:`
+  array; an entry with no such array behind it is bare by the
+  identical rule §15.12 already states for anything outside a
+  sub-array, and unambiguous besides — a synthesized two-entry list
+  cannot recur a name against itself, and `setup`/`retro` are two
+  distinct `FeatureLifecycle` process-manager instances
+  (`ContainerLifecycle.open_inline/3` opens each as its own flow), so
+  their two `pending`s are never compared inside one `Projection` the
+  way `feature.yaml`'s own recurring group `pending`s are. So the
+  canonical-identity field every other constructor of
+  `annotated_position()` supplies is present on these two maps too,
+  rather than the shape forking between callers — `annotated_positions
+  /2` returns one shape regardless of which branch built it — carrying
+  `nil`.
+
   **A record written before this ticket decodes with no anchor, and
   that decodes correctly, with no backfill.** `Projection.from_wire/1`
   reads its new `blocked_from_anchor`/`pinned_to_anchor` fields with a
