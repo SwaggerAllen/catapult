@@ -324,15 +324,28 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     end)
   end
 
+  # `@reachable_boundary` can recur, once per generation-shaped
+  # sub-array (dsl-syntax.md §15.2's revised `feature.yaml`, ORC-182):
+  # the boundary is the *last* occurrence ahead of the array's own
+  # `merge` entry, not the first — the shipped single-phase bundle
+  # never exercised the difference, since it declares exactly one.
   defp take_through_boundary(indexed_positions) do
-    {before, at_and_after} =
-      Enum.split_while(indexed_positions, fn {position, _index} ->
-        position != {:kind, @reachable_boundary}
+    merge_index =
+      Enum.find_value(indexed_positions, fn {position, index} ->
+        if position == {:kind, :merge}, do: index
       end)
 
-    case at_and_after do
-      [] -> before
-      [boundary | _rest] -> before ++ [boundary]
+    indexed_positions
+    |> Enum.filter(fn {position, index} ->
+      position == {:kind, @reachable_boundary} and (is_nil(merge_index) or index < merge_index)
+    end)
+    |> List.last()
+    |> case do
+      nil ->
+        indexed_positions
+
+      {_position, boundary_index} ->
+        Enum.filter(indexed_positions, fn {_position, index} -> index <= boundary_index end)
     end
   end
 end

@@ -211,12 +211,13 @@ stubbed | real` with `swap: transparent | migration | reset` (v5
 **Delta from v4: the phased variants (`per(X) × phase`) are removed**
 with the phase machinery (v5 §6). There is no `phase` dimension.
 `cascade_visit` replaces v4's informal `per(scaffold_tier)` +
-`scope_filter: in_cascade_visit_set` (`seed-docs/catapult-default-
-bundle-v4-examples.md` §2.1-§2.6): v4's `scaffold_tier` was never a
-real tier `per(X)` could name — it meant "whichever tier the cascade
-is currently touching" — and `in_cascade_visit_set` was a platform-
-managed predicate with no counterpart in this loader's predicate
-language (§8). One real scope kind replaces both.
+`scope_filter: in_cascade_visit_set`
+(`seed-docs/catapult-default-bundle-v4-examples.md` §2.1-§2.6): v4's
+`scaffold_tier` was never a real tier `per(X)` could name — it meant
+"whichever tier the cascade is currently touching" — and
+`in_cascade_visit_set` was a platform-managed predicate with no
+counterpart in this loader's predicate language (§8). One real scope
+kind replaces both.
 
 ### 3.2 Generator types — closed set, extension-growable
 
@@ -1520,8 +1521,10 @@ how many times each may appear:
   already visits a generation-shaped kind three times, as `design`
   (`Product design`), `architecture` (`Architecting`) and
   `implementation` (`Implementation`), and §15.11's own worked example
-  visits `reconcile` twice within the architecture phase alone, once
-  per join it closes — `terminal` may not recur: last, exactly once.
+  visits `reconcile` twice across the type, once per phase it closes —
+  architecture's own join, then implementation's own, never twice
+  within either phase alone — `terminal` may not recur: last, exactly
+  once.
   **`pending` may recur, once per generation-shaped entry's own
   sub-array** (§13's own tightened check, below) — no longer "first,
   exactly once": the array still *opens* with `pending` (flattened one
@@ -1821,18 +1824,22 @@ statuses:
     - status: critique
     - review: architecture-review     # before reconcile: this
                                        #   instance's own artifact
-    - status: reconcile               # joins this feature's own
-                                       #   children's merged
-                                       #   architecture docs, bottom-up
-                                       #   already complete by the time
-                                       #   this entry runs (§15.11)
-    - review: architecture-synthesis-review  # after reconcile: the
-                                       #   joined set — a separate
-                                       #   declared gate (§15.4), not
-                                       #   the same one cited twice
-                                       #   (ORC-155, §15.12): the two
-                                       #   review different things and
-                                       #   now say so by name
+
+  - status: reconcile               # joins this feature's own
+                                     #   children's merged
+                                     #   architecture docs, bottom-up
+                                     #   already complete by the time
+                                     #   this entry runs (§15.11) — the
+                                     #   flat backbone, not the group
+                                     #   above (§15.11's "not a
+                                     #   sub-array" paragraph)
+  - review: architecture-synthesis-review  # after reconcile: the
+                                     #   joined set — a separate
+                                     #   declared gate (§15.4), not
+                                     #   the same one cited twice
+                                     #   (ORC-155, §15.12): the two
+                                     #   review different things and
+                                     #   now say so by name
 
   - - status: pending
     - status: implementation    # this instance's own code — no gate:
@@ -1843,8 +1850,10 @@ statuses:
                                  #   budget; §15.1)
     - status: checks            # before critique (§15.5)
     - status: critique
-    - status: reconcile         # joins the feature's own children's
-                                 #   merged implementation
+
+  - status: reconcile         # joins the feature's own children's
+                               #   merged implementation — flat, the
+                               #   identical reason as above
 
   - status: merge                # fires here because the feature is
                                   #   always the tree's own root — a
@@ -2826,11 +2835,12 @@ from at all, and must declare `throwback:` explicitly (§15.10's own
 pass).
 
 **The worked example is now the grammar, not a shape argued from
-prose ahead of it.** Before ORC-148, `bundles/default-flow/types
-/milestone.yaml` cited `retro` as a `flow:`-carrying, container-
-skeleton anchor (`types/retro.yaml` ran its own singleton flow), and
-the (now-retired) load-time check refusing a population anchor inside
-a sub-array meant `[milestone-signoff, retro, proposals-read]` could
+prose ahead of it.** Before ORC-148,
+`bundles/default-flow/types/milestone.yaml` cited `retro` as a
+`flow:`-carrying, container-skeleton anchor (`types/retro.yaml` ran
+its own singleton flow), and the (now-retired) load-time check
+refusing a population anchor inside a sub-array meant
+`[milestone-signoff, retro, proposals-read]` could
 not legally form a sub-array at all — the derivation below was argued
 from the shape ORC-104 had committed to in prose, not from a sub-array
 the loader accepted at the time. §15.2's unification and `singleton:`'s
@@ -2902,14 +2912,14 @@ job; if it needs the field only to restate a target already reachable,
 that declaration is redundant and worth dropping.** Under
 the widened legality rule, the retro case that motivated this whole
 section resolves with no declaration at all — the derivation is right
-about the ordinary case. Four default-bundle gates declare
+about the ordinary case. Five default-bundle gates declare
 `throwback:` today. Two sit inside `feature.yaml`'s own sub-array and
 are read against the sharper test, not waved through — and the
 tightened `pending` rule (§13, this ticket's own fourth pass) moves
-one of the two conclusions below from what an earlier pass of this
-record found:
+both conclusions below from what an earlier pass of this record
+found:
 
-- `ux-review`'s own declared `throwback: [pending]` (`bundles/
+- `ux-review`'s own declared `throwback: pending` (`bundles/
   default-flow/gates/ux-review.yaml`) named a target *outside*
   `ux-review`'s own sub-array, before the group entirely, under the
   original "somewhere earlier" reading — a *different* landing point
@@ -2921,30 +2931,30 @@ record found:
   `ux-review`'s own declaration names. The declaration is now
   redundant, not the field earning its keep: `dev`'s diff against this
   record (`bundles/**`) drops it.
-- `engineering-review`'s own declared `throwback: [generation,
-  ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
-  sits entirely inside the group the derivation covers. **Its
-  conclusion also reverses.** Before the tightening, its first element,
-  `generation`, was the derived default and therefore redundant; now
-  the derived default is the group's own leading `pending`, so
-  `generation` is a genuine, non-default landing point this list still
-  needs to name explicitly — declaring it is no longer redundant. Its
-  second element, `ux-review`, remains a second landing point a
-  single-valued field cannot express alongside the first — the
-  list-to-scalar narrowing still forces this file to keep one and drop
-  the other. Both remain legal targets either way (the earlier-prefix
-  rule reaches both regardless of declaration); which one stays the
-  declared *default* is an ordinary bundle-authoring call against
-  `bundles/**`, not a fact this record needs to settle for it.
+- `engineering-review`'s own declared `throwback: ux-review`
+  (`bundles/default-flow/gates/engineering-review.yaml`) sits entirely
+  inside the group the derivation covers. **Its conclusion also
+  reverses.** This file once named two targets, `generation` and
+  `ux-review`; the list-to-scalar narrowing forced it to keep one, and
+  the bundle-authoring call it left open — an ordinary `bundles/**`
+  decision, never this record's to settle — was made in favour of
+  `ux-review`. Under the tightened rule the surviving declaration is a
+  genuine, non-default landing point rather than a restatement: the
+  derived default is the group's own leading `pending` (§13), and
+  `ux-review` is a different status, legal because it sits earlier in
+  the sequence than the gate declining it. `generation` remains a
+  legal target too, declared or not — the earlier-prefix rule reaches
+  it regardless.
 
-The other two sit in `milestone.yaml`, inside the sub-array
-`[milestone-signoff, pending, retro, proposals-read]` (§15.10 above) —
-so the sharper test applies: whether each entry's own declared
-`throwback:` matches the group's derived default, `retro`'s own
-leading `pending`, or the entry sits where the derivation names no
-legal target at all:
+The other three sit in `milestone.yaml`, across its two sub-arrays, so
+the sharper test applies to each: whether its own declared
+`throwback:` matches that group's derived default, names a legal
+target the derivation would not have picked, or sits where the
+derivation names no legal target at all. Two are inside
+`[milestone-signoff, pending, retro, proposals-read]` (§15.10 above),
+whose derived default is `retro`'s own leading `pending`:
 
-- `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
+- `milestone-signoff`'s own declared `throwback: main` (`bundles/
   default-flow/gates/milestone-signoff.yaml`) narrows to `main`, a
   target *outside* the sub-array, before the group entirely. The
   derivation names no landing point here at all: `milestone-signoff`
@@ -2958,7 +2968,7 @@ legal target at all:
   that has one but finds no legal target inside it. Rejecting the
   sign-off means reopening the milestone's own `main` work period, not
   re-running `retro`.
-- `proposals-read`'s own declared `throwback: [retro]` (`bundles/
+- `proposals-read`'s own declared `throwback: retro` (`bundles/
   default-flow/gates/proposals-read.yaml`) narrows to `retro` itself,
   skipping the dispatch-wait its own leading `pending` now interposes.
   **This declaration's conclusion also reverses, the identical shape as
@@ -2970,10 +2980,29 @@ legal target at all:
   — the same reversal `generation`'s declaration on `engineering-review`
   underwent above, and for the identical reason.
 
-Narrowing all four files' `throwback:` to a single string, and
-dropping `engineering-review`'s now-redundant second element, is
-dev's diff against this record (`bundles/**`); no file loses a landing
-point a decliner can still reach.
+The third sits in `milestone.yaml`'s other sub-array, `[pending,
+setup, kickoff-review]` (ORC-155, above). Neither of this type's two
+groups is generation-shaped — neither `setup` nor `retro` is (§13) —
+so §13's tightened rule requires a leading `pending` in neither, and
+both carry one anyway, as an authored choice (§15.2). The
+earliest-entry derivation reads that `pending` first here exactly as
+it does in `retro`'s group:
+
+- `kickoff-review`'s own declared `throwback: setup` (`bundles/
+  default-flow/gates/kickoff-review.yaml`) narrows to `setup`, not to
+  the group's own leading `pending` the derivation would pick — a
+  *different* landing point, and a legal one, `setup` sitting earlier
+  in the sequence than the gate declining it. The identical shape as
+  `engineering-review`'s first element and `proposals-read`'s: a
+  target that was the derived default before its group carried a
+  leading `pending`, and is a genuine, non-default landing point now
+  that it does. Declaring it is not redundant.
+
+All five files already declare a single status rather than a list, so
+the narrowing this section argued for is not outstanding work. What
+remains as dev's diff against this record (`bundles/**`) is dropping
+`ux-review`'s declaration, the one the tightened `pending` rule turned
+redundant; no file loses a landing point a decliner can still reach.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not
@@ -3329,26 +3358,29 @@ statuses:
                                         #   this instance's own
                                         #   sequence: scoped to this
                                         #   instance's own artifact
-    - status: reconcile                # declared once for the type,
-                                        #   like every entry here — a
-                                        #   leaf subcomponent's own
-                                        #   effective sequence selects
-                                        #   nothing from it (nothing to
-                                        #   join); a component's own
-                                        #   selects its subcomponents'
-                                        #   merge (below)
-    - review: architecture-synthesis-review  # after reconcile: the
-                                        #   joined set — a separate
-                                        #   declared gate (§15.4), not
-                                        #   the same one cited twice
-                                        #   (ORC-155, §15.12).
-                                        #   depth 0 (the default):
-                                        #   reaches a component's own
-                                        #   instance only — a
-                                        #   subcomponent's own sequence
-                                        #   has no reconcile ahead of
-                                        #   this entry to have joined
-                                        #   anything for it to review
+
+  - status: reconcile                # declared once for the type,
+                                      #   like every entry here — a
+                                      #   leaf subcomponent's own
+                                      #   effective sequence selects
+                                      #   nothing from it (nothing to
+                                      #   join); a component's own
+                                      #   selects its subcomponents'
+                                      #   merge (below). Flat backbone,
+                                      #   not the group above (§15.11's
+                                      #   "not a sub-array" paragraph)
+  - review: architecture-synthesis-review  # after reconcile: the
+                                      #   joined set — a separate
+                                      #   declared gate (§15.4), not
+                                      #   the same one cited twice
+                                      #   (ORC-155, §15.12).
+                                      #   depth 0 (the default):
+                                      #   reaches a component's own
+                                      #   instance only — a
+                                      #   subcomponent's own sequence
+                                      #   has no reconcile ahead of
+                                      #   this entry to have joined
+                                      #   anything for it to review
 
   - - status: pending
     - status: implementation           # this instance's own code — no
@@ -3358,12 +3390,14 @@ statuses:
                                         #   none (§15.1, §15.2)
     - status: checks                   # before critique (§15.5)
     - status: critique
-    - status: reconcile                # the identical selection test
-                                        #   as the first occurrence:
-                                        #   nothing at a leaf, its
-                                        #   subcomponents' merged
-                                        #   implementation at a
-                                        #   component
+
+  - status: reconcile                # the identical selection test
+                                      #   as the first occurrence:
+                                      #   nothing at a leaf, its
+                                      #   subcomponents' merged
+                                      #   implementation at a
+                                      #   component — flat, the
+                                      #   identical reason as above
 
   - status: merge                      # depth-0 by rule (below): a
                                         #   non-root instance's own

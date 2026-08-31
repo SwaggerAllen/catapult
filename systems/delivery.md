@@ -157,13 +157,13 @@ generating as scope-runs inside one ticket.
   dispatcher reads wherever a workflow bundle declares it, milestone
   `main`→`retro` included. **The pause has no separate mechanism to
   build**: an `Urgent` ticket dispatches regardless of which queue a
-  container or the project currently sits in (`docs/v5-design-
-  decisions.md` §7.3, §7.10), which falls out of ordinary priority
-  dispatch rather than needing a ticket-carried flag against its
-  milestone the way ORC-103's draft required. Of the rest this entry
-  named, three are built (ORC-175, design pass, checked against the
-  tree): storage for "which queue a given container or the project is
-  currently at" is `engine_containers.current_queue`/
+  container or the project currently sits in
+  (`docs/v5-design-decisions.md` §7.3, §7.10), which falls out of
+  ordinary priority dispatch rather than needing a ticket-carried flag
+  against its milestone the way ORC-103's draft required. Of the rest
+  this entry named, three are built (ORC-175, design pass, checked
+  against the tree): storage for "which queue a given container or the
+  project is currently at" is `engine_containers.current_queue`/
   `current_queue_sequence` (`lib/catapult/engine/store/container.ex`);
   the `blocks:`-aware dispatcher is `Catapult.Delivery
   .ContainerLifecycle` (below); and the declaration-graph acyclicity
@@ -694,35 +694,113 @@ generating as scope-runs inside one ticket.
   environments, critique — the identical calling convention
   `ReadyScopes`/`Scheduler` already establish for the chain axis, so
   the two axes' consumers read alike.
-- **Reachability, settled: `fanout` (Building) is this phase's last
-  reachable status; `checks`, `merge`, `validating` and `terminal`
-  arrive with Phase 7** (ORC-32, design pass, closing this ticket's
-  own open question). The kinds themselves were never in question —
-  `Catapult.Dsl.SystemStatus`'s closed table fixes all twelve up
-  front, so nothing here adds or removes one. What was open is which
-  of them this process manager's own callbacks ever route a ticket
-  into. `checks`/`merge` are CI and reconciliation outcomes and
-  `validating` is §7.11's post-deploy repair loop, which needs a
-  deploy, which needs `merge` — each sits behind the child
-  lifecycle/mutex/dispatch/reconciliation machinery this ticket's own
-  scope names as Phase 7's, not this one's. So this process manager's
-  `interested?`/`handle` pair is total over `queue → generation →
-  [critique] → [gate] → … → fanout` and *recognizes* the later kinds
-  without ever driving a ticket into them — a bundle declaring gates
-  or environments after `deploy` still loads and validates today
-  (§13), unaffected. A ticket reaching `fanout` sits there under this
-  phase; what moves it again is Phase 7's own dispatcher. **Written
-  against `system_status.ex` as it stands, not `dsl-syntax.md`
-  §15.1's table**: the module on this branch carries twelve kinds,
-  first `:queue`, with `:boundary` still in `@agent_steps`; §15.1
-  carries seventeen, `queue` renamed to `pending` and `:boundary`
-  retired, and its own text records both moves as dev's diff against
-  ORC-104 — blocked *by* this ticket — "not actioned here." So this
-  process manager's dev pass opens a module that still says `:queue`
-  and still lists `:boundary`, and this bullet's `queue → generation →
-  …` chain, the twelve-count above, and the `:blocked` bullet below
-  all write against that, on purpose, rather than against §15.1's
-  target shape.
+- **Reachability, settled: `checks` is this phase's last reachable
+  position; `merge`, `deploy`, `validating` and `terminal` arrive with
+  Phase 7** (ORC-32, design pass, closing this ticket's own open
+  question; restated here against the vocabulary as it now stands —
+  `fanout` retired and the queue/pending rename and `:boundary`
+  retirement both landed, `dsl-syntax.md` §15.1). The kinds themselves
+  are never in question — `Catapult.Dsl.SystemStatus`'s closed table
+  fixes them all up front, so nothing here adds or removes one. What
+  is open is which of them this process manager's own callbacks ever
+  route a ticket into. `merge`/`deploy` are reconciliation and
+  publish outcomes and `validating` is §7.11's post-deploy repair
+  loop, which needs a deploy, which needs `merge` — each sits behind
+  the child lifecycle/mutex/dispatch/reconciliation machinery this
+  ticket's own scope names as Phase 7's, not this one's. So this
+  process manager's `interested?`/`handle` pair is total over
+  `pending → generation → [critique] → [gate] → … → checks` and
+  *recognizes* the later kinds without ever driving a ticket into them
+  — a bundle declaring gates or environments after `deploy` still
+  loads and validates today (§13), unaffected. A ticket reaching
+  `checks` sits there under this phase; what moves it again is Phase
+  7's own dispatcher.
+
+  **`checks` can recur, once per generation-shaped sub-array
+  (`dsl-syntax.md` §15.1, §15.11) — the boundary is the last such
+  occurrence in the type's own array that precedes the array's own
+  `merge` entry, not the first** (ORC-182, design pass). The shipped
+  single-phase `feature.yaml` never exercised the difference — one
+  `checks`, so first and last coincide — which is what let
+  `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2`'s own
+  `take_through_boundary/1` anchor on the first occurrence and still
+  read correct. The multi-phase case is `dsl-syntax.md` §15.2's own
+  revised `feature.yaml` worked example (three `checks`, one per
+  design/architecture/implementation sub-array — the same count this
+  doc's own ORC-155 entry, below, already names for that same
+  declaration), corrected here from a design-review pass that first
+  attributed it to §15.11's `component.yaml` instead: that example
+  carries only two `checks` (architecture and implementation) and no
+  `design` sub-array at all — §15.11's own prose is what rules `design`
+  out there, since `design` and `product-review` are feature-only.
+  Every one of §15.2's earlier `checks`/`critique`/gate cycles is
+  ordinary reachable board structure, not Phase 7 machinery — only
+  what follows the *final* `checks` (that sub-array's own `critique`,
+  the type's trailing `reconcile`, `merge`, `deploy`, `terminal`) sits
+  behind it. Anchoring on the first occurrence instead silently drops
+  every position after it, however many phases and gates that is —
+  not live against the shipped bundle today, so nothing has rendered
+  wrong yet, but a landmine the moment a bundle ships §15.2's
+  documented shape. Dev's diff against this record:
+  `take_through_boundary/1` finds the *last* index carrying `{:kind,
+  :checks}` ahead of `merge`, not the first.
+
+  **That move exposes a second gap, in `Projection.passable?/2`,
+  closed here rather than left for dev to guess at** (design review).
+  `passable?/2` has exactly two clauses — `kind in [:pending,
+  :generation, :critique]`, and a gate — and `resting/3` never tests
+  the sequence's own last entry, which is the only reason a
+  first-occurrence `checks` (always last, on the shipped bundle) has
+  never hit the missing clause: `take_through_boundary/1`'s
+  first-occurrence anchor was load-bearing for this too, unrecorded
+  until now. Moving the boundary to the last occurrence makes every
+  earlier `checks` — and, on §15.2's shape, `design`, `architecture`,
+  `implementation`, and every `reconcile` ahead of the final `checks`
+  — a *non-last* position `resting/3` does test, raising
+  `FunctionClauseError` out of a clause list never asked to answer for
+  them. Two answers were coherent and this record picks one rather
+  than leaving both open:
+
+  - `design`, `architecture` and `implementation` are generation-shaped
+    the identical way `generation` already is (`dsl-syntax.md` §13,
+    §15.1) and this projection draws no distinction between the four
+    anywhere else (`Sequence.to_position/1` maps all of them through
+    the same `{:kind, atom}` shape) — the existing clause's `kind in
+    [...]` list widens to name all four, not `generation` alone.
+  - `checks` and `reconcile` stay unpassable **at every occurrence,
+    not only the last.** This projection has no event reporting a
+    checks run's own outcome or a reconcile's own join independently
+    of a fresh `DraftCommitted`/`RunFailed` (`FeatureLifecycle`'s own
+    `interested?` list, which is the whole of what this process
+    manager observes), so nothing here can tell an intermediate
+    `checks` or `reconcile` apart from the boundary one the paragraph
+    above already covers. `passable?/2` gains a catch-all clause
+    answering `false` for every kind not named in the bullet above,
+    and every `checks`/`reconcile` occurrence renders and rests
+    exactly like the boundary always has. Consequence, named rather
+    than left to be found as a stuck board card: a ticket resting at a
+    non-final `checks` or `reconcile` does not advance into that
+    phase's own `critique`/gates under today's event vocabulary —
+    real on §15.2's documented shape, not on the shipped bundle.
+    Giving this phase a signal for an intermediate checks or reconcile
+    outcome is new Phase 4 advancement behaviour; it is unbuilt, and
+    designing it is not this ticket's scope.
+
+  **A third gap, in `resting/3` itself, surfaced only once the first
+  two were fixed and tested against a recurring boundary kind** (dev
+  pass, not caught by design review): `resting/3` found "not yet
+  passable" by walking `Sequence.positions/2`'s list with `Enum.find
+  (positions, last, &(&1 != last and not passable?(&1, state)))` —
+  excluding the sequence's own last entry by comparing *values*, not
+  index. Once `{:kind, :checks}` legitimately recurs (this record's own
+  first bullet, above), every earlier occurrence shares that value with
+  `last` and the `!= last` guard excludes all of them alongside the
+  true final one — silently, since `passable?/2` is never even called
+  on them. The walk sails straight past every non-final `checks`
+  instead of resting there, contradicting "every checks/reconcile
+  occurrence renders and rests exactly like the boundary always has"
+  two paragraphs above. Fixed by pairing each position with its index
+  and excluding by `index != last_index` instead of by value.
 - **The label owner, settled: the work surface renders; this
   projection never does** (ORC-32, design pass, closing this ticket's
   other open question). The projection carries exactly what
@@ -1267,11 +1345,10 @@ generating as scope-runs inside one ticket.
   standing reachability record above.** `FeaturePublisher` calls
   `create_branch/3`, `open_pr/2` and the two operations this ticket
   adds; it never calls `merge_pr/3`. "Reachability, settled" already
-  fixes `fanout` (Building) as this phase's last reachable status and
-  leaves `checks`/`merge` to Phase 7's own dispatcher — a publisher
-  that squash-merged on its own initiative would be driving a ticket
-  into a status this system's own lifecycle projection doesn't yet
-  recognize reaching.
+  leaves `merge` to Phase 7's own dispatcher — a publisher that
+  squash-merged on its own initiative would be driving a ticket into a
+  status this system's own lifecycle projection doesn't yet recognize
+  reaching.
 
 - **ORC-34 (design pass) narrows its own ticket's premise before
   designing anything: Phase 4's harvest source is `document-review`,
@@ -1514,14 +1591,15 @@ generating as scope-runs inside one ticket.
   it is a fact about which type a spawn cites, `bundles/**` content
   against this record. Second, **`implementation` is now a real
   dispatch phase, not the vestigial `checks` occurrence the earlier
-  finding at "Reachability, settled" (above, ORC-32) already flagged as
-  written against stale module shape** — a ticket's own code generation
-  dispatches at `status: implementation` the identical way its own
-  architecture phase dispatches at `status: architecture`, both inline
-  agent-balled entries this process manager's existing uniform dispatch
-  already reaches, needing no new branch once the loader recognizes the
-  kind. **Not built as part of this pass:** the same tree-spawn
-  recursion and parent-triggered merge cascade named above, now
+  finding at "Reachability, settled" (above, ORC-32) named before
+  `design`/`architecture`/`implementation` joined the fixed vocabulary
+  as kinds of their own** (`dsl-syntax.md` §15.1) — a ticket's own
+  code generation dispatches at `status: implementation` the identical
+  way its own architecture phase dispatches at `status: architecture`,
+  both inline agent-balled entries this process manager's existing
+  uniform dispatch already reaches, needing no new branch once the
+  loader recognizes the kind. **Not built as part of this pass:** the
+  same tree-spawn recursion and parent-triggered merge cascade named above, now
   spawning a second type rather than a depth-filtered instance of one,
   and the loader's own recognition of `implementation` — all Phase 7's.
 
