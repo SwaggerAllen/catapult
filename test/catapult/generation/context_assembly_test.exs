@@ -120,7 +120,7 @@ defmodule Catapult.Generation.ContextAssemblyTest do
   # shapes — `feedback_variable/3` (see this module's own moduledoc)
   # never sets `feedback: []`, only omits the key or sets it populated
   # — so the `[]` shape can't be driven through the full event-sourced
-  # path the tests above use. This renders the same six guarded
+  # path the tests above use. This renders the same five guarded
   # templates directly through `Solid.parse/1` + `Solid.render/3`
   # against the real `bundles/default/prompts` tree, the same two
   # calls `ContextAssembly`'s own (private) `parse_template/1` and
@@ -128,7 +128,7 @@ defmodule Catapult.Generation.ContextAssemblyTest do
   # cover the other four guarded templates `ContextAssembly.build/4`
   # coverage above never reaches (`systems/platform_content.md`'s
   # ORC-134 entry).
-  test "the six {% if feedback.size > 0 %} guards hold across all three feedback shapes" do
+  test "the five {% if feedback.size > 0 %} guards hold across all three feedback shapes" do
     prompts_root = Path.join(["bundles", "default", "prompts"])
     file_system = Solid.LocalFileSystem.new(prompts_root, "%s.md.liquid")
 
