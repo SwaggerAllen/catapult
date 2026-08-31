@@ -1635,11 +1635,11 @@ generating as scope-runs inside one ticket.
   spawning a second type rather than a depth-filtered instance of one,
   and the loader's own recognition of `implementation` — all Phase 7's.
 
-- **ORC-155 (design pass) gives `Sequence.resolve_position/2` a
+- **ORC-155 (design pass) gives `Sequence.resolve_position/3` a
   disjointness check it has been trusting rather than enforcing, and
   gives every `position()` a namespaced identity beyond kind or gate
   name alone** (`dsl-syntax.md` §13, §15.1, §15.4, §15.12;
-  `v5-design-decisions.md` §7.19). `resolve_position/2`'s own doc
+  `v5-design-decisions.md` §7.19). `resolve_position/3`'s own doc
   states plainly why membership in `workflow.gates` alone has always
   been enough to tell a gate from a status: "a gate name is never also
   a declared status kind (the two live in disjoint vocabularies)." That
@@ -1672,7 +1672,7 @@ generating as scope-runs inside one ticket.
   is why this matters now rather than later (`docs/ui-spec.md` §2 rule
   2: that ticket cannot introduce the vocabulary it needs to render
   subflows as groupings, only consume what this one defines). **Not
-  built as part of this pass:** `resolve_position/2`'s own disjointness
+  built as part of this pass:** `resolve_position/3`'s own disjointness
   check and the namespace/uniqueness checks are `lib/catapult/dsl/**`'s
   (core_dsl's diff, above); the projection column, and `Positions`'
   own encoding change, are this system's and dashboard's, both dev's
