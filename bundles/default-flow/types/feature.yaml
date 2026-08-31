@@ -12,10 +12,13 @@ statuses:
     - status: generation           # a bare, unnamed sub-array (§15.10):
                                     #   generation and everything that
                                     #   reviews it resolve together. It
-                                    #   holds exactly one non-critique
+                                    #   holds exactly one non-review-shaped
                                     #   agent-balled entry — this one —
-                                    #   which is what both gates below
-                                    #   fall back to when they decline
+                                    #   but the group's own leading
+                                    #   `pending` above is what both gates
+                                    #   below fall back to when they
+                                    #   decline (§15.10's fourth-pass
+                                    #   correction)
     - status: critique
       depth: [2, 0]                # carried forward from the retired
                                     #   critique.yaml (ORC-92): 2 for a

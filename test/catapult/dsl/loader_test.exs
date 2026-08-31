@@ -766,27 +766,34 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "statuses[1][1] carries more than one"))
   end
 
-  test "a gate declining derives its group's agent step, not the entry before it", %{
+  test "a gate declining derives its group's own leading pending, not the entry before it", %{
     tmp_dir: dir
   } do
     # The end-to-end half of `Catapult.Dsl.WorkflowTest`'s milestone
     # shape, on a group the loader accepts today. It has to separate
-    # three rules at once, so the agent step is neither the group's
-    # first entry nor the entry immediately before the gate:
+    # several readings at once, so the group's leading `pending` is
+    # neither the entry immediately before the gate nor the bare name a
+    # naive, unqualified read would offer:
     #
     #   [pending, product-review, design, merge-review, ship-review]
     #
-    # naive first-element -> pending
-    # previous position   -> merge-review
-    # §15.10's rule       -> design
+    # previous position        -> merge-review
+    # naive, unqualified read  -> "pending" (ambiguous — collides with
+    #                              this type's own top-level `pending`)
+    # pre-fourth-pass reading   -> design (the group's agent step
+    #                              itself, skipping the dispatch wait)
+    # §15.10's rule, corrected  -> design.pending (this group's own
+    #                              leading pending, namespace-qualified)
     #
-    # `design`, not `merge`, plays this role: `merge`'s own ball is
-    # `plane` (dsl-syntax.md §15.1, ORC-151), so it is never a candidate
-    # for a sub-array's own agent step any more. The shipped bundle
-    # cannot do this: `types/feature.yaml`'s group has `generation` as
-    # both its one agent step and its second entry (right after its own
-    # `pending`, §13, §15.1), so it passes under all three and proves
-    # none of them.
+    # `design`, not `merge`, is the group's own agent step: `merge`'s
+    # own ball is `plane` (dsl-syntax.md §15.1, ORC-151), so it is never
+    # a candidate for a sub-array's own agent step any more. The shipped
+    # bundle cannot separate the corrected rule from a naive first-
+    # element read: `types/feature.yaml`'s own `design` group already
+    # has `pending` as its first entry either way, and a bare `pending`
+    # there is unambiguous (nothing else in that type is named
+    # `pending`), so it never exercises the qualification this shape
+    # does.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -814,7 +821,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, loaded} = Loader.load(dir)
     workflow = loaded.workflow
 
-    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "design"
+    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "design.pending"
 
     # Legality is the earlier prefix and is bounded by no declaration —
     # every one of these is reachable although no gate declares any.

@@ -20,7 +20,7 @@ defmodule Catapult.Dsl.Gate do
   other job — naming *where a decline lands* — and a decline lands on
   exactly one status, so a list stopped meaning anything the moment it
   stopped bounding. Omitted, the landing point is derived from the
-  citing sub-array's own non-review-shaped agent step
+  citing sub-array's own earliest entry
   (`Catapult.Dsl.Workflow.throwback_default/3`).
 
   Structural parsing only; whether `throwback:` resolves to a position

@@ -13,12 +13,11 @@ defmodule CatapultWeb.BoardLive do
   rendered but not yet wired to anything that would narrow it.
 
   Fan-out is already collapsed, but not by a rendering choice this
-  module makes: `Catapult.Engine.Store.Flow` carries no parent-flow
-  reference in Phase 4 (fan-out below the top-level ticket is a node/
-  tier concept today, not a second flow instance), so `children` is
-  always `[]` — recorded in this ticket's hand-back as a real gap
-  rather than a v1 narrowing, since nothing here is choosing to hide
-  data that exists.
+  module makes: `children` is always `[]` because there is no data
+  source for it in Phase 4 — a real gap rather than a v1 narrowing,
+  since nothing here is choosing to hide data that exists
+  (`systems/dashboard.md`'s ORC-129 entry; `screens/board.md`'s own
+  statement of the same gap).
 
   Cards never dispatch `ApproveGate`/`DeclineGate` (`screens/board.md`'s
   own ORC-114 correction): a gate lane's card links to `document-review`

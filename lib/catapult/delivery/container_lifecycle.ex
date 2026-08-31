@@ -380,10 +380,10 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   """
   @spec next_commands(Workflow.t(), Container.t()) :: [struct()]
   def next_commands(%Workflow{} = workflow, %Container{state: :active} = container) do
-    steps = Sequence.steps(workflow, container.type_name)
+    identified = Sequence.identified_steps(workflow, container.type_name)
     current = container.current_queue
 
-    case earliest_unresolved(workflow, container, steps, current) do
+    case earliest_unresolved(workflow, container, identified, current) do
       target when not is_nil(target) and target != current ->
         [advance(container, current, target, :repopulated)]
 
@@ -394,32 +394,43 @@ defmodule Catapult.Delivery.ContainerLifecycle do
 
   def next_commands(%Workflow{}, %Container{}), do: []
 
+  # `current` is `container.current_queue`'s own canonical identity
+  # (`systems/delivery.md`'s own ORC-171 entry) — resolved to its
+  # declaration once, here, via `Sequence.step/3`'s namespace-aware
+  # lookup. `ContainerQueues.resolution/3` reads the *declaration's own
+  # bare* `status:` back off it rather than `current` itself: a
+  # queue's population is filed under that bare name (`OpenFlow.queue:`,
+  # `MintContainer.parent_queue:` below), a fact about population
+  # tracking this ticket leaves untouched, never about which occurrence
+  # a container's position actually is.
   defp forward_or_open(%Workflow{} = workflow, %Container{} = container, current) do
-    case ContainerQueues.resolution(workflow, container, current) do
-      # Held by a sibling that blocks it. Nothing begins here — not
-      # even an inline dispatch point's own work item, which is what
-      # "retro will not begin until it clears" actually means (v5 §7.8).
+    case Sequence.step(workflow, container.type_name, current) do
+      {:queue, %Status{} = entry} -> resolve_and_open(workflow, container, current, entry)
+      _gate_or_terminal_or_unknown -> []
+    end
+  end
+
+  defp resolve_and_open(
+         %Workflow{} = workflow,
+         %Container{} = container,
+         current,
+         %Status{status: bare} = entry
+       ) do
+    case ContainerQueues.resolution(workflow, container, bare) do
+      # Held by a sibling that blocks it. Nothing begins here — not even
+      # an inline dispatch point's own work item, which is what "retro
+      # will not begin until it clears" actually means (v5 §7.8).
       {:held, _holders} ->
         []
 
       :resolved ->
-        case open_work(workflow, container) do
+        case open_for(workflow, container, entry) do
           [] -> forward(workflow, container, current)
           commands -> commands
         end
 
       :open ->
-        open_work(workflow, container)
-    end
-  end
-
-  # Entering a queue is where dispatch happens, and it is uniform: what
-  # to do follows from the *resolved* declaration, never from the queue
-  # entry (§15.7).
-  defp open_work(%Workflow{} = workflow, %Container{} = container) do
-    case Sequence.step(workflow, container.type_name, container.current_queue) do
-      {:queue, entry} -> open_for(workflow, container, entry)
-      _gate_or_terminal_or_unknown -> []
+        open_for(workflow, container, entry)
     end
   end
 
@@ -501,9 +512,9 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   end
 
   defp first_queue_name(%Workflow{} = workflow, type_name) do
-    case Sequence.first_step(workflow, type_name) do
+    case Sequence.first_identified_step(workflow, type_name) do
       nil -> "terminal"
-      step -> Sequence.name(step)
+      {canonical, _step} -> canonical
     end
   end
 
@@ -554,24 +565,33 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   ## Where the position goes next.
 
   defp forward(%Workflow{} = workflow, %Container{} = container, current) do
-    case Sequence.next_step(workflow, container.type_name, current) do
+    case Sequence.next_identified_step(workflow, container.type_name, current) do
       # No next entry: a skeleton-less instance closing on its own last
-      # declared entry resolving with nothing open behind it (§15.6). A
-      # container-skeleton instance never lands here — its array ends at
-      # `terminal`, which is a step.
+      # declared entry resolving with nothing open behind it (§15.6).
+      # `current` here is `container.current_queue`'s own canonical,
+      # namespace-qualified identity (threaded end to end since
+      # ORC-171), not a bare name that a recurring status could make
+      # ambiguous — so `next_identified_step/3`'s lookup always finds
+      # the instance's true position. A container-skeleton instance
+      # never lands here: its array closes on `terminal` exactly once,
+      # last (dsl-syntax.md §15.1), so its own last queue entry always
+      # resolves to `{_canonical, :terminal}` below instead. While a
+      # caller could still pass a bare, ambiguous name, that lookup
+      # could land on the wrong occurrence and reach this clause for a
+      # container-skeleton instance too — the defect ORC-171 fixed.
       nil ->
         close(workflow, container)
 
-      :terminal ->
+      {_canonical, :terminal} ->
         close(workflow, container)
 
       # Where the plane stops. Advancing past a gate is a human's
       # command, recorded with their actor.
-      {:gate, _name} ->
+      {_canonical, {:gate, _name}} ->
         []
 
-      {:queue, entry} ->
-        [advance(container, current, entry.status, :resolved)]
+      {canonical, {:queue, _entry}} ->
+        [advance(container, current, canonical, :resolved)]
     end
   end
 
@@ -666,15 +686,20 @@ defmodule Catapult.Delivery.ContainerLifecycle do
     ContainerQueues.resolution(workflow, container, queue) == :resolved
   end
 
-  # The earliest queue before `current` that is no longer resolved.
+  # The earliest queue before `current` that is no longer resolved,
+  # returned by its own canonical identity — what `container
+  # .current_queue` carries end to end (`systems/delivery.md`'s own
+  # ORC-171 entry) — never `entry.status`'s bare declaration, which
+  # `resolved_here?/3` still reads (population is filed under the bare
+  # name regardless of which occurrence a container's position is).
   # `nil` when everything behind the container is still settled, which
   # is the ordinary case.
-  defp earliest_unresolved(%Workflow{} = workflow, %Container{} = container, steps, current) do
-    steps
-    |> Enum.take_while(&(Sequence.name(&1) != current))
+  defp earliest_unresolved(%Workflow{} = workflow, %Container{} = container, identified, current) do
+    identified
+    |> Enum.take_while(fn {canonical, _step} -> canonical != current end)
     |> Enum.find_value(fn
-      {:queue, entry} ->
-        if resolved_here?(workflow, container, entry.status), do: nil, else: entry.status
+      {canonical, {:queue, entry}} ->
+        if resolved_here?(workflow, container, entry.status), do: nil, else: canonical
 
       _gate_or_terminal ->
         nil
