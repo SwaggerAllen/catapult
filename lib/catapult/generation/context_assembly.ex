@@ -30,7 +30,7 @@ defmodule Catapult.Generation.ContextAssembly do
   Liquid's truthiness would punish it. Only `nil` and `false` are
   falsy there, so an empty list is **truthy** and a bare
   `{% if feedback %}` would fire on every render the moment any caller
-  set `[]` instead of omitting. The six shipped prompts that gate a
+  set `[]` instead of omitting. The five shipped prompts that gate a
   revision section therefore guard on `feedback.size > 0` rather than
   on bare truthiness (ORC-134), which is correct under either shape.
   Keep both halves: this module and `bundles/**` are edited by

@@ -173,6 +173,7 @@ defmodule Catapult.MixProject do
             :req,
             :solid,
             :rustler_precompiled,
+            :tailwind,
             :telemetry_registry,
             :tesla,
             :websock,
@@ -276,7 +277,23 @@ defmodule Catapult.MixProject do
       # LiveView tests in this tree); analysis-only, like every other
       # `only: [:dev, :test]` tool here, which is also why it needs no
       # `boundary: check: apps:` entry.
-      {:lazy_html, ">= 0.1.0", only: :test}
+      {:lazy_html, ">= 0.1.0", only: :test},
+      # The dashboard's CSS build (ORC-183, `systems/dashboard.md`):
+      # wraps Tailwind's standalone CLI, no Node/npm resolution. Not
+      # `credo`/`sobelow`/`mix_audit`'s `only: [:dev, :test]` shape —
+      # `mix assets.deploy` is a prod build's own step (this repo's
+      # `Dockerfile`), so `deps.get --only prod` has to fetch this one.
+      # `runtime: false` because it is a build-time task, never started
+      # as part of the release — but unlike those three, it carries a
+      # `boundary: check: apps:` entry (below) rather than skipping one:
+      # `mix catapult.audit`'s `Catapult.Audit.BoundaryApps` computes
+      # reachability from `only:`, not from `runtime:`, so an app with no
+      # `only:` restriction is reachable from a :prod build regardless,
+      # and it names Elixir modules Boundary can restrain. Design's own
+      # sketch called this omittable; running the audit (dev's own gate,
+      # not design's) says otherwise, and the check has no waiver for
+      # this — the fix is naming it, not arguing with the gate.
+      {:tailwind, "~> 0.5", runtime: false}
     ]
   end
 
@@ -331,7 +348,13 @@ defmodule Catapult.MixProject do
         "ecto.migrate --quiet --migrations-path priv/repo/migrations_infra",
         "cmd mix ecto.migrate --quiet",
         "test"
-      ]
+      ],
+      # The dashboard's CSS build (ORC-183, `systems/dashboard.md`):
+      # `tailwind.install --if-missing` fetches the standalone CLI binary
+      # itself (no Node/npm), never a package resolved through npm.
+      "assets.setup": ["tailwind.install --if-missing"],
+      "assets.build": ["tailwind catapult"],
+      "assets.deploy": ["tailwind catapult --minify", "phx.digest"]
     ]
   end
 end

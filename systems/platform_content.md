@@ -428,11 +428,13 @@ loader tickets carry `system:core_dsl`.
   never bare truthiness** (ORC-134). Liquid counts an empty list as
   truthy — only `nil` and `false` are falsy — so `{% if feedback %}`
   opens its section on every render the moment a caller passes `[]`
-  instead of omitting the key. Six shipped prompts gate a revision
+  instead of omitting the key. Five shipped prompts gate a revision
   section this way (`vocab`, `ref`, `subcomparch`, `sysarch`,
-  `comparch`, and the shared `partials/_architecture_framing`), and the
-  rule generalizes: it is the bundle-authoring rule for any future
-  prompt gating on a collection.
+  `comparch`), and the shared `partials/_architecture_framing` carries
+  the identical guard though its own copy cannot fire (below) — the
+  rule is about the spelling, not about which copies fire, so it
+  reaches all six. It generalizes further still: it is the
+  bundle-authoring rule for any future prompt gating on a collection.
 
   **It is a rule spanning two trees, which is why it is recorded here
   and not only in the code.** `Catapult.Generation.ContextAssembly`
@@ -446,9 +448,52 @@ loader tickets carry `system:core_dsl`.
   moduledoc. The Solid mechanics behind the spelling live there too,
   including why a filter pipe is not available inside a conditional
   under `Solid.parse/1`. `test/catapult/generation/context_assembly
-  _test.exs` holds all six templates against all three shapes, so these
-  are the suite's claims rather than the next reader's to re-derive by
-  reading `deps/solid`.
+  _test.exs` holds all five templates with a working top-level guard
+  against all three shapes, so these are the suite's claims rather than
+  the next reader's to re-derive by reading `deps/solid`.
+
+  **The shared partial's own copy of this guard cannot fire today, and
+  that is a hook, not cruft to prune (ORC-184).** `{% render
+  "partials/<name>" %}` isolates the partial's scope from its caller's
+  unless the call passes `with`/`for` (`deps/solid`'s `RenderTag`); none
+  of `partials/_architecture_framing`'s call sites across
+  `bundles/default/{prompts,flows}/**` do, so `feedback` and `draft`
+  never enter its scope and its `{% if feedback.size > 0 %}` block is
+  inert. What actually gates a revision section today is each of the
+  five shipped prompts' own top-level copy of the same guard —
+  `vocab`, `ref`, `subcomparch`, `sysarch` and `comparch` — reading
+  the `feedback` (and, on a review tier's own prompt, `draft`)
+  `ContextAssembly` puts directly in *that* prompt's context —
+  `dsl-syntax.md` §9's "generation and review templates for a tier
+  receive identical context plus `draft`". The partial's copy stands
+  ready for the day a caller starts rendering it `with feedback:
+  feedback, draft: draft` instead of bare; deleting it now would mean
+  re-deriving the exact `.size > 0` reasoning above a second time when
+  that caller arrives. Until then it renders nothing and gates nothing,
+  which is expected, not a defect.
+
+- **Every `agent_step: design` tier's `delivery.phase` across
+  `bundles/default/tiers/**` stays uniformly `generation` (never
+  `design` or `architecture`), because that phase is a tier-level echo
+  of a distinction the work-item *type* declaration owns, not one a
+  tier draws for itself.** This is narrower than "every tier" — the
+  other agent-step family, `critique`, pairs uniformly with
+  `phase: critique` instead, an unrelated axis untouched by this entry.
+  `dsl-syntax.md` §15.1 and v5 §7.6 name `design`, `architecture` and
+  `implementation` as kinds a type's own lifecycle draws —
+  `feature.yaml`'s generation sub-array splitting into a
+  `design`-then-`architecture` pair, and the recursive architecture
+  fan-out's own child type (`dsl-syntax.md` §15.11) reading the same
+  kinds — not a distinction a tier makes independently of the type it
+  fans out from. `delivery.phase` has exactly one reader in the tree,
+  `Catapult.Dsl.Chain`'s load-time check that its value names a real
+  system-status kind (`lib/catapult/dsl/chain.ex`), so nothing
+  dispatches on which kind a tier picks. Tier values move together
+  with that type-level split, never per-tier ahead of it: picking
+  `design`/`architecture` for a subset of the 13 `agent_step: design`
+  tiers reading `phase: generation` — `sysarch`, `impl`, `ref` and the
+  rest — would leave their siblings inconsistent against a split the
+  type declaration has not drawn (ORC-179).
 
 ## Initial vs target
 

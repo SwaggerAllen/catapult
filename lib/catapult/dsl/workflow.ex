@@ -25,8 +25,8 @@ defmodule Catapult.Dsl.Workflow do
   the runtime pick (`throwback_targets/3`, `throwback_legal?/4`) share
   `earlier_names/2` rather than agreeing by coincidence, and
   `throwback_default/3` supplies the landing point: the gate's own
-  declared target, else the citing sub-array's own non-review-shaped
-  agent step. None of it is stored — a stored default would be a second
+  declared target, else the citing sub-array's own earliest entry.
+  None of it is stored — a stored default would be a second
   home for a fact the citing type's array already carries, and a
   workflow cutover could not re-resolve it (§15.1).
 
@@ -390,7 +390,7 @@ defmodule Catapult.Dsl.Workflow do
   Where a decline at `gate_name` lands by default for a ticket of type
   `type_name` (§15.10): the gate's own declared `throwback:` when it
   names one, otherwise the derived default — the citing sub-array's own
-  non-review-shaped agent step.
+  earliest entry.
 
   Never the array position immediately before the gate. That reading
   fails the shape §15.10 argues from, `[milestone-signoff, retro,
@@ -398,6 +398,18 @@ defmodule Catapult.Dsl.Workflow do
   fall back to the entry before it and re-ask a human a question they
   already answered, instead of re-running the agent that produced the
   thing being declined.
+
+  Nor is it always the group's own non-review-shaped agent step: when
+  the group's own first entry is a `pending`, dedicated to that anchor
+  (§13's pending-precedes check guarantees this for every
+  generation-shaped anchor, and a bundle may add one by convention even
+  where nothing requires it, as `types/milestone.yaml`'s `setup` group
+  does), the earliest entry is that `pending` rather than the anchor —
+  a decline then queues the repair through the same dispatch wait any
+  other `pending` entry goes through, instead of landing straight on
+  the agent step and skipping it (§15.10's fourth-pass correction). An
+  anchor with no leading `pending` of its own — `retro`'s group, in the
+  shipped bundle — still derives to itself.
 
   `nil` when the gate declares no target and cites no sub-array. That
   is a gate with no one-click default rather than a gate that cannot be
@@ -441,11 +453,34 @@ defmodule Catapult.Dsl.Workflow do
       range ->
         case Type.anchor_index(type, range) do
           anchor_index when not is_nil(anchor_index) and anchor_index < index ->
-            Status.name(Enum.at(type.statuses, anchor_index))
+            target_index = fallback_index(type, range, anchor_index)
+
+            type
+            |> Type.namespaced_positions()
+            |> Enum.find(&(&1.index == target_index))
+            |> Map.fetch!(:canonical)
 
           _nil_or_not_earlier ->
             nil
         end
+    end
+  end
+
+  # §15.10's fourth-pass correction: the sub-array's own "earliest
+  # entry" is its leading `pending` when it has one, not the anchor
+  # itself — §13's pending-precedes check guarantees a `pending` at
+  # `range.first` for every generation-shaped anchor, and
+  # `bundles/default-flow/types/milestone.yaml`'s own `setup` group
+  # carries one by convention though nothing requires it there. Either
+  # way landing on it queues the repair through the same dispatch wait
+  # any other `pending` entry does, rather than skipping straight to
+  # the agent step. An anchor with no leading `pending` — `retro`'s own
+  # group, which no check requires one for — keeps deriving to itself.
+  defp fallback_index(type, range, anchor_index) do
+    if match?(%Status{status: "pending"}, Enum.at(type.statuses, range.first)) do
+      range.first
+    else
+      anchor_index
     end
   end
 

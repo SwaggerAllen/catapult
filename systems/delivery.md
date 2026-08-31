@@ -159,14 +159,25 @@ generating as scope-runs inside one ticket.
   build**: an `Urgent` ticket dispatches regardless of which queue a
   container or the project currently sits in
   (`docs/v5-design-decisions.md` §7.3, §7.10), which falls out of
-  ordinary priority dispatch rather than needing a ticket-carried flag against its
-  milestone the way ORC-103's draft required. Storage for "which queue
-  a given container or the project is currently at," the
-  `blocks:`-aware dispatcher, the declaration-graph acyclicity check
-  that bounds nesting (`docs/dsl-syntax.md` §13), the
-  `:live`-gates-`retro` interlock (§2.8), and the scan/setup/retro
-  machinery itself are Target (Phase 7), filed as ORC-104 and blocked
-  on this record; this entry is the shape it builds against.
+  ordinary priority dispatch rather than needing a ticket-carried flag
+  against its milestone the way ORC-103's draft required. Of the rest
+  this entry named, three are built (ORC-175, design pass, checked
+  against the tree): storage for "which queue a given container or the
+  project is currently at" is `engine_containers.current_queue`/
+  `current_queue_sequence` (`lib/catapult/engine/store/container.ex`);
+  the `blocks:`-aware dispatcher is `Catapult.Delivery
+  .ContainerLifecycle` (below); and the declaration-graph acyclicity
+  check that bounds nesting (`docs/dsl-syntax.md` §13) is
+  `Catapult.Dsl.Workflow.declaration_graph_problems/1`, already
+  skeleton-agnostic per ORC-148. "The scan/setup/retro machinery
+  itself" is superseded rather than built as this entry originally
+  framed it: `setup`/`retro` fold directly into `milestone`'s own
+  array as inline agent-balled entries, with no separate scan step
+  (ORC-148, below). The `:live`-gates-`retro` interlock (§2.8) is the
+  one item here still unbuilt — no `:live`-verdict signal exists
+  anywhere in this system yet, and it needs the maintenance watcher
+  this doc's own Initial-vs-target section still files to Phase 7 —
+  and stays Target (Phase 7), unticketed.
 - **Mint is not activation, and this system's dispatcher is the one
   that has to hold the two apart** (ORC-105's fourth pass, design
   pass; `docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md`
@@ -179,10 +190,14 @@ generating as scope-runs inside one ticket.
   its own `setup` entry"; "minted one at a time as the prior one
   closes") and both are wrong for the case this system explicitly
   wants: grooming next milestone's `prep` during this milestone's own
-  `main`. What this system owns, not yet built: the storage
-  distinguishing "instances that exist" from "the instance that is
-  current," and a gate the container's own array cites throwing back
-  to an earlier entry in that array. **This bullet originally read a
+  `main`. What this system owns is built (ORC-175, design pass,
+  checked against the tree): the storage distinguishing "instances
+  that exist" from "the instance that is current" is
+  `Catapult.Delivery.ContainerLifecycle`'s own `state` field
+  (`:minted | :active | :closed`), and a gate's throwback is a human's
+  `AdvanceContainerQueue` with `reason: :throwback`, checked against
+  `ContainerLifecycle.Sequence.earlier?/4` — the live half of the
+  check the loader can only make statically. **This bullet originally read a
   container's position as moving backward two ways, the second being
   a gate's own throwback — a fifth-pass correction**, not a
   fourth-pass fact: the fourth pass's own "a container's anchor
@@ -194,8 +209,7 @@ generating as scope-runs inside one ticket.
   review**; see that bullet below rather than treating it as this
   system's target behavior. A milestone sign-off gate between `main`
   and `retro` can throw back to `main` today, and this system's
-  dispatcher has to honor that path.
-  Filed against ORC-104 alongside the rest of this entry's Target list.
+  dispatcher honors that path exactly this way.
 - **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
   respect and closed a hole in the loader's own acyclicity check that
   this system's dispatcher would otherwise have inherited** (design
@@ -208,17 +222,19 @@ generating as scope-runs inside one ticket.
   wrong, corrected at the sixth pass below** — see that bullet rather
   than treating "admitted and files `Blocked`" as this system's
   target behavior. Separately, the declaration-graph acyclicity check
-  ORC-104 is filed to build (above) now has to treat a skeleton-less
-  type — the project included — as a graph node, not only a
-  `container`-skeleton type: the fourth pass's narrower node set
-  excluded the exact edge a project/container cycle runs on
-  (`milestone.main` → `flow: project`, `project.build-out` → `flow:
-  milestone`), so a loader built against the fourth pass's own record
-  would have let that cycle through. Nothing in this system's own
-  dispatch logic changes shape from the acyclicity correction — it is
-  about what the loader accepts before this system ever sees a bundle
-  — but the Target build has to read the corrected record, not the
-  superseded one.
+  (above) now has to treat a skeleton-less type — the project
+  included — as a graph node, not only a `container`-skeleton type:
+  the fourth pass's narrower node set excluded the exact edge a
+  project/container cycle runs on (`milestone.main` → `flow: project`,
+  `project.build-out` → `flow: milestone`), so a loader built against
+  the fourth pass's own record would have let that cycle through.
+  Built, checked against the tree (ORC-175, design pass):
+  `Catapult.Dsl.Workflow.declaration_graph_nodes/1` is explicitly
+  skeleton-agnostic (ORC-148), so a project/container cycle on that
+  edge is caught by `DslGraph.acyclic?/1` against the corrected node
+  set, not the superseded one. Nothing in this system's own dispatch
+  logic changes shape from the acyclicity correction — it is about
+  what the loader accepts before this system ever sees a bundle.
 - **A sixth ORC-105 pass corrected the fifth pass's own singleton
   reading and gave this system's dispatcher a fact to check that the
   loader cannot: which type a fresh project actually starts from**
@@ -238,8 +254,15 @@ generating as scope-runs inside one ticket.
   project-shaped, the identical inference this record's own earlier
   passes leaned on informally without the loader ever having checked
   it. Neither correction changes this system's shape, only what its
-  dispatcher and its onboarding path each read and enforce; both are
-  ORC-104's to build, alongside the rest of this entry's Target list.
+  dispatcher and its onboarding path each read and enforce. Checked
+  against the tree (ORC-175, design pass): the singleton-lifetime
+  rejection this paragraph describes is retired rather than built,
+  superseded before either half shipped (ORC-148, below). The `entry:`
+  read is built at load time — `Catapult.Dsl.Manifest` reads it off
+  `bundle.yaml` and `Workflow.entry_problems/2` validates it resolves
+  to a declaration-graph root — but nothing yet dispatches a fresh
+  project from it; wiring an onboarding path to that read stays Target
+  (Phase 7), unticketed.
 - **ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and names,
   without yet answering, whether a container instance can be a
@@ -257,9 +280,14 @@ generating as scope-runs inside one ticket.
   *landing point* (third design review, narrowing the field to a
   single optional status rather than retiring it): the dispatcher reads
   it when the gate names one, and falls back otherwise to the citing
-  sub-array's own non-critique agent-balled entry as the one-click
-  default — either way computed from the loaded workflow bundle at
-  throwback time, never stored. This is the same shape `flow:`
+  sub-array's own earliest entry as the one-click default — its own
+  leading `pending`, when the sub-array has one (every
+  generation-shaped sub-array does, `docs/dsl-syntax.md` §13's
+  tightened check), its own non-review-shaped agent-balled entry
+  directly otherwise (a design-review correction, fourth pass, from
+  resolving to that entry unconditionally) — either way computed from
+  the loaded workflow bundle at throwback time, never stored. This is
+  the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 
@@ -272,21 +300,34 @@ generating as scope-runs inside one ticket.
   the queue was never what made something a dispatch target, so this
   system does not need a container-shaped answer distinct from the
   ticket-shaped one it already has. Concretely, once `setup` and
-  `retro` fold inline (below) this system's own Target build must:
-  point ORC-9's executor at the container instance's own branch and PR
-  when the dispatch subject is a container rather than a ticket; give
-  a container instance file-map paths of its own for the mutex mapping
-  to key against, the identical shape a ticket's paths already take;
-  and key `DispatchRun` on the container instance's id in that case
-  rather than assuming a ticket id. It also resolves what `main`'s
-  `blocks: [retro]` (§15.7) means once `retro` is `milestone`'s own
-  inline entry rather than a population of unresolved child tickets:
-  `retro` cannot be *entered* while `main`'s own queue still carries
-  unresolved work — the identical entry-guard test §15.7 states
-  generally (corrected to this reading at the design review below),
-  applied to a guarded entry that is not itself a queue. Filed
-  alongside the rest of this doc's Target list, for whichever pass
-  takes up ORC-104.
+  `retro` fold inline (built at ORC-148, below) this system's own
+  Target build must still: point ORC-9's executor at the container
+  instance's own branch and PR when the dispatch subject is a container
+  rather than a ticket; give a container instance file-map paths of its
+  own for the mutex mapping to key against, the identical shape a
+  ticket's paths already take; and key `DispatchRun` on the container
+  instance's id in that case rather than assuming a ticket id.
+  **Neither ORC-104 nor ORC-148 built any of the three** (ORC-175,
+  design pass): `setup`/`retro` dispatch today
+  (`Catapult.Delivery.ContainerLifecycle.open_inline/3`) by minting a
+  synthetic per-entry flow (`ContainerLifecycle.Ids.work_item_id/3`,
+  keyed on `project_id`/`container_id`/queue, not the container's own
+  id) and routing it through the ordinary ticket-shaped branch/PR/
+  file-map/`DispatchRun` path instead — functionally sufficient for
+  what dispatches today, since each inline entry gets its own PR
+  rather than needing to share the container's, but not what this
+  paragraph describes. `lib/catapult/delivery/dispatch.ex`'s
+  `HostPort.request` still carries no branch or file-map field, and
+  `store/dispatch_run.ex` keys on `flow_id`, never a container id. It
+  also resolves what `main`'s `blocks: [retro]` (§15.7) means once
+  `retro` is `milestone`'s own inline entry rather than a population of
+  unresolved child tickets: `retro` cannot be *entered* while `main`'s
+  own queue still carries unresolved work — the identical entry-guard
+  test §15.7 states generally (corrected to this reading at the design
+  review below), applied to a guarded entry that is not itself a
+  queue. Target (Phase 7), unticketed: revisit when a container-owned
+  dispatch identity — not today's per-entry synthetic flow — is
+  actually needed.
 - **ORC-148 (design pass) retires `singleton:` and the fold that
   motivated it, closing the open question the two bullets above left
   standing** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.7, §15.10;
@@ -301,14 +342,12 @@ generating as scope-runs inside one ticket.
   bound: "at most one, ever" falls out of there being exactly one
   `milestone` instance and exactly one array position each occupies.
   This system's dispatcher loses a check it was filed to build (the
-  singleton-lifetime rejection, ORC-104's) and gains the dispatch-
-  target work named above in its place — a smaller Target list, not a
-  larger one, since folding removes the separately-dispatched child
-  the old shape needed a bound for. **Not built as part of this
-  pass:** every item this bullet and the two above it name is
-  `systems/delivery.md`'s own Target list, ORC-104's to build.
+  singleton-lifetime rejection, ORC-104's, retired rather than built)
+  and gains the dispatch-target work named above in its place — a
+  smaller Target list, not a larger one, since folding removes the
+  separately-dispatched child the old shape needed a bound for.
 - **A design review on ORC-148 changed the shape of this system's own
-  `blocks:`-aware dispatcher work, filed above and still ORC-104's**
+  `blocks:`-aware dispatcher work, filed above**
   (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
   §7.8). The three bullets above described `blocks:` as a standing
   hold this system's dispatcher recomputes for as long as the guarded
@@ -342,8 +381,17 @@ generating as scope-runs inside one ticket.
   `blocks:` list still cannot be closed over on the way to `terminal`.
   Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
   unaffected by the second one, and the first is a semantics correction
-  to a check that already existed) — both are this system's dispatcher
-  to build differently, still ORC-104's, not a larger Target list.
+  to a check that already existed). The entry guard is built, in
+  `Catapult.Delivery.ContainerLifecycle` (ORC-175, design pass, checked
+  against the tree): `forward_or_open/3` returns `[]` on
+  `{:held, _holders}`. The terminal guard is a rule this system's
+  dispatcher must enforce regardless of implementation: every one of a
+  container's own queues holds no unresolved work before `terminal`,
+  unconditionally, never narrower than whatever `blocks:` relations a
+  bundle happened to author. Its present enforcement is incidental to
+  the same backward-move mechanism the bullet below corrects
+  (`next_commands/2`/`earliest_unresolved/4`) — ORC-177's reconciliation
+  covers this guard's implementation too, not only the backward move.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
   moved backward on a queue refilling, restated rather than removed
@@ -380,8 +428,16 @@ generating as scope-runs inside one ticket.
   `cleanup`/`terminal` blocked with no declared path back.
   `lib/catapult/engine/projections/container_queues.ex`'s resolution
   condition 1 predates this correction and still cites §15.8 for the
-  retired reading — this system's dispatcher build (ORC-104) corrects
-  that check and its citation, not this design record.
+  retired reading. **Not built to match, checked against the tree**
+  (ORC-175, design pass): `Catapult.Delivery.ContainerLifecycle`'s own
+  `next_commands/2`/`earliest_unresolved/4` — its moduledoc's own "two
+  backward moves" section — still perform exactly the retired move,
+  unconditionally, for any earlier queue that refills, not only at a
+  `blocks:`-guarded boundary; that is the same reading
+  `container_queues.ex`'s condition 1 cites. Reconciling the dispatcher
+  and that projection's condition 1 to the retirement above is Target
+  work, filed as ORC-177 — ORC-104 is Done and archived and owns
+  neither.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -613,35 +669,113 @@ generating as scope-runs inside one ticket.
   environments, critique — the identical calling convention
   `ReadyScopes`/`Scheduler` already establish for the chain axis, so
   the two axes' consumers read alike.
-- **Reachability, settled: `fanout` (Building) is this phase's last
-  reachable status; `checks`, `merge`, `validating` and `terminal`
-  arrive with Phase 7** (ORC-32, design pass, closing this ticket's
-  own open question). The kinds themselves were never in question —
-  `Catapult.Dsl.SystemStatus`'s closed table fixes all twelve up
-  front, so nothing here adds or removes one. What was open is which
-  of them this process manager's own callbacks ever route a ticket
-  into. `checks`/`merge` are CI and reconciliation outcomes and
-  `validating` is §7.11's post-deploy repair loop, which needs a
-  deploy, which needs `merge` — each sits behind the child
-  lifecycle/mutex/dispatch/reconciliation machinery this ticket's own
-  scope names as Phase 7's, not this one's. So this process manager's
-  `interested?`/`handle` pair is total over `queue → generation →
-  [critique] → [gate] → … → fanout` and *recognizes* the later kinds
-  without ever driving a ticket into them — a bundle declaring gates
-  or environments after `deploy` still loads and validates today
-  (§13), unaffected. A ticket reaching `fanout` sits there under this
-  phase; what moves it again is Phase 7's own dispatcher. **Written
-  against `system_status.ex` as it stands, not `dsl-syntax.md`
-  §15.1's table**: the module on this branch carries twelve kinds,
-  first `:queue`, with `:boundary` still in `@agent_steps`; §15.1
-  carries seventeen, `queue` renamed to `pending` and `:boundary`
-  retired, and its own text records both moves as dev's diff against
-  ORC-104 — blocked *by* this ticket — "not actioned here." So this
-  process manager's dev pass opens a module that still says `:queue`
-  and still lists `:boundary`, and this bullet's `queue → generation →
-  …` chain, the twelve-count above, and the `:blocked` bullet below
-  all write against that, on purpose, rather than against §15.1's
-  target shape.
+- **Reachability, settled: `checks` is this phase's last reachable
+  position; `merge`, `deploy`, `validating` and `terminal` arrive with
+  Phase 7** (ORC-32, design pass, closing this ticket's own open
+  question; restated here against the vocabulary as it now stands —
+  `fanout` retired and the queue/pending rename and `:boundary`
+  retirement both landed, `dsl-syntax.md` §15.1). The kinds themselves
+  are never in question — `Catapult.Dsl.SystemStatus`'s closed table
+  fixes them all up front, so nothing here adds or removes one. What
+  is open is which of them this process manager's own callbacks ever
+  route a ticket into. `merge`/`deploy` are reconciliation and
+  publish outcomes and `validating` is §7.11's post-deploy repair
+  loop, which needs a deploy, which needs `merge` — each sits behind
+  the child lifecycle/mutex/dispatch/reconciliation machinery this
+  ticket's own scope names as Phase 7's, not this one's. So this
+  process manager's `interested?`/`handle` pair is total over
+  `pending → generation → [critique] → [gate] → … → checks` and
+  *recognizes* the later kinds without ever driving a ticket into them
+  — a bundle declaring gates or environments after `deploy` still
+  loads and validates today (§13), unaffected. A ticket reaching
+  `checks` sits there under this phase; what moves it again is Phase
+  7's own dispatcher.
+
+  **`checks` can recur, once per generation-shaped sub-array
+  (`dsl-syntax.md` §15.1, §15.11) — the boundary is the last such
+  occurrence in the type's own array that precedes the array's own
+  `merge` entry, not the first** (ORC-182, design pass). The shipped
+  single-phase `feature.yaml` never exercised the difference — one
+  `checks`, so first and last coincide — which is what let
+  `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2`'s own
+  `take_through_boundary/1` anchor on the first occurrence and still
+  read correct. The multi-phase case is `dsl-syntax.md` §15.2's own
+  revised `feature.yaml` worked example (three `checks`, one per
+  design/architecture/implementation sub-array — the same count this
+  doc's own ORC-155 entry, below, already names for that same
+  declaration), corrected here from a design-review pass that first
+  attributed it to §15.11's `component.yaml` instead: that example
+  carries only two `checks` (architecture and implementation) and no
+  `design` sub-array at all — §15.11's own prose is what rules `design`
+  out there, since `design` and `product-review` are feature-only.
+  Every one of §15.2's earlier `checks`/`critique`/gate cycles is
+  ordinary reachable board structure, not Phase 7 machinery — only
+  what follows the *final* `checks` (that sub-array's own `critique`,
+  the type's trailing `reconcile`, `merge`, `deploy`, `terminal`) sits
+  behind it. Anchoring on the first occurrence instead silently drops
+  every position after it, however many phases and gates that is —
+  not live against the shipped bundle today, so nothing has rendered
+  wrong yet, but a landmine the moment a bundle ships §15.2's
+  documented shape. Dev's diff against this record:
+  `take_through_boundary/1` finds the *last* index carrying `{:kind,
+  :checks}` ahead of `merge`, not the first.
+
+  **That move exposes a second gap, in `Projection.passable?/2`,
+  closed here rather than left for dev to guess at** (design review).
+  `passable?/2` has exactly two clauses — `kind in [:pending,
+  :generation, :critique]`, and a gate — and `resting/3` never tests
+  the sequence's own last entry, which is the only reason a
+  first-occurrence `checks` (always last, on the shipped bundle) has
+  never hit the missing clause: `take_through_boundary/1`'s
+  first-occurrence anchor was load-bearing for this too, unrecorded
+  until now. Moving the boundary to the last occurrence makes every
+  earlier `checks` — and, on §15.2's shape, `design`, `architecture`,
+  `implementation`, and every `reconcile` ahead of the final `checks`
+  — a *non-last* position `resting/3` does test, raising
+  `FunctionClauseError` out of a clause list never asked to answer for
+  them. Two answers were coherent and this record picks one rather
+  than leaving both open:
+
+  - `design`, `architecture` and `implementation` are generation-shaped
+    the identical way `generation` already is (`dsl-syntax.md` §13,
+    §15.1) and this projection draws no distinction between the four
+    anywhere else (`Sequence.to_position/1` maps all of them through
+    the same `{:kind, atom}` shape) — the existing clause's `kind in
+    [...]` list widens to name all four, not `generation` alone.
+  - `checks` and `reconcile` stay unpassable **at every occurrence,
+    not only the last.** This projection has no event reporting a
+    checks run's own outcome or a reconcile's own join independently
+    of a fresh `DraftCommitted`/`RunFailed` (`FeatureLifecycle`'s own
+    `interested?` list, which is the whole of what this process
+    manager observes), so nothing here can tell an intermediate
+    `checks` or `reconcile` apart from the boundary one the paragraph
+    above already covers. `passable?/2` gains a catch-all clause
+    answering `false` for every kind not named in the bullet above,
+    and every `checks`/`reconcile` occurrence renders and rests
+    exactly like the boundary always has. Consequence, named rather
+    than left to be found as a stuck board card: a ticket resting at a
+    non-final `checks` or `reconcile` does not advance into that
+    phase's own `critique`/gates under today's event vocabulary —
+    real on §15.2's documented shape, not on the shipped bundle.
+    Giving this phase a signal for an intermediate checks or reconcile
+    outcome is new Phase 4 advancement behaviour; it is unbuilt, and
+    designing it is not this ticket's scope.
+
+  **A third gap, in `resting/3` itself, surfaced only once the first
+  two were fixed and tested against a recurring boundary kind** (dev
+  pass, not caught by design review): `resting/3` found "not yet
+  passable" by walking `Sequence.positions/2`'s list with `Enum.find
+  (positions, last, &(&1 != last and not passable?(&1, state)))` —
+  excluding the sequence's own last entry by comparing *values*, not
+  index. Once `{:kind, :checks}` legitimately recurs (this record's own
+  first bullet, above), every earlier occurrence shares that value with
+  `last` and the `!= last` guard excludes all of them alongside the
+  true final one — silently, since `passable?/2` is never even called
+  on them. The walk sails straight past every non-final `checks`
+  instead of resting there, contradicting "every checks/reconcile
+  occurrence renders and rests exactly like the boundary always has"
+  two paragraphs above. Fixed by pairing each position with its index
+  and excluding by `index != last_index` instead of by value.
 - **The label owner, settled: the work surface renders; this
   projection never does** (ORC-32, design pass, closing this ticket's
   other open question). The projection carries exactly what
@@ -1186,11 +1320,10 @@ generating as scope-runs inside one ticket.
   standing reachability record above.** `FeaturePublisher` calls
   `create_branch/3`, `open_pr/2` and the two operations this ticket
   adds; it never calls `merge_pr/3`. "Reachability, settled" already
-  fixes `fanout` (Building) as this phase's last reachable status and
-  leaves `checks`/`merge` to Phase 7's own dispatcher — a publisher
-  that squash-merged on its own initiative would be driving a ticket
-  into a status this system's own lifecycle projection doesn't yet
-  recognize reaching.
+  leaves `merge` to Phase 7's own dispatcher — a publisher that
+  squash-merged on its own initiative would be driving a ticket into a
+  status this system's own lifecycle projection doesn't yet recognize
+  reaching.
 
 - **ORC-34 (design pass) narrows its own ticket's premise before
   designing anything: Phase 4's harvest source is `document-review`,
@@ -1433,14 +1566,15 @@ generating as scope-runs inside one ticket.
   it is a fact about which type a spawn cites, `bundles/**` content
   against this record. Second, **`implementation` is now a real
   dispatch phase, not the vestigial `checks` occurrence the earlier
-  finding at "Reachability, settled" (above, ORC-32) already flagged as
-  written against stale module shape** — a ticket's own code generation
-  dispatches at `status: implementation` the identical way its own
-  architecture phase dispatches at `status: architecture`, both inline
-  agent-balled entries this process manager's existing uniform dispatch
-  already reaches, needing no new branch once the loader recognizes the
-  kind. **Not built as part of this pass:** the same tree-spawn
-  recursion and parent-triggered merge cascade named above, now
+  finding at "Reachability, settled" (above, ORC-32) named before
+  `design`/`architecture`/`implementation` joined the fixed vocabulary
+  as kinds of their own** (`dsl-syntax.md` §15.1) — a ticket's own
+  code generation dispatches at `status: implementation` the identical
+  way its own architecture phase dispatches at `status: architecture`,
+  both inline agent-balled entries this process manager's existing
+  uniform dispatch already reaches, needing no new branch once the
+  loader recognizes the kind. **Not built as part of this pass:** the
+  same tree-spawn recursion and parent-triggered merge cascade named above, now
   spawning a second type rather than a depth-filtered instance of one,
   and the loader's own recognition of `implementation` — all Phase 7's.
 
@@ -1489,30 +1623,16 @@ generating as scope-runs inside one ticket.
 - **ORC-116 widens to give `ContainerLifecycle.Sequence` the identical
   namespace awareness the entry above gave this system's ticket-axis
   positions** (`docs/dsl-syntax.md` §15.2, §15.12) — a design review on
-  this ticket found the container axis has the identical gap and no
-  fix, only a bundle shaped to dodge it. `Sequence.next_step/3` and
-  `Sequence.earlier?/4` both resolve a position with `Enum.find_index/2`
-  against the bare name `Sequence.name/1` returns — a `status:`'s own
-  `status`, a `review:`'s own gate name — with no anchor concept at
-  all, so two occurrences of one kind in a single container's array are
-  not merely unlabeled the way a bare ticket-axis `position()` was
-  before ORC-155; they are **indistinguishable to the lookup itself**,
-  which resolves to whichever comes first. `docs/dsl-syntax.md` §15.2
-  names the reproduction directly: a container that physically reached
-  `retro`'s own `pending` would record `current_queue` as the bare
-  string `"pending"` and `next_step/3` would walk it backward to
-  `setup`'s own successor instead of forward to `milestone-signoff`.
-
-  **Not hypothetical, and not answered by keeping the bundle
-  asymmetric.** `bundles/default-flow/types/milestone.yaml` avoids the
-  collision today only by withholding `retro`'s own leading `pending` —
-  the one asymmetry between its two agent-step groups, and
-  `docs/dsl-syntax.md` §15.2 records it as a workaround rather than a
-  rule ("this is the one place the two groups are asymmetric, and
-  deliberately so"). That is a bundle shaped around a lookup's own
-  blind spot, not a bundle expressing a real constraint — the identical
-  position the loader-side fix above was written to retire for the
-  ticket axis.
+  this ticket found the container axis had the identical gap and no
+  fix, only a bundle shaped to dodge it. Before this fix,
+  `Sequence.next_step/3` and `Sequence.earlier?/4` each resolved a
+  position with `Enum.find_index/2` against the bare name
+  `Sequence.name/1` returns — a `status:`'s own `status`, a `review:`'s
+  own gate name — with no anchor concept at all, so two occurrences of
+  one kind in a single container's array were not merely unlabeled the
+  way a bare ticket-axis `position()` was before ORC-155; they were
+  **indistinguishable to the lookup itself**, which resolved to
+  whichever came first.
 
   **The fix mirrors the ticket-axis one rather than inventing a second
   mechanism, and the data it needs is on `Type`, not on `Status`.**
@@ -1545,25 +1665,115 @@ generating as scope-runs inside one ticket.
   prod` after both sub-arrays — worth recording here rather than left
   for the dev pass writing the fix to rediscover.
 
-  **The qualified lookup itself is built** (`0b36f88`):
-  `ContainerLifecycle.Sequence.next_step/3`, `step/3` and `earlier?/4`
-  now resolve against `identified_steps/2`'s namespace-qualified
+  **The qualified lookup resolves against `Type`'s own data, not
+  `Status`'s.** `ContainerLifecycle.Sequence.next_step/3`, `step/3` and
+  `earlier?/4` resolve against `identified_steps/2`'s namespace-qualified
   identity — `type.statuses`, walked at its own true index and paired
   with `Type.namespaced_positions/1`'s own `canonical` field, never
-  `steps/2`'s already-filtered list — so the hazard above is avoided
-  and a qualified `<anchor>.<name>` argument now resolves the correct
-  occurrence rather than whichever comes first.
+  `steps/2`'s already-filtered list. A bare, ambiguous argument resolves
+  to nothing rather than to the wrong occurrence.
   `sequence_test.exs`'s "a bare name recurring across two sub-arrays"
-  describe block exercises this against a synthetic recurring-name
-  fixture, since no shipped bundle recurs a name after ORC-155.
+  describe block exercises the lookup directly, against a synthetic
+  recurring-name fixture, since no shipped bundle recurs a name after
+  ORC-155. Threading that same qualified identity through every caller
+  of these three lookups — so a qualified argument is what they are
+  actually given, not only what they can accept — is the ORC-171 entry
+  below.
 
-  **Once that lands, `retro`'s own leading `pending` returns to
-  `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
-  §15.2's own passage recording the asymmetry as deliberate is rewritten
-  to describe the restored, symmetric shape** — the workaround's reason
-  will no longer exist. **Not built as part of this pass:** reverting
-  that bundle asymmetry and rewriting §15.2's passage to match — both
-  still dev's diff against this record, not design's.
+- **ORC-171 gives runtime position-tracking, on both axes, the
+  identical canonical identity ORC-116 gave `Sequence`'s own lookups**
+  (`docs/dsl-syntax.md` §15.2, §15.12).
+
+  **Container axis.** `Catapult.Delivery.ContainerLifecycle`'s
+  dispatcher carries `Type.namespaced_positions/1`'s own `canonical`
+  identity throughout, never `Sequence.name/1`'s display label:
+  `container.current_queue` is populated with it, every comparison
+  against it — `open_work/2`, `forward/3`, `earliest_unresolved/4`
+  included — reads that same qualified value, and `forward/3` passes it
+  into `Sequence`'s lookups rather than `Sequence.steps/2`'s bare list.
+  `Sequence.name/1` stays what it already is, a display label, never an
+  identity.
+
+  **Ticket axis, the identical shape.** `FeatureLifecycle
+  .Sequence.position/0` and `Projection`'s `passed`, `blocked_from` and
+  `pinned_to` carry the same canonical identity rather than
+  `Status.name/1`'s bare one. `Projection.to_wire/1`/`from_wire/1`
+  (ORC-120) carry the qualifying anchor as a third field beside `kind`
+  and `gate`, the same way `passed`'s own flattened records already do.
+  `Projection` can answer which occurrence a resting ticket is actually
+  at; retiring `CatapultWeb.Live.Positions.resting_key/2`'s own
+  first-match, best-effort guess (`systems/dashboard.md`'s own ORC-116
+  entry) on the strength of that is a dashboard-scoped pass's own
+  decision, not this entry's — this ticket supplies the data such a
+  pass would consume, nothing in `system:dashboard`.
+
+  **An inline dispatch point's own two synthesized entries carry the
+  identical field, set to `nil`.** `FeatureLifecycle.Sequence
+  .annotated_positions/2`'s inline-dispatch fallback (this system's
+  own ORC-176 entry, below) builds `setup`/`retro`'s fixed `pending`/
+  kind pair by hand, with no declared type's `statuses:` array behind
+  either entry — the same reason each already carries `group_key:
+  nil`. `Type.namespaced_positions/1`'s own qualification is a
+  property of a name's position inside a declared type's `statuses:`
+  array; an entry with no such array behind it is bare by the
+  identical rule §15.12 already states for anything outside a
+  sub-array, and unambiguous besides — a synthesized two-entry list
+  cannot recur a name against itself, and `setup`/`retro` are two
+  distinct `FeatureLifecycle` process-manager instances
+  (`ContainerLifecycle.open_inline/3` opens each as its own flow), so
+  their two `pending`s are never compared inside one `Projection` the
+  way `feature.yaml`'s own recurring group `pending`s are. So the
+  canonical-identity field every other constructor of
+  `annotated_position()` supplies is present on these two maps too,
+  rather than the shape forking between callers — `annotated_positions
+  /2` returns one shape regardless of which branch built it — carrying
+  `nil`.
+
+  **A record written before this ticket decodes with no anchor, and
+  that decodes correctly, with no backfill.** `Projection.from_wire/1`
+  reads its new `blocked_from_anchor`/`pinned_to_anchor` fields with a
+  tolerant default rather than the dot access the existing `_kind`/
+  `_gate` pairs use, because every `Commanded.ProcessManagers
+  .ProcessManagerInstance` snapshot committed before this ticket
+  predates the field entirely, and `from_wire/1` runs on exactly such a
+  snapshot on every process restart. A missing anchor decodes as `nil`
+  — the unqualified identity that position always was, since no bundle
+  recurred a bare name before this ticket landed.
+
+  **The kind/gate discrimination is unaffected in shape, the same way
+  the loader-level fix above left `status_kind`/`status_gate`
+  unaffected.** A position is still either a kind or a gate —
+  `position_columns/1` and `Store`'s two display columns keep reading
+  exactly that — with the qualifying anchor consulted only where
+  recurrence needs telling apart.
+
+  **Named, and outside this ticket's own reach: a human resuming to one
+  specific occurrence of an ambiguous position.**
+  `Catapult.Engine.Events.FlowResumed.to_kind`/`to_gate`
+  (`system:engine`, outside this record's own file map) carries no
+  qualifying field, so `unflatten_position/2` resolves a resume target
+  correctly only for the unambiguous case — ORC-155's own "bare when
+  unambiguous" rule already covers exactly that case elsewhere. Checked
+  against `docs/non-goals.md`, since this decision's consequences reach
+  `CatapultWeb.Live.Positions`; nothing there blocks it, and this entry
+  touches neither `system:engine` nor `system:dashboard`.
+
+  **The loader is not where this closes, and no load-time warning is
+  the decision here.** §15.12's own uniqueness-within-a-namespace check
+  already refuses the one shape that is actually a grammar error; two
+  occurrences of one kind in two distinct namespaces are legal DSL,
+  correctly so — recurrence across sub-arrays is exactly what
+  namespacing exists to permit. Runtime position-tracking carrying the
+  same canonical identity the loader already resolves against is what
+  makes accepting such a bundle safe; a load-time warning would flag a
+  legal shape instead.
+
+  `bundles/default-flow/types/milestone.yaml`'s `retro` group carries
+  its own leading `pending`, symmetric with `setup`'s
+  (`docs/dsl-syntax.md` §15.2) — the canonical identity is what makes
+  `setup.pending` and `retro.pending` distinct positions rather than one
+  bare name arriving twice. Reverting that bundle to the symmetric
+  shape and the plumbing above are one dev diff.
 
 - **ORC-176 (design pass) gives `Sequence.positions/2` a way to place
   an inline dispatch point's own flow, closing a gap ORC-148 opened

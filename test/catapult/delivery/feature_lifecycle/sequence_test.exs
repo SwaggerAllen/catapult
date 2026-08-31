@@ -155,6 +155,79 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "positions/2 boundary against a multi-phase type (dsl-syntax.md §15.2, ORC-182)" do
+    test "the boundary is the last :checks ahead of merge, not the first" do
+      # `types/feature.yaml`'s revised, multi-phase shape (§15.2's fourth
+      # design review): three generation-shaped sub-arrays, each with its
+      # own `checks`, and one trailing `merge`. Anchoring on the first
+      # occurrence would silently drop everything from `architecture`
+      # onward.
+      type = %Type{
+        name: "feature",
+        file: "types/feature.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{status: "design"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{review: "product-review"},
+          %Status{status: "pending"},
+          %Status{status: "architecture"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{review: "architecture-review"},
+          %Status{status: "reconcile"},
+          %Status{review: "architecture-synthesis-review"},
+          %Status{status: "pending"},
+          %Status{status: "implementation"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{status: "reconcile"},
+          %Status{status: "merge"},
+          %Status{status: "deploy"},
+          %Status{status: "terminal"}
+        ]
+      }
+
+      workflow = %Workflow{
+        name: "test",
+        entry: "feature",
+        gates: %{},
+        environments: %{},
+        types: %{"feature" => type}
+      }
+
+      assert Sequence.positions(workflow, "feature") == [
+               {:kind, :pending},
+               {:kind, :design},
+               {:kind, :checks},
+               {:kind, :critique},
+               {:gate, "product-review"},
+               {:kind, :pending},
+               {:kind, :architecture},
+               {:kind, :checks},
+               {:kind, :critique},
+               {:gate, "architecture-review"},
+               {:kind, :reconcile},
+               {:gate, "architecture-synthesis-review"},
+               {:kind, :pending},
+               {:kind, :implementation},
+               {:kind, :checks}
+             ]
+    end
+
+    test "a single :checks (the shipped shape) still coincides as first and last" do
+      workflow = workflow_with(["pending", "generation", "checks", "reconcile", "merge"])
+
+      assert Sequence.positions(workflow, "t") == [
+               {:kind, :pending},
+               {:kind, :generation},
+               {:kind, :checks}
+             ]
+    end
+  end
+
   describe "annotated_positions/2 (dsl-syntax.md §15.10, ORC-116)" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
@@ -233,43 +306,128 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
-  describe "resolve_position/2 against the shipped default-flow bundle" do
+  describe "resolve_position/3 against the shipped default-flow bundle" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
       %{workflow: workflow}
     end
 
-    test "a gate name resolves to {:gate, name}", %{workflow: workflow} do
-      assert Sequence.resolve_position(workflow, "ux-review") == {:gate, "ux-review"}
+    test "a gate name resolves to {:gate, name}, unqualified", %{workflow: workflow} do
+      assert Sequence.resolve_position(workflow, "feature", "ux-review") ==
+               {{:gate, "ux-review"}, nil}
     end
 
-    test "a status name resolves to {:kind, atom}", %{workflow: workflow} do
-      assert Sequence.resolve_position(workflow, "generation") == {:kind, :generation}
+    test "a status name resolves to {:kind, atom}, unqualified — the ordinary case", %{
+      workflow: workflow
+    } do
+      assert Sequence.resolve_position(workflow, "feature", "generation") ==
+               {{:kind, :generation}, nil}
     end
   end
 
-  describe "name/3 (dsl-syntax.md §15.12, ORC-155)" do
+  describe "resolve_position/3 (dsl-syntax.md §15.12, ORC-171)" do
+    # `pending` recurs across `setup`'s and a top-level entry's own —
+    # see `name/4`'s own describe block below for why `generation` (not
+    # `setup`/`retro`) is the anchor kind these fixtures reuse.
+    defp ambiguous_workflow do
+      statuses = [
+        %Status{status: "pending"},
+        %Status{status: "generation"},
+        %Status{status: "pending"},
+        %Status{review: "review"},
+        %Status{status: "checks"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        skeleton: "ticket",
+        statuses: statuses,
+        groups: [0..1//1]
+      }
+
+      %Workflow{name: "test", entry: "t", gates: %{}, environments: %{}, types: %{"t" => type}}
+    end
+
+    test "a qualified reference resolves to its own occurrence's anchor" do
+      assert Sequence.resolve_position(ambiguous_workflow(), "t", "generation.pending") ==
+               {{:kind, :pending}, "generation"}
+    end
+
+    test "a bare reference resolves to the one occurrence it unambiguously names" do
+      assert Sequence.resolve_position(ambiguous_workflow(), "t", "pending") ==
+               {{:kind, :pending}, nil}
+    end
+  end
+
+  describe "name/4 (dsl-syntax.md §15.12, ORC-155, ORC-171)" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
       %{workflow: workflow}
     end
 
     test "a gate's own name is its whole identity", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", {:gate, "ux-review"}) == "ux-review"
+      assert Sequence.name(workflow, "feature", {:gate, "ux-review"}, nil) == "ux-review"
     end
 
     test "a status kind with no authored name: defaults to the kind", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", {:kind, :generation}) == "generation"
+      assert Sequence.name(workflow, "feature", {:kind, :generation}, nil) == "generation"
     end
 
     test "nil has no name", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", nil) == nil
+      assert Sequence.name(workflow, "feature", nil, nil) == nil
     end
 
     test "a kind absent from the type's own array falls back to the kind itself", %{
       workflow: workflow
     } do
-      assert Sequence.name(workflow, "feature", {:kind, :blocked}) == "blocked"
+      assert Sequence.name(workflow, "feature", {:kind, :blocked}, nil) == "blocked"
+    end
+  end
+
+  describe "name/4 disambiguates a recurring kind by its anchor (ORC-171)" do
+    # `pending` recurs across `generation`'s own leading entry and a
+    # top-level entry, neither carrying a `name:` override — the
+    # ordinary, motivating shape (`setup`.`pending`/`retro`.`pending`,
+    # no override on either): ambiguity is computed off `Status.name/1`
+    # (dsl-syntax.md §15.12), so two entries only share one bare
+    # identity when neither's own authored name pulls them apart, which
+    # is exactly the case a `name:` override would break — not this
+    # ticket's own gap, since a distinctly-named entry never needed
+    # disambiguating in the first place (its own `qualified` value was
+    # already unique).
+    defp ambiguous_named_workflow do
+      statuses = [
+        %Status{status: "pending"},
+        %Status{status: "generation"},
+        %Status{status: "pending"},
+        %Status{review: "review"},
+        %Status{status: "checks"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        skeleton: "ticket",
+        statuses: statuses,
+        groups: [0..1//1]
+      }
+
+      %Workflow{name: "test", entry: "t", gates: %{}, environments: %{}, types: %{"t" => type}}
+    end
+
+    test "the group-qualified occurrence resolves without crashing on the ambiguity" do
+      assert Sequence.name(ambiguous_named_workflow(), "t", {:kind, :pending}, "generation") ==
+               "pending"
+    end
+
+    test "the top-level, unqualified occurrence resolves separately" do
+      assert Sequence.name(ambiguous_named_workflow(), "t", {:kind, :pending}, nil) == "pending"
+    end
+
+    test "an anchor naming neither real occurrence falls back to the bare kind rather than guessing" do
+      assert Sequence.name(ambiguous_named_workflow(), "t", {:kind, :pending}, "no-such-anchor") ==
+               "pending"
     end
   end
 

@@ -15,8 +15,11 @@ defmodule Catapult.Dsl.WorkflowTest do
   alias Catapult.Dsl.Workflow
 
   ## §15.10 — the derived default is the citing sub-array's own
-  ## non-review-shaped agent step, never the array position before the
-  ## gate.
+  ## earliest entry, never the array position before the gate. `retro`
+  ## is this shape's own non-review-shaped agent step and its own
+  ## earliest entry alike, since its group carries no leading `pending`
+  ## of its own — see `Catapult.Dsl.LoaderTest`'s own end-to-end test
+  ## for the generation-shaped shape where the two diverge.
 
   describe "throwback_default/3 on the shape the two rules disagree about" do
     setup do
