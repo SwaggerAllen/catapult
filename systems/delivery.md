@@ -1577,7 +1577,7 @@ generating as scope-runs inside one ticket.
   identical field, set to `nil`.** `FeatureLifecycle.Sequence
   .annotated_positions/2`'s inline-dispatch fallback (this system's
   own ORC-176 entry, below) builds `setup`/`retro`'s fixed `pending`/
-  kind pair by hand, with no declared type's `groups:` array behind
+  kind pair by hand, with no declared type's `statuses:` array behind
   either entry — the same reason each already carries `group_key:
   nil`. `Type.namespaced_positions/1`'s own qualification is a
   property of a name's position inside a declared type's `statuses:`
