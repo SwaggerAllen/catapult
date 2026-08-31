@@ -645,12 +645,12 @@ them.
   `execute/2`'s own state-and-command arguments, and `since_sequence`
   is exactly "a sequence number a resulting event carries" that arrived
   by being computed there rather than by already being on the command.
-  The corrected split is
-  this system's own standing purity rule, above — "no clocks,
-  randomness, or generated ids in aggregate/reducer/projection code;
-  inject at the command edge" — applied to a third kind of value that
-  rule always implied but this ticket is the first to need: a **log
-  position** is injected the same way a clock or an id is, not derived
+  The corrected split is this system's own standing purity rule,
+  above — "no clocks, randomness, or generated ids in
+  aggregate/reducer/projection code; inject at the command edge" —
+  applied to a third kind of value that rule always implied but this
+  ticket is the first to need: a **log position** is injected the
+  same way a clock or an id is, not derived
   inside the aggregate. `Catapult.Engine.Projections.GateComments
   .last_resolution_sequence(project_id, gate)` keeps the definition the
   third pass gave it — the log position of the most recent
