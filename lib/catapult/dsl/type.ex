@@ -269,6 +269,16 @@ defmodule Catapult.Dsl.Type do
   array, `bare` otherwise — the one string a reference resolves
   against and a legal-target list offers back (`resolve_reference/2`'s
   "bare when unambiguous" rule).
+
+  `kind_ambiguous` answers a second, independent question (ORC-198):
+  does this entry's own `status:`/`review:`/`environment:` value —
+  never `name:` — recur elsewhere in the type's own array? `name:`
+  (ORC-155) lets two same-kind entries carry distinct `bare` values,
+  so `canonical == bare` no longer implies the runtime `position()`
+  `Catapult.Delivery.FeatureLifecycle.Sequence.to_position/1` builds
+  from that kind alone is unique — this field is what a runtime-facing
+  consumer reads instead of reusing the reference-resolution
+  ambiguity.
   """
   @type namespaced_entry :: %{
           index: non_neg_integer(),
@@ -276,7 +286,8 @@ defmodule Catapult.Dsl.Type do
           bare: String.t(),
           namespace: String.t() | :top_level,
           qualified: String.t(),
-          canonical: String.t()
+          canonical: String.t(),
+          kind_ambiguous: boolean()
         }
 
   @doc """
@@ -295,12 +306,8 @@ defmodule Catapult.Dsl.Type do
       |> Enum.with_index()
       |> Enum.map(fn {entry, index} -> raw_position(type, entry, index) end)
 
-    ambiguous_bares =
-      raw
-      |> Enum.frequencies_by(& &1.bare)
-      |> Enum.filter(fn {_bare, count} -> count > 1 end)
-      |> Enum.map(fn {bare, _count} -> bare end)
-      |> MapSet.new()
+    ambiguous_bares = ambiguous_values(raw, & &1.bare)
+    ambiguous_kinds = ambiguous_values(raw, &kind_key(&1.entry))
 
     Enum.map(raw, fn position ->
       canonical =
@@ -310,9 +317,27 @@ defmodule Catapult.Dsl.Type do
           position.bare
         end
 
-      Map.put(position, :canonical, canonical)
+      position
+      |> Map.put(:canonical, canonical)
+      |> Map.put(:kind_ambiguous, MapSet.member?(ambiguous_kinds, kind_key(position.entry)))
     end)
   end
+
+  defp ambiguous_values(raw, key_fun) do
+    raw
+    |> Enum.frequencies_by(key_fun)
+    |> Enum.filter(fn {_key, count} -> count > 1 end)
+    |> Enum.map(fn {key, _count} -> key end)
+    |> MapSet.new()
+  end
+
+  # The runtime identity `Status.name/1` deliberately excludes: `name:`
+  # is a display override on a `status:` entry and never touches which
+  # `status:`/`review:`/`environment:` value a `position()` builder
+  # reads (`Status`'s own moduledoc, ORC-155).
+  defp kind_key(%Status{status: s}) when not is_nil(s), do: s
+  defp kind_key(%Status{review: r}) when not is_nil(r), do: r
+  defp kind_key(%Status{environment: e}) when not is_nil(e), do: e
 
   defp raw_position(type, entry, index) do
     bare = Status.name(entry)

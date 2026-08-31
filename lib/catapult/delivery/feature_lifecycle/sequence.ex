@@ -47,12 +47,15 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
 
   **`annotated_position()`'s own `anchor` field carries the identical
   canonical identity ORC-116 gave the container axis, at ORC-171**
-  (`systems/delivery.md`'s own entry): `nil` when a position's own bare
-  kind or gate does not recur elsewhere in `type_name`'s array (the
-  ordinary case — no shipped bundle recurs one today), else the
-  recurring group's own anchor name, the identical ambiguity rule
-  `Catapult.Dsl.Type.namespaced_positions/1`'s own `canonical` field
-  applies. `identified_positions/2` is `positions/2` paired with it;
+  (`systems/delivery.md`'s own entry): `nil` when a position's own kind
+  or gate does not recur elsewhere in `type_name`'s array (the ordinary
+  case — no shipped bundle recurs one today), else the recurring
+  group's own anchor name — `Catapult.Dsl.Type.namespaced_positions/1`'s
+  own `kind_ambiguous` field (ORC-198), never `canonical`: `name:`
+  (ORC-155) lets two same-kind entries carry distinct authored names, so
+  a position can be unambiguous by name and still collide by kind at
+  runtime, and this field is what tracks the latter. `identified_positions/2`
+  is `positions/2` paired with it;
   `Catapult.Delivery.FeatureLifecycle.Projection`'s own `resting/3`
   reads that instead of the bare list, so a resting ticket standing at
   a kind that recurs is recorded as the occurrence it actually is
@@ -71,7 +74,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   @typedoc "One stop in the effective sequence: a fixed system-status kind, or a declared gate by its own name."
   @type position :: {:kind, atom()} | {:gate, String.t()}
 
-  @typedoc "A position's own qualifying anchor (§15.12) — `nil` when its bare kind or gate is unambiguous within the citing type, the recurring group's own anchor name otherwise (ORC-171)."
+  @typedoc "A position's own qualifying anchor (§15.12) — `nil` when its kind or gate is unambiguous within the citing type, the recurring group's own anchor name otherwise (ORC-171, ORC-198)."
   @type anchor :: String.t() | nil
 
   @typedoc """
@@ -83,7 +86,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   where `Catapult.Dsl.Workflow.throwback_default/3` derives a decline
   back to, since a generation-shaped anchor's own derivation lands on
   its leading `pending` instead (§15.10's fourth-pass correction).
-  `anchor` is the moduledoc's own canonical-identity field (ORC-171).
+  `anchor` is the moduledoc's own kind-ambiguity field (ORC-171, ORC-198).
   """
   @type annotated_position :: %{
           position: position(),
@@ -182,7 +185,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   end
 
   defp annotate(type, position, index, namespaced) do
-    anchor = if namespaced.canonical == namespaced.bare, do: nil, else: namespaced.namespace
+    anchor = if namespaced.kind_ambiguous, do: namespaced.namespace, else: nil
 
     case Type.group_at(type, index) do
       nil ->
@@ -240,8 +243,8 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     if Map.has_key?(gates, name) do
       {{:gate, name}, nil}
     else
-      {bare, anchor} = resolve_kind_reference(workflow, type_name, name)
-      {{:kind, String.to_existing_atom(bare)}, anchor}
+      {kind, anchor} = resolve_kind_reference(workflow, type_name, name)
+      {{:kind, String.to_existing_atom(kind)}, anchor}
     end
   end
 
@@ -255,11 +258,19 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   # reaching here unresolved is not expected; the fallback strips a
   # stray anchor rather than crash `String.to_existing_atom/1` on a
   # qualified string.
+  #
+  # The resolved occurrence's own `anchor` reads `kind_ambiguous`, not
+  # `canonical == bare`: `name:` (ORC-155) lets two same-kind entries
+  # carry distinct `bare` values, so a reference can name one
+  # unambiguously by `bare` while its kind still recurs at runtime.
+  # Likewise the caller builds `{:kind, atom}` off the resolved entry's
+  # own `status:` — never `bare` — so it agrees with `to_position/1`,
+  # which never reads `name:` either.
   defp resolve_kind_reference(%Workflow{types: types}, type_name, name) do
     with {:ok, type} <- Map.fetch(types, type_name),
          %{} = position <- find_namespaced(type, name) do
-      anchor = if position.canonical == position.bare, do: nil, else: position.namespace
-      {position.bare, anchor}
+      anchor = if position.kind_ambiguous, do: position.namespace, else: nil
+      {position.entry.status, anchor}
     else
       _not_found -> {name |> String.split(".", parts: 2) |> List.last(), nil}
     end
@@ -318,7 +329,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     type
     |> Type.namespaced_positions()
     |> Enum.find_value(fn position ->
-      entry_anchor = if position.canonical == position.bare, do: nil, else: position.namespace
+      entry_anchor = if position.kind_ambiguous, do: position.namespace, else: nil
 
       if position.entry.status == kind_str and entry_anchor == anchor, do: position.entry
     end)

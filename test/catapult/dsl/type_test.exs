@@ -84,4 +84,66 @@ defmodule Catapult.Dsl.TypeTest do
              ]
     end
   end
+
+  describe "namespaced_positions/1 — kind_ambiguous diverges from canonical/bare ambiguity (ORC-198)" do
+    test "two same-kind entries with distinct name: overrides are kind_ambiguous but not bare-ambiguous" do
+      # `name:` (ORC-155) lets two `status: pending` occurrences carry
+      # distinct authored names — each resolves as a reference
+      # unambiguously (`canonical == bare` for both), but
+      # `Catapult.Delivery.FeatureLifecycle.Sequence.to_position/1`
+      # reads `status:` alone and cannot tell them apart at runtime.
+      statuses = [
+        %Status{status: "pending", name: "alpha"},
+        %Status{status: "setup"},
+        %Status{status: "pending", name: "beta"},
+        %Status{status: "retro"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        statuses: statuses,
+        groups: [0..1//1, 2..3//1]
+      }
+
+      positions = Type.namespaced_positions(type)
+
+      assert Enum.map(positions, &{&1.bare, &1.canonical, &1.kind_ambiguous}) == [
+               {"alpha", "alpha", true},
+               {"setup", "setup", false},
+               {"beta", "beta", true},
+               {"retro", "retro", false}
+             ]
+    end
+
+    test "a bare name recurring with distinct kinds is reference-ambiguous but not kind_ambiguous" do
+      # `status: pending` in one sub-array beside `status: checks, name:
+      # pending` in another: the two share one `bare` (a real reference
+      # ambiguity — `blocks: [pending]` cannot pick one), but resolve to
+      # distinct `{:kind, atom}` shapes, so there is no runtime
+      # collision at all.
+      statuses = [
+        %Status{status: "pending"},
+        %Status{status: "setup"},
+        %Status{status: "checks", name: "pending"},
+        %Status{status: "retro"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        statuses: statuses,
+        groups: [0..1//1, 2..3//1]
+      }
+
+      positions = Type.namespaced_positions(type)
+
+      assert Enum.map(positions, &{&1.bare, &1.canonical, &1.kind_ambiguous}) == [
+               {"pending", "setup.pending", false},
+               {"setup", "setup", false},
+               {"pending", "retro.pending", false},
+               {"retro", "retro", false}
+             ]
+    end
+  end
 end

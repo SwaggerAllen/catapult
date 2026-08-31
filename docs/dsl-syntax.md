@@ -3635,7 +3635,7 @@ the shape). `<anchor>.<name>` is what a bundle author writes instead.
 
 **A declared gate's own name stays disjoint from every addressable
 status name in the loaded union — a new load-time check.**
-`Catapult.Delivery.FeatureLifecycle.Sequence.resolve_position/2` has
+`Catapult.Delivery.FeatureLifecycle.Sequence.resolve_position/3` has
 always decided whether a bare string names a gate or a status kind by
 membership in the workflow's own declared gate set alone, and its own
 documentation states this is safe because "a gate name is never also a
