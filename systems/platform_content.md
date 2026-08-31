@@ -450,9 +450,13 @@ loader tickets carry `system:core_dsl`.
   are the suite's claims rather than the next reader's to re-derive by
   reading `deps/solid`.
 
-- **`delivery.phase` across `bundles/default/tiers/**` stays uniformly
-  `generation`, because it is a tier-level echo of a distinction the
-  work-item *type* declaration owns, not one a tier draws for itself.**
+- **Every `agent_step: design` tier's `delivery.phase` across
+  `bundles/default/tiers/**` stays uniformly `generation` (never
+  `design` or `architecture`), because that phase is a tier-level echo
+  of a distinction the work-item *type* declaration owns, not one a
+  tier draws for itself.** This is narrower than "every tier" — the
+  other agent-step family, `critique`, pairs uniformly with
+  `phase: critique` instead, an unrelated axis untouched by this entry.
   `dsl-syntax.md` §15.1 and v5 §7.6 name `design`, `architecture` and
   `implementation` as kinds a type's own lifecycle draws —
   `feature.yaml`'s generation sub-array splitting into a
@@ -464,10 +468,10 @@ loader tickets carry `system:core_dsl`.
   system-status kind (`lib/catapult/dsl/chain.ex`), so nothing
   dispatches on which kind a tier picks. Tier values move together
   with that type-level split, never per-tier ahead of it: picking
-  `design`/`architecture` for a subset of the 13 tiers reading
-  `phase: generation` — `sysarch`, `impl`, `ref` and the rest — would
-  leave their siblings inconsistent against a split the type
-  declaration has not drawn (ORC-179).
+  `design`/`architecture` for a subset of the 13 `agent_step: design`
+  tiers reading `phase: generation` — `sysarch`, `impl`, `ref` and the
+  rest — would leave their siblings inconsistent against a split the
+  type declaration has not drawn (ORC-179).
 
 ## Initial vs target
 
