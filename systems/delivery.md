@@ -480,12 +480,13 @@ generating as scope-runs inside one ticket.
   answer: it doesn't re-derive, and needing it to was the retired
   behavior.
 
-  The terminal guard is enforced at `close/2`, as a third precondition
-  beside the two it already carries (every finding adjudicated, the
-  flag set requested). Before proposing composition or dispatching
-  `CloseContainer`, the dispatcher checks every `{:queue, entry}` in
-  `Sequence.identified_steps/2` for which `Status.queue_shaped?/1`
-  holds — every entry carrying a `flow:`, whether it nests a child
+  The terminal guard is enforced at `close/2`, as a second precondition
+  beside the one it already carries, every finding adjudicated — the
+  flag-set flip beside it is what a close emits, never a condition on
+  whether it happens. Before proposing composition or dispatching
+  `CloseContainer`, the dispatcher checks every `{:queue, entry}`
+  `Sequence.steps/2` returns for which `Status.queue_shaped?/1` holds —
+  every entry carrying a `flow:`, whether it nests a child
   container or holds ordinary ticket work, which is every declared
   queue proper — against `ContainerQueues.resolution/3`. Any that
   answers `:open` or `{:held, _}` refuses the close exactly the way an
