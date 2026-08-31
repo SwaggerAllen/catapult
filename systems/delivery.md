@@ -463,6 +463,52 @@ generating as scope-runs inside one ticket.
   reconciliation carries these two tests as well — rewritten against
   whatever replaces the walk, or removed, never left asserting retired
   behavior as correct.
+
+  **What replaces the walk, so "whatever replaces it" above is no
+  longer open.** Two questions, both closed by record already settled
+  rather than by new mechanism (`docs/dsl-syntax.md` §15.7, §15.8).
+
+  Position needs no re-derivation, because there is nothing left to
+  derive: §15.8's own third statement already retired position being a
+  function of queue population at all. `next_commands/2` drops its
+  `earliest_unresolved/4` pre-check outright — deleted, not repurposed
+  — and dispatches straight to `forward_or_open/3` on every event. A
+  container's position sits wherever the last forward advance or one
+  of the two remaining backward-move causes (a step's own decline; the
+  author's `retro` → `main` return) left it, and an earlier queue's
+  population refilling changes nothing about it. That is the whole
+  answer: it doesn't re-derive, and needing it to was the retired
+  behavior.
+
+  The terminal guard is enforced at `close/2`, as a third precondition
+  beside the two it already carries (every finding adjudicated, the
+  flag set requested). Before proposing composition or dispatching
+  `CloseContainer`, the dispatcher checks every `{:queue, entry}` in
+  `Sequence.identified_steps/2` for which `Status.queue_shaped?/1`
+  holds — every entry carrying a `flow:`, whether it nests a child
+  container or holds ordinary ticket work, which is every declared
+  queue proper — against `ContainerQueues.resolution/3`. Any that
+  answers `:open` or `{:held, _}` refuses the close exactly the way an
+  unadjudicated finding already does: logged, `[]` returned,
+  re-evaluated on the next relevant event rather than polled. The
+  check runs over the type's whole declared array, never scoped to
+  entries behind `current` — the concrete shape of §15.7's "unconditional,
+  reaches every queue-shaped anchor... whether or not any of them is
+  also named in some other entry's `blocks:`": a queue long past
+  `current` and named in no `blocks:` list is checked identically to
+  one immediately behind it. `setup` and `retro` — the non-queue-shaped,
+  `flow:`-less inline dispatch points `Status.queue_shaped?/1` already
+  excludes — need no place in this check: `ContainerQueues.admits?/3`
+  bounds each to at most one assignment ever, so once resolved neither
+  can un-resolve, which is exactly why §15.7's own guard text names
+  "every queue-shaped anchor" rather than every positioned entry.
+
+  No new loader check, no new event, no new command: a precondition on
+  an existing dispatch, the identical shape the finding-adjudication
+  check already is. `container_queues.ex`'s condition 1,
+  `container_queue_advanced.ex`'s moduledoc and `reason` type, and the
+  two `container_lifecycle_test.exs` tests named above are corrected
+  against this replacement, not against a placeholder for it.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
