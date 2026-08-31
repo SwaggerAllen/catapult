@@ -133,8 +133,10 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       # parent's dispatching entry (§15.8). `pending` licenses the
       # deploy-bound runs `setup`/`retro` each need further down the
       # array (§15.2), so it — not `setup` — is milestone's own first
-      # position now.
-      assert cmd.queue == "pending"
+      # position now — carrying its own namespace-qualified identity
+      # (ORC-171), since `retro`'s own leading `pending` recurs the
+      # bare name elsewhere in this type's array.
+      assert cmd.queue == "setup.pending"
     end
 
     test "an active child neither re-mints nor re-activates", %{workflow: workflow} do

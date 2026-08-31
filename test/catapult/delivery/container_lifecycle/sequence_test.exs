@@ -29,6 +29,7 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
              "prep",
              "main",
              "milestone-signoff",
+             "pending",
              "retro",
              "proposals-read",
              "cleanup",
@@ -61,7 +62,7 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   test "next_step/3 walks by index, gates included", %{workflow: workflow} do
     assert Sequence.next_step(workflow, "milestone", "main") == {:gate, "milestone-signoff"}
 
-    assert {:queue, %Status{status: "retro"}} =
+    assert {:queue, %Status{status: "pending"}} =
              Sequence.next_step(workflow, "milestone", "milestone-signoff")
 
     assert {:queue, %Status{status: "deploy"}} =

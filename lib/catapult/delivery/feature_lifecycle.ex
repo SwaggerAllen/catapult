@@ -205,8 +205,8 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   def apply(%__MODULE__{} = pm, %GateDeclined{throwback_to: throwback_to}) do
     case load_workflow() do
       {:ok, workflow} ->
-        position = Sequence.resolve_position(workflow, throwback_to)
-        pm |> update_projection(&Projection.decline(&1, position)) |> persist()
+        {position, anchor} = Sequence.resolve_position(workflow, pm.flow_name, throwback_to)
+        pm |> update_projection(&Projection.decline(&1, position, anchor)) |> persist()
 
       {:error, _reason} ->
         pm
@@ -257,10 +257,12 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   defp persist(%__MODULE__{project_id: project_id, flow_id: flow_id} = pm) do
     case load_workflow() do
       {:ok, workflow} ->
-        resting = Projection.resting(workflow, pm.flow_name, pm.projection)
+        {resting, anchor} =
+          Projection.resting(workflow, pm.flow_name, pm.projection) || {nil, nil}
+
         warn_unplaceable(pm, workflow, resting)
         {status_kind, status_gate} = position_columns(resting)
-        status_name = Sequence.name(workflow, pm.flow_name, resting)
+        status_name = Sequence.name(workflow, pm.flow_name, resting, anchor)
 
         {blocked_origin_kind, blocked_origin_gate} =
           pm.projection |> Projection.blocked_origin() |> position_columns()
