@@ -431,6 +431,71 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "a recurring kind carrying distinct name: overrides (ORC-198)" do
+    # `setup.pending`/`retro.pending`, each with its own `name:`
+    # override — the exact shape `canonical == bare` (ORC-171's own
+    # test) never flags: each entry's own authored name is unique, so
+    # the old anchor test gave both `anchor: nil`, indistinguishable
+    # once paired with `to_position/1`'s identical `{:kind, :pending}`
+    # for both. `kind_ambiguous` is keyed on `status:` alone and does
+    # not miss it.
+    defp kind_recurring_named_workflow do
+      statuses = [
+        %Status{status: "pending", name: "alpha"},
+        %Status{status: "setup"},
+        %Status{status: "pending", name: "beta"},
+        %Status{status: "retro"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        skeleton: "ticket",
+        statuses: statuses,
+        groups: [0..1//1, 2..3//1]
+      }
+
+      %Workflow{name: "test", entry: "t", gates: %{}, environments: %{}, types: %{"t" => type}}
+    end
+
+    test "annotated_positions/2 carries each occurrence's own group anchor, not nil" do
+      annotated = Sequence.annotated_positions(kind_recurring_named_workflow(), "t")
+
+      assert Enum.map(annotated, & &1.position) == [
+               {:kind, :pending},
+               {:kind, :setup},
+               {:kind, :pending},
+               {:kind, :retro}
+             ]
+
+      assert Enum.map(annotated, & &1.anchor) == ["setup", nil, "retro", nil]
+    end
+
+    test "resolve_position/3 resolves each occurrence's own bare name to its own anchor" do
+      workflow = kind_recurring_named_workflow()
+
+      assert Sequence.resolve_position(workflow, "t", "alpha") == {{:kind, :pending}, "setup"}
+      assert Sequence.resolve_position(workflow, "t", "beta") == {{:kind, :pending}, "retro"}
+    end
+
+    test "resolve_position/3 resolves each occurrence's own qualified name identically" do
+      workflow = kind_recurring_named_workflow()
+
+      assert Sequence.resolve_position(workflow, "t", "setup.alpha") ==
+               {{:kind, :pending}, "setup"}
+
+      assert Sequence.resolve_position(workflow, "t", "retro.beta") ==
+               {{:kind, :pending}, "retro"}
+    end
+
+    test "name/4 tells the two occurrences apart by anchor" do
+      workflow = kind_recurring_named_workflow()
+
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "setup") == "alpha"
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "retro") == "beta"
+    end
+  end
+
   defp workflow_with(status_names) do
     type = %Type{
       name: "t",
