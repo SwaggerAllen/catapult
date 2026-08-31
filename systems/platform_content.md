@@ -428,11 +428,13 @@ loader tickets carry `system:core_dsl`.
   never bare truthiness** (ORC-134). Liquid counts an empty list as
   truthy — only `nil` and `false` are falsy — so `{% if feedback %}`
   opens its section on every render the moment a caller passes `[]`
-  instead of omitting the key. Six shipped prompts gate a revision
+  instead of omitting the key. Five shipped prompts gate a revision
   section this way (`vocab`, `ref`, `subcomparch`, `sysarch`,
-  `comparch`, and the shared `partials/_architecture_framing`), and the
-  rule generalizes: it is the bundle-authoring rule for any future
-  prompt gating on a collection.
+  `comparch`), and the shared `partials/_architecture_framing` carries
+  the identical guard though its own copy cannot fire (below) — the
+  rule is about the spelling, not about which copies fire, so it
+  reaches all six. It generalizes further still: it is the
+  bundle-authoring rule for any future prompt gating on a collection.
 
   **It is a rule spanning two trees, which is why it is recorded here
   and not only in the code.** `Catapult.Generation.ContextAssembly`
