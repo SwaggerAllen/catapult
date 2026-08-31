@@ -292,8 +292,8 @@ generating as scope-runs inside one ticket.
   the bundle, don't cache a derived fact). A gate sitting first in its
   own sub-array, or in no sub-array at all, has no earlier entry there
   to fall back to, so the dispatcher derives no default for it and the
-  gate must declare `throwback:` explicitly (ORC-181, `docs/dsl-syntax
-  .md` §15.4, §13, §15.10).
+  gate must declare `throwback:` explicitly (ORC-181,
+  `docs/dsl-syntax.md` §15.4, §13, §15.10).
 
   **This system's own open question — can a container instance be an
   agent dispatch target at all? — is answered at ORC-148: yes, on the
