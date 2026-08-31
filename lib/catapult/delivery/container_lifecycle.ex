@@ -567,9 +567,18 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   defp forward(%Workflow{} = workflow, %Container{} = container, current) do
     case Sequence.next_identified_step(workflow, container.type_name, current) do
       # No next entry: a skeleton-less instance closing on its own last
-      # declared entry resolving with nothing open behind it (§15.6). A
-      # container-skeleton instance never lands here — its array ends at
-      # `terminal`, which is a step.
+      # declared entry resolving with nothing open behind it (§15.6).
+      # `current` here is `container.current_queue`'s own canonical,
+      # namespace-qualified identity (threaded end to end since
+      # ORC-171), not a bare name that a recurring status could make
+      # ambiguous — so `next_identified_step/3`'s lookup always finds
+      # the instance's true position. A container-skeleton instance
+      # never lands here: its array closes on `terminal` exactly once,
+      # last (dsl-syntax.md §15.1), so its own last queue entry always
+      # resolves to `{_canonical, :terminal}` below instead. While a
+      # caller could still pass a bare, ambiguous name, that lookup
+      # could land on the wrong occurrence and reach this clause for a
+      # container-skeleton instance too — the defect ORC-171 fixed.
       nil ->
         close(workflow, container)
 
