@@ -2841,30 +2841,14 @@ from at all, and must declare `throwback:` explicitly (§15.10's own
 pass).
 
 **A gate sitting *inside* a sub-array but *before* that group's own
-agent step also derives nothing, settled at ORC-141** — the mirror
-case of the one above, reached from the opposite direction. The
-derivation names the group's own earliest entry regardless of where in
-the array the gate declining sits, and "earlier in the citing type's
-own effective sequence" (above) is what makes a decline's target legal
-at all; the moment the gate itself sits before that earliest entry, the
-derivation would name a target *later* than the gate, which the
-legality rule already refuses. `milestone-signoff` is this shape in the
-shipped bundle: `[milestone-signoff, retro, proposals-read]`, one
-entry before its own group's agent step, `retro`. There is no
-one-click default to fall back to here, not an inconvenient one this
-section failed to name — offering `retro` anyway would hand a decliner
-a target the same load rejects as illegal for a declared `throwback:`,
-and inventing a second derivation rule for this one shape is exactly
-the accretion `docs/v5-design-decisions.md` §4.5 warns off. A gate in
-this position must declare `throwback:` explicitly the same way one
-sitting outside every sub-array must, for a different structural
-reason — no bundle currently needs the distinction, since
-`milestone-signoff` already declares `throwback: main`. Legality is
-unaffected either way: every status earlier than `milestone-signoff`
-itself stays a legal decline target for it should a bundle ever
-declare one there — `retro` is not among them, sitting after rather
-than before; this settles only which target (if any) the loader offers
-with no declaration at all.
+earliest entry derives nothing either, settled at ORC-141** — the
+mirror case of the one above, reached from the opposite direction, and
+folded into the general statement §15.4 now states above (ORC-171):
+the moment the gate itself sits before its citing sub-array's earliest
+entry, the derivation would name a target *later* than the gate, which
+the legality rule already refuses. `milestone-signoff` is the
+shipped-bundle instance, worked in full below where its own
+`throwback: main` is read against this rule.
 
 **The worked example is now the grammar, not a shape argued from
 prose ahead of it.** Before ORC-148,

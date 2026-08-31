@@ -375,7 +375,11 @@ context-source kinds, and audit profiles.
   its own non-review-shaped entry directly otherwise (a fourth-pass
   correction from resolving to that entry unconditionally) — computed
   at throwback time from the loaded bundle, never stored, the same
-  posture `ready_scopes` and staleness already take.
+  posture `ready_scopes` and staleness already take. A gate sitting
+  first in its own sub-array, or in no sub-array at all, has no
+  earlier entry there to fall back to, so this derivation gives it no
+  default and it must declare `throwback:` explicitly (ORC-181,
+  `docs/dsl-syntax.md` §15.4, §13, §15.10).
 
   **The pass this entry originally recorded held `throwback:`
   unaffected — a real, bounded allow-list stays the only legal decline
