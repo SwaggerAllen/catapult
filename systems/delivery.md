@@ -704,6 +704,22 @@ generating as scope-runs inside one ticket.
     Giving this phase a signal for an intermediate checks or reconcile
     outcome is new Phase 4 advancement behaviour; it is unbuilt, and
     designing it is not this ticket's scope.
+
+  **A third gap, in `resting/3` itself, surfaced only once the first
+  two were fixed and tested against a recurring boundary kind** (dev
+  pass, not caught by design review): `resting/3` found "not yet
+  passable" by walking `Sequence.positions/2`'s list with `Enum.find
+  (positions, last, &(&1 != last and not passable?(&1, state)))` —
+  excluding the sequence's own last entry by comparing *values*, not
+  index. Once `{:kind, :checks}` legitimately recurs (this record's own
+  first bullet, above), every earlier occurrence shares that value with
+  `last` and the `!= last` guard excludes all of them alongside the
+  true final one — silently, since `passable?/2` is never even called
+  on them. The walk sails straight past every non-final `checks`
+  instead of resting there, contradicting "every checks/reconcile
+  occurrence renders and rests exactly like the boundary always has"
+  two paragraphs above. Fixed by pairing each position with its index
+  and excluding by `index != last_index` instead of by value.
 - **The label owner, settled: the work surface renders; this
   projection never does** (ORC-32, design pass, closing this ticket's
   other open question). The projection carries exactly what

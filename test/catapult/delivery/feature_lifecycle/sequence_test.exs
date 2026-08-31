@@ -123,6 +123,79 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
+  describe "positions/2 boundary against a multi-phase type (dsl-syntax.md §15.2, ORC-182)" do
+    test "the boundary is the last :checks ahead of merge, not the first" do
+      # `types/feature.yaml`'s revised, multi-phase shape (§15.2's fourth
+      # design review): three generation-shaped sub-arrays, each with its
+      # own `checks`, and one trailing `merge`. Anchoring on the first
+      # occurrence would silently drop everything from `architecture`
+      # onward.
+      type = %Type{
+        name: "feature",
+        file: "types/feature.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{status: "design"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{review: "product-review"},
+          %Status{status: "pending"},
+          %Status{status: "architecture"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{review: "architecture-review"},
+          %Status{status: "reconcile"},
+          %Status{review: "architecture-synthesis-review"},
+          %Status{status: "pending"},
+          %Status{status: "implementation"},
+          %Status{status: "checks"},
+          %Status{status: "critique"},
+          %Status{status: "reconcile"},
+          %Status{status: "merge"},
+          %Status{status: "deploy"},
+          %Status{status: "terminal"}
+        ]
+      }
+
+      workflow = %Workflow{
+        name: "test",
+        entry: "feature",
+        gates: %{},
+        environments: %{},
+        types: %{"feature" => type}
+      }
+
+      assert Sequence.positions(workflow, "feature") == [
+               {:kind, :pending},
+               {:kind, :design},
+               {:kind, :checks},
+               {:kind, :critique},
+               {:gate, "product-review"},
+               {:kind, :pending},
+               {:kind, :architecture},
+               {:kind, :checks},
+               {:kind, :critique},
+               {:gate, "architecture-review"},
+               {:kind, :reconcile},
+               {:gate, "architecture-synthesis-review"},
+               {:kind, :pending},
+               {:kind, :implementation},
+               {:kind, :checks}
+             ]
+    end
+
+    test "a single :checks (the shipped shape) still coincides as first and last" do
+      workflow = workflow_with(["pending", "generation", "checks", "reconcile", "merge"])
+
+      assert Sequence.positions(workflow, "t") == [
+               {:kind, :pending},
+               {:kind, :generation},
+               {:kind, :checks}
+             ]
+    end
+  end
+
   describe "annotated_positions/2 (dsl-syntax.md §15.10, ORC-116)" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
