@@ -15,11 +15,10 @@ defmodule CatapultWeb.TicketLive do
   rendered as a conflict at the point of action rather than an
   after-the-fact revert.
 
-  **Child roll-up is always empty in Phase 4.** `Catapult.Engine.Store
-  .Flow` carries no parent-flow reference — fan-out below a top-level
-  ticket is a node/tier concept today, not a second flow instance — so
-  there is no data source for it yet, named in this ticket's hand-back
-  rather than silently rendered as "no children."
+  **Child roll-up is always empty in Phase 4** — there is no data
+  source for it yet, an honest gap rather than a silent narrowing
+  (`systems/dashboard.md`'s ORC-129 entry; `screens/ticket.md`'s own
+  "Child roll-up" section).
   """
   use CatapultWeb, :live_view
 

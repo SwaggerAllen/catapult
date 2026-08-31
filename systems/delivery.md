@@ -1619,6 +1619,84 @@ generating as scope-runs inside one ticket.
   bare name arriving twice. Reverting that bundle to the symmetric
   shape and the plumbing above are one dev diff.
 
+- **ORC-176 (design pass) gives `Sequence.positions/2` a way to place
+  an inline dispatch point's own flow, closing a gap ORC-148 opened
+  when it folded `setup`/`retro` into `milestone`'s own array with no
+  backing `types/<name>.yaml` for either** (`dsl-syntax.md` §15.1,
+  §15.7, §15.11). `ContainerLifecycle.open_inline/3` opens such a flow
+  with `flow_name: entry.status` — the entry's own literal name, since
+  an inline entry carries no `flow:` for `flow_name` to resolve through
+  a declared type instead (that function's own moduledoc comment).
+  `FeatureLifecycle` subscribes to every `FlowOpened` uniformly, with
+  no filter for a container-owned or inline-dispatched flow, and hands
+  that same `flow_name` to `Sequence.positions/2` to place it. Before
+  this pass, `positions/2` only ever resolved a name against
+  `workflow.types`; `setup` and `retro` never will resolve there again,
+  by ORC-148's own design, so every setup/retro flow projected with
+  `status_kind`/`status_gate` both `nil` — not a crash,
+  `warn_unplaceable/3`'s own log line firing instead, but a real loss:
+  `screens/board.md` renders `Sequence.positions/2` as a card's own
+  lane set, and `Store.tickets_for_project/1` lists every open flow
+  with no type filter at all, so a setup/retro card reached the board
+  with no lane to sit in. **The title this ticket arrived under
+  overstates what was lost — "generation-to-deploy" — worth correcting
+  rather than carrying forward: the "Every carried finding leaves
+  adjudicated…" entry above already settles, at ORC-155, that neither
+  `setup` nor `retro` ever runs its own `checks`/`reconcile`/`merge`/
+  `deploy` at all ("both agent steps drop the same three entries for
+  the same reason"). There was never a deploy-bound progression to
+  place; what this pass restores is placement in the two positions that
+  were ever real for either flow, `pending` and its own agent-balled
+  kind.**
+
+  **The fix is the discipline `ContainerLifecycle.inline_dispatch_point?/1`
+  already keeps, extended to this module rather than duplicated by
+  name.** `positions/2`, when `flow_name` fails to resolve in
+  `workflow.types`, now asks whether `flow_name` itself names one of
+  the closed system-status kinds `Status.non_review_shaped_agent_step?/1`
+  admits (`SystemStatus.agent_balled?/1` and not
+  `SystemStatus.review_shaped?/1`) — the identical test that already
+  decides whether `ContainerLifecycle` opens this flow inline in the
+  first place, read directly rather than re-derived. If so, the flow's
+  own effective sequence is fixed rather than resolved from any
+  declared array: `[{:kind, :pending}, {:kind, <kind>}]` — the same
+  "immediately preceded by its own pending, as that entry's sub-array
+  head" shape §15.1 already gives every generation-shaped entry — and
+  nothing after it, for the reason named above: an inline dispatch
+  point has no `checks`/`reconcile`/`merge`/`deploy` position to place
+  it at. **A `flow_name` naming neither a declared type nor one of
+  these closed kinds is still the authoring bug `warn_unplaceable/3`
+  describes** — a chain's `ticket:` face citing a label no declared
+  type actually carries — and keeps logging it; this pass narrows the
+  warning's trigger rather than removing it, since it was a false
+  positive for exactly these two flows and no others.
+
+  **Why the fixed sequence is exactly two entries and never more, not
+  a detail to lose in translation:** `Projection.resting/3`'s own
+  `Enum.find/3` never calls `passable?/2` on the *last* position in the
+  list it walks — `&(&1 != last and not passable?(&1, state))`
+  short-circuits before evaluating the right side once `&1 == last` —
+  which is the only reason a kind `passable?/2` has no clause for
+  (`:setup` and `:retro`, and for that matter `:design`/`:architecture`/
+  `:implementation`/`:checks`/`:reconcile`/`:merge`/`:deploy` —
+  `passable?/2`'s two clauses cover only `:pending`/`:generation`/
+  `:critique` and any `{:gate, _}`) is never reached. This fix's
+  two-entry list keeps the inline kind last by construction; a version
+  that appended anything after it would hand `passable?/2` a
+  `{:kind, :setup}` in a non-last position and crash the first time
+  that flow's `commit_signature` is set. **`passable?/2`'s own missing
+  clauses for the four other named generation/review-shaped kinds are
+  not this pass's to fix** — latent rather than live, since no shipped
+  type gives `feature.yaml` a second, non-terminal generation-shaped
+  visit yet, and reachable only once one does; filed as a project
+  finding against `systems/delivery.md`'s own file map rather than
+  fixed here, since nothing this ticket touches exercises them.
+
+  **Not built as part of this pass:** `Sequence.positions/2`'s own
+  change, `warn_unplaceable/3`'s narrowed trigger, and the test
+  coverage for both — all this system's diff against this record, not
+  design's.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through
