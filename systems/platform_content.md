@@ -493,7 +493,17 @@ loader tickets carry `system:core_dsl`.
   path flattens and `Enum.join`s, which calls `to_string` per element,
   and a bare Elixir map has no `String.Chars` implementation — verified
   directly against `deps/solid`: `{{ feedback }}` on a non-empty list
-  raises `Protocol.UndefinedError`, not a wrong rendering. So the
+  raises `Protocol.UndefinedError`, not a wrong rendering. That claim
+  is not left as prose to re-derive either: ORC-193's dev pass extends
+  `context_assembly_test.exs`'s direct-render harness (`Solid.parse/1`
+  + `Solid.render/3` against the real `bundles/default/prompts` tree,
+  cited above) to parse and render the partial file itself against the
+  same populated shape the harness already drives through the five
+  guarded templates (`feedback: [%{"body" => "..."}]`), asserting the
+  `{% for entry in feedback %}` loop renders each entry's fields — the
+  same coverage that would have caught the bare-`{{ feedback }}`
+  regression before it shipped, so the claim is the suite's to hold,
+  not the next reader's to re-verify against `deps/solid`. So the
   straightforward-looking fix (pass the variable, leave the
   interpolation as written) would have turned "the model never sees
   feedback" into "generation crashes the first time any node carries
