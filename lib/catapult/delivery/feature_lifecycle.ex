@@ -205,8 +205,8 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   def apply(%__MODULE__{} = pm, %GateDeclined{throwback_to: throwback_to}) do
     case load_workflow() do
       {:ok, workflow} ->
-        position = Sequence.resolve_position(workflow, throwback_to)
-        pm |> update_projection(&Projection.decline(&1, position)) |> persist()
+        {position, anchor} = Sequence.resolve_position(workflow, pm.flow_name, throwback_to)
+        pm |> update_projection(&Projection.decline(&1, position, anchor)) |> persist()
 
       {:error, _reason} ->
         pm
@@ -257,10 +257,12 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   defp persist(%__MODULE__{project_id: project_id, flow_id: flow_id} = pm) do
     case load_workflow() do
       {:ok, workflow} ->
-        resting = Projection.resting(workflow, pm.flow_name, pm.projection)
+        {resting, anchor} =
+          Projection.resting(workflow, pm.flow_name, pm.projection) || {nil, nil}
+
         warn_unplaceable(pm, workflow, resting)
         {status_kind, status_gate} = position_columns(resting)
-        status_name = Sequence.name(workflow, pm.flow_name, resting)
+        status_name = Sequence.name(workflow, pm.flow_name, resting, anchor)
 
         {blocked_origin_kind, blocked_origin_gate} =
           pm.projection |> Projection.blocked_origin() |> position_columns()
@@ -290,6 +292,13 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   # because the fix — a chain flow whose `ticket:` face uses a label
   # some declared type actually carries — is an authoring correction
   # nobody makes without being told.
+  #
+  # Narrowed at ORC-176: `resting` is only `nil` for a `pm.flow_name`
+  # `Sequence.positions/2` truly has no sequence for — a declared-type
+  # lookup that failed and isn't one of the closed inline-dispatch-point
+  # kinds either (that module's own moduledoc). `setup`/`retro` resolve
+  # there now, so this clause no longer fires for either, without a
+  # `flow_name`-shaped exception carried here.
   defp warn_unplaceable(%__MODULE__{} = pm, %Workflow{types: types}, nil) do
     unless Map.has_key?(types, pm.flow_name) do
       Logger.warning(

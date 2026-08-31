@@ -87,11 +87,12 @@ green (v5 §2.13):
   Accepted residue, recorded so it is not rediscovered: an advisory
   that reaches the GitHub database and not Hex's feed, on a run where
   the mirror clone also failed, still reports clean. **That residue is
-  not repaired by vendoring.** Cloning `mirego/elixir-security-
-  advisories` ourselves, asserting it non-empty and recent and failing
-  the build otherwise, makes us the maintainer of a fork of someone
-  else's mirror of the GitHub database, with its refresh cadence as
-  our build's liveness dependency. The gate is bought far more cheaply
+  not repaired by vendoring.** Cloning
+  `mirego/elixir-security-advisories` ourselves, asserting it
+  non-empty and recent and failing the build otherwise, makes us the
+  maintainer of a fork of someone else's mirror of the GitHub
+  database, with its refresh cadence as our build's liveness
+  dependency. The gate is bought far more cheaply
   by sourcing the signal from Hex, which cannot report clean from a
   fetch it did not make. Hex's feed proving materially behind the
   GitHub database in practice would be an argument for a real second

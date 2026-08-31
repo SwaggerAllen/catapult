@@ -12,13 +12,15 @@ throwback: pending                 # resolves within the *citing type's*
                                     # `pending` precedes this gate in
                                     # types/feature.yaml, which is the
                                     # array that has to answer for it.
-                                    # Declared rather than derived because
-                                    # it lands somewhere else: the
-                                    # sub-array this gate sits in would
-                                    # derive `generation`, and "reject back
-                                    # to before generation ever ran" is a
-                                    # different act from "re-run
-                                    # generation" (§15.10)
+                                    # Restates the derived default rather
+                                    # than overriding it (§15.10, fourth-
+                                    # pass correction): the sub-array this
+                                    # gate sits in has its own leading
+                                    # `pending`, which is what the
+                                    # derivation now lands on directly —
+                                    # kept declared, the same way
+                                    # proposals-read.yaml states its own,
+                                    # rather than left to re-derivation
 escalation: author
 # No after: (§15.3) and no ticket_types: (§15.4): position is wherever a
 # citing type's own statuses: array places its `review:` entry, and which

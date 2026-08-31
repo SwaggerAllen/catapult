@@ -32,6 +32,13 @@ RUN sha="$GIT_SHA"; \
     if [ -z "$sha" ] && [ -d .git ]; then sha="$(git rev-parse HEAD 2>/dev/null || true)"; fi; \
     echo "${sha:-dev}" > /app/GIT_SHA
 
+# The digested stylesheet (ORC-183, `systems/dashboard.md`): compiles
+# and minifies `assets/css/app.css` through the standalone Tailwind CLI,
+# then `phx.digest` fingerprints it into `priv/static`, before the
+# release assembles so the CSS ships inside the image rather than being
+# generated (or missing) at deploy time.
+RUN mix assets.deploy
+
 RUN mix compile && mix release --overwrite
 
 FROM debian:bookworm-slim

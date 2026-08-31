@@ -70,6 +70,23 @@ config :catapult, CatapultWeb.Endpoint,
 # drops metadata keys a backend was never told about — the floor is set
 # in the substrate and *kept* in the composing application's config,
 # which is the same split as every other value.
+# The `:tailwind` package's own build-shape config (ORC-183,
+# `systems/dashboard.md`): a profile name (`catapult`), the source/output
+# pair `mix assets.build`/`mix assets.deploy` (mix.exs aliases) invoke
+# via `mix tailwind catapult` under the hood, and `cd:` so the standalone
+# CLI resolves `assets/css/app.css`'s own relative `@plugin`s
+# (`assets/vendor/daisyui.js`, `assets/vendor/daisyui-theme.js`) against
+# the project root rather than wherever `mix` happened to be invoked from.
+config :tailwind,
+  version: "4.3.3",
+  catapult: [
+    args: ~w(
+      --input=assets/css/app.css
+      --output=priv/static/assets/app.css
+    ),
+    cd: Path.expand("..", __DIR__)
+  ]
+
 config :logger, :default_formatter, metadata: [:component, :trace_id, :request_id]
 
 import_config "#{config_env()}.exs"

@@ -11,3 +11,9 @@ components/substrate/deps/
 # The branch preview build output (bin/preview-build.sh, published to
 # Cloudflare Pages by the agent actions). Generated per run, never committed.
 dist/
+
+# `mix assets.build`/`mix assets.deploy`'s own output (ORC-183,
+# systems/dashboard.md): compiled from assets/css/app.css, never hand-
+# edited, so it stays generated rather than committed like every other
+# build artifact here.
+/priv/static/assets/

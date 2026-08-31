@@ -123,9 +123,9 @@ conventions §13).
   retires the declared list as a legality bound (`docs/dsl-syntax.md`
   §15.10, second design review; a third review narrowed the field
   itself to a single-target override on the derived default rather
-  than retiring it outright, `docs/dsl-syntax.md` §15.4). `document-
-  review`'s throwback picker offers the same full earlier-prefix
-  Blocked-return's picker already gives (`docs/ui-spec.md` J4), one
+  than retiring it outright, `docs/dsl-syntax.md` §15.4).
+  `document-review`'s throwback picker offers the same full
+  earlier-prefix Blocked-return's picker already gives (`docs/ui-spec.md` J4), one
   click landing on the gate's own declared `throwback:` when the gate
   names one, or its citing sub-array's own derived default otherwise —
   never bounded, either way, to a gate's own declared exits as an
@@ -232,7 +232,7 @@ conventions §13).
 
   **ORC-115 has since answered §7.16's item at the design level** (
   `docs/dsl-syntax.md` §15.10; `docs/v5-design-decisions.md` §7.16):
-  what a gate pins is its citing sub-array's one non-critique
+  what a gate pins is its citing sub-array's one non-review-shaped
   agent-balled entry, at the gate's declared `depth:`, derived rather
   than stamped on the event. This is still not a `body_sha` and still
   not built — the log join `systems/delivery.md`'s Phase 7 needs is
@@ -511,16 +511,77 @@ conventions §13).
   buildable alternative, per the correction above — not because the
   alternative was impossible.
 
-  Assets are whatever `priv/static` already carries, which today is
-  nothing — this repo has no CSS build for the dashboard yet (no
-  `assets/` directory, no esbuild or Tailwind dependency; every
-  `badge`/`card`/`table` class in `storybook/screens/**` is
-  unstyled at runtime, in the live route exactly as much as in this
-  export). This decision does not invent that pipeline; it only
-  commits the export to relative asset paths rather than root-
-  absolute ones, since a Pages hash subdomain has no fixed base path
-  to hardcode against — whatever pipeline eventually lands carries
-  into the export the same way, unchanged.
+  **The CSS build is Tailwind's standalone CLI, wrapped by the
+  `:tailwind` Mix package, with daisyUI vendored rather than resolved
+  through npm** (ORC-183, design pass). No Node or npm dependency
+  anywhere in the toolchain — the same discipline `bin/preview-build.sh`
+  already keeps for OTP/Elixir itself (`Where things actually run`,
+  `CLAUDE.md`), and the standalone CLI has no npm resolution to lean on
+  in the first place. daisyUI ships as two vendored plugin files,
+  `assets/vendor/daisyui.js` and `assets/vendor/daisyui-theme.js`,
+  referenced from `assets/css/app.css` by a relative `@plugin` — Tailwind
+  v4's CSS-native plugin/import syntax, no `tailwind.config.js` needed —
+  the same shape Phoenix's own 1.8 generator settled on for the
+  identical constraint. `mix assets.build` (dev) and `mix assets.deploy`
+  (minified, then `phx.digest`, prod) compile to
+  `priv/static/assets/app.css`; the release `Dockerfile` runs
+  `assets.deploy` in its build stage — `MIX_ENV=prod`, after `mix
+  deps.get --only prod` — before `mix release`, so the digested CSS
+  ships inside the image. That is exactly why `:tailwind` cannot take
+  `credo`/`sobelow`/`mix_audit`'s own `mix.exs` treatment: those three
+  are `only: [:dev, :test], runtime: false`, so `deps.get --only prod`
+  never fetches them, which is fine because nothing in a prod build
+  needs them. `assets.deploy` is a prod build's own step, so `:tailwind`
+  carries `runtime: false` — the same build-time-only shape, never
+  started as part of the release — but **no `only:` restriction**,
+  since `prod` is exactly where it has to run.
+
+  **Corrected at dev pass: `:tailwind` does carry a `boundary: check:
+  apps:` entry, against this paragraph's own earlier claim that it
+  would not.** `Catapult.Audit.BoundaryApps` computes what a `:prod`
+  build can reach from each dependency's `only:`, never from
+  `runtime:` — so an application with no `only:` restriction is
+  reachable regardless, and `:tailwind` names `Elixir.*` modules
+  Boundary can restrain. The check carries no waiver for an application
+  it finds this way — no ignore list, no per-application escape
+  (`components/substrate/lib/catapult/audit/boundary_apps.ex`'s own
+  documented shape) — so the only fix is the list entry itself; `mix
+  .exs`'s own comment on the dep carries this in full.
+
+  `CatapultWeb.Endpoint` gains a `Plug.Static` serving `priv/static` at
+  `/assets` — absent today, so the live route serves no static asset of
+  any kind yet, not only unstyled daisyUI classes.
+
+  The export above already committed to relative asset paths rather than
+  root-absolute ones, since a Pages hash subdomain has no fixed base path
+  to hardcode against; this pipeline carries into the export the same
+  way, unchanged reasoning, now with something to carry — the export
+  copies `priv/static/assets/app.css` into `dist/assets/app.css` and
+  each generated page links it with a relative `href`.
+
+  That copy needs something to have built it first, and
+  `bin/preview-build.sh` does not run any assets task today. This
+  record decides where: `mix assets.build` runs right after the
+  script's own `mix compile` step and before the export script, guarded
+  by the same `|| fall_back "..."` discipline as every other step in
+  that script (`Where things actually run`, `CLAUDE.md` — the script
+  never exits non-zero, so a step that can fail must degrade to the
+  placeholder itself rather than let a later step fail past it). Without
+  that guard, a CSS build failure would not stop the export — nothing
+  downstream reads `priv/static/assets/app.css` before copying it — so
+  the script would still exit 0 and publish pages linking a stylesheet
+  that was never built: this ticket's own symptom, reintroduced, with
+  the job reporting success.
+
+  `assets/**` is on this doc's own file map but is not design-owned
+  (`pipeline.config.json`'s `designOwnedPaths` names `screens/**`,
+  `storybook/**`, `systems/*.md`, `docs/*.md`, nothing under `assets/`):
+  this paragraph is the decision dev's diff is written against, not a
+  change this pass makes itself. That diff also touches `mix.exs`,
+  `Dockerfile` and `bin/preview-build.sh` — each unowned by any file map
+  (`systems/README.md`), git's textual conflict detection standing in
+  for a mutex on those three the same way it already does for every
+  other ticket that adds a dependency or touches the toolchain.
 
   **`--ignore Config.HTTPS` on the sobelow gate is permanent, and is
   not waiting on this system's endpoint** (ORC-131). It was once

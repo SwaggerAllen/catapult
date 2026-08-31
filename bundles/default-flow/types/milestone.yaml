@@ -36,18 +36,16 @@ statuses:
                                      #   group through it (§13, §15.10)
   - - review: milestone-signoff      # the author's first transition: "my
                                       #   manual pass is finished" (v5
-                                      #   §7.8's irreducibly-human list).
-                                      #   No leading pending of its own —
-                                      #   unlike setup's group above, this
-                                      #   one would collide, bare, with
-                                      #   that one (§15.12's own
-                                      #   uniqueness check is a load-time
-                                      #   concern; the collision that
-                                      #   actually rules it out here is a
-                                      #   runtime one, ContainerLifecycle
-                                      #   .Sequence's own bare-name lookup
-                                      #   having no namespace awareness —
-                                      #   see dsl-syntax.md §15.2)
+                                      #   §7.8's irreducibly-human list)
+    - status: pending                # retro's own leading entry, the
+                                      #   identical dispatch-wait
+                                      #   convention setup's group takes
+                                      #   above (ORC-155) — legal now that
+                                      #   ContainerLifecycle.Sequence
+                                      #   carries the identical
+                                      #   namespace-qualified identity the
+                                      #   loader already resolves against
+                                      #   (ORC-171, dsl-syntax.md §15.12)
     - status: retro                  # the container's other agent step,
                                       #   inline the identical way as
                                       #   setup, grouped with the sign-off

@@ -119,10 +119,29 @@ STORIES="$(find storybook/screens -name 'component.story.exs' 2>/dev/null)"
 
 mix compile >/dev/null || fall_back "mix compile failed"
 
+# Builds priv/static/assets/app.css from assets/css/app.css and the
+# vendored daisyUI plugins (`systems/dashboard.md`'s ORC-183 entry).
+# Nothing downstream reads that file before the export script below
+# copies it, so this has to fail the same way every other step here
+# does: fall back to the placeholder rather than let the export run and
+# silently publish pages that link a stylesheet that was never built.
+mix assets.build >/dev/null || fall_back "mix assets.build failed"
+
 EXPORT_SCRIPT="$TOOLS/storybook_export.exs"
 cat >"$EXPORT_SCRIPT" <<'ELIXIR'
 out_dir = System.fetch_env!("PREVIEW_OUT")
 File.mkdir_p!(out_dir)
+
+# Relative, not root-absolute — this export ships to a Cloudflare Pages
+# hash subdomain with no fixed base path to hardcode against, the same
+# reasoning the rest of this export already carries
+# (`systems/dashboard.md`'s ORC-183 entry). `File.cp!/2` raises if
+# `mix assets.build` above did not actually produce this file, which is
+# what turns a silently-missing stylesheet into the same `fall_back` this
+# whole script already gives every other failure.
+assets_dir = Path.join(out_dir, "assets")
+File.mkdir_p!(assets_dir)
+File.cp!(Path.join(["priv", "static", "assets", "app.css"]), Path.join(assets_dir, "app.css"))
 
 story_files =
   "storybook/screens/*/component.story.exs"
@@ -155,6 +174,7 @@ screens =
           <head>
             <meta charset="utf-8" />
             <title>#{slug} — #{variation.id}</title>
+            <link rel="stylesheet" href="../assets/app.css" />
           </head>
           <body>
             #{html}
@@ -197,6 +217,7 @@ index = """
   <head>
     <meta charset="utf-8" />
     <title>Catapult — storybook export</title>
+    <link rel="stylesheet" href="assets/app.css" />
   </head>
   <body>
     <h1>Catapult — storybook export</h1>
