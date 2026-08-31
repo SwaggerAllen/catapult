@@ -2916,10 +2916,10 @@ about the ordinary case. Five default-bundle gates declare
 `throwback:` today. Two sit inside `feature.yaml`'s own sub-array and
 are read against the sharper test, not waved through — and the
 tightened `pending` rule (§13, this ticket's own fourth pass) moves
-one of the two conclusions below from what an earlier pass of this
-record found:
+both conclusions below from what an earlier pass of this record
+found:
 
-- `ux-review`'s own declared `throwback: [pending]` (`bundles/
+- `ux-review`'s own declared `throwback: pending` (`bundles/
   default-flow/gates/ux-review.yaml`) named a target *outside*
   `ux-review`'s own sub-array, before the group entirely, under the
   original "somewhere earlier" reading — a *different* landing point
@@ -2931,21 +2931,20 @@ record found:
   `ux-review`'s own declaration names. The declaration is now
   redundant, not the field earning its keep: `dev`'s diff against this
   record (`bundles/**`) drops it.
-- `engineering-review`'s own declared `throwback: [generation,
-  ux-review]` (`bundles/default-flow/gates/engineering-review.yaml`)
-  sits entirely inside the group the derivation covers. **Its
-  conclusion also reverses.** Before the tightening, its first element,
-  `generation`, was the derived default and therefore redundant; now
-  the derived default is the group's own leading `pending`, so
-  `generation` is a genuine, non-default landing point this list still
-  needs to name explicitly — declaring it is no longer redundant. Its
-  second element, `ux-review`, remains a second landing point a
-  single-valued field cannot express alongside the first — the
-  list-to-scalar narrowing still forces this file to keep one and drop
-  the other. Both remain legal targets either way (the earlier-prefix
-  rule reaches both regardless of declaration); which one stays the
-  declared *default* is an ordinary bundle-authoring call against
-  `bundles/**`, not a fact this record needs to settle for it.
+- `engineering-review`'s own declared `throwback: ux-review`
+  (`bundles/default-flow/gates/engineering-review.yaml`) sits entirely
+  inside the group the derivation covers. **Its conclusion also
+  reverses.** This file once named two targets, `generation` and
+  `ux-review`; the list-to-scalar narrowing forced it to keep one, and
+  the bundle-authoring call it left open — an ordinary `bundles/**`
+  decision, never this record's to settle — was made in favour of
+  `ux-review`. Under the tightened rule the surviving declaration is a
+  genuine, non-default landing point rather than a restatement: the
+  derived default is the group's own leading `pending` (§13), and
+  `ux-review` is a different status, legal because it sits earlier in
+  the sequence than the gate declining it. `generation` remains a
+  legal target too, declared or not — the earlier-prefix rule reaches
+  it regardless.
 
 The other three sit in `milestone.yaml`, across its two sub-arrays, so
 the sharper test applies to each: whether its own declared
@@ -2955,7 +2954,7 @@ derivation names no legal target at all. Two are inside
 `[milestone-signoff, pending, retro, proposals-read]` (§15.10 above),
 whose derived default is `retro`'s own leading `pending`:
 
-- `milestone-signoff`'s own declared `throwback: [main]` (`bundles/
+- `milestone-signoff`'s own declared `throwback: main` (`bundles/
   default-flow/gates/milestone-signoff.yaml`) narrows to `main`, a
   target *outside* the sub-array, before the group entirely. The
   derivation names no landing point here at all: `milestone-signoff`
@@ -2969,7 +2968,7 @@ whose derived default is `retro`'s own leading `pending`:
   that has one but finds no legal target inside it. Rejecting the
   sign-off means reopening the milestone's own `main` work period, not
   re-running `retro`.
-- `proposals-read`'s own declared `throwback: [retro]` (`bundles/
+- `proposals-read`'s own declared `throwback: retro` (`bundles/
   default-flow/gates/proposals-read.yaml`) narrows to `retro` itself,
   skipping the dispatch-wait its own leading `pending` now interposes.
   **This declaration's conclusion also reverses, the identical shape as
@@ -2999,10 +2998,11 @@ it does in `retro`'s group:
   leading `pending`, and is a genuine, non-default landing point now
   that it does. Declaring it is not redundant.
 
-Narrowing all five files' `throwback:` to a single string, and
-dropping `engineering-review`'s now-redundant second element, is
-dev's diff against this record (`bundles/**`); no file loses a landing
-point a decliner can still reach.
+All five files already declare a single status rather than a list, so
+the narrowing this section argued for is not outstanding work. What
+remains as dev's diff against this record (`bundles/**`) is dropping
+`ux-review`'s declaration, the one the tightened `pending` rule turned
+redundant; no file loses a landing point a decliner can still reach.
 
 **Throwback reopens the whole sub-array — the all-reopen rule
 (`docs/v5-design-decisions.md` §7.19) is now definitional, not
