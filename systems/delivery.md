@@ -268,17 +268,6 @@ generating as scope-runs inside one ticket.
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact).
 
-  **Two sites still state the reading this correction replaces, and
-  fixing them is dev's diff against this record, not design's:**
-  `lib/catapult/dsl/workflow.ex`'s moduledoc for `throwback_default/3`
-  (says the citing sub-array's own non-review-shaped agent step,
-  rather than its own earliest entry), and
-  `bundles/default-flow/gates/kickoff-review.yaml`'s comment on its
-  explicit `throwback: setup` (says that declaration restates the
-  derived default; under this correction the derived default is
-  `setup`'s own leading `pending`, so the declaration is a real
-  override instead).
-
   **This system's own open question — can a container instance be an
   agent dispatch target at all? — is answered at ORC-148: yes, on the
   identical footing as a ticket instance.** Dispatching from a work
