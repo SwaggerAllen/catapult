@@ -79,7 +79,7 @@ own to pass through first.
 ## Fan-out collapses, and collapsed is the default
 
 A feature ticket's children legitimately sit in several lanes at once — the feature might be at
-`Architecture review` while one component is already in `Architecting` and another hasn't started.
+`Architecture review` while one component is already in `Implementation` and another hasn't started.
 Rendering every child as its own card would make the board answer "what are all the tickets"
 instead of its actual question, **which top-level tickets are in flight and what state their
 components are in.**
@@ -91,8 +91,8 @@ them is `ticket`, same as drilling into the parent.
 
 **Grouping is per lane, not per card — and only within one shared lane set.** A feature's children
 are scattered across several lanes at once (that is the premise above), so "expand this feature"
-has to mean something different in each lane it appears in — the `Architecting` lane's expansion shows
-only the children currently in `Architecting`, not the feature's whole child list repeated in every
+has to mean something different in each lane it appears in — the `Implementation` lane's expansion shows
+only the children currently in `Implementation`, not the feature's whole child list repeated in every
 lane it touches. A lane never shows a child it does not itself hold.
 
 That per-lane roll-up only works when a child reads its position off the same array as its parent.

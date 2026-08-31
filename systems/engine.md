@@ -643,8 +643,9 @@ them.
   from inside `execute/2` breaks both halves at once: it is a
   `Commanded.EventStore.stream_forward/2` read, not a read of
   `execute/2`'s own state-and-command arguments, and `since_sequence`
-  is exactly "a sequence number a resulting event carries" that arrived by being computed there
-  rather than by already being on the command. The corrected split is
+  is exactly "a sequence number a resulting event carries" that arrived
+  by being computed there rather than by already being on the command.
+  The corrected split is
   this system's own standing purity rule, above — "no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
   inject at the command edge" — applied to a third kind of value that
