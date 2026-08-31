@@ -3819,7 +3819,11 @@ entry, its own leading `pending` for a generation-shaped group (§13's
 tightened check, a fourth-pass correction from resolving straight to
 the agent step), so "everything downstream of the regeneration" *is*
 "everything in this sub-array," derived from the same structure that
-already answers §7.16's open item above.
+already answers §7.16's open item above. A gate sitting first in its
+own sub-array, or in no sub-array at all, has no earlier entry there
+to fall back to, so this derivation gives it no default and it must
+declare `throwback:` explicitly (ORC-181, `dsl-syntax.md` §15.4, §13,
+§15.10).
 The derivation supplies the sub-array's own default landing point, and
 `throwback:` (below) survives beside it as a single, explicit override
 for the gate that wants a different one — never a second, narrower
