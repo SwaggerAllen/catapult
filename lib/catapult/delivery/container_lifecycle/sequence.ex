@@ -23,14 +23,22 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   own namespace-qualified identity, not the bare name `name/1` returns
   — the identical fix `Catapult.Dsl.Workflow` already gives the ticket
   axis at §15.12, extended to this one at ORC-116** (`systems
-  /delivery.md`'s own entry). `steps/2`'s own bare list is unaffected,
-  and unqualified today: every `types/*.yaml` this system ships avoids
-  a recurring bare name across two sub-arrays (`docs/dsl-syntax.md`
-  §15.2's own note on `types/milestone.yaml`'s asymmetry), so every
-  existing caller — `container.current_queue` included, itself a bare
-  string — keeps resolving exactly as before. What changes is that a
-  *qualified* `<anchor>.<name>` argument now resolves correctly too,
-  rather than only ever matching whichever occurrence comes first.
+  /delivery.md`'s own entry).
+
+  **`identified_steps/2`, `first_identified_step/2` and
+  `next_identified_step/3` are the canonical-identity half of that same
+  fix, threaded through at ORC-171.** `steps/2`, `first_step/2` and
+  `next_step/3` stay exactly what they were — a bare `step()`, no
+  identity attached — but `Catapult.Delivery.ContainerLifecycle`'s own
+  dispatcher no longer asks for a bare step and reduces it to a display
+  name to populate `container.current_queue`: it asks for the
+  *identified* pair instead, so what a container's own position field
+  carries is `Type.namespaced_positions/1`'s own `canonical` string,
+  never `Sequence.name/1`'s display label. The two stay distinct even
+  once this lands — `name/1` is display, canonical is identity — and
+  the ordinary case (every `types/*.yaml` this system ships avoids a
+  recurring bare name across two sub-arrays) is unaffected either way:
+  canonical and display coincide whenever a name does not recur.
   """
 
   alias Catapult.Dsl.Status
@@ -64,6 +72,33 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   end
 
   @doc """
+  `steps/2`, each step paired with its own namespace-qualified
+  canonical identity (§15.12) — `<anchor>.<name>` when this step's own
+  bare name recurs elsewhere in `type_name`'s own array, bare
+  otherwise. What `Catapult.Delivery.ContainerLifecycle` reads instead
+  of `steps/2`'s bare list, so `container.current_queue` carries an
+  identity rather than a display label (`systems/delivery.md`'s own
+  ORC-171 entry).
+  """
+  @spec identified_steps(Workflow.t(), String.t()) :: [{String.t(), step()}]
+  def identified_steps(%Workflow{types: types}, type_name) do
+    case Map.fetch(types, type_name) do
+      {:ok, %Type{statuses: statuses} = type} ->
+        canonical_by_index =
+          type |> Type.namespaced_positions() |> Map.new(&{&1.index, &1.canonical})
+
+        statuses
+        |> Enum.with_index()
+        |> Enum.map(fn {entry, index} -> {to_step(entry), index} end)
+        |> Enum.reject(fn {step, _index} -> is_nil(step) end)
+        |> Enum.map(fn {step, index} -> {Map.fetch!(canonical_by_index, index), step} end)
+
+      :error ->
+        []
+    end
+  end
+
+  @doc """
   The step a freshly activated instance starts at — its own first
   declared position (§15.8's "`setup` **is** the position, first in the
   minted instance's own sequence").
@@ -72,7 +107,16 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   """
   @spec first_step(Workflow.t(), String.t()) :: step() | nil
   def first_step(%Workflow{} = workflow, type_name) do
-    workflow |> steps(type_name) |> List.first()
+    case first_identified_step(workflow, type_name) do
+      nil -> nil
+      {_canonical, step} -> step
+    end
+  end
+
+  @doc "`first_step/2`, paired with its own canonical identity (see `identified_steps/2`)."
+  @spec first_identified_step(Workflow.t(), String.t()) :: {String.t(), step()} | nil
+  def first_identified_step(%Workflow{} = workflow, type_name) do
+    workflow |> identified_steps(type_name) |> List.first()
   end
 
   @doc """
@@ -89,11 +133,25 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   """
   @spec next_step(Workflow.t(), String.t(), String.t()) :: step() | nil
   def next_step(%Workflow{} = workflow, type_name, current) do
+    case next_identified_step(workflow, type_name, current) do
+      nil -> nil
+      {_canonical, step} -> step
+    end
+  end
+
+  @doc """
+  `next_step/3`, paired with its own canonical identity — what a caller
+  dispatching *to* the next occurrence needs, not merely what kind of
+  step it is (`container.current_queue`, `systems/delivery.md`'s own
+  ORC-171 entry).
+  """
+  @spec next_identified_step(Workflow.t(), String.t(), String.t()) :: {String.t(), step()} | nil
+  def next_identified_step(%Workflow{} = workflow, type_name, current) do
     identified = identified_steps(workflow, type_name)
 
     case Enum.find_index(identified, &(elem(&1, 0) == current)) do
       nil -> nil
-      index -> identified |> Enum.at(index + 1) |> step_at()
+      index -> Enum.at(identified, index + 1)
     end
   end
 
@@ -102,9 +160,6 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   def step(%Workflow{} = workflow, type_name, name) do
     workflow |> identified_steps(type_name) |> Enum.find_value(&step_if(&1, name))
   end
-
-  defp step_at(nil), do: nil
-  defp step_at({_canonical, step}), do: step
 
   defp step_if({canonical, step}, name) when canonical == name, do: step
   defp step_if(_identified, _name), do: nil
@@ -149,30 +204,4 @@ defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   defp to_step(%Status{status: status} = entry) when not is_nil(status), do: {:queue, entry}
   defp to_step(%Status{review: gate}) when not is_nil(gate), do: {:gate, gate}
   defp to_step(%Status{environment: env}) when not is_nil(env), do: nil
-
-  # `type.statuses`, walked once at its own true index, paired with
-  # each entry's own namespace-qualified identity (`Catapult.Dsl.Type
-  # .namespaced_positions/1`, §15.12) and reduced to the navigable
-  # step it becomes — never `steps/2`'s own already-filtered list,
-  # whose index an `environment:` entry ahead of a group would
-  # misalign against `type.statuses`'s own (`systems/delivery.md`'s
-  # own ORC-116 entry). `canonical` is bare unless this entry's own
-  # bare name recurs elsewhere in the type, exactly `Catapult.Dsl
-  # .Workflow`'s identical rule for the ticket axis.
-  defp identified_steps(%Workflow{types: types}, type_name) do
-    case Map.fetch(types, type_name) do
-      {:ok, %Type{statuses: statuses} = type} ->
-        canonical_by_index =
-          type |> Type.namespaced_positions() |> Map.new(&{&1.index, &1.canonical})
-
-        statuses
-        |> Enum.with_index()
-        |> Enum.map(fn {entry, index} -> {to_step(entry), index} end)
-        |> Enum.reject(fn {step, _index} -> is_nil(step) end)
-        |> Enum.map(fn {step, index} -> {Map.fetch!(canonical_by_index, index), step} end)
-
-      :error ->
-        []
-    end
-  end
 end

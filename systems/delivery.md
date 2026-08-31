@@ -1494,30 +1494,16 @@ generating as scope-runs inside one ticket.
 - **ORC-116 widens to give `ContainerLifecycle.Sequence` the identical
   namespace awareness the entry above gave this system's ticket-axis
   positions** (`docs/dsl-syntax.md` §15.2, §15.12) — a design review on
-  this ticket found the container axis has the identical gap and no
-  fix, only a bundle shaped to dodge it. `Sequence.next_step/3` and
-  `Sequence.earlier?/4` both resolve a position with `Enum.find_index/2`
-  against the bare name `Sequence.name/1` returns — a `status:`'s own
-  `status`, a `review:`'s own gate name — with no anchor concept at
-  all, so two occurrences of one kind in a single container's array are
-  not merely unlabeled the way a bare ticket-axis `position()` was
-  before ORC-155; they are **indistinguishable to the lookup itself**,
-  which resolves to whichever comes first. `docs/dsl-syntax.md` §15.2
-  names the reproduction directly: a container that physically reached
-  `retro`'s own `pending` would record `current_queue` as the bare
-  string `"pending"` and `next_step/3` would walk it backward to
-  `setup`'s own successor instead of forward to `milestone-signoff`.
-
-  **Not hypothetical, and not answered by keeping the bundle
-  asymmetric.** `bundles/default-flow/types/milestone.yaml` avoids the
-  collision today only by withholding `retro`'s own leading `pending` —
-  the one asymmetry between its two agent-step groups, and
-  `docs/dsl-syntax.md` §15.2 records it as a workaround rather than a
-  rule ("this is the one place the two groups are asymmetric, and
-  deliberately so"). That is a bundle shaped around a lookup's own
-  blind spot, not a bundle expressing a real constraint — the identical
-  position the loader-side fix above was written to retire for the
-  ticket axis.
+  this ticket found the container axis had the identical gap and no
+  fix, only a bundle shaped to dodge it. Before this fix,
+  `Sequence.next_step/3` and `Sequence.earlier?/4` each resolved a
+  position with `Enum.find_index/2` against the bare name
+  `Sequence.name/1` returns — a `status:`'s own `status`, a `review:`'s
+  own gate name — with no anchor concept at all, so two occurrences of
+  one kind in a single container's array were not merely unlabeled the
+  way a bare ticket-axis `position()` was before ORC-155; they were
+  **indistinguishable to the lookup itself**, which resolved to
+  whichever came first.
 
   **The fix mirrors the ticket-axis one rather than inventing a second
   mechanism, and the data it needs is on `Type`, not on `Status`.**
@@ -1550,25 +1536,115 @@ generating as scope-runs inside one ticket.
   prod` after both sub-arrays — worth recording here rather than left
   for the dev pass writing the fix to rediscover.
 
-  **The qualified lookup itself is built** (`0b36f88`):
-  `ContainerLifecycle.Sequence.next_step/3`, `step/3` and `earlier?/4`
-  now resolve against `identified_steps/2`'s namespace-qualified
+  **The qualified lookup resolves against `Type`'s own data, not
+  `Status`'s.** `ContainerLifecycle.Sequence.next_step/3`, `step/3` and
+  `earlier?/4` resolve against `identified_steps/2`'s namespace-qualified
   identity — `type.statuses`, walked at its own true index and paired
   with `Type.namespaced_positions/1`'s own `canonical` field, never
-  `steps/2`'s already-filtered list — so the hazard above is avoided
-  and a qualified `<anchor>.<name>` argument now resolves the correct
-  occurrence rather than whichever comes first.
+  `steps/2`'s already-filtered list. A bare, ambiguous argument resolves
+  to nothing rather than to the wrong occurrence.
   `sequence_test.exs`'s "a bare name recurring across two sub-arrays"
-  describe block exercises this against a synthetic recurring-name
-  fixture, since no shipped bundle recurs a name after ORC-155.
+  describe block exercises the lookup directly, against a synthetic
+  recurring-name fixture, since no shipped bundle recurs a name after
+  ORC-155. Threading that same qualified identity through every caller
+  of these three lookups — so a qualified argument is what they are
+  actually given, not only what they can accept — is the ORC-171 entry
+  below.
 
-  **Once that lands, `retro`'s own leading `pending` returns to
-  `bundles/default-flow/types/milestone.yaml`, and `docs/dsl-syntax.md`
-  §15.2's own passage recording the asymmetry as deliberate is rewritten
-  to describe the restored, symmetric shape** — the workaround's reason
-  will no longer exist. **Not built as part of this pass:** reverting
-  that bundle asymmetry and rewriting §15.2's passage to match — both
-  still dev's diff against this record, not design's.
+- **ORC-171 gives runtime position-tracking, on both axes, the
+  identical canonical identity ORC-116 gave `Sequence`'s own lookups**
+  (`docs/dsl-syntax.md` §15.2, §15.12).
+
+  **Container axis.** `Catapult.Delivery.ContainerLifecycle`'s
+  dispatcher carries `Type.namespaced_positions/1`'s own `canonical`
+  identity throughout, never `Sequence.name/1`'s display label:
+  `container.current_queue` is populated with it, every comparison
+  against it — `open_work/2`, `forward/3`, `earliest_unresolved/4`
+  included — reads that same qualified value, and `forward/3` passes it
+  into `Sequence`'s lookups rather than `Sequence.steps/2`'s bare list.
+  `Sequence.name/1` stays what it already is, a display label, never an
+  identity.
+
+  **Ticket axis, the identical shape.** `FeatureLifecycle
+  .Sequence.position/0` and `Projection`'s `passed`, `blocked_from` and
+  `pinned_to` carry the same canonical identity rather than
+  `Status.name/1`'s bare one. `Projection.to_wire/1`/`from_wire/1`
+  (ORC-120) carry the qualifying anchor as a third field beside `kind`
+  and `gate`, the same way `passed`'s own flattened records already do.
+  `Projection` can answer which occurrence a resting ticket is actually
+  at; retiring `CatapultWeb.Live.Positions.resting_key/2`'s own
+  first-match, best-effort guess (`systems/dashboard.md`'s own ORC-116
+  entry) on the strength of that is a dashboard-scoped pass's own
+  decision, not this entry's — this ticket supplies the data such a
+  pass would consume, nothing in `system:dashboard`.
+
+  **An inline dispatch point's own two synthesized entries carry the
+  identical field, set to `nil`.** `FeatureLifecycle.Sequence
+  .annotated_positions/2`'s inline-dispatch fallback (this system's
+  own ORC-176 entry, below) builds `setup`/`retro`'s fixed `pending`/
+  kind pair by hand, with no declared type's `statuses:` array behind
+  either entry — the same reason each already carries `group_key:
+  nil`. `Type.namespaced_positions/1`'s own qualification is a
+  property of a name's position inside a declared type's `statuses:`
+  array; an entry with no such array behind it is bare by the
+  identical rule §15.12 already states for anything outside a
+  sub-array, and unambiguous besides — a synthesized two-entry list
+  cannot recur a name against itself, and `setup`/`retro` are two
+  distinct `FeatureLifecycle` process-manager instances
+  (`ContainerLifecycle.open_inline/3` opens each as its own flow), so
+  their two `pending`s are never compared inside one `Projection` the
+  way `feature.yaml`'s own recurring group `pending`s are. So the
+  canonical-identity field every other constructor of
+  `annotated_position()` supplies is present on these two maps too,
+  rather than the shape forking between callers — `annotated_positions
+  /2` returns one shape regardless of which branch built it — carrying
+  `nil`.
+
+  **A record written before this ticket decodes with no anchor, and
+  that decodes correctly, with no backfill.** `Projection.from_wire/1`
+  reads its new `blocked_from_anchor`/`pinned_to_anchor` fields with a
+  tolerant default rather than the dot access the existing `_kind`/
+  `_gate` pairs use, because every `Commanded.ProcessManagers
+  .ProcessManagerInstance` snapshot committed before this ticket
+  predates the field entirely, and `from_wire/1` runs on exactly such a
+  snapshot on every process restart. A missing anchor decodes as `nil`
+  — the unqualified identity that position always was, since no bundle
+  recurred a bare name before this ticket landed.
+
+  **The kind/gate discrimination is unaffected in shape, the same way
+  the loader-level fix above left `status_kind`/`status_gate`
+  unaffected.** A position is still either a kind or a gate —
+  `position_columns/1` and `Store`'s two display columns keep reading
+  exactly that — with the qualifying anchor consulted only where
+  recurrence needs telling apart.
+
+  **Named, and outside this ticket's own reach: a human resuming to one
+  specific occurrence of an ambiguous position.**
+  `Catapult.Engine.Events.FlowResumed.to_kind`/`to_gate`
+  (`system:engine`, outside this record's own file map) carries no
+  qualifying field, so `unflatten_position/2` resolves a resume target
+  correctly only for the unambiguous case — ORC-155's own "bare when
+  unambiguous" rule already covers exactly that case elsewhere. Checked
+  against `docs/non-goals.md`, since this decision's consequences reach
+  `CatapultWeb.Live.Positions`; nothing there blocks it, and this entry
+  touches neither `system:engine` nor `system:dashboard`.
+
+  **The loader is not where this closes, and no load-time warning is
+  the decision here.** §15.12's own uniqueness-within-a-namespace check
+  already refuses the one shape that is actually a grammar error; two
+  occurrences of one kind in two distinct namespaces are legal DSL,
+  correctly so — recurrence across sub-arrays is exactly what
+  namespacing exists to permit. Runtime position-tracking carrying the
+  same canonical identity the loader already resolves against is what
+  makes accepting such a bundle safe; a load-time warning would flag a
+  legal shape instead.
+
+  `bundles/default-flow/types/milestone.yaml`'s `retro` group carries
+  its own leading `pending`, symmetric with `setup`'s
+  (`docs/dsl-syntax.md` §15.2) — the canonical identity is what makes
+  `setup.pending` and `retro.pending` distinct positions rather than one
+  bare name arriving twice. Reverting that bundle to the symmetric
+  shape and the plumbing above are one dev diff.
 
 - **ORC-176 (design pass) gives `Sequence.positions/2` a way to place
   an inline dispatch point's own flow, closing a gap ORC-148 opened
