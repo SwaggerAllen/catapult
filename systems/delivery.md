@@ -157,13 +157,13 @@ generating as scope-runs inside one ticket.
   dispatcher reads wherever a workflow bundle declares it, milestone
   `main`→`retro` included. **The pause has no separate mechanism to
   build**: an `Urgent` ticket dispatches regardless of which queue a
-  container or the project currently sits in (`docs/v5-design-
-  decisions.md` §7.3, §7.10), which falls out of ordinary priority
-  dispatch rather than needing a ticket-carried flag against its
-  milestone the way ORC-103's draft required. Of the rest this entry
-  named, three are built (ORC-175, design pass, checked against the
-  tree): storage for "which queue a given container or the project is
-  currently at" is `engine_containers.current_queue`/
+  container or the project currently sits in
+  (`docs/v5-design-decisions.md` §7.3, §7.10), which falls out of
+  ordinary priority dispatch rather than needing a ticket-carried flag
+  against its milestone the way ORC-103's draft required. Of the rest
+  this entry named, three are built (ORC-175, design pass, checked
+  against the tree): storage for "which queue a given container or the
+  project is currently at" is `engine_containers.current_queue`/
   `current_queue_sequence` (`lib/catapult/engine/store/container.ex`);
   the `blocks:`-aware dispatcher is `Catapult.Delivery
   .ContainerLifecycle` (below); and the declaration-graph acyclicity

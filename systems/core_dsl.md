@@ -131,8 +131,8 @@ context-source kinds, and audit profiles.
   above asked for.
 - **Depth's grammar generalizes to a pair, and a new declarable form
   configures `critique`'s participation** (ORC-92, design pass;
-  `docs/dsl-syntax.md` §13, §15.4, §15.5; `docs/v5-design-
-  decisions.md` §7.19 — both grammar sections' own shape changed again
+  `docs/dsl-syntax.md` §13, §15.4, §15.5; `docs/v5-design-decisions.md`
+  §7.19 — both grammar sections' own shape changed again
   at ORC-105's fourth pass, below, without disturbing this decision).
   Two changes land together, by the ticket's
   own sequencing constraint: `depth:`'s shape check widens from
@@ -193,8 +193,8 @@ context-source kinds, and audit profiles.
   ticket's own two earlier, since-reversed drafts — a shared
   fixed-sequence shape off one `container:` field checked against a
   two-member registry, then a `flow:`/`opens:` pair on every queue
-  entry; `docs/dsl-syntax.md` §15.6-§15.9; `docs/v5-design-
-  decisions.md` §7.8). `queues/project.yaml` is optional and singular
+  entry; `docs/dsl-syntax.md` §15.6-§15.9; `docs/v5-design-decisions.md`
+  §7.8). `queues/project.yaml` is optional and singular
   (`critique.yaml`'s shape) and holds whatever queue array the
   workflow bundle authors — no anchor check, no fixed count, no
   platform vocabulary to validate names against. `queues/containers/
@@ -287,9 +287,9 @@ context-source kinds, and audit profiles.
 
 - **A fifth ORC-105 pass corrected two errors the fourth pass's own
   three-valued `skeleton:` field had baked in, and added one field**
-  (design pass; `docs/dsl-syntax.md` §15.1-§15.9; `docs/v5-design-
-  decisions.md` §7.8). `skeleton:` is optional rather than
-  `ticket | container | none` — a type declaring neither has no
+  (design pass; `docs/dsl-syntax.md` §15.1-§15.9;
+  `docs/v5-design-decisions.md` §7.8). `skeleton:` is optional rather
+  than `ticket | container | none` — a type declaring neither has no
   anchors at all, which retires the loader's "at most one loaded
   `skeleton: none` declaration" check outright rather than replacing
   it: rootness is a node nothing else's `flow:` targets, derived from
@@ -435,15 +435,14 @@ context-source kinds, and audit profiles.
   this pass left open — whether a population anchor could ever sit
   inside a sub-array, and the dispatch question behind folding
   `setup`/`retro` into `milestone`'s own array — is resolved at
-  ORC-148, below.) **Not built as part of
-  this pass**, the same boundary every ORC-105 pass above already
-  draws: the loader changes this entry describes are `lib/catapult/dsl
-  /workflow.ex`'s and `lib/catapult/dsl/gate.ex`'s — the `throwback:`
-  field narrows from a list to a single optional status and its
-  load-time check narrows to match, and
+  ORC-148, below.) **Built at ORC-141**, dev's diff against this
+  record: the loader changes this entry describes, in
+  `lib/catapult/dsl/workflow.ex` and `lib/catapult/dsl/gate.ex` — the
+  `throwback:` field narrows from a list to a single optional status
+  (`String.t() | nil`) and its load-time check narrows to match, and
   `gate_throwback_problems/2`'s "earlier in the array" logic is reused
-  at the command edge as a runtime check for the undeclared case —
-  dev's diff against this record, not design's.
+  at the command edge as a runtime check for the undeclared case
+  (`Catapult.Engine.Commands.DeclineGate`).
 
 - **ORC-148 (design pass) reverses the fourth pass's own governing
   sentence — a skeleton fixes a required backbone, never an exclusive
