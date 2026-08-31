@@ -446,9 +446,9 @@ loader tickets carry `system:core_dsl`.
   moduledoc. The Solid mechanics behind the spelling live there too,
   including why a filter pipe is not available inside a conditional
   under `Solid.parse/1`. `test/catapult/generation/context_assembly
-  _test.exs` holds all six templates against all three shapes, so these
-  are the suite's claims rather than the next reader's to re-derive by
-  reading `deps/solid`.
+  _test.exs` holds all five templates with a working top-level guard
+  against all three shapes, so these are the suite's claims rather than
+  the next reader's to re-derive by reading `deps/solid`.
 
   **The shared partial's own copy of this guard cannot fire today, and
   that is a hook, not cruft to prune (ORC-184).** `{% render
@@ -458,7 +458,8 @@ loader tickets carry `system:core_dsl`.
   `bundles/default/{prompts,flows}/**` do, so `feedback` and `draft`
   never enter its scope and its `{% if feedback.size > 0 %}` block is
   inert. What actually gates a revision section today is each of the
-  six shipped prompts' own top-level copy of the same guard, reading
+  five shipped prompts' own top-level copy of the same guard —
+  `vocab`, `ref`, `subcomparch`, `sysarch` and `comparch` — reading
   the `feedback` (and, on a review tier's own prompt, `draft`)
   `ContextAssembly` puts directly in *that* prompt's context —
   `dsl-syntax.md` §9's "generation and review templates for a tier
