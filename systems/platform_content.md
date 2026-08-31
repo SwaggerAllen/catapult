@@ -450,6 +450,25 @@ loader tickets carry `system:core_dsl`.
   are the suite's claims rather than the next reader's to re-derive by
   reading `deps/solid`.
 
+  **The shared partial's own copy of this guard cannot fire today, and
+  that is a hook, not cruft to prune (ORC-184).** `{% render
+  "partials/<name>" %}` isolates the partial's scope from its caller's
+  unless the call passes `with`/`for` (`deps/solid`'s `RenderTag`); none
+  of `partials/_architecture_framing`'s call sites across
+  `bundles/default/{prompts,flows}/**` do, so `feedback` and `draft`
+  never enter its scope and its `{% if feedback.size > 0 %}` block is
+  inert. What actually gates a revision section today is each of the
+  six shipped prompts' own top-level copy of the same guard, reading
+  the `feedback` (and, on a review tier's own prompt, `draft`)
+  `ContextAssembly` puts directly in *that* prompt's context —
+  `dsl-syntax.md` §9's "generation and review templates for a tier
+  receive identical context plus `draft`". The partial's copy stands
+  ready for the day a caller starts rendering it `with feedback:
+  feedback, draft: draft` instead of bare; deleting it now would mean
+  re-deriving the exact `.size > 0` reasoning above a second time when
+  that caller arrives. Until then it renders nothing and gates nothing,
+  which is expected, not a defect.
+
 ## Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
