@@ -100,10 +100,14 @@ defmodule Catapult.Engine.Projections.ContainerQueues do
   grammar states rather than a convenience:
 
     1. **Its own population is empty** (§15.7). A queue is a query, so
-       a resolved queue un-resolves the moment its population refills,
-       with no separate "went backward" event needed — which is
-       §15.8's first of two backward moves, falling out of this
-       function rather than being implemented anywhere.
+       a resolved queue reads `:open` again the moment its population
+       refills — what keeps a dispatcher from advancing past it while
+       work is still assigned. This governs forward progress only:
+       §15.8's own retirement (v5 §7.8's fifth correction,
+       `systems/delivery.md`'s ORC-177 entry) means a population
+       refilling never moves a settled position backward, so this is
+       not the "went backward" mechanism an earlier reading of §15.8
+       took it for.
     2. **Every container instance it minted has closed** (§15.7's "the
        parent's queue does not complete until the minted instance
        closes"). Nesting composes through this one completion rule; a

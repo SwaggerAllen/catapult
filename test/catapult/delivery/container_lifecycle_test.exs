@@ -220,22 +220,17 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       assert ContainerLifecycle.next_commands(workflow, container) == []
     end
 
-    test "a container at retro while main refilled is walked back to main, not started", %{
-      workflow: workflow
-    } do
-      # `main` sits earlier in `milestone`'s array than `retro`, so the
-      # blocking relation and the refill rule point the same way and
-      # the refill rule is the sharper one: the container does not
-      # merely wait at `retro`, it is no longer past `main` at all
-      # (§15.8). What matters for the hold is what does *not* happen —
-      # `retro`'s singleton work item is not opened.
+    test "a container at retro while main is still open holds there, never walked back to main",
+         %{workflow: workflow} do
+      # `main` blocks `retro` directly (§15.7) — the hold is the whole
+      # answer. §15.8's own retirement (v5 §7.8's fifth correction)
+      # means a refilled earlier queue no longer moves the position
+      # backward at all: the container simply holds at `retro`,
+      # `retro`'s singleton work item unopened.
       held = container!("c-held", "milestone", current_queue: "retro")
       work_item!(held.id, "main", "w-still-open")
 
-      commands = ContainerLifecycle.next_commands(workflow, held)
-
-      assert [%AdvanceContainerQueue{to_queue: "main", reason: :repopulated}] = commands
-      refute Enum.any?(commands, &match?(%OpenFlow{}, &1))
+      assert ContainerLifecycle.next_commands(workflow, held) == []
     end
 
     test "retro opens its one work item once main has emptied", %{workflow: workflow} do
@@ -258,9 +253,14 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       assert ContainerLifecycle.next_commands(workflow, container) == []
     end
 
-    test "a refilled earlier queue moves the position back (§15.8)", %{workflow: workflow} do
-      # No gate, no throwback, no separate event: a queue is a query, so
-      # a resolved queue un-resolves the moment its population refills.
+    test "a refilled earlier queue no longer moves the position back (§15.8's retirement)", %{
+      workflow: workflow
+    } do
+      # Position is not a function of queue population (v5 §7.8's fifth
+      # correction): an earlier, non-blocking queue refilling changes
+      # nothing about where the container currently stands. `cleanup`
+      # itself is empty and unblocked, so it resolves and advances
+      # forward exactly as it would have had `prep` never refilled.
       container = container!("c-back", "milestone", current_queue: "cleanup")
       work_item!(container.id, "prep", "w-late")
 
@@ -268,8 +268,8 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
                ContainerLifecycle.next_commands(workflow, container)
 
       assert cmd.from_queue == "cleanup"
-      assert cmd.to_queue == "prep"
-      assert cmd.reason == :repopulated
+      assert cmd.to_queue == "deploy"
+      assert cmd.reason == :resolved
     end
   end
 
@@ -323,6 +323,19 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
         )
 
       assert [%CloseContainer{}] = ContainerLifecycle.next_commands(workflow, container)
+    end
+
+    test "an earlier queue-shaped anchor still open holds the close, unconditionally (§15.7)", %{
+      workflow: workflow
+    } do
+      # `prep` names nothing in any `blocks:` list and sits far behind
+      # `deploy`, yet the terminal guard reaches every queue-shaped
+      # anchor regardless — never narrower than whatever `blocks:` a
+      # bundle happened to author.
+      container = container!("c-close-guard", "milestone", current_queue: "deploy")
+      work_item!(container.id, "prep", "w-still-open")
+
+      assert ContainerLifecycle.next_commands(workflow, container) == []
     end
 
     test "a skeleton-less instance closes on its own last declared entry (§15.6)", %{

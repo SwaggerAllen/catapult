@@ -77,20 +77,40 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   — and says it about every container, including one whose author
   declared no backward-looking queue at all.
 
-  ## The two backward moves
+  **Nothing closes while any queue-shaped anchor is unresolved,
+  either** — the terminal guard §15.7 states normatively, enforced
+  here as `close/2`'s second precondition. Every `{:queue, entry}`
+  `Sequence.steps/2` returns for which `Status.queue_shaped?/1` holds
+  is checked against `ContainerQueues.resolution/3`, over the type's
+  whole declared array — never narrower than whatever `blocks:`
+  relations a bundle happened to author, so a queue nobody named in any
+  `blocks:` list still cannot be closed over. `setup` and `retro` need
+  no place in this check: `ContainerQueues.admits?/3` bounds each to at
+  most one assignment ever, so once resolved neither can un-resolve.
 
-  Both of §15.8's are honoured, and neither needs an event of its own:
+  ## Backward moves are not this module's to make
 
-    * **repopulated** — a resolved queue un-resolves when its
-      population refills. Since a queue is a query, this is just
-      `resolution/3` answering differently after a `FlowOpened`, and
-      this module reacts by moving the position back to the earliest
-      unresolved queue.
-    * **throwback** — a gate the container's own array cites rejects to
-      an earlier entry. That is a human's `AdvanceContainerQueue` with
-      `reason: :throwback`, not something this module originates;
-      `Catapult.Delivery.ContainerLifecycle.Sequence.earlier?/4` is the
-      live half of the check the loader can only make statically.
+  §15.8's own retirement (v5 §7.8's fifth correction, `systems
+  /delivery.md`'s ORC-177 entry): position is no longer a function of
+  queue population, so a resolved queue refilling moves nothing. What
+  moves a container's position backward is a step's own outcome — a
+  `critique` entry's own automatic decline, a human's throwback at a
+  gate, or the author's explicit `retro` → `main` return — never this
+  dispatcher re-deriving where the position "should" be from what is
+  currently populated. The one backward cause this module still
+  originates is **throwback**: a gate the container's own array cites
+  rejects to an earlier entry, dispatched as a human's
+  `AdvanceContainerQueue` with `reason: :throwback`, never something
+  this module decides on its own —
+  `Catapult.Delivery.ContainerLifecycle.Sequence.earlier?/4` is the
+  live half of the check the loader can only make statically. The
+  `retro` → `main` return is the author's own action alone; this
+  module never performs it.
+
+  A queue's population still governs whether it *holds forward
+  progress* (§15.7 — an open or held queue does not resolve), and
+  still gates `terminal` unconditionally (the close-time guard below).
+  What it no longer does is move a settled position back.
 
   ## Why it dispatches itself instead of returning commands
 
@@ -357,39 +377,31 @@ defmodule Catapult.Delivery.ContainerLifecycle do
 
   The order of the questions matters and is not arbitrary:
 
-  1. **Has an earlier queue refilled?** Then the container is no longer
-     past it and the position moves back (§15.8's first backward move).
-     This is asked first because a container standing somewhere it
-     should not be must not start work there.
-  2. **Is the current queue held by a sibling that `blocks:` it?** Then
+  1. **Is the current queue held by a sibling that `blocks:` it?** Then
      nothing begins. "`retro` will not begin until it clears" (v5 §7.8)
      is this: a blocked queue does not open its work item, which is the
      whole content of the hold.
-  3. **Does entering the current position put work into it?** A queue
+  2. **Does entering the current position put work into it?** A queue
      whose `flow:` nests mints — once — and activates a child; a
      non-queue-shaped inline dispatch point (`inline_dispatch_point?/1`)
      opens its one work item. If either produced a command, the
      position is about to be non-empty and there is nothing to advance
      past yet.
-  4. **Otherwise, where does the position move forward to?** The next
+  3. **Otherwise, where does the position move forward to?** The next
      entry if the current one resolves, nowhere at all if it does not
      or if the next entry is a gate waiting on a human.
+
+  There is no re-derivation step ahead of these: position is not a
+  function of queue population (§15.8's own retirement, `systems
+  /delivery.md`'s ORC-177 entry), so an earlier queue refilling changes
+  nothing about where the container currently stands.
 
   Returns `[]` for anything not currently active: a merely minted
   instance is not running yet, and a closed one is done.
   """
   @spec next_commands(Workflow.t(), Container.t()) :: [struct()]
   def next_commands(%Workflow{} = workflow, %Container{state: :active} = container) do
-    identified = Sequence.identified_steps(workflow, container.type_name)
-    current = container.current_queue
-
-    case earliest_unresolved(workflow, container, identified, current) do
-      target when not is_nil(target) and target != current ->
-        [advance(container, current, target, :repopulated)]
-
-      _settled_behind ->
-        forward_or_open(workflow, container, current)
-    end
+    forward_or_open(workflow, container, container.current_queue)
   end
 
   def next_commands(%Workflow{}, %Container{}), do: []
@@ -596,17 +608,17 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   end
 
   # Closing is the one transition with preconditions of its own beyond
-  # the queue model: every carried finding adjudicated, and the
-  # aggregated flag set requested (v5 §7.8). Both are computed here and
-  # neither is stored — the outstanding set is a difference of two
-  # queries, and the flag set is a union of what the members declare.
+  # the queue model: every carried finding adjudicated, and every
+  # queue-shaped anchor resolved (v5 §7.8, dsl-syntax.md §15.7). Both
+  # are computed here and neither is stored — the outstanding set is a
+  # difference of two queries, and the unresolved-queue check is a scan
+  # against `ContainerQueues.resolution/3`. The flag set requested
+  # below is what a close produces, never a condition on whether it
+  # happens.
   defp close(%Workflow{} = workflow, %Container{} = container) do
     case outstanding_findings(container) do
       [] ->
-        Composition.propose(workflow, container, sequence: container.current_queue_sequence)
-
-        flip_commands(container) ++
-          [%CloseContainer{project_id: container.project_id, container_id: container.id}]
+        close_if_resolved(workflow, container)
 
       outstanding ->
         Logger.info(
@@ -617,6 +629,44 @@ defmodule Catapult.Delivery.ContainerLifecycle do
 
         []
     end
+  end
+
+  defp close_if_resolved(%Workflow{} = workflow, %Container{} = container) do
+    case unresolved_queues(workflow, container) do
+      [] ->
+        Composition.propose(workflow, container, sequence: container.current_queue_sequence)
+
+        flip_commands(container) ++
+          [%CloseContainer{project_id: container.project_id, container_id: container.id}]
+
+      unresolved ->
+        Logger.info(
+          "container #{container.id} holds #{length(unresolved)} unresolved queue(s) and " <>
+            "will not close over them (dsl-syntax.md §15.7)",
+          component: :delivery
+        )
+
+        []
+    end
+  end
+
+  # The queue-shaped anchors (`flow:` present) this type declares that
+  # are not `:resolved` — `:open` or `{:held, _}` both refuse the close,
+  # unconditionally over the whole array (§15.7's "never narrower than
+  # whatever blocks: a bundle happened to author"). `setup` and `retro`
+  # need no place here: `Status.queue_shaped?/1` already excludes them,
+  # and `ContainerQueues.admits?/3` bounds each to at most one
+  # assignment ever, so once resolved neither can un-resolve.
+  defp unresolved_queues(%Workflow{} = workflow, %Container{} = container) do
+    workflow
+    |> Sequence.steps(container.type_name)
+    |> Enum.filter(fn
+      {:queue, entry} -> Status.queue_shaped?(entry)
+      _gate_or_terminal -> false
+    end)
+    |> Enum.reject(fn {:queue, entry} ->
+      ContainerQueues.resolution(workflow, container, entry.status) == :resolved
+    end)
   end
 
   # The findings this container carried, minus the ones it recorded an
@@ -680,30 +730,6 @@ defmodule Catapult.Delivery.ContainerLifecycle do
       to_queue: to,
       reason: reason
     }
-  end
-
-  defp resolved_here?(%Workflow{} = workflow, %Container{} = container, queue) do
-    ContainerQueues.resolution(workflow, container, queue) == :resolved
-  end
-
-  # The earliest queue before `current` that is no longer resolved,
-  # returned by its own canonical identity — what `container
-  # .current_queue` carries end to end (`systems/delivery.md`'s own
-  # ORC-171 entry) — never `entry.status`'s bare declaration, which
-  # `resolved_here?/3` still reads (population is filed under the bare
-  # name regardless of which occurrence a container's position is).
-  # `nil` when everything behind the container is still settled, which
-  # is the ordinary case.
-  defp earliest_unresolved(%Workflow{} = workflow, %Container{} = container, identified, current) do
-    identified
-    |> Enum.take_while(fn {canonical, _step} -> canonical != current end)
-    |> Enum.find_value(fn
-      {canonical, {:queue, entry}} ->
-        if resolved_here?(workflow, container, entry.status), do: nil, else: canonical
-
-      _gate_or_terminal ->
-        nil
-    end)
   end
 
   defp load_workflow do
