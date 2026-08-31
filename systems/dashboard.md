@@ -525,11 +525,17 @@ conventions §13).
   identical constraint. `mix assets.build` (dev) and `mix assets.deploy`
   (minified, then `phx.digest`, prod) compile to
   `priv/static/assets/app.css`; the release `Dockerfile` runs
-  `assets.deploy` in its build stage, before `mix release`, so the
-  digested CSS ships inside the image. `:tailwind` takes no `boundary:
-  check: apps:` entry — a build-time tool with `runtime: false`, never
-  started as part of the release, the same treatment `credo`/`sobelow`/
-  `mix_audit` already get in `mix.exs` and for the identical reason.
+  `assets.deploy` in its build stage — `MIX_ENV=prod`, after `mix
+  deps.get --only prod` — before `mix release`, so the digested CSS
+  ships inside the image. That is exactly why `:tailwind` cannot take
+  `credo`/`sobelow`/`mix_audit`'s own `mix.exs` treatment: those three
+  are `only: [:dev, :test], runtime: false`, so `deps.get --only prod`
+  never fetches them, which is fine because nothing in a prod build
+  needs them. `assets.deploy` is a prod build's own step, so `:tailwind`
+  carries `runtime: false` and no `boundary: check: apps:` entry — the
+  same build-time-only shape, never started as part of the release —
+  but **no `only:` restriction**, since `prod` is exactly where it has
+  to run.
 
   `CatapultWeb.Endpoint` gains a `Plug.Static` serving `priv/static` at
   `/assets` — absent today, so the live route serves no static asset of
@@ -541,6 +547,20 @@ conventions §13).
   way, unchanged reasoning, now with something to carry — the export
   copies `priv/static/assets/app.css` into `dist/assets/app.css` and
   each generated page links it with a relative `href`.
+
+  That copy needs something to have built it first, and
+  `bin/preview-build.sh` does not run any assets task today. This
+  record decides where: `mix assets.build` runs right after the
+  script's own `mix compile` step and before the export script, guarded
+  by the same `|| fall_back "..."` discipline as every other step in
+  that script (`Where things actually run`, `CLAUDE.md` — the script
+  never exits non-zero, so a step that can fail must degrade to the
+  placeholder itself rather than let a later step fail past it). Without
+  that guard, a CSS build failure would not stop the export — nothing
+  downstream reads `priv/static/assets/app.css` before copying it — so
+  the script would still exit 0 and publish pages linking a stylesheet
+  that was never built: this ticket's own symptom, reintroduced, with
+  the job reporting success.
 
   `assets/**` is on this doc's own file map but is not design-owned
   (`pipeline.config.json`'s `designOwnedPaths` names `screens/**`,
