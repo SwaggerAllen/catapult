@@ -7,14 +7,16 @@ defmodule Catapult.Engine.Events.ContainerQueueAdvanced do
   because they are the same fact — which queue is current now — and
   §15.6 refuses a separate stored `blocked` position for exactly this
   reason ("fully described by 'at Q, blocked by blocks:'s target'").
-  The three reasons are the three the grammar admits, and there is no
-  fourth:
+  The two reasons below are the two `Catapult.Delivery.ContainerLifecycle`
+  currently originates. §15.8's own retirement (v5 §7.8's fifth
+  correction) means a resolved queue refilling moves nothing — position
+  is not a function of queue population — so a third value for the
+  explicit author transition that correction names (returning a
+  milestone from `retro` to `main`) is that mechanism's own vocabulary
+  to add once it is built, not stated here in advance:
 
   * `:resolved` — forward: this queue's population emptied of
     unresolved work and nothing that `blocks:` it still holds work.
-  * `:repopulated` — backward: a resolved queue un-resolved because
-    its population refilled. A queue is a query (§15.7), so this needs
-    no gate and no separate "went backward" concept.
   * `:throwback` — backward: a gate the container's own array cites
     rejected to an earlier entry in that same array (§15.4's
     `throwback:`, §15.8's second way).
@@ -31,7 +33,7 @@ defmodule Catapult.Engine.Events.ContainerQueueAdvanced do
   defstruct [:project_id, :container_id, :from_queue, :to_queue, :reason, :actor_id]
 
   @typedoc "Why the current queue moved — see the moduledoc."
-  @type reason :: :resolved | :repopulated | :throwback
+  @type reason :: :resolved | :throwback
 
   @type t :: %__MODULE__{
           project_id: binary(),
