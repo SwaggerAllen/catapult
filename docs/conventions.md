@@ -446,6 +446,28 @@ orchestration enforces its own protocol and this section defers to it.
   inventory, no state sections** (orchestration's rule: the code is
   the inventory; docs that mirror code drift silently). Amend the
   owning system doc in the same change that moves a boundary.
+- **Reasoning is never deleted from `systems/*.md` or `docs/*.md` on
+  the premise that it now lives in code.** This is about rationale a
+  human reads, not a value code dereferences — `docs/non-goals.md`'s
+  "a fact acquiring a code consumer moves rather than multiplies"
+  governs the latter and is unaffected here. ORC-134's guard-spelling
+  rationale was deleted from `systems/platform_content.md` on exactly
+  the reasoning premise (`23cae64`, "Move implementation reasoning out
+  of the design docs and into the code it guards") and landed in
+  neither of the two places that commit named as its new home; ORC-184
+  had to re-derive the whole chain to restore it (found at ORC-192,
+  settled here at ORC-200, design pass). A design doc's own copy of a
+  decision's reasoning is superseded only by a changed decision, never
+  pruned because a comment or a moduledoc was meant to carry it
+  instead. Code may still carry its own local copy for a reader who
+  will never open this doc — `systems/platform_content.md`'s own
+  ORC-134 entry keeps one in `partials/_architecture_framing.md.liquid`'s
+  `{% comment %}` block and another in `Catapult.Generation
+  .ContextAssembly`'s moduledoc, deliberately, "on purpose, and
+  neither half is redundant with the other" — but the design doc stays
+  the authoritative, complete copy, so nothing needs a lint keeping
+  the two in sync: the code copy is never required to carry everything
+  the doc does, only what its own local reader needs.
 - A convention change is a change to *this file*, in a reviewed
   commit, with its rationale — never a silent divergence that a
   later session codifies by imitation.

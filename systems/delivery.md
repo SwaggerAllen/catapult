@@ -393,8 +393,8 @@ generating as scope-runs inside one ticket.
   container's own queues holds no unresolved work before `terminal`,
   unconditionally, never narrower than whatever `blocks:` relations a
   bundle happened to author. Its present enforcement is incidental to
-  the same backward-move mechanism the bullet below corrects
-  (`next_commands/2`/`earliest_unresolved/4`) — ORC-177's reconciliation
+  the same backward-move mechanism the bullet below settles
+  (`next_commands/2`) — ORC-177's reconciliation
   covers this guard's implementation too, not only the backward move.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
@@ -430,43 +430,22 @@ generating as scope-runs inside one ticket.
   sequenced *before* `retro` (`dsl-syntax.md` §15.10), so absent this
   manual return `retro` filing work into `main` would leave
   `cleanup`/`terminal` blocked with no declared path back.
-  `lib/catapult/engine/projections/container_queues.ex`'s resolution
-  condition 1 predates this correction and still cites §15.8 for the
-  retired reading. **Not built to match, checked against the tree**
-  (ORC-175, design pass): `Catapult.Delivery.ContainerLifecycle`'s own
-  `next_commands/2`/`earliest_unresolved/4` — its moduledoc's own "two
-  backward moves" section — still perform exactly the retired move,
-  unconditionally, for any earlier queue that refills, not only at a
-  `blocks:`-guarded boundary; that is the same reading
-  `container_queues.ex`'s condition 1 cites. Reconciling the dispatcher
-  and that projection's condition 1 to the retirement above is Target
-  work, filed as ORC-177 — ORC-104 is Done and archived and owns
-  neither.
-
-  **ORC-177 (design pass) widens that reconciliation's own site list —
-  the condition above is not the only place the retired reading
-  survives verbatim.** `lib/catapult/engine/events/container_queue_advanced.ex`
-  carries it twice over, in the one file: its moduledoc documents
-  `:repopulated` as "a resolved queue un-resolved because its
-  population refilled" — the retired premise, given as this reason's
-  own justification for existing — and its `reason` type still
-  declares `:resolved | :repopulated | :throwback`, the closed enum
-  that admits the value. Three sites carry the retired reading
-  forward, across two files: `container_queues.ex`'s condition 1, and,
-  in `container_queue_advanced.ex`, both its moduledoc and its `reason`
-  type. Once `next_commands/2` stops issuing `:repopulated`, the type
-  narrows to `:resolved | :throwback` — a third value, for the
-  explicit author transition the fourth-review correction above names,
-  is that mechanism's own vocabulary to add once it is built, not this
-  reconciliation's to anticipate. Two of `container_lifecycle_test.exs`'s
-  own tests assert the retired move directly, rather than merely
-  exercising code that happens to produce it: "a container at retro
-  while main refilled is walked back to main, not started" and "a
-  refilled earlier queue moves the position back (§15.8)" both assert
-  `reason: :repopulated` as the correct outcome. ORC-177's
-  reconciliation carries these two tests as well — rewritten against
-  whatever replaces the walk, or removed, never left asserting retired
-  behavior as correct.
+  **Done, checked against the tree — ORC-177 (design pass; dev pass
+  merged `27e0bff`).** The reconciliation the fourth-review correction
+  above named landed across every site the retired reading reached:
+  `Catapult.Delivery.ContainerLifecycle`'s `next_commands/2` no longer
+  performs the retired pre-check (below); `container_queues.ex`'s
+  resolution condition 1 cites the retirement directly rather than the
+  reading it predated; and, in `container_queue_advanced.ex`, both the
+  moduledoc and the `reason` type narrow to `:resolved | :throwback` —
+  `:repopulated` is retired from each, and the moduledoc no longer
+  gives a resolved queue un-resolving as this reason's own
+  justification for existing. A third `reason` value, for the explicit
+  author transition the fourth-review correction above names, is that
+  mechanism's own vocabulary to add once it is built, not anticipated
+  here. `container_lifecycle_test.exs`'s two tests that had asserted
+  `reason: :repopulated` as the correct outcome were rewritten against
+  whatever replaces the walk, below.
 
   **What replaces the walk, so "whatever replaces it" above is no
   longer open.** Two questions, both closed by record already settled
@@ -863,10 +842,12 @@ generating as scope-runs inside one ticket.
   human-facing label is presentation, and belongs with "the work
   surface renders" (this doc's own opening paragraph), not with this
   projection and not with workflow-bundle content. `dsl-syntax.md`
-  §15.1's table already fixes labels for the platform-fixed kinds —
-  twelve on this branch, seventeen once ORC-104's rename and
-  container-status additions land, per the divergence noted above —
-  across the two default lifecycles; a *declared* gate's or
+  §15.1's table already fixes labels for the twenty platform-fixed
+  kinds — `backlog`, `pending`, `generation`, `design`, `architecture`,
+  `implementation`, `critique`, `checks`, `reconcile`, `merge`,
+  `deploy`, `validating`, `blocked`, `stubbed`, `setup`, `prep`,
+  `main`, `retro`, `cleanup`, `terminal` — across the two default
+  lifecycles; a *declared* gate's or
   environment's own name (`ux-review`, `dev`) has no such table and
   needs one, but writing it is `systems/dashboard.md`'s decision when
   UI v1 renders this projection — out of this ticket's own declared
@@ -895,7 +876,7 @@ generating as scope-runs inside one ticket.
   orchestration's decisionless pass generalized" framing §7.3 already
   gives it.
 - **Blocked carries no new mechanism either** (ORC-32, design pass).
-  `:blocked` is one of the twelve fixed kinds
+  `:blocked` is one of the twenty fixed kinds
   (`Catapult.Dsl.SystemStatus`) with `ball: :varies`; this process
   manager enters it as any other transition, and the flavor label plus
   origin are read the same way v5 §7.19 already settles for the
@@ -1676,7 +1657,8 @@ generating as scope-runs inside one ticket.
   **Separately, and for the reason `CatapultWeb.Live.Positions`' own
   moduledoc already gives** — a card, a rail entry, a `throwback:` and
   a `blocks:` reference all name a position that may recur (three
-  `pending`, three `checks`, two `reconcile` in `feature.yaml` alone) —
+  `pending`, three `checks`, two `reconcile` in `dsl-syntax.md` §15.2's
+  `types/feature.yaml` worked example alone) —
   **a bare `position()` is no longer a sufficient identity on its own.**
   `<anchor>.<name>` (§15.12) is the qualified form; this system's own
   `status_kind`/`status_gate` projection columns
@@ -1764,7 +1746,7 @@ generating as scope-runs inside one ticket.
   dispatcher carries `Type.namespaced_positions/1`'s own `canonical`
   identity throughout, never `Sequence.name/1`'s display label:
   `container.current_queue` is populated with it, every comparison
-  against it — `open_work/2`, `forward/3`, `earliest_unresolved/4`
+  against it — `forward_or_open/3`, `resolve_and_open/4`, `forward/3`
   included — reads that same qualified value, and `forward/3` passes it
   into `Sequence`'s lookups rather than `Sequence.steps/2`'s bare list.
   `Sequence.name/1` stays what it already is, a display label, never an

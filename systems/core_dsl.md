@@ -719,7 +719,8 @@ context-source kinds, and audit profiles.
   sub-array it sits in** (`docs/dsl-syntax.md` §13, §15.1, §15.4,
   §15.9, §15.12; `docs/v5-design-decisions.md` §7.19). ORC-151 left
   every recurring kind — three `pending`, three `checks`, two
-  `reconcile` in `feature.yaml` alone — addressable only by kind, which
+  `reconcile` in `dsl-syntax.md` §15.2's `types/feature.yaml` worked
+  example alone — addressable only by kind, which
   a card, a rail entry, a `throwback:` or a `blocks:` reference all
   need to name unambiguously and cannot: `CatapultWeb.Live.Positions
   .key/1` round-trips exactly the `{:kind, atom} | {:gate, name}` pair
