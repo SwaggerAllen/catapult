@@ -59,8 +59,10 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   (dsl-syntax.md §15.10, ORC-116). `group_key` is shared by every
   entry a declared sub-array spans — the group's own anchor's bare
   name — and `nil` for an entry no sub-array cites. `group_anchor`
-  marks the one entry inside a group that `Catapult.Dsl.Workflow
-  .throwback_default/3` would derive a decline back to.
+  marks the group's own non-review-shaped agent step — not always
+  where `Catapult.Dsl.Workflow.throwback_default/3` derives a decline
+  back to, since a generation-shaped anchor's own derivation lands on
+  its leading `pending` instead (§15.10's fourth-pass correction).
   """
   @type annotated_position :: %{
           position: position(),
