@@ -7,13 +7,15 @@ role: author                       # the author's own manual pass across
                                     #   container's own working period
                                     #   (v5 §7.8)
 depth: 0
-throwback: setup                   # the derived default, stated for
-                                    #   clarity the same way
-                                    #   proposals-read.yaml states its own
-                                    #   (dsl-syntax.md §15.10): this gate
-                                    #   sits after its own group's agent
-                                    #   step, setup, so declining it
-                                    #   re-runs setup rather than
-                                    #   restating a question already
-                                    #   answered
+throwback: setup                   # a real override, not a restatement
+                                    #   of the derived default
+                                    #   (dsl-syntax.md §15.10, fourth-pass
+                                    #   correction): this group's own
+                                    #   leading pending precedes setup
+                                    #   (types/milestone.yaml), so the
+                                    #   undeclared default would be that
+                                    #   pending, not setup itself —
+                                    #   declaring setup skips the wait
+                                    #   and re-runs the agent step
+                                    #   directly
 escalation: author

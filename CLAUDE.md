@@ -255,21 +255,28 @@ Each of these cost a wrong diagnosis before it was written down.
   words before changing it: the second statement is rarely next to
   the first, and a worked example left behind by an amended rule is a
   load error nobody runs until dev.
-- **Never write a sentence a merge will falsify.** "This passage is
-  rewritten once X lands," or "once that fix lands the workaround's
-  reason no longer exists" — a record written that way is right until
-  the moment it matters and wrong immediately after, with nothing
-  watching. It is a stale rule arrived at from the other direction,
-  and worse in one respect: the staleness is *scheduled*, so the pass
-  that writes it already knows the document will be wrong and ships it
-  anyway. Write the rule the grammar states. Where the shipped tree
-  deviates from it, the deviation belongs where a reader of the tree
-  meets it — an inline comment in the file that deviates, and the
-  ticket that closes it — never in the document that states the rule.
-  A record carrying one bundle's pending fix holds a fact with a
-  shorter life than itself. The same reading catches the mirror image:
-  a record describing a fix as landed because an earlier entry said it
-  would. Check the tree, not the neighbouring entry.
+- **The record is what the tree will be made to match, so a dev merge
+  never falsifies it.** Design writes the system as it will be once
+  dev implements it; if landing that implementation makes this record
+  wrong, the design pass wrote the wrong thing. So it states the
+  finished shape — the rule, a worked example that satisfies it, the
+  mechanism as it will run — and never reports the tree's current
+  state back at itself. Three forms of the same mistake, in
+  increasing order of how easily they pass review: predicting a
+  revision ("this passage is rewritten once X lands"); describing what
+  is not built yet as though the record's job were to track build
+  progress; and narrating the record's own scope ("not built as part
+  of this pass", "whether that reverts is that diff's to settle, not
+  this record's to predict"). The last is the one a pass reaches for
+  when it has been told to stop doing the first, and it is the worst
+  of the three: a disclaimer about what the document is declining to
+  say carries no fact about the system at all. Where the tree has not
+  caught up, that gap is the ticket's to carry, and an inline comment's
+  in the file a reader would be misled by — never a sentence in the
+  record whose life is shorter than the document's. The same reading
+  catches the mirror image: a record describing a fix as landed because
+  an earlier entry said it would. Check the tree, not the neighbouring
+  entry.
 - **A doc's claim about the tree is not evidence about the tree.**
   Of the "X is not built yet" sentences an audit of these docs
   checked, half described things that had shipped and half described
