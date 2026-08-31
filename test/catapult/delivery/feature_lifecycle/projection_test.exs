@@ -9,6 +9,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.FeatureLifecycle.Projection
+  alias Catapult.Delivery.FeatureLifecycle.Sequence
   alias Catapult.Dsl.Status
   alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
@@ -173,9 +174,96 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     assert resting(state) == {:gate, "review"}
   end
 
-  describe "resting/3 carries a qualifying anchor for a bare kind that recurs (dsl-syntax.md §15.12, ORC-171)" do
-    alias Catapult.Delivery.FeatureLifecycle.Sequence
+  describe "passable?/2 over the generation-shaped and checks/reconcile kinds (ORC-182)" do
+    # `design`/`architecture`/`implementation` sub-arrays, each with its
+    # own `checks`, mirroring dsl-syntax.md §15.2's revised
+    # `feature.yaml` closely enough to exercise every kind `passable?/2`
+    # now has to answer for.
+    defp multi_phase_workflow do
+      type = %Type{
+        name: "feature",
+        file: "types/feature.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{status: "design"},
+          %Status{status: "checks"},
+          %Status{status: "pending"},
+          %Status{status: "architecture"},
+          %Status{status: "checks"},
+          %Status{status: "reconcile"},
+          %Status{status: "pending"},
+          %Status{status: "implementation"},
+          %Status{status: "checks"}
+        ]
+      }
 
+      %Workflow{
+        name: "test",
+        entry: "feature",
+        environments: %{},
+        gates: %{},
+        types: %{"feature" => type}
+      }
+    end
+
+    defp multi_phase_resting(state),
+      do: Projection.resting(multi_phase_workflow(), "feature", state) |> position_of()
+
+    test "design is passable once anything has committed, so the walk reaches its own :checks" do
+      # If `design` were still unrecognized by `passable?/2` (the
+      # pre-ORC-182 clause named only pending/generation/critique), this
+      # would raise `FunctionClauseError` instead of landing here.
+      state = Projection.new() |> Projection.commit(1)
+
+      assert multi_phase_resting(state) == {:kind, :checks}
+    end
+
+    test "checks halts the walk at its first occurrence, even though later kinds are passable" do
+      # `take_through_boundary/1` anchors the *sequence's own* boundary
+      # on the last :checks, but every occurrence still stops
+      # `resting/3`'s walk (systems/delivery.md's ORC-182 design-review
+      # entry: this projection has no event reporting an intermediate
+      # checks run's own outcome). Widening the passable set to include
+      # design/architecture/implementation must not let the walk sail
+      # past design's own :checks to land further down the array.
+      state = Projection.new() |> Projection.commit(1)
+
+      assert multi_phase_resting(state) == {:kind, :checks}
+
+      assert Enum.at(Sequence.positions(multi_phase_workflow(), "feature"), 2) ==
+               multi_phase_resting(state)
+    end
+
+    test "reconcile is never passable either" do
+      type = %Type{
+        name: "feature",
+        file: "types/feature.yaml",
+        skeleton: "ticket",
+        statuses: [
+          %Status{status: "pending"},
+          %Status{status: "generation"},
+          %Status{status: "reconcile"},
+          %Status{status: "merge"}
+        ]
+      }
+
+      workflow = %Workflow{
+        name: "test",
+        entry: "feature",
+        environments: %{},
+        gates: %{},
+        types: %{"feature" => type}
+      }
+
+      state = Projection.new() |> Projection.commit(1)
+
+      assert Projection.resting(workflow, "feature", state) |> position_of() ==
+               {:kind, :reconcile}
+    end
+  end
+
+  describe "resting/3 carries a qualifying anchor for a bare kind that recurs (dsl-syntax.md §15.12, ORC-171)" do
     # `pending` recurs twice: once as `generation`'s own leading entry
     # (qualified `generation.pending`, since its group has a second
     # member to share a namespace with) and once top-level, ungrouped

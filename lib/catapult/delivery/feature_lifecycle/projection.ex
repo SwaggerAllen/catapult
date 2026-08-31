@@ -212,11 +212,26 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
         nil
 
       positions ->
-        last = List.last(positions)
+        # Excluded by index, not by value (ORC-182): `@reachable_boundary`
+        # can now recur in `positions`, and a recurring bare kind's own
+        # `anchor` does not disambiguate two top-level occurrences (both
+        # get `anchor: nil` — `Catapult.Dsl.Type.namespaced_positions/1`
+        # only qualifies group members, not top-level entries), so a
+        # value comparison against `List.last/1` would still treat every
+        # earlier occurrence as "the last" too and skip it — exactly the
+        # aliasing that would let a non-final `:checks` silently pass
+        # instead of halting the walk.
+        last_index = length(positions) - 1
 
-        Enum.find(positions, last, fn {position, _anchor} = entry ->
-          entry != last and not passable?(position, state)
+        positions
+        |> Enum.with_index()
+        |> Enum.find(fn {{position, _anchor}, index} ->
+          index != last_index and not passable?(position, state)
         end)
+        |> case do
+          nil -> List.last(positions)
+          {entry, _index} -> entry
+        end
     end
   end
 
@@ -263,13 +278,27 @@ defmodule Catapult.Delivery.FeatureLifecycle.Projection do
   end
 
   defp passable?({:kind, kind}, %__MODULE__{commit_signature: sig})
-       when kind in [:pending, :generation, :critique] do
+       when kind in [:pending, :generation, :design, :architecture, :implementation, :critique] do
     not is_nil(sig)
   end
 
   defp passable?({:gate, _name} = position, %__MODULE__{commit_signature: sig} = state) do
     not is_nil(sig) and Map.get(state.passed, position) == sig
   end
+
+  # `checks` and `reconcile` stay unpassable at every occurrence, not
+  # only the last (systems/delivery.md's ORC-182 design-review entry):
+  # this projection has no event reporting an intermediate checks run's
+  # own outcome or an intermediate reconcile's own join independently of
+  # a fresh `DraftCommitted`/`RunFailed`, so nothing here can tell one
+  # apart from the boundary occurrence the clause above already covers.
+  # A ticket resting at a non-final `checks`/`reconcile` therefore does
+  # not advance into that phase's own `critique`/gates under today's
+  # event vocabulary — real on §15.2's multi-phase shape, not on the
+  # shipped bundle. Giving this phase a signal for an intermediate
+  # outcome is new advancement behaviour, and designing it is not this
+  # ticket's scope.
+  defp passable?({:kind, _kind}, %__MODULE__{}), do: false
 
   defp to_columns(nil), do: {nil, nil}
   defp to_columns({:kind, kind}), do: {to_string(kind), nil}
