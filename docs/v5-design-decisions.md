@@ -3889,8 +3889,8 @@ prefix this section already defines two paragraphs above.
 narrows.** A declared list has no remaining role once legality is
 unbounded — naming several targets said "any of these is legal," which
 is exactly the bound just retired. But a landing point is a different
-fact from a legal-target set, and it survives: `throwback:` (`dsl-
-syntax.md` §15.4) narrows to a single, optional status, the explicit
+fact from a legal-target set, and it survives: `throwback:`
+(`dsl-syntax.md` §15.4) narrows to a single, optional status, the explicit
 override a gate declares when its citing sub-array's own non-critique
 agent step — the derived default, above — is not the one-click landing
 point it wants. Blocked-return has no equivalent override; its

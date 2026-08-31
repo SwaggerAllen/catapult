@@ -157,9 +157,9 @@ generating as scope-runs inside one ticket.
   dispatcher reads wherever a workflow bundle declares it, milestone
   `main`→`retro` included. **The pause has no separate mechanism to
   build**: an `Urgent` ticket dispatches regardless of which queue a
-  container or the project currently sits in (`docs/v5-design-
-  decisions.md` §7.3, §7.10), which falls out of ordinary priority
-  dispatch rather than needing a ticket-carried flag against its
+  container or the project currently sits in
+  (`docs/v5-design-decisions.md` §7.3, §7.10), which falls out of
+  ordinary priority dispatch rather than needing a ticket-carried flag against its
   milestone the way ORC-103's draft required. Storage for "which queue
   a given container or the project is currently at," the
   `blocks:`-aware dispatcher, the declaration-graph acyclicity check

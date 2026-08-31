@@ -638,12 +638,12 @@ them.
   first version broke: "`execute/2` and `apply/2` read only their own
   arguments; every id, timestamp and sequence number a resulting event
   carries is already present on the command" — checked by
-  `Catapult.Engine.Policies.PurityFloor`. Calling `Catapult.Engine
-  .Projections.GateComments.last_resolution_sequence/2` from inside
-  `execute/2` breaks both halves at once: it is a `Commanded.EventStore
-  .stream_forward/2` read, not a read of `execute/2`'s own state-and-
-  command arguments, and `since_sequence` is exactly "a sequence number
-  a resulting event carries" that arrived by being computed there
+  `Catapult.Engine.Policies.PurityFloor`. Calling
+  `Catapult.Engine.Projections.GateComments.last_resolution_sequence/2`
+  from inside `execute/2` breaks both halves at once: it is a
+  `Commanded.EventStore.stream_forward/2` read, not a read of
+  `execute/2`'s own state-and-command arguments, and `since_sequence`
+  is exactly "a sequence number a resulting event carries" that arrived by being computed there
   rather than by already being on the command. The corrected split is
   this system's own standing purity rule, above — "no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
@@ -843,7 +843,7 @@ them.
   **Design-resolved at ORC-115, still not built here or anywhere:**
   `docs/dsl-syntax.md` §15.10's sub-array grammar now gives "which
   node(s) a gate reviews" a structural answer — the citing sub-array's
-  own one non-critique agent-balled entry, at the gate's declared
+  own one non-review-shaped agent-balled entry, at the gate's declared
   `depth:` (`docs/v5-design-decisions.md` §7.16) — but neither event
   gains a field from that alone; the join still has to be built
   (Phase 7), and this entry's own claim (no `body_sha`, position not
