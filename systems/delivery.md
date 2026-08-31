@@ -1911,6 +1911,69 @@ generating as scope-runs inside one ticket.
   coverage for both — all this system's diff against this record, not
   design's.
 
+- **ORC-198 (design pass) corrects three `FeatureLifecycle.Sequence`
+  call sites, carrying four instances of the same bug between them,
+  that stayed keyed on the reference-ambiguity test after
+  `systems/core_dsl.md`'s own ORC-198 entry splits it from the
+  runtime-collision one ORC-155's `name:` made distinct** (this
+  system's own ORC-171 entry, above; `docs/dsl-syntax.md` §15.12).
+  All four read `Type.namespaced_positions/1`'s `canonical`/`bare`
+  fields — the reference-resolution identity — to decide something
+  about a *runtime* position instead:
+
+  `annotate/4` (`sequence.ex:185`) computes the `anchor` ORC-171 added
+  to `annotated_position()` as `if namespaced.canonical ==
+  namespaced.bare, do: nil, else: namespaced.namespace`. Two `status:
+  pending` entries with distinct `name:` overrides get `canonical ==
+  bare` — their names don't recur, so nothing marks them — and so both
+  get `anchor: nil`, indistinguishable from each other once paired
+  with `to_position/1`'s identical `{:kind, :pending}` for both: the
+  exact failure ORC-171 closed, reopened through `name:`'s own escape
+  hatch. Reads the new `kind_ambiguous` field instead: `anchor = if
+  namespaced.kind_ambiguous, do: namespaced.namespace, else: nil`.
+
+  `resolve_kind_reference/3` (`sequence.ex:258-262`), called from
+  `resolve_position/3` (`sequence.ex:244`), carries two independent
+  instances. Its own `anchor` line (`sequence.ex:261`) is the identical
+  `canonical == bare` test as `annotate/4`'s, corrected the same way.
+  Separately, it hands the resolved position's **`bare`** field —
+  ORC-155's own display name, not its kind — through
+  `String.to_existing_atom/1` to build `{:kind, atom}`. `to_position/1`,
+  the only other builder of this shape, always reads the entry's
+  literal `status:` field. For a `status: pending, name: alpha` entry
+  the two disagree: `to_position/1` yields `{:kind, :pending}`,
+  `resolve_position/3` yields `{:kind, :alpha}` — a `throwback_to`
+  resolving through the second names a position the first never
+  emits. `sequence.ex:203-208`'s own `String.to_existing_atom/1`
+  discipline note justifies itself on `status:`'s closed,
+  compile-time-literal vocabulary (`Catapult.Dsl.SystemStatus`); that
+  argument holds at `to_position/1`, where the input *is* `status:`,
+  and does not carry to this site, whose input is a bundle-authored
+  `name:` with no reason to be in the atom table. Corrected to read
+  the resolved position's own `entry.status` — `namespaced_positions/1`
+  already carries the full `%Catapult.Dsl.Status{}` under `entry` —
+  rather than `bare`, so both builders of `position()` agree by
+  construction.
+
+  `find_kind_entry/3` (`sequence.ex:315-322`), `Sequence.name/4`'s own
+  helper, computes `entry_anchor` the identical `canonical == bare`
+  way to match against a caller-supplied `anchor` and pick the entry a
+  `{:kind, kind}` position displays under. Once `annotate/4` above
+  stores `kind_ambiguous`-derived anchors, an entry_anchor still
+  computed the old way silently stops matching the anchor
+  `Projection.resting/3` actually passes in, for exactly the
+  `name:`-recurring-kind case this whole entry is about — `name/4`
+  would fall back to the bare kind (its own documented behavior for an
+  anchor that "does not resolve to a real occurrence") for a position
+  that does have one. Corrected the same way as `annotate/4`.
+
+  **Not built as part of this pass:** the four fixes themselves and
+  `sequence_test.exs` coverage exercising a type that recurs a kind
+  under distinct `name:` overrides — the shape no shipped bundle
+  authors today, latent rather than live, the same standing this
+  ticket's own argument opened with — are this system's diff against
+  this record, not design's.
+
 ## Initial vs target
 
 Initial (Phase 4): the host port + fakes; feature lifecycle through

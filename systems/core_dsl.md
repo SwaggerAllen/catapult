@@ -801,6 +801,62 @@ context-source kinds, and audit profiles.
   the dispatcher's move from a standing-hold projection to a
   transition-time check — are dev's, not design's.
 
+- **ORC-198 (design pass) splits `Type.namespaced_positions/1`'s one
+  ambiguity computation into two, because ORC-155's own `name:` is
+  exactly what makes them able to disagree** (`docs/dsl-syntax.md`
+  §15.12). `namespaced_positions/1` computes a single ambiguity set —
+  `Enum.frequencies_by(& &1.bare)` — and its `canonical` field answers
+  one question with it: is this entry's own *authored name* the string
+  a reference resolves to unqualified, or does it need `<anchor>.name`
+  because that bare string recurs elsewhere in the type's array? That
+  is exactly right for what `Catapult.Dsl.Workflow.resolve_reference/2`
+  and `earlier_names/2` need (§15.12's own "stays bare when
+  unambiguous" rule), and the two stay in step because both are keyed
+  on `bare`.
+
+  A second question gets asked of the same set, and ORC-155's `name:`
+  is what pulls it apart from the first: does this entry's own
+  *runtime position* — its `status:`/`review:`/`environment:` value,
+  the field every `position()` constructor reads and `name:` never
+  touches (this doc's ORC-155 entry above: "every load-time predicate,
+  and every plane branch, still reads the kind — never the name") —
+  recur elsewhere in the array, so that two occurrences collide once
+  reduced to `{:kind, atom}` and need their anchor carried at runtime
+  regardless of whether they're also nameable apart? Before `name:`
+  existed the two questions had one answer, because bare **was**
+  kind. `name:` was built precisely so two same-kind entries could
+  carry distinct labels (`docs/dsl-syntax.md` §15.12, ORC-155) — and a
+  bundle exercising exactly that, two `status: pending` entries with
+  distinct `name:` overrides, now recurs on kind while *not* recurring
+  on bare: `canonical` reads "unambiguous" for both (their names don't
+  collide, the point of naming them), while `Catapult.Delivery
+  .FeatureLifecycle.Sequence.to_position/1` — reading `status:`, never
+  `name:` — still builds `{:kind, :pending}` for both. Reproduces the
+  "first occurrence wins, silently" failure ORC-171 fixed, through the
+  one door `name:` itself opens, and ORC-171's own reproduction never
+  exercised a per-occurrence override so never hit it.
+
+  The two sets are not one a subset of the other, so neither is safe
+  to derive from the other: `status: pending` beside `status: checks,
+  name: pending` recur on bare with **distinct** kinds — a real
+  reference ambiguity (`blocks: [pending]` cannot pick one), no
+  runtime collision at all, since the two resolve to different
+  `position()` shapes. Two distinct-`name:` `status: pending` entries
+  are the opposite — no reference ambiguity, each name resolves to
+  exactly one entry — but a real runtime collision. `bare`/`qualified`/
+  `canonical` keep meaning exactly what ORC-155 gave them, unchanged,
+  since `resolve_reference/2` and `earlier_names/2` are correctly keyed
+  on bare already. `namespaced_entry()` gains a second, independent
+  field, `kind_ambiguous: boolean()` — true when this entry's own kind
+  (`status:`/`review:`/`environment:` value, never `name:`) recurs
+  elsewhere in the type's own array — for the runtime-collision
+  question alone. **Not built as part of this pass:** the
+  `kind_ambiguous` field itself, `type_test.exs` coverage for the two
+  sets' divergence, and every consumer's switch from the reused
+  `canonical == bare` test to this field — `systems/delivery.md`'s own
+  ORC-198 entry names the three call sites — are dev's diff against
+  this record, not design's.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
