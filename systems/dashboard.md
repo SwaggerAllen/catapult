@@ -532,10 +532,21 @@ conventions §13).
   are `only: [:dev, :test], runtime: false`, so `deps.get --only prod`
   never fetches them, which is fine because nothing in a prod build
   needs them. `assets.deploy` is a prod build's own step, so `:tailwind`
-  carries `runtime: false` and no `boundary: check: apps:` entry — the
-  same build-time-only shape, never started as part of the release —
-  but **no `only:` restriction**, since `prod` is exactly where it has
-  to run.
+  carries `runtime: false` — the same build-time-only shape, never
+  started as part of the release — but **no `only:` restriction**,
+  since `prod` is exactly where it has to run.
+
+  **Corrected at dev pass: `:tailwind` does carry a `boundary: check:
+  apps:` entry, against this paragraph's own earlier claim that it
+  would not.** `Catapult.Audit.BoundaryApps` computes what a `:prod`
+  build can reach from each dependency's `only:`, never from
+  `runtime:` — so an application with no `only:` restriction is
+  reachable regardless, and `:tailwind` names `Elixir.*` modules
+  Boundary can restrain. The check carries no waiver for an application
+  it finds this way — no ignore list, no per-application escape
+  (`components/substrate/lib/catapult/audit/boundary_apps.ex`'s own
+  documented shape) — so the only fix is the list entry itself; `mix
+  .exs`'s own comment on the dep carries this in full.
 
   `CatapultWeb.Endpoint` gains a `Plug.Static` serving `priv/static` at
   `/assets` — absent today, so the live route serves no static asset of

@@ -26,6 +26,14 @@ defmodule CatapultWeb.Endpoint do
 
   socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
 
+  # `priv/static/assets/app.css` (`mix assets.build`/`assets.deploy`,
+  # `systems/dashboard.md`'s ORC-183 entry) is what makes every daisyUI
+  # class this system's screens use actually render — absent this plug,
+  # the live route served no static asset of any kind. `only: ~w(assets)`
+  # rather than the wider Phoenix default set: nothing else lives under
+  # `priv/static` yet.
+  plug Plug.Static, at: "/", from: :catapult, only: ~w(assets)
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
