@@ -164,7 +164,15 @@ screens =
 
     pages =
       Enum.map(variations, fn variation ->
-        assigns = Map.new(variation.attributes)
+        # A plain attributes map has no `__changed__`, which `Phoenix.Component.assign/3`
+        # requires of anything that isn't a real `Socket` — board's and ticket's own function
+        # bodies call it directly. `Phoenix.LiveViewTest.__render_component__/4` hits the same
+        # gap calling a function component straight, and closes it exactly this way.
+        assigns =
+          variation.attributes
+          |> Map.new()
+          |> Map.put_new(:__changed__, %{})
+
         rendered = function.(assigns)
         html = Phoenix.LiveViewTest.rendered_to_string(rendered)
 
