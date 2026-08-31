@@ -438,6 +438,31 @@ generating as scope-runs inside one ticket.
   and that projection's condition 1 to the retirement above is Target
   work, filed as ORC-177 — ORC-104 is Done and archived and owns
   neither.
+
+  **ORC-177 (design pass) widens that reconciliation's own site list —
+  the condition above is not the only place the retired reading
+  survives verbatim.** `lib/catapult/engine/events/container_queue_advanced.ex`
+  carries it twice over, in the one file: its moduledoc documents
+  `:repopulated` as "a resolved queue un-resolved because its
+  population refilled" — the retired premise, given as this reason's
+  own justification for existing — and its `reason` type still
+  declares `:resolved | :repopulated | :throwback`, the closed enum
+  that admits the value. Three sites carry the retired reading
+  forward, across two files: `container_queues.ex`'s condition 1, and,
+  in `container_queue_advanced.ex`, both its moduledoc and its `reason`
+  type. Once `next_commands/2` stops issuing `:repopulated`, the type
+  narrows to `:resolved | :throwback` — a third value, for the
+  explicit author transition the fourth-review correction above names,
+  is that mechanism's own vocabulary to add once it is built, not this
+  reconciliation's to anticipate. Two of `container_lifecycle_test.exs`'s
+  own tests assert the retired move directly, rather than merely
+  exercising code that happens to produce it: "a container at retro
+  while main refilled is walked back to main, not started" and "a
+  refilled earlier queue moves the position back (§15.8)" both assert
+  `reason: :repopulated` as the correct outcome. ORC-177's
+  reconciliation carries these two tests as well — rewritten against
+  whatever replaces the walk, or removed, never left asserting retired
+  behavior as correct.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
