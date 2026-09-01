@@ -1970,8 +1970,10 @@ generating as scope-runs inside one ticket.
   reference-ambiguity test — a type recurring a kind under distinct
   `name:` overrides — is the shape no shipped bundle authors today,
   latent rather than live, the same standing this ticket's own
-  argument opened with, and it is what `sequence_test.exs` has to
-  seed for the difference to be exercised at all.
+  argument opened with. `sequence_test.exs` seeds it twice over: once
+  across two sub-arrays, where the group anchor alone would have
+  sufficed, and once inside a single namespace, where it does not —
+  the ORC-202 entry below is what that second fixture exists for.
 
 - **ORC-202 (author decision) settles what a recurring kind is
   disambiguated *by*, and the qualifier reads `qualified` rather than
@@ -2004,6 +2006,20 @@ generating as scope-runs inside one ticket.
   needed; only what it holds has changed. Nothing persists the field —
   no event and no projection column carries it — so it is computed
   identity throughout, and changing what it holds needs no migration.
+
+  **The choice was measured, not argued.** ORC-198's own fixture puts
+  its two same-kind entries in *different* sub-arrays, where the group
+  anchor separates them and `namespace` looks sufficient; no test
+  covered one namespace holding both, which is why this shipped.
+  `sequence_test.exs`'s ORC-202 fixture is that missing case — two
+  top-level `pending` entries named `alpha` and `beta` — and it was
+  run against both schemes before either was chosen. Under `namespace`
+  it fails three ways: `annotate/4` hands back the atom `:top_level`
+  against an `anchor()` of `String.t() | nil`, and `name/4` answers
+  `"pending"` for both occurrences, having found neither. Under
+  `qualified` all three pass and the rest of the suite stays green.
+  A scheme that cannot express the case §15.12 permits is not a
+  narrower fix; it is the same defect with a smaller blast radius.
 
 ## Initial vs target
 

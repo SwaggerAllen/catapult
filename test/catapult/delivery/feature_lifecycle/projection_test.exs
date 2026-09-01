@@ -302,7 +302,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
       # on unconditionally, before any commit — is the only kind
       # position the ordinary walk can rest at directly; this fixture
       # puts the group's own qualified `pending` there on purpose.
-      assert resting_t(Projection.new()) == {{:kind, :pending}, "generation"}
+      assert resting_t(Projection.new()) == {{:kind, :pending}, "generation.pending"}
     end
 
     test "a block recorded before any commit records the same qualified occurrence" do
@@ -318,7 +318,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
 
       state = Projection.new() |> Projection.commit(1) |> Projection.decline(position, anchor)
 
-      assert resting_t(state) == {{:kind, :pending}, "generation"}
+      assert resting_t(state) == {{:kind, :pending}, "generation.pending"}
     end
 
     test "a bare decline target resolves to the unambiguous, top-level occurrence" do
