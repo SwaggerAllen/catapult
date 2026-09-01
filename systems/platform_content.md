@@ -164,6 +164,66 @@ loader tickets carry `system:core_dsl`.
   carried forward silently: `decomposition`'s comparch→subcomp
   instance declares `source: {min: 1}`, making every comp fan out into
   at least one subcomponent.
+- **A second intake root, `non_goals`, mints distilled non-goal policy
+  nodes ahead of the architecture chain proper** (v5 §1.1, §4.5, the
+  negative-space doctrine). `feature_expansion` stops being this
+  chain's only tier reading raw input prose: `non_goals` sits beside
+  it as a second `scope: singleton`, `generator: llm` root, context
+  `input.*` (the whole raft — the prompt is written to depend on it
+  being present) plus `input.non_goals` (the tagged-document role,
+  strong signal when the raft carries one). Neither form can block
+  readiness, and the two are alike in that rather than contrasting:
+  since ORC-107, `input.<role>` and `input.*` both resolve to
+  `{:ok, []}` when nothing is pinned under that role, fold vacuously
+  satisfied through `walk_ready?`, and never block a tier's readiness
+  (`dsl-syntax.md` §7, `systems/engine.md`'s standing decision). The
+  two roots name no `context:` entry on each other — a raft's negative
+  space is read from the same frozen input prose either root reads,
+  never from the other root's own drafted output, so nothing sequences
+  one behind the other and both are ready the moment intake pins the
+  raft. Its own `non_goals_review` counterpart puts the whole extracted
+  set in front of the author through the ordinary draft→review→approve
+  gate loop — no new review mechanism. Declining is declining the
+  batch: the same all-or-nothing shape every other fanout-minting
+  tier's authored block already has (`sysarch`'s `<policies>`,
+  `comparch`'s `<subcomponents>`), and a decline naming one candidate
+  to drop is answered the way every other tier's decline is — a
+  comment naming the candidate, reaching the regenerating pass as
+  ordinary `feedback` prose (`dsl-syntax.md` §9), never a
+  per-candidate accept/reject affordance, which this pool has never
+  had and this ticket does not add. Separately, the worry this answers
+  ("dropping it silently means the next intake of the same raft
+  proposes it again") does not arise: intake is one function
+  called at most once per project (`systems/delivery.md`'s ORC-107
+  entry), so there is no second intake of the same raft to re-propose
+  from.
+
+  `non_goals` mints straight into the `policy` pool through a third
+  `decomposition` instance — the identical mechanism the flat-pools
+  entry below already documents for `sysarch`'s and `comparch`'s own
+  `<policies>` blocks, not a new edge and not a new node kind (this
+  ticket's own governing constraint, echoing v5 §4.5: "a separate
+  non-goal tier would be the policy tier with the sign flipped"). The
+  flat-pools entry below carries what's new in the minted shape itself
+  — the grain restriction, the revisit-condition field, and what
+  reading the result back still cannot do.
+
+  **One root, not two, and no second grain at intake.** The raft may
+  well argue for a responsibility- or component-scoped refusal, not
+  only a project-global one, but grains two and three
+  (`policy_application`'s policy→resp and policy→comp instances) need
+  a `resp` or `comp` id to scope through, and intake mints neither —
+  nothing has been decomposed yet when `non_goals` runs, by
+  construction (it is a chain root). A scoped refusal is real and
+  expected; it enters the way v5 §1.1 already settles for every
+  post-intake non-goal — as an ordinary policy node via a ticket, once
+  the `resp` or `comp` it scopes through exists to reference. The same
+  reasoning excludes the stub-grade attachment §4.5 gives an
+  "implementation-shaped" deferral (§2.16): that grade attaches to a
+  per-scope `<implementation>` block on a `comp`/`subcomp` that, at
+  intake, does not exist either. Nothing distilled at intake can be
+  implementation-shaped for the identical reason nothing distilled at
+  intake can be resp- or comp-scoped.
 - **This chain is one of four families sharing the same mint-then-
   articulate shape** (v5 §5.1): UI (`ui_coll → ui_collarch → ui_subcomp
   → ui_subcomparch → impl_ui`), screen (`screen_coll → … →
@@ -192,12 +252,14 @@ loader tickets carry `system:core_dsl`.
   by `decomposition`'s feature_expansion→vocab instance from the
   `<vocabulary>` block's flagged candidate terms (name + scope, not a
   full definition — see the content-delta entry below); `policy` is
-  `child_of(sysarch)` with two `decomposition` mints (sysarch→policy
+  `child_of(sysarch)` with three `decomposition` mints (sysarch→policy
   from sysarch's project-level `<policies>`, comparch→policy from
-  comparch's component-local `<policies>` — two fanout instances into
-  one flat pool is legal under the loader as implemented today, since
-  `Catapult.Dsl.Tier`'s scope check only requires `child_of(X)` to
-  name a *declared* tier, not the sole edge targeting it); `ref` is
+  comparch's component-local `<policies>`, and — landed this ticket —
+  non_goals→policy from the distilled intake set's own candidates,
+  above; three fanout instances into one flat pool is legal under the
+  loader as implemented today, since `Catapult.Dsl.Tier`'s scope check
+  only requires `child_of(X)` to name a *declared* tier, not the sole
+  edge targeting it); `ref` is
   `scope: singleton`, read the same loose way ("the pool", not "the
   one node") since `identity: id` over a literal singleton would be
   meaningless and refs are things that accrete via a write tool, never
@@ -245,6 +307,57 @@ loader tickets carry `system:core_dsl`.
   §9). No new edge was needed — `policy_application`'s two existing
   instances already carry both grains in their declared direction;
   reversal reads them backward at walk time.
+
+  **A distilled non-goal mints project-global, grain one, only — and
+  the schema says so rather than the prompt** (this ticket). The
+  `non_goals` tier's own policy-analog element carries no
+  `<required>`/`<structural/>` choice at all, unlike `sysarch`'s and
+  `comparch`'s `<policy>`: at intake there is no `resp` or `comp` id
+  either grain could reference, so the grammar that would let a model
+  invent one is simply absent, the same "enforced by the grammar, not
+  a boolean flag" posture the `xs:choice` above already takes for the
+  other two grains.
+
+  **The revisit-condition field is new, checked rather than assumed
+  present.** Neither `bundles/default/tiers/policy.yaml`'s `fields:`
+  nor either existing `<Policy>` complex type (`schemas/sysarch.xsd`,
+  `schemas/comparch.xsd`) carries one today — this ticket's own first
+  open question, closed by reading the tier rather than guessing at
+  it. It is added to all three `Policy` shapes (both existing ones,
+  for the general case v5 §4.5 states — any policy can be an argued
+  deferral, not only a distilled one — and the new distillation
+  schema) as one optional, free-text element: "never, argued" and "not
+  until X" are values of that one field, per §4.5, never two shapes:
+  an ordinary policy simply omits it, and a deferral's prompt guidance
+  is to always fill it, whichever value applies. No closed vocabulary
+  gates the value — "never" carries no schema-level meaning beyond
+  being the text an author or model writes to argue permanence,
+  consistent with the free-form posture this whole doctrine already
+  takes (v5 §1.1: no closed non-goals registry, no required file).
+
+  **No policy in this chain declares a grade, distilled or authored.**
+  §4.5's promote-from-prose ladder and its enforcement-ticket machinery
+  are unbuilt entirely, so a distilled non-goal carries none either —
+  it is exactly as ungraded as every other policy this chain already
+  ships. `prose` is what an absent grade already means operationally,
+  a consistency fact about the chain rather than a choice this ticket
+  makes; the enforcement ladder above `prose` arrives with its
+  consumers, unrelated to distillation.
+
+  **`all.policy` reads every scope indiscriminately, so the
+  project-global grain is not added to any scoped tier's context.**
+  `comparch.yaml`'s own comment already records why: `all.policy` is
+  unfiltered by construction (dsl-syntax.md §7.2) and would return
+  every resp- and comp-scoped policy too, indiscriminate noise next to
+  the grains a tier already reads explicitly. A scope-filtered "only
+  the unscoped grain" read has no expression in this DSL, and supplying
+  one is a `core_dsl` question, not bundle content — wiring any
+  particular consumer once that lands, or once a consumer wants
+  `all.policy`'s indiscriminate reading on its own merits
+  (reconciliation, whose job is project-wide by nature, is the
+  plausible first taker), is that consumer's own future design pass,
+  the same way the through-responsibility grain above got its own pass
+  rather than landing with policy's introduction.
 - **`mint.<name>` is the field source for every join-target tier**
   (`comp`, `subcomp`, `resp`, `policy`, and the mint-time identity
   fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in

@@ -1,0 +1,128 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are distilling the project's **negative space** — what this
+project has deliberately decided *not* to build, or not to build yet
+— from the raw input raft. This runs alongside feature expansion, not
+after it: nothing downstream has decomposed the project into
+components or responsibilities yet, so every candidate you extract is
+project-global. Your output seeds the graph's non-goals the same way
+feature expansion seeds its features: a later pass can always add a
+more narrowly-scoped refusal once there's a responsibility or
+component for it to scope through, but the project-global refusals
+already argued for in the raft need to exist from the start.
+
+**Why this matters.** A regeneration pass that can't see what a
+standing decision already ruled out will cheerfully rebuild the exact
+feature that decision excluded — the raft's argument against it is
+gone the moment nobody restates it. Once you extract a candidate here
+and the author approves it, every later regeneration reads it as a
+real policy node and reconciliation refuses to silently re-admit the
+excluded thing. That refusal *is* the enforcement; you are not writing
+documentation, you are writing what future generations are not allowed
+to quietly reintroduce.
+
+# Input
+
+The whole input raft, exactly as pinned at intake:
+
+{{ raft }}
+
+{% if non_goals %}
+The raft also tags one or more documents with the `non_goals` role —
+strong signal that the author wrote these down explicitly. Treat them
+as a starting point, not the full extent of your search: read the rest
+of the raft for negative space too, the same way you'd read it for
+positive features.
+
+{{ non_goals }}
+{% endif %}
+
+# What counts as a candidate
+
+A candidate is anything the raft argues, explicitly or implicitly,
+that this project will **not** build, or will not build **yet**:
+
+* An explicit refusal: "we will not support multi-tenancy", "no mobile
+  app in v1", "this does not replace the existing billing system".
+* An implicit refusal that falls out of a stated constraint: a raft
+  that commits to "single-writer, single-region" is implicitly
+  refusing multi-writer and multi-region, even if it never uses the
+  word "not".
+* An argued deferral: something the raft says is out of scope *for
+  now*, with either no stated return condition ("never, argued" — the
+  raft gives a permanent reason) or a concrete trigger ("not until we
+  have more than one paying customer", "revisit once usage data
+  exists").
+
+**What is not a candidate**: a feature the raft simply never mentions.
+Silence is not a non-goal — flagging every unmentioned capability as
+"not building X" would produce noise indistinguishable from the real,
+argued exclusions this tier exists to protect. Extract only what the
+raft actually argues against, explicitly or by a stated constraint's
+clear implication.
+
+# Output format
+
+Emit two top-level blocks in this order: `<introduction>` and
+`<candidates>`. The `<introduction>` is optional — a short prose
+preamble (1-3 paragraphs) capturing anything about how you read the
+raft's negative space worth a future regeneration knowing: where the
+raft argues loosely and you had to infer, where it's explicit and
+unambiguous.
+
+After it, emit `<candidates>`, zero or more `<candidate>` children —
+zero when the raft genuinely argues no exclusions, which is legal and
+should not be padded with speculative candidates.
+
+    <introduction>
+      The raft is explicit about no multi-tenancy and no mobile
+      client in v1. It also commits to a single Postgres instance
+      with no read replicas, which implicitly rules out geographic
+      distribution until that constraint is revisited.
+    </introduction>
+    <candidates>
+      <candidate>
+        <name>No Multi-Tenancy</name>
+        <trigger>any schema or query design implying per-tenant isolation</trigger>
+        <rationale>The raft states every deployment serves exactly one organization; building tenant isolation now is unrequested complexity with no current customer.</rationale>
+        <revisit-condition>never, argued</revisit-condition>
+      </candidate>
+      <candidate>
+        <name>No Read Replicas</name>
+        <trigger>any component design assuming more than one database instance</trigger>
+        <rationale>The raft commits to a single Postgres instance for the initial deployment to keep the operational surface small while the project is unproven.</rationale>
+        <revisit-condition>not until sustained read load or availability requirements make a single instance the bottleneck</revisit-condition>
+      </candidate>
+    </candidates>
+
+# Rules
+
+* Emit **exactly one** `<candidates>` root-level block (it may be
+  empty). Nothing before `<introduction>`, nothing after
+  `<candidates>`.
+* Each `<candidate>` has exactly one `<name>`, one `<trigger>`, one
+  `<rationale>`, and — always fill this, since every candidate here is
+  by definition an argued refusal or deferral — one
+  `<revisit-condition>`.
+* `<name>` is a short identifier, title case, naming what is being
+  excluded — "No Multi-Tenancy", not "Tenancy Policy".
+* `<trigger>` is a short semantic phrase naming what a later pass
+  would be doing when it's about to reintroduce the excluded thing —
+  the same role a sysarch `<policy>`'s `<trigger>` plays, phrased so a
+  downstream architecture or reconciliation pass recognizes the
+  situation this candidate is guarding against.
+* `<rationale>` states the raft's own argument for the exclusion, not
+  your own opinion of whether it's a good idea. Ground it in what the
+  raft actually says or clearly implies; don't invent a stronger
+  argument than the raft makes.
+* `<revisit-condition>` is free text. Write `never, argued` when the
+  raft gives no return condition — the exclusion is permanent as far
+  as the raft's own argument goes — or a concrete condition ("not
+  until X") when the raft frames it as a deferral rather than a
+  permanent refusal. These are the same field with two kinds of value,
+  not two different shapes.
+* Do not fabricate exclusions the raft doesn't argue for. An empty
+  `<candidates></candidates>` block is the correct output for a raft
+  that states no exclusions, explicit or implicit.
+* Do not include meta-commentary about what you are doing or how you
+  arrived at the list. Output only `<introduction>` (if included) and
+  `<candidates>`.
