@@ -1928,8 +1928,8 @@ generating as scope-runs inside one ticket.
   get `anchor: nil`, indistinguishable from each other once paired
   with `to_position/1`'s identical `{:kind, :pending}` for both: the
   exact failure ORC-171 closed, reopened through `name:`'s own escape
-  hatch. Reads the new `kind_ambiguous` field instead: `anchor = if
-  namespaced.kind_ambiguous, do: namespaced.namespace, else: nil`.
+  hatch. Reads the new `kind_ambiguous` field instead, through the
+  shared `qualifier/1` the ORC-202 entry below gives all three sites.
 
   `resolve_kind_reference/3` (`sequence.ex:258-262`), called from
   `resolve_position/3` (`sequence.ex:239-246`), carries two independent
@@ -1972,6 +1972,38 @@ generating as scope-runs inside one ticket.
   latent rather than live, the same standing this ticket's own
   argument opened with, and it is what `sequence_test.exs` has to
   seed for the difference to be exercised at all.
+
+- **ORC-202 (author decision) settles what a recurring kind is
+  disambiguated *by*, and the qualifier reads `qualified` rather than
+  `namespace` in consequence** (`docs/dsl-syntax.md` §15.12). The rule:
+  **a kind may recur freely; a *name* may not.** §15.12 already says
+  so — "two `critique` entries in one array, three `pending` entries,
+  or two `checks` entries" are legal and `name:` is what tells them
+  apart — and its uniqueness check binds names within a namespace,
+  never kinds. Two `review`-kind statuses in one sub-array are the
+  ordinary case this permits, not an edge one.
+
+  ORC-198's three sites took the qualifier from `namespace`, which
+  answers a different question: it is the recurring group's own anchor
+  name, and it separates two occurrences only when they sit in
+  *different* sub-arrays. For the case §15.12 actually permits — one
+  namespace, two names — both occurrences carry the same `namespace`,
+  so matching on it picks whichever comes first. That is the ORC-171
+  defect this field exists to close, reopened one door over. At the top
+  level it is also a type error: `namespace` is the atom `:top_level`
+  there, and `anchor()` is `String.t() | nil`.
+
+  `qualified` is the field that identifies an occurrence uniquely, by
+  construction: `<anchor>.<name>` inside a sub-array, the bare name
+  outside one, over names §15.12 already forces to be unique within
+  their namespace. `Sequence.qualifier/1` is the one place that choice
+  is made, and `annotate/4`, `resolve_kind_reference/3` and
+  `find_kind_entry/3` all read it, so the qualifier a position is
+  stored with and the qualifier a lookup matches against cannot drift
+  apart. `kind_ambiguous` still decides *whether* a qualifier is
+  needed; only what it holds has changed. Nothing persists the field —
+  no event and no projection column carries it — so it is computed
+  identity throughout, and changing what it holds needs no migration.
 
 ## Initial vs target
 

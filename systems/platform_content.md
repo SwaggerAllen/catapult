@@ -556,6 +556,42 @@ loader tickets carry `system:core_dsl`.
   named rather than silently carried forward as unenforceable prompt
   text.
 
+- **`partials/_review_framing` has the same scope-isolation defect
+  ORC-193 fixed on the generation side, and every review tier carries
+  it** (ORC-201; `docs/dsl-syntax.md` §9). The partial opens "You are
+  reviewing the draft below," and all eight `review/<tier>.md.liquid`
+  prompts render it as a bare `{% render "partials/_review_framing" %}`.
+  Bare `{% render %}` isolates scope, so `draft` never entered the
+  partial and the draft was never below anything: every review
+  dispatch in the chain asked a model to judge an artifact it was not
+  shown. `Catapult.Generation.ContextAssembly.build_variables/5` does
+  supply `draft`, and only to a review tier's own dispatch — the
+  variable was present at the call site and dropped at the boundary,
+  which is why nothing failed loudly.
+
+  The fix is ORC-193's, applied to the other partial: all eight call
+  sites pass `draft: draft` explicitly, and the partial prints it
+  under a "Draft under review:" heading. `draft` is a plain string
+  (`draft_variable/2` returns the body or `""`), so it interpolates
+  directly rather than needing the `{% for %}` form
+  `_architecture_framing` gives `feedback` — the distinction the
+  ORC-193 entry above draws between a scalar and a collection, applied
+  rather than restated.
+
+  **`prior_review` is the same shape of gap and is not closed here.**
+  `build_variables/5` supplies it alongside `draft`, no prompt renders
+  it, and it is a map (`score`/`findings`/`kind`/`body_sha`) whose
+  `findings` are built atom-keyed at the write path
+  (`Catapult.Generation.CommitPath`'s own `review_findings/1`) while
+  Solid resolves string keys — the convention `feedback_variable/3`
+  converts for explicitly, two functions above `prior_review_variable/3`
+  in the same module, with a comment saying why. Whether that map is
+  still atom-keyed by the time it reaches a template depends on what
+  the store round-trip does to it, which is a question for a pass that
+  can run the suite rather than read it. Rendering it before that is
+  settled would repeat exactly the mistake ORC-193 caught: passing a
+  variable through and assuming the interpolation works.
+
 - **Every `agent_step: design` tier's `delivery.phase` across
   `bundles/default/tiers/**` stays uniformly `generation` (never
   `design` or `architecture`), because that phase is a tier-level echo

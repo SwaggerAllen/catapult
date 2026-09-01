@@ -11,6 +11,22 @@ You are reviewing the draft below against the context you have been
 given — the same context the generation pass that produced it saw,
 plus this draft itself. You are not regenerating; you are judging.
 
+{% comment %}
+  `draft` is passed explicitly by every call site rather than read
+  from the caller's scope (ORC-201). `{% render %}` without arguments
+  isolates a partial's scope from its caller's — `deps/solid`'s
+  `RenderTag` builds an empty vars map — so for as long as the call
+  sites were bare, this partial said "the draft below" above a draft
+  it had no way to print. `draft` is a plain string
+  (`Catapult.Generation.ContextAssembly.draft_variable/2` returns the
+  body or ""), so it interpolates directly; a collection would need
+  the `{% for %}` treatment `partials/_architecture_framing` gives
+  `feedback` (ORC-193).
+{% endcomment %}
+Draft under review:
+
+{{ draft }}
+
 Output a single `<review>` element per `schemas/review.xsd`: a
 `verdict` attribute (`approve` or `revise`), a `<summary>`, a
 `<score>` — an integer 0-100 — and zero or more `<finding>` elements,

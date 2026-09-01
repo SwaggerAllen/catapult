@@ -49,12 +49,16 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   canonical identity ORC-116 gave the container axis, at ORC-171**
   (`systems/delivery.md`'s own entry): `nil` when a position's own kind
   or gate does not recur elsewhere in `type_name`'s array (the ordinary
-  case — no shipped bundle recurs one today), else the recurring
-  group's own anchor name — `Catapult.Dsl.Type.namespaced_positions/1`'s
-  own `kind_ambiguous` field (ORC-198), never `canonical`: `name:`
-  (ORC-155) lets two same-kind entries carry distinct authored names, so
-  a position can be unambiguous by name and still collide by kind at
-  runtime, and this field is what tracks the latter. `identified_positions/2`
+  case — no shipped bundle recurs one today), else that occurrence's
+  own `qualified` identity — `Catapult.Dsl.Type.namespaced_positions/1`'s
+  own `kind_ambiguous` field decides *whether* a qualifier is needed
+  (ORC-198), never `canonical`: `name:` (ORC-155) lets two same-kind
+  entries carry distinct authored names, so a position can be
+  unambiguous by name and still collide by kind at runtime, and this
+  field is what tracks the latter. What the qualifier *is* comes from
+  `qualified`, not `namespace` (ORC-202): §15.12 permits a kind to
+  recur inside one namespace, where both occurrences share a namespace
+  and only their names differ. `identified_positions/2`
   is `positions/2` paired with it;
   `Catapult.Delivery.FeatureLifecycle.Projection`'s own `resting/3`
   reads that instead of the bare list, so a resting ticket standing at
@@ -74,7 +78,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   @typedoc "One stop in the effective sequence: a fixed system-status kind, or a declared gate by its own name."
   @type position :: {:kind, atom()} | {:gate, String.t()}
 
-  @typedoc "A position's own qualifying anchor (§15.12) — `nil` when its kind or gate is unambiguous within the citing type, the recurring group's own anchor name otherwise (ORC-171, ORC-198)."
+  @typedoc "A position's own qualifier (§15.12) — `nil` when its kind or gate occurs once in the citing type, that occurrence's own `qualified` identity otherwise: `<anchor>.<name>` inside a sub-array, the bare name outside one (ORC-171, ORC-198, ORC-202)."
   @type anchor :: String.t() | nil
 
   @typedoc """
@@ -184,8 +188,29 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     end
   end
 
+  # The qualifying string that says *which* occurrence of a recurring
+  # kind a position is — `nil` when the kind occurs once and needs no
+  # qualifier.
+  #
+  # Reads `qualified`, never `namespace` (ORC-202). `namespace` is the
+  # recurring group's own anchor name, which disambiguates only when
+  # the two occurrences sit in *different* sub-arrays. dsl-syntax.md
+  # §15.12 permits a kind to recur inside one namespace — "two
+  # `critique` entries in one array, three `pending` entries" — with
+  # `name:` as the only thing telling them apart, and there `namespace`
+  # is identical for both, so matching on it picks whichever comes
+  # first: the ORC-171 defect this field exists to close, reopened.
+  # Worse at the top level, where `namespace` is the atom `:top_level`
+  # and the `anchor()` type says `String.t() | nil`.
+  #
+  # `qualified` is unique per occurrence by construction: `<anchor>.
+  # <name>` inside a sub-array, the bare name outside one, and names
+  # are unique within their own namespace (§15.12's load-time check).
+  defp qualifier(%{kind_ambiguous: true, qualified: qualified}), do: qualified
+  defp qualifier(%{}), do: nil
+
   defp annotate(type, position, index, namespaced) do
-    anchor = if namespaced.kind_ambiguous, do: namespaced.namespace, else: nil
+    anchor = qualifier(namespaced)
 
     case Type.group_at(type, index) do
       nil ->
@@ -259,18 +284,18 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   # stray anchor rather than crash `String.to_existing_atom/1` on a
   # qualified string.
   #
-  # The resolved occurrence's own `anchor` reads `kind_ambiguous`, not
-  # `canonical == bare`: `name:` (ORC-155) lets two same-kind entries
-  # carry distinct `bare` values, so a reference can name one
-  # unambiguously by `bare` while its kind still recurs at runtime.
+  # The resolved occurrence's own qualifier comes from `qualifier/1`,
+  # which reads `kind_ambiguous` rather than `canonical == bare`:
+  # `name:` (ORC-155) lets two same-kind entries carry distinct `bare`
+  # values, so a reference can name one unambiguously by `bare` while
+  # its kind still recurs at runtime.
   # Likewise the caller builds `{:kind, atom}` off the resolved entry's
   # own `status:` — never `bare` — so it agrees with `to_position/1`,
   # which never reads `name:` either.
   defp resolve_kind_reference(%Workflow{types: types}, type_name, name) do
     with {:ok, type} <- Map.fetch(types, type_name),
          %{} = position <- find_namespaced(type, name) do
-      anchor = if position.kind_ambiguous, do: position.namespace, else: nil
-      {position.entry.status, anchor}
+      {position.entry.status, qualifier(position)}
     else
       _not_found -> {name |> String.split(".", parts: 2) |> List.last(), nil}
     end
@@ -329,9 +354,9 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
     type
     |> Type.namespaced_positions()
     |> Enum.find_value(fn position ->
-      entry_anchor = if position.kind_ambiguous, do: position.namespace, else: nil
+      matches? = position.entry.status == kind_str and qualifier(position) == anchor
 
-      if position.entry.status == kind_str and entry_anchor == anchor, do: position.entry
+      if matches?, do: position.entry
     end)
   end
 
