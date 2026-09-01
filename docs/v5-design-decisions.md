@@ -4723,12 +4723,18 @@ corrections, unaffected by anything above.
   designed; §2.12's adapter convention covers projects today.
 - Machine-audience journeys for partner API flows (§4.4) — optional
   modeling, revisit with real use.
-- `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
-  reviewed against §1.1's multi-document intake; reconcile before
-  adding anything it argues for to the input-role vocabulary, which is
-  otherwise settled at three roles (`project_doc`, `mocks`,
-  `non_goals` — `dsl-syntax.md` §7). Nothing further is platform
-  vocabulary until a shipped tier is designed to read it.
+- Several documents sharing one input role — undecided. The raft is
+  plural (`dsl-syntax.md` §7's `input.*` reads the whole of it), but a
+  role is a tag on a document rather than a container for many, and no
+  convention distinguishes two documents claiming one role. It
+  constrains the intake storage shape, so it is settled with that
+  shape rather than after it.
+- Input-role vocabulary beyond the three platform roles
+  (`project_doc`, `mocks`, `non_goals` — `dsl-syntax.md` §7) — a role
+  becomes platform vocabulary when a shipped tier is designed to read
+  it, and not before. A project tagging its own raft for its own
+  bundle content to read needs no entry here; §7's mechanism has no
+  registry to add to.
 - Agent-run substrate for child tickets (§7.12.1).
 - Linear plan/API limits under many sub-issues (§7.12.2).
 - Validation check inventory (§7.12.3) — routing settled in §7.11,
