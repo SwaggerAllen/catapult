@@ -303,35 +303,32 @@ and validation logic and must not fork it.
   round trip — the reason still holds (above), only its citation is
   stale.
 
-- **No test may assert that a generated tier reflects an
-  `input.<role>` document** (ORC-10), offline or live.
-  `Catapult.Engine.Projections.ContextResolver.resolve/2` returns
-  `{:error, :unsupported}` for **every** `input.*` and
-  `ticket.<source>` walk — `project_doc` included, not just the roles
-  a bundle comment names — and `Catapult.Generation.ContextAssembly`
-  folds that into an empty context rather than an error
-  (`{:error, :unsupported} -> []`). That matches dsl-syntax.md §7.2's
-  "a role with no documents never blocks readiness" by coincidence of
-  shape rather than by that rule's reason: the walk is not reporting
-  an empty role, resolution for the whole source is simply not built
-  (intake/raft storage is Phase 5's, ORC-107 — this doc's own entry
-  above records the mechanism). Verified by reading rather than
-  assumed, and the consequence is a limit on assertions:
-  no tier's rendered prompt and no committed draft can be shown today
-  to reflect the content of any input-role document.
+- **A test must be able to assert that a generated tier's rendered
+  prompt reflects an `input.<role>` document, offline** (ORC-107,
+  reversing what this entry recorded before intake existed — see the
+  entry above for the mechanism). `ContextResolver.resolve/2` now
+  returns `{:ok, []}` for every `input.*` walk (`systems/engine.md`'s
+  entry), and `ContextAssembly` reads the pinned document straight off
+  `Catapult.Delivery` for the variable itself rather than through that
+  empty node list — so the content a chain test needs to assert on
+  reaches the prompt through a path `ContextResolver` never touches.
+  Nothing covers that path today: the offline chain test asserts the
+  graph-native walks below and stops there, and until it also asserts
+  on `project_doc`'s own pinned text, `ContextAssembly`'s direct-read
+  step (the entry above) has no test reaching it at all. `ticket.<source>`
+  is unchanged — still `{:error, :unsupported}`, v5 §7.11's Phase 7 —
+  and no test may assert a tier reflects one.
 
-  The toy seed's per-role input documents therefore belong in the toy
-  project's raft as content for the eventual intake pass — real seed
-  evidence, not a prop — but neither the offline chain test nor the
-  `:live` one may assert a tier's body was shaped by them, or that
-  `non_goals` in particular reached a policy node. There is no
-  mechanism yet by which that could be true, and a test asserting it
-  would pass on the empty context. What the toy seed *can* prove
-  today is the graph-native chain — `self`/`self.parent`/`all.*`
-  walks, every tier reachable from `comparch` down through `impl`, at
-  least one instance of every edge type — which is the whole of what
-  `ContextResolver` resolves. ORC-107 is what makes the raft stop
-  being inert.
+  The toy seed's per-role input documents (`test/support/toy_seed.ex`)
+  are what such a test reads once intake pins them: real seed
+  evidence, not a prop, and no longer inert. What the toy seed already
+  proves — the graph-native chain, `self`/`self.parent`/`all.*` walks,
+  every tier reachable from `comparch` down through `impl`, at least
+  one instance of every edge type, which is the whole of what
+  `ContextResolver` resolves — needs no input-role content and is
+  unchanged by this entry; the input-role assertion above is additive
+  coverage for the path that was previously unreachable, not a
+  replacement for it.
 
 ## Initial vs target
 

@@ -119,10 +119,23 @@ generating as scope-runs inside one ticket.
   role tag — no manifest, no per-role declaration anywhere, which is
   `dsl-syntax.md` §7's "the mechanism has no closed registry to
   violate" carried into storage rather than contradicted by it: a
-  project tagging a document is a project naming a file. One file per
-  role today; several files sharing a role is
-  `docs/v5-design-decisions.md` §8's own parked "multi-document
-  intake" question and is not extended here. The toy seed's existing
+  project tagging a document is a project naming a file.
+
+  **Several files can share a role, and this pass decides what that
+  means rather than parking it.** `InputDocument`'s key —
+  `(project_id, role, filename)` — already stores more than one
+  filename per role; nothing about the schema forces one-to-one. The
+  directory scan above produces that case whenever two files under
+  `docs/raft/` share a stem across extensions (`project_doc.md` and
+  `project_doc.txt` both tag `project_doc`), and this pass does not
+  reject, merge, or order that collision: `get_input_documents/2`
+  returns every row pinned under the role, and `get_raft/1`'s
+  concatenation (above) takes whatever order `read_directory/3`'s
+  directory listing returns. That is enough for what a render needs —
+  every pinned document present, once — and is not a promise about
+  which one comes first. A project that wants one file per role keeps
+  one file per role; nothing here adds a manifest or an ordering rule
+  to stop it from doing otherwise. The toy seed's existing
   fixture directory (`docs/toy-seed/<role>.md`, `test/support
   /toy_seed.ex`) predates this convention under a name chosen for that
   one fixture; reconciling it to `docs/raft/` is dev's to do alongside

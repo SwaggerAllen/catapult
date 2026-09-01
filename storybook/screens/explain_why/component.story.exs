@@ -62,14 +62,17 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
       %Variation{
         id: :unsupported_walk,
         description:
-          "A ticket.findings walk, mixed with an ordinary blocker — the unsupported entry " <>
-            "gets its own visual treatment and no approve-shaped language. input.<role> walks " <>
+          "Illustrative only — no tier in bundles/default can produce this today. A " <>
+            "ticket.<source> walk resolves :unsupported until an extension registers a context " <>
+            "source (chain.ex's Registry.context_source?/2 check rejects the walk at load " <>
+            "otherwise, so no bundle content can reach this row yet); shown mixed with an " <>
+            "ordinary blocker for the visual treatment Phase 7 will need. input.<role> walks " <>
             "never reach this state (ORC-107) — a role resolves satisfied with no targets and " <>
             "never appears in blocking at all.",
         attributes: %{
           project_id: @project_id,
-          node_id: "refactor_plan:dashboard",
-          tier: "refactor_plan",
+          node_id: "hypothetical_extension_tier:dashboard",
+          tier: "hypothetical_extension_tier",
           scope_key: %{},
           passes_scope_filter: true,
           blocking: [

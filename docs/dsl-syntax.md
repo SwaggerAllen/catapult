@@ -538,8 +538,9 @@ resolves to at runtime.
 ## 9. Prompts
 
 Liquid (Solid). Variables: one per named context walk
-(cardinality-many walks iterate), `self`, `feedback`, `prior_review`,
-and — review prompts only — `draft`. `feedback` and `prior_review`
+(cardinality-many walks iterate; an `input.*` walk's is the reserved
+word `raft`, below), `self`, `feedback`, `prior_review`, and — review
+prompts only — `draft`. `feedback` and `prior_review`
 render on every prompt a tier has, generation and review alike; `draft`
 alone is withheld from generation prompts (`systems/delivery.md`'s
 ORC-34 entry pins this against the ambiguity §3.3 leaves). `feedback`

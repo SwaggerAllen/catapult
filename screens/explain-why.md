@@ -44,6 +44,14 @@ targets (`Catapult.Engine.Projections.ContextResolver`'s Initial scope; it belon
 validation loop, Phase 7). `explain/2` folds that into a blocking entry carrying
 `reason: :unsupported` and no targets.
 
+**No tier in `bundles/default` can put this row on screen today.** A `ticket.<source>` walk loads
+only if its source is a registered context source (`Catapult.Dsl.Chain`'s
+`Registry.context_source?/2` check), and no extension registers one yet — `chain.ex` rejects the
+walk at load rather than letting it reach `explain/2` unsupported. The section stays because
+Phase 7 is what registers the first one, and the visual treatment below is what that walk will
+need the moment it does; the storybook variation demonstrating it is illustrative for that reason,
+not a state reachable from this repo's own bundle content.
+
 **Rendering that row the same way as an ordinary blocker is a lie by omission**, and the ticket
 that asked for this screen named the failure mode directly: it tells the operator to go approve
 something that does not exist. So an `:unsupported` entry gets its own visual treatment — no
