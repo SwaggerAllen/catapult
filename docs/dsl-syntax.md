@@ -557,7 +557,28 @@ prompt can no longer assume it is the current one. Both render blank via Solid's
 behavior where nothing has been posted or reviewed yet. A variable's
 name is its target
 tier's name (`resp`, `policy`, `comp`); an `all.<tier>` entry (§7.2)
-gets the same name as a self-hop entry landing on that tier. **Two or
+gets the same name as a self-hop entry landing on that tier.
+
+**`input.<role>` and `input.*` are the one exception to that rule,
+because neither resolves against the graph at all** (`systems/generation.md`'s
+intake entry carries the mechanism). `input.<role>`'s variable is the
+role name itself — `project_doc`, exactly as the already-shipped
+`feature_expansion.md.liquid`'s `{{ project_doc }}` reads it; `input.*`'s
+is the reserved word `raft`, joining `self`/`feedback`/`prior_review`/
+`draft` in the set of Liquid variable names a rendered prompt supplies
+outside a tier's own `context:` — not load-time-checked against a
+tier's own target-tier names any more than those are (§9's `draft`
+entry above). Both render as
+a **plain string**, the pinned document(s) in scope concatenated —
+never a list of maps like every other context-walk variable — because
+an input document carries no `fields:`/`fragments:` handle to project;
+it is free-form prose, rendered as intake pinned it. A role with no
+pinned documents renders blank, Solid's own unset-is-empty behavior
+(the same convention `feedback`/`prior_review` use above) — never an
+error, which is §7's "a role with no documents... never blocks
+readiness" carried one layer further, into rendering.
+
+**Two or
 more context entries naming the same target tier combine into one
 collection for that tier's variable** rather than colliding — a tier
 can be reached more than one way (comparch reads `policy` through both

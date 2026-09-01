@@ -65,8 +65,9 @@ generating as scope-runs inside one ticket.
   the dispatch call. What reset does *not* do: generated artifacts
   still land only through `Dispatch`'s result-report path into the
   plane's own store, never written to the bound repo, and reset does
-  not make `input.<role>` resolve — that's intake, Phase 5, ORC-12
-  (`systems/generation.md` carries what that means for assertions). What it buys today is an
+  not make `input.<role>` resolve — that's intake, Phase 5, ORC-107
+  (this doc's own ORC-107 entry below; `systems/generation.md` carries
+  what that means for assertions). What it buys today is an
   author and a rebuild path for a fixture repo, not test determinism
   or seeded generation content.
 - **`DELIVERY_GITHUB_TOKEN` gains `Contents: read and write`, pulled
@@ -80,6 +81,106 @@ generating as scope-runs inside one ticket.
   comment already names the GitHub App installation token as the
   shape that scopes this per-repo, and that stays the answer — ORC-10
   doesn't owe it.
+- **The raft is pinned as a copy in this system's own store, discovered
+  from a registered directory in the bound repo, and never read again
+  after intake** (ORC-107, v5 §1.1). Two different candidate answers
+  looked like alternatives at ticket-open (`docs/toy-seed/<role>.md`'s
+  own existing fixture shape read equally well as "the storage is a
+  registered path" or "the storage is a cache") and turn out to be two
+  different jobs, not one choice: a registered path is how intake
+  *finds* the raft; a pinned copy is what a render-time walk actually
+  reads. Both are needed, because only a copy survives the source file
+  being deleted — a content hash or a bare commit-SHA pin does not,
+  once the commit that introduced the file is no longer the one a
+  later read would resolve the path against, and authors delete input
+  docs.
+
+  **Storage**: `Catapult.Delivery.Store.InputDocument` (new,
+  `delivery_input_documents`), the same shape `DraftBody` already
+  established for the identical problem one tier over — a Liquid
+  variable needs a stable string and the thing underneath is allowed
+  to keep moving. Keyed `(project_id, role, filename)`; `content` is
+  the verbatim copy a walk reads; `source_ref` is the commit SHA
+  intake read it at, carried for provenance only and never
+  dereferenced again — resolving a later walk *from* `source_ref`
+  would be exactly the live re-read v5 §1.1 refuses, just one hop
+  removed. Exposed at the boundary the same way `get_draft_body/2`/
+  `put_draft_body/4` are: `Catapult.Delivery.get_input_documents/2`
+  (a role's pinned documents), `Catapult.Delivery.get_raft/1` (every
+  pinned document, for the wildcard), `Catapult.Delivery
+  .pin_input_documents/3` (intake's own write, below).
+
+  **Discovery**: a fixed platform-wide path, `docs/raft/` in the bound
+  repo — not a per-project setting, on the same footing `reset_repo`'s
+  own workflow-dispatch file already stands on (a bound repo carries
+  fixed plane-required paths; nothing here makes this one
+  configurable that wasn't already). Every file directly under it is
+  one input document, and the filename minus its extension is the
+  role tag — no manifest, no per-role declaration anywhere, which is
+  `dsl-syntax.md` §7's "the mechanism has no closed registry to
+  violate" carried into storage rather than contradicted by it: a
+  project tagging a document is a project naming a file. One file per
+  role today; several files sharing a role is
+  `docs/v5-design-decisions.md` §8's own parked "multi-document
+  intake" question and is not extended here. The toy seed's existing
+  fixture directory (`docs/toy-seed/<role>.md`, `test/support
+  /toy_seed.ex`) predates this convention under a name chosen for that
+  one fixture; reconciling it to `docs/raft/` is dev's to do alongside
+  the rest of this ticket's implementation, not a rename this pass
+  makes on its own.
+
+  **Reading it**: `HostPort` gains a fourth read-shaped operation,
+  `read_directory/3` (`project_id`, `ref`, `path`) ::
+  `{:ok, %{filename => content}}`, landing in `HostPort.Actions` and
+  `HostPort.Fake` in the same change — the rule every operation on
+  this port already follows. Unlike `reset_repo/2`'s own
+  default-branch-only shape (the defect ORC-33 already found and
+  fixed for a different operation), `read_directory/3` takes an
+  explicit `ref`: intake pins against a commit a caller names, not
+  whatever the default branch happens to be the moment it runs.
+
+  **The intake pass**: one function, called at most once per project —
+  given a `project_id` and a `ref`, it calls `read_directory/3` against
+  the registered path and writes every file it gets back through
+  `pin_input_documents/3`. "At most once" is not a convention this
+  pass follows, it is the entire mechanism behind v5 §1.1's "frozen at
+  intake": there is exactly one legal call, so there is no second read
+  to diverge from the first. What decides *when* that call happens —
+  a project's creation or scaffold flow — is out of this ticket's
+  scope; a caller already holding a `project_id` and a `ref` is
+  assumed, the same boundary Phase 5's own exit criterion draws
+  (scaffolding Catapult's own `docs/`/`systems/` as the seed raft needs
+  exactly those two facts supplied, regardless of how a real project's
+  author eventually supplies them).
+
+  **Ruled out**: reading the raft from anywhere other than the bound
+  repo — a dashboard upload, a second config channel for pasted-in
+  prose. The toy seed fixture and `reset_repo`'s own existing shape
+  already commit this repo to "the bound repo is where fixture
+  content lives, the raft included"; a second intake channel would
+  fork that convention for no reader that needs both. This also
+  matches `docs/non-goals.md`'s "no absorption of existing codebases"
+  entry, whose mocks carve-out already names the shape a raft document
+  takes — **seed evidence and pinned artifacts**, read once and never
+  absorbed — one level more general than mocks alone.
+
+  **The frozen-edit notice is narrower here than v5 §1.1 describes,
+  and the gap is named rather than built around.** §1.1's Triage
+  notice needs something to *file a ticket* the moment a diff lands
+  under a registered input path — the base-check sweep — and
+  ticket-filing is Phase 7's: the same validation-loop/reconciliation
+  machinery `ticket.<source>` itself waits on (v5 §7.11). No code in
+  this repo builds any base-check sweep yet, for any of its three
+  triggers — not the out-of-band-bug half, not the doc-reconciliation
+  half (`docs/v5-design-decisions.md` §7.3's entry points, both still
+  prose), and not this one. What this ticket delivers toward it is the
+  one fact a Phase-7 sweep would otherwise have nowhere to get: the
+  registered raft path, recorded per project by intake (above), is
+  already the thing "a diff under a registered input path" means —
+  the sweep reads that fact rather than re-deriving it. Filing the
+  notice itself rides Phase 7's reconciliation machinery alongside the
+  sweep's other two triggers, rather than a bespoke ticket-filer built
+  now and rehomed later.
 - **Ticket state is a projection; the event log is the authority**
   (v5 §7.1). Unchanged by owning the tracker — if anything sharpened,
   since the surface and the authority now agree. Human actions arrive

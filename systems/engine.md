@@ -88,6 +88,48 @@ them.
   other three slots (`cardinality.when`, an edge `constraint`, a flow
   `completion`, `dsl-syntax.md` §8) when their own tickets land, not a
   one-off for this slot alone.
+- **`input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
+  a real target, never `{:error, :unsupported}`** (ORC-107, closing the
+  gap `systems/generation.md`'s ORC-10 entry names). `ContextResolver.resolve/2`
+  used to fold `:input` into the same `when source in [:input, :ticket]`
+  clause as `:ticket`; that guard is split, because the two sources stay
+  unsupported for different reasons and only one of them is this
+  ticket's to fix — `:ticket` is untouched, still `{:error, :unsupported}`,
+  v5 §7.11's Phase 7. `:input` covers both the `role` and the wildcard
+  forms identically: neither is a graph walk (an input document is
+  pinned prose, not a node with a tier, a status, or edges — the
+  intake entry below is where the pinned content actually lives and
+  how a prompt reads it), so `ContextResolver` — whose whole job is
+  walking *declared node/edge instances* — has nothing to resolve
+  either form against and says so the same way for both.
+
+  **The empty list is the whole mechanism, not a placeholder for one.**
+  `ReadyScopes.walk_ready?/2` and `.walk_report/2`, and `Staleness
+  .walk_stales?/2`, already fold `{:ok, targets}` generically —
+  `Enum.all?(targets, &(&1.status == :approved))` on an empty list is
+  vacuously true, `Enum.any?(targets, &target_newer?/2)` on an empty
+  list is vacuously false. Neither module gained a line for this: an
+  `input.<role>` walk is therefore *structurally* incapable of blocking
+  readiness or reporting staleness, which is dsl-syntax.md §7's "a role
+  with no documents never blocks readiness" and v5 §1.1's "an input-doc
+  edit... stales nothing" — both already true of every `{:ok, []}`
+  regardless of source, so neither invariant needed a bespoke branch
+  written *for* it. The alternative — modeling a pinned input document
+  as a synthetic `Node` so it could flow through the existing
+  `{:ok, [Node.t()]}` shape uniformly — was rejected: it would need a
+  fabricated `status` for every consumer's status check to key off, and
+  the one status that keeps both call sites correct (permanently
+  `:approved`) is a fact about the readiness query, not about the
+  document, which is exactly the "special case grown to fit an escape
+  hatch" this system's standing decisions elsewhere refuse (see
+  "Navigation edges get no second check," above).
+
+  **Consequence for `explain/2`:** an `input.<role>` walk now resolves
+  satisfied with zero targets, the same shape a fully-satisfied ordinary
+  walk has, so `Enum.reject(& &1.satisfied)` drops it from `blocking`
+  entirely — it no longer carries `reason: :unsupported`. Only
+  `ticket.<source>` walks still do. `screens/explain-why.md` and its
+  storybook fixture are corrected to match (ORC-107).
 - **Explain-why is `ReadyScopes`'s own second query, not a parallel
   implementation.** "What is blocking this scope"
   (`systems/dashboard.md`'s naming) reuses `candidates/2` and the same

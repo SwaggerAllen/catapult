@@ -62,16 +62,18 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
       %Variation{
         id: :unsupported_walk,
         description:
-          "An input.project_doc walk, mixed with an ordinary blocker — the unsupported entry " <>
-            "gets its own visual treatment and no approve-shaped language.",
+          "A ticket.findings walk, mixed with an ordinary blocker — the unsupported entry " <>
+            "gets its own visual treatment and no approve-shaped language. input.<role> walks " <>
+            "never reach this state (ORC-107) — a role resolves satisfied with no targets and " <>
+            "never appears in blocking at all.",
         attributes: %{
           project_id: @project_id,
-          node_id: "feature_expansion:dashboard",
-          tier: "feature_expansion",
+          node_id: "refactor_plan:dashboard",
+          tier: "refactor_plan",
           scope_key: %{},
           passes_scope_filter: true,
           blocking: [
-            %{walk: "input.project_doc", satisfied: false, targets: [], reason: :unsupported},
+            %{walk: "ticket.findings", satisfied: false, targets: [], reason: :unsupported},
             %{
               walk: "self.parent.handle",
               satisfied: false,

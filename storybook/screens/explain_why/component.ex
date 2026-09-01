@@ -3,7 +3,9 @@ defmodule Catapult.Storybook.Screens.ExplainWhy do
   Presentational shell for the `explain-why` screen (`screens/explain-why.md`). Renders
   `Catapult.Engine.Projections.ReadyScopes.explain/2`'s report verbatim — `passes_scope_filter`,
   `scope_key`, and `blocking` (each entry `%{walk:, satisfied:, targets:, reason:}`, `reason:
-  :unsupported` present only on a walk this ticket's `ContextResolver` doesn't build). No
+  :unsupported` present only on a `ticket.<source>` walk — v5 §7.11's validation loop, Phase 7.
+  `input.<role>`/`input.*` walks resolve satisfied with no targets since ORC-107 and never reach
+  `blocking` at all, `screens/explain-why.md`'s own entry). No
   readiness is recomputed here; every assign is handed down whole and there is no socket.
 
   `review_tier?` is not part of `explain/2`'s own report — it is a fact the eventual LiveView
