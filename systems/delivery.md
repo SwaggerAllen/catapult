@@ -1566,10 +1566,9 @@ generating as scope-runs inside one ticket.
   what a `reconcile` agent run actually reads, writes and approves, and
   the mechanical merge effect `merge`'s own `plane` ball now implies,
   are Phase 7's, the same boundary every gate-mechanism entry above
-  already draws. **Not built as part of this pass:** the loader changes
-  named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
-  merge effect itself, and any `bundles/**` content declaring
-  `reconcile` — all dev's diff against this record, not design's.
+  already draws. The loader changes named in `systems/core_dsl.md`'s
+  own ORC-151 entry have landed, and `bundles/default-flow`'s
+  `feature.yaml` and `seed.yaml` both declare `reconcile` against them.
 
 - **A third design review on this same ticket adds two facts this
   system's own dispatcher will carry, past what the pass above scoped
@@ -1630,10 +1629,12 @@ generating as scope-runs inside one ticket.
   way its own architecture phase dispatches at `status: architecture`,
   both inline agent-balled entries this process manager's existing
   uniform dispatch already reaches, needing no new branch once the
-  loader recognizes the kind. **Not built as part of this pass:** the
-  same tree-spawn recursion and parent-triggered merge cascade named above, now
-  spawning a second type rather than a depth-filtered instance of one,
-  and the loader's own recognition of `implementation` — all Phase 7's.
+  loader recognizes the kind, which it does — `implementation` sits in
+  `SystemStatus`'s own union. The tree-spawn recursion and
+  parent-triggered merge cascade named above, now spawning a second
+  type rather than a depth-filtered instance of one, are Phase 7's:
+  this system's dispatcher reaches them through the same uniform
+  dispatch once that phase builds them.
 
 - **ORC-155 (design pass) gives `Sequence.resolve_position/3` a
   disjointness check it has been trusting rather than enforcing, and
@@ -1906,10 +1907,8 @@ generating as scope-runs inside one ticket.
   finding against `systems/delivery.md`'s own file map rather than
   fixed here, since nothing this ticket touches exercises them.
 
-  **Not built as part of this pass:** `Sequence.positions/2`'s own
-  change, `warn_unplaceable/3`'s narrowed trigger, and the test
-  coverage for both — all this system's diff against this record, not
-  design's.
+  `Sequence.positions/2` and `warn_unplaceable/3`'s narrowed trigger
+  both carry this.
 
 - **ORC-198 (design pass) corrects three `FeatureLifecycle.Sequence`
   call sites, carrying four instances of the same bug between them,
@@ -1967,12 +1966,12 @@ generating as scope-runs inside one ticket.
   anchor that "does not resolve to a real occurrence") for a position
   that does have one. Corrected the same way as `annotate/4`.
 
-  **Not built as part of this pass:** the four fixes themselves and
-  `sequence_test.exs` coverage exercising a type that recurs a kind
-  under distinct `name:` overrides — the shape no shipped bundle
-  authors today, latent rather than live, the same standing this
-  ticket's own argument opened with — are this system's diff against
-  this record, not design's.
+  All four read `kind_ambiguous`. The case that separates it from the
+  reference-ambiguity test — a type recurring a kind under distinct
+  `name:` overrides — is the shape no shipped bundle authors today,
+  latent rather than live, the same standing this ticket's own
+  argument opened with, and it is what `sequence_test.exs` has to
+  seed for the difference to be exercised at all.
 
 ## Initial vs target
 
