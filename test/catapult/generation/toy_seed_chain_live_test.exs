@@ -84,11 +84,11 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
     {:ok, loaded} = Dsl.load(".")
 
-    # The same bypass-readiness shape the offline test uses (see its
-    # own moduledoc): `input.project_doc` never resolves today, so
-    # `ReadyScopes` would never hand this scope to a dispatch worker —
-    # proven directly rather than through the selection query that
-    # can't select it yet.
+    # Built directly rather than through `ReadyScopes` (the offline
+    # test's own moduledoc has the reasoning for why this file mirrors
+    # it): a hand-built candidate proves the two outbound calls below
+    # regardless of the selection query's own state, and this file's
+    # own scope (above) stops short of exercising that query for real.
     candidate = %Node{
       id: "virtual:feature_expansion:#{inspect(%{})}",
       project_id: project_id,

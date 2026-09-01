@@ -11,18 +11,25 @@ defmodule Catapult.Generation.ToySeedChainTest do
   instance of every edge type this bundle declares lands in the graph.
 
   **What "real" means here, and where it stops — read before editing.**
-  `systems/generation.md`'s ORC-10 entry proved `input.<role>` resolves
-  `{:error, :unsupported}` for every role, which `Catapult.Engine
-  .Projections.ReadyScopes.ready?/2` treats as *not ready* (not the
-  vacuous-pass dsl-syntax.md §7.2 promises) — so `feature_expansion`,
-  the chain's one tier with an `input.*` context entry, can never be
-  *selected* by the scheduler today. This test still drives it through
-  the real generation/commit/validation path — `ContextAssembly.build/4`
-  called directly against a hand-built candidate node, exactly the
-  shape `ReadyScopes` would have handed the dispatch worker if
-  readiness worked — because the mechanism being proven is dispatch and
-  validation, not the scheduler's own selection query (already covered
-  elsewhere; the gap is `ReadyScopes`'s, not this test's to paper over).
+  `systems/generation.md`'s old ORC-10 entry proved `input.<role>`
+  resolved `{:error, :unsupported}` for every role, which
+  `Catapult.Engine.Projections.ReadyScopes.ready?/2` treated as *not
+  ready* rather than the vacuous pass dsl-syntax.md §7.2 promises — so
+  `feature_expansion`, the chain's one tier with an `input.project_doc`
+  context entry, could never be *selected* by the scheduler. ORC-107
+  closed that gap: `Catapult.Engine.Projections.ContextResolver`
+  resolves every `input.<role>`/`input.*` walk `{:ok, []}` now, always
+  (`systems/engine.md`'s ORC-107 entry), so `feature_expansion` is
+  organically ready the moment it exists — this test drives it through
+  `ready_one!/3` exactly like every other tier below, no hand-built
+  virtual candidate needed anymore. Intake itself is exercised for
+  real too, ahead of that first `ready_one!/3` call: the fake forge is
+  seeded with the same fixture content a real `reset_repo/2` would
+  have written to the bound repo, and `Catapult.Delivery.intake_raft/2`
+  pins it from there — the one assertion below that reaches
+  `Catapult.Generation.ContextAssembly`'s direct-delivery-read step
+  (`systems/generation.md`'s ORC-107 entry) checks the rendered
+  `feature_expansion` prompt carries `project_doc`'s own pinned text.
 
   Three more implementation gaps, each verified by hand against
   `Catapult.Generation.Extraction` before being worked around rather
@@ -101,18 +108,20 @@ defmodule Catapult.Generation.ToySeedChainTest do
 
   use Catapult.DataCase, async: false
 
+  alias Catapult.Delivery
   alias Catapult.Delivery.HostPort.Fake, as: FakeHostPort
+  alias Catapult.Delivery.HostPort.Fake.Forge
   alias Catapult.Dsl
   alias Catapult.Engine.Commands.ApproveDraft
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Router
   alias Catapult.Engine.Store
-  alias Catapult.Engine.Store.Node
   alias Catapult.Generation.ContextAssembly
   alias Catapult.ToySeed
 
   ## -- canned draft/review bodies ------------------------------------
 
+  @project_doc_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/project_doc.md"))
   @feature_expansion_body File.read!(
                             Path.join(__DIR__, "fixtures/toy_seed/feature_expansion.xml")
                           )
@@ -134,21 +143,29 @@ defmodule Catapult.Generation.ToySeedChainTest do
     {:ok, loaded} = Dsl.load(".")
     chain = loaded.chain
 
+    {:ok, _pid} = start_supervised({Forge, name: Forge})
+
     # The fixture's repo-reset half exercises the same path a live run
     # would (systems/delivery.md's ORC-10 entry) — the fake's
     # `reset_repo/2` reaches no network, but the call is real.
     assert :ok = FakeHostPort.reset_repo(project_id, ToySeed.reset_files())
 
-    # -- feature_expansion: bypasses ReadyScopes' own selection (see
-    #    moduledoc), not the commit/validation mechanism itself. -------
-    fe_candidate = %Node{
-      id: "virtual:feature_expansion:#{inspect(%{})}",
-      project_id: project_id,
-      tier: "feature_expansion",
-      scope_key: %{},
-      parent_node_id: nil,
-      status: :absent
-    }
+    # -- intake: seed the forge with the same fixture content a real
+    #    `reset_repo/2` would have written to the bound repo (the
+    #    fake's own `reset_repo/2` is a no-op — see `HostPort.Fake`'s
+    #    moduledoc), then pin it for real through the production
+    #    intake path (ORC-107, systems/delivery.md). --
+    Forge.seed_branch(Forge, "main", ToySeed.reset_files())
+    assert :ok = Delivery.intake_raft(project_id, "main")
+
+    # -- feature_expansion: organically ready now that `input.project_doc`
+    #    resolves `{:ok, []}` (ORC-107 — see moduledoc). --------------
+    fe_candidate = ready_one!(chain, project_id, "feature_expansion")
+
+    assert {:ok, fe_request} =
+             ContextAssembly.build(chain, project_id, "feature_expansion", fe_candidate)
+
+    assert fe_request.rendered_prompt =~ @project_doc_body
 
     fe = commit!(chain, project_id, "feature_expansion", fe_candidate, @feature_expansion_body)
     review!(chain, project_id, "feature_expansion_review", fe, @approve_review_body)

@@ -8,11 +8,31 @@ defmodule Catapult.Engine.Projections.ContextResolver do
   .Projections.Staleness` and `.ReadyScopes` are both built on.
 
   **Initial scope**: `self`/`self.parent` and `all.<tier>` (§7, §7.2),
-  including multi-hop and reversed edges (§7.1). `input.<role>` and
-  `ticket.<source>` (§7.2's v5 additions) resolve `:unsupported` —
-  intake documents and validation findings are a different system's
-  storage (`platform_content`, delivery's Phase 7 respectively) and
-  outside this ticket's universal projections.
+  including multi-hop and reversed edges (§7.1). `ticket.<source>`
+  (§7.2's v5 addition) resolves `:unsupported` — validation findings
+  are delivery's Phase 7 storage and outside this ticket's universal
+  projections.
+
+  `input.<role>` and `input.*` resolve `{:ok, []}`, always (ORC-107).
+  Neither is a graph walk at all — an input document is pinned prose,
+  not a node with a tier, a status or edges (the intake raft is
+  `Catapult.Delivery`'s own storage; `Catapult.Generation
+  .ContextAssembly` reads it directly for rendering, a second and
+  parallel step to this module's own node-collection fold,
+  `systems/generation.md`'s ORC-107 entry) — so this module, whose
+  whole job is walking *declared node/edge instances*, has nothing to
+  resolve either form against. The empty list is the whole mechanism,
+  not a placeholder for a real one: `ReadyScopes` and `Staleness` both
+  already fold `{:ok, targets}` generically, and `Enum.all?/2` on `[]`
+  is vacuously true while `Enum.any?/2` on `[]` is vacuously false, so
+  neither module gained a line for this — an `input.<role>` walk is
+  therefore *structurally* incapable of blocking readiness or
+  reporting staleness, which is dsl-syntax.md §7's "a role with no
+  documents never blocks readiness" and v5 §1.1's "an input-doc
+  edit... stales nothing," both already true of every `{:ok, []}`
+  regardless of source (`systems/engine.md`'s ORC-107 entry carries the
+  full argument, including the synthetic-`Node` alternative this
+  rejects).
   """
 
   alias Catapult.Dsl.ContextWalk
@@ -20,8 +40,10 @@ defmodule Catapult.Engine.Projections.ContextResolver do
   alias Catapult.Engine.Store.Node
 
   @doc """
-  The nodes `walk` resolves to, starting from `node`, or
-  `{:error, :unsupported}` for a source this ticket does not build.
+  The nodes `walk` resolves to, starting from `node` — always `{:ok,
+  []}` for `input.<role>`/`input.*` (above) — or `{:error,
+  :unsupported}` for `ticket.<source>`, a source this ticket does not
+  build.
   """
   @spec resolve(ContextWalk.t(), Node.t()) :: {:ok, [Node.t()]} | {:error, :unsupported}
   def resolve(%ContextWalk{source: :self} = walk, %Node{} = node) do
@@ -37,9 +59,9 @@ defmodule Catapult.Engine.Projections.ContextResolver do
     {:ok, Store.list_nodes(project_id, tier)}
   end
 
-  def resolve(%ContextWalk{source: source}, %Node{}) when source in [:input, :ticket] do
-    {:error, :unsupported}
-  end
+  def resolve(%ContextWalk{source: :input}, %Node{}), do: {:ok, []}
+
+  def resolve(%ContextWalk{source: :ticket}, %Node{}), do: {:error, :unsupported}
 
   defp parent_of(%Node{parent_node_id: nil}), do: nil
 

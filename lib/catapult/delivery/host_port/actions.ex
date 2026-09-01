@@ -412,6 +412,70 @@ defmodule Catapult.Delivery.HostPort.Actions do
     end
   end
 
+  @doc """
+  Every file directly under `path` at `ref`, `filename => content` —
+  the intake raft's own read (ORC-107, `systems/delivery.md`).
+  GitHub's Contents API answers a directory listing with no `content`
+  field (that only accompanies a single-file request), so this is two
+  calls deep: list the directory, then fetch each entry named `type:
+  "file"` — a nested `type: "dir"` entry is not recursed into,
+  matching "every file directly under it is one input document". A
+  missing directory (a project with no raft yet, or none left after
+  every input doc is deleted) answers `{:ok, %{}}` rather than an
+  error, the same shape a role with no documents already has
+  (dsl-syntax.md §7).
+  """
+  @impl Catapult.Delivery.HostPort
+  def read_directory(project_id, ref, path) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      list_directory(binding, ref, path)
+    end
+  end
+
+  defp list_directory(binding, ref, path) do
+    url = "#{contents_url(binding, path)}?ref=#{URI.encode_www_form(ref)}"
+
+    case Req.get(url, auth: auth(), headers: json_headers()) do
+      {:ok, %{status: 200, body: entries}} when is_list(entries) ->
+        fetch_directory_files(binding, ref, entries)
+
+      {:ok, %{status: 404}} ->
+        {:ok, %{}}
+
+      {:ok, resp} ->
+        {:error, {:read_directory_failed, resp.status, resp.body}}
+
+      {:error, reason} ->
+        {:error, {:read_directory_failed, reason}}
+    end
+  end
+
+  defp fetch_directory_files(binding, ref, entries) do
+    entries
+    |> Enum.filter(&(&1["type"] == "file"))
+    |> Enum.reduce_while({:ok, %{}}, fn entry, {:ok, acc} ->
+      case fetch_directory_file(binding, ref, entry["path"]) do
+        {:ok, content} -> {:cont, {:ok, Map.put(acc, entry["name"], content)}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp fetch_directory_file(binding, ref, path) do
+    url = "#{contents_url(binding, path)}?ref=#{URI.encode_www_form(ref)}"
+
+    case Req.get(url, auth: auth(), headers: json_headers()) do
+      {:ok, %{status: 200, body: %{"content" => encoded}}} ->
+        {:ok, Base.decode64!(encoded, ignore: :whitespace)}
+
+      {:ok, resp} ->
+        {:error, {:read_directory_failed, path, resp.status, resp.body}}
+
+      {:error, reason} ->
+        {:error, {:read_directory_failed, path, reason}}
+    end
+  end
+
   @doc "The PR's diff, for reconciliation — the port moves refs and reads diffs, it never checks out (conventions §11)."
   @impl Catapult.Delivery.HostPort
   def read_diff(project_id, pr_number) do

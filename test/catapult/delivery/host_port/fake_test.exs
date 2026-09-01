@@ -42,4 +42,26 @@ defmodule Catapult.Delivery.HostPort.FakeTest do
     assert {:ok, check_runs} = Fake.read_check_status(@project, "deadbeef")
     assert length(check_runs) == 150
   end
+
+  describe "read_directory/3" do
+    test "returns every file directly under path, never a nested one" do
+      Forge.seed_branch(Forge, "main", %{
+        "docs/raft/project_doc.md" => "the project doc",
+        "docs/raft/mocks.md" => "the mocks doc",
+        "docs/raft/nested/not_directly_under.md" => "should not appear",
+        ".github/workflows/catapult-dispatch.yml" => "irrelevant"
+      })
+
+      assert {:ok, files} = Fake.read_directory(@project, "main", "docs/raft")
+
+      assert files == %{
+               "project_doc.md" => "the project doc",
+               "mocks.md" => "the mocks doc"
+             }
+    end
+
+    test "a ref Forge has never seen answers an empty raft, not an error" do
+      assert {:ok, %{}} = Fake.read_directory(@project, "no-such-ref", "docs/raft")
+    end
+  end
 end

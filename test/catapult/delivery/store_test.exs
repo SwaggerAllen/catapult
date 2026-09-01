@@ -77,6 +77,52 @@ defmodule Catapult.Delivery.StoreTest do
     end
   end
 
+  describe "the intake raft" do
+    test "pin_input_documents/3 tags each file by its stem, and both reads order by filename" do
+      Store.pin_input_documents("p1", "sha1", %{
+        "project_doc.md" => "the project doc",
+        "non_goals.md" => "the non-goals doc"
+      })
+
+      assert Store.get_input_documents("p1", "project_doc") == ["the project doc"]
+      assert Store.get_input_documents("p1", "non_goals") == ["the non-goals doc"]
+      assert Store.get_raft("p1") == ["the non-goals doc", "the project doc"]
+    end
+
+    test "an extension-stem collision under one role is two rows, filename order" do
+      Store.pin_input_documents("p1", "sha1", %{
+        "project_doc.md" => "markdown version",
+        "project_doc.txt" => "plaintext version"
+      })
+
+      assert Store.get_input_documents("p1", "project_doc") == [
+               "markdown version",
+               "plaintext version"
+             ]
+    end
+
+    test "a role with no pinned documents reads back empty, never blocking" do
+      assert Store.get_input_documents("p1", "no_such_role") == []
+      assert Store.get_raft("p1") == []
+    end
+
+    test "a second pin for a project that already has one raises rather than silently re-pinning" do
+      Store.pin_input_documents("p1", "sha1", %{"project_doc.md" => "first"})
+
+      assert_raise Ecto.ConstraintError, fn ->
+        Store.pin_input_documents("p1", "sha2", %{"project_doc.md" => "second"})
+      end
+    end
+
+    test "another project's raft never bleeds in" do
+      Store.pin_input_documents("p1", "sha1", %{"project_doc.md" => "p1's doc"})
+      Store.pin_input_documents("p2", "sha1", %{"project_doc.md" => "p2's doc"})
+
+      assert Store.get_input_documents("p1", "project_doc") == ["p1's doc"]
+      assert Store.get_input_documents("p2", "project_doc") == ["p2's doc"]
+    end
+  end
+
   describe "tickets_for_project/1" do
     test "lists every open flow, project-scoped, with its lifecycle status and entry-node argument" do
       EngineStore.upsert_node(%{
