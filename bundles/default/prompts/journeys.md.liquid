@@ -1,0 +1,156 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are identifying the **journeys** a user takes through this
+product — first-class, end-to-end paths between features and
+screens (v5 §4.2 of this platform's own design record). A journey is
+not a feature restated: a feature names a capability ("subscribe to
+a plan"); a journey names the concrete, ordered walk a user takes to
+exercise one or more capabilities, plus what the product has to
+remember about that walk while it's in progress. "New customer
+subscribes" is a journey. "Subscription management" is not — it's a
+feature-shaped bucket; break it into the distinct walks a user
+actually takes (subscribing, upgrading, cancelling) if the input
+implies more than one.
+
+Downstream, `screens` reads every journey you produce to author
+matching screens, and `requirements` prefers citing a journey over
+naming a screen directly when a responsibility's feature is
+journey-backed — so a vague or missing journey here costs both passes
+a clean handle to build from.
+
+# Input
+
+Feature expansion handle: {{ parent }}
+
+# Output format
+
+Output two top-level blocks in this order: `<introduction>` and
+`<journeys>`. The `<introduction>` is optional — a short prose
+preamble (2–5 sentences) naming which features grouped into which
+journeys and any ambiguities you had to resolve.
+
+After `<introduction>`, output a single `<journeys>` block. Inside
+it, each `<journey>` has this exact shape — one `<name>`, one
+`<argument>`, one `<feats>` block, one `<screens>` block, and one
+`<state>` block, nothing else:
+
+    <introduction>
+    Three journeys cover the billing surface: a new customer's
+    subscribe flow (plan selection through first charge), an
+    existing customer's plan-change flow, and a read-only invoice
+    review that carries no state of its own. Login and password
+    reset stay screen-only for now — the input doc describes them
+    as single-screen actions with nothing to walk.
+    </introduction>
+    <journeys>
+      <journey>
+        <name>new customer subscribes</name>
+        <argument>A visitor picks a plan, enters payment details, and
+        becomes a paying subscriber in one sitting.</argument>
+        <feats>
+          <feat id="feat_signup01"/>
+          <feat id="feat_billing02"/>
+        </feats>
+        <screens>
+          <screen slug="plan-select"/>
+          <screen slug="payment-details"/>
+          <screen slug="subscribe-confirm"/>
+        </screens>
+        <state>
+          <carries>The selected plan and billing cycle, carried from
+          plan-select into payment-details.</carries>
+          <creates>A draft subscription record, created when the user
+          reaches payment-details — unconfirmed until the charge
+          succeeds.</creates>
+          <completes>The draft subscription is marked active and the
+          first invoice is emitted, at subscribe-confirm.</completes>
+          <abandonment>A draft subscription with no successful charge
+          within 24 hours is discarded; no charge is ever attempted
+          against an abandoned draft.</abandonment>
+        </state>
+      </journey>
+      <journey>
+        <name>customer reviews past invoices</name>
+        <argument>A signed-in customer browses their invoice history
+        and opens one for detail.</argument>
+        <feats>
+          <feat id="feat_invoice03"/>
+        </feats>
+        <screens>
+          <screen slug="invoice-list"/>
+          <screen slug="invoice-detail"/>
+        </screens>
+        <state>
+          <carries>Nothing beyond the current screen — the selected
+          invoice is a navigation parameter, not carried state.</carries>
+          <creates>Nothing; this journey only reads existing
+          invoices.</creates>
+          <completes>No explicit completion — a read-only browse ends
+          whenever the user navigates away.</completes>
+          <abandonment>Not applicable; nothing is created, so there is
+          nothing to abandon.</abandonment>
+        </state>
+      </journey>
+    </journeys>
+
+# Rules
+
+* Each `<journey>` has exactly one `<name>`, one `<argument>`, one
+  `<feats>`, one `<screens>`, one `<state>`. No other tags.
+* `<name>` is a short, concrete phrase naming the walk from the
+  user's point of view (2–8 words) — "new customer subscribes", not
+  "subscription flow" or "Billing". `<argument>` is one to two
+  sentences stating what the user accomplishes end-to-end.
+* **A journey manifests at least one feature.** `<feats>` is a
+  non-empty list of `<feat id="feat_..."/>` children, each matching a
+  feature ID from the feature expansion handle above exactly. Do not
+  invent ids.
+* **`<screens>` is the ordered walk**, one `<screen slug="..."/>` per
+  step in the order the user takes them. Slugs are names you are
+  minting here, not references to anything that exists yet — the
+  screens tier runs after this one and reads every journey to author
+  matching screens. Use short, kebab-case, project-distinctive slugs
+  ("plan-select", not "screen1" or "page"); reuse the same slug across
+  journeys when two journeys genuinely share a screen (a shared
+  invoice-detail screen reached from two different flows is one slug,
+  not two).
+* **`<state>` is the load-bearing block.** It exists because
+  journey-scoped state — a cart, a wizard's progress, an in-progress
+  draft — is a distinct persistence class no screen alone can own: its
+  lifecycle is the journey's, not any one screen's. Answer each child
+  concretely, even when the answer is "nothing":
+  * `<carries>` — what data moves between the journey's screens, and
+    in what form (a cart, a partial form, a set of filters).
+  * `<creates>` — what durable thing (if anything) comes into
+    existence partway through the journey, and at which screen.
+  * `<completes>` — what makes the journey done, and what durable
+    effect completion has.
+  * `<abandonment>` — what happens to anything `<creates>` named if
+    the user leaves without completing. Name a concrete resolution
+    (discarded after a TTL, left as a recoverable draft, nothing to
+    resolve because nothing was created) — "the user might not
+    finish" is not an answer.
+  * **The mechanical rule downstream tiers apply from this block:**
+    state that survives navigation between this journey's screens
+    lives in a store; state that doesn't lives in per-screen assigns.
+    A journey whose `<state>` says nothing survives navigation is
+    telling sysarch there is no store to design here — that is a
+    legitimate, common answer, not a gap to pad.
+* **Standalone screens are legal and are not your concern.** Not
+  every screen belongs to a journey (settings, an about page) — leave
+  those out of every `<screens>` walk entirely. The screens tier mints
+  every screen, journey-linked and standalone alike; you are naming
+  only the screens that sit on an actual multi-step walk.
+* **Break a feature-shaped bucket into its real journeys.** If a
+  candidate journey's argument would need "and" to describe two
+  materially different walks a user takes at different times (sign up
+  vs. upgrade vs. cancel), it is more than one journey. Don't merge
+  distinct walks to keep the journey count low.
+* **No journey-count ceiling.** Emit as many journeys as the feature
+  list's real end-to-end walks warrant, and no fewer. A project whose
+  features are all single-screen actions may legitimately produce very
+  few journeys; that is a fact about the project, not a signal you
+  under-produced.
+* Do not include meta-commentary. Output only `<introduction>`
+  followed by `<journeys>`.
+* Unescaped `&` and `<` in prose text are fine — the parser tolerates
+  them.

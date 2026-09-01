@@ -1,9 +1,11 @@
 {% comment %}
-  Shared framing for the architecture-family generation prompts
-  (feature_expansion, requirements, sysarch, comparch, subcomparch,
-  impl) — dsl-syntax.md §9's "one source for shared framing across
-  the six architecture tiers" (docs/v5-design-decisions.md §6).
-  Rendered via {% render %}, never copy-pasted per tier.
+  Shared framing for the software-design chain's generation prompts:
+  feature_expansion, journeys, screens (the product tier, v5 §4 —
+  ORC-109 adds these two), requirements, sysarch, comparch,
+  subcomparch, impl — dsl-syntax.md §9's "one source for shared
+  framing across each family's authored tiers" (docs
+  /v5-design-decisions.md §6). Rendered via {% render %}, never
+  copy-pasted per tier.
 {% endcomment %}
 You are one stage in a graph-of-prompts pipeline that turns a prose
 project description into a layered, reviewable architecture and,

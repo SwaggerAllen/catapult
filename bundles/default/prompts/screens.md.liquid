@@ -1,0 +1,187 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are authoring **screen definitions** — product-tier surfaces,
+not visual design. No classes, no layout, no component tree; that
+work happens later, per ticket, once a fixed contract exists to
+narrow against. What you owe downstream is a named state list, an
+affordance list, and an IA graph precise enough that a later
+implementation pass can build the real thing without re-deciding what
+this screen is for.
+
+Every journey below already named the screens it walks, by slug —
+your job is to give each of those slugs (and any standalone screen
+the journeys don't reach) a full definition. Reuse a journey's slug
+verbatim when you author the screen it names; do not rename it.
+Standalone screens (settings, an about page — anything no journey
+walks) are legal and expected; author them too.
+
+# Input
+
+Feature expansion handle: {{ parent }}
+
+Journeys (each with its ordered screen walk and state block):
+{% for j in journey %}
+- `{{ j.id }}` — **{{ j.name }}**: {{ j.argument }}
+  - walk: {% for slug in j.screen_walk %}`{{ slug }}`{% unless forloop.last %} → {% endunless %}{% endfor %}
+  - carries: {{ j.state.carries }}
+  - creates: {{ j.state.creates }}
+  - completes: {{ j.state.completes }}
+  - abandonment: {{ j.state.abandonment }}
+{% endfor %}
+
+# Output format
+
+Output two top-level blocks in this order: `<introduction>` and
+`<screens>`. The `<introduction>` is optional — a short prose preamble
+naming which slugs came from which journeys and any standalone
+screens you added.
+
+After `<introduction>`, output a single `<screens>` block. Inside it,
+each `<screen>` has this shape — `<slug>`, `<purpose>`, `<feats>`,
+`<states>`, `<affordances>`, `<displayed-data>`, an optional
+`<screen-group>`, an optional `<journeys>` block, and an optional
+`<navigation>` block, in this order:
+
+    <introduction>
+    plan-select, payment-details, and subscribe-confirm come from
+    the "new customer subscribes" journey; invoice-list and
+    invoice-detail come from "customer reviews past invoices".
+    Added one standalone screen, account-settings, for profile and
+    notification preferences — no journey names it.
+    </introduction>
+    <screens>
+      <screen>
+        <slug>plan-select</slug>
+        <purpose>Let a visitor compare plans and pick one to start
+        subscribing.</purpose>
+        <feats>
+          <feat id="feat_signup01"/>
+        </feats>
+        <states>
+          <state name="default"/>
+          <state name="loading"/>
+          <state name="error"/>
+        </states>
+        <affordances>
+          <affordance>
+            <action>select a plan</action>
+            <intent>advance to payment-details with the chosen plan
+            carried forward</intent>
+            <data-out>plan id, billing cycle</data-out>
+          </affordance>
+        </affordances>
+        <displayed-data>Plan name, price per cycle, feature comparison
+        grid.</displayed-data>
+        <journeys>
+          <journey ref="journey_signup01"/>
+        </journeys>
+        <navigation>
+          <edge to="payment-details"/>
+        </navigation>
+      </screen>
+      <screen>
+        <slug>account-settings</slug>
+        <purpose>Let a signed-in user edit their profile and
+        notification preferences.</purpose>
+        <feats>
+          <feat id="feat_profile04"/>
+        </feats>
+        <states>
+          <state name="default"/>
+          <state name="saving"/>
+          <state name="saved"/>
+          <state name="error"/>
+        </states>
+        <affordances>
+          <affordance>
+            <action>save changes</action>
+            <intent>persist the edited profile fields</intent>
+            <data-in>display name, email, notification toggles</data-in>
+          </affordance>
+        </affordances>
+        <displayed-data>Current profile fields and notification
+        preferences.</displayed-data>
+        <screen-group>account</screen-group>
+      </screen>
+    </screens>
+
+# Rules
+
+## Structure
+
+* Each `<screen>` has exactly one `<slug>`, `<purpose>`, `<feats>`,
+  `<states>`, `<affordances>`, `<displayed-data>`, at most one
+  `<screen-group>`, at most one `<journeys>`, at most one
+  `<navigation>`. No other tags.
+* **`<slug>` is the spine** — it derives the `screen:<slug>` mutex
+  label, the file map, the component module, and the story file
+  (later phases; not this ticket's concern, but the reason the slug
+  has to be right the first time). Short, kebab-case, project-specific
+  (`plan-select`, not `screen1` or `page`). Unique across the whole
+  `<screens>` block. When a journey's walk already named this slug,
+  reuse it verbatim — do not rename.
+
+## Feats, states, affordances, displayed data
+
+* `<feats>` may be empty (`<feats/>`) for a screen manifesting no
+  feature directly — rare, but legal for pure plumbing surfaces.
+* **`<states>` is a named state list, and the names are storybook
+  variation names** — decided once, here, and inherited verbatim by
+  the delivery-time screen doc, the stories, the CI variation audit,
+  and reconciliation. Name every materially distinct rendering: at
+  minimum the default; almost always `loading` and `error` for any
+  screen that fetches or submits; add narrower names
+  (`empty`, `denied`, `saving`) whenever the screen's behavior at that
+  state is genuinely different from the ones already named. Don't
+  invent a state with nothing distinct to show.
+* **`<affordances>` is the contract check** — reconciliation verifies
+  the landed screen exposes every affordance declared here; the audit
+  verifies each maps to a reachable backend export and flags a
+  capability with no surface or a surface with no capability. Each
+  `<affordance>` names one user action: `<action>` (a short verb
+  phrase), `<intent>` (what happens and why, one sentence),
+  `<data-in>` (what the user supplies, omit if none), `<data-out>`
+  (what the action produces or carries forward, omit if none). One
+  affordance per distinct action — a screen with a form submit and a
+  cancel button has two affordances, not one that describes both.
+* `<displayed-data>` is one to three sentences naming what the screen
+  shows, specific enough that a later design pass knows what layout
+  has to accommodate. "Shows the user's data" is not specific;
+  "invoice number, issue date, line items, running total, payment
+  status badge" is.
+
+## Journeys and navigation
+
+* `<journeys>` is the formal record of which journeys this screen
+  belongs to — zero or more `<journey ref="..."/>` children, each
+  matching a journey `id` from the input list above exactly. Empty or
+  omitted `<journeys>` means a standalone screen (settings, an about
+  page) — legal and expected, not a gap. A screen named by more than
+  one journey's walk gets one `<journey ref="..."/>` per journey that
+  names it, not a separate screen per journey.
+* `<navigation>` is zero or more `<edge to="..."/>` children, each
+  naming another screen's `<slug>` in this same `<screens>` block —
+  the ordinary paths a user can take from this screen (a submit that
+  advances, a back link, a nav-bar destination), not limited to a
+  journey's own linear walk. **Navigation edges are cyclic and never
+  gate anything** — two screens linking back and forth is the normal
+  case, not an error; do not avoid a back-edge to keep the graph
+  acyclic, there is no such requirement here. Omit `<navigation>`
+  entirely for a screen with no outgoing links you can name yet
+  (rare — most screens link somewhere).
+
+## Coverage
+
+* Every screen slug that appears in any journey's ordered walk (the
+  input list above) must get exactly one `<screen>` definition here.
+  A slug with no definition, or two definitions sharing a slug, is a
+  structural error.
+* You may add standalone screens no journey walks. You may not add a
+  screen that duplicates one a journey already names under a
+  different slug — reuse the journey's slug.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the list. Output only the `<screens>` block.
+* Unescaped `&` and `<` inside prose text are fine — the parser
+  tolerates them.

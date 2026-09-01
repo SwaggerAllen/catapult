@@ -13,6 +13,19 @@
 # since requirements genuinely has one parent, not a flat pool to
 # read.) Recorded in systems/platform_content.md; the same
 # substitution repeats at sysarch.
+#
+# `all.journey.handle` / `all.screen.handle` (ORC-109): requirements
+# stays `per(feature_expansion)` rather than re-scoping to `per
+# (screens)` — re-scoping would fragment the many-surfaces-to-few-
+# responsibilities rotation this tier exists to do into one node per
+# surface. It reads every already-minted journey and screen as two
+# flat pools instead, the individual children rather than
+# `all.journeys.handle` / `all.screens.handle` (whose own handles
+# carry no per-row content, matching this tier's own handle), so a
+# `<responsibility>` can cite either by id
+# (schemas/requirements.xsd, edges/reference.yaml's resp->journey and
+# resp->screen instances). Settled in systems/platform_content.md's
+# ORC-109 entry.
 tier: requirements
 scope: per(feature_expansion)
 identity: id
@@ -30,6 +43,8 @@ executor:
 prompt: prompts/requirements.md.liquid
 context:
   - self.parent.handle
+  - all.journey.handle
+  - all.screen.handle
 delivery:
   phase: generation
   agent_step: design

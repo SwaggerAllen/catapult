@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  New tier, no siege precedent — v5 §4.2's grammar: argument,
+  manifested features, ordered screen walk, and a journey state block
+  (what's carried, what creates/completes it, what abandonment
+  means). `journeys` mints one `journey` node per <journey> row here
+  via the `decomposition` edge (edges/decomposition.yaml) — the
+  requirements/resp shape (systems/platform_content.md's ORC-109
+  entry), so each <journey> carries everything the minted node's rich
+  handle needs, not a bare mint stub.
+
+  The <screens> block is the ordered screen-walk, and it stays
+  informal — a per-journey list of screen slugs, read but not
+  loader-validated, the same status <feats> already has elsewhere in
+  this bundle. Screens don't exist yet when journeys runs (chain
+  order: journeys -> screens), so a slug named here can only ever be
+  a forward name a later pass fulfils, never a checked reference.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- Cardinality: a journey manifests >=1 feature (v5 §4.2); feat
+       is required, unlike requirements.xsd's own Feats (a resp may be
+       a platform-emergent atom with no feature cause; a journey
+       always has one). -->
+  <xs:complexType name="JourneyFeats">
+    <xs:sequence>
+      <xs:element name="feat" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ScreenWalk">
+    <xs:sequence>
+      <xs:element name="screen" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="slug" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="JourneyState">
+    <xs:sequence>
+      <xs:element name="carries" type="xs:string"/>
+      <xs:element name="creates" type="xs:string"/>
+      <xs:element name="completes" type="xs:string"/>
+      <xs:element name="abandonment" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Journey">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="argument" type="xs:string"/>
+      <xs:element name="feats" type="JourneyFeats"/>
+      <xs:element name="screens" type="ScreenWalk"/>
+      <xs:element name="state" type="JourneyState"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="journeys">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="journey" type="Journey" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
