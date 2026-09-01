@@ -90,6 +90,16 @@ that the byte-identity bootstrap requirement is much of why v4
 never shipped. The sane residue: Catapult consumes the shared
 components as an ordinary library user.
 
+**Narrower than it sounds — a documentation-only proof does not trip
+this.** Phase 5's exit criterion scaffolds a reviewed architecture
+chain from Catapult's own `docs/` and `systems/` as the seed raft:
+intake through the architecture chain only, stopping at reviewed
+documents, with no code generated, no delivery, and no redeploy of
+Catapult from the result. That tests the intake and architecture-chain
+machinery on a real, structurally unusual raft; it is not the
+self-hosting this entry refuses, which is building and *running*
+Catapult from its own graph.
+
 ## No absorption of existing codebases
 scope: universal
 
@@ -163,6 +173,20 @@ scope: system:client_ts, system:platform_content
 
 (v5 §1.4):
 one product tier, one stack per target.
+
+## No per-language chain bundle splitting
+scope: system:core_dsl, system:platform_content
+
+A polyglot project still has one document graph — a component in one
+language depends on and is depended on by components in another, so
+they must load as one bundle. This is forced by the loader, not merely
+preferable: `extends:` is singular (`Catapult.Dsl.Manifest`;
+`dsl-syntax.md` §11) and `Catapult.Dsl.Loader.load_axes/5` builds one
+chain per project, so two independently authored chain layers — one
+per language — have no composition path to merge into a single
+project's graph (v5 §5.5). Per-platform variation lives inside the one
+chain bundle's own architecture and implementation prompts, never as a
+second `extends:` layer.
 
 ## No hand-maintained inventories
 scope: universal

@@ -192,15 +192,18 @@ yet.
 
 ## Phase 5 — Product tier and intake
 
-Journey/screen grammars, UX/IA prompts, the frontend-architecture
-tiers, input-document roles (including `non_goals`), the intake
-role list from the Polyphony pass (behavior docs, invariants,
-capability inventories, forward strategies).
+Journey/screen grammars, UX/IA prompts, `frontend_sysarch`, and the
+UI and screen collection families (v5 §5.1) — the client family
+lands in Phase 7, with its consumer (`systems/client_ts.md`). Also
+here: the platform's input-document role vocabulary — `project_doc`,
+`mocks`, `non_goals` (`dsl-syntax.md` §7).
 
-Exit criterion — the first big one: **Catapult scaffolds Polyphony's
-document graph from its documentation seed**, reviewed through the
-Phase 4 loop. The doc chain producing reviewed architecture is a
-usable product before any delivery machinery exists.
+Exit criterion — the first big one: **Catapult scaffolds a reviewed
+architecture chain from its own `docs/` and `systems/` as the seed
+raft** — real, large, and structurally unusual on purpose, with no
+external project needed — reviewed through the Phase 4 loop. The doc
+chain producing reviewed architecture is a usable product before any
+delivery machinery exists.
 
 ## Phase 6 — Prompt harness v0
 
@@ -217,8 +220,8 @@ Ticket minting at the Building transition; the two-grain machinery
 agent dispatch; reconciliation; the validation loop (v5 §7.11).
 Alongside, the consumer-driven components: **identity** (dashboard
 login internally, Polyphony's auth externally), registry-as-service,
-and the **React pass + `platform-client-ts`** (must precede
-Polyphony's frontend tickets).
+and the **React pass + `platform-client-ts` + the client family**
+(v5 §5.1, §5.6 — must precede Polyphony's frontend tickets).
 
 Exit: a feature ticket on a test project goes gate → children →
 merged → validated → shipped, unattended except at the gates.

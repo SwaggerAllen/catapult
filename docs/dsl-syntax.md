@@ -187,8 +187,9 @@ which tiers in the shipped bundle declare it.
 Per-scope attributes that appear in *body* declarations rather than
 tier files (they vary per node, not per tier): `implementation:
 stubbed | real` with `swap: transparent | migration | reset` (v5
-§2.16), declared in the comparch grammar; `locus: server | client`
-(v5 §5.6) on backend-family component declarations.
+§2.16), declared in the comparch grammar. Client-locus components are
+not a scope attribute on the backend family — they mint as the
+client family's own tier chain instead (v5 §5.1, §5.6).
 
 ### 3.1 Scope expressions — closed set
 
@@ -488,9 +489,18 @@ self-hop's target, there is no walker to check it against.
 v5 additions:
 
 - **`input.<role>`** — reads the intake documents tagged with a
-  declared role (`input.project_doc`, `input.behavior_docs`,
-  `input.mocks`; roles registered in the platform layer, v5 §7.3's
-  intake list).
+  declared role. **Three roles are platform vocabulary**: `project_doc`
+  (wired today — `feature_expansion` and the flow-planning tiers,
+  `bundles/default/tiers/*.yaml`), `mocks` (named by v5 §4.1 — feature
+  expansion and the screens tier read it directly; lands with those
+  tiers in Phase 5), and `non_goals` (the negative-space intake
+  distillation reads it as strong signal alongside the whole raft, v5
+  §1.1; also a Phase 5 tier). A project may tag its own raft with any
+  other role name for its own bundle content to read — the mechanism
+  has no closed registry to violate, and an unread role name is simply
+  never walked — but nothing beyond these three is platform vocabulary:
+  a project's own role name is that project's declaration, not a
+  default every project gets.
   **Roles are optional classification of a free-form raft, never
   requirements**: a role with no documents yields an empty
   collection and **never blocks readiness** (v5 §1.1 — requiring a
@@ -556,7 +566,7 @@ a direct `policy_application~` hop and a `fulfills.policy_application~`
 hop, §7.1's worked example), and the prompt wants "every policy that
 applies to me," not one variable per path that produced it. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
-shared framing across the six architecture tiers). Generation and
+shared framing across each family's authored tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
 the per-tier triad invariant. `draft` is supplied automatically by the
 shared context-assembly path to a review tier's prompt alone;
@@ -586,6 +596,17 @@ reconciliation.
 naming `extends: <layer>` loads the layer first, then overlays:
 declarations union, same-path files replace (v5 §7.10, §9). Cycles in
 `extends:` chains are load errors.
+
+**`extends:` is singular, and that is why chain bundles cannot be
+split by language.** `Catapult.Dsl.Manifest` names exactly one
+`extends:` layer, and `Catapult.Dsl.Loader.load_axes/5` builds one
+chain from `catapult.yaml`'s `chain:` — no list either place. A
+polyglot project still has one document graph (components in
+different languages depend on each other across the boundary), so two
+independently authored chain layers — one per language — have no
+composition path to merge into it (v5 §5.5). Per-platform variation
+lives inside the one bundle's own tiers and prompts, never as a second
+`extends:` layer.
 
 **Reversed: a workflow bundle carries no `extends:` field, and there
 is no platform workflow base layer left to compose against.** v5
