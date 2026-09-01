@@ -88,12 +88,19 @@ defmodule Catapult.Engine.Projections.ContextResolverTest do
     end
   end
 
-  describe "unsupported sources" do
-    test "input.<role> is explicitly unsupported" do
+  describe "input.<role> and input.*" do
+    test "input.<role> always resolves {:ok, []} — not a graph walk (ORC-107)" do
       n = node!("n1", "comp")
-      assert {:error, :unsupported} = ContextResolver.resolve(walk!("input.project_doc"), n)
+      assert {:ok, []} = ContextResolver.resolve(walk!("input.project_doc"), n)
     end
 
+    test "input.* always resolves {:ok, []} too" do
+      n = node!("n1", "comp")
+      assert {:ok, []} = ContextResolver.resolve(walk!("input.*"), n)
+    end
+  end
+
+  describe "unsupported sources" do
     test "ticket.<source> is explicitly unsupported" do
       n = node!("n1", "comp")
       assert {:error, :unsupported} = ContextResolver.resolve(walk!("ticket.findings"), n)

@@ -13,6 +13,7 @@ defmodule Catapult.Delivery.Store do
   alias Catapult.Delivery.Store.DraftBody
   alias Catapult.Delivery.Store.FeatureLifecycle
   alias Catapult.Delivery.Store.FeaturePublication
+  alias Catapult.Delivery.Store.InputDocument
   alias Catapult.Delivery.Store.ProjectBinding
   alias Catapult.Engine.Store.Flow, as: EngineFlow
   alias Catapult.Engine.Store.Node, as: EngineNode
@@ -120,6 +121,50 @@ defmodule Catapult.Delivery.Store do
       nil -> nil
       %DraftBody{previous_body: previous_body} -> previous_body
     end
+  end
+
+  ## The intake raft (systems/delivery.md, ORC-107 design pass)
+
+  @doc """
+  Pins `files` (filename => content, `HostPort.read_directory/3`'s own
+  shape) as `project_id`'s intake raft, tagged per file by its stem
+  (Discovery, `systems/delivery.md`) — `project_doc.md` pins under
+  role `"project_doc"`. Plain inserts, never an upsert: a project that
+  already has a pinned raft raises on the `(project_id, role,
+  filename)` primary-key collision rather than silently overwriting a
+  frozen document — the entire enforcement behind "at most once per
+  project" (v5 §1.1's freeze, `systems/delivery.md`'s intake-pass
+  entry). `ref` is `source_ref`, carried for provenance only.
+  """
+  @spec pin_input_documents(binary(), String.t(), %{String.t() => String.t()}) :: :ok
+  def pin_input_documents(project_id, ref, files) do
+    Enum.each(files, fn {filename, content} ->
+      %InputDocument{project_id: project_id, role: Path.rootname(filename), filename: filename}
+      |> Ecto.Changeset.change(%{content: content, source_ref: ref})
+      |> Repo.insert!()
+    end)
+
+    :ok
+  end
+
+  @doc "Every document pinned under `role`, filename order — `input.<role>`'s own read."
+  @spec get_input_documents(binary(), String.t()) :: [String.t()]
+  def get_input_documents(project_id, role) do
+    InputDocument
+    |> where([d], d.project_id == ^project_id and d.role == ^role)
+    |> order_by([d], asc: d.filename)
+    |> select([d], d.content)
+    |> Repo.all()
+  end
+
+  @doc "Every document pinned on the project, filename order — `input.*`'s own read."
+  @spec get_raft(binary()) :: [String.t()]
+  def get_raft(project_id) do
+    InputDocument
+    |> where([d], d.project_id == ^project_id)
+    |> order_by([d], asc: d.filename)
+    |> select([d], d.content)
+    |> Repo.all()
   end
 
   ## Feature lifecycle (systems/delivery.md, ORC-32 design pass)

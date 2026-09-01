@@ -16,6 +16,22 @@ defmodule Catapult.Generation.ContextAssembly do
   shape, which handles a bare self-hop and an explicit `-> tier`
   target identically because both are read off the same place.
 
+  **`input.<role>`/`input.*` are a second, direct read of delivery —
+  never through `ContextResolver.resolve/2`'s node-collection fold**
+  (ORC-107, `systems/generation.md`'s own entry). `ContextResolver`
+  answers `{:ok, []}` for every `:input` walk (correct for readiness
+  and staleness, `Catapult.Engine.Projections.ContextResolver`'s own
+  moduledoc) and useless for rendering: an input document has no
+  `handle:` for `render_node/2` to project, it is pinned prose. So
+  `input_variables/3` below reads the pinned document(s) straight off
+  `Catapult.Delivery` — the same cross-boundary shape `draft_variable/2`
+  already uses for `get_draft_body/2` — and sets the result as a
+  **plain string**, keyed by role name for `input.<role>` or the
+  reserved word `raft` for `input.*` (dsl-syntax.md §9). A role with no
+  pinned documents is left out of the variables map entirely, the same
+  omission-is-the-contract shape `feedback`/`prior_review` use below —
+  never `""`.
+
   `feedback`/`prior_review` (ORC-34, `systems/generation.md`'s own
   entry) are two direct engine reads, unconditional — unlike `draft`,
   neither is review-tier-only (`dsl-syntax.md` §9/§3.3): `feedback` is
@@ -41,6 +57,7 @@ defmodule Catapult.Generation.ContextAssembly do
   alias Catapult.Delivery
   alias Catapult.Dsl.BundlePath
   alias Catapult.Dsl.Chain
+  alias Catapult.Dsl.ContextWalk
   alias Catapult.Engine.Projections.CommentFeedback
   alias Catapult.Engine.Projections.ContextResolver
   alias Catapult.Engine.Store
@@ -116,6 +133,7 @@ defmodule Catapult.Generation.ContextAssembly do
         {tier_name, Enum.map(nodes, &render_node(chain, &1))}
       end)
       |> Map.put("self", render_node(chain, node))
+      |> input_variables(project_id, generator_tier.context)
       |> feedback_variable(project_id, node)
       |> prior_review_variable(project_id, node)
 
@@ -125,6 +143,28 @@ defmodule Catapult.Generation.ContextAssembly do
   defp draft_variable(project_id, %Node{id: node_id}) do
     Delivery.get_draft_body(project_id, node_id) || ""
   end
+
+  # Direct delivery reads, one per `:input` walk — never through
+  # `ContextResolver` (moduledoc above). `raft` is the wildcard's own
+  # reserved variable name (dsl-syntax.md §9); an `input.<role>` walk's
+  # variable is the role name itself.
+  defp input_variables(variables, project_id, context_walks) do
+    Enum.reduce(context_walks, variables, fn
+      %ContextWalk{source: :input, wildcard: true}, acc ->
+        put_input_variable(acc, "raft", Delivery.get_raft(project_id))
+
+      %ContextWalk{source: :input, role: role}, acc when is_binary(role) ->
+        put_input_variable(acc, role, Delivery.get_input_documents(project_id, role))
+
+      _walk, acc ->
+        acc
+    end)
+  end
+
+  defp put_input_variable(variables, _name, []), do: variables
+
+  defp put_input_variable(variables, name, docs),
+    do: Map.put(variables, name, Enum.join(docs, "\n\n"))
 
   # `CommentFeedback` itself returns atom-keyed entries (an ordinary
   # Elixir map, useful to an Elixir caller); Solid's own template

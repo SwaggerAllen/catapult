@@ -177,6 +177,34 @@ defmodule Catapult.Delivery.HostPort.Fake do
   def update_pr_body(_project_id, pr_number, body),
     do: Forge.update_pr_body(forge!(), pr_number, body)
 
+  @doc """
+  Every file directly under `path` at `ref` — read against `Forge`'s
+  same branch/ref-keyed file storage `commit_files/4` and
+  `read_diff/2` already share (`ref` and `branch` are the same kind of
+  string to `Forge`, which does not model commits). A `ref` `Forge`
+  has never seen answers `{:ok, %{}}`, the intake raft's own "no raft
+  yet" shape (`HostPort.Actions.read_directory/3`'s own doc).
+  """
+  @impl Catapult.Delivery.HostPort
+  def read_directory(_project_id, ref, path) do
+    case Forge.branch_files(forge!(), ref) do
+      {:ok, files} -> {:ok, directory_entries(files, path)}
+      {:error, :no_such_branch} -> {:ok, %{}}
+    end
+  end
+
+  defp directory_entries(files, path) do
+    prefix = String.trim_trailing(path, "/") <> "/"
+
+    for {file_path, content} <- files,
+        String.starts_with?(file_path, prefix),
+        filename = String.trim_leading(file_path, prefix),
+        filename != "" and not String.contains?(filename, "/"),
+        into: %{} do
+      {filename, content}
+    end
+  end
+
   @doc "Synthesizes a file-level diff between the PR's base and head branch snapshots — there is no real git object for a fake to read."
   @impl Catapult.Delivery.HostPort
   def read_diff(_project_id, pr_number) do

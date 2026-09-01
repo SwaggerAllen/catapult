@@ -39,11 +39,18 @@ each:
 
 ## `:unsupported` is not an ordinary blocker
 
-Some walks — every `input.<role>` walk, `project_doc` included, and every `ticket.<source>` walk
-— resolve `{:error, :unsupported}` rather than to real targets
-(`Catapult.Engine.Projections.ContextResolver`'s Initial scope; intake/raft storage is a later
-phase, ORC-12). `explain/2` folds that into a blocking entry carrying `reason: :unsupported` and
-no targets.
+One source of walk — `ticket.<source>` — resolves `{:error, :unsupported}` rather than to real
+targets (`Catapult.Engine.Projections.ContextResolver`'s Initial scope; it belongs to v5 §7.11's
+validation loop, Phase 7). `explain/2` folds that into a blocking entry carrying
+`reason: :unsupported` and no targets.
+
+**No tier in `bundles/default` can put this row on screen today.** A `ticket.<source>` walk loads
+only if its source is a registered context source (`Catapult.Dsl.Chain`'s
+`Registry.context_source?/2` check), and no extension registers one yet — `chain.ex` rejects the
+walk at load rather than letting it reach `explain/2` unsupported. The section stays because
+Phase 7 is what registers the first one, and the visual treatment below is what that walk will
+need the moment it does; the storybook variation demonstrating it is illustrative for that reason,
+not a state reachable from this repo's own bundle content.
 
 **Rendering that row the same way as an ordinary blocker is a lie by omission**, and the ticket
 that asked for this screen named the failure mode directly: it tells the operator to go approve
@@ -52,6 +59,18 @@ target list (there is none), no "waiting on approval" language, a label that say
 this walk is not wired up yet and that the tier's designer, not an approver, is who unblocks it.
 It still counts toward "this node has blockers" at the top of the screen; it must not be mistaken
 for one an operator can act on today.
+
+**`input.<role>` and `input.*` walks are not this case, and never were the same case for the
+reason they looked like it** (ORC-107, `systems/engine.md`'s entry). They used to share
+`ContextResolver`'s blanket `:unsupported` answer with `ticket.<source>` by coincidence — intake
+storage simply didn't exist yet — not because a role is structurally the same kind of gap a
+validation-loop source is. Now that intake exists, `input.<role>`/`input.*` resolve `{:ok, []}`,
+always: `walk_report/2` folds that to `satisfied: true, targets: []`, the identical shape a fully
+satisfied ordinary walk has, so `Enum.reject(& &1.satisfied)` drops it out of `blocking` entirely.
+An input-role walk therefore never appears on this screen at all, satisfied or not — which is the
+correct rendering of "a role with no documents never blocks readiness" (`dsl-syntax.md` §7):
+nothing here has an "input roles aren't ready yet" row to accidentally show, because the row
+never existed to begin with.
 
 ## The review-tier caveat
 

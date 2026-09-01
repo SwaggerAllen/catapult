@@ -148,6 +148,52 @@ defmodule Catapult.Delivery do
   def put_draft_body(project_id, node_id, body, body_sha),
     do: Store.put_draft_body(project_id, node_id, body, body_sha)
 
+  # The intake raft's registered path (`systems/delivery.md`'s
+  # Discovery entry) — a fixed platform-wide path, not a per-project
+  # setting, on the same footing `reset_repo/2`'s own workflow-dispatch
+  # file already stands on.
+  @raft_path "docs/raft"
+
+  @doc """
+  The raft's registered discovery path — the one fact a future
+  base-check sweep needs to recognize "a diff under a registered input
+  path" (v5 §1.1's frozen-edit notice, `systems/delivery.md`'s ORC-107
+  entry: this ticket delivers the fact, not the sweep). A future
+  caller reads this rather than re-deriving the literal path.
+  """
+  @spec raft_path() :: String.t()
+  def raft_path, do: @raft_path
+
+  @doc """
+  Intake, the one legal call per project (`systems/delivery.md`'s
+  ORC-107 entry): reads every file directly under the raft's
+  registered path off the bound repo at `ref` and pins each one via
+  `pin_input_documents/3` — a second call for a project that already
+  has a pinned raft raises there, rather than silently re-pinning.
+  What decides when to call this — a project's creation/scaffold flow
+  — is out of this ticket's scope; this is the mechanism a future
+  caller drives.
+  """
+  @spec intake_raft(binary(), String.t()) :: :ok | {:error, term()}
+  def intake_raft(project_id, ref) do
+    with {:ok, files} <- host_port_adapter().read_directory(project_id, ref, raft_path()) do
+      pin_input_documents(project_id, ref, files)
+    end
+  end
+
+  @doc "Pins `files` (filename => content) as the intake raft — `intake_raft/2`'s own write, see there."
+  @spec pin_input_documents(binary(), String.t(), %{String.t() => String.t()}) :: :ok
+  def pin_input_documents(project_id, ref, files),
+    do: Store.pin_input_documents(project_id, ref, files)
+
+  @doc "A role's pinned intake documents, filename order — `input.<role>`'s own read (ORC-107)."
+  @spec get_input_documents(binary(), String.t()) :: [String.t()]
+  def get_input_documents(project_id, role), do: Store.get_input_documents(project_id, role)
+
+  @doc "Every pinned intake document on the project, filename order — `input.*`'s own read (ORC-107)."
+  @spec get_raft(binary()) :: [String.t()]
+  def get_raft(project_id), do: Store.get_raft(project_id)
+
   @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Dispatch.fetch_context/2`."
   @spec fetch_context(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   defexport(fetch_context(conn, run_key), do: Dispatch.fetch_context(conn, run_key))

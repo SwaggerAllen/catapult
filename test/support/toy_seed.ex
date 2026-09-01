@@ -10,9 +10,11 @@ defmodule Catapult.ToySeed do
 
   These are exactly the roles named across the design corpus
   (dsl-syntax.md §7.2's examples, v5-design-decisions.md's "the intake
-  role list has since grown") — there is no code-level registry yet
-  (`systems/generation.md`'s ORC-10 entry: `input.<role>` resolution
-  is Phase 4), so this list *is* the registry until one exists.
+  role list has since grown") — the mechanism itself has no closed
+  registry to violate (dsl-syntax.md §7: only a shipped tier reading a
+  role makes it platform vocabulary, and a project's own role name is
+  legal and simply never walked), so this list is fixture breadth, not
+  a registry this module enforces.
   """
 
   @fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures", "toy_seed"])
@@ -29,13 +31,14 @@ defmodule Catapult.ToySeed do
   @doc """
   Repo-relative path => content for `Catapult.Delivery.HostPort.reset_repo/2`:
   the workflow file at the path GitHub itself requires, plus every
-  role doc filed under `docs/toy-seed/` — fixture content only, per
-  the port's own contract (`lib/catapult/delivery/host_port.ex`).
+  role doc filed under `docs/raft/`, the intake raft's registered
+  discovery path (ORC-107, `systems/delivery.md`) — fixture content
+  only, per the port's own contract (`lib/catapult/delivery/host_port.ex`).
   """
   @spec reset_files() :: %{String.t() => String.t()}
   def reset_files do
     role_files =
-      for {role, content} <- role_docs(), into: %{}, do: {"docs/toy-seed/#{role}.md", content}
+      for {role, content} <- role_docs(), into: %{}, do: {"docs/raft/#{role}.md", content}
 
     Map.put(role_files, ".github/workflows/catapult-dispatch.yml", File.read!(workflow_path()))
   end

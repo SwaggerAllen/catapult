@@ -14,6 +14,7 @@ defmodule Catapult.Generation.ContextAssemblyTest do
 
   use Catapult.DataCase, async: false
 
+  alias Catapult.Delivery
   alias Catapult.Dsl
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.DeclineGate
@@ -237,6 +238,51 @@ defmodule Catapult.Generation.ContextAssemblyTest do
              )
 
     refute IO.iodata_to_binary(iolist) =~ "The prior review of this draft"
+  end
+
+  # `feature_expansion` is `bundles/default`'s one tier with an
+  # `input.<role>` context entry (`context: - input.project_doc`) — the
+  # direct-delivery-read path `ContextAssembly`'s own moduledoc
+  # describes (ORC-107), never `ContextResolver`'s node-collection
+  # fold, which resolves every `input.*` walk `{:ok, []}` regardless.
+  defp seed_feature_expansion_node(project_id) do
+    Store.upsert_node(%{
+      id: "feature_expansion:root",
+      project_id: project_id,
+      tier: "feature_expansion",
+      scope_key: %{},
+      status: :absent
+    })
+  end
+
+  test "input.project_doc renders as a plain string once pinned (ORC-107)" do
+    project_id = "context-assembly-#{System.unique_integer([:positive])}"
+    seed_feature_expansion_node(project_id)
+
+    Delivery.pin_input_documents(project_id, "sha1", %{
+      "project_doc.md" => "Signpost is an internal link-shortening service."
+    })
+
+    {:ok, loaded} = Dsl.load(".")
+    node = Store.get_node(project_id, "feature_expansion:root")
+
+    assert {:ok, request} =
+             ContextAssembly.build(loaded.chain, project_id, "feature_expansion", node)
+
+    assert request.rendered_prompt =~ "Signpost is an internal link-shortening service."
+  end
+
+  test "a role with no pinned documents is left out of the prompt entirely" do
+    project_id = "context-assembly-#{System.unique_integer([:positive])}"
+    seed_feature_expansion_node(project_id)
+
+    {:ok, loaded} = Dsl.load(".")
+    node = Store.get_node(project_id, "feature_expansion:root")
+
+    assert {:ok, request} =
+             ContextAssembly.build(loaded.chain, project_id, "feature_expansion", node)
+
+    refute request.rendered_prompt =~ "Signpost"
   end
 
   test "a prior review doesn't crash rendering end to end" do
