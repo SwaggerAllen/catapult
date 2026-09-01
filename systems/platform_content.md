@@ -701,9 +701,9 @@ loader tickets carry `system:core_dsl`.
   block; `journeys`' own handle, like `requirements`' own handle today
   (`fields: [id, intro]`), carries no per-row content.
 
-  When mock evidence is wired, `feature_expansion` and `screens` gain
-  their walks in the same change — §4.1 names both, and wiring one
-  alone leaves the mechanism half-built.
+  `feature_expansion` and `screens` both carry `input.mocks` in their
+  own `context:` — §4.1 names both, wired in the same change; the
+  entry below this block names the shape.
 
   This is also why `screens` cannot be `child_of(journey)`: a screen
   legitimately named by more than one journey's walk (`v5 §4.2`'s
@@ -794,6 +794,71 @@ loader tickets carry `system:core_dsl`.
   `screens/` or `storybook/` for that reason — there is no UI screen
   here to define, only chain content, and chain content is dev's to
   write into `bundles/**`.
+
+- **`feature_expansion` and `screens` gain `input.mocks`, closing the
+  wiring the entry above deferred** (ORC-110, design pass;
+  `docs/v5-design-decisions.md` §4.1). `feature_expansion`'s
+  `context:` gains a second entry: `[input.project_doc, input.mocks]`.
+  `screens`' gains a third: `[self.parent.handle, all.journey.handle,
+  input.mocks]`. Both render as a plain `{{ mocks }}` string
+  (`systems/generation.md`'s `ContextAssembly` entry — keyed by role
+  name, omitted from the variables map entirely when the raft carries
+  no `mocks`-tagged document), so both prompts guard on `{% if mocks
+  %}` the same way `feature_expansion` already guards on `{% if
+  project_doc %}`. This makes the hybrid case native rather than
+  special, as v5 §4.1 requires: a raft with prose and no mocks omits
+  the variable and reads exactly as it does today; a raft with mocks
+  and no prose has `project_doc` omitted instead and `feature_expansion`
+  still runs, extracting from mock evidence alone.
+
+  **Mocks are read as source, not rendered.** The extraction tiers
+  read whatever text or markup the raft pins under the `mocks` role,
+  the same as any other input role; nothing in this pass builds the
+  toolchain v5 §4.1's "renders and interacts with a prototype"
+  describes as the agent's capability — agent runs install Go and
+  nothing else (this repo's own `CLAUDE.md`), and a mock set needing
+  `npm install && npm run dev` to be legible is read as whatever
+  static source it contains, same as one that's already static markup.
+  Rendering infrastructure for prototypes beyond what the agent runner
+  already has is out of this ticket's own scope; this is the bound
+  that scope implies, not a promise a later pass has committed to —
+  v5 §4.1's own text is qualified to match, in this same commit. This
+  settles the ticket's first open question: no runnable-target
+  convention is built, so in practice every mock set is read as
+  source today.
+
+  **No schema change for either tier**, because both extraction
+  disciplines already carry the mechanism negative-space completion
+  needs. `feature_expansion`'s `<implicit/>` marker
+  (`schemas/feature_expansion.xsd`) already covers "the project
+  obviously needs it but the user didn't name it explicitly" — mock
+  evidence is one more source feeding that inference, not a new
+  marker. `screens`' own prompt already instructs naming "narrower
+  [state] names … whenever the screen's behavior at that state is
+  genuinely different" (`prompts/screens.md.liquid`), and its review
+  checklist already flags a `<displayed-data>` detail "visible in the
+  mock" with no matching `<affordance>` (`prompts/review/screens.md
+  .liquid`) — written by ORC-109 ahead of this wiring landing. Both
+  prompts are instructed to weigh mock evidence against these existing
+  rules: a mock set showing only a happy path doesn't excuse `screens`
+  from naming `empty`/`error`/`loading`/`denied` when the feature
+  narrative implies them, and doesn't excuse `feature_expansion` from
+  flagging an `<implicit/>` feature that a mock's error or admin
+  screen implies but its prose never states. Extraction completing the
+  negative space is the chain improving the mocks, not transcribing
+  them (v5 §4.1) — the instruction reaches both tiers, not just
+  `screens`.
+
+  **Review stays the tiers' own — no bespoke negative-space
+  question.** An invented state or an `<implicit/>` feature is
+  ordinary content in `screens_review`/`feature_expansion`'s own
+  review the same as any other row; being chain-proposed rather than
+  mock-evidenced changes nothing about what a reviewer checks, and
+  `screens`' review checklist already reads the whole state list for
+  exactly this (above). This settles the ticket's third open question
+  against a new review gate: a second, dedicated pass over content the
+  ordinary review already reads would be checking a thing already
+  checked, not adding coverage.
 
 ## Initial vs target
 

@@ -224,9 +224,16 @@ kind replaces both.
 `llm` (default), `git_commit` (+ `code_repo_url`, `path_from_handle`),
 `synthesis`, `webhook`, and the v5 additions: **`external`** (content
 resolves from the component registry at the pinned version; requires
-`package:` and optional `options:` per v5 §3.4) and **`template`**
+`package:` and optional `options:` per v5 §3.4), **`template`**
 (deterministic scaffold; requires `template:` path; slots filled from
-context walks; no LLM call, same grammar validation).
+context walks; no LLM call, same grammar validation), and
+**`supplied`** (content resolves from a project-supplied raft artifact
+pinned at intake; requires `source: input.<role>`; no draft, no
+review, no LLM call — the same "extracted, not authored twice" shape
+`external` uses for registry content, but sourced from the project's
+own frozen raft instead of the component registry, since there is no
+registry publishing versions of a user's own design system —
+`systems/core_dsl.md`'s entry).
 
 ### 3.3 Review tiers — `reviews: <tier>`
 
@@ -488,20 +495,24 @@ self-hop's target, there is no walker to check it against.
 v5 additions:
 
 - **`input.<role>`** — reads the intake documents tagged with a
-  declared role. **Three roles are platform vocabulary**: `project_doc`
+  declared role. **Four roles are platform vocabulary**: `project_doc`
   (wired today — `feature_expansion` and the flow-planning tiers,
-  `bundles/default/tiers/*.yaml`), `mocks` (named by v5 §4.1 — feature
-  expansion and the screens tier read it directly; lands with those
-  tiers in Phase 5), and `non_goals` (the negative-space intake
-  distillation reads it as strong signal alongside the whole raft, v5
-  §1.1; also a Phase 5 tier). A project may tag its own raft with any
-  other role name for its own bundle content to read — the mechanism
-  has no closed registry to violate, and an unread role name is simply
-  never walked — but nothing beyond these three is platform vocabulary:
-  a project's own role name is that project's declaration, not a
-  default every project gets. A role joins the platform set when, and
-  only when, a shipped tier is designed to read it (ORC-107) — nothing
-  joins the set on the strength of a document arguing for it.
+  `bundles/default/tiers/*.yaml`), `mocks` (named by v5 §4.1 —
+  `feature_expansion` and `screens` both carry `input.mocks` in their
+  own `context:` list, `systems/platform_content.md`'s ORC-110 entry),
+  `non_goals` (the negative-space intake distillation reads it as
+  strong signal alongside the whole raft, v5 §1.1; a Phase 5 tier), and
+  `design_system` (v5 §5.4 — read through a `supplied` generator's
+  `source:` field rather than a `context:` walk, since the tier it
+  feeds has no prompt for `ContextAssembly` to render a variable into;
+  `systems/core_dsl.md`'s entry). A project may tag its own raft with
+  any other role name for its own bundle content to read — the
+  mechanism has no closed registry to violate, and an unread role name
+  is simply never walked — but nothing beyond these four is platform
+  vocabulary: a project's own role name is that project's declaration,
+  not a default every project gets. A role joins the platform set when,
+  and only when, a shipped tier is designed to read it (ORC-107) —
+  nothing joins the set on the strength of a document arguing for it.
   **Roles are optional classification of a free-form raft, never
   requirements**: a role with no documents yields an empty
   collection and **never blocks readiness** (v5 §1.1 — requiring a
