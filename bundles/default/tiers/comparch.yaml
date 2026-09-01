@@ -45,7 +45,9 @@ context:
   # not one variable per grain. The project-global grain (no scope
   # edge at all) is deliberately not read here: `all.policy` would
   # also return every resp- and comp-scoped policy, which comparch
-  # must not see indiscriminately.
+  # must not see indiscriminately. That grain's other producer
+  # (ORC-108) is non_goals — see non_goals.yaml, which mints straight
+  # into this same `policy` pool with no scope edge.
   - all.vocab.handle
   # Project vocabulary (v5 §4.5): a flat, project-wide pool
   # with no structural relationship to comparch to walk — dsl-syntax.md

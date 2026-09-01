@@ -2,13 +2,14 @@
 # ticket's own instruction ("decomposition covers sysarch→comp,
 # comparch→subcomp and feature_expansion→vocab — the mechanism is the
 # same") and generalized to every fanout-minted pool in this chain:
-# resp (requirements' rotation), policy's two mint sources
+# resp (requirements' rotation), policy's three mint sources
 # (sysarch's project-level <policies>, comparch's component-local
-# <policies> — policy.yaml already documents why two fanout sources
-# into one flat pool is legal), and journey/screen (journeys' and
-# screens' own rotations — the requirements/resp shape,
-# systems/platform_content.md's ORC-109 entry). Eight sites, one
-# mechanism, one file — dsl-syntax.md §4.1's `instances:` form.
+# <policies>, and non_goals' distilled intake candidates — policy.yaml
+# already documents why three fanout sources into one flat pool is
+# legal), and journey/screen (journeys' and screens' own rotations —
+# the requirements/resp shape, systems/platform_content.md's ORC-109
+# entry). Nine sites, one mechanism, one file — dsl-syntax.md §4.1's
+# `instances:` form.
 edge: decomposition
 type: fanout
 instances:
@@ -56,6 +57,13 @@ instances:
     cardinality:
       source: { min: 0 } # a component may have no local policies
       target: { min: 1, max: 1 } # every policy has exactly one mint
+
+  - source: non_goals
+    target: policy
+    declared_in: non_goals.draft.candidates.candidate[]
+    cardinality:
+      source: { min: 0 } # a raft may name no non-goals at all
+      target: { min: 1, max: 1 } # every distilled candidate has exactly one mint
 
   - source: journeys
     target: journey

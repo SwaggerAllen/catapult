@@ -1,0 +1,35 @@
+# A second intake root, alongside feature_expansion (v5 §1.1, §4.5,
+# the negative-space doctrine; systems/platform_content.md's ORC-108
+# entry). Reads the whole raft (`input.*`) plus the `non_goals` role
+# (`input.non_goals`, dsl-syntax.md §7.2) — strong signal when the raft
+# tags a document that way, never a requirement: neither walk can block
+# readiness, and a raft with nothing tagged still runs this tier
+# against `input.*` alone. Mints straight into the `policy` pool via
+# `decomposition`'s non_goals->policy instance (edges/decomposition.yaml)
+# — a distilled non-goal is a policy with negative content, not a new
+# node kind. Its own non_goals_review counterpart (tiers
+# /non_goals_review.yaml) puts the whole extracted set in front of the
+# author through the ordinary draft->review->approve loop; declining is
+# declining the batch, the same all-or-nothing shape sysarch's own
+# <policies> and comparch's own <policies> already have.
+tier: non_goals
+scope: singleton
+identity: id
+fields:
+  intro: draft.introduction
+handle:
+  fields: [id, intro]
+  fragments: []
+draft:
+  root_tag: non-goals
+  grammar: schemas/non_goals.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/non_goals.md.liquid
+context:
+  - input.*
+  - input.non_goals
+delivery:
+  phase: generation
+  agent_step: design
