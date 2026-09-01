@@ -9,16 +9,24 @@
 # (policy_application, reachability through fulfills), not parentage.
 #
 # `child_of(sysarch)` names sysarch as the tier this pool's scope is
-# validated against, but two `decomposition` instances mint into it
-# (edges/decomposition.yaml) — sysarch's project-level <policies> and
-# comparch's component-local <policies>. Nothing in dsl-syntax.md's
-# closed scope vocabulary expresses "child of either of these two
-# tiers", and lib/catapult/dsl/tier.ex's scope_problems check only
-# verifies child_of(X) names a *declared* tier — it does not require X
-# to be the sole edge targeting this tier, so two fanout instances into
-# one flat pool is legal under the loader as implemented today.
-# Recorded here rather than left implicit, per this ticket's own
-# instruction to name interpretations.
+# validated against, but three `decomposition` instances mint into it
+# (edges/decomposition.yaml) — sysarch's project-level <policies>,
+# comparch's component-local <policies>, and (ORC-108) non_goals'
+# distilled intake candidates. Nothing in dsl-syntax.md's closed scope
+# vocabulary expresses "child of any of these three tiers", and
+# lib/catapult/dsl/tier.ex's scope_problems check only verifies
+# child_of(X) names a *declared* tier — it does not require X to be the
+# sole edge targeting this tier, so three fanout instances into one
+# flat pool is legal under the loader as implemented today. Recorded
+# here rather than left implicit, per this ticket's own instruction to
+# name interpretations.
+#
+# `revisit_condition` (ORC-108, v5 §4.5) is free text, filled for an
+# argued deferral ("never, argued" / "not until X" are values of this
+# one field, not two shapes) and omitted for an ordinary policy — every
+# mint source may supply it, but only non_goals' own prompt instructs a
+# candidate to always fill it, since every distilled non-goal is
+# exactly that kind of argument.
 tier: policy
 scope: child_of(sysarch)
 identity: id
@@ -26,7 +34,8 @@ fields:
   name: mint.name
   trigger: mint.trigger
   rationale: mint.rationale
+  revisit_condition: mint.revisit_condition
 handle:
-  fields: [id, name, trigger, rationale]
+  fields: [id, name, trigger, rationale, revisit_condition]
   fragments: []
 generator: synthesis

@@ -1,0 +1,41 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+You are reviewing a distilled non-goals set against the raft it was
+extracted from. This set becomes real policy nodes the moment it's
+approved — every one of them binds every later regeneration and
+reconciliation pass, so a candidate that doesn't actually hold up
+against the raft is a standing false refusal, and a real exclusion the
+draft missed is a gap the graph will never independently notice.
+
+# Input
+
+The whole raft, exactly as pinned at intake:
+
+{{ raft }}
+
+{% if non_goals %}
+The raft's own tagged non-goals document(s), if any:
+
+{{ non_goals }}
+{% endif %}
+
+Checklist for this tier:
+
+- Does every candidate trace to something the raft actually argues —
+  explicitly, or as the clear implication of a stated constraint —
+  rather than an inference the reviewer can't ground in the text? Flag
+  any candidate that reads as invented rather than extracted.
+- Did the draft miss an exclusion the raft clearly argues for,
+  explicit or implicit? Name what's missing and where in the raft it's
+  argued.
+- Is each `<rationale>` the raft's own argument, not the drafting
+  pass's opinion about whether the exclusion is wise?
+- Is `<revisit-condition>` filled on every candidate, and does its
+  value match what the raft actually says — `never, argued` only when
+  the raft gives no return condition, a concrete "not until X" when
+  the raft frames the exclusion as a deferral rather than permanent?
+- Is each `<trigger>` specific enough that a later architecture or
+  reconciliation pass would recognize the situation it's guarding
+  against, rather than a vague restatement of the candidate's name?
+- Is the set free of candidates flagging mere silence — capabilities
+  the raft simply never mentions rather than ones it argues against?
