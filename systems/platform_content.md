@@ -187,18 +187,13 @@ loader tickets carry `system:core_dsl`.
   batch: the same all-or-nothing shape every other fanout-minting
   tier's authored block already has (`sysarch`'s `<policies>`,
   `comparch`'s `<subcomponents>`), and a decline naming one candidate
-  to drop is answered the way every other tier's decline is today —
-  a comment naming the candidate, read as ordinary prose by the
-  regenerating pass, never a per-candidate accept/reject affordance,
-  which this pool has never had and this ticket does not add. That
-  reading is not the anchored, per-sentence targeting `feedback`'s
-  `locator` will eventually carry — `locator` is nullable and always
-  absent before `docs/ui-spec.md` §5's v2 anchoring ships
-  (`dsl-syntax.md` §9) — only prose a regeneration pass reads like any
-  other comment; it works today, just not by the mechanism a later
-  reader might assume from the word "surgical." Separately, the worry
-  this answers ("dropping it silently means the next intake of the
-  same raft proposes it again") does not arise: intake is one function
+  to drop is answered the way every other tier's decline is — a
+  comment naming the candidate, reaching the regenerating pass as
+  ordinary `feedback` prose (`dsl-syntax.md` §9), never a
+  per-candidate accept/reject affordance, which this pool has never
+  had and this ticket does not add. Separately, the worry this answers
+  ("dropping it silently means the next intake of the same raft
+  proposes it again") does not arise: intake is one function
   called at most once per project (`systems/delivery.md`'s ORC-107
   entry), so there is no second intake of the same raft to re-propose
   from.
