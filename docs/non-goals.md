@@ -179,14 +179,17 @@ scope: system:core_dsl, system:platform_content
 
 A polyglot project still has one document graph — a component in one
 language depends on and is depended on by components in another, so
-they must load as one bundle. This is forced by the loader, not merely
-preferable: `extends:` is singular (`Catapult.Dsl.Manifest`;
-`dsl-syntax.md` §11) and `Catapult.Dsl.Loader.load_axes/5` builds one
-chain per project, so two independently authored chain layers — one
-per language — have no composition path to merge into a single
-project's graph (v5 §5.5). Per-platform variation lives inside the one
-chain bundle's own architecture and implementation prompts, never as a
-second `extends:` layer.
+they must load as one bundle. This is forced by the loader at its
+root: `catapult.yaml`'s `chain:` field names exactly one bundle, and
+`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain per project
+from it — no list — so two independently authored chain bundles, one
+per language, have no way to merge into a single project's graph,
+whatever either names in its own `extends:` (`Catapult.Dsl.Manifest`
+names exactly one such layer too, which reinforces the same conclusion
+one level down but is not what forces it — `dsl-syntax.md` §11, v5
+§5.5). Per-platform variation lives inside the one chain bundle's own
+architecture and implementation prompts, never as a second `extends:`
+layer.
 
 ## No hand-maintained inventories
 scope: universal

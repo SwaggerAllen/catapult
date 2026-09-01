@@ -1519,16 +1519,40 @@ bundles do not split by language.** A polyglot project still has one
 document graph — a component in one language is a node in the same
 graph as a component in another, and they depend on each other across
 the boundary — so they must load as one bundle. This is forced by the
-loader, not merely preferable: `Catapult.Dsl.Loader.load_axes/5`
-builds one chain from `catapult.yaml`'s `chain:` (no list), and
-`extends:` is singular (`dsl-syntax.md` §11), so two independently
-authored chain layers — one per language — have no composition path
-to merge into a single project's graph. Per-platform variation (the
-pubapi representation and delivery conventions above) lives inside
-that one bundle's own architecture and implementation prompts —
-usually a selected snippet, not a whole variant prompt, since the
-surrounding structure is shared by construction — never as a second
-`extends:` layer.
+loader, and forced at its root rather than by `extends:`:
+`catapult.yaml`'s `chain:` field names exactly one bundle, and
+`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain from it —
+no list, no second chain composed in beside it — so two independently
+authored chain bundles, one per language, have no way to merge into a
+single project's graph regardless of what either one's `extends:`
+names. (`extends:` itself being singular too (`dsl-syntax.md` §11)
+reinforces the same conclusion one layer down — a bundle can't even
+compose two layers of its own — but it is not what forces this rule:
+the rule holds even if `platform-elixir` folds away as a layer, which
+is still undecided — nothing in this ticket settles it either way.)
+Per-platform variation (the pubapi representation and delivery
+conventions above) lives inside that one bundle's own architecture and
+implementation prompts — usually a selected snippet, not a whole
+variant prompt, since the surrounding structure is shared by
+construction — never as a second `extends:` layer.
+
+**Three coupled questions this ticket leaves open, not decided.** What
+carries a node's target platform; whether `impl_ui` for React and for
+Phoenix ends up one tier with a switched prompt or two tiers; and
+whether enforcement profiles (§12) vary per platform by the same
+mechanism prompts do. None has a second candidate to design against
+yet: React, the only other platform on the roadmap, doesn't land until
+Phase 7 with `platform-client-ts` (§5.6, `docs/build-plan.md`'s Phase
+7 entry) — a selector built against one platform is a constant, not a
+selector. Candidates for the first, named without being chosen: a
+mint-time field on the node, a fragment, or a `dsl-syntax.md` §12
+context source. The second follows from the first rather than sitting
+beside it — whether the split is a tier axis or a prompt-content axis
+is exactly what the selector's shape decides. The third asks the same
+question of `codegen: restricted` and its siblings instead of a Liquid
+partial, and has no reason yet to land on a different answer from the
+first two. Settle all three together, when Phase 7 supplies a second
+platform to select between — not before, and not separately.
 
 ### 5.6 Client-locus components and the client corpus
 

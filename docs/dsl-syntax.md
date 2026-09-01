@@ -597,13 +597,19 @@ naming `extends: <layer>` loads the layer first, then overlays:
 declarations union, same-path files replace (v5 §7.10, §9). Cycles in
 `extends:` chains are load errors.
 
-**`extends:` is singular, and that is why chain bundles cannot be
-split by language.** `Catapult.Dsl.Manifest` names exactly one
-`extends:` layer, and `Catapult.Dsl.Loader.load_axes/5` builds one
-chain from `catapult.yaml`'s `chain:` — no list either place. A
-polyglot project still has one document graph (components in
-different languages depend on each other across the boundary), so two
-independently authored chain layers — one per language — have no
+**Chain bundles cannot be split by language — forced by `catapult.yaml`
+naming exactly one chain, not by `extends:` being singular.**
+`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain from
+`catapult.yaml`'s `chain:` field — no list — so a project can never
+load two independently authored chain bundles side by side, whatever
+either names in its own `extends:`. `Catapult.Dsl.Manifest` naming
+exactly one `extends:` layer reinforces the same conclusion one level
+down (a bundle can't even compose two layers of its own), but the
+singular-chain fact is what does the forcing, and it holds regardless
+of whether `platform-elixir` itself survives as a layer — still open
+(v5 §5.5). A polyglot project still has one document graph (components
+in different languages depend on each other across the boundary), so
+two independently authored chain layers — one per language — have no
 composition path to merge into it (v5 §5.5). Per-platform variation
 lives inside the one bundle's own tiers and prompts, never as a second
 `extends:` layer.
