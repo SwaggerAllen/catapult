@@ -886,17 +886,16 @@ profiles.
   `docs/v5-design-decisions.md` §5.4). §5.4's own phrasing — "an
   external or vendored node like any §3.2 external" — reads as
   behavior parity, not mechanism reuse, once weighed against what
-  `external` actually is elsewhere in this document: registry-resolved
-  content, `package:`-addressed, staleness a version bump the registry
-  publishes (`systems/registry.md`; every example on the books —
-  Haven's crypto, the elixir-target convention corpus — is Catapult's
-  own distribution). A user's design system is never in that registry;
-  nothing publishes a version for it to bump, so wiring `design_system`
-  through `external` would carry a staleness-cascade half with nothing
-  to trigger it. A `ref` is ruled out twice over: v5 §4.5 already says
-  a supplied design system "rides §5.4's node rather than a ref," and
-  independently, a ref attaches via *reference* edges from a singleton
-  pool with no per-use kinds (§4.5's own "stay general on purpose"), while
+  `external` actually is: registry-resolved content, `package:`-
+  addressed, staleness a version bump the registry publishes (v5
+  §3.2, `dsl-syntax.md` §3.2). A user's design system is never in
+  that registry; nothing publishes a version for it to bump, so
+  wiring `design_system` through `external` would carry a
+  staleness-cascade half with nothing to trigger it. A `ref` is ruled
+  out twice over: v5 §4.5 already says a supplied design system
+  "rides §5.4's node rather than a ref," and independently, a ref
+  attaches via *reference* edges from a singleton pool with no
+  per-use kinds (§4.5's own "stay general on purpose"), while
   `ui_coll → design_system` (§5.4's edge inventory) is a typed
   *dependency* edge carrying cardinality and layering semantics a
   reference edge was never built to hold.
@@ -933,13 +932,24 @@ profiles.
   `ContextAssembly` to render a variable into (unlike `mocks`, which
   does — `systems/platform_content.md`'s ORC-110 entry).
 
+  **This entry declares the `design_system` tier itself**, not only
+  its node kind: `design_system`, `generator: supplied`,
+  `source: input.design_system`, no scope parent (mints directly from
+  the pinned raft artifact, the same shape `ref` has, per above) and
+  mints at most one. That closes this ticket's own second open
+  question — `design_system` was unsettled between a node kind, an
+  external, and a ref; it is a node kind, declared here — which is
+  what earns the admission the paragraph above claims: a tier is
+  designed to read the role because this entry designs it.
+
   **Deferred to the ticket that lands `frontend_sysarch`/`ui_coll`**
-  (`docs/build-plan.md`'s Phase 5, not yet built): the `design_system`
-  tier's actual declaration in `bundles/default`, and the
-  `ui_coll → design_system` dependency edge itself. This entry settles
-  the node kind so that ticket doesn't re-litigate it, the same way
-  ORC-109 settled journeys/screens' shape ahead of `frontend_sysarch`
-  consuming them.
+  (`docs/build-plan.md`'s Phase 5, ORC-111): the
+  `ui_coll → design_system` dependency edge. That edge is `ui_coll`'s
+  side of the relationship — it belongs to whichever tier declares
+  `ui_coll` and its dependency list, not to this entry — and nothing
+  above depends on it existing yet: a
+  `design_system` node mints and holds content whether or not anything
+  yet declares a dependency on it.
 
 ## Initial vs target
 

@@ -803,29 +803,32 @@ loader tickets carry `system:core_dsl`.
   input.mocks]`. Both render as a plain `{{ mocks }}` string
   (`systems/generation.md`'s `ContextAssembly` entry — keyed by role
   name, omitted from the variables map entirely when the raft carries
-  no `mocks`-tagged document), so both prompts guard on `{% if mocks
-  %}` the same way `feature_expansion` already guards on `{% if
-  project_doc %}`. This makes the hybrid case native rather than
-  special, as v5 §4.1 requires: a raft with prose and no mocks omits
+  no `mocks`-tagged document), so both prompts need no explicit
+  presence guard: a bare `{{ mocks }}` renders empty when the variable
+  is omitted, the same unset-is-empty behavior `feature_expansion`'s
+  own bare `{{ project_doc }}` already relies on
+  (`bundles/default/prompts/feature_expansion.md.liquid`). This makes
+  the hybrid case native rather than special, as v5 §4.1 requires: a
+  raft with prose and no mocks omits
   the variable and reads exactly as it does today; a raft with mocks
   and no prose has `project_doc` omitted instead and `feature_expansion`
   still runs, extracting from mock evidence alone.
 
   **Mocks are read as source, not rendered.** The extraction tiers
   read whatever text or markup the raft pins under the `mocks` role,
-  the same as any other input role; nothing in this pass builds the
-  toolchain v5 §4.1's "renders and interacts with a prototype"
-  describes as the agent's capability — agent runs install Go and
-  nothing else (this repo's own `CLAUDE.md`), and a mock set needing
-  `npm install && npm run dev` to be legible is read as whatever
-  static source it contains, same as one that's already static markup.
-  Rendering infrastructure for prototypes beyond what the agent runner
-  already has is out of this ticket's own scope; this is the bound
-  that scope implies, not a promise a later pass has committed to —
-  v5 §4.1's own text is qualified to match, in this same commit. This
-  settles the ticket's first open question: no runnable-target
-  convention is built, so in practice every mock set is read as
-  source today.
+  the same as any other input role. No tier depends on rendering a
+  prototype, because no generation run can promise one: the chain's
+  generation runs dispatch into the target project via
+  `catapult-dispatch.yml`, whose harness-invocation step is an
+  unpinned placeholder that exits 1 (`test/catapult/generation/
+  fixtures/toy_seed/catapult-dispatch.yml`, "harness invocation not
+  yet pinned — ORC-10") — it installs nothing because nothing is
+  pinned yet, not because some fixed toolchain excludes a renderer. A
+  mock set needing `npm install && npm run dev` to be legible is read
+  as whatever static source it contains, the same as one that's
+  already static markup. This settles the ticket's first open
+  question: no runnable-target convention exists for a generation run
+  to use, so every mock set is read as source.
 
   **No schema change for either tier**, because both extraction
   disciplines already carry the mechanism negative-space completion
