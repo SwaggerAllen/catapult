@@ -169,24 +169,39 @@ loader tickets carry `system:core_dsl`.
   negative-space doctrine). `feature_expansion` stops being this
   chain's only tier reading raw input prose: `non_goals` sits beside
   it as a second `scope: singleton`, `generator: llm` root, context
-  `input.*` (the whole raft, required) plus `input.non_goals` (the
-  tagged-document role, strong signal when the raft carries one, never
-  required — a role with no pinned documents renders blank and never
-  blocks readiness, `dsl-syntax.md` §7). The two roots name no
-  `context:` entry on each other — a raft's negative space is read
-  from the same frozen input prose either root reads, never from the
-  other root's own drafted output, so nothing sequences one behind the
-  other and both are ready the moment intake pins the raft. Its own
-  `non_goals_review` counterpart puts the whole extracted set in front
-  of the author through the ordinary draft→review→approve gate loop —
-  no new review mechanism. Declining is declining the batch: the same
-  all-or-nothing shape every other fanout-minting tier's authored
-  block already has (`sysarch`'s `<policies>`, `comparch`'s
-  `<subcomponents>`), and a decline naming one candidate to drop is
-  answered the way every other tier's decline is, surgical
-  regeneration guided by anchored `feedback` (`dsl-syntax.md` §9) —
-  never a per-candidate accept/reject affordance, which this pool has
-  never had and this ticket does not add.
+  `input.*` (the whole raft — the prompt is written to depend on it
+  being present) plus `input.non_goals` (the tagged-document role,
+  strong signal when the raft carries one). Neither form can block
+  readiness, and the two are alike in that rather than contrasting:
+  since ORC-107, `input.<role>` and `input.*` both resolve to
+  `{:ok, []}` when nothing is pinned under that role, fold vacuously
+  satisfied through `walk_ready?`, and never block a tier's readiness
+  (`dsl-syntax.md` §7, `systems/engine.md`'s standing decision). The
+  two roots name no `context:` entry on each other — a raft's negative
+  space is read from the same frozen input prose either root reads,
+  never from the other root's own drafted output, so nothing sequences
+  one behind the other and both are ready the moment intake pins the
+  raft. Its own `non_goals_review` counterpart puts the whole extracted
+  set in front of the author through the ordinary draft→review→approve
+  gate loop — no new review mechanism. Declining is declining the
+  batch: the same all-or-nothing shape every other fanout-minting
+  tier's authored block already has (`sysarch`'s `<policies>`,
+  `comparch`'s `<subcomponents>`), and a decline naming one candidate
+  to drop is answered the way every other tier's decline is today —
+  a comment naming the candidate, read as ordinary prose by the
+  regenerating pass, never a per-candidate accept/reject affordance,
+  which this pool has never had and this ticket does not add. That
+  reading is not the anchored, per-sentence targeting `feedback`'s
+  `locator` will eventually carry — `locator` is nullable and always
+  absent before `docs/ui-spec.md` §5's v2 anchoring ships
+  (`dsl-syntax.md` §9) — only prose a regeneration pass reads like any
+  other comment; it works today, just not by the mechanism a later
+  reader might assume from the word "surgical." Separately, the worry
+  this answers ("dropping it silently means the next intake of the
+  same raft proposes it again") does not arise: intake is one function
+  called at most once per project (`systems/delivery.md`'s ORC-107
+  entry), so there is no second intake of the same raft to re-propose
+  from.
 
   `non_goals` mints straight into the `policy` pool through a third
   `decomposition` instance — the identical mechanism the flat-pools
@@ -325,25 +340,24 @@ loader tickets carry `system:core_dsl`.
   consistent with the free-form posture this whole doctrine already
   takes (v5 §1.1: no closed non-goals registry, no required file).
 
-  **No grade field is added, and this is not a gap this ticket
-  leaves.** §4.5's promote-from-prose ladder and its enforcement-ticket
-  machinery are unbuilt entirely — no policy anywhere in this chain,
-  distilled or authored, declares a grade today, so a distilled
-  non-goal is exactly as ungraded as every other policy this chain
-  already ships. `prose` is what an absent grade already means
-  operationally; this ticket adds no field to say so explicitly,
-  matching its own excluded scope ("the enforcement ladder above
-  `prose` … arrive with their consumers").
+  **No policy in this chain declares a grade, distilled or authored.**
+  §4.5's promote-from-prose ladder and its enforcement-ticket machinery
+  are unbuilt entirely, so a distilled non-goal carries none either —
+  it is exactly as ungraded as every other policy this chain already
+  ships. `prose` is what an absent grade already means operationally,
+  a consistency fact about the chain rather than a choice this ticket
+  makes; the enforcement ladder above `prose` arrives with its
+  consumers, unrelated to distillation.
 
-  **Reading distilled non-goals back is not wired by this pass.**
-  `comparch.yaml`'s own comment already records why the project-global
-  grain isn't simply added to a scoped tier's context: `all.policy` is
+  **`all.policy` reads every scope indiscriminately, so the
+  project-global grain is not added to any scoped tier's context.**
+  `comparch.yaml`'s own comment already records why: `all.policy` is
   unfiltered by construction (dsl-syntax.md §7.2) and would return
   every resp- and comp-scoped policy too, indiscriminate noise next to
   the grains a tier already reads explicitly. A scope-filtered "only
-  the unscoped grain" read has no expression in this DSL yet, and
-  supplying one is a `core_dsl` question, not bundle content — wiring
-  any particular consumer once that lands, or once a consumer wants
+  the unscoped grain" read has no expression in this DSL, and supplying
+  one is a `core_dsl` question, not bundle content — wiring any
+  particular consumer once that lands, or once a consumer wants
   `all.policy`'s indiscriminate reading on its own merits
   (reconciliation, whose job is project-wide by nature, is the
   plausible first taker), is that consumer's own future design pass,
