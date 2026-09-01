@@ -10,6 +10,16 @@
 # (policy_application). Named separately and consolidated the same
 # way (dsl-syntax.md §4.1's `instances:`) since it is one mechanism —
 # "a tier attaches a reference" — recurring at three sites.
+#
+# ORC-109 adds three more sites under this same mechanism, not a new
+# edge (systems/platform_content.md's own entry): journey->screen
+# ("screen belongs to 0..n journeys", v5 §4.2) and requirements'
+# integration point, resp->journey / resp->screen. All three are
+# ordinary references to already-minted nodes — by the time each
+# citing tier runs (screens after journeys; requirements after both),
+# every node it cites already exists, so none of them is a forward
+# reference the way journey's own informal screen-walk
+# (tiers/journey.yaml, schemas/journeys.xsd) has to be.
 edge: reference
 type: reference
 instances:
@@ -32,4 +42,26 @@ instances:
     declared_in: impl.draft.implementation.references.reference[].@target
     cardinality:
       source: { min: 0 }
+      target: { min: 0 }
+
+  - source: journey
+    target: screen
+    declared_in: screens.draft.screen[].journeys.journey[].@ref
+    cardinality:
+      source: { min: 1 } # a journey walks through >=1 screen
+      target: { min: 0 } # standalone screens are legal (v5 §4.2)
+
+  - source: resp
+    target: journey
+    declared_in: requirements.draft.responsibility[].journeys.journey[].@ref
+    cardinality:
+      source: { min: 0 } # a responsibility may ground in no product surface
+      target: { min: 0 } # a journey may back no responsibility yet
+
+  - source: resp
+    target: screen
+    declared_in: requirements.draft.responsibility[].screens.screen[].@ref
+    cardinality:
+      source: { min: 0 } # requirements prefers a journey ref; direct screen
+      # refs are the fallback for standalone screens (v5 §4.2)
       target: { min: 0 }

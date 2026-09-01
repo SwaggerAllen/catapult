@@ -1,0 +1,20 @@
+# docs/v5-design-decisions.md §7.19, dsl-syntax.md §3.3: a review is
+# a tier, not a nested block. `reviews: journeys` fixes this review's
+# scope, identity and cardinality to journeys' own — not restated.
+# `context:` is the same set of walks as journeys' own, checked at
+# load time rather than trusted. `journey`, the projection tier
+# journeys mints, gets no review tier of its own — the per-tier triad
+# invariant applies to the authored spine, the same way it does for
+# requirements and not for resp (systems/platform_content.md's
+# ORC-109 entry): there is nothing on a `journey` node for a review to
+# read that journeys' own review doesn't already cover.
+tier: journeys_review
+reviews: journeys
+generator: llm
+prompt: prompts/review/journeys.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+delivery:
+  phase: critique
+  agent_step: critique

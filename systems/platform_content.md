@@ -774,6 +774,140 @@ loader tickets carry `system:core_dsl`.
   content being untrusted input, not about there being a second layer
   underneath to escape into.
 
+- **`journeys`/`journey` and `screens`/`screen` land as two more
+  spine-plus-projection pairs, the identical shape `requirements`/
+  `resp` already has** (ORC-109, design pass; `docs/v5-design-decisions.md`
+  §4.1-§4.3). Chain placement: `feature_expansion → journeys → screens
+  → requirements → sysarch → …` — both new tiers sit `scope:
+  per(feature_expansion)`, `context: [self.parent.handle]` (plus the
+  additions below), one `generator: llm` draft authoring every
+  instance in a single pass exactly the way `requirements` authors
+  every `<responsibility>` in one draft rather than one LLM call per
+  responsibility. `journey` and `screen` are each a bare
+  `child_of(journeys)` / `child_of(screens)` projection — `mint.<name>`
+  fields only, `generator: synthesis`, no draft, no prompt, no review
+  — minted by two new `decomposition` instances (`journeys.draft
+  .journey[]`, `screens.draft.screen[]`), the same join-target shape
+  `resp` already has relative to `requirements` and `comp` has
+  relative to `sysarch`. **Not `vocab`'s shape**: `vocab` splits mint
+  (a name+scope stub flagged by its parent) from articulation (vocab's
+  own per-instance LLM call) because `feature_expansion`'s job is
+  deliberately extraction-only (the comment on `feature_expansion.yaml`
+  records why). Neither `journeys` nor `screens` has that reason to
+  split — each is already the tier whose job is to fully author its
+  rows — so the `requirements`/`resp` shape is the one that fits, not
+  `vocab`'s, and no stub block is added to `feature_expansion.xsd` for
+  either. `journey`'s handle carries everything its mint row does
+  (name/slug, argument, `feats`, the ordered screen-walk, the state
+  block) rather than `resp`'s minimal `id, name, feats` — comp's own
+  richer handle over resp's sparser one is the precedent for a
+  join-target handle carrying more than identity when a downstream
+  reader needs the body, and `screens` (below) is exactly that reader.
+  `screen`'s handle is equally rich: slug, purpose, the named state
+  list, the affordance list, displayed data, its own navigation edges,
+  screen group.
+
+  **`screens` also reads every already-minted `journey`**: `context:
+  [self.parent.handle, all.journey.handle]`. `all.journey.handle` —
+  the individual children, not `all.journeys.handle` — is the walk
+  that actually reaches each journey's ordered screen-walk and state
+  block; `journeys`' own handle, like `requirements`' own handle today
+  (`fields: [id, intro]`), carries no per-row content.
+
+  When mock evidence is wired, `feature_expansion` and `screens` gain
+  their walks in the same change — §4.1 names both, and wiring one
+  alone leaves the mechanism half-built.
+
+  This is also why `screens` cannot be `child_of(journey)`: a screen
+  legitimately named by more than one journey's walk (`v5 §4.2`'s
+  "screen belongs to 0..n journeys") would mint as two different nodes
+  under a per-journey fanout, one per referencing journey. `screens`
+  being `per(feature_expansion)` and authoring every screen
+  (journey-driven and standalone alike) in the one pass that already
+  sees every journey is what keeps the pool deduplicated without
+  inventing any mint-time merge the loader doesn't have.
+
+  **The ordered screen-walk stays informal, the same way `<feats>`
+  already is** — a per-journey list of screen slugs inside `journey`'s
+  own mint row, read but not loader-validated, matching every other
+  feature-ish cross-reference in this bundle (features aren't a tier
+  either, and nothing here promotes them to one). What *is* a formal,
+  loader-checked graph fact is screen membership and IA navigation,
+  because both sides are now real tiers:
+  - **`reference` gains three instances**: `source: journey, target:
+    screen, declared_in: screens.draft.screen[].journeys.journey[].@ref`
+    (screen belongs to 0..n journeys — declared on the `screens` side,
+    the same way `dependency`'s comp→comp instance is declared inside
+    `sysarch`'s own draft rather than either comp's; by the time
+    `screens` runs, every `journey` node already exists, so this is an
+    ordinary reference to already-minted nodes, never a forward
+    reference to ones that don't exist yet — cardinality `source:
+    {min: 1}` \[a journey walks through ≥1 screen\], `target: {min: 0}`
+    \[standalone screens are legal\]), and `source: resp, target:
+    journey` / `source: resp, target: screen` (requirements'
+    integration point, below — both permissive, `{min: 0}` each side,
+    since a backend-only responsibility grounds in no product surface
+    at all) — three more sites under the one mechanism this edge
+    already names, not a new edge.
+  - **A new `navigation` edge**: `type: reference`, `navigation: true`,
+    `source: screen, target: screen`, `declared_in: screens.draft
+    .screen[].navigation.edge[].@to`, no `graph_constraint` — this is
+    the edge `docs/dsl-syntax.md`'s existing v5 rule ("navigation edges
+    \[…\] are cyclic-legal reference edges" and "must never appear in a
+    readiness-bearing context walk") already anticipated; this ticket
+    is what actually declares it. Declared inside `screens`' own draft
+    (same document as every screen it connects), so no forward
+    reference here either.
+
+  **Two of the three open questions this ticket named are settled by
+  the shape above, not left open:**
+  - *Whether a journey needs its own review tier*: yes, `journeys_review`
+    (`reviews: journeys`) and `screens_review` (`reviews: screens`) —
+    the per-tier triad invariant applies to the two authored spines the
+    same way it applies to `requirements`; `journey` and `screen`, like
+    `resp` and `comp`, are projections and get no review tier of their
+    own, because there is nothing there for a review to read that
+    `journeys`'/`screens`' own review doesn't already cover.
+  - *Whether requirements re-scopes or just gains walks*: **stays
+    `per(feature_expansion)`, gains `all.journey.handle` and
+    `all.screen.handle`.** Re-scoping to one requirements node per
+    screen would fragment the rotation requirements exists to do —
+    its whole job (seen already in `prompts/requirements.md.liquid`'s
+    own framing, "features onto system-side axes: auth produces
+    several…") is consolidating many surfaces into few cross-cutting
+    responsibilities, which needs one pass seeing every surface at
+    once, not one pass per surface. `<responsibility>` gains journey
+    and screen reference blocks alongside its existing `<feats>` (kept
+    — a responsibility can be grounded in a feature with no product
+    surface yet, and `<feats>` is still the primary grounding); the
+    requirements prompt is instructed to prefer citing a journey over
+    a screen when a responsibility's feature is journey-backed, falling
+    back to a direct screen reference for standalone screens (v5
+    §4.2's own "responsibilities prefer journey references" and "the
+    bridge falls back to screen refs"), and the `reference` edge's
+    resp→journey / resp→screen instances above are what those
+    citations resolve against.
+
+  **The third — screen groups vs. IA regions — is settled in
+  `docs/v5-design-decisions.md` §4.3 itself**, where `screen group`'s
+  semantics are now recorded: a free-form signal into
+  `frontend_sysarch`'s later IA-region grouping (§5.3), not the region
+  itself and not a gate on it — §5.3's own "journeys are a signal, not
+  a gate" rule extended to this field. Nothing here changes because of
+  it: `screen group` was already a plain string in `screens`' grammar,
+  validated against no vocabulary, so this is a semantics-only
+  settlement with no schema consequence for this tier.
+
+  **Not the same "screen" as this repo's own.** `journey`/`screen` are
+  chain tiers a *generated project's* product tier mints; Catapult's
+  own `screens/*.md` is orchestration's native screen machinery and is
+  unrelated (`docs/build-plan.md`'s own standing decision for the
+  build, not a Phase 5 one: "Catapult's product tier … doesn't apply
+  to Catapult itself"). This design pass commits no entry under
+  `screens/` or `storybook/` for that reason — there is no UI screen
+  here to define, only chain content, and chain content is dev's to
+  write into `bundles/**`.
+
 ## Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

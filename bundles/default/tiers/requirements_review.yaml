@@ -12,6 +12,8 @@ prompt: prompts/review/requirements.md.liquid
 grammar: schemas/review.xsd
 context:
   - self.parent.handle
+  - all.journey.handle
+  - all.screen.handle
 delivery:
   phase: critique
   agent_step: critique

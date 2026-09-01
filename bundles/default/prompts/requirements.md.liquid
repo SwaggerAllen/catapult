@@ -21,6 +21,16 @@ each one with the feature IDs that implicate it.
 
 Feature expansion handle: {{ parent }}
 
+Journeys (each an end-to-end path through the product):
+{% for j in journey %}
+- `{{ j.id }}` — {{ j.name }}: {{ j.argument }}
+{% endfor %}
+
+Screens (every defined surface, journey-linked and standalone alike):
+{% for s in screen %}
+- `{{ s.id }}` — {{ s.slug }}: {{ s.purpose }}
+{% endfor %}
+
 # Output format
 
 Output two top-level blocks in this order: `<introduction>` and
@@ -30,8 +40,9 @@ ambiguities you had to resolve. Keep it compact; the atoms themselves
 carry the load.
 
 After `<introduction>`, output a single `<requirements>` block.
-Inside it, each `<responsibility>` has this exact shape — one
-`<name>` and one `<feats>` block, nothing else:
+Inside it, each `<responsibility>` has one `<name>` and one `<feats>`
+block, optionally followed by a `<journeys>` block, a `<screens>`
+block, or both — nothing else:
 
     <introduction>
     Rotating login, password-reset, permission, and invoicing
@@ -59,6 +70,9 @@ Inside it, each `<responsibility>` has this exact shape — one
         <feats>
           <feat id="feat_login01"/>
         </feats>
+        <journeys>
+          <journey ref="journey_signin01"/>
+        </journeys>
       </responsibility>
       <responsibility>
         <name>sign-in rate limit</name>
@@ -83,6 +97,9 @@ Inside it, each `<responsibility>` has this exact shape — one
         <feats>
           <feat id="feat_admin99"/>
         </feats>
+        <screens>
+          <screen ref="screen_roleset01"/>
+        </screens>
       </responsibility>
       <responsibility>
         <name>per-request access decision</name>
@@ -96,6 +113,9 @@ Inside it, each `<responsibility>` has this exact shape — one
         <feats>
           <feat id="feat_invoice"/>
         </feats>
+        <journeys>
+          <journey ref="journey_checkout1"/>
+        </journeys>
       </responsibility>
       <responsibility>
         <name>grace-period countdown</name>
@@ -123,8 +143,9 @@ That is the rotation.
 # Rules
 
 * Each `<responsibility>` has exactly one `<name>` and exactly one
-  `<feats>` block. No other tags — no `<scope>`, no `<intent>`, no
-  `<failure-surface>`, no `<owns>`, no `<supports>`, no
+  `<feats>` block, optionally followed by one `<journeys>` block, one
+  `<screens>` block, or both. No other tags — no `<scope>`, no
+  `<intent>`, no `<failure-surface>`, no `<owns>`, no `<supports>`, no
   `<does-not-own>`. The structure is the spec.
 * `<name>` is a short noun phrase (2–8 words, typically lowercase)
   naming **one** system-side concern. Good examples: "append-only
@@ -152,6 +173,21 @@ That is the rotation.
   direct feature cause — an append-only event log, a reducer
   entrypoint, a per-project sandbox root. Use this when the atom is
   real but no user-facing feature names it.
+* **Ground a responsibility in a journey when its feature is
+  journey-backed; fall back to a direct screen reference only for a
+  standalone screen.** `<journeys>` is a flat list of zero or more
+  `<journey ref="journey_..."/>` children; `<screens>` is the same
+  shape for `<screen ref="screen_..."/>`. Journey-level aggregation is
+  what lets sysarch (downstream) see a transaction or a lifecycle
+  instead of a bag of per-screen actions — prefer it whenever one of
+  the responsibility's feats is manifested by a journey in the input
+  list above. Cite a screen directly only when the surface that
+  grounds this responsibility is a standalone screen (settings,
+  admin), named by no journey. Both blocks are optional and may be
+  empty or omitted entirely — a responsibility with no product surface
+  yet (a platform-NFR atom, a not-yet-designed capability) carries
+  neither. `ref` values must match an `id` from the journey or screen
+  list above exactly; do not invent ids.
 * **Name-dedup (enforced).** No two atoms share a name (case- and
   whitespace-insensitive). If two candidates would collide, they are
   either the same atom (merge them) or need sharper names that

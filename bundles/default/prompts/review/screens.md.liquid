@@ -1,0 +1,38 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- **Does every screen a journey's walk names get a matching
+  definition, at the same slug?** Cross-check `<screens>` against the
+  journey catalog in this prompt's own input — a walked slug with no
+  definition, a renamed slug, or a duplicate slug is a structural gap
+  the loader may not catch on its own.
+- **Are `<states>` genuinely distinct renderings, not padding or
+  omission?** Flag a screen missing `loading`/`error` when it clearly
+  fetches or submits data; flag a state name with nothing materially
+  different to show (a `<states>` list that's just decorative
+  variation on `default`).
+- **Is every `<affordance>` a real, distinct action?** Flag two
+  affordances that are really one action split in two, or one
+  affordance whose `<action>`/`<intent>` bundles two unrelated things
+  ("submit and cancel"). Flag a screen whose `<displayed-data>`
+  implies an action (a delete button visible in the mock, an edit
+  affordance the prose assumes) with no corresponding `<affordance>`.
+- Is `<displayed-data>` specific enough to build a layout from? Flag
+  "shows the user's data" or similar category-speak; it should name
+  the actual fields and views.
+- **Is `<journeys>` membership accurate?** A screen a journey's walk
+  names should carry that journey's `ref`; a screen with no
+  `<journeys>` should genuinely be standalone (settings, an about
+  page), not a step some journey's walk forgot to claim.
+- **Is `<navigation>` neither missing the obvious edges nor treated as
+  a completeness gate?** Flag a screen with no plausible way to reach
+  it or leave it. Do not flag a navigation cycle, a screen with no
+  outgoing edges of any consequence, or an "unreachable" reading based
+  on navigation edges alone — navigation is never readiness-bearing,
+  and a screen with real affordances but a thin nav graph is not
+  automatically a defect.
+- Is `<screen-group>` used consistently where it's used at all? It's
+  a free-form signal into later IA-region grouping, not a gate — don't
+  flag its absence, but do flag two screens that are obviously the
+  same collection carrying different group strings.
