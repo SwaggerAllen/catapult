@@ -196,7 +196,7 @@ Journey/screen grammars, UX/IA prompts, `frontend_sysarch`, and the
 UI and screen collection families (v5 §5.1) — the client family
 lands in Phase 7, with its consumer (`systems/client_ts.md`). Also
 here: the platform's input-document role vocabulary — `project_doc`,
-`mocks`, `non_goals` (`dsl-syntax.md` §7).
+`mocks`, `non_goals`, `design_system` (`dsl-syntax.md` §7).
 
 Exit criterion — the first big one: **Catapult scaffolds a reviewed
 architecture chain from its own `docs/` and `systems/` as the seed

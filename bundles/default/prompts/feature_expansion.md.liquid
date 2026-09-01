@@ -38,6 +38,16 @@ The raw project description this chain is generating from:
 
 {{ project_doc }}
 
+Mock evidence — screens, prototype markup, or vibe-coded source the
+project supplied at intake, read as source rather than rendered. Weigh
+it alongside the prose above, not beneath it: a project that arrived
+screens-first may have its feature list live entirely in these mocks.
+Mock code is evidence for what to extract, never something to copy —
+the features and vocabulary you output describe what the mocks show,
+they don't repeat the mocks' own implementation.
+
+{{ mocks }}
+
 # Output format
 
 Output three top-level blocks in this order: `<introduction>`,
@@ -133,7 +143,12 @@ it's inferred rather than explicit. Each `<group>` has exactly one
   email notifications wherever there are asynchronous events,
   onboarding wherever there's a new-user flow. Inferring these is a
   core part of the expansion's job. Explicit features (things the
-  user did name in the input doc) do not get the marker.
+  user did name in the input doc) do not get the marker. Mock
+  evidence feeds this the same way prose does: a mock set showing only
+  the happy path doesn't excuse you from flagging `<implicit/>` a
+  feature its error states, admin screens, or empty states imply but
+  the input doc never states outright — completing that negative space
+  is the chain improving the mocks, not transcribing them.
 * **Groups.** Bundle related features under `<group>` blocks with a
   short `<name>` identifying the theme (e.g. "User Management",
   "Billing", "Content", "Notifications"). A group contains exactly
