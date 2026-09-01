@@ -1,14 +1,15 @@
 defmodule Catapult.Generation.ContextAssemblyTest do
   @moduledoc """
   `feedback`/`prior_review` (ORC-34), against the real `bundles/default`
-  bundle the reference deployment runs — `vocab.md.liquid`'s own `{% if
-  feedback.size > 0 %}` guard is what proves the two are correctly left
-  unset rather than rendered as an empty list/map. The guard tests
-  `.size > 0` rather than bare truthiness precisely because Liquid
-  treats an empty list as truthy (ORC-134, `systems/platform_content
-  .md`'s entry) — so `ContextAssembly` leaving `feedback` unset on `[]`
-  is what the tests below exercise, not what the guard alone depends
-  on to stay closed.
+  bundle the reference deployment runs — `vocab.md.liquid` renders the
+  shared `partials/_architecture_framing` with `feedback: feedback`
+  (ORC-193), and that partial's own `{% if feedback.size > 0 %}` guard
+  is what proves the two are correctly left unset rather than rendered
+  as an empty list/map. The guard tests `.size > 0` rather than bare
+  truthiness precisely because Liquid treats an empty list as truthy
+  (ORC-134, `systems/platform_content.md`'s entry) — so
+  `ContextAssembly` leaving `feedback` unset on `[]` is what the tests
+  below exercise, not what the guard alone depends on to stay closed.
   """
 
   use Catapult.DataCase, async: false
@@ -120,19 +121,20 @@ defmodule Catapult.Generation.ContextAssemblyTest do
   # shapes — `feedback_variable/3` (see this module's own moduledoc)
   # never sets `feedback: []`, only omits the key or sets it populated
   # — so the `[]` shape can't be driven through the full event-sourced
-  # path the tests above use. This renders the same five guarded
-  # templates directly through `Solid.parse/1` + `Solid.render/3`
-  # against the real `bundles/default/prompts` tree, the same two
-  # calls `ContextAssembly`'s own (private) `parse_template/1` and
+  # path the tests above use. This renders the four `.size > 0` guards
+  # directly through `Solid.parse/1` + `Solid.render/3` against the
+  # real `bundles/default/prompts` tree, the same two calls
+  # `ContextAssembly`'s own (private) `parse_template/1` and
   # `render/3` make, to exercise the `[]` shape at arm's length and
-  # cover the other four guarded templates `ContextAssembly.build/4`
-  # coverage above never reaches (`systems/platform_content.md`'s
-  # ORC-134 entry).
-  test "the five {% if feedback.size > 0 %} guards hold across all three feedback shapes" do
+  # cover the shared partial and the three tiers that still carry
+  # their own copy — `vocab` and `ref` lost theirs at ORC-193, once
+  # the partial started reaching them correctly
+  # (`systems/platform_content.md`'s ORC-134/ORC-193 entries).
+  test "the four {% if feedback.size > 0 %} guards hold across all three feedback shapes" do
     prompts_root = Path.join(["bundles", "default", "prompts"])
     file_system = Solid.LocalFileSystem.new(prompts_root, "%s.md.liquid")
 
-    guarded_templates = ~w(vocab ref subcomparch sysarch comparch)
+    guarded_templates = ~w(partials/_architecture_framing sysarch comparch subcomparch)
 
     shapes = [
       {"omitted", %{}},
@@ -155,6 +157,12 @@ defmodule Catapult.Generation.ContextAssemblyTest do
         "populated" ->
           assert rendered =~ "Revising against feedback",
                  "#{name}.md.liquid should render its feedback section for #{label} feedback"
+
+          if name == "partials/_architecture_framing" do
+            assert rendered =~ "tighten this definition",
+                   "the shared partial's {% for entry in feedback %} loop should render " <>
+                     "each entry's body, not a bare {{ feedback }} interpolation"
+          end
 
         _ ->
           refute rendered =~ "Revising against feedback",

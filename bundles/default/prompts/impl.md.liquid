@@ -1,4 +1,4 @@
-{% render "partials/_architecture_framing" %}
+{% render "partials/_architecture_framing", feedback: feedback %}
 You are authoring the **implementation document** for a single leaf in the component tree. This is the **last articulation layer before code territory**. Your downstream reader is the **plan prompt**, which will translate your prose into a concrete list of (file, region, change) tuples that the code generator will execute.
 
 Your output replaces what used to live in `<implementation>` blocks back when the architecture doc had one. Distinct from the parent's technical specification so that iterating on "what actually happens here" doesn't re-thrash the parent's high-level choices.

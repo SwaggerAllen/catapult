@@ -428,13 +428,14 @@ loader tickets carry `system:core_dsl`.
   never bare truthiness** (ORC-134). Liquid counts an empty list as
   truthy — only `nil` and `false` are falsy — so `{% if feedback %}`
   opens its section on every render the moment a caller passes `[]`
-  instead of omitting the key. Five shipped prompts gate a revision
-  section this way (`vocab`, `ref`, `subcomparch`, `sysarch`,
-  `comparch`), and the shared `partials/_architecture_framing` carries
-  the identical guard though its own copy cannot fire (below) — the
-  rule is about the spelling, not about which copies fire, so it
-  reaches all six. It generalizes further still: it is the
-  bundle-authoring rule for any future prompt gating on a collection.
+  instead of omitting the key. The shared `partials/_architecture_framing`
+  carries the guard once; `sysarch`, `comparch` and `subcomparch` each
+  carry their own second copy, guarding the tier-specific "preserve X,
+  when the feedback says Y do Z" content the partial doesn't have
+  (below, ORC-193) — the rule is about the spelling, not about which
+  copies fire, so it reaches all four. It generalizes further still: it
+  is the bundle-authoring rule for any future prompt gating on a
+  collection.
 
   **It is a rule spanning two trees, which is why it is recorded here
   and not only in the code.** `Catapult.Generation.ContextAssembly`
@@ -448,29 +449,112 @@ loader tickets carry `system:core_dsl`.
   moduledoc. The Solid mechanics behind the spelling live there too,
   including why a filter pipe is not available inside a conditional
   under `Solid.parse/1`. `test/catapult/generation/context_assembly
-  _test.exs` holds all five templates with a working top-level guard
-  against all three shapes, so these are the suite's claims rather than
-  the next reader's to re-derive by reading `deps/solid`.
+  _test.exs` held all five templates with a working top-level guard
+  against all three shapes; ORC-193's dev pass narrows that to the four
+  named above once `vocab` and `ref` lose their own redundant copy —
+  these are the suite's claims to keep current, not the next reader's
+  to re-derive by reading `deps/solid`.
 
-  **The shared partial's own copy of this guard cannot fire today, and
-  that is a hook, not cruft to prune (ORC-184).** `{% render
+  **Corrected at ORC-193: the shared partial's own copy of this guard
+  being inert was not a hook waiting on a future caller — it was
+  masking two live defects, and the five prompts' own top-level copies
+  were never the working half ORC-184 took them for.** `{% render
   "partials/<name>" %}` isolates the partial's scope from its caller's
-  unless the call passes `with`/`for` (`deps/solid`'s `RenderTag`); none
-  of `partials/_architecture_framing`'s call sites across
-  `bundles/default/{prompts,flows}/**` do, so `feedback` and `draft`
-  never enter its scope and its `{% if feedback.size > 0 %}` block is
-  inert. What actually gates a revision section today is each of the
-  five shipped prompts' own top-level copy of the same guard —
-  `vocab`, `ref`, `subcomparch`, `sysarch` and `comparch` — reading
-  the `feedback` (and, on a review tier's own prompt, `draft`)
-  `ContextAssembly` puts directly in *that* prompt's context —
-  `dsl-syntax.md` §9's "generation and review templates for a tier
-  receive identical context plus `draft`". The partial's copy stands
-  ready for the day a caller starts rendering it `with feedback:
-  feedback, draft: draft` instead of bare; deleting it now would mean
-  re-deriving the exact `.size > 0` reasoning above a second time when
-  that caller arrives. Until then it renders nothing and gates nothing,
-  which is expected, not a defect.
+  unless the call passes arguments (`deps/solid`'s `RenderTag` — a
+  `with`/`for` binding, or a plain comma-separated `key: value` list);
+  none of `partials/_architecture_framing`'s thirteen call sites across
+  `bundles/default/{prompts,flows}/**` do, so `feedback` never enters
+  its scope and its `{% if feedback.size > 0 %}` block has never fired,
+  on any tier or flow. `draft` was never going to enter that scope
+  either way: it is generation-prompt-off-limits by `dsl-syntax.md`
+  §9's own design (`Catapult.Generation.ContextAssembly.build_variables/5`
+  sets it only for a review tier's own dispatch), and every one of the
+  thirteen call sites is a generation tier. That half of ORC-184's
+  entry stands — the correction is the other half.
+
+  ORC-184 read the five prompts' own top-level guards (`vocab`, `ref`,
+  `subcomparch`, `sysarch`, `comparch`) as "what actually gates a
+  revision section today," on the reasoning that they read `feedback`
+  directly from `ContextAssembly`'s own context rather than through the
+  isolated partial. True as far as it goes, and not far enough: none of
+  the five ever interpolates `{{ feedback }}` — they gate on
+  `feedback.size > 0` and then emit static prose ("preserve everything
+  the feedback doesn't ask you to change") that never shows the model
+  what the feedback said. A firing guard with nothing behind it is not
+  the working half of anything; it is a second inert copy that merely
+  fails silently instead of failing loud.
+
+  Worse, had the partial's own copy been made to fire by passing
+  `feedback` through unmodified — `{% render
+  "partials/_architecture_framing", feedback: feedback %}` and its
+  fellow twelve — its bare `{{ feedback }}` would not have started
+  rendering the comment text either. `feedback` is a list of maps
+  (`body`/`locator`/`author_id`/`posted_at`); Solid's list-stringify
+  path flattens and `Enum.join`s, which calls `to_string` per element,
+  and a bare Elixir map has no `String.Chars` implementation — verified
+  directly against `deps/solid`: `{{ feedback }}` on a non-empty list
+  raises `Protocol.UndefinedError`, not a wrong rendering. So the
+  straightforward-looking fix (pass the variable, leave the
+  interpolation as written) would have turned "the model never sees
+  feedback" into "generation crashes the first time any node carries
+  feedback" — a regression the partial's dead guard was accidentally
+  shielding against. **A `feedback`-shaped collection is rendered via
+  `{% for entry in feedback %}`, printing the fields the model needs
+  (`entry.body`, `entry.author_id`, `entry.posted_at`), never
+  interpolated bare** — the same "spelling, not which copies fire"
+  generalization the `.size > 0` entry above makes, extended to cover
+  what a collection guard's own body does once it opens.
+
+  That rule is the suite's to hold, not the next reader's to re-verify
+  against `deps/solid`. ORC-193's dev pass extends
+  `context_assembly_test.exs`'s direct-render harness (`Solid.parse/1`
+  + `Solid.render/3` against the real `bundles/default/prompts` tree,
+  cited above) to parse and render the partial file itself against the
+  same populated shape that harness already drives through the guarded
+  templates — `%{"feedback" => [%{"body" => "..."}]}`, string-keyed
+  because that is what Solid resolves against — asserting the `{% for
+  entry in feedback %}` loop renders each entry's fields. That is the
+  coverage a bare `{{ feedback }}` would fail, which is what makes the
+  spelling above a checked rule rather than a remembered one.
+
+  The fix: all thirteen call sites pass `feedback` explicitly using
+  that corrected form, so the partial's guard and its `{% for %}` loop
+  finally reach every tier and flow. `{{ draft }}` and the "Current
+  draft is below" framing are retired from the partial along with it —
+  not wired through, since nothing will ever populate it there — and
+  the section is reworded around what a generation-tier regeneration
+  actually has: the feedback text, and the same upstream `context:`
+  the tier's fresh-generation half already reads. `vocab` and `ref`'s
+  own top-level guards, which duplicated the partial's generic framing
+  without ever showing the feedback either, are retired outright once
+  the partial reaches them correctly. `sysarch`, `comparch` and
+  `subcomparch` keep their own guards — a different location in the
+  file from the partial's render call at the top, so the partial firing
+  there doesn't reach it — but trimmed to only the tier-specific
+  "preserve X, when the feedback says Y do Z" bullets ported from their
+  `modify_*.md` sources; the generic preamble those three also carried
+  is dropped in favor of the partial's single copy. Three shipped
+  prompts carry their own guard after this fix, not five.
+
+  **What this does not close.** Even with the feedback text now
+  visible, "preserve every alias, dep edge and policy the feedback
+  doesn't touch, verbatim" — the tier-specific content `sysarch`,
+  `comparch` and `subcomparch` keep — asks the model to round-trip a
+  body it is never shown: `draft` stays off-limits to a generation
+  tier's own prompt regardless of what this fix does, so nothing here
+  gives the model a baseline to preserve *against*. That gap predates
+  this ticket (it was already true of the five prompts' guards before
+  ORC-193, just masked by the guards never printing the feedback that
+  would have made someone notice), and closing it for real means either
+  admitting `draft` to a generation tier's prompt specifically when it
+  is regenerating over feedback — narrowing, not repealing, §9's
+  "review-tier alone" rule — or replacing the verbatim-preservation
+  instruction with something achievable without it. Left open here
+  because it is a standing-invariant question spanning `dsl-syntax.md`
+  §9/§3.3, `systems/generation.md`'s own restatement of the same rule,
+  and this doc, not a call-convention fix; a future ticket's to settle,
+  named rather than silently carried forward as unenforceable prompt
+  text.
 
 - **Every `agent_step: design` tier's `delivery.phase` across
   `bundles/default/tiers/**` stays uniformly `generation` (never
