@@ -7,6 +7,15 @@
   prompt's own words). What changed is downstream: each responsibility
   now mints a resp node (the `decomposition` edge's requirements->resp
   instance, edges/decomposition.yaml) rather than staying a field here.
+
+  ORC-109 adds two optional blocks per <responsibility>: <journeys>
+  and <screens>, the resp->journey / resp->screen instances of
+  edges/reference.yaml — requirements' own integration point with the
+  product tier (v5 §4.2's "responsibilities prefer journey references
+  over screen references"; the fallback to a direct screen ref is for
+  standalone screens). <feats> is kept as the primary grounding — a
+  responsibility can be grounded in a feature with no product surface
+  yet (systems/platform_content.md's ORC-109 entry).
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
@@ -20,10 +29,32 @@
     </xs:sequence>
   </xs:complexType>
 
+  <xs:complexType name="JourneyRefs">
+    <xs:sequence>
+      <xs:element name="journey" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="ref" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ScreenRefs">
+    <xs:sequence>
+      <xs:element name="screen" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="ref" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
   <xs:complexType name="Responsibility">
     <xs:sequence>
       <xs:element name="name" type="xs:string"/>
       <xs:element name="feats" type="Feats"/>
+      <xs:element name="journeys" type="JourneyRefs" minOccurs="0"/>
+      <xs:element name="screens" type="ScreenRefs" minOccurs="0"/>
     </xs:sequence>
   </xs:complexType>
 

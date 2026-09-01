@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  New tier, no siege precedent — v5 §4.3's grammar: slug, purpose,
+  manifested features, named state list, affordance list (action,
+  intent, data in/out), displayed data, navigation edges, screen
+  group. `screens` mints one `screen` node per <screen> row here via
+  the `decomposition` edge (edges/decomposition.yaml).
+
+  The <journeys> block is the formal, loader-checked "screen belongs
+  to 0..n journeys" fact (edges/reference.yaml's journey->screen
+  instance), declared here, on the screens side, rather than inside
+  journeys.xsd's own informal <screens> walk, because every journey
+  already exists by the time screens runs and journeys.xsd's own walk
+  is a forward reference that can't be checked yet
+  (systems/platform_content.md's ORC-109 entry). Empty is legal;
+  standalone screens (settings) are (v5 §4.2).
+
+  <navigation> is the cyclic-legal, never-readiness-bearing edge
+  (edges/navigation.yaml, dsl-syntax.md §4's v5 rule), declared here,
+  per-screen, rather than as a project-wide list, since both
+  endpoints already exist in this same committed draft.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Feats">
+    <xs:sequence>
+      <xs:element name="feat" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- State names are storybook variation names (v5 §4.3), decided
+       once here; the delivery-time screen doc, the stories, the CI
+       variation audit and reconciliation all inherit it. -->
+  <xs:complexType name="States">
+    <xs:sequence>
+      <xs:element name="state" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Affordances are the contract check (v5 §4.3): reconciliation
+       verifies the landed screen exposes them; the audit verifies
+       each maps to a reachable backend export. -->
+  <xs:complexType name="Affordance">
+    <xs:sequence>
+      <xs:element name="action" type="xs:string"/>
+      <xs:element name="intent" type="xs:string"/>
+      <xs:element name="data-in" type="xs:string" minOccurs="0"/>
+      <xs:element name="data-out" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Affordances">
+    <xs:sequence>
+      <xs:element name="affordance" type="Affordance" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="JourneyRefs">
+    <xs:sequence>
+      <xs:element name="journey" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="ref" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Navigation">
+    <xs:sequence>
+      <xs:element name="edge" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Screen">
+    <xs:sequence>
+      <xs:element name="slug" type="xs:string"/>
+      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="feats" type="Feats"/>
+      <xs:element name="states" type="States"/>
+      <xs:element name="affordances" type="Affordances"/>
+      <xs:element name="displayed-data" type="xs:string"/>
+      <xs:element name="screen-group" type="xs:string" minOccurs="0"/>
+      <xs:element name="journeys" type="JourneyRefs" minOccurs="0"/>
+      <xs:element name="navigation" type="Navigation" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="screens">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="screen" type="Screen" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

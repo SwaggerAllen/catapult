@@ -16,6 +16,13 @@ Checklist for this tier:
   event log, a pure reducer entrypoint, a per-project sandbox — these
   typically have no direct feature cause but belong in the atom list
   with `<feats/>` empty.
+- **Do `<journeys>`/`<screens>` citations follow the preference rule?**
+  Flag a responsibility that cites a screen directly when one of its
+  feats is manifested by a journey in the input list — that should be
+  a `<journeys>` reference instead, unless the screen is genuinely
+  standalone. Flag an invented `ref` id that doesn't match the journey
+  or screen catalog. Don't flag the absence of either block on a
+  responsibility with no product surface yet (a platform-NFR atom).
 - **Are platform-NFR concerns atomized?** Rate limiting, audit
   logging, token/cost telemetry, circuit breakers and fuses on
   external calls, retry with backoff, encryption at rest, credential
