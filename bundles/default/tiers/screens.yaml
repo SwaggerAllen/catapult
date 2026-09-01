@@ -12,7 +12,11 @@
 # that actually reaches each journey's ordered screen-walk and state
 # block, so this pass can author matching screens before the formal
 # journey->screen reference (edges/reference.yaml) exists to check
-# against.
+# against. `input.mocks` (ORC-110, systems/platform_content.md) reads
+# mock evidence directly at this tier rather than only through
+# feature_expansion's own extraction — visual and state evidence
+# shapes screen definitions without surviving two abstraction
+# rotations first.
 tier: screens
 scope: per(feature_expansion)
 identity: id
@@ -31,6 +35,7 @@ prompt: prompts/screens.md.liquid
 context:
   - self.parent.handle
   - all.journey.handle
+  - input.mocks
 delivery:
   phase: generation
   agent_step: design

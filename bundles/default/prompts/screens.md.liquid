@@ -28,6 +28,19 @@ Journeys (each with its ordered screen walk and state block):
   - abandonment: {{ j.state.abandonment }}
 {% endfor %}
 
+Mock evidence — screens, prototype markup, or vibe-coded source the
+project supplied at intake, read as source rather than rendered. Where
+it exists, weigh it directly against the states and affordances rules
+below: a mock showing a delete button implies an `<affordance>` even
+if no journey's walk names it, and a `<displayed-data>` detail visible
+in the mock belongs in that block whether or not prose ever mentioned
+it. A mock set showing only the happy path doesn't excuse narrower
+states (`empty`, `error`, `denied`) the screen's behavior implies —
+naming the negative space the mocks don't show is the chain improving
+them, not transcribing them.
+
+{{ mocks }}
+
 # Output format
 
 Output two top-level blocks in this order: `<introduction>` and

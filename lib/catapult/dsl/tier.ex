@@ -76,9 +76,9 @@ defmodule Catapult.Dsl.Tier do
         }
 
   @identities ~w(id alias name)
-  @generators ~w(llm git_commit synthesis webhook external template)
+  @generators ~w(llm git_commit synthesis webhook external template supplied)
   @core_keys ~w(tier scope scope_filter identity fields handle draft generator prompt
-                executor context produces delivery enforcement)
+                executor context produces delivery enforcement source)
 
   # dsl-syntax.md §3.3: everything a generation tier declares that a
   # review tier's cardinality/scope-by-construction makes redundant, and
@@ -344,6 +344,22 @@ defmodule Catapult.Dsl.Tier do
   defp parse_generator_opts(raw, "template", where) do
     {template, tp} = Fields.require_string(raw, "template", where)
     {%{template: template}, tp}
+  end
+
+  defp parse_generator_opts(raw, "supplied", where) do
+    case Fields.require_string(raw, "source", where) do
+      {nil, problems} ->
+        {%{}, problems}
+
+      {source, []} ->
+        case ContextWalk.parse(source) do
+          {:ok, %ContextWalk{source: :input, role: role}} when is_binary(role) ->
+            {%{source: source, role: role}, []}
+
+          _other ->
+            {%{}, ["#{where} \"source\" #{inspect(source)} is not input.<role>"]}
+        end
+    end
   end
 
   defp parse_generator_opts(_raw, _other, _where), do: {%{}, []}

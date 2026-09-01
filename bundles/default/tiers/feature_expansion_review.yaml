@@ -13,6 +13,7 @@ prompt: prompts/review/feature_expansion.md.liquid
 grammar: schemas/review.xsd
 context:
   - input.project_doc
+  - input.mocks
 delivery:
   phase: critique
   agent_step: critique

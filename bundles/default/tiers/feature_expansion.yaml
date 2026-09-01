@@ -29,6 +29,7 @@ executor:
 prompt: prompts/feature_expansion.md.liquid
 context:
   - input.project_doc
+  - input.mocks
 delivery:
   phase: generation
   agent_step: design
