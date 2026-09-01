@@ -28,3 +28,7 @@ Shipped (archived from the tracker; this note is what duplicate detection reads,
 - ORC-184 — partials/_architecture_framing.md.liquid's own feedback-revision block never renders — {% render %} isolates scope from every one of its 9 call sites (merged 75f705ada92dd9352d02f2b20e7cc85189e26f21)
 - ORC-187 — Docs coherence sweep: six places the record contradicts the tree or itself after ORC-141/148/151/155
 - ORC-188 — board_live and ticket_live's moduledocs still route a code reader to a Linear hand-back for a decision that now has a real home (merged 242e73a163e19e99fa9b7912bfeabaec1c03e7e4)
+- ORC-193 — No prompt in the default bundle ever renders `{{ feedback }}` or `{{ draft }}` — both live only inside a partial unreachable from all 13 render call sites (merged 9ff0bf8fe34aa84c0a2f6e8132dd3dbc93123a97)
+- ORC-194 — bin/preview-build.sh's storybook export crashes on the first alphabetical screen — assign/3 rejects a plain assigns map (merged f499352ecf7f3eb489ebfe6fcd22d81fa6e2a62f)
+- ORC-198 — Type.namespaced_positions/1 keys ambiguity on display name, not on status: kind — two same-kind entries with distinct name: overrides get no anchor (merged e76694446d313c2380d381b949268501680edf38)
+- ORC-200 — Docs coherence after ORC-177 and ORC-184: retired symbols still referenced live, two stale kind counts, unqualified `feature.yaml` citations, and no check that relocated reasoning lands (merged d670f61b56529c16c72f444afed2c4b8d0c24cc8)
