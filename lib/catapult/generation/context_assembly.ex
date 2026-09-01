@@ -39,8 +39,8 @@ defmodule Catapult.Generation.ContextAssembly do
   """
 
   alias Catapult.Delivery
+  alias Catapult.Dsl.BundlePath
   alias Catapult.Dsl.Chain
-  alias Catapult.Dsl.Extends
   alias Catapult.Engine.Projections.CommentFeedback
   alias Catapult.Engine.Projections.ContextResolver
   alias Catapult.Engine.Store
@@ -190,15 +190,11 @@ defmodule Catapult.Generation.ContextAssembly do
   end
 
   defp resolve_prompt(%Chain{name: bundle_name}, %{prompt: prompt}) when is_binary(prompt) do
-    case Extends.load_layers(bundles_root(), bundle_name) do
-      {:ok, layers} ->
-        case Extends.resolve_content_path(layers, prompt) do
-          nil -> {:error, {:prompt_not_found, prompt}}
-          path -> {:ok, path}
-        end
+    dir = Path.join(bundles_root(), bundle_name)
 
-      {:error, reason} ->
-        {:error, {:prompt_not_found, inspect(reason)}}
+    case BundlePath.resolve(dir, prompt) do
+      nil -> {:error, {:prompt_not_found, prompt}}
+      path -> {:ok, path}
     end
   end
 
@@ -209,12 +205,12 @@ defmodule Catapult.Generation.ContextAssembly do
 
   # sobelow_skip ["Traversal.FileModule"]
   #
-  # `path` cannot leave the bundle: `Catapult.Dsl.Extends
-  # .resolve_content_path/2` is the only thing that produces it, and it
-  # refuses any candidate that expands outside its layer directory —
-  # covered by `Catapult.Dsl.ExtendsTest`'s containment cases, including
-  # the escape this annotation would otherwise be hiding. The skip is
-  # here because sobelow reads the call site and cannot see the guard
+  # `path` cannot leave the bundle: `Catapult.Dsl.BundlePath.resolve/2`
+  # is the only thing that produces it, and it refuses any candidate
+  # that expands outside the bundle directory — covered by
+  # `Catapult.Dsl.BundlePathTest`'s containment cases, including the
+  # escape this annotation would otherwise be hiding. The skip is here
+  # because sobelow reads the call site and cannot see the guard
   # upstream of it, not because the finding was waved through: it was a
   # real traversal, reproduced against /etc/passwd, and fixed at the
   # resolver rather than suppressed here.

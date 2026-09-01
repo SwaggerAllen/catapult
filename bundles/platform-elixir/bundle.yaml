@@ -1,8 +1,0 @@
-name: platform-elixir
-version: "1.0.0"
-kind: chain
-# No extends: — this is the base layer other chain bundles extend.
-tiers: []
-edges: []
-fragments: []
-flows: []

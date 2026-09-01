@@ -1,8 +1,8 @@
 defmodule Catapult.Dsl.Chain do
   @moduledoc """
   Loads and validates one `kind: chain` bundle end to end
-  (dsl-syntax.md §1-§8, §11, §13): resolves its `extends:` layers,
-  parses every tier/edge/flow file, then runs the cross-reference and
+  (dsl-syntax.md §1-§8, §11, §13): reads its one directory, parses
+  every tier/edge/flow file, then runs the cross-reference and
   acyclicity checks that need the whole bundle in view. All problems
   at once, the way `Catapult.Component.Composer` and `Catapult.Config`
   already do it in this codebase.
@@ -10,7 +10,6 @@ defmodule Catapult.Dsl.Chain do
 
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Dsl.Edge
-  alias Catapult.Dsl.Extends
   alias Catapult.Dsl.Flow
   alias Catapult.Dsl.Graph, as: DslGraph
   alias Catapult.Dsl.Manifest
@@ -55,13 +54,13 @@ defmodule Catapult.Dsl.Chain do
   @doc "Loads and validates the chain bundle named `name` under `bundles_root`."
   @spec load(String.t(), String.t(), Registry.t()) :: {:ok, t()} | {:error, [String.t()]}
   def load(bundles_root, name, %Registry{} = registry) do
-    manifest_path = Path.join([bundles_root, name, "bundle.yaml"])
+    dir = Path.join(bundles_root, name)
+    manifest_path = Path.join(dir, "bundle.yaml")
 
     with {:ok, raw} <- Yaml.read(manifest_path),
          {:ok, manifest} <- Manifest.parse(manifest_path, raw),
-         {:ok, manifest} <- require_kind(manifest, "chain"),
-         {:ok, layers} <- Extends.chain(bundles_root, Path.join(bundles_root, name), manifest) do
-      build(name, layers, registry)
+         {:ok, manifest} <- require_kind(manifest, "chain") do
+      build(dir, manifest, registry)
     end
   end
 
@@ -75,17 +74,17 @@ defmodule Catapult.Dsl.Chain do
      ]}
   end
 
-  defp build(name, layers, registry) do
-    tier_files = Extends.resolve_files(layers, :tier_globs)
-    edge_files = Extends.resolve_files(layers, :edge_globs)
-    flow_files = Extends.resolve_files(layers, :flow_globs)
-    fragments = Extends.fragment_vocabulary(layers)
+  defp build(dir, manifest, registry) do
+    tier_files = resolve_globs(dir, manifest.tier_globs)
+    edge_files = resolve_globs(dir, manifest.edge_globs)
+    flow_files = resolve_globs(dir, manifest.flow_globs)
+    fragments = manifest.fragments
 
     {tiers, tier_problems} = parse_all(tier_files, Tier)
     {edges, edge_problems} = parse_all(edge_files, Edge)
     {flows, flow_problems} = parse_all(flow_files, Flow)
 
-    predicates_path = PredicatesFile.resolve(layers)
+    predicates_path = PredicatesFile.resolve(dir)
 
     with {:ok, named_predicates} <- PredicatesFile.parse(predicates_path) do
       tier_map = index(tiers)
@@ -111,7 +110,7 @@ defmodule Catapult.Dsl.Chain do
       if problems == [] do
         {:ok,
          %__MODULE__{
-           name: name,
+           name: manifest.name,
            tiers: tier_map,
            edges: edge_map,
            flows: flow_map,
@@ -122,6 +121,10 @@ defmodule Catapult.Dsl.Chain do
         {:error, Enum.uniq(problems)}
       end
     end
+  end
+
+  defp resolve_globs(dir, globs) do
+    globs |> Enum.flat_map(&Yaml.glob(dir, &1)) |> Enum.uniq() |> Enum.sort()
   end
 
   defp parse_all(files, module) do

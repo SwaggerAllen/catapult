@@ -10,10 +10,11 @@ paths:
 The DSL: the frozen core vocabulary (tiers, scopes, edges, fragments,
 handles, context walks, grammars, readiness, generators, the
 predicate language), the bundle loader (`bundle.yaml` + registered
-files → validated union), `extends:` content layering, and the
-**extension registry** (v5 §9) through which platform extensions add
-annotation namespaces, declaration kinds, generator types,
-context-source kinds, and audit profiles.
+files → validated union, single directory per bundle — no `extends:`
+layering, `dsl-syntax.md` §11), and the **extension registry** (v5
+§9) through which platform extensions add annotation namespaces,
+declaration kinds, generator types, context-source kinds, and audit
+profiles.
 
 ## Standing decisions
 
@@ -857,6 +858,28 @@ context-source kinds, and audit profiles.
   runtime-facing consumer reads it in place of the reused
   `canonical == bare` test — `systems/delivery.md`'s own ORC-198 entry
   names the three call sites.
+
+- **`extends:` retires from the DSL entirely — a chain bundle becomes
+  a single directory of authored content, forked and tailored the way
+  a workflow bundle has been since ORC-105's fourth pass** (ORC-153,
+  design pass; `docs/v5-design-decisions.md` §5.5, §6, §7.18;
+  `docs/dsl-syntax.md` §11). `Catapult.Dsl.Manifest` drops `extends:`
+  — an unknown key, rejected at load on either bundle kind, the same
+  as a workflow bundle's manifest already rejects it. `Catapult.Dsl
+  .Extends` (`chain/3`, cycle detection, the cross-axis kind check,
+  base-first ordering, `resolve_files/2`, `fragment_vocabulary/1`,
+  `load_layers/2`) goes with it; `Catapult.Dsl.Grammar` and
+  `Catapult.Generation.ContextAssembly`, which resolved schema and
+  prompt paths through `load_layers/2`, become single-directory
+  lookups instead, and `Catapult.Dsl.Chain`'s own internal layering
+  goes with the module that supplied it. **The bundle-relative
+  content-path traversal guard is not layering and does not go with
+  it**: whatever replaces `resolve_content_path/2` in the
+  single-directory lookup still expands both sides of a
+  `prompt:`/`grammar:` path and refuses any candidate escaping its own
+  bundle — the guard exists because that path is bundle-authored
+  content, a fact independent of whether a second layer sits
+  underneath to escape into.
 
 ## Initial vs target
 

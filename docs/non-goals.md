@@ -183,13 +183,11 @@ they must load as one bundle. This is forced by the loader at its
 root: `catapult.yaml`'s `chain:` field names exactly one bundle, and
 `Catapult.Dsl.Loader.load_axes/5` builds exactly one chain per project
 from it — no list — so two independently authored chain bundles, one
-per language, have no way to merge into a single project's graph,
-whatever either names in its own `extends:` (`Catapult.Dsl.Manifest`
-names exactly one such layer too, which reinforces the same conclusion
-one level down but is not what forces it — `dsl-syntax.md` §11, v5
-§5.5). Per-platform variation lives inside the one chain bundle's own
-architecture and implementation prompts, never as a second `extends:`
-layer.
+per language, have no way to merge into a single project's graph.
+Per-platform variation lives inside the one chain bundle's own
+architecture and implementation prompts, never as a second bundle
+merged in — there is no bundle-layering mechanism left to merge one
+through (`dsl-syntax.md` §11, v5 §5.5).
 
 ## No hand-maintained inventories
 scope: universal

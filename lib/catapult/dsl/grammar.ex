@@ -14,15 +14,13 @@ defmodule Catapult.Dsl.Grammar do
   clients specifically and has no opinion on an XML parser.
 
   A schema path (`draft.grammar`, or a review tier's own top-level
-  `grammar:`) is bundle-relative and resolved across the bundle's
-  `extends:` chain the same way `Catapult.Dsl.Extends.resolve_files/2`
-  resolves tier/edge/flow globs — specific-first, so a layer's own
-  copy of a schema wins over a base layer's, and a schema the leaf
-  bundle never copies (the platform-wide review grammar, living only
-  in its base layer) still resolves.
+  `grammar:`) is bundle-relative, resolved against the bundle's one
+  directory (dsl-syntax.md §11: no `extends:` layering) through
+  `Catapult.Dsl.BundlePath.resolve/2`, which also refuses a path that
+  escapes the bundle.
   """
 
-  alias Catapult.Dsl.Extends
+  alias Catapult.Dsl.BundlePath
 
   @type failure ::
           {:schema_not_found, String.t()}
@@ -48,18 +46,11 @@ defmodule Catapult.Dsl.Grammar do
   end
 
   defp resolve_schema(bundles_root, bundle_name, grammar_path) do
-    case Extends.load_layers(bundles_root, bundle_name) do
-      {:ok, layers} ->
-        case Extends.resolve_content_path(layers, grammar_path) do
-          nil -> {:error, {:schema_not_found, grammar_path}}
-          path -> {:ok, path}
-        end
+    dir = Path.join(bundles_root, bundle_name)
 
-      {:error, reason} when is_binary(reason) ->
-        {:error, {:schema_not_found, reason}}
-
-      {:error, [problem | _]} ->
-        {:error, {:schema_not_found, problem}}
+    case BundlePath.resolve(dir, grammar_path) do
+      nil -> {:error, {:schema_not_found, grammar_path}}
+      path -> {:ok, path}
     end
   end
 

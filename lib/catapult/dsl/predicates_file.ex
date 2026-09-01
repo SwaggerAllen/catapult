@@ -6,21 +6,18 @@ defmodule Catapult.Dsl.PredicatesFile do
   a flow `completion`).
 
   Not a glob-listed manifest key (`bundle.yaml`'s §2 example carries no
-  `predicates:` list) — a fixed filename per layer, resolved the same
-  way any other same-path file is: the child-most layer that declares
-  one replaces every layer under it (dsl-syntax.md §11).
+  `predicates:` list) — a fixed filename at the bundle's own directory
+  root, present or absent (dsl-syntax.md §11).
   """
 
   alias Catapult.Dsl.Predicate
   alias Catapult.Dsl.Yaml
 
-  @doc "The winning `predicates.yaml`'s absolute path across `layers`, or `nil`."
-  @spec resolve([Catapult.Dsl.Extends.layer()]) :: String.t() | nil
-  def resolve(layers) do
-    layers
-    |> Enum.map(fn {dir, _manifest} -> Path.join(dir, "predicates.yaml") end)
-    |> Enum.filter(&File.exists?/1)
-    |> List.last()
+  @doc "`predicates.yaml`'s absolute path under `dir`, or `nil` if it does not exist."
+  @spec resolve(String.t()) :: String.t() | nil
+  def resolve(dir) do
+    path = Path.join(dir, "predicates.yaml")
+    if File.exists?(path), do: path
   end
 
   @doc "Parses `predicates.yaml` at `path` into `{name => predicate}`, or every problem at once."

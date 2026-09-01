@@ -185,7 +185,7 @@ reached only through their APIs per v5 §2.4).
   counts, in increasing weight. It runs on every mix invocation
   including `deps.get`, before the compiled `.app` files the closure
   reads exist. It is plane-local, so a generated project — whose
-  `mix.exs` comes from `bundles/platform-elixir` and whose list drifts
+  `mix.exs` comes from `bundles/default` and whose list drifts
   the same way — inherits nothing. And it deletes the artifact review
   acts on: the list is the one place a human reads which applications
   are constrained, and a derivation bug would narrow it silently and

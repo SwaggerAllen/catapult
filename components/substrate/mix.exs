@@ -37,7 +37,7 @@ defmodule Catapult.Substrate.MixProject do
   # generated project, and five identifiers inside it would be Catapult's
   # legal position imposed on codebases nobody here has read
   # (systems/substrate.md). A generated project gets these five written
-  # literally into its own mix.exs by `bundles/platform-elixir`
+  # literally into its own mix.exs by `bundles/default`
   # (systems/platform_content.md); substrate is not a generated project,
   # so it states them by hand.
   #

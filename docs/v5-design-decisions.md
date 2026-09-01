@@ -1519,22 +1519,24 @@ bundles do not split by language.** A polyglot project still has one
 document graph — a component in one language is a node in the same
 graph as a component in another, and they depend on each other across
 the boundary — so they must load as one bundle. This is forced by the
-loader, and forced at its root rather than by `extends:`:
-`catapult.yaml`'s `chain:` field names exactly one bundle, and
-`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain from it —
-no list, no second chain composed in beside it — so two independently
-authored chain bundles, one per language, have no way to merge into a
-single project's graph regardless of what either one's `extends:`
-names. (`extends:` itself being singular too (`dsl-syntax.md` §11)
-reinforces the same conclusion one layer down — a bundle can't even
-compose two layers of its own — but it is not what forces this rule:
-the rule holds even if `platform-elixir` folds away as a layer, which
-is itself still open (§8).)
-Per-platform variation (the pubapi representation and delivery
-conventions above) lives inside that one bundle's own architecture and
-implementation prompts — usually a selected snippet, not a whole
-variant prompt, since the surrounding structure is shared by
-construction — never as a second `extends:` layer.
+loader, at its root: `catapult.yaml`'s `chain:` field names exactly
+one bundle, and `Catapult.Dsl.Loader.load_axes/5` builds exactly one
+chain from it — no list, no second chain composed in beside it — so
+two independently authored chain bundles, one per language, have no
+way to merge into a single project's graph. Per-platform variation
+(the pubapi representation and delivery conventions above) lives
+inside that one bundle's own architecture and implementation prompts
+— usually a selected snippet, not a whole variant prompt, since the
+surrounding structure is shared by construction — never as a second
+bundle merged in.
+
+**Settled: `platform-elixir` folds into `bundles/default/` rather
+than surviving as a layer** (§6 carries the decision and its
+rationale; `dsl-syntax.md` §11 the mechanism). Its only content,
+`schemas/review.xsd` — a platform-wide review grammar belonging to no
+language — moves into the chain bundle's own `schemas/`. That was
+`extends:`'s last shipped user, and the field retires from the DSL in
+consequence.
 
 **Three coupled questions stay open, and they settle together (§8).**
 What carries a node's target platform; whether `impl_ui` for React
@@ -1633,20 +1635,29 @@ checks what a project declares**:
   filled from upstream handles, no LLM, same grammar validation — for
   store subcomparchs, skeletons, and other tiers where templating
   beats designing; cheaper, byte-reproducible, nothing to review).
-- **Bundle layering:** `extends:` — a `platform-elixir` base layer
-  (conventions, grammars for permission/process-inventory blocks,
-  template tiers, external-node declarations, audit grammar) that
-  project bundles inherit and overlay. Without it every project forks
-  the convention corpus.
+- **Bundle content: fork, tailor, merge upstream — no bundle layer,
+  on either axis** (`dsl-syntax.md` §11). A project's chain and
+  workflow bundles are both templates it forks from and tailors,
+  pulling later platform revisions in by ordinary git merge; a loader
+  composes nothing underneath either at load time, and `extends:` is
+  an unknown key on any bundle's manifest.
 
-  **`extends:` is chain-axis only** (§7.8, §7.18). Delivery ships no
-  layer on the workflow axis: its default gates and environments are a
-  **template** a project's workflow bundle forks, never something a
-  loader composes at runtime. The reason the two axes are separate at
-  all is untouched by that — shipping delivery from the language layer
-  would tie the workflow vocabulary to one target stack, and the point
-  of the split is that one organization's workflow spans decompositions
-  differing by stack.
+  This was always the workflow axis's shape (§7.8, §7.18): its default
+  gates and environments were never something a loader composed at
+  runtime. The chain axis carried one genuine layer, `platform-elixir`
+  (conventions, grammars for permission/process-inventory blocks,
+  template tiers, external-node declarations, the platform-wide review
+  grammar), because that content — belonging to no language, and to
+  no one project — had nowhere else to live while `extends:` was still
+  a mechanism. `platform-elixir` has since folded into
+  `bundles/default/` (§5.5, §8): its one surviving file,
+  `schemas/review.xsd`, lives in the chain bundle's own `schemas/`
+  directly, `extends:` loses its last shipped user, and the field
+  retires (ORC-153). Shipping delivery from the language layer would
+  have tied the workflow vocabulary to one target stack — the reason
+  the two axes stayed separate even while the chain axis still had a
+  layer, and the reason they still do now that neither does: one
+  organization's workflow spans decompositions differing by stack.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
   source for shared prompt framing across each family's authored
   tiers (§5.1: two arch tiers plus `impl`, per family); per-tier files
@@ -2204,20 +2215,23 @@ environments as they exist today, not merely the container form this
 section is about, and the grammar section is where the full argument
 lives.
 
-**And it reversed v5 §7.18's own workflow-axis base layer:
-`extends:` narrows to the chain axis, and workflow bundles are forked,
-not layered.** §7.18's reasoning — that a project's gates and
-environments live "in its bundle's `extends:` layer" — assumed the
-loader composes a project's workflow bundle from a platform base at
-load time. That is not how bundles are actually distributed: §3.1
-already chose fork-tailor-merge as the lifecycle for bundles and
-policy packs generally, because git has a merge story hex does not,
-and a workflow bundle is exactly this shape. `bundles/`'s platform
-workflow content becomes a template a project forks from and pulls
-later revisions into by git merge, never a base layer the loader
-composes underneath a leaf bundle (`dsl-syntax.md` §11 carries the
-full argument and the load-time consequence: a workflow bundle
-declaring `extends:` at all is now a load error).
+**And it reversed v5 §7.18's own workflow-axis base layer: workflow
+bundles are forked, not layered.** §7.18's reasoning — that a
+project's gates and environments live "in its bundle's `extends:`
+layer" — assumed the loader composes a project's workflow bundle from
+a platform base at load time. That is not how bundles are actually
+distributed: §3.1 already chose fork-tailor-merge as the lifecycle for
+bundles and policy packs generally, because git has a merge story hex
+does not, and a workflow bundle is exactly this shape. `bundles/`'s
+platform workflow content becomes a template a project forks from and
+pulls later revisions into by git merge, never a base layer the
+loader composes underneath a leaf bundle. The chain axis followed the
+same reversal at ORC-153, once `platform-elixir` — the one piece of
+shipped content still riding a real layer — folded into
+`bundles/default/` (§6): `dsl-syntax.md` §11 now carries the full
+argument for both axes and the load-time consequence, general rather
+than workflow-only — a bundle declaring `extends:` at all is a load
+error.
 
 **A project is not a container, even though the two now share one
 declaration shape.** The reversal at this section's second pass —
@@ -2746,7 +2760,7 @@ be generated, validated, or enforced?* → **graph state** — repo
 content, versioned, staleness-propagating, because replay determinism
 requires every generation input to be answerable from git history.
 Policy tunings, component `options:`, the per-project policy overlay
-all pass this test: they live in the bundle's `extends:` layer and a
+all pass this test: they live in the bundle's own content and a
 change is a PR, not a settings write. *Does changing it change only
 how the plane connects and operates?* → **plane state** — the
 bindings entities above. *Does changing it change only the built
@@ -2766,8 +2780,9 @@ composer never bypasses a gate.
 
 **The join to the design graph extends the existing syntax rather
 than paralleling it.** Forced, not aesthetic: projects can add tiers
-via bundle `extends` but cannot edit the protocol, so membership must
-be declared at the member, with the protocol defining only the slots:
+by authoring their own bundle content but cannot edit the protocol, so
+membership must be declared at the member, with the protocol defining
+only the slots:
 
 - **Tiers gain a `delivery:` block** — `phase:` (status shown while
   the tier generates) and the agent step that generates it. **Amended
@@ -3709,14 +3724,10 @@ whole job, and the two halves are already named in `dsl-syntax.md`:
   way. Extensions compose the *language*.
 - **Instances are content** (`dsl-syntax.md` §11) — a project's
   actual gates and environments are versioned in the repo, changed by
-  PR — **not via an `extends:` layer.** The chain axis's
-  `platform-elixir` base has no workflow-axis counterpart; §7.8 and
-  `dsl-syntax.md` §11 record why the analogy does not survive contact
-  with how bundles actually distribute
-  (fork-tailor-merge, §3.1) and the consequence: a workflow bundle now
-  carries no `extends:` field at all. The content is still repo
-  content, versioned, changed by PR — only the mechanism that gets it
-  there changed, from a load-time layer to a forked bundle.
+  PR, the same as a chain bundle's tiers and prompts — **never
+  composed from a platform base at load time.** Neither axis carries
+  an `extends:` field (§6 records why, and the consequence: both
+  bundle kinds are templates a project forks from and tailors).
 
 **The store test (§7.10) splits each feature in the same place, and
 the split is not where intuition puts it.** *Topology is content;
@@ -3745,13 +3756,12 @@ forces a fork of the workflow per stack, which is the failure this
 split exists to prevent.
 
 **One language, two documents.** This is not a second bundle system
-(§9 again): same loader, same validation pass. **`extends:` semantics
-diverge by axis as of ORC-105's fourth pass** — the chain axis keeps
-them unchanged; the workflow axis has no `extends:` at all, forked
-instead (below). `catapult.yaml` names one of each instead of one
-bundle, and a bundle manifest declares its `kind`. The declaration
-kinds a workflow bundle contains are registered exactly like any other
-(`dsl-syntax.md` §12).
+(§9 again): same loader, same validation pass. Neither axis carries an
+`extends:` field (§6, `dsl-syntax.md` §11) — both are forked,
+tailored, and merged upstream, never composed by the loader.
+`catapult.yaml` names one of each instead of one bundle, and a bundle
+manifest declares its `kind`. The declaration kinds a workflow bundle
+contains are registered exactly like any other (`dsl-syntax.md` §12).
 
 **The invariant that makes the split real: neither axis references
 the other. Both reference only the platform's fixed vocabulary —
@@ -3798,31 +3808,25 @@ platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
 vocabulary there too, not a workflow bundle's declaration. The rule
 holds; the resemblance is what makes it worth a sentence.
 
-**`extends:` layers within an axis and never across it** — a chain
-extending a workflow, or the reverse, is a load error. Shipping the
-delivery DSL from the `platform-elixir` layer would tie the workflow
-vocabulary to one language binding, which is the weld this section
-breaks. Narrowed further below: the workflow axis has no `extends:` at
-all. Delivery shipped
-from a platform *workflow* layer, which was also where the default
-gates (a UX review and an engineering review) and the default
-environments (`dev`, `staging`) lived.
-
-**There is no platform *workflow* layer, and the workflow axis has
-no `extends:` at all** (§7.8). A base layer here would rest purely on
-analogy with the chain axis's `platform-elixir` layer, and the analogy
-does not hold: v5 §3.1 already chose fork-tailor-merge as how bundles
-and policy packs are distributed, because git has a merge story hex
-does not, and a workflow bundle is exactly this shape — never
-composed from two files by a loader at runtime. `bundles/`'s default
-gates and environments are a **template** a project's workflow bundle
-forks from and tailors, pulling later platform revisions in by
-ordinary git merge. What survives unchanged: delivery still shares no
-vocabulary with any one language binding, and the default gates and
-environments are still where a fresh project's workflow bundle starts
-from — only the mechanism that gets them there changed, from a
-runtime layer to a fork (`dsl-syntax.md` §11 carries the load-time
-consequence).
+**There is no platform *workflow* layer, and there is no platform
+*chain* layer either, now that `platform-elixir` has folded into
+`bundles/default/`** (§6). Shipping the delivery DSL from a base
+layer would have tied the workflow vocabulary to one language
+binding, which is the weld this section breaks; a workflow layer by
+analogy to the chain axis's old `platform-elixir` layer never held
+for the same reason, and now neither axis has a layer to analogize
+from. Delivery's default gates and environments, and a chain bundle's
+default tiers and prompts, are alike a **template** a project's own
+bundle forks from and tailors, pulling later platform revisions in by
+ordinary git merge — never composed from two files by a loader at
+runtime (v5 §3.1's fork-tailor-merge). What survives unchanged:
+delivery still shares no vocabulary with any one language binding,
+and the default gates (a UX review and an engineering review) and
+environments (`dev`, `staging`) are still where a fresh project's
+workflow bundle starts from — only the mechanism that gets them there
+changed, from a runtime layer to a fork (`dsl-syntax.md` §11 carries
+the load-time consequence: `extends:` is an unknown field on any
+bundle's manifest).
 
 **A consequence worth keeping straight: the `runtime` dialect loads
 no workflow bundle at all.** §12 defines it as having no review
@@ -4713,15 +4717,6 @@ corrections, unaffected by anything above.
   three separate items: the second follows from whatever shape the
   first takes, and the third asks the first's question of a different
   slot. Deciding any one alone is how they end up inconsistent.
-- Whether `bundles/platform-elixir/` survives as a chain layer
-  (§5.5, §11) — beside an otherwise-empty manifest its only file is
-  `schemas/review.xsd`, a platform-wide review grammar belonging to
-  no language, and
-  `bundles/default/`'s `extends:` is the chain axis's only user of
-  the mechanism. If it folds in, §11's layering argument loses that
-  user and wants re-reading rather than assuming. The per-language
-  rule above does not depend on the answer: one chain per
-  `catapult.yaml` is what forces it.
 - Multi-target frontend vs second project — decided at a project's
   V2 (React Native); leaning recorded in §1.4.
 - Storage (S3-compatible) shared component (§2.12) — likely, not
@@ -4823,7 +4818,7 @@ start, each need becomes a fork and the dialects drift apart
 
 - **The core**, frozen and small: tiers, scopes, edges, fragments,
   handles, context walks, grammars, readiness, generators, the
-  predicate language, bundle layout + `extends:` layering.
+  predicate language, bundle layout.
 - **An extension** is *platform-shipped* code that registers with the
   loader: new annotation namespaces on existing declaration kinds
   (the `delivery:` block, the `enforcement:` block), new declaration
@@ -4840,10 +4835,14 @@ start, each need becomes a fork and the dialects drift apart
   git bodies — Catapult proper) and **runtime** (core + execution
   semantics, no review lifecycle, no git bodies — the embedded
   generation runtime, §10). Same vocabulary, different profiles.
-- **Extensions compose the language; `extends:` composes content.**
-  Two orthogonal mechanisms, both codified. The elixir-target layer
-  is content layering; the delivery DSL is a language extension; they
-  are not the same kind of thing and the spec keeps them apart.
+- **Extensions compose the language; bundle content is never composed
+  by the DSL at all — it is authored, forked and tailored through git**
+  (`dsl-syntax.md` §11). The loader validates the union of what a
+  bundle declares against the installed extension set; it composes
+  nothing itself. What vocabulary a bundle may use is a platform
+  decision (extensions); what a project's bundle actually contains is
+  that project's own git history — two different questions, not two
+  competing content mechanisms.
 
 Retroactive tidiness note: the delivery DSL (§7.10), the enforcement
 block, and the runtime profile were each invented as one-off moves;

@@ -8,19 +8,21 @@ paths:
 The bundle *content* the DSL loads, across **both bundle axes** (v5
 §7.18):
 
-- **chain axis** — `bundles/platform-elixir/` (the elixir-target
-  layer: convention grammars, template tiers, enforcement profiles)
-  and `bundles/default/` (the software-design chain: tier
-  declarations, edges, and the prompts ported from SiegeEngine).
-- **workflow axis** — the platform workflow layer, carrying the
+- **chain axis** — `bundles/default/` (the software-design chain:
+  tier declarations, edges, the prompts ported from SiegeEngine, and
+  — since `platform-elixir` folded in, ORC-153 — the platform-wide
+  review grammar and the elixir-target convention content that used
+  to ship on its own layer).
+- **workflow axis** — the platform workflow content, carrying the
   default review sequence (a UX review and an engineering review) and
   the default `dev`/`staging` environments.
 
-**Delivery declarations moved off the elixir layer** (v5 §6, corrected
-at §7.18): shipping them from the language layer welded the workflow
-vocabulary to one target stack, which is exactly what the two-axis
-split exists to prevent. They ship from the workflow layer instead,
-and the two layers are never `extends:`-related.
+**Delivery declarations moved off the elixir-target content** (v5 §6,
+corrected at §7.18): shipping them from the language corpus welded
+the workflow vocabulary to one target stack, which is exactly what the
+two-axis split exists to prevent. They ship from the workflow bundle
+instead, and neither bundle composes the other — both axes are
+forked, never layered (v5 §6, `dsl-syntax.md` §11).
 
 A separate system from core_dsl **for the mutex**: prompt iteration
 and loader development are unrelated work streams, and one label
@@ -638,6 +640,26 @@ loader tickets carry `system:core_dsl`.
   tiers reading `phase: generation` — `sysarch`, `impl`, `ref` and the
   rest — would leave their siblings inconsistent against a split the
   type declaration has not drawn (ORC-179).
+
+- **`bundles/platform-elixir/` folds into `bundles/default/`, and
+  `extends:` retires from the DSL** (ORC-153, design pass;
+  `docs/v5-design-decisions.md` §5.5, §6, §7.18; `docs/dsl-syntax.md`
+  §11). The layer's only content, `schemas/review.xsd` — a
+  platform-wide review grammar belonging to no language — moves into
+  the chain bundle's own `schemas/`; nothing else was ever loaded onto
+  the stub (the convention grammars, template tiers and enforcement
+  profiles the ORC-84 entry above scoped to "a separate ticket's job"
+  never shipped there). That was `extends:`'s last user on either
+  axis — the workflow axis lost its own base layer at ORC-105's fourth
+  pass — so a chain bundle becomes a single directory of authored
+  content, the same shape a workflow bundle has been since that pass,
+  and `extends:` becomes an unknown key on any bundle's manifest.
+  **The bundle-relative content-path traversal guard is not part of
+  what retires**: a `prompt:` or `grammar:` path is still checked
+  against escaping its own bundle wherever single-directory path
+  resolution lands, because that guard is about bundle-authored
+  content being untrusted input, not about there being a second layer
+  underneath to escape into.
 
 ## Initial vs target
 

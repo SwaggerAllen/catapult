@@ -1,10 +1,12 @@
 defmodule Catapult.Dsl do
   @moduledoc """
   The DSL core (`systems/core_dsl.md`): the frozen vocabulary, the
-  bundle loader, `extends:` content layering, and the extension
-  registry (v5 §9) through which platform extensions grow it. This
-  module is the boundary export; `Catapult.Dsl.Loader` and its
-  siblings under `lib/catapult/dsl/` carry the implementation.
+  bundle loader (`bundle.yaml` + registered files → validated union,
+  single directory per bundle — no `extends:` layering, dsl-syntax.md
+  §11), and the extension registry (v5 §9) through which platform
+  extensions grow it. This module is the boundary export;
+  `Catapult.Dsl.Loader` and its siblings under `lib/catapult/dsl/`
+  carry the implementation.
   """
 
   use Catapult.Component, slug: :dsl

@@ -1,7 +1,6 @@
 name: default
 version: "1.0.0"
 kind: chain
-extends: platform-elixir
 tiers: [tiers/*.yaml]
 edges: [edges/*.yaml]
 # Closed per bundle (dsl-syntax.md §2): every kind used in a handle:

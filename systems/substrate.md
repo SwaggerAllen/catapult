@@ -1040,7 +1040,7 @@ seeds release task.
 
   **The default value lives where projects come from, not in the
   check.** Catapult's five — `Apache-2.0`, `MIT`, `BSD-2-Clause`,
-  `BSD-3-Clause`, `ISC` — are what `bundles/platform-elixir` writes
+  `BSD-3-Clause`, `ISC` — are what `bundles/default` writes
   into a generated project's `mix.exs`, literally, so the project can
   read what it is being held to and edit it. Never `allow:
   Catapult.Bundle.default_licenses()`, which is the constant one level
