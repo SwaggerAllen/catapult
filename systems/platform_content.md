@@ -701,15 +701,9 @@ loader tickets carry `system:core_dsl`.
   block; `journeys`' own handle, like `requirements`' own handle today
   (`fields: [id, intro]`), carries no per-row content.
 
-  **`input.mocks` is not wired into either tier's context here.** `v5
-  §4.1` names two tiers meant to eventually read mock evidence —
-  `feature_expansion` and `screens` directly — and this ticket's own
-  scope excludes "mock evidence feeding either tier" and hands it to
-  ORC-110. `feature_expansion.yaml` still reads only
-  `[input.project_doc]`; wiring `input.mocks` into `screens`' context
-  alone, ahead of `feature_expansion`'s, would leave the mechanism
-  half-built behind a record presenting it as settled. Both context
-  walks land together when ORC-110 lands, not one now and one later.
+  When mock evidence is wired, `feature_expansion` and `screens` gain
+  their walks in the same change — §4.1 names both, and wiring one
+  alone leaves the mechanism half-built.
 
   This is also why `screens` cannot be `child_of(journey)`: a screen
   legitimately named by more than one journey's walk (`v5 §4.2`'s
