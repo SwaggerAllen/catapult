@@ -694,24 +694,31 @@ loader tickets carry `system:core_dsl`.
   list, the affordance list, displayed data, its own navigation edges,
   screen group.
 
-  **`screens` also reads every already-minted `journey`, and mocks
-  directly** (`docs/v5-design-decisions.md` §4.1's own instruction that
-  the screens tier reads `input.mocks`): `context: [self.parent.handle,
-  all.journey.handle, input.mocks]`. `all.journey.handle` — the
-  individual children, not `all.journeys.handle` — is the walk that
-  actually reaches each journey's ordered screen-walk and state block;
-  `journeys`' own handle, like `requirements`' own handle today
-  (`fields: [id, intro]`), carries no per-row content. This is also
-  why `screens` cannot be `child_of(journey)`: a screen legitimately
-  named by more than one journey's walk (`v5 §4.2`'s "screen belongs to
-  0..n journeys") would mint as two different nodes under a per-journey
-  fanout, one per referencing journey — the same duplication `policy`'s
-  two `decomposition` sources avoid by minting into one pool from a
-  single authored pass rather than from several. `screens` being
-  `per(feature_expansion)` and authoring every screen (journey-driven
-  and standalone alike) in the one pass that already sees every
-  journey is what keeps the pool deduplicated without inventing any
-  mint-time merge the loader doesn't have.
+  **`screens` also reads every already-minted `journey`**: `context:
+  [self.parent.handle, all.journey.handle]`. `all.journey.handle` —
+  the individual children, not `all.journeys.handle` — is the walk
+  that actually reaches each journey's ordered screen-walk and state
+  block; `journeys`' own handle, like `requirements`' own handle today
+  (`fields: [id, intro]`), carries no per-row content.
+
+  **`input.mocks` is not wired into either tier's context here.** `v5
+  §4.1` names two tiers meant to eventually read mock evidence —
+  `feature_expansion` and `screens` directly — and this ticket's own
+  scope excludes "mock evidence feeding either tier" and hands it to
+  ORC-110. `feature_expansion.yaml` still reads only
+  `[input.project_doc]`; wiring `input.mocks` into `screens`' context
+  alone, ahead of `feature_expansion`'s, would leave the mechanism
+  half-built behind a record presenting it as settled. Both context
+  walks land together when ORC-110 lands, not one now and one later.
+
+  This is also why `screens` cannot be `child_of(journey)`: a screen
+  legitimately named by more than one journey's walk (`v5 §4.2`'s
+  "screen belongs to 0..n journeys") would mint as two different nodes
+  under a per-journey fanout, one per referencing journey. `screens`
+  being `per(feature_expansion)` and authoring every screen
+  (journey-driven and standalone alike) in the one pass that already
+  sees every journey is what keeps the pool deduplicated without
+  inventing any mint-time merge the loader doesn't have.
 
   **The ordered screen-walk stays informal, the same way `<feats>`
   already is** — a per-journey list of screen slugs inside `journey`'s
@@ -774,29 +781,25 @@ loader tickets carry `system:core_dsl`.
     resp→journey / resp→screen instances above are what those
     citations resolve against.
 
-  **The third — screen groups vs. IA regions — is a real product-tier
-  decision, not left unresolved**: `screen group` (§4.3's own field) is
-  a free-form string, author-chosen at screen-definition time,
-  validated against nothing (no IA-region vocabulary exists yet to
-  validate it against — `frontend_sysarch` is what defines one, in
-  Phase 5's later frontend-architecture ticket). It is **a signal into
-  `frontend_sysarch`'s later grouping of `screen_coll`, not the region
-  itself and not a gate on it** — the identical relationship §5.3
-  already states between journeys and screen-collection grouping
-  ("journeys are a signal, not a gate"), extended to this field rather
-  than reinvented: a screen author's own grouping guess is one more
-  input `frontend_sysarch` weighs alongside shared layout shell, auth
-  context and navigation neighborhood, and §5.3's own text ("frontend_
-  sysarch decides") already covers who has final say.
+  **The third — screen groups vs. IA regions — is settled in
+  `docs/v5-design-decisions.md` §4.3 itself**, where `screen group`'s
+  semantics are now recorded: a free-form signal into
+  `frontend_sysarch`'s later IA-region grouping (§5.3), not the region
+  itself and not a gate on it — §5.3's own "journeys are a signal, not
+  a gate" rule extended to this field. Nothing here changes because of
+  it: `screen group` was already a plain string in `screens`' grammar,
+  validated against no vocabulary, so this is a semantics-only
+  settlement with no schema consequence for this tier.
 
   **Not the same "screen" as this repo's own.** `journey`/`screen` are
   chain tiers a *generated project's* product tier mints; Catapult's
   own `screens/*.md` is orchestration's native screen machinery and is
-  unrelated (`docs/build-plan.md`'s own Phase 5 note: "Catapult's
-  product tier … doesn't apply to Catapult itself"). This design pass
-  commits no entry under `screens/` or `storybook/` for that reason —
-  there is no UI screen here to define, only chain content, and chain
-  content is dev's to write into `bundles/**`.
+  unrelated (`docs/build-plan.md`'s own standing decision for the
+  build, not a Phase 5 one: "Catapult's product tier … doesn't apply
+  to Catapult itself"). This design pass commits no entry under
+  `screens/` or `storybook/` for that reason — there is no UI screen
+  here to define, only chain content, and chain content is dev's to
+  write into `bundles/**`.
 
 ## Initial vs target
 

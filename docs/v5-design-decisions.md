@@ -1178,6 +1178,13 @@ file map, component module, story file), purpose/argument, manifested
 features, **named state list**, **affordance list** (action, intent,
 data in/out), displayed data, navigation edges, screen group.
 
+- **Screen group is a free-form signal into `frontend_sysarch`'s later
+  IA-region grouping of screen collections (§5.3), not the region
+  itself and not a gate on it** — the same relationship §5.3 already
+  states between journeys and screen-collection grouping ("journeys
+  are a signal, not a gate"), extended to this field. Validated
+  against nothing at definition time: no IA-region vocabulary exists
+  until `frontend_sysarch` defines one.
 - **State names are storybook variation names** — orchestration's rule,
   pulled up to the product tier: decided once at definition; the
   delivery-time screen doc, stories, CI variation audit, and
