@@ -351,7 +351,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
     test "a qualified reference resolves to its own occurrence's anchor" do
       assert Sequence.resolve_position(ambiguous_workflow(), "t", "generation.pending") ==
-               {{:kind, :pending}, "generation"}
+               {{:kind, :pending}, "generation.pending"}
     end
 
     test "a bare reference resolves to the one occurrence it unambiguously names" do
@@ -468,31 +468,102 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
                {:kind, :retro}
              ]
 
-      assert Enum.map(annotated, & &1.anchor) == ["setup", nil, "retro", nil]
+      assert Enum.map(annotated, & &1.anchor) == ["setup.alpha", nil, "retro.beta", nil]
     end
 
     test "resolve_position/3 resolves each occurrence's own bare name to its own anchor" do
       workflow = kind_recurring_named_workflow()
 
-      assert Sequence.resolve_position(workflow, "t", "alpha") == {{:kind, :pending}, "setup"}
-      assert Sequence.resolve_position(workflow, "t", "beta") == {{:kind, :pending}, "retro"}
+      assert Sequence.resolve_position(workflow, "t", "alpha") ==
+               {{:kind, :pending}, "setup.alpha"}
+
+      assert Sequence.resolve_position(workflow, "t", "beta") ==
+               {{:kind, :pending}, "retro.beta"}
     end
 
     test "resolve_position/3 resolves each occurrence's own qualified name identically" do
       workflow = kind_recurring_named_workflow()
 
       assert Sequence.resolve_position(workflow, "t", "setup.alpha") ==
-               {{:kind, :pending}, "setup"}
+               {{:kind, :pending}, "setup.alpha"}
 
       assert Sequence.resolve_position(workflow, "t", "retro.beta") ==
-               {{:kind, :pending}, "retro"}
+               {{:kind, :pending}, "retro.beta"}
     end
 
     test "name/4 tells the two occurrences apart by anchor" do
       workflow = kind_recurring_named_workflow()
 
-      assert Sequence.name(workflow, "t", {:kind, :pending}, "setup") == "alpha"
-      assert Sequence.name(workflow, "t", {:kind, :pending}, "retro") == "beta"
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "setup.alpha") == "alpha"
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "retro.beta") == "beta"
+    end
+  end
+
+  describe "a recurring kind carrying distinct name: overrides inside ONE namespace (ORC-202)" do
+    # The case `kind_recurring_named_workflow/0` above does not reach:
+    # its two `pending` entries sit in *different* sub-arrays, so the
+    # group anchor ("setup"/"retro") tells them apart on its own. Here
+    # both are top-level, which `dsl-syntax.md` §15.12 permits — names
+    # are unique within a namespace, kinds need not be ("three
+    # `pending` entries" is its own example) — and the namespace is
+    # therefore identical for both. Anything keyed on the namespace
+    # alone reads one qualifier for two occurrences, and at the top
+    # level that qualifier is the atom `:top_level` while `anchor()` is
+    # declared `String.t() | nil`.
+    defp same_namespace_named_workflow do
+      statuses = [
+        %Status{status: "pending", name: "alpha"},
+        %Status{status: "pending", name: "beta"},
+        %Status{status: "checks"}
+      ]
+
+      type = %Type{
+        name: "t",
+        file: "types/t.yaml",
+        skeleton: "ticket",
+        statuses: statuses,
+        groups: []
+      }
+
+      %Workflow{name: "test", entry: "t", gates: %{}, environments: %{}, types: %{"t" => type}}
+    end
+
+    test "each occurrence carries a distinct qualifier, and every one is a string" do
+      annotated = Sequence.annotated_positions(same_namespace_named_workflow(), "t")
+
+      assert Enum.map(annotated, & &1.position) == [
+               {:kind, :pending},
+               {:kind, :pending},
+               {:kind, :checks}
+             ]
+
+      [alpha, beta, _checks] = annotated
+
+      assert alpha.anchor == "alpha"
+      assert beta.anchor == "beta"
+      refute alpha.anchor == beta.anchor
+
+      for %{anchor: anchor} <- annotated, not is_nil(anchor) do
+        assert is_binary(anchor), "anchor() is String.t() | nil; got #{inspect(anchor)}"
+      end
+    end
+
+    test "name/4 resolves each occurrence rather than whichever comes first" do
+      workflow = same_namespace_named_workflow()
+
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "alpha") == "alpha"
+      assert Sequence.name(workflow, "t", {:kind, :pending}, "beta") == "beta"
+    end
+
+    test "resolve_position/3 round-trips each name to the qualifier annotate/4 stored" do
+      workflow = same_namespace_named_workflow()
+      annotated = Sequence.annotated_positions(workflow, "t")
+      [alpha, beta, _checks] = annotated
+
+      assert Sequence.resolve_position(workflow, "t", "alpha") ==
+               {{:kind, :pending}, alpha.anchor}
+
+      assert Sequence.resolve_position(workflow, "t", "beta") == {{:kind, :pending}, beta.anchor}
     end
   end
 

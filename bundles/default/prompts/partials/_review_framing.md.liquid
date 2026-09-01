@@ -11,6 +11,22 @@ You are reviewing the draft below against the context you have been
 given — the same context the generation pass that produced it saw,
 plus this draft itself. You are not regenerating; you are judging.
 
+{% comment %}
+  `draft` is passed explicitly by every call site rather than read
+  from the caller's scope (ORC-201). `{% render %}` without arguments
+  isolates a partial's scope from its caller's — `deps/solid`'s
+  `RenderTag` builds an empty vars map — so for as long as the call
+  sites were bare, this partial said "the draft below" above a draft
+  it had no way to print. `draft` is a plain string
+  (`Catapult.Generation.ContextAssembly.draft_variable/2` returns the
+  body or ""), so it interpolates directly; a collection would need
+  the `{% for %}` treatment `partials/_architecture_framing` gives
+  `feedback` (ORC-193).
+{% endcomment %}
+Draft under review:
+
+{{ draft }}
+
 Output a single `<review>` element per `schemas/review.xsd`: a
 `verdict` attribute (`approve` or `revise`), a `<summary>`, a
 `<score>` — an integer 0-100 — and zero or more `<finding>` elements,
@@ -36,3 +52,36 @@ or attribute path inside the draft the finding is about), and a
   this checklist references is missing from your prompt, do not flag
   drift against it — you have no baseline to compare against.
 * Do not include commentary outside the `<review>` element.
+
+{% comment %}
+  The prior review on this same node, when one exists (ORC-201).
+  `prior_review` is a map, and `ContextAssembly.prior_review_variable/3`
+  omits the key entirely when there is no prior review — an absent key
+  is nil, and nil is falsy in Liquid, so a bare truthiness guard is
+  correct here. That is not the `feedback` case: `feedback` is a list,
+  and Liquid counts an empty list as truthy, which is why it guards on
+  `.size > 0` instead (ORC-134).
+
+  `findings` is string-keyed by the time it arrives, measured rather
+  than assumed: the write path builds atom-keyed entries
+  (`Catapult.Generation.CommitPath.review_findings/1`), the column is
+  `{:array, :map}` — jsonb — and a jsonb round trip renders
+  `%{id: "f1"}` as `%{"id" => "f1"}`, so `entry.id` resolves and the
+  atom key is gone. Iterated rather than interpolated bare, for the
+  reason `partials/_architecture_framing` gives `feedback`: a bare
+  `{{ prior_review.findings }}` on a list of maps raises rather than
+  rendering.
+{% endcomment %}
+{% if prior_review %}
+
+## The prior review of this draft
+
+An earlier pass already reviewed this node and scored it
+{{ prior_review.score }}. Read its findings before writing your own:
+where you agree, say so rather than restating; where you disagree,
+say that explicitly and why. Do not silently drop a finding it raised.
+
+{% for entry in prior_review.findings %}
+- `{{ entry.id }}` — {{ entry.message }}
+{% endfor %}
+{% endif %}

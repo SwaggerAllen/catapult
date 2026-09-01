@@ -171,7 +171,75 @@ defmodule Catapult.Generation.ContextAssemblyTest do
     end
   end
 
-  test "a prior review doesn't crash rendering, even though no shipped prompt shows it yet" do
+  # `partials/_review_framing` is rendered by all eight
+  # `review/<tier>.md.liquid` prompts and, until ORC-201, was rendered
+  # bare — so `draft` never entered its scope and it said "the draft
+  # below" above nothing. This drives the partial directly, the same
+  # two calls the guard test above makes, because the assertion is
+  # about what the partial does with the variables rather than about
+  # which caller supplies them.
+  test "_review_framing renders the draft and the prior review it is passed (ORC-201)" do
+    prompts_root = Path.join(["bundles", "default", "prompts"])
+    file_system = Solid.LocalFileSystem.new(prompts_root, "%s.md.liquid")
+
+    variables = %{
+      "draft" => "<vocab><definition>the draft body</definition></vocab>",
+      "prior_review" => %{
+        "score" => 42,
+        "kind" => "ai",
+        "body_sha" => "sha1",
+        # String-keyed, matching what a jsonb round trip returns: the
+        # write path builds these atom-keyed and the column is
+        # `{:array, :map}`, so `%{id: "f1"}` reads back `%{"id" => "f1"}`.
+        "findings" => [%{"id" => "f1", "message" => "the prior finding"}]
+      }
+    }
+
+    {:ok, template} =
+      prompts_root
+      |> Path.join("partials/_review_framing.md.liquid")
+      |> File.read!()
+      |> Solid.parse()
+
+    assert {:ok, iolist, []} =
+             Solid.render(template, variables, file_system: {Solid.LocalFileSystem, file_system})
+
+    rendered = IO.iodata_to_binary(iolist)
+
+    assert rendered =~ "the draft body",
+           "the partial says 'the draft below' and must actually render {{ draft }}"
+
+    assert rendered =~ "42", "the prior review's score should reach the reviewer"
+
+    assert rendered =~ "the prior finding",
+           "the {% for entry in prior_review.findings %} loop should render each entry's " <>
+             "message, not a bare {{ prior_review.findings }} interpolation"
+
+    assert rendered =~ "f1", "each prior finding's own id should reach the reviewer"
+  end
+
+  test "_review_framing omits the prior-review section when there is none (ORC-201)" do
+    prompts_root = Path.join(["bundles", "default", "prompts"])
+    file_system = Solid.LocalFileSystem.new(prompts_root, "%s.md.liquid")
+
+    {:ok, template} =
+      prompts_root
+      |> Path.join("partials/_review_framing.md.liquid")
+      |> File.read!()
+      |> Solid.parse()
+
+    # `prior_review_variable/3` omits the key entirely rather than
+    # setting it empty, and a map is not a list — so a bare truthiness
+    # guard is right here, unlike `feedback`'s `.size > 0` (ORC-134).
+    assert {:ok, iolist, []} =
+             Solid.render(template, %{"draft" => "body"},
+               file_system: {Solid.LocalFileSystem, file_system}
+             )
+
+    refute IO.iodata_to_binary(iolist) =~ "The prior review of this draft"
+  end
+
+  test "a prior review doesn't crash rendering end to end" do
     project_id = "context-assembly-#{System.unique_integer([:positive])}"
     assert :ok = seed_vocab_node(project_id, "sha1")
 

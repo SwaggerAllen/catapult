@@ -1566,10 +1566,9 @@ generating as scope-runs inside one ticket.
   what a `reconcile` agent run actually reads, writes and approves, and
   the mechanical merge effect `merge`'s own `plane` ball now implies,
   are Phase 7's, the same boundary every gate-mechanism entry above
-  already draws. **Not built as part of this pass:** the loader changes
-  named in `systems/core_dsl.md`'s own ORC-151 entry, the mechanical
-  merge effect itself, and any `bundles/**` content declaring
-  `reconcile` — all dev's diff against this record, not design's.
+  already draws. The loader changes named in `systems/core_dsl.md`'s
+  own ORC-151 entry have landed, and `bundles/default-flow`'s
+  `feature.yaml` and `seed.yaml` both declare `reconcile` against them.
 
 - **A third design review on this same ticket adds two facts this
   system's own dispatcher will carry, past what the pass above scoped
@@ -1630,10 +1629,12 @@ generating as scope-runs inside one ticket.
   way its own architecture phase dispatches at `status: architecture`,
   both inline agent-balled entries this process manager's existing
   uniform dispatch already reaches, needing no new branch once the
-  loader recognizes the kind. **Not built as part of this pass:** the
-  same tree-spawn recursion and parent-triggered merge cascade named above, now
-  spawning a second type rather than a depth-filtered instance of one,
-  and the loader's own recognition of `implementation` — all Phase 7's.
+  loader recognizes the kind, which it does — `implementation` sits in
+  `SystemStatus`'s own union. The tree-spawn recursion and
+  parent-triggered merge cascade named above, now spawning a second
+  type rather than a depth-filtered instance of one, are Phase 7's:
+  this system's dispatcher reaches them through the same uniform
+  dispatch once that phase builds them.
 
 - **ORC-155 (design pass) gives `Sequence.resolve_position/3` a
   disjointness check it has been trusting rather than enforcing, and
@@ -1906,10 +1907,8 @@ generating as scope-runs inside one ticket.
   finding against `systems/delivery.md`'s own file map rather than
   fixed here, since nothing this ticket touches exercises them.
 
-  **Not built as part of this pass:** `Sequence.positions/2`'s own
-  change, `warn_unplaceable/3`'s narrowed trigger, and the test
-  coverage for both — all this system's diff against this record, not
-  design's.
+  `Sequence.positions/2` and `warn_unplaceable/3`'s narrowed trigger
+  both carry this.
 
 - **ORC-198 (design pass) corrects three `FeatureLifecycle.Sequence`
   call sites, carrying four instances of the same bug between them,
@@ -1929,8 +1928,8 @@ generating as scope-runs inside one ticket.
   get `anchor: nil`, indistinguishable from each other once paired
   with `to_position/1`'s identical `{:kind, :pending}` for both: the
   exact failure ORC-171 closed, reopened through `name:`'s own escape
-  hatch. Reads the new `kind_ambiguous` field instead: `anchor = if
-  namespaced.kind_ambiguous, do: namespaced.namespace, else: nil`.
+  hatch. Reads the new `kind_ambiguous` field instead, through the
+  shared `qualifier/1` the ORC-202 entry below gives all three sites.
 
   `resolve_kind_reference/3` (`sequence.ex:258-262`), called from
   `resolve_position/3` (`sequence.ex:239-246`), carries two independent
@@ -1967,12 +1966,60 @@ generating as scope-runs inside one ticket.
   anchor that "does not resolve to a real occurrence") for a position
   that does have one. Corrected the same way as `annotate/4`.
 
-  **Not built as part of this pass:** the four fixes themselves and
-  `sequence_test.exs` coverage exercising a type that recurs a kind
-  under distinct `name:` overrides — the shape no shipped bundle
-  authors today, latent rather than live, the same standing this
-  ticket's own argument opened with — are this system's diff against
-  this record, not design's.
+  All four read `kind_ambiguous`. The case that separates it from the
+  reference-ambiguity test — a type recurring a kind under distinct
+  `name:` overrides — is the shape no shipped bundle authors today,
+  latent rather than live, the same standing this ticket's own
+  argument opened with. `sequence_test.exs` seeds it twice over: once
+  across two sub-arrays, where the group anchor alone would have
+  sufficed, and once inside a single namespace, where it does not —
+  the ORC-202 entry below is what that second fixture exists for.
+
+- **ORC-202 (author decision) settles what a recurring kind is
+  disambiguated *by*, and the qualifier reads `qualified` rather than
+  `namespace` in consequence** (`docs/dsl-syntax.md` §15.12). The rule:
+  **a kind may recur freely; a *name* may not.** §15.12 already says
+  so — "two `critique` entries in one array, three `pending` entries,
+  or two `checks` entries" are legal and `name:` is what tells them
+  apart — and its uniqueness check binds names within a namespace,
+  never kinds. Two `review`-kind statuses in one sub-array are the
+  ordinary case this permits, not an edge one.
+
+  ORC-198's three sites took the qualifier from `namespace`, which
+  answers a different question: it is the recurring group's own anchor
+  name, and it separates two occurrences only when they sit in
+  *different* sub-arrays. For the case §15.12 actually permits — one
+  namespace, two names — both occurrences carry the same `namespace`,
+  so matching on it picks whichever comes first. That is the ORC-171
+  defect this field exists to close, reopened one door over. At the top
+  level it is also a type error: `namespace` is the atom `:top_level`
+  there, and `anchor()` is `String.t() | nil`.
+
+  `qualified` is the field that identifies an occurrence uniquely, by
+  construction: `<anchor>.<name>` inside a sub-array, the bare name
+  outside one, over names §15.12 already forces to be unique within
+  their namespace. `Sequence.qualifier/1` is the one place that choice
+  is made, and `annotate/4`, `resolve_kind_reference/3` and
+  `find_kind_entry/3` all read it, so the qualifier a position is
+  stored with and the qualifier a lookup matches against cannot drift
+  apart. `kind_ambiguous` still decides *whether* a qualifier is
+  needed; only what it holds has changed. Nothing persists the field —
+  no event and no projection column carries it — so it is computed
+  identity throughout, and changing what it holds needs no migration.
+
+  **The choice was measured, not argued.** ORC-198's own fixture puts
+  its two same-kind entries in *different* sub-arrays, where the group
+  anchor separates them and `namespace` looks sufficient; no test
+  covered one namespace holding both, which is why this shipped.
+  `sequence_test.exs`'s ORC-202 fixture is that missing case — two
+  top-level `pending` entries named `alpha` and `beta` — and it was
+  run against both schemes before either was chosen. Under `namespace`
+  it fails three ways: `annotate/4` hands back the atom `:top_level`
+  against an `anchor()` of `String.t() | nil`, and `name/4` answers
+  `"pending"` for both occurrences, having found neither. Under
+  `qualified` all three pass and the rest of the suite stays green.
+  A scheme that cannot express the case §15.12 permits is not a
+  narrower fix; it is the same defect with a smaller blast radius.
 
 ## Initial vs target
 

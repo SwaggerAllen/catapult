@@ -344,10 +344,9 @@ context-source kinds, and audit profiles.
   load-time constraint, since assignment history is live state), but
   the dispatcher's job changes from "admit and file `Blocked`" to "a
   loud error, permanently, once one work item has ever been assigned."
-  **Not built as part of this pass**, same as every pass before it:
-  the dispatcher, the sweep, the scan/setup/retro machinery, the
-  entry-point load check, and the singleton-lifetime rejection check —
-  ORC-104's.
+  The dispatcher, the sweep, the scan/setup/retro machinery, the
+  entry-point load check and the singleton-lifetime rejection check
+  are ORC-104's, and carry it.
 
 - **ORC-115 (design pass, corrected on two later design reviews)
   narrows `throwback:` to a single-target escape hatch and gives a
@@ -499,11 +498,11 @@ context-source kinds, and audit profiles.
   queue and one without were never different operations, only
   different status flows attached to the identical mechanism
   (`docs/v5-design-decisions.md` §7.8, `systems/delivery.md`'s own
-  diff against this). **Not built as part of this pass:** the loader
-  changes (`lib/catapult/dsl/status.ex`, `type.ex`, `workflow.ex`), the
-  `bundles/default-flow/**` fold itself, and the dispatcher/executor
-  work `systems/delivery.md` files against its own Target list — all
-  dev's diff against this record, not design's.
+  diff against this). The loader carries it across
+  `lib/catapult/dsl/status.ex`, `type.ex` and `workflow.ex`;
+  `bundles/default-flow/**` is the folded result; and the
+  dispatcher/executor half is what `systems/delivery.md` files
+  against its own Target list.
 
 - **ORC-151 (design pass) splits the fixed vocabulary's `merge` kind
   in two, naming the review it always implied** (`docs/dsl-syntax.md`
@@ -794,12 +793,11 @@ context-source kinds, and audit profiles.
   containment, unique within the citing array, rather than requiring
   the target to be a population anchor; a reference resolving to zero
   or to two-or-more matches is the load error, not the shape of the
-  entry it lands on. **Not built as part of this pass**, the same
-  boundary the pass above draws: `lib/catapult/dsl/status.ex`,
-  `workflow.ex` and `system_status.ex`'s own diff against this record —
-  the `blocks:` check, the `design`/`architecture` kind additions, and
-  the dispatcher's move from a standing-hold projection to a
-  transition-time check — are dev's, not design's.
+  entry it lands on. `lib/catapult/dsl/status.ex`, `workflow.ex` and
+  `system_status.ex` carry it: the `blocks:` check, the
+  `design`/`architecture` kinds in `SystemStatus`'s own union, and the
+  dispatcher reading a transition-time check rather than a
+  standing-hold projection.
 
 - **ORC-198 (design pass) splits `Type.namespaced_positions/1`'s one
   ambiguity computation into two, because ORC-155's own `name:` is
@@ -855,12 +853,10 @@ context-source kinds, and audit profiles.
   field, `kind_ambiguous: boolean()` — true when this entry's own kind
   (`status:`/`review:`/`environment:` value, never `name:`) recurs
   elsewhere in the type's own array — for the runtime-collision
-  question alone. **Not built as part of this pass:** the
-  `kind_ambiguous` field itself, `type_test.exs` coverage for the two
-  sets' divergence, and every consumer's switch from the reused
-  `canonical == bare` test to this field — `systems/delivery.md`'s own
-  ORC-198 entry names the three call sites — are dev's diff against
-  this record, not design's.
+  question alone. `Catapult.Dsl.Type` carries the field, and every
+  runtime-facing consumer reads it in place of the reused
+  `canonical == bare` test — `systems/delivery.md`'s own ORC-198 entry
+  names the three call sites.
 
 ## Initial vs target
 

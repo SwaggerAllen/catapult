@@ -556,6 +556,56 @@ loader tickets carry `system:core_dsl`.
   named rather than silently carried forward as unenforceable prompt
   text.
 
+- **`partials/_review_framing` has the same scope-isolation defect
+  ORC-193 fixed on the generation side, and every review tier carries
+  it** (ORC-201; `docs/dsl-syntax.md` §9). The partial opens "You are
+  reviewing the draft below," and all eight `review/<tier>.md.liquid`
+  prompts render it as a bare `{% render "partials/_review_framing" %}`.
+  Bare `{% render %}` isolates scope, so `draft` never entered the
+  partial and the draft was never below anything: every review
+  dispatch in the chain asked a model to judge an artifact it was not
+  shown. `Catapult.Generation.ContextAssembly.build_variables/5` does
+  supply `draft`, and only to a review tier's own dispatch — the
+  variable was present at the call site and dropped at the boundary,
+  which is why nothing failed loudly.
+
+  The fix is ORC-193's, applied to the other partial: all eight call
+  sites pass `draft: draft` explicitly, and the partial prints it
+  under a "Draft under review:" heading. `draft` is a plain string
+  (`draft_variable/2` returns the body or `""`), so it interpolates
+  directly rather than needing the `{% for %}` form
+  `_architecture_framing` gives `feedback` — the distinction the
+  ORC-193 entry above draws between a scalar and a collection, applied
+  rather than restated.
+
+  **`prior_review` is the same gap and closes with it.** It is
+  supplied to the same dispatch, rendered by nothing, and it is a map
+  (`score`/`findings`/`kind`/`body_sha`) — so the eight call sites pass
+  it too, and the partial renders the score and iterates the findings.
+
+  Two spellings in that block are decided by measurement rather than by
+  symmetry with `feedback`, because both differ from it. The guard is
+  bare `{% if prior_review %}`, not `.size > 0`: `prior_review_variable/3`
+  omits the key entirely when there is no prior review, and a map is
+  not a list, so nothing here can be the empty-list-is-truthy trap
+  ORC-134 records. And the findings are iterated rather than
+  interpolated: `{{ prior_review.findings }}` on a list of maps raises
+  `Protocol.UndefinedError` — reproduced directly by breaking the loop
+  and watching the suite fail on it, which is the same failure the
+  ORC-193 entry above predicts for `feedback` and the first time this
+  repo has held that prediction to a test.
+
+  **The keys are string-keyed, measured rather than inferred.** The
+  write path builds findings atom-keyed
+  (`Catapult.Generation.CommitPath`'s own `review_findings/1`) and
+  `feedback_variable/3` converts by hand for exactly that reason, two
+  functions above `prior_review_variable/3`, which does not. It does
+  not need to: the column is `{:array, :map}`, so the value crosses
+  jsonb, and `%{id: "f1"}` reads back `%{"id" => "f1"}` — the atom key
+  is unreachable and `entry.id` resolves. The store round trip performs
+  the conversion the sibling function performs explicitly, which is why
+  the asymmetry between them is not the bug it looks like.
+
 - **Every `agent_step: design` tier's `delivery.phase` across
   `bundles/default/tiers/**` stays uniformly `generation` (never
   `design` or `architecture`), because that phase is a tier-level echo
