@@ -1529,16 +1529,16 @@ names. (`extends:` itself being singular too (`dsl-syntax.md` §11)
 reinforces the same conclusion one layer down — a bundle can't even
 compose two layers of its own — but it is not what forces this rule:
 the rule holds even if `platform-elixir` folds away as a layer, which
-is still undecided — nothing in this ticket settles it either way.)
+is itself still open (§8).)
 Per-platform variation (the pubapi representation and delivery
 conventions above) lives inside that one bundle's own architecture and
 implementation prompts — usually a selected snippet, not a whole
 variant prompt, since the surrounding structure is shared by
 construction — never as a second `extends:` layer.
 
-**Three coupled questions this ticket leaves open, not decided.** What
-carries a node's target platform; whether `impl_ui` for React and for
-Phoenix ends up one tier with a switched prompt or two tiers; and
+**Three coupled questions stay open, and they settle together (§8).**
+What carries a node's target platform; whether `impl_ui` for React
+and for Phoenix ends up one tier with a switched prompt or two; and
 whether enforcement profiles (§12) vary per platform by the same
 mechanism prompts do. None has a second candidate to design against
 yet: React, the only other platform on the roadmap, doesn't land until
@@ -4704,6 +4704,24 @@ corrections, unaffected by anything above.
 - React convention pass (§5.5) — shape blessed (Phoenix-hosted),
   contents still need the pass; folds in the client corpus (§5.6)
   and the kit-with-drift-test stance.
+- **Per-platform variation: three coupled questions, settled together
+  when Phase 7 supplies a second platform** (§5.5 carries the
+  argument and the candidates). What carries a node's target
+  platform; whether `impl_ui` for React and for Phoenix is one tier
+  with a switched prompt or two tiers; and whether enforcement
+  profiles (§12) vary by that same mechanism. Coupled rather than
+  three separate items: the second follows from whatever shape the
+  first takes, and the third asks the first's question of a different
+  slot. Deciding any one alone is how they end up inconsistent.
+- Whether `bundles/platform-elixir/` survives as a chain layer
+  (§5.5, §11) — beside an otherwise-empty manifest its only file is
+  `schemas/review.xsd`, a platform-wide review grammar belonging to
+  no language, and
+  `bundles/default/`'s `extends:` is the chain axis's only user of
+  the mechanism. If it folds in, §11's layering argument loses that
+  user and wants re-reading rather than assuming. The per-language
+  rule above does not depend on the answer: one chain per
+  `catapult.yaml` is what forces it.
 - Multi-target frontend vs second project — decided at a project's
   V2 (React Native); leaning recorded in §1.4.
 - Storage (S3-compatible) shared component (§2.12) — likely, not
