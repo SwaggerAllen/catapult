@@ -578,19 +578,33 @@ loader tickets carry `system:core_dsl`.
   ORC-193 entry above draws between a scalar and a collection, applied
   rather than restated.
 
-  **`prior_review` is the same shape of gap and is not closed here.**
-  `build_variables/5` supplies it alongside `draft`, no prompt renders
-  it, and it is a map (`score`/`findings`/`kind`/`body_sha`) whose
-  `findings` are built atom-keyed at the write path
-  (`Catapult.Generation.CommitPath`'s own `review_findings/1`) while
-  Solid resolves string keys — the convention `feedback_variable/3`
-  converts for explicitly, two functions above `prior_review_variable/3`
-  in the same module, with a comment saying why. Whether that map is
-  still atom-keyed by the time it reaches a template depends on what
-  the store round-trip does to it, which is a question for a pass that
-  can run the suite rather than read it. Rendering it before that is
-  settled would repeat exactly the mistake ORC-193 caught: passing a
-  variable through and assuming the interpolation works.
+  **`prior_review` is the same gap and closes with it.** It is
+  supplied to the same dispatch, rendered by nothing, and it is a map
+  (`score`/`findings`/`kind`/`body_sha`) — so the eight call sites pass
+  it too, and the partial renders the score and iterates the findings.
+
+  Two spellings in that block are decided by measurement rather than by
+  symmetry with `feedback`, because both differ from it. The guard is
+  bare `{% if prior_review %}`, not `.size > 0`: `prior_review_variable/3`
+  omits the key entirely when there is no prior review, and a map is
+  not a list, so nothing here can be the empty-list-is-truthy trap
+  ORC-134 records. And the findings are iterated rather than
+  interpolated: `{{ prior_review.findings }}` on a list of maps raises
+  `Protocol.UndefinedError` — reproduced directly by breaking the loop
+  and watching the suite fail on it, which is the same failure the
+  ORC-193 entry above predicts for `feedback` and the first time this
+  repo has held that prediction to a test.
+
+  **The keys are string-keyed, measured rather than inferred.** The
+  write path builds findings atom-keyed
+  (`Catapult.Generation.CommitPath`'s own `review_findings/1`) and
+  `feedback_variable/3` converts by hand for exactly that reason, two
+  functions above `prior_review_variable/3`, which does not. It does
+  not need to: the column is `{:array, :map}`, so the value crosses
+  jsonb, and `%{id: "f1"}` reads back `%{"id" => "f1"}` — the atom key
+  is unreachable and `entry.id` resolves. The store round trip performs
+  the conversion the sibling function performs explicitly, which is why
+  the asymmetry between them is not the bug it looks like.
 
 - **Every `agent_step: design` tier's `delivery.phase` across
   `bundles/default/tiers/**` stays uniformly `generation` (never
