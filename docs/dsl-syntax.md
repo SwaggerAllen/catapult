@@ -25,8 +25,8 @@ that differ by target stack.
 
 ```
 catapult.yaml                  # repo root: pins one bundle per axis
-bundles/<name>/                # kind: chain
-  bundle.yaml                  # registry: name, version, kind, extends, files
+bundles/<name>/                # kind: chain — forked from a platform
+  bundle.yaml                  #   template, never `extends:`-layered (§11)
   tiers/<tier>.yaml            # one file per tier declaration
   edges/<edge>.yaml            # one file per named edge instance
   predicates.yaml              # optional: named predicates
@@ -36,8 +36,8 @@ bundles/<name>/                # kind: chain
   schemas/<name>.xsd           # body grammars referenced by tiers
   flows/<flow>/flow.yaml       # one directory per flow
   flows/<flow>/<prompt>.md.liquid
-bundles/<name>/                # kind: workflow — forked from a platform
-  bundle.yaml                  #   template, never `extends:`-layered (§11)
+bundles/<name>/                # kind: workflow — forked the same way
+  bundle.yaml                  #   template, same as the chain axis (§11)
   gates/<gate>.yaml            # one file per declared review gate (§15.4)
   environments/<env>.yaml      # one file per deployment environment (§15.4)
   types/<name>.yaml             # one file per declared work item — ticket,
@@ -57,19 +57,17 @@ workflow: default-flow   # directory name under bundles/, kind: workflow
 ```yaml
 name: default
 version: "1.0.0"
-kind: chain                       # chain | workflow (§11)
-extends: platform-elixir          # optional; content layering (§11)
+kind: chain                       # chain | workflow
 tiers: [tiers/*.yaml]             # glob lists; the loaded bundle is the union
 edges: [edges/*.yaml]
 fragments: [techspec, pubapi, privapi, policies, failure_surface]
 flows: [flows/*/flow.yaml]
 ```
 
-A workflow bundle's manifest carries `kind: workflow`, no `extends:`
-field at all (§11 — forked from the platform's default gates,
-environments and types instead, never layered), `gates:` /
-`environments:` / `types:` globs in place of the chain's lists, and
-one further key the chain axis has no counterpart for:
+A workflow bundle's manifest carries `kind: workflow` — no `extends:`
+field, the same as the chain axis (§11) — `gates:` / `environments:`
+/ `types:` globs in place of the chain's lists, and one further key
+the chain axis has no counterpart for:
 
 ```yaml
 name: default-flow
@@ -101,7 +99,8 @@ the entry point is declared, once, beside the other bundle-wide facts
 
 The file-list keys are per-kind: a `tiers:` list in a workflow bundle
 is an unknown field and a load error, per §13, and so is `extends:`
-itself on that same manifest.
+on either bundle's manifest — neither axis composes a base layer at
+load time.
 
 Fragment kinds are a **closed vocabulary per bundle**: a kind used in
 any `handle:` or `produces:` must appear here.
@@ -590,58 +589,41 @@ productions, not the prose): comparch carries `<permissions>`,
 process inventory; impl's `<tests>` block is normative for
 reconciliation.
 
-## 11. `extends:` — content layering
+## 11. Bundle content — fork, tailor, merge upstream
 
-**Chain-axis only, since this ticket's fourth pass.** A chain bundle
-naming `extends: <layer>` loads the layer first, then overlays:
-declarations union, same-path files replace (v5 §7.10, §9). Cycles in
-`extends:` chains are load errors.
+**No bundle carries an `extends:` field, on either axis.** A bundle's
+content is exactly what it declares; there is no base layer a loader
+composes underneath it at load time. Naming `extends:` in a chain or
+a workflow manifest is an unknown field, rejected at load like any
+other (§13).
 
-**Chain bundles cannot be split by language — forced by `catapult.yaml`
-naming exactly one chain, not by `extends:` being singular.**
-`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain from
-`catapult.yaml`'s `chain:` field — no list — so a project can never
-load two independently authored chain bundles side by side, whatever
-either names in its own `extends:`. `Catapult.Dsl.Manifest` naming
-exactly one `extends:` layer reinforces the same conclusion one level
-down (a bundle can't even compose two layers of its own), but the
-singular-chain fact is what does the forcing, and it holds regardless
-of whether `platform-elixir` itself survives as a layer — still open
-(v5 §5.5). A polyglot project still has one document graph (components
-in different languages depend on each other across the boundary), so
-two independently authored chain layers — one per language — have no
-composition path to merge into it (v5 §5.5). Per-platform variation
-lives inside the one bundle's own tiers and prompts, never as a second
-`extends:` layer.
+**Fork, tailor, and merge upstream later is the lifecycle bundle
+content is shaped for** (v5 §3.1) — git has a merge story hex does
+not, and that is what content actually needs: a project wanting one
+paragraph changed in a shipped prompt forks the file and pulls later
+platform revisions into it by ordinary git merge, with a conflict
+when both sides touch the same lines. A load-time layer could only
+ever give whole-file replacement keyed on path, and divergence stayed
+invisible under it — a forked file shows in `git log`; an overridden
+one showed nowhere, because the loader simply picked the more
+specific path. `bundles/`'s platform content, on both axes, is a
+**template** a project's own bundle forks from and tailors; nothing
+composes it back in underneath at runtime (v5 §6, §7.18). Declarable
+review states, deployment environments and work-item types (§15), and
+a chain bundle's tiers, edges and prompts alike, are the forked
+bundle's own content from the start.
 
-**Reversed: a workflow bundle carries no `extends:` field, and there
-is no platform workflow base layer left to compose against.** v5
-§7.18 originally gave the workflow axis its own base layer, mirroring
-the chain axis's `platform-elixir` layer, specifically so a project's
-gates and environments could live "in its bundle's `extends:` layer,
-versioned in the repo, changed by PR." That reasoning does not survive
-contact with how bundles are actually distributed: v5 §3.1 already
-chose **fork, tailor, and merge upstream later** as the lifecycle for
-bundles and policy packs generally, because git has a merge story hex
-does not — and a workflow bundle is exactly this shape, never layered
-at runtime by a loader. `bundles/`'s platform workflow content is a
-template a project's workflow bundle forks from and tailors, pulling
-later platform revisions in by ordinary git merge, the same as any
-other forked artifact (v5 §7.8). Declarable review states, deployment
-environments and work-item types (§15) are the forked bundle's own
-content from the start, never a leaf layer composed onto a base one
-at load time. The admission rule this reversal leaves untouched is
-v5 §7.16/§7.18's own: a state may be declared iff no plane logic
-branches on it — that rule was never about *how* declarable content
-reaches a project, only about *what* may be declared, and forking
-answers the first question without touching the second.
-
-**A chain bundle's `extends:` may never name a workflow bundle, or
-the reverse, because there is no longer a workflow-axis `extends:` to
-name.** Naming `extends:` at all inside a workflow bundle is an
-unknown field, rejected at load like any other (§13). Layering
-composes *content*; it never adds vocabulary — that is §12's job, and
-the two mechanisms are deliberately distinct (v5 §9).
+**Chain bundles cannot be split by language — forced by
+`catapult.yaml` naming exactly one chain, not by anything `extends:`
+ever enforced.** `Catapult.Dsl.Loader.load_axes/5` builds exactly one
+chain from `catapult.yaml`'s `chain:` field — no list — so a project
+can never load two independently authored chain bundles side by side.
+A polyglot project still has one document graph (components in
+different languages depend on each other across the boundary), so two
+chain bundles, one per language, would have no composition path to
+merge into it even under a loader that layered (v5 §5.5). Per-platform
+variation lives inside the one bundle's own tiers and prompts, never
+as a second bundle merged in.
 
 **The axes do not reference each other at all. Both reference only
 the platform's fixed vocabulary — statuses, queues, agent steps.** A
@@ -653,7 +635,9 @@ what makes **any chain bundle composable with any workflow bundle** —
 no shared gate or environment vocabulary, and no compatibility
 contract to check (v5 §7.18). A gate's review set follows from where
 it sits: it reviews whatever the chain produced at the step it
-follows.
+follows. Forking composes *content*; it never adds vocabulary — that
+is §12's job, and the two mechanisms are deliberately distinct (v5
+§9).
 
 ## 12. Extension registration — the platform surface
 
@@ -683,9 +667,9 @@ kinds, prompt/schema paths, predicate names); scope expressions and
 generator types from the closed sets; type-level acyclicity over the
 edge-instance graph; cardinality shapes well-formed; `delivery:`
 values validated against the protocol vocabulary; navigation edges
-absent from readiness walks; `extends:` acyclic. A bundle that loads
-is a bundle the engine can run; only instance-level constraints
-(dependency cycles, cardinality counts) wait for projection time.
+absent from readiness walks. A bundle that loads is a bundle the
+engine can run; only instance-level constraints (dependency cycles,
+cardinality counts) wait for projection time.
 
 Added with review tiers (§3.3, `docs/v5-design-decisions.md` §7.19):
 
@@ -881,8 +865,8 @@ Added with the two axes and the declarable protocol surface (v5
   fixed list, and an actual check against a declared one;
 - a workflow bundle under the `runtime` dialect is a load error, not
   dead weight: that dialect has no review lifecycle (§12);
-- **a workflow bundle carrying an `extends:` field is a load error**
-  (§11) — there is no platform workflow base layer left to name.
+- **a bundle carrying an `extends:` field is a load error, on either
+  axis** (§11) — there is no base layer left to name.
 
 Added with the unified work-item declaration
 (§15.2-§15.9, ORC-105's fourth pass — supersedes the milestone-only

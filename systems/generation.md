@@ -102,7 +102,7 @@ and validation logic and must not fork it.
   limit-class errors only — is not a new problem: it is the harness
   already running every Catapult ticket, including this one. A
   repo-local copy (a composite action in `.github/`, a script in
-  `bundles/platform-elixir`) would duplicate exactly the logic v5
+  `bundles/default`) would duplicate exactly the logic v5
   §1.2's third reason already refused to duplicate ("one execution
   path... extended rather than duplicated"), and `docs/non-goals.md`'s
   no-self-bootstrap entry ("Catapult consumes the shared components as
