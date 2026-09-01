@@ -1388,7 +1388,7 @@ the policy set, per the no-hand-maintained-inventories doctrine.
 
 ## 5. Frontend architecture
 
-### 5.1 Two collection kinds, six architecture tiers
+### 5.1 Two collection kinds, four families
 
 Frontend components split into **screen collections** (pages/LiveViews
 hosting screens, grouped by IA region) and **UI component collections**
@@ -1402,18 +1402,32 @@ a registry would give composition while hiding the edges (no
 staleness, no mutex adjacency, no reconciliation check). Written down
 because a registry will look simpler to every future design pass.
 
-These are **separate tiers, not kinds on one tier** — three families:
+These are **separate tiers, not kinds on one tier** — four families:
 backend `comp/comparch/subcomp/subcomparch/impl_backend`, UI
 `ui_coll/ui_collarch/ui_subcomp/ui_subcomparch/impl_ui`, screen
 `screen_coll/screen_collarch/screen_subcomp/screen_subcomparch/
-impl_screen`. The decisive argument: **type-level acyclicity makes the
-layering rule a bundle-load guarantee** — with distinct tiers, a
-backwards edge (UI collection → screen collection) is inexpressible;
-with kind-flags it's a same-tier edge policed by weaker instance-level
-machinery. Secondary arguments: per-family prompts, grammars, handles,
-and review criteria all genuinely differ; tiers are cheap by the DSL's
-own design ("adding a tier is a bundle edit"). Shared prompt content
-is handled by Liquid partials (§6), not by merging tiers.
+impl_screen`, and client `client_comp/client_comparch/client_subcomp/
+client_subcomparch/impl_client` (§5.6 — client-locus components,
+their own family rather than a flag on the backend family). The decisive
+argument: **type-level acyclicity makes the layering rule a
+bundle-load guarantee** — with distinct tiers, a backwards edge (UI
+collection → screen collection) is inexpressible; with kind-flags it's
+a same-tier edge policed by weaker instance-level machinery. Secondary
+arguments: per-family prompts, grammars, handles, and review criteria
+all genuinely differ; tiers are cheap by the DSL's own design ("adding
+a tier is a bundle edit"). Shared prompt content is handled by Liquid
+partials (§6), not by merging tiers.
+
+**A family is two authored tiers plus a shared `impl`, not five
+authored tiers.** `comp`/`subcomp` and their per-family equivalents
+are `generator: synthesis` join targets — no draft, no prompt,
+excluded from dispatch by `ReadyScopes.ready/3`'s own
+`generation_tier?/1` filter (`systems/platform_content.md`). They are
+declarations, not design work; only the two arch tiers and `impl`
+itself carry a prompt. Backend's terminal tier ships today as bare
+`impl` (`bundles/default/tiers/impl.yaml`) because it has no siblings
+yet; it takes the family-qualified name `impl_backend` once the other
+three families' `impl` tiers exist alongside it.
 
 ### 5.2 The layering rule
 
@@ -1500,17 +1514,87 @@ the supervision tree, inside the observability and health
 conventions. Carry-in from the Polyphony pass: the single-source
 design-kit-with-drift-test stance.
 
+**One chain bundle carries every target platform a project has; chain
+bundles do not split by language.** A polyglot project still has one
+document graph — a component in one language is a node in the same
+graph as a component in another, and they depend on each other across
+the boundary — so they must load as one bundle. This is forced by the
+loader, and forced at its root rather than by `extends:`:
+`catapult.yaml`'s `chain:` field names exactly one bundle, and
+`Catapult.Dsl.Loader.load_axes/5` builds exactly one chain from it —
+no list, no second chain composed in beside it — so two independently
+authored chain bundles, one per language, have no way to merge into a
+single project's graph regardless of what either one's `extends:`
+names. (`extends:` itself being singular too (`dsl-syntax.md` §11)
+reinforces the same conclusion one layer down — a bundle can't even
+compose two layers of its own — but it is not what forces this rule:
+the rule holds even if `platform-elixir` folds away as a layer, which
+is itself still open (§8).)
+Per-platform variation (the pubapi representation and delivery
+conventions above) lives inside that one bundle's own architecture and
+implementation prompts — usually a selected snippet, not a whole
+variant prompt, since the surrounding structure is shared by
+construction — never as a second `extends:` layer.
+
+**Three coupled questions stay open, and they settle together (§8).**
+What carries a node's target platform; whether `impl_ui` for React
+and for Phoenix ends up one tier with a switched prompt or two; and
+whether enforcement profiles (§12) vary per platform by the same
+mechanism prompts do. None has a second candidate to design against
+yet: React, the only other platform on the roadmap, doesn't land until
+Phase 7 with `platform-client-ts` (§5.6, `docs/build-plan.md`'s Phase
+7 entry) — a selector built against one platform is a constant, not a
+selector. Candidates for the first, named without being chosen: a
+mint-time field on the node, a fragment, or a `dsl-syntax.md` §12
+context source. The second follows from the first rather than sitting
+beside it — whether the split is a tier axis or a prompt-content axis
+is exactly what the selector's shape decides. The third asks the same
+question of `codegen: restricted` and its siblings instead of a Liquid
+partial, and has no reason yet to land on a different answer from the
+first two. Settle all three together, when Phase 7 supplies a second
+platform to select between — not before, and not separately.
+
 ### 5.6 Client-locus components and the client corpus
 
-**`locus: server | client`** is a platform attribute on the
-backend-component family. Client-locus components are domain
-components that deploy into the client bundle: they own client-side
-state, persistence, protocol machinery, and sync; screen collections'
-`calls` edges target their pubapis; **the UI tiers stay thin** and
-never learn what sits behind the pubapi (crypto, caches, cursors).
-The thickest code in a client gets the full architecture treatment —
-comparch, pubapi fragments, store subcomponent, boundary-level tests
-against fakes.
+**Client-locus components are their own family, not a `locus: server
+| client` flag on the backend family.** §5.1's decisive argument for
+splitting UI and screen into their own tiers — type-level acyclicity
+makes the layering rule a bundle-load guarantee, where a kind-flag is
+a same-tier edge policed by weaker instance-level machinery — applies
+here identically; a `locus:` flag on the backend family was that same
+argument applied in one direction and not the other. A client-locus
+component mints as the client family's own tier chain instead (§5.1:
+`client_comp/client_comparch/client_subcomp/client_subcomparch/
+impl_client`). Secondary argument, and the author's own: a client
+store with persistence, outbox, retraction and lifecycle hooks (the
+slot list below) wants different prompts, grammar and review criteria
+from a server domain component — the same genuinely-differ argument
+§5.1 already makes for UI and screen.
+
+Client-locus components deploy into the client bundle: they own
+client-side state, persistence, protocol machinery, and sync; screen
+collections' `calls` edges target their pubapis; **the UI tiers stay
+thin** and never learn what sits behind the pubapi (crypto, caches,
+cursors). The thickest code in a client gets the full architecture
+treatment — comparch, pubapi fragments, store subcomponent,
+boundary-level tests against fakes.
+
+**Minting is open — the one cost this split introduces.** Under the
+old attribute model, minting was free: `sysarch` decomposes the
+domain and tags each component's locus as it goes. As a family,
+something has to mint the client family's nodes, and neither
+candidate is obviously right — domain decomposition is `sysarch`'s
+job, but client deployment shape is `frontend_sysarch`'s (§5.3),
+which already reads the backend sysarch handle. Undecided between
+`sysarch`, `frontend_sysarch`, and a split between them; settle it
+with the client family's own tickets, not here.
+
+**Phase placement: the client family lands in Phase 7, with its
+consumer.** A client-locus component's pubapi is consumed through
+`platform-client-ts`, and `systems/client_ts.md` places that system
+at the React pass (Phase 7) under its own standing decision that
+nothing lands in the corpus without a consumer. Phase 5 builds
+`frontend_sysarch` and the UI and screen families only.
 
 **`platform-client-ts` is a platform-layer deliverable** (author
 call), seeded by Haven (the stress case) and Polyphony (the median
@@ -1564,9 +1648,10 @@ checks what a project declares**:
   of the split is that one organization's workflow spans decompositions
   differing by stack.
 - **Liquid partials** (`{% include %}` / shared snippet files) — one
-  source for shared prompt framing across the six architecture tiers;
-  per-tier files for what differs. (Siege's `_shared.py` pattern,
-  moved into the bundle.)
+  source for shared prompt framing across each family's authored
+  tiers (§5.1: two arch tiers plus `impl`, per family); per-tier files
+  for what differs. (Siege's `_shared.py` pattern, moved into the
+  bundle.)
 - **Edge annotations:** `consistency: transactional | eventual` on
   dependency edges (§2.6).
 - **Options on external dependencies** (§3.4): closed vocabulary,
@@ -1578,9 +1663,10 @@ checks what a project declares**:
   enforcement profiles — `codegen: restricted` (human gate at child
   reconcile + auto-bounce without an override label), `purity:
   replay_floor` (call-graph audit), and whatever comes next: one
-  grammar slot instead of accreting one-off markers. The
-  backend-component family gains **`locus: server | client`** (§5.6)
-  and the ES store family declares its grade (§2.4). Scopes also
+  grammar slot instead of accreting one-off markers. **A fourth
+  component family, client** (§5.1, §5.6), carries client-locus
+  components on its own tier chain rather than a flag on the backend
+  family, and the ES store family declares its grade (§2.4). Scopes also
   declare **`implementation: stubbed | real`** with a `swap:` exit
   plan (§2.16) — the stub grade that decouples externally-gated work
   from the pipeline's clock.
@@ -4618,6 +4704,24 @@ corrections, unaffected by anything above.
 - React convention pass (§5.5) — shape blessed (Phoenix-hosted),
   contents still need the pass; folds in the client corpus (§5.6)
   and the kit-with-drift-test stance.
+- **Per-platform variation: three coupled questions, settled together
+  when Phase 7 supplies a second platform** (§5.5 carries the
+  argument and the candidates). What carries a node's target
+  platform; whether `impl_ui` for React and for Phoenix is one tier
+  with a switched prompt or two tiers; and whether enforcement
+  profiles (§12) vary by that same mechanism. Coupled rather than
+  three separate items: the second follows from whatever shape the
+  first takes, and the third asks the first's question of a different
+  slot. Deciding any one alone is how they end up inconsistent.
+- Whether `bundles/platform-elixir/` survives as a chain layer
+  (§5.5, §11) — beside an otherwise-empty manifest its only file is
+  `schemas/review.xsd`, a platform-wide review grammar belonging to
+  no language, and
+  `bundles/default/`'s `extends:` is the chain axis's only user of
+  the mechanism. If it folds in, §11's layering argument loses that
+  user and wants re-reading rather than assuming. The per-language
+  rule above does not depend on the answer: one chain per
+  `catapult.yaml` is what forces it.
 - Multi-target frontend vs second project — decided at a project's
   V2 (React Native); leaning recorded in §1.4.
 - Storage (S3-compatible) shared component (§2.12) — likely, not
@@ -4625,10 +4729,11 @@ corrections, unaffected by anything above.
 - Machine-audience journeys for partner API flows (§4.4) — optional
   modeling, revisit with real use.
 - `siege_engine_multi_seed.md` (SiegeEngine seed-docs) — not yet
-  reviewed against §1.1's multi-document intake; reconcile before the
-  input-role design freezes (the intake role list has since grown:
-  behavior docs, invariants, capability inventories, forward
-  strategies, `non_goals`).
+  reviewed against §1.1's multi-document intake; reconcile before
+  adding anything it argues for to the input-role vocabulary, which is
+  otherwise settled at three roles (`project_doc`, `mocks`,
+  `non_goals` — `dsl-syntax.md` §7). Nothing further is platform
+  vocabulary until a shipped tier is designed to read it.
 - Agent-run substrate for child tickets (§7.12.1).
 - Linear plan/API limits under many sub-issues (§7.12.2).
 - Validation check inventory (§7.12.3) — routing settled in §7.11,

@@ -162,6 +162,16 @@ loader tickets carry `system:core_dsl`.
   carried forward silently: `decomposition`'s comparch→subcomp
   instance declares `source: {min: 1}`, making every comp fan out into
   at least one subcomponent.
+- **This chain is one of four families sharing the same mint-then-
+  articulate shape** (v5 §5.1): UI (`ui_coll → ui_collarch → ui_subcomp
+  → ui_subcomparch → impl_ui`), screen (`screen_coll → … →
+  impl_screen`) and client (`client_comp → … → impl_client`) each
+  fan out the same way this backend chain does, behind their own tier
+  files. Backend's own terminal tier stays bare `impl` until it has
+  siblings to be qualified against — it takes the family-qualified
+  name `impl_backend` once the other three exist. UI and screen land
+  in Phase 5 with `frontend_sysarch`; client lands in Phase 7 with its
+  consumer, `platform-client-ts` (`systems/client_ts.md`).
 - **Fragment ownership is 5 kinds at `comp`, 3 at `subcomp`** (ORC-84,
   confirming the previous pass's own correct call — kept rather than
   re-litigated). `comp` owns `techspec`, `pubapi`, `privapi`,
@@ -633,8 +643,9 @@ loader tickets carry `system:core_dsl`.
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
 platform-elixir grammar skeletons. Target: full tier set including
-product tier (Phase 5), delivery declarations (Phase 7), runtime-
-dialect example content (Phase 8).
+product tier, `frontend_sysarch`, and the UI and screen families
+(Phase 5), delivery declarations and the client family (Phase 7),
+runtime-dialect example content (Phase 8).
 
 ## Depends on
 
