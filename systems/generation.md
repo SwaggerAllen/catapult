@@ -312,10 +312,11 @@ and validation logic and must not fork it.
   `Catapult.Delivery` for the variable itself rather than through that
   empty node list — so the content a chain test needs to assert on
   reaches the prompt through a path `ContextResolver` never touches.
-  Nothing covers that path today: the offline chain test asserts the
-  graph-native walks below and stops there, and until it also asserts
-  on `project_doc`'s own pinned text, `ContextAssembly`'s direct-read
-  step (the entry above) has no test reaching it at all. `ticket.<source>`
+  The offline chain test asserts on `project_doc`'s own pinned text
+  reaching a rendered prompt, alongside the graph-native walks it
+  already asserts on below: that assertion is the only one that
+  reaches `ContextAssembly`'s direct-read step (the entry above) at
+  all. `ticket.<source>`
   is unchanged — still `{:error, :unsupported}`, v5 §7.11's Phase 7 —
   and no test may assert a tier reflects one.
 

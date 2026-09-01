@@ -124,23 +124,32 @@ generating as scope-runs inside one ticket.
   **Several files can share a role, and this pass decides what that
   means rather than parking it.** `InputDocument`'s key —
   `(project_id, role, filename)` — already stores more than one
-  filename per role; nothing about the schema forces one-to-one. The
-  directory scan above produces that case whenever two files under
-  `docs/raft/` share a stem across extensions (`project_doc.md` and
-  `project_doc.txt` both tag `project_doc`), and this pass does not
-  reject, merge, or order that collision: `get_input_documents/2`
-  returns every row pinned under the role, and `get_raft/1`'s
-  concatenation (above) takes whatever order `read_directory/3`'s
-  directory listing returns. That is enough for what a render needs —
-  every pinned document present, once — and is not a promise about
-  which one comes first. A project that wants one file per role keeps
-  one file per role; nothing here adds a manifest or an ordering rule
-  to stop it from doing otherwise. The toy seed's existing
-  fixture directory (`docs/toy-seed/<role>.md`, `test/support
-  /toy_seed.ex`) predates this convention under a name chosen for that
-  one fixture; reconciling it to `docs/raft/` is dev's to do alongside
-  the rest of this ticket's implementation, not a rename this pass
-  makes on its own.
+  filename per role; nothing about the schema forces one-to-one.
+  Discovery bounds what "sharing a role" can actually mean, though:
+  filename-stem-is-role means the only way two files land under one
+  role is the same stem with a different extension —
+  `project_doc.md` and `project_doc.txt` both tagging `project_doc` —
+  never an arbitrary number of unrelated documents filed under one
+  tag by any naming a person would choose. In practice a project
+  keeps one file per role; what this pass decides is narrower than
+  general per-role multiplicity — only that the extension-stem
+  collision is not rejected, merged, or deduplicated, since nothing
+  about it is wrong. Both read paths query rather than promise an
+  order, though, and both feed a concatenated-string render
+  (`systems/generation.md`'s entry): `get_input_documents/2` returns
+  every row pinned under the role for `input.<role>`, `get_raft/1`
+  returns every row pinned under the project for the `raft` wildcard
+  (`dsl-syntax.md` §9), and an unspecified order on either would let
+  two renders of the same frozen pin disagree — the exact instability
+  the freeze in v5 §1.1 exists to prevent. Both queries carry
+  **`ORDER BY filename`**: it costs nothing (the row count sharing a
+  role is one in the overwhelmingly common case) and makes the render
+  reproducible.
+  The toy seed's existing fixture directory (`docs/toy-seed/<role>.md`,
+  `test/support/toy_seed.ex`) predates this convention under a name
+  chosen for that one fixture; reconciling it to `docs/raft/` is
+  dev's to do alongside the rest of this ticket's implementation, not
+  a rename this pass makes on its own.
 
   **Reading it**: `HostPort` gains a fourth read-shaped operation,
   `read_directory/3` (`project_id`, `ref`, `path`) ::
