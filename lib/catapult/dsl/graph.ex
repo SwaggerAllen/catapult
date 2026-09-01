@@ -2,9 +2,9 @@ defmodule Catapult.Dsl.Graph do
   @moduledoc """
   Type-level acyclicity, via `libgraph` (dsl-syntax.md §4, §13,
   conventions §1's blessed graph library): the edge-instance graph
-  (tiers as nodes, every declared edge as a `source -> target` arrow),
-  the `extends:` chain, and the workflow gate/environment ordering
-  each reduce to "does this directed graph have a cycle."
+  (tiers as nodes, every declared edge as a `source -> target` arrow)
+  and the workflow gate/environment ordering each reduce to "does this
+  directed graph have a cycle."
 
   Self-loops (`source == target`, the ordinary shape of a `dependency`
   edge between components of one tier) are excluded from the

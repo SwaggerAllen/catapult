@@ -1,15 +1,15 @@
 defmodule Catapult.Dsl.Manifest do
   @moduledoc """
   One `bundle.yaml` (dsl-syntax.md §2): name, version, kind, and the
-  per-kind glob lists — a chain carries `extends:`, `tiers:`, `edges:`,
+  per-kind glob lists — a chain carries `tiers:`, `edges:`,
   `fragments:` and `flows:`; a workflow carries `gates:`,
   `environments:`, `types:` and `entry:` (§15.2, §15.6) instead. A
   `tiers:` key in a workflow manifest (or the reverse) is an unknown
-  field, per §2's own text: the file-list keys are per-kind — and so is
-  `extends:` on a workflow manifest (§11, §13): the shared field is
-  still parsed generically below for both kinds, but only `@chain_keys`
-  admits it, so a workflow bundle naming one fails the same
-  unknown-field check as any other kind-mismatched key.
+  field, per §2's own text: the file-list keys are per-kind. No bundle
+  of either kind carries `extends:` (§11, §13): a bundle's content is
+  exactly what it declares, so the key is simply absent from both
+  `@chain_keys` and `@workflow_keys` and falls through to the same
+  unknown-field check as any other name neither kind admits.
 
   Fragment kinds are a closed vocabulary *per bundle* (§2): a kind used
   in any `handle:`/`produces:` must appear in `fragments:` here, which
@@ -24,7 +24,6 @@ defmodule Catapult.Dsl.Manifest do
     :file,
     :kind,
     :version,
-    :extends,
     :entry,
     tier_globs: [],
     edge_globs: [],
@@ -42,7 +41,6 @@ defmodule Catapult.Dsl.Manifest do
           file: String.t(),
           kind: kind(),
           version: String.t(),
-          extends: String.t() | nil,
           entry: String.t() | nil,
           tier_globs: [String.t()],
           edge_globs: [String.t()],
@@ -54,11 +52,7 @@ defmodule Catapult.Dsl.Manifest do
         }
 
   @kinds ~w(chain workflow)
-  @chain_keys ~w(name version kind extends tiers edges fragments flows)
-  # No `extends` here (§2, §11, §13): a workflow bundle carrying one is
-  # an unknown field, caught by `unknown_keys/3` below like any other —
-  # no special case needed since `extends` is still parsed generically
-  # above for both kinds, and simply isn't in this allowed set.
+  @chain_keys ~w(name version kind tiers edges fragments flows)
   @workflow_keys ~w(name version kind gates environments types entry)
 
   @doc "Parses a bundle.yaml file."
@@ -68,20 +62,13 @@ defmodule Catapult.Dsl.Manifest do
     {name, name_problems} = Fields.require_string(raw, "name", where)
     {version, version_problems} = Fields.require_string(raw, "version", where)
     {kind, kind_problems} = Fields.require_one_of(raw, "kind", @kinds, where)
-    {extends, extends_problems} = Fields.optional_string(raw, "extends", where)
 
     {lists, list_problems, unknown} = parse_lists(raw, kind, where)
 
-    problems =
-      name_problems ++
-        version_problems ++ kind_problems ++ extends_problems ++ list_problems ++ unknown
+    problems = name_problems ++ version_problems ++ kind_problems ++ list_problems ++ unknown
 
     if problems == [] do
-      {:ok,
-       struct!(
-         __MODULE__,
-         [name: name, file: file, kind: kind, version: version, extends: extends] ++ lists
-       )}
+      {:ok, struct!(__MODULE__, [name: name, file: file, kind: kind, version: version] ++ lists)}
     else
       {:error, problems}
     end

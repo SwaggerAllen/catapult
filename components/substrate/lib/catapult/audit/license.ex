@@ -50,7 +50,7 @@ defmodule Catapult.Audit.License do
   stdout of every green run, because the inert state is the only one
   that could be mistaken for a pass.
 
-  The criterion behind the default value that `bundles/platform-elixir`
+  The criterion behind the default value that `bundles/default`
   writes into a generated project stays ours and is worth restating: not
   "permissive" but *imposes no terms on the linking application*, which
   is what `LICENSING.md` actually requires.

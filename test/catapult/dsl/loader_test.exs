@@ -253,58 +253,9 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "navigation: true"))
   end
 
-  test "extends: layers a base bundle and lets a same-path file replace it", %{tmp_dir: dir} do
-    Fixture.write!(dir, %{
-      "catapult.yaml" => "chain: project\n",
-      "bundles/base/bundle.yaml" => """
-      name: base
-      version: "1.0.0"
-      kind: chain
-      tiers: [tiers/*.yaml]
-      fragments: [techspec]
-      """,
-      "bundles/base/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """,
-      "bundles/base/tiers/other.yaml" => """
-      tier: other
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """,
-      "bundles/project/bundle.yaml" => """
-      name: project
-      version: "1.0.0"
-      kind: chain
-      extends: base
-      tiers: [tiers/*.yaml]
-      fragments: [techspec, pubapi]
-      """,
-      # Same relative path as base's comparch.yaml: replaces it.
-      "bundles/project/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: alias
-      generator: synthesis
-      handle:
-        fields: [id]
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir, dialect: "runtime")
-    assert Map.keys(loaded.chain.tiers) |> Enum.sort() == ["comparch", "other"]
-    assert loaded.chain.tiers["comparch"].identity == "alias"
-    assert "pubapi" in loaded.chain.fragments
-  end
-
-  test "extends: never crosses axes", %{tmp_dir: dir} do
+  test "a chain bundle declaring extends: is a load error", %{tmp_dir: dir} do
+    # v5 §3.1's fork-tailor-merge lifecycle, not a load-time base layer
+    # (§11, ORC-153) — `extends:` is an unknown field on either axis.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{
@@ -312,14 +263,14 @@ defmodule Catapult.Dsl.LoaderTest do
       name: default
       version: "1.0.0"
       kind: chain
-      extends: default-flow
+      extends: base
       tiers: [tiers/*.yaml]
       fragments: [techspec]
       """
     })
 
     assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "across axes"))
+    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"extends\""))
   end
 
   ## §15.3 — the array is the only ordering mechanism. `after:` is
@@ -2261,13 +2212,13 @@ defmodule Catapult.Dsl.LoaderTest do
            )
   end
 
-  ## §11, §13 — a workflow bundle is forked, never layered.
+  ## §11, §13 — a workflow bundle is forked, never layered. `extends:`
+  ## retired from the chain axis too at ORC-153, once ORC-105's fourth
+  ## pass had already dropped the workflow axis's own base layer — the
+  ## chain-bundle counterpart of this test lives above, near the other
+  ## bundle-load-error cases.
 
   test "a workflow bundle declaring extends: is a load error", %{tmp_dir: dir} do
-    # v5 §7.18's own workflow-axis base layer, reversed at ORC-105:
-    # `extends:` narrows to the chain axis, because fork-tailor-merge
-    # is how bundles are actually distributed (§3.1) and git has a
-    # merge story hex does not.
     Fixture.minimal!(dir)
 
     Fixture.write!(dir, %{

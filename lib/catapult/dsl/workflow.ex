@@ -12,10 +12,10 @@ defmodule Catapult.Dsl.Workflow do
   relative positions across two types without either being wrong.
 
   A workflow bundle carries no `extends:` (§11, §13; `Catapult.Dsl
-  .Manifest`'s own moduledoc) — it is forked from the platform's
-  default gates/environments/types instead of layered — so, unlike
-  `Catapult.Dsl.Chain`, this loader reads one directory directly and
-  never resolves an `Catapult.Dsl.Extends` chain.
+  .Manifest`'s own moduledoc), the same as a chain bundle now that
+  `extends:` has retired from the DSL entirely (ORC-153) — it is
+  forked from the platform's default gates/environments/types, and
+  this loader has always read its one directory directly.
 
   **Backward movement resolves here, and through one predicate**
   (§15.10). A decline's target is legal iff it is earlier in the citing

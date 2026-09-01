@@ -49,11 +49,10 @@ defmodule Catapult.Dsl.GrammarTest do
              )
   end
 
-  test "resolves a schema across the extends chain (the review grammar lives only in the base layer)" do
-    # `default` extends `platform-elixir`, which owns `schemas/review.xsd`;
-    # `default` itself carries no copy — proves specific-first-with-
-    # base-fallback resolution finds it rather than reporting
-    # `:schema_not_found`. Whether this particular body satisfies the
+  test "resolves the platform-wide review grammar from the bundle's own schemas/" do
+    # `bundles/platform-elixir` folded into `bundles/default` at
+    # ORC-153 — `schemas/review.xsd` is `default`'s own file now, not
+    # a base layer's. Whether this particular body satisfies the
     # schema's own required attributes is exercised by the review
     # bodies `Catapult.Generation.CommitPathTest` sends through
     # `Catapult.Dsl.validate_draft/5`; this test only proves the file

@@ -36,9 +36,11 @@ toolchain is the only supported one.
 - `components/substrate/` — the shipped platform substrate: a
   separate mix project, path-dep'd, **with its own test/format/credo
   suite that CI runs separately** — run both.
-- `bundles/` — DSL bundle content, both axes (v5 §7.18): the
-  chain layers (platform-elixir + default chain) and the platform
-  workflow layer (default review sequence, `dev`/`staging`).
+- `bundles/` — DSL bundle content, both axes (v5 §7.18), each a
+  single forked-and-tailored directory rather than a loader-composed
+  layer (`dsl-syntax.md` §11): the chain bundle (`default`) and the
+  platform workflow bundle (`default-flow`: default review sequence,
+  `dev`/`staging`).
 - `screens/` and `storybook/` — **design-owned** (`pipeline
   .config.json`'s `designOwnedPaths`), and `storybook/**` is the one
   tree where authored **Elixir** arrives without a dev pass behind

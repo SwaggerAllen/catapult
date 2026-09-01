@@ -216,9 +216,9 @@ defmodule Catapult.MixProject do
       {:oban, "~> 2.20"},
       {:plug_cowboy, "~> 2.8"},
       {:jason, "~> 1.4"},
-      # Type-level acyclicity over the edge-instance graph, the extends:
-      # chain, and the workflow gate/environment ordering (dsl-syntax.md
-      # §4, §11, §13) — conventions §1's blessed graph library, ORC-5.
+      # Type-level acyclicity over the edge-instance graph and the
+      # workflow gate/environment ordering (dsl-syntax.md §4, §13) —
+      # conventions §1's blessed graph library, ORC-5.
       {:libgraph, "~> 0.16"},
       # The bundle loader's YAML reader (ORC-5, systems/core_dsl.md):
       # already resolved transitively via mix_audit's own dependency, so
