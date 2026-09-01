@@ -4723,12 +4723,6 @@ corrections, unaffected by anything above.
   designed; §2.12's adapter convention covers projects today.
 - Machine-audience journeys for partner API flows (§4.4) — optional
   modeling, revisit with real use.
-- The input-role vocabulary is settled at three roles (`project_doc`,
-  `mocks`, `non_goals` — `dsl-syntax.md` §7 states the three
-  independently). What §7 does not state: a role becomes platform
-  vocabulary when, and only when, a shipped tier is designed to read
-  it (ORC-107) — nothing joins the set on the strength of a document
-  arguing for it.
 - Agent-run substrate for child tickets (§7.12.1).
 - Linear plan/API limits under many sub-issues (§7.12.2).
 - Validation check inventory (§7.12.3) — routing settled in §7.11,

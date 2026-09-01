@@ -499,7 +499,9 @@ v5 additions:
   has no closed registry to violate, and an unread role name is simply
   never walked — but nothing beyond these three is platform vocabulary:
   a project's own role name is that project's declaration, not a
-  default every project gets.
+  default every project gets. A role joins the platform set when, and
+  only when, a shipped tier is designed to read it (ORC-107) — nothing
+  joins the set on the strength of a document arguing for it.
   **Roles are optional classification of a free-form raft, never
   requirements**: a role with no documents yields an empty
   collection and **never blocks readiness** (v5 §1.1 — requiring a

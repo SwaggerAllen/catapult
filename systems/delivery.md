@@ -121,21 +121,21 @@ generating as scope-runs inside one ticket.
   violate" carried into storage rather than contradicted by it: a
   project tagging a document is a project naming a file.
 
-  **Several files can share a role, and this pass decides what that
-  means rather than parking it.** `InputDocument`'s key —
-  `(project_id, role, filename)` — already stores more than one
-  filename per role; nothing about the schema forces one-to-one.
-  Discovery bounds what "sharing a role" can actually mean, though:
-  filename-stem-is-role means the only way two files land under one
-  role is the same stem with a different extension —
-  `project_doc.md` and `project_doc.txt` both tagging `project_doc` —
-  never an arbitrary number of unrelated documents filed under one
-  tag by any naming a person would choose. In practice a project
-  keeps one file per role; what this pass decides is narrower than
-  general per-role multiplicity — only that the extension-stem
-  collision is not rejected, merged, or deduplicated, since nothing
-  about it is wrong. Both read paths query rather than promise an
-  order, though, and both feed a concatenated-string render
+  **An extension-stem collision under one role is legal and
+  ordered, and this pass decides that rather than parking it.**
+  `InputDocument`'s key — `(project_id, role, filename)` — already
+  stores more than one filename per role; nothing about the schema
+  forces one-to-one. Discovery bounds what "sharing a role" can
+  actually mean, though: filename-stem-is-role means the only way
+  two files land under one role is the same stem with a different
+  extension — `project_doc.md` and `project_doc.txt` both tagging
+  `project_doc` — never an arbitrary number of unrelated documents
+  filed under one tag by any naming a person would choose. In
+  practice a project keeps one file per role; what this pass decides
+  is narrower than general per-role multiplicity — only that the
+  extension-stem collision is not rejected, merged, or deduplicated,
+  since nothing about it is wrong. Both read paths query rather than
+  promise an order, though, and both feed a concatenated-string render
   (`systems/generation.md`'s entry): `get_input_documents/2` returns
   every row pinned under the role for `input.<role>`, `get_raft/1`
   returns every row pinned under the project for the `raft` wildcard
