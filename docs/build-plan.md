@@ -205,6 +205,28 @@ external project needed — reviewed through the Phase 4 loop. The doc
 chain producing reviewed architecture is a usable product before any
 delivery machinery exists.
 
+The run is against a fresh project, never the reference instance: a
+self-seeded run shares this deployment's own event log and process
+managers with the automation dispatching it, and a bad pin or a
+stuck process manager there corrupts state the actual pipeline
+depends on — a second project's setup cost is cheap against that.
+Depth is bounded, not exhaustive: the run walks the whole named
+path — feature expansion, non-goals distilled into policy nodes,
+journeys, screens, requirements, `sysarch`, `frontend_sysarch`, and
+the three families reachable by Phase 5's own build (backend,
+UI-collection, screen-collection; the client family is Phase 7's,
+with its consumer, per v5 §5.1) — across the full raft, but
+fans out to `impl` for only enough subcomponents, in each of those
+three families, to exercise the fan-out and the decline →
+regenerate loop at least once per family. Reviewing every
+subcomponent a real architecture pass over Catapult's own
+`docs/`/`systems/` would eventually mint is a cost that scales with
+the raft, not with the claim under test — that reviewed content
+moves through the chain and a decline visibly changes what comes
+back. Nothing the run produces is committed: it is evidence about
+the chain, never a second, generated copy of Catapult's own
+architecture landing in the tree.
+
 ## Phase 6 — Prompt harness v0
 
 SiegeEngine's cohort machinery re-platformed (v5 §10.2): cohorts,
