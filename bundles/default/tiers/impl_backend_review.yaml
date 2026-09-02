@@ -1,0 +1,21 @@
+# docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
+# a nested block on impl_backend.yaml. `reviews: impl_backend` fixes
+# this review's scope and cardinality to impl_backend's own
+# (per(subcomp), 1:1) — not restated, dsl-syntax.md §3.3. `context:` is
+# the same set of walks as impl_backend's own, checked at load time
+# (§13) rather than trusted; `draft`/`prior_review` reach the prompt
+# automatically (§9) and are never context: entries. Family-qualified
+# name (ORC-111, ORC-106): follows impl_backend.yaml's own rename.
+tier: impl_backend_review
+reviews: impl_backend
+generator: llm
+prompt: prompts/review/impl.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+  - self.parent.dependency -> subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
+  - all.feature_expansion.handle
+delivery:
+  phase: critique
+  agent_step: critique

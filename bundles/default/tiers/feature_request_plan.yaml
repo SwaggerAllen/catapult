@@ -47,7 +47,7 @@ context:
   - self.plan_target -> sysarch.handle
   - self.plan_target -> comparch.handle
   - self.plan_target -> subcomparch.handle
-  - self.plan_target -> impl.handle
+  - self.plan_target -> impl_backend.handle
 delivery:
   phase: generation
   agent_step: design

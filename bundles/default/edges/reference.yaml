@@ -37,9 +37,56 @@ instances:
       source: { min: 0 }
       target: { min: 0 }
 
-  - source: impl
+  - source: impl_backend
     target: ref
-    declared_in: impl.draft.implementation.references.reference[].@target
+    declared_in: impl_backend.draft.implementation.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  # ORC-111: the UI and screen families each gain the same
+  # reference -> ref attachment site backend's comparch, subcomparch
+  # and impl already have, at every generator: llm tier that isn't a
+  # join target (systems/platform_content.md's ORC-111 entry) — six
+  # more sites under this same mechanism, not a new edge.
+  - source: ui_collarch
+    target: ref
+    declared_in: ui_collarch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: ui_subcomparch
+    target: ref
+    declared_in: ui_subcomparch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: impl_ui
+    target: ref
+    declared_in: impl_ui.draft.implementation.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: screen_collarch
+    target: ref
+    declared_in: screen_collarch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: screen_subcomparch
+    target: ref
+    declared_in: screen_subcomparch.draft.references.reference[].@target
+    cardinality:
+      source: { min: 0 }
+      target: { min: 0 }
+
+  - source: impl_screen
+    target: ref
+    declared_in: impl_screen.draft.implementation.references.reference[].@target
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -65,3 +112,18 @@ instances:
       source: { min: 0 } # requirements prefers a journey ref; direct screen
       # refs are the fallback for standalone screens (v5 §4.2)
       target: { min: 0 }
+
+  # ORC-111: "consumes journey state" — declared at articulation time
+  # (screen_collarch's own draft), not at frontend_sysarch's mint time,
+  # since which journeys a collection actually needs state from is a
+  # design decision for that collection's own pass, not a grouping fact
+  # frontend_sysarch can read off IA region alone
+  # (systems/platform_content.md's ORC-111 entry).
+  - source: screen_coll
+    target: journey
+    declared_in: screen_collarch.draft.journeys.journey[].@ref
+    cardinality:
+      source: { min: 0 } # a collection may consume no journey's live state
+      target: { min: 0 } # a journey may back no screen collection directly —
+      # it already reaches its screens through the product-tier
+      # journey -> screen instance above

@@ -9,6 +9,6 @@ delta:
   edges: [edges/plan_target.yaml]
 walk: downward_cascade
 ticket:
-  entry: impl
+  entry: impl_backend
   labels: []
 completion: bug_fix_complete
