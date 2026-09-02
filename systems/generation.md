@@ -163,10 +163,9 @@ and validation logic and must not fork it.
 
   Classification is two-stage and precedence-ordered, not a flat
   three-way split, and the harness already implements it in that
-  order (the design record previously described the flat version,
-  which the code never was): a terminal `result` event whose
-  `subtype` is `success` reports `success` regardless of anything
-  seen earlier in the stream — a run that retried past a `rate_limit`
+  order: a terminal `result` event whose `subtype` is `success`
+  reports `success` regardless of anything seen earlier in the
+  stream — a run that retried past a `rate_limit`
   `api_retry` event and then finished cleanly still reports
   `success`, because the harness checks the terminal event first and
   the accumulated retry history only matters when that check fails.
