@@ -2151,6 +2151,159 @@ generating as scope-runs inside one ticket.
   `qualified` all three pass and the rest of the suite stays green.
   A scheme that cannot express the case §15.12 permits is not a
   narrower fix; it is the same defect with a smaller blast radius.
+- **Test projects are a recorded kind with a lifecycle, from the
+  first project-level record this plane has** (ORC-216, design pass).
+  No `projects` entity exists anywhere in this store before this
+  entry — `ProjectBinding`'s own moduledoc says so, correctly, of the
+  tree it was written against, because nothing before ORC-216 needed
+  to ask "does this project id mean anything beyond a binding." The
+  milestone boundary's live suite does: it needs to mint a project,
+  hold one aside for a debugging session to inspect after a failure,
+  and reclaim it afterward, and doing that downstream of `Store
+  .list_project_ids/0` with an ad hoc filter would mean every future
+  project-scoped sweep re-deriving or missing the same rule.
+  `delivery_projects` (new; `Catapult.Delivery.Store.Project`) is the
+  record — `project_id` primary key, `test_project_state` nullable
+  (`:active | :released | :deleted`). A project is a test project iff
+  the field is set; nothing here adds a second `kind` column to say so
+  a second way, because the one bit the nullable field carries is the
+  whole of what "is this a test project" means today, and a project no
+  test flow ever minted gets no row here at all rather than a row
+  reading some `:ordinary` placeholder no code reads yet.
+
+  **At most one active, by construction of the mint operation, not a
+  checked constraint.** `Store.mint_test_project/1` performs both
+  halves of "provisioning a new one releases whichever was active" —
+  flip every currently-`:active` row to `:released`, insert the new
+  row `:active` — before either half is visible to a second reader, so
+  no window exists where two rows read `:active` at once. No unique
+  partial index enforces this: nothing but the boundary's own
+  milestone-cadence live suite calls this operation, and it never
+  calls it twice without the prior call's release/delete cycle having
+  already run, so a concurrent second mint is not a case this system
+  defends against.
+
+  **`:deleted` is terminal and the row survives it.** Deleting a test
+  project purges every row keyed by this `project_id` in a table this
+  system owns — `delivery_project_bindings`, `delivery_dispatch_runs`,
+  `delivery_input_documents`, any `DraftBody`/`FeaturePublication`-
+  shaped row the project has accumulated — and then sets
+  `test_project_state: :deleted` on the one row that is *not* purged:
+  `delivery_projects`'s own, kept as a tombstone so a project id is
+  never reused and a `:deleted` project reads differently from one
+  that never existed. **What this does not purge, named rather than
+  silently left**: `engine_nodes`, `engine_flows`, every other
+  engine-owned projection table, and the project's own EventStore
+  stream — engine's file map, not this ticket's `Touches:` line, and
+  "the log is the source of truth; projections are derived and
+  disposable" (`systems/engine.md`) means those rows cost storage
+  rather than correctness by staying. The growth rate this leaves
+  behind is one project's worth of engine rows and one EventStore
+  stream per milestone (the live suite's own cadence, conventions §9)
+  — small and slow enough to defer rather than a gap this ticket
+  closes. A later archive/delete design — this entry's own seed, not a
+  substitute for it — is where engine's own purge belongs, alongside
+  the product-facing flow neither this ticket nor that design is.
+- **One authenticated provisioning surface, three operations, a
+  bearer secret rather than OIDC** (ORC-216, design pass). Provision
+  (mint a test project, bind it to `catapult-test`, reset the bound
+  repo's fixture content, intake the raft at the ref reset produced —
+  below), release, and a read of a scope's most recent dispatch run —
+  all three behind one new secret, `DELIVERY_PROVISIONING_TOKEN`,
+  declared exactly like `DELIVERY_GITHUB_TOKEN` above (no default,
+  `secret: true`, so a build missing it fails at boot naming it, and
+  `SETUP.md`'s required-env manifest gains the line) and compared
+  constant-time (`Plug.Crypto.secure_compare/2`, a dependency this
+  tree already carries via `:plug`).
+
+  **Considered and rejected: reusing the dispatch-facing OIDC
+  verification** (v5 §7.12.1, this doc's ORC-9 entry). `Oidc.verify/4`
+  answers one question — does this token's `repository` claim match
+  *the repo a specific dispatch run was sent to*, read off that run's
+  own correlation record (`Dispatch.fetch_context/2`'s own
+  `run.repo_owner`/`run.repo_name`) — and every one of its inputs
+  comes from a `DispatchRun` row that does not exist yet at the moment
+  a live-suite job asks to provision one. Making it answer the
+  different question a provisioning call actually asks — is this
+  token the plane's own CI, calling from `SwaggerAllen/catapult`
+  rather than any bound project's repo — needs a second
+  expected-identity source (a plane-level "our own repo" config value
+  nothing today holds) and drops the `run_id` half of the check
+  entirely, since there is no run yet to match one against. That is a
+  second verification path wearing the first one's name, not a reuse
+  of it, and OIDC's actual argument for existing — no secret rides
+  dispatch inputs handed to arbitrary, ephemeral runner identities
+  across the internet (v5 §7.12.1) — does not transfer to a surface
+  reachable only from this repo's own scheduled job, firing at most
+  once a milestone. A declared secret is the smaller addition: one
+  more line in `SETUP.md`'s required-env manifest, checked the same
+  way `DELIVERY_GITHUB_TOKEN` already is, against no new plane-level
+  identity concept.
+
+  These three routes register through `api_surface/0` exactly like
+  `fetch_context/2` and `report_result/2` do, and reach the world
+  through the identical `Catapult.Foundation.DispatchPlug` path
+  dispatch (`systems/foundation.md`) — a fourth and fifth path on the
+  one listener, not a second one.
+- **`reset_repo/2` widens to report the ref it produced** (ORC-216,
+  design pass; `HostPort`, `HostPort.Actions` and `HostPort.Fake` in
+  the same change, per this doc's own standing rule on this port). It
+  returns `{:ok, ref}` rather than bare `:ok` — the default branch's
+  head commit SHA after the last file in `files` lands, in `HostPort
+  .Actions`, and a synthesized one in `HostPort.Fake`, the identical
+  `"fake-sha-..."` shape `Forge`'s own `head_sha/1` already generates
+  for a branch head — `reset_repo/2`'s own Fake implementation is a
+  no-op today (it only logs) and gains this much and no more.
+  Provisioning is the first caller with anywhere to put a ref:
+  `intake_raft/2` takes one explicitly rather than defaulting to
+  "whatever the default branch happens to be" (`HostPort
+  .read_directory/3`'s own moduledoc already refuses that default for
+  the identical reason), and the fixture files `reset_repo/2` just
+  wrote are the only source of a ref guaranteed to postdate them
+  without a second read racing a concurrent write to the same shared
+  `catapult-test` repo — the exact hazard the "at most one active test
+  project" invariant above exists to keep to one writer at a time.
+- **What "the plane recorded it" resolves to, concretely:
+  `DispatchRun` gains `outcome` and `credential_used`.** The exit
+  criterion asks the live suite to assert success, a `credential_used`,
+  and the committed draft, and none of the three durably exists on any
+  row today — `ResultHandler.payload()`'s `status` and
+  `credential_used` reach `Dispatch.simulate_result/2` and stop there,
+  because nothing before this ticket has had a reason to read either
+  back later. `complete_dispatch_run/2` widens to accept and store both
+  alongside the coarse `:completed`/`:failed` it already writes
+  (unchanged — `:completed` still covers a recorded limit-class/other
+  failure exactly as today; `systems/generation.md`'s failover entry
+  depends on that reading holding); the terminal-status read surfaces
+  `status`, `outcome`, `credential_used`, `node_id` and the node's own
+  `body_sha` (a plain cross-system read through to `Catapult.Engine
+  .Store`, the same shape `current_open_flow_id/1` above already
+  uses) — a non-nil `body_sha` is what "the committed draft" resolves
+  to, since `Store.put_draft_body/4` never sets one except on a real
+  commit.
+- **How far the toy chain runs before release is a cost question this
+  pass names rather than answers** (ORC-216, design pass — one of this
+  ticket's own open questions, deliberately left open rather than
+  forced). The live suite's own test releases its project the moment
+  it observes the dispatched run's terminal status — synchronously, in
+  the same request cycle that ends the bounded wait
+  (`systems/foundation.md`'s polling exception) — which bounds the
+  race against the sweeper's own next tick (`sweep_interval_ms`,
+  default 30s, `systems/generation.md`) to whatever a real dispatched
+  run's own wall-clock time leaves before that tick fires, not to
+  anything this ticket engineers. No cap is added to the sweeper for
+  this: a released project stops being swept the instant its state
+  flips (above), and building a narrower "dispatch exactly one scope"
+  mode would be new dispatch mechanism this ticket's own scope refuses
+  — "let the sweeper dispatch the ready scope" reuses `Catapult
+  .Generation.Sweeper` unmodified. What this does cost — whether a
+  live run's own latency reliably beats one sweep interval, and what a
+  second scope becoming ready and dispatching before release would
+  actually spend — is unmeasured, the same way the subscription
+  credential's own ceiling behavior is (`systems/generation.md`'s own
+  entry): the first live run this mechanism ever dispatches settles it,
+  and until then this is a stated assumption rather than a documented
+  shape.
 
 ## Initial vs target
 
