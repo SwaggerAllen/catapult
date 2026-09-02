@@ -31,7 +31,7 @@ defmodule Catapult.Delivery.Store.DispatchRun do
     field :repo_name, :string
     field :root_tag, :string
     field :rendered_prompt, :string
-    field :credential_sent, :string
+    field :credential_sent, {:array, :string}
     field :github_run_id, :string
     field :status, Ecto.Enum, values: [:dispatched, :context_fetched, :completed, :failed]
 

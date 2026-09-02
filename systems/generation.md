@@ -1,5 +1,6 @@
 ---
 paths:
+  - lib/catapult/generation.ex
   - lib/catapult/generation/**
   - test/catapult/generation/**
 ---

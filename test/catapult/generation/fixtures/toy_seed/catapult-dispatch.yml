@@ -10,18 +10,19 @@
 # (`systems/generation.md`, `systems/delivery.md`; v5 §7.12.1):
 # GitHub Actions triggers this on `workflow_dispatch`, it fetches the
 # rendered context from the plane over an OIDC-authenticated call,
-# runs the pinned runner harness with the named model credential, and
-# reports the result back the same way. The exact harness invocation
-# (action reference, inputs) is orchestration's own pinned dependency
-# (`systems/generation.md`: "not a second implementation in this
-# repo") and is not settled anywhere in this repo as of ORC-10 — the
-# steps below are what's actually known (the OIDC contract, the two
-# endpoints, the inputs a dispatch carries) with the harness step
-# named as a placeholder rather than guessed at. See
-# `test/catapult/generation/toy_seed_chain_test.exs` (offline) and
-# `toy_seed_chain_live_test.exs` (`:live`) for how this fits into a
-# run — Catapult's own surface drives one for real (v5 §7.17); there
-# is no hand-driven runbook anymore (ORC-36 retired it).
+# runs Catapult's own runner harness — reversed from ORC-9's reading
+# that the harness was orchestration's pinned dependency
+# (`systems/generation.md`'s ORC-215 entry: orchestration delivers
+# Catapult, it participates in none of Catapult's own mechanisms) —
+# with the named model credential(s), and reports the result back the
+# same way. Claude Code is the first agent implementation; the
+# run-agent step below is the only implementation-specific piece (v5
+# §7.12.1: "a new bindings entry and zero protocol or bundle change")
+# — everything around it is the fixed contract: fetch context, run
+# agent, report. See `test/catapult/generation/toy_seed_chain_test.exs`
+# (offline) and `toy_seed_chain_live_test.exs` (`:live`) for how this
+# fits into a run — Catapult's own surface drives one for real (v5
+# §7.17); there is no hand-driven runbook anymore (ORC-36 retired it).
 name: catapult-dispatch
 run-name: "catapult dispatch: ${{ inputs.run_key }}"
 
@@ -32,11 +33,15 @@ on:
         description: The plane-minted run correlation id
         required: true
         type: string
-      credential_name:
+      credential_order:
         description: >-
-          Which of this repo's own model-credential secrets to use
-          (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY) — the plane
-          names the credential, never its value (v5 §7.12.1).
+          Comma-separated, ordered list of this repo's own
+          model-credential secret names to try (from
+          claude_code_oauth_token, anthropic_api_key) — the plane
+          names the credentials, never their values (v5 §7.12.1). The
+          harness tries each in order, failing over only when an
+          attempt classifies as limit-class (usage/rate limits,
+          exhausted credits).
         required: true
         type: string
 
@@ -69,24 +74,153 @@ jobs:
             "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
             -o context.json
 
-      # Placeholder: invoke the pinned runner harness here with
-      # context.json's `prompt`, the credential named by
-      # `inputs.credential_name` (read from this repo's own secrets,
-      # never the plane's), and capture its committed body + status.
-      # `systems/generation.md`'s ORC-9 entry: today's shipped harness
-      # fails over on any non-zero exit, so this adapter sends exactly
-      # one credential — there is nothing here for a blind failover to
-      # reach for even though it would try.
-      - name: Run the agent (harness invocation not yet pinned — ORC-10)
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Runs Catapult's own runner harness (`systems/generation.md`'s
+      # ORC-215 entry): tries `inputs.credential_order`'s names in
+      # order, each against `claude -p --output-format stream-json`
+      # (`--verbose` is that output format's own requirement
+      # alongside `-p`). Classification reads two layers of the CLI's
+      # own structured output rather than stderr text:
+      #
+      #   - a terminal `result` event's `subtype` — `success` is
+      #     success, and its `result` field is the produced body;
+      #   - `system`/`api_retry` events seen along the way, whose own
+      #     `error` category (`rate_limit`, `server_error`,
+      #     `authentication_failed`, `billing_error`,
+      #     `invalid_request`, `max_output_tokens`, `unknown`) is a
+      #     read of the underlying API error rather than a guess at
+      #     the CLI's wording. `rate_limit` and `billing_error` are
+      #     the two v5 §7.12.1 names ("usage/rate limits, exhausted
+      #     credits") — either marks this attempt limit-class, and if
+      #     another credential is still unused the harness fails over
+      #     to it. Everything else that isn't a clean success is
+      #     `other_failure`, undifferentiated: refusal and transport
+      #     aren't split, because nothing downstream consumes a finer
+      #     split today.
+      #
+      # Unverified against a live run (`systems/generation.md`'s own
+      # flag, carried here): whether the OAuth/subscription
+      # credential's own session/weekly ceiling surfaces through this
+      # same `api_retry`/`rate_limit` shape — documented for API-key
+      # request-rate limiting — or through some other event entirely.
+      - name: Run the agent
+        id: agent
+        env:
+          CREDENTIAL_ORDER: ${{ inputs.credential_order }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "::warning::catapult-dispatch.yml's harness step is a placeholder — see this file's own header comment."
-          exit 1
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          LIMIT_CLASS_ERRORS = {"rate_limit", "billing_error"}
+          SECRET_ENV_VARS = {
+              "claude_code_oauth_token": "CLAUDE_CODE_OAUTH_TOKEN",
+              "anthropic_api_key": "ANTHROPIC_API_KEY",
+          }
+
+          with open("context.json") as f:
+              prompt = json.load(f)["prompt"]
+
+          names = [name for name in os.environ["CREDENTIAL_ORDER"].split(",") if name]
+          base_env = {
+              key: value
+              for key, value in os.environ.items()
+              if key not in SECRET_ENV_VARS.values()
+          }
+
+          outcome = {
+              "status": "other_failure",
+              "reason": "no_credential_available",
+              "credential_used": "",
+          }
+
+          for index, name in enumerate(names):
+              env_var = SECRET_ENV_VARS.get(name)
+              value = os.environ.get(env_var, "") if env_var else ""
+              if not value:
+                  continue
+
+              run_env = dict(base_env)
+              run_env[env_var] = value
+
+              try:
+                  proc = subprocess.run(
+                      ["claude", "-p", "--output-format", "stream-json", "--verbose"],
+                      input=prompt,
+                      capture_output=True,
+                      text=True,
+                      env=run_env,
+                      timeout=1800,
+                  )
+              except Exception as error:
+                  outcome = {
+                      "status": "other_failure",
+                      "reason": f"harness_exception: {error}",
+                      "credential_used": name,
+                  }
+                  break
+
+              limit_class = False
+              result_event = None
+
+              for line in proc.stdout.splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      event = json.loads(line)
+                  except ValueError:
+                      continue
+                  if event.get("type") == "system" and event.get("subtype") == "api_retry":
+                      if event.get("error") in LIMIT_CLASS_ERRORS:
+                          limit_class = True
+                  if event.get("type") == "result":
+                      result_event = event
+
+              if proc.returncode == 0 and result_event and result_event.get("subtype") == "success":
+                  outcome = {
+                      "status": "success",
+                      "body": result_event.get("result", ""),
+                      "credential_used": name,
+                  }
+                  break
+
+              is_last = index == len(names) - 1
+              if limit_class and not is_last:
+                  print(
+                      f"::warning::{name} hit a limit-class failure, failing over",
+                      file=sys.stderr,
+                  )
+                  continue
+
+              outcome = {
+                  "status": "limit_class_failure" if limit_class else "other_failure",
+                  "reason": (result_event or {}).get("subtype", f"exit_code_{proc.returncode}"),
+                  "credential_used": name,
+              }
+              break
+
+          with open("outcome.json", "w") as f:
+              json.dump(outcome, f)
+          PY
 
       - name: Report the result
         if: always()
         run: |
+          if [ -f outcome.json ]; then
+            payload=$(cat outcome.json)
+          else
+            payload='{"status":"other_failure","reason":"run-agent step produced no outcome.json"}'
+          fi
+
           curl -fsSL -X POST \
             -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
             -H "Content-Type: application/json" \
-            -d '{"status":"other_failure","reason":"harness not yet pinned (ORC-10 fixture placeholder)"}' \
+            -d "$payload" \
             "$CATAPULT_BASE_URL/dispatch/report/${{ inputs.run_key }}"

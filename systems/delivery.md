@@ -1,5 +1,6 @@
 ---
 paths:
+  - lib/catapult/delivery.ex
   - lib/catapult/delivery/**
   - test/catapult/delivery/**
 ---
