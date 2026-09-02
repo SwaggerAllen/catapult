@@ -1,0 +1,126 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are authoring the **implementation document** for a single leaf in
+a UI collection's component tree — the last articulation layer before
+code territory. Your downstream reader is the **plan prompt**, which
+translates your prose into a concrete list of (file, region, change)
+tuples. Same grammar as the backend chain's own `impl` tier — this
+tier's distinctive constraint is that everything you describe is
+**stateless rendering**: no fetch, no backend call, no subscription. If
+you find yourself describing one, that behavior belongs to a screen
+collection's own leaf, not this one.
+
+You will be given the owning leaf's metadata (name, techspec, public
+and private surface) and, optionally, a prior draft, user feedback, and
+a parse-validate error. You produce a single `<implementation>` block
+containing six sections in a fixed order: behavior, invariants,
+sequencing, edge-cases, tests, and references (optional).
+
+# Input
+
+Leaf (its own techspec, public and private surface): {{ parent }}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+# Output format
+
+Emit exactly one `<implementation>` block with these children in this
+order: `<behavior>` → `<invariants>` → `<sequencing>` →
+`<edge-cases>` → `<tests>` → `<references>` (optional). Example
+(abbreviated):
+
+    <implementation>
+      <behavior>
+    Renders an `<img>` tag when `image_url` is present; falls back to
+    a div showing `initials` otherwise. The presence ring is a CSS
+    class computed from the `presence` prop and applied to the
+    wrapping element — no runtime style computation, no JS.
+      </behavior>
+      <invariants>
+    The rendered markup never includes a broken-image reference: a nil
+    or empty `image_url` always renders the initials branch, never an
+    `<img src="">`. The presence ring class is a pure function of the
+    `presence` prop — the same prop value always produces the same
+    class, with no memoized or stale state carried between renders.
+      </invariants>
+      <sequencing>
+    Pure render, no ordering concerns — there is no async work, no
+    mount lifecycle, no event handling in this leaf.
+      </sequencing>
+      <edge-cases>
+    A `presence` value outside the known enum renders with no ring
+    class rather than raising — a stale client is expected to send one
+    occasionally, and failing render entirely would be worse than a
+    missing ring. `initials` longer than two characters is truncated
+    at render time, not upstream, so the parent doesn't need to know
+    this leaf's own display rule.
+      </edge-cases>
+      <tests>
+        <test name="renders_image_when_url_present">A non-nil
+        image_url renders an img tag with that src.</test>
+        <test name="falls_back_to_initials_when_url_absent">A nil
+        image_url renders the initials div, never a broken img.</test>
+        <test name="unknown_presence_renders_without_ring">A presence
+        value outside the known enum renders with no ring class rather
+        than raising.</test>
+      </tests>
+    </implementation>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<implementation>` root block. The children
+  **must appear in this order**: `<behavior>` → `<invariants>` →
+  `<sequencing>` → `<edge-cases>` → `<tests>` → `<references>` (omit
+  entirely when nothing is attached).
+
+## Content
+
+* `<behavior>`, `<invariants>`, `<sequencing>`, `<edge-cases>` are
+  non-empty prose, the same discipline the backend `impl` tier uses.
+  `<sequencing>` is frequently short or nearly empty at this tier — a
+  pure render has little ordering to describe; say so plainly rather
+  than padding it.
+* **Nothing here issues a network call, reads a socket, or holds
+  server-round-trip state.** Every prop this leaf receives came from
+  its caller already resolved; describe what the leaf does with what
+  it's given, never how the data got there.
+
+## Tests
+
+* `<tests>` holds one or more `<test name="...">` entries, covering
+  the primary render paths named in `<behavior>` and every distinct
+  condition `<edge-cases>` names, at minimum.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+
+## Style
+
+* Prose, not pseudocode or markup. Don't restate the leaf's own public
+  surface — the plan prompt reads that separately.
+* Keep it proportionate: a simple render leaf doesn't need the same
+  length as a stateful backend leaf with real invariants to hold.
+
+## Meta-rules
+
+* Unescaped `&` and `<` in prose are fine — the parser tolerates them.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  impl.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback
+
+Work from the same upstream context this prompt gives you for a fresh
+generation, together with the feedback, and produce the revised
+artifact. Touch only what the feedback names; the rest of the document
+stays verbatim.
+{% endif %}

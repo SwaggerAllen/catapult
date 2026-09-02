@@ -1,0 +1,10 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- **Every affordance named on a hosted screen (given as context above) must be grounded** — as a route, a dispatched call in `<technical-specification>`, or a subcomponent operation. Flag an affordance with no path to a call or a route.
+- Does `<renders>` list only UI collections, and is every entry grounded in the technical specification or a subcomponent's operations? Flag an ungrounded entry.
+- Does `<dependencies>` (the `calls` edges) list only backend components this collection genuinely calls, with the call shape grounded in the technical specification — not just that the relationship exists? Flag invented sibling calls the named backend pubapi doesn't support.
+- Is every backend call this collection makes actually owned here rather than delegated into a UI collection? A `calls`-shaped responsibility described inside a rendered UI collection's own architecture would be a layering violation surfacing on the wrong side — flag if the prose suggests one.
+- Is `<journeys>` grounded — does the technical specification describe what live state from each referenced journey this collection actually reads or writes?
+- Is the subcomponent decomposition coherent with the hosted screens (one LiveView per screen, or a defensible shared-logic split), and does `<public-surface>` name real route patterns rather than vague route "handling"?

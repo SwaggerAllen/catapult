@@ -1,0 +1,20 @@
+# docs/v5-design-decisions.md §7.19: a review is a tier, not a nested
+# block. `reviews: ui_subcomparch` fixes this review's scope and
+# cardinality to ui_subcomparch's own (per(ui_subcomp), 1:1) — not
+# restated, dsl-syntax.md §3.3. `context:` is the same set of walks as
+# ui_subcomparch's own, checked at load time (§13) rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# and are never context: entries.
+tier: ui_subcomparch_review
+reviews: ui_subcomparch
+generator: llm
+prompt: prompts/review/ui_subcomparch.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+  - self.parent.dependency -> ui_subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
+  - all.vocab.handle
+delivery:
+  phase: critique
+  agent_step: critique

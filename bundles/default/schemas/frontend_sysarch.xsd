@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  New tier, no siege precedent — v5 §5.3's minting rules. Mints both
+  collection families in one pass: `<ui-collections>` (backend comps,
+  journeys, and recurrence across screen definitions as the three
+  seeding signals — v5 §5.3) and `<screen-collections>` (grouped by IA
+  region — shared layout shell, auth context, navigation neighbourhood
+  — journeys are a signal into this grouping, never a gate on it).
+  `decomposition.yaml`'s frontend_sysarch->ui_coll and
+  frontend_sysarch->screen_coll instances mint one node per
+  `<collection>` row in each block.
+
+  `<ui-dependencies>`/`<screen-dependencies>` are the project-wide
+  same-tier `dependency` edges (ui_coll<->ui_coll, screen_coll<->
+  screen_coll — edges/dependency.yaml), declared here rather than
+  per-collarch for the same reason comp<->comp is declared in sysarch's
+  own draft rather than comparch's: this is the one pass that sees
+  every minted collection at once. Each `<screen-collections>/
+  <collection>`'s own `<screens>` block is the formal
+  `fulfills` `screen_coll -> screen` instance ("hosts",
+  edges/fulfills.yaml) — declared here, at mint time, since the same
+  pass that groups screens into collections is the one naming which
+  screens land in which collection.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="UiCollection">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="purpose" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="alias" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="UiCollections">
+    <xs:sequence>
+      <xs:element name="collection" type="UiCollection" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Dep">
+    <xs:attribute name="from" type="xs:string" use="required"/>
+    <xs:attribute name="to" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Dependencies">
+    <xs:sequence>
+      <xs:element name="dep" type="Dep" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ScreenRefs">
+    <xs:sequence>
+      <xs:element name="screen" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="ref" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ScreenCollection">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="ia-region" type="xs:string"/>
+      <xs:element name="screens" type="ScreenRefs"/>
+    </xs:sequence>
+    <xs:attribute name="alias" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="ScreenCollections">
+    <xs:sequence>
+      <xs:element name="collection" type="ScreenCollection" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="frontend_sysarch">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="ui-collections" type="UiCollections"/>
+        <xs:element name="ui-dependencies" type="Dependencies"/>
+        <xs:element name="screen-collections" type="ScreenCollections"/>
+        <xs:element name="screen-dependencies" type="Dependencies"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

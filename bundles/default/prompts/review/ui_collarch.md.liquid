@@ -1,0 +1,10 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- **Statelessness is the load-bearing constraint.** Read `<technical-specification>`, `<public-surface>`, and `<private-surface>` for anything that fetches, calls a backend function, subscribes, or holds server-round-trip state. Any such content is a layering violation — flag it by name, whether or not it's phrased as a "dependency."
+- Does `<dependencies>` list only sibling UI collections, never a backend component? A backend shape may only be read via prose in the technical specification (`uses_shapes`), never a structural `<dep>` — flag a `<dep>` that resolves to a backend comp id.
+- Is `<primitives>`'s design-system reference (if present) actually used — does the technical specification or public surface describe building on the design system's primitives, or is the reference asserted with nothing behind it?
+- Is the subcomponent decomposition along real rendering seams (a variant, a reusable sub-part, a slot's own composition), or does it look like an arbitrary split? Flag a subcomponent whose purpose reads as a bucket rather than a distinctive rendering role.
+- Does every `<subcomponent>`'s `<implementation grade="stubbed"/>` carry a `<swap>` and `<exit-plan>` describing a real external dependency?
+- Is the split between public and private surface principled, or is the public surface bloated with internal details no sibling actually needs?

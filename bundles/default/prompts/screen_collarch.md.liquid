@@ -1,0 +1,240 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are producing the **architecture document** for a single **screen
+collection** — the pages/LiveViews hosting a group of screens that
+share a layout shell, auth context, and navigation neighbourhood. This
+tier owns every stateful, data-loading, backend-calling responsibility
+in the frontend: **screen collections own all `calls` edges** (v5
+§5.4) — a UI collection never calls the backend, so anywhere a screen
+needs live data, a state transition, or an action dispatched, this is
+where that call is designed, routed, and handed down as assigns to the
+UI collections this screen collection renders.
+
+# Input
+
+Screen collection handle: {{ parent }}
+
+Screens this collection hosts (full state, affordance, and displayed-
+data content — the design contract this collection builds routes and
+data loads against):
+{% for s in screens %}
+### `{{ s.slug }}` (`{{ s.id }}`)
+
+{{ s.purpose }}
+
+- states: {% for st in s.states %}`{{ st }}`{% unless forloop.last %}, {% endunless %}{% endfor %}
+- displayed data: {{ s.displayed_data }}
+- affordances:
+{% for a in s.affordances %}  - **{{ a.action }}** — {{ a.intent }}
+{% endfor %}
+{% endfor %}
+
+Journeys this collection consumes live state from (may be empty):
+{% for j in journeys %}
+- `{{ j.id }}` — **{{ j.name }}**: {{ j.state.carries }}
+{% endfor %}
+
+UI collections available to render (public surface — assigns and slots
+contract; may be un-articulated, treat a skeletal pubapi as not yet
+architected):
+{% for ui in ui_collections %}
+- **{{ ui.name }}** (`{{ ui.id }}`): {{ ui.pubapi }}
+{% endfor %}
+
+Backend components this collection may call (public surface):
+{% for dep in backend_deps %}
+- **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<screen_collarch>` block containing
+eleven sections in a fixed order: a role-level technical specification,
+the collection's public surface (its routes and layout-slot contract),
+its private surface, its failure surface, what it mints as policy
+considerations, the UI collections it renders, the backend components
+it calls, the journeys it consumes, its subcomponent decomposition,
+the dependency edges between subcomponents, and attached references.
+
+# Output format
+
+Emit exactly one `<screen_collarch>` block with these children in this
+order: `<technical-specification>` → `<public-surface>` →
+`<private-surface>` → `<failure-surface>` → `<policies>` →
+`<renders>` → `<dependencies>` → `<journeys>` (optional) →
+`<subcomponents>` → `<sub-dependencies>` → `<references>` (optional).
+Example (abbreviated):
+
+    <screen_collarch>
+      <technical-specification>
+    A LiveView per hosted screen, mounted under one live_session
+    sharing the checkout layout. Each mount loads the in-progress
+    subscription draft (if any) from Billing and assigns it whole;
+    state transitions dispatch through Billing's boundary exports and
+    re-render from the returned draft rather than mutating local
+    assigns speculatively.
+      </technical-specification>
+      <public-surface>
+    ```
+    live "/plans", PlanSelectLive, :show
+    live "/plans/:draft_id/payment", PaymentDetailsLive, :show
+    live "/plans/:draft_id/confirm", SubscribeConfirmLive, :show
+    ```
+    Layout slot: `:progress_indicator`, filled by every LiveView in
+    this collection with the current checkout step.
+      </public-surface>
+      <private-surface>
+    ```
+    assign_draft(socket, draft) — shared helper installing the draft
+    and its derived plan total into assigns.
+    ```
+      </private-surface>
+      <failure-surface>
+    A draft that expires between mount and payment submission surfaces
+    as a typed `:draft_expired` error from Billing's confirm call,
+    handled by redirecting to plan-select with a flash; this is not
+    silent — the redirect and flash are asserted in tests.
+      </failure-surface>
+      <policies>
+    No collection-local policy considerations.
+      </policies>
+      <renders>
+        <dep to="ui_coll_plancrd1"/>
+        <dep to="ui_coll_avatar02"/>
+      </renders>
+      <dependencies>
+        <dep to="comp_billing01"/>
+      </dependencies>
+      <journeys>
+        <journey ref="journey_signup01"/>
+      </journeys>
+      <subcomponents>
+        <subcomponent alias="plan_select_live">
+          <name>PlanSelectLive</name>
+          <purpose>Loads the plan roster and starts a draft on
+          selection.</purpose>
+          <owned-invariants>
+            <invariant>selecting a plan always produces exactly one
+            draft subscription, never zero or two</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>load the plan roster on mount</operation>
+            <operation>start a draft on plan selection</operation>
+          </primary-operations>
+          <responsibilities>Hosts the plan-select screen; the entry
+          point for this collection's checkout flow.</responsibilities>
+          <implementation grade="real"/>
+        </subcomponent>
+      </subcomponents>
+      <sub-dependencies>
+      </sub-dependencies>
+    </screen_collarch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<screen_collarch>` root block. Nothing before,
+  nothing after.
+* The children **must appear in this order**: `<technical-specification>`
+  → `<public-surface>` → `<private-surface>` → `<failure-surface>` →
+  `<policies>` → `<renders>` → `<dependencies>` → `<journeys>`
+  (omit entirely when empty) → `<subcomponents>` → `<sub-dependencies>`
+  → `<references>` (omit entirely when nothing is attached).
+
+## Fragment sections
+
+* `<technical-specification>` names the mounting/routing shape (one
+  LiveView per screen? a shared live_session? which layout?) and the
+  data-loading pattern (what's loaded on mount vs. on an action).
+* `<public-surface>` is this collection's **routes** (one per hosted
+  screen, matching the screen's own slug) and its **layout-slot
+  contract** — what a UI collection this screen renders needs handed
+  down as assigns, and what shared layout slots this collection fills.
+  This is the only thing a downstream reader (a later regeneration, a
+  reviewer) sees of this collection's routing — be as concrete about
+  the route pattern as the public-surface rules elsewhere in this
+  chain ask of a function signature.
+* `<private-surface>`, `<failure-surface>`, `<policies>` follow the
+  same fragment discipline as `ui_collarch`'s own — all non-empty
+  prose, code-shaped content in fenced blocks.
+* **Every affordance named on a hosted screen must be grounded
+  somewhere in this document** — as a route, a dispatched call in
+  `<technical-specification>`, or a subcomponent operation. An
+  affordance with no path to a call or a route is a coverage gap the
+  reviewer will flag.
+
+## Renders, dependencies, journeys
+
+* `<renders>` lists every UI collection this screen collection's
+  screens actually render, each `<dep to="ui_coll_XXXX"/>` with a real
+  id from the list above. Ground every entry in the technical
+  specification or a subcomponent's operations — an ungrounded
+  `<renders>` entry is spurious.
+* `<dependencies>` lists every backend component this collection calls
+  directly, each `<dep to="comp_XXXX"/>`. **This is the only tier that
+  may call a backend component** — never delegate a call down into a
+  UI collection's props; the UI collection receives the *result* of
+  the call as an assign.
+* `<journeys>` is optional — `<journey ref="..."/>` for each journey
+  whose live state this collection actually reads or writes (a draft's
+  progress, a cart). Omit or leave empty when this collection consumes
+  no journey state; most screen collections outside a multi-step flow
+  will.
+
+## Subcomponents
+
+* Same shape as `ui_collarch`'s own subcomponents — `alias`, `<name>`,
+  `<purpose>`, `<owned-invariants>` (2-4), `<primary-operations>`
+  (3-6), `<responsibilities>` (free prose), `<implementation
+  grade="real"|"stubbed"/>`. No `<owns>` block: a screen collection
+  fulfills no `resp` either — its structural link to the product tier
+  is the `fulfills` edge naming which screens it hosts, not a resp
+  claim.
+* One subcomponent per hosted LiveView is the common shape, but not a
+  rule — a collection whose screens share enough mounting/data logic
+  that splitting by screen would just duplicate a helper may
+  legitimately use fewer subcomponents than screens, with the shared
+  logic living in one of them and the others depending on it.
+
+## Sub-dependencies
+
+* `<sub-dependencies>` lists edges between this collection's own
+  subcomponents, `<dep from="alias" to="alias"/>`. Must be acyclic.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the design. Output only the `<screen_collarch>` block.
+* Unescaped `&` and `<` inside fragment-section text are tolerated by
+  the parser.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  comparch.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback (surgical modification)
+
+* **Every subcomponent the feedback doesn't mention must round-trip
+  unchanged.** Preserve `<public-surface>` routes verbatim unless the
+  feedback names them — a route rename breaks navigation edges
+  declared upstream in `screens`.
+* **"Rename X to Y"** — edit `<name>` only. **"Add a screen to this
+  collection"** — that is `frontend_sysarch`'s own grouping decision,
+  not this tier's; push back rather than absorbing a screen not
+  already hosted here. **"Add / drop a `<renders>` or `<dependencies>`
+  entry"** — edit only that block, and ground the change in
+  `<technical-specification>`. **"Re-articulate a fragment section"**
+  — edit only that section.
+* Don't reshuffle `<journeys>` or subcomponent decomposition the
+  feedback isn't pointed at.
+{% endif %}

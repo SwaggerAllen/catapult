@@ -1,0 +1,9 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- Does this leaf's tech choice and routing/event shape match the parent collection's technical specification and public surface given as context above? Flag drift.
+- Is every backend call named in `<technical-specification>` or `<public-surface>` grounded against a real dependency pubapi entry, not invented?
+- Is the process inventory grounded — does the declared `category` (`local`/`singleton`/`sharded`) match what a mounted LiveView actually needs (almost always `local`), and does any process holding data that must survive a restart rebuild it from persistence rather than owning it?
+- Are the declared `<dependencies>` minimal and grounded — only sibling leaves this one actually calls into?
+- Is the cut of pubapi vs. privapi principled, or is the public surface bloated with internals no sibling or router actually needs?

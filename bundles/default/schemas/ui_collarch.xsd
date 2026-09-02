@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  No siege source — v5 §5.1-§5.4, authored fresh. Mirrors comparch.xsd
+  (fragment sections, subcomponent decomposition, sub-dependencies,
+  references), with the backend-specific machinery it has no analogue
+  for dropped rather than reinvented one tier over: no `<permissions>`/
+  `<enforcement>` (v5 §2.9/§2.16's backend-specific growth, not named
+  for this family by the ticket that lands it), and no `<owns>`
+  resp/feat claims on a `<subcomponent>` — a UI collection fulfills no
+  resp (v5 §5.4), so there is nothing for a subcomponent to claim a
+  slice of; `<responsibilities>` is free prose instead, the same shape
+  subcomparch.xsd already uses for a leaf with no further decomposition
+  target. `<dependencies>` carries `uses_shapes` targets (backend comp
+  ids, types/handle shapes only — never calls, v5 §5.4) rather than
+  sibling comp ids; `<primitives>` carries the `dependency` edge's own
+  `ui_coll -> design_system` instance.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="Invariants">
+    <xs:sequence>
+      <xs:element name="invariant" type="xs:string" minOccurs="2" maxOccurs="4"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Operations">
+    <xs:sequence>
+      <xs:element name="operation" type="xs:string" minOccurs="3" maxOccurs="6"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Dependencies">
+    <xs:sequence>
+      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- At most one `<design-system>` row — `design_system` mints at
+       most one node project-wide (tiers/design_system.yaml); a
+       project supplying none simply omits this element. -->
+  <xs:complexType name="Primitives">
+    <xs:sequence>
+      <xs:element name="design-system" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="ImplementationGrade">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="real"/>
+      <xs:enumeration value="stubbed"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Swap">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="transparent"/>
+      <xs:enumeration value="migration"/>
+      <xs:enumeration value="reset"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- swap/exit-plan required iff grade="stubbed" — cross-field rule
+       left to instance-level validation (dsl-syntax.md §13), same as
+       comparch.xsd's own Implementation type. -->
+  <xs:complexType name="Implementation">
+    <xs:sequence>
+      <xs:element name="swap" type="Swap" minOccurs="0"/>
+      <xs:element name="exit-plan" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="grade" type="ImplementationGrade" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Subcomponent">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="owned-invariants" type="Invariants"/>
+      <xs:element name="primary-operations" type="Operations"/>
+      <xs:element name="responsibilities" type="xs:string"/>
+      <xs:element name="implementation" type="Implementation"/>
+    </xs:sequence>
+    <xs:attribute name="alias" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Subcomponents">
+    <xs:sequence>
+      <xs:element name="subcomponent" type="Subcomponent" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SubDependencies">
+    <xs:sequence>
+      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="from" type="xs:string" use="required"/>
+          <xs:attribute name="to" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="References">
+    <xs:sequence>
+      <xs:element name="reference" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="target" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="ui_collarch">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="technical-specification" type="xs:string"/>
+        <xs:element name="public-surface" type="xs:string"/>
+        <xs:element name="private-surface" type="xs:string"/>
+        <xs:element name="failure-surface" type="xs:string"/>
+        <xs:element name="policies" type="xs:string"/>
+        <xs:element name="dependencies" type="Dependencies"/>
+        <xs:element name="primitives" type="Primitives"/>
+        <xs:element name="subcomponents" type="Subcomponents"/>
+        <xs:element name="sub-dependencies" type="SubDependencies"/>
+        <xs:element name="references" type="References" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

@@ -1,0 +1,57 @@
+# No siege source — v5 §5.1-§5.4, authored fresh. Mirrors comparch
+# (tiers/comparch.yaml): its <subcomponents> block mints one
+# screen_subcomp per child (the `decomposition` edge's
+# screen_collarch->screen_subcomp instance, edges/decomposition.yaml)
+# and its produces: writes the five fragments onto self.parent — the
+# screen_coll, not onto the children it just minted. No `<owns>` block
+# claiming parent resp/feat slices: a screen collection fulfills no
+# resp either (v5 §5.4) — its `fulfills` edge targets `screen`, not
+# `resp` (edges/fulfills.yaml), and screen decomposition is about
+# routes/layout slots, not resp coverage. Three edges distinguish this
+# tier's reads from comparch's: `fulfills` reaches the screens this
+# collection hosts (full state/affordance content, the design contract
+# this collection builds against), `renders` reaches the UI collections
+# it composes, and `calls` reaches backend comps directly — screen
+# collections own all `calls` edges (v5 §5.4's layering rule; a UI
+# collection has no declared path to a backend call at all,
+# edges/uses_shapes.yaml). `reference`'s own `screen_coll -> journey`
+# instance is declared here, at articulation time, not at
+# frontend_sysarch's mint time: which journeys a collection actually
+# needs live state from is a design decision for this collection's own
+# pass, not a grouping fact frontend_sysarch can read off IA region
+# alone (systems/platform_content.md's ORC-111 entry). No
+# `policy_application` reads, the same reason ui_collarch has none.
+tier: screen_collarch
+scope: per(screen_coll)
+identity: id
+fields:
+  decomposition_summary: draft.subcomponents
+handle:
+  fields: [id, decomposition_summary]
+  fragments: []
+draft:
+  root_tag: screen_collarch
+  grammar: schemas/screen_collarch.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/screen_collarch.md.liquid
+context:
+  - self.parent.handle
+  - self.parent.fulfills -> screen.handle
+  - self.parent.dependency -> screen_coll.handle.fragments[pubapi]
+  - self.parent.dependency -> screen_coll.handle.fragments[failure_surface]
+  - self.parent.renders -> ui_coll.handle.fragments[pubapi]
+  - self.parent.calls -> comp.handle.fragments[pubapi]
+  - self.parent.reference -> journey.handle
+  - self.reference -> ref.handle
+  - all.vocab.handle
+produces:
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
+  - fragment: { owner: self.parent, kind: policies, authored: draft.policies }
+  - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure_surface }
+delivery:
+  phase: generation
+  agent_step: design

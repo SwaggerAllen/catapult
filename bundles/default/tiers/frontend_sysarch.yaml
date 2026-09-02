@@ -1,0 +1,36 @@
+# New singleton tier, sibling of sysarch (v5 §5.3; systems/platform_content.md's
+# ORC-111 entry). Reads journeys, screens and the backend sysarch
+# handle, and fans out both collection tiers in one pass — the grouping
+# decisions interact, so one design pass sees the whole frontend, the
+# same reason sysarch's own decomposition isn't split across two
+# tiers. `scope: singleton`: no `per(X)` parent it would otherwise need
+# a context walk to reach (dsl-syntax.md §3.1). `all.sysarch.handle` is
+# what makes "reads the backend sysarch handle" expressible at all:
+# sysarch is `scope: per(requirements)`, a sibling of frontend_sysarch
+# under no common fanout edge, so there is no `self.parent` walk
+# between them — `all.<tier>` is the mechanism this loader ships for a
+# needed read with no walkable relationship (dsl-syntax.md §7.2), the
+# same no-owning-parent case `vocab`/`ref`/project-global `policy`
+# already use.
+tier: frontend_sysarch
+scope: singleton
+identity: id
+fields:
+  intro: draft.introduction
+handle:
+  fields: [id, intro]
+  fragments: []
+draft:
+  root_tag: frontend_sysarch
+  grammar: schemas/frontend_sysarch.xsd
+generator: llm
+executor:
+  effort: max
+prompt: prompts/frontend_sysarch.md.liquid
+context:
+  - all.journey.handle
+  - all.screen.handle
+  - all.sysarch.handle
+delivery:
+  phase: generation
+  agent_step: design

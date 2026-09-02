@@ -1,0 +1,8 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- **No network call, backend call, or subscription anywhere in `<behavior>`, `<sequencing>`, or `<edge-cases>`.** This is a stateless rendering leaf; flag any described side effect that isn't pure rendering.
+- Does the plan match the owner's public/private surface, or does it silently drift (describing a prop the surface doesn't declare, or a return shape the surface doesn't support)?
+- Do `<invariants>` describe real rendering guarantees (structural facts about what the markup will and won't do), not aspirational promises the implementation can't actually enforce?
+- Is `<tests>` proportionate — covering the primary render paths in `<behavior>` and at least one test per distinct condition `<edge-cases>` names?

@@ -1,0 +1,27 @@
+# Mirrors impl_backend (tiers/impl_backend.yaml): one impl doc per
+# subcomponent describing the total end state, `scope:
+# per(screen_subcomp)`. Reuses `schemas/impl.xsd`, the same reason
+# impl_ui.yaml does — the `<implementation>` shape carries no
+# backend-specific coupling (systems/platform_content.md's ORC-111
+# entry).
+tier: impl_screen
+scope: per(screen_subcomp)
+identity: id
+fields:
+  behavior_summary: draft.behavior
+handle:
+  fields: [id, behavior_summary]
+  fragments: []
+draft:
+  root_tag: implementation
+  grammar: schemas/impl.xsd
+generator: llm
+prompt: prompts/impl_screen.md.liquid
+context:
+  - self.parent.handle
+  - self.parent.dependency -> screen_subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
+  - all.feature_expansion.handle
+delivery:
+  phase: generation
+  agent_step: design

@@ -1,0 +1,20 @@
+# A "join target" tier, comp's own shape (tiers/comp.yaml): no draft,
+# no prompt — content lives entirely in the fragments ui_collarch
+# writes onto self.parent (ui_collarch.yaml's produces:). `mint.*`
+# fields are set when frontend_sysarch's `decomposition` edge
+# (edges/decomposition.yaml) mints this node from its own
+# `ui_collections.collection[]` row. No `project_techspec`-shaped
+# mint-time copy the way `comp` carries one from `sysarch`:
+# frontend_sysarch mints no project-wide frontend techspec of its own
+# for a UI collection to inherit (systems/platform_content.md's
+# ORC-111 entry).
+tier: ui_coll
+scope: child_of(frontend_sysarch)
+identity: id
+fields:
+  name: mint.name
+  purpose: mint.purpose
+handle:
+  fields: [id, name, purpose]
+  fragments: [techspec, pubapi, privapi, policies, failure_surface]
+generator: synthesis

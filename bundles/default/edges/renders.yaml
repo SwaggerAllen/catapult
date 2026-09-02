@@ -1,0 +1,19 @@
+# v5 §5.4's frontend edge inventory: `screen_coll -> ui_coll`. A
+# screen collection's own composition decision — which UI collections
+# it renders — made when that collection is fully articulated, the
+# same moment backend's local `subcomp<->subcomp` deps are decided
+# (edges/dependency.yaml). Its own edge name rather than a further
+# `dependency` instance: the audit-relevant fact is *which family may
+# declare which edge at all*, and a distinct name makes that a
+# load-time cross-reference check rather than a convention someone has
+# to remember to grep for (systems/platform_content.md's ORC-111
+# entry, v5 §5.2's layering rule).
+edge: renders
+type: dependency
+source: screen_coll
+target: ui_coll
+declared_in: screen_collarch.draft.renders.dep[]
+cardinality:
+  source: { min: 0 }
+  target: { min: 0 }
+consistency: eventual
