@@ -1,0 +1,24 @@
+# v5 §5.4: a supplied design system pins rather than generates. No
+# draft, no prompt, no review — the gate already happened at intake
+# (v5 §1.1's freeze), so there is nothing here for an LLM to author or
+# a human to re-approve. `generator: supplied` mints directly from the
+# pinned raft artifact rather than by a fanout edge, the same
+# no-`child_of(X)` shape `ref` has (tiers/ref.yaml) — nothing mints
+# this tier and it mints nothing. `scope: singleton` is read the same
+# loose way as `ref`/`vocab`/`policy`: the pool, not literally one
+# node, and here the pool holds at most one — a project with no
+# `design_system`-tagged document mints none, the same optionality
+# every `input.<role>` carries (v5 §1.1: a role never blocks
+# readiness). Full rationale: systems/core_dsl.md's ORC-110 entry.
+#
+# The `ui_coll -> design_system` dependency edge is `ui_coll`'s own
+# side and is deferred to the ticket that lands frontend_sysarch/
+# ui_coll (systems/core_dsl.md).
+tier: design_system
+scope: singleton
+identity: id
+handle:
+  fields: [id]
+  fragments: []
+generator: supplied
+source: input.design_system

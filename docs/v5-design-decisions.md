@@ -1142,9 +1142,12 @@ thin on prose) and **the screens tier directly** (so visual and
 state evidence shapes definitions without having to survive two
 abstraction rotations first). Agents-end-to-end makes mocks
 *runnable* evidence — the intake agent renders and interacts with a
-prototype rather than squinting at its source. Two disciplines
-carry the weight: extraction prompts **complete the negative
-space** — mock sets show happy paths, and proposing the missing
+prototype rather than squinting at its source. Rendering is a
+capability the agent has, not a guarantee the chain uses: the
+extraction tiers read a mock set as source, the same as any other
+input role (`systems/platform_content.md`'s ORC-110 entry).
+Two disciplines carry the weight: extraction prompts **complete the
+negative space** — mock sets show happy paths, and proposing the missing
 empty/error/loading/denied states is the chain improving the mocks,
 not transcribing them — and **mock code is evidence, never copied**:
 the fresh-scaffold rule holds. Standing visual guidance for the

@@ -1,6 +1,8 @@
-# The chain's true root: the only tier reading raw input prose rather
-# than an upstream handle. Mints `vocab` candidates via the
-# `decomposition` edge (edges/decomposition.yaml) — see vocab.yaml
+# The chain's product-feature root: reads raw input prose rather
+# than an upstream handle (ORC-108: `non_goals` is the chain's other
+# intake root reading `input.*` directly — see non_goals.yaml — so
+# this is no longer the only tier that does). Mints `vocab` candidates
+# via the `decomposition` edge (edges/decomposition.yaml) — see vocab.yaml
 # for why feature_expansion only flags a term (name + scope), rather
 # than defining it, which is a content delta from
 # siege's feature_expansion.md (whose own <vocabulary> example emits
@@ -27,6 +29,7 @@ executor:
 prompt: prompts/feature_expansion.md.liquid
 context:
   - input.project_doc
+  - input.mocks
 delivery:
   phase: generation
   agent_step: design

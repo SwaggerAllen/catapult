@@ -881,6 +881,76 @@ profiles.
   content, a fact independent of whether a second layer sits
   underneath to escape into.
 
+- **`design_system` settles as a new generator type, `supplied`,
+  reusing neither `external` nor a `ref`** (ORC-110, design pass;
+  `docs/v5-design-decisions.md` §5.4). §5.4's own phrasing — "an
+  external or vendored node like any §3.2 external" — reads as
+  behavior parity, not mechanism reuse, once weighed against what
+  `external` actually is: registry-resolved content, `package:`-
+  addressed, staleness a version bump the registry publishes (v5
+  §3.2, `dsl-syntax.md` §3.2). A user's design system is never in
+  that registry; nothing publishes a version for it to bump, so
+  wiring `design_system` through `external` would carry a
+  staleness-cascade half with nothing to trigger it. A `ref` is ruled
+  out twice over: v5 §4.5 already says a supplied design system
+  "rides §5.4's node rather than a ref," and independently, a ref
+  attaches via *reference* edges from a singleton pool with no
+  per-use kinds (§4.5's own "stay general on purpose"), while
+  `ui_coll → design_system` (§5.4's edge inventory) is a typed
+  *dependency* edge carrying cardinality and layering semantics a
+  reference edge was never built to hold.
+
+  The new type: `generator: supplied`, `source: input.<role>`. Content
+  is the raft document(s) pinned under that role at intake, copied into
+  the node's committed body directly — the same "extracted, not
+  authored twice" shape `external` already uses for registry content
+  (§3.2), just sourced from the project's own frozen raft instead. No
+  `draft:`, no prompt, no review: there is nothing here an LLM authors
+  or a human gates a second time, because the gate already happened at
+  intake (v5 §1.1's freeze) — sharper than `journey`/`screen`'s reason
+  for carrying no review tier of their own
+  (`systems/platform_content.md`'s ORC-109 entry, a projection with
+  nothing of its own for a review to read), since here there is no
+  draft in the first place.
+  `design_system` itself mints directly from the pinned raft artifact
+  rather than by a fanout edge — no `child_of(X)` to declare, the same
+  shape `ref` already has and for the same reason (`tiers/ref.yaml`'s
+  own comment: nothing mints it and it mints nothing) — and mints
+  **at most one**: a role with no pinned document mints no node at
+  all, the same optionality every
+  `input.<role>` carries (v5 §1.1: a role "never blocks readiness"),
+  and the UI tiers derive primitives normally rather than failing
+  closed.
+
+  `design_system` joins `project_doc`, `mocks`, `non_goals` as platform
+  input-tag vocabulary (`dsl-syntax.md` §7.2) — a fourth role, admitted
+  the same way the other three were, by a shipped tier reading it
+  (ORC-107's admission rule) — but read through a `supplied` generator's
+  `source:` field rather than a `context: input.<role>` walk: the
+  role-tagging mechanism is shared across all four roles, the
+  consumption path is not, because `design_system` has no prompt for
+  `ContextAssembly` to render a variable into (unlike `mocks`, which
+  does — `systems/platform_content.md`'s ORC-110 entry).
+
+  **This entry declares the `design_system` tier itself**, not only
+  its node kind: `design_system`, `generator: supplied`,
+  `source: input.design_system`, no scope parent (mints directly from
+  the pinned raft artifact, the same shape `ref` has, per above) and
+  mints at most one. That closes this ticket's own second open
+  question — `design_system` was unsettled between a node kind, an
+  external, and a ref; it is a node kind, declared here — which is
+  what earns the admission the paragraph above claims: a tier is
+  designed to read the role because this entry designs it.
+
+  **Deferred to the ticket that lands `frontend_sysarch`/`ui_coll`**
+  (`docs/build-plan.md`'s Phase 5, ORC-111): the
+  `ui_coll → design_system` dependency edge. That edge is `ui_coll`'s
+  side of the relationship — it belongs to whichever tier declares
+  `ui_coll` and its dependency list, not to this entry — and nothing
+  above depends on it existing yet: a
+  `design_system` node mints and holds content whether or not anything
+  yet declares a dependency on it.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

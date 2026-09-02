@@ -13,6 +13,7 @@ grammar: schemas/review.xsd
 context:
   - self.parent.handle
   - all.journey.handle
+  - input.mocks
 delivery:
   phase: critique
   agent_step: critique

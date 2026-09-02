@@ -95,6 +95,11 @@
         </xs:element>
       </xs:choice>
       <xs:element name="rationale" type="xs:string"/>
+      <!-- ORC-108, v5 §4.5: an argued deferral is the same policy
+           shape carrying a revisit condition ("never, argued" / "not
+           until X" are values of this one field, never two shapes).
+           Optional — an ordinary policy omits it. -->
+      <xs:element name="revisit-condition" type="xs:string" minOccurs="0"/>
     </xs:sequence>
   </xs:complexType>
 
