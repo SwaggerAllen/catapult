@@ -179,9 +179,9 @@ generating as scope-runs inside one ticket.
   a project's creation or scaffold flow — is out of this ticket's
   scope; a caller already holding a `project_id` and a `ref` is
   assumed, the same boundary Phase 5's own exit criterion draws
-  (scaffolding Catapult's own `docs/`/`systems/` as the seed raft needs
-  exactly those two facts supplied, regardless of how a real project's
-  author eventually supplies them).
+  (scaffolding its seed raft, whatever it is, needs exactly those two
+  facts supplied, regardless of how a real project's author eventually
+  supplies them).
 
   **Ruled out**: reading the raft from anywhere other than the bound
   repo — a dashboard upload, a second config channel for pasted-in
