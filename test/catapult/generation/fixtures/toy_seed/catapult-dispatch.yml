@@ -82,23 +82,42 @@ jobs:
       # order, each against `claude -p --output-format stream-json`
       # (`--verbose` is that output format's own requirement
       # alongside `-p`). Classification reads two layers of the CLI's
-      # own structured output rather than stderr text:
+      # own structured output rather than stderr text, precedence
+      # ordered rather than a flat three-way split:
       #
       #   - a terminal `result` event's `subtype` — `success` is
-      #     success, and its `result` field is the produced body;
-      #   - `system`/`api_retry` events seen along the way, whose own
-      #     `error` category (`rate_limit`, `server_error`,
-      #     `authentication_failed`, `billing_error`,
-      #     `invalid_request`, `max_output_tokens`, `unknown`) is a
-      #     read of the underlying API error rather than a guess at
-      #     the CLI's wording. `rate_limit` and `billing_error` are
-      #     the two v5 §7.12.1 names ("usage/rate limits, exhausted
+      #     success regardless of anything seen earlier in the stream
+      #     (a run that retried past a rate-limit and then finished
+      #     cleanly still reports success), and its `result` field is
+      #     the produced body;
+      #   - only once that check fails, `system`/`api_retry` events
+      #     seen along the way, whose own `error` category is the
+      #     CLI's documented closed ten (`authentication_failed`,
+      #     `oauth_org_not_allowed`, `billing_error`, `rate_limit`,
+      #     `overloaded`, `invalid_request`, `model_not_found`,
+      #     `server_error`, `max_output_tokens`, `unknown`) — a read
+      #     of the underlying API error rather than a guess at the
+      #     CLI's wording. `rate_limit` and `billing_error` are the
+      #     two v5 §7.12.1 names ("usage/rate limits, exhausted
       #     credits") — either marks this attempt limit-class, and if
       #     another credential is still unused the harness fails over
-      #     to it. Everything else that isn't a clean success is
-      #     `other_failure`, undifferentiated: refusal and transport
-      #     aren't split, because nothing downstream consumes a finer
-      #     split today.
+      #     to it. The other seven are stated non-limit assignments,
+      #     not an omission: `overloaded` is Anthropic's own capacity
+      #     rather than this account's usage or credit standing, the
+      #     same reasoning that already keeps `server_error` out of
+      #     limit-class; `oauth_org_not_allowed` is credential-shaped
+      #     but not usage-shaped, so it joins `authentication_failed`
+      #     rather than triggering a failover that would mask a
+      #     configuration problem; `model_not_found` joins
+      #     `invalid_request`. Every non-success, non-limit-class run
+      #     reports `other_failure`, undifferentiated by design: the
+      #     terminal `result` object also carries `stop_reason`, and
+      #     `stop_reason == "refusal"` is a real, documented signal
+      #     for a declined request — the harness chooses not to
+      #     consume it because nothing downstream of `other_failure`
+      #     reads a finer split today, not because the CLI fails to
+      #     expose one (`systems/generation.md`'s own fuller
+      #     reasoning, carried here).
       #
       # Unverified against a live run (`systems/generation.md`'s own
       # flag, carried here): whether the OAuth/subscription

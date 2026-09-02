@@ -154,21 +154,55 @@ and validation logic and must not fork it.
   harness exists to leave behind. The structured signal is one layer
   down, in `--output-format stream-json`'s `system`/`api_retry` events
   (`{"type": "system", "subtype": "api_retry", "error_status": …,
-  "error": …}`), whose documented `error` category — `rate_limit`,
-  `server_error`, `authentication_failed`, `billing_error`,
-  `invalid_request`, `max_output_tokens`, `unknown` — is a read of the
-  underlying API error, not a guess at the CLI's wording. `rate_limit`
-  and `billing_error` are the two that answer to v5 §7.12.1's own
-  phrase, "usage/rate limits, exhausted credits": a run whose stream
-  carries either reports `limit_class_failure`; a clean terminal
-  `success` reports `success`; everything else reports `other_failure`,
-  undifferentiated, because nothing downstream of that bucket consumes
-  a finer split today — refusal and transport are therefore not
-  distinguished at either layer, closing the third open question this
-  entry used to leave standing. **Unverified against a live run, and
-  flagged rather than assumed**: the OAuth/subscription credential's
-  own session- and weekly-limit ceiling is a different mechanism from
-  the retried-request `api_retry` path documented for API-key rate
+  "error": …}`), whose documented `error` category is the CLI's own
+  closed ten — `authentication_failed`, `oauth_org_not_allowed`,
+  `billing_error`, `rate_limit`, `overloaded`, `invalid_request`,
+  `model_not_found`, `server_error`, `max_output_tokens`, `unknown` —
+  a read of the underlying API error, not a guess at the CLI's
+  wording.
+
+  Classification is two-stage and precedence-ordered, not a flat
+  three-way split, and the harness already implements it in that
+  order (the design record previously described the flat version,
+  which the code never was): a terminal `result` event whose
+  `subtype` is `success` reports `success` regardless of anything
+  seen earlier in the stream — a run that retried past a `rate_limit`
+  `api_retry` event and then finished cleanly still reports
+  `success`, because the harness checks the terminal event first and
+  the accumulated retry history only matters when that check fails.
+  Only then do the nine non-`success` categories apply, and each has
+  a stated assignment rather than a default: `rate_limit` and
+  `billing_error` are the two that answer to v5 §7.12.1's own phrase,
+  "usage/rate limits, exhausted credits", so a non-`success` run whose
+  stream carried either reports `limit_class_failure`, and the
+  harness fails over to the next credential if one is still unused.
+  The remaining seven report `other_failure`, each for a stated
+  reason rather than by omission: `overloaded` is Anthropic's own
+  capacity, not this account's usage or credit standing — the same
+  reasoning that already keeps `server_error` out of limit-class —
+  so a same-run credential failover wouldn't address it; a redispatch
+  would, and stays outside this entry's failover mechanism.
+  `oauth_org_not_allowed` is credential-shaped but not usage-shaped —
+  the org has disallowed the OAuth credential outright, which is the
+  same kind of problem `authentication_failed` already reports as
+  `other_failure` rather than limit-class — so it joins that bucket
+  rather than triggering a failover that would mask a configuration
+  problem needing a fix, not a workaround. `model_not_found` and
+  `invalid_request` are request-shaped, not usage-shaped, and join
+  `other_failure` for the same reason `invalid_request` already did.
+
+  `other_failure` stays undifferentiated by design, not by gap: the
+  terminal `result` object also carries `stop_reason`, and
+  `stop_reason == "refusal"` is a real, documented signal for
+  detecting a declined request — the harness chooses not to consume
+  it because nothing downstream of the `other_failure` bucket reads a
+  finer split today, not because the CLI fails to expose one. Closing
+  the third open question this entry used to leave standing: the
+  undifferentiated bucket is a recorded choice, not an absence of
+  signal. **Unverified against a live run, and flagged rather than
+  assumed**: the OAuth/subscription credential's own session- and
+  weekly-limit ceiling is a different mechanism from the
+  retried-request `api_retry` path documented for API-key rate
   limiting, and whether it surfaces through the same event shape is
   for the dev pass to confirm against `toy_seed_chain_live_test.exs`'s
   dispatched run before the credential pair leans on it equally.
@@ -184,11 +218,11 @@ and validation logic and must not fork it.
 - **The bindings entry is `:generation`, one kind in the same kind →
   runtime map v5 §7.10 already describes for ticket-delivery agent
   kinds** (design, dev, reconcile, validation, retro, setup — none
-  built yet, Phase 6), not a second, generation-only mechanism:
+  built yet, Phase 7), not a second, generation-only mechanism:
   Catapult's own chain has exactly one kind today, and reusing the one
   map is what makes "supporting a second agent implementation is a new
   bindings entry and zero protocol or bundle change" (v5 §7.10) literal
-  rather than aspirational the moment Phase 6 lands its own kinds
+  rather than aspirational the moment Phase 7 lands its own kinds
   beside this one. Per-tier executor-profile routing (model, effort,
   harness requirements) stays Target, unchanged by this entry — this
   ticket picks one runtime for every generation dispatch project-wide,
