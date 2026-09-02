@@ -6,24 +6,20 @@ defmodule Catapult.Delivery.HostPort.Actions do
   contract is `Catapult.Delivery.HostPort`'s callback, not this
   adapter's own shape.
 
-  **No failover, deliberately** (ORC-9's design rework): the shipped
-  runner harness fails over on any non-zero exit and cannot yet be
-  told "limit-class only" (no structured signal from the CLI's JSON
-  mode is wired up there yet). Sending the credential pair here would
-  let that blind failover fire on an ordinary bug, paying for the same
-  failure twice. So this adapter sends the bindings `tunable`'s
-  first-ordered credential alone — the second slot is never a dispatch
-  input, so there is nothing for the harness's own failover to reach
-  for even though it would try. The day the harness exposes a
-  structured limit-class signal, this sends the full ordered pair
-  instead of its head — a one-line change, not a new decision, because
-  the contract was already built for two.
+  **Failover is limit-class only, classified by the harness itself**
+  (`systems/generation.md`'s ORC-215 entry, retiring ORC-9's
+  single-credential workaround): Catapult's own runner harness
+  (`catapult-dispatch.yml`'s run-agent step) reads the CLI's own
+  structured output to tell a usage/rate-limit failure apart from
+  everything else, so this adapter sends the bindings `tunable`'s full
+  ordered pair — there is no longer a reason to withhold the second
+  slot from the dispatch input.
 
   The dispatch input is the plane-minted `run_key` and the chosen
-  credential's *name* only — never a value. Model credentials are
-  customer-side secrets the plane never holds (v5 §7.12.1); resolving
-  `credential_name` to an actual key is the target repo's own workflow
-  file's job, reading its own GitHub Actions secret.
+  credentials' *names* only, comma-joined — never a value. Model
+  credentials are customer-side secrets the plane never holds (v5
+  §7.12.1); resolving a name to an actual key is the target repo's own
+  workflow file's job, reading its own GitHub Actions secret.
 
   **ORC-31's branch/PR/comment/label/check operations** talk to
   GitHub's REST API directly, each traced to the protocol clause it
@@ -53,11 +49,17 @@ defmodule Catapult.Delivery.HostPort.Actions do
   earlier one — a re-run of `reset_repo/2` is the recovery, the same
   idempotent-retry shape `systems/delivery.md`'s "intent → idempotent
   effect" bullet already asks of every outbound act in this system.
+
+  Reports the ref it produced (ORC-216, `Catapult.Delivery.HostPort`'s
+  own moduledoc): the default branch's head commit SHA after the last
+  file lands, read back the same way `create_branch/3` already reads
+  any ref's head — `fetch_ref_sha/2` below.
   """
   @impl Catapult.Delivery.HostPort
   def reset_repo(project_id, files) do
-    with {:ok, binding} <- fetch_binding(project_id) do
-      put_all_files(binding, files)
+    with {:ok, binding} <- fetch_binding(project_id),
+         :ok <- put_all_files(binding, files) do
+      fetch_ref_sha(binding, Config.fetch!(:delivery, :dispatch_ref))
     end
   end
 
@@ -100,7 +102,7 @@ defmodule Catapult.Delivery.HostPort.Actions do
   def dispatch_run(request) do
     with {:ok, binding} <- fetch_binding(request.project_id),
          run_key = Ecto.UUID.generate(),
-         {:ok, _resp} <- trigger_workflow(binding, run_key, request.credential_name) do
+         {:ok, _resp} <- trigger_workflow(binding, run_key, request.credential_names) do
       Store.insert_dispatch_run(%{
         id: run_key,
         project_id: request.project_id,
@@ -112,7 +114,7 @@ defmodule Catapult.Delivery.HostPort.Actions do
         repo_name: binding.repo_name,
         root_tag: request.root_tag,
         rendered_prompt: request.rendered_prompt,
-        credential_sent: request.credential_name
+        credential_sent: request.credential_names
       })
 
       {:ok, %{run_key: run_key}}
@@ -126,7 +128,7 @@ defmodule Catapult.Delivery.HostPort.Actions do
     end
   end
 
-  defp trigger_workflow(binding, run_key, credential_name) do
+  defp trigger_workflow(binding, run_key, credential_names) do
     workflow_file = Config.fetch!(:delivery, :dispatch_workflow_file)
     ref = Config.fetch!(:delivery, :dispatch_ref)
 
@@ -138,7 +140,10 @@ defmodule Catapult.Delivery.HostPort.Actions do
       Req.post(url,
         auth: {:bearer, Secret.unwrap(Config.fetch!(:delivery, :github_token))},
         headers: [{"accept", "application/vnd.github+json"}],
-        json: %{ref: ref, inputs: %{run_key: run_key, credential_name: credential_name}}
+        json: %{
+          ref: ref,
+          inputs: %{run_key: run_key, credential_order: Enum.join(credential_names, ",")}
+        }
       )
 
     case response do

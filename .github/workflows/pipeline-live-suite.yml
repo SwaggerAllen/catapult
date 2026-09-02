@@ -58,6 +58,14 @@ jobs:
       # adapter bug. Two milestone boundaries were lost to that before
       # this line existed.
       DELIVERY_GITHUB_TOKEN: ${{ secrets.DELIVERY_GITHUB_TOKEN }}
+      # Same shape, same failure mode (ORC-216): the `:live` chain test
+      # provisions its project through the deployed plane's own
+      # surface, and this is the bearer it sends. It has to be the
+      # identical value the reference instance holds under the same
+      # name (SETUP.md §2/§3). Absent, config/test.exs falls back to
+      # the same "test-token" sentinel and the plane answers 401 on
+      # the first request — which reads exactly like a wrong token.
+      DELIVERY_PROVISIONING_TOKEN: ${{ secrets.DELIVERY_PROVISIONING_TOKEN }}
     services:
       postgres:
         image: postgres:16

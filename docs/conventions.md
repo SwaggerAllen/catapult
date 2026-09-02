@@ -353,11 +353,14 @@ mechanically defeats the automation (v5 §2.8).
 
   What follows from that for the suite's own shape — the tag as the
   only axis rather than a `test/live/` tree, one request with a
-  bounded timeout rather than polling, a SHA asserted stamped rather
-  than equal to this checkout's, and a `test` alias that does not
-  read argv to skip migrations — is `systems/foundation.md`'s live
-  suite section, each with the cheaper wrong alternative it was
-  decided against.
+  bounded timeout rather than polling (except a live check waiting on
+  a run it dispatched itself, which bound-polls the plane it just
+  called rather than the world at large — `systems/foundation.md`'s
+  own named exception, ORC-216), a SHA asserted stamped rather than
+  equal to this checkout's, and a `test` alias that does not read argv
+  to skip migrations — is `systems/foundation.md`'s live suite
+  section, each with the cheaper wrong alternative it was decided
+  against.
 - **Ecto sandbox, async by default.** A test that can't run async
   documents why in a comment.
 - **Injected clock** (`Catapult.Clock` behaviour; `DateTime.utc_now`

@@ -50,6 +50,11 @@ defmodule Catapult do
       Ecto.Migrator,
       Oban,
       Plug,
+      # Constant-time comparison for the provisioning surface's bearer
+      # secret (ORC-216, `Catapult.Delivery.Provisioning`) — already
+      # carried transitively via `:plug` (`mix.exs`'s own boundary apps
+      # list), this is its first direct module reference.
+      Plug.Crypto,
       # The DSL loader's two adopted libraries (ORC-5, systems/core_dsl.md):
       # YAML parsing for bundle content, and libgraph for the type-level
       # acyclicity checks §13 requires at load time.

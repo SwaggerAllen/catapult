@@ -86,6 +86,7 @@ one.
 
 ```catapult:required-env
 DELIVERY_GITHUB_TOKEN
+DELIVERY_PROVISIONING_TOKEN
 FOUNDATION_ENDPOINT_SECRET_KEY_BASE
 ```
 
@@ -179,14 +180,43 @@ The facts a future session needs, recorded as facts:
   it through the config layer at boot, so it belongs beside the other
   instance values here rather than in §3.
 
-  **Scope it needs, derived from the one call that uses it.**
-  `Catapult.Delivery.HostPort.Actions` makes exactly one request —
-  `POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches`.
-  Nothing reads runs back (correlation rides the `run_key` dispatch
-  input and the OIDC callback), so a fine-grained token with
-  **Actions: Read and write** plus the mandatory **Metadata: Read** is
-  the whole of it. Classic tokens want `repo`, since the target repos
-  are private — prefer fine-grained, as with `DISPATCH_TOKEN`.
+  **Scope it needs, derived from every call that uses it.**
+  `Catapult.Delivery.HostPort.Actions` is the only module that holds
+  it, and every request it makes maps onto six fine-grained
+  permissions — read off GitHub's own permissions table for each
+  endpoint, not inferred from the endpoint's name:
+
+  - **Actions: Read and write** —
+    `POST …/actions/workflows/{file}/dispatches` (`dispatch_run/1`).
+  - **Contents: Read and write** — `GET`/`PUT …/contents/{path}`
+    (`reset_repo/2`, `commit_files/4`, `read_directory/3`),
+    `GET …/git/ref/heads/{ref}` and `POST …/git/refs`
+    (`create_branch/3`), `POST …/merges` (`merge_forward/3`),
+    `PUT …/pulls/{n}/merge` (`merge_pr/3`).
+  - **Workflows: Read and write** — the same `PUT …/contents/{path}`
+    when the path is under `.github/workflows/`, which
+    `reset_repo/2`'s fixture write always includes (it pushes the
+    dispatch workflow itself). GitHub lists that PUT under both
+    Contents and Workflows and requires both; a token with Contents
+    alone is refused on exactly the file the whole mechanism needs.
+  - **Pull requests: Read and write** — `POST …/pulls` (`open_pr/2`),
+    `GET`/`PATCH …/pulls/{n}` (`read_diff/2`, `update_pr_body/3`),
+    `GET …/pulls/{n}/comments` (`read_review_comments/3`), and the
+    two issues-API calls made on a PR number —
+    `GET`/`POST …/issues/{n}/comments` (`write_marker_comment/4`) and
+    `PUT …/issues/{n}/labels` (`set_pr_labels/3`) — which GitHub lists
+    under Pull requests as well as Issues, so no Issues permission is
+    needed.
+  - **Checks: Read** — `GET …/commits/{sha}/check-runs`
+    (`read_check_status/2`).
+  - **Metadata: Read**, mandatory on every fine-grained token.
+
+  Nothing reads workflow runs back (correlation rides the `run_key`
+  dispatch input and the OIDC callback), so Actions needs nothing
+  beyond the dispatch write. Classic tokens want `repo` plus
+  `workflow`, since the target repos are private and the fixture
+  write lands a workflow file — prefer fine-grained, as with
+  `DISPATCH_TOKEN`.
 
   **The footgun is the repository list, and it is §1's footgun again.**
   The owner and name come from the *project binding*, not from this
@@ -201,6 +231,25 @@ The facts a future session needs, recorded as facts:
   `DELIVERY_DISPATCH_WORKFLOW_FILE` (`catapult-dispatch.yml`) and
   `DELIVERY_DISPATCH_REF` (`main`) — both resolved against the *target*
   repository, not this one.
+- **`DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
+  suite own credential, set as an App Platform environment variable,
+  encrypted.** Declared by delivery with no default
+  (`lib/catapult/delivery.ex`), the same shape `DELIVERY_GITHUB_TOKEN`
+  above already has. A bearer secret, not a GitHub token: it
+  authenticates the provisioning surface's three routes
+  (`/dispatch/test-project*`, `Catapult.Delivery.Provisioning`) —
+  mint/bind/reset/intake a test project, release one, read a
+  project's terminal dispatch status — against
+  `pipeline-live-suite.yml`'s own job, the one caller with any reason
+  to reach them (ORC-216, `systems/delivery.md`'s ORC-216 entry: OIDC
+  was considered and rejected here, since every input `Oidc.verify/4`
+  needs comes from a `DispatchRun` row that does not exist yet at the
+  moment a provisioning call is made). **Set the identical value in
+  two places**: here, on the reference instance, and as this repo's
+  own `DELIVERY_PROVISIONING_TOKEN` Actions secret (§3) — the
+  live-suite job reads it from its own environment and sends it as the
+  provisioning surface's bearer token, so the two have to agree or
+  every live run fails at the first request with a 401.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
@@ -227,6 +276,25 @@ from tracker/host as signals before resuming authority).
   - `CLOUDFLARE_API_TOKEN` (Pages-scoped) + `CLOUDFLARE_ACCOUNT_ID`
   - `DIGITALOCEAN_TOKEN` (deploy detection against the App Platform
     API)
+  - `DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
+    suite job reads this and sends it as the provisioning surface's
+    bearer token (§2's own entry); it has to be the identical value
+    the reference instance holds under the same name, or every live
+    run fails at the first request with a 401.
+- **`SwaggerAllen/catapult-test` (the bound fixture repo — a
+  *different* repository, its own Actions secrets) needs its own
+  model credentials, the ones `catapult-dispatch.yml`'s `run-agent`
+  step reads (`test/catapult/generation/fixtures/toy_seed
+  /catapult-dispatch.yml`).** Actions secrets do not inherit across
+  repos, and this repo's own `CLAUDE_CODE_OAUTH_TOKEN`/
+  `ANTHROPIC_API_KEY` above (the ones this project's own agent jobs
+  run design/dev work with) answer no request made inside a dispatched
+  run on the fixture repo — set at least one of the same two names,
+  directly on `SwaggerAllen/catapult-test`'s own Settings → Secrets.
+  Without either, every live-suite run reports `other_failure` at the
+  run-agent step with `reason: "no_credential_available"`, never a
+  boot-time failure, since these are Actions secrets rather than a
+  declared `config/0` value this codebase checks.
 - **GitHub webhook on this repo** (per-repo, unlike Linear's
   team-level one): Settings → Webhooks → Add webhook — the Worker
   URL, content type `application/json`, the `WEBHOOK_SECRET` value

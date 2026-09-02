@@ -15,6 +15,16 @@ defmodule Catapult.Delivery.Store.DispatchRun do
   (`Catapult.Delivery.Store.current_open_flow_id/1`) — so `ticket` can
   read a flow's own run list (`dispatch_runs_for_flow/2`) beside its
   PR list.
+
+  `outcome` and `credential_used` are ORC-216's own addition — what
+  "the plane recorded it" resolves to for the milestone boundary's
+  live suite (`systems/delivery.md`'s ORC-216 entry). `outcome` is the
+  fine-grained result a result-report actually carried
+  (`:success`/`:limit_class_failure`/`:other_failure`), set alongside
+  the coarse `status` above by `complete_dispatch_run/4`;
+  `credential_used` is the name the harness actually spent, out of the
+  ordered pair `credential_sent` offered. Both `nil` until a result is
+  reported.
   """
 
   use Ecto.Schema
@@ -31,9 +41,11 @@ defmodule Catapult.Delivery.Store.DispatchRun do
     field :repo_name, :string
     field :root_tag, :string
     field :rendered_prompt, :string
-    field :credential_sent, :string
+    field :credential_sent, {:array, :string}
     field :github_run_id, :string
     field :status, Ecto.Enum, values: [:dispatched, :context_fetched, :completed, :failed]
+    field :outcome, Ecto.Enum, values: [:success, :limit_class_failure, :other_failure]
+    field :credential_used, :string
 
     timestamps(type: :utc_datetime_usec, updated_at: :updated_at)
   end

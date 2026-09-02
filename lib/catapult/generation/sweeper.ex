@@ -4,12 +4,24 @@ defmodule Catapult.Generation.Sweeper do
   is re-asking the readiness question" — no fast path is built here,
   see the hand-back for why). On a timer: every project id the engine
   store has ever heard from (`Catapult.Engine.Store.list_project_ids/0`,
-  the same enumeration `Catapult.Engine.Sweeper` already walks),
-  loads the chain, and enqueues one `Catapult.Generation.DispatchWorker`
-  Oban job per ready `generator: "llm"` scope — generation and review
-  tiers alike, `ReadyScopes.ready/3`/`.ready_review/3` together
-  (`Catapult.Engine.Scheduler`'s own fold, replayed here since this
-  ticket does not build the PubSub-subscribing fast path).
+  the same enumeration `Catapult.Engine.Sweeper` already walks) union
+  every project id `Catapult.Delivery` has ever bound to a repo
+  (`Catapult.Delivery.list_bound_project_ids/0`, ORC-216,
+  `systems/generation.md`'s ORC-216 entry) — a freshly provisioned test
+  project has no engine row of its own yet, since no node has ever been
+  drafted for it, so the engine-only enumeration alone would never
+  surface it to a sweep tick — loads the chain, and enqueues one
+  `Catapult.Generation.DispatchWorker` Oban job per ready `generator:
+  "llm"` scope — generation and review tiers alike,
+  `ReadyScopes.ready/3`/`.ready_review/3` together (`Catapult.Engine
+  .Scheduler`'s own fold, replayed here since this ticket does not
+  build the PubSub-subscribing fast path).
+
+  **Honours the test-project lifecycle** (ORC-216, `systems/delivery
+  .md`'s ORC-216 entry): a project id `Catapult.Delivery
+  .sweepable_project?/1` answers `false` for — a released or deleted
+  test project — is skipped outright, upstream of the tier walk, so a
+  debugging session never has the chain move under it.
 
   Only `generator: "llm"` tiers dispatch through this executor
   (`systems/generation.md`'s own scope: agent-dispatch generation).
@@ -34,6 +46,7 @@ defmodule Catapult.Generation.Sweeper do
   require Logger
 
   alias Catapult.Config
+  alias Catapult.Delivery
   alias Catapult.Dsl
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
@@ -62,7 +75,8 @@ defmodule Catapult.Generation.Sweeper do
   defp sweep do
     case Dsl.load(Config.fetch!(:generation, :bundles_root)) do
       {:ok, loaded} ->
-        Enum.each(Store.list_project_ids(), &sweep_project(loaded.chain, &1))
+        project_ids = Enum.uniq(Store.list_project_ids() ++ Delivery.list_bound_project_ids())
+        Enum.each(project_ids, &sweep_project(loaded.chain, &1))
 
       {:error, reason} ->
         Logger.warning(
@@ -73,6 +87,14 @@ defmodule Catapult.Generation.Sweeper do
   end
 
   defp sweep_project(chain, project_id) do
+    if Delivery.sweepable_project?(project_id) do
+      sweep_tiers(chain, project_id)
+    end
+
+    :ok
+  end
+
+  defp sweep_tiers(chain, project_id) do
     for {tier_name, tier} <- chain.tiers, dispatchable?(tier) do
       for node <- ReadyScopes.ready(chain, project_id, tier_name) do
         enqueue(project_id, tier_name, node.scope_key)

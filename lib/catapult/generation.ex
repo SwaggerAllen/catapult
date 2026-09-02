@@ -9,6 +9,8 @@ defmodule Catapult.Generation do
 
   use Catapult.Component, slug: :generation
 
+  alias Catapult.Generation.Runtime
+
   @impl Catapult.Component
   def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
 
@@ -29,14 +31,22 @@ defmodule Catapult.Generation do
       # plane-state/bindings storage exists anywhere in this codebase
       # yet to hold a true per-instance tunable.
       {:sweep_interval_ms, "GENERATION_SWEEP_INTERVAL_MS", cast: :integer, default: "10000"},
+      # The bindings entry for the `:generation` kind (v5 §7.10,
+      # generalized here — `systems/generation.md`'s ORC-215 entry):
+      # which agent implementation runs every generation dispatch,
+      # project-wide. `Catapult.Generation.Runtime` is the kind →
+      # runtime map; adding a second implementation is a new entry
+      # there, not a new config key here.
+      {:runtime, "GENERATION_RUNTIME", cast: &Runtime.cast/1, default: "claude_code"},
       # The model-credential pair's order (v5 §7.12.1's bindings
       # `tunable`) — instance-wide rather than per-project for the
       # same reason: no `projects` entity exists anywhere in this
       # store to hang a per-project override on
       # (`systems/engine.md`'s own "a different, not-yet-built
-      # concern"). Only the first-ordered entry is ever sent (ORC-9's
-      # design rework — no failover until the runner harness exposes
-      # a structured limit-class signal).
+      # concern"). The full ordered pair is sent on every dispatch as
+      # of ORC-215 — Catapult's own runner harness classifies
+      # limit-class failures itself, retiring ORC-9's
+      # no-failover workaround.
       {:credential_order, "GENERATION_CREDENTIAL_ORDER",
        cast: &__MODULE__.cast_credential_order/1,
        default: "claude_code_oauth_token,anthropic_api_key"},
@@ -49,16 +59,17 @@ defmodule Catapult.Generation do
     ]
   end
 
-  @doc "Casts a comma-separated credential-name list, validated against the two v5 §7.12.1 names."
+  @doc "Casts a comma-separated credential-name list, validated against `Catapult.Generation.Runtime`'s known names."
   @spec cast_credential_order(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def cast_credential_order(raw) do
     names = raw |> String.split(",") |> Enum.map(&String.trim/1)
-    known = ~w(claude_code_oauth_token anthropic_api_key)
 
-    if names != [] and Enum.all?(names, &(&1 in known)) do
+    if names != [] and Enum.all?(names, &Runtime.known_credential_name?/1) do
       {:ok, names}
     else
-      {:error, "is #{inspect(raw)}, expected a comma-separated list from #{inspect(known)}"}
+      {:error,
+       "is #{inspect(raw)}, expected a comma-separated list from " <>
+         inspect(Runtime.known_credential_names())}
     end
   end
 

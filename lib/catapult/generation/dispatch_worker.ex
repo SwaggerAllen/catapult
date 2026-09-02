@@ -11,10 +11,14 @@ defmodule Catapult.Generation.DispatchWorker do
   **Re-validates before acting** (§7.1's validate-or-revert discipline
   applied to the sweeper's own hint, same as every other consumer of a
   broadcast/enumeration in this codebase): still ready, not already
-  committed, not repeatedly limit-class-failing. No memory across
-  dispatches — every run re-renders its context walk and starts clean
-  (v5 §7.15's third invariant); this worker holds nothing between
-  attempts beyond what Oban itself retries with.
+  committed, not repeatedly limit-class-failing, and — ORC-216,
+  `systems/delivery.md`'s ORC-216 entry — still sweepable, closing the
+  gap the sweeper's own upstream skip leaves open: a job already
+  enqueued on the tick before a test project releases would otherwise
+  dispatch after it. No memory across dispatches — every run
+  re-renders its context walk and starts clean (v5 §7.15's third
+  invariant); this worker holds nothing between attempts beyond what
+  Oban itself retries with.
   """
 
   use Oban.Worker,
@@ -35,7 +39,8 @@ defmodule Catapult.Generation.DispatchWorker do
   def perform(%Oban.Job{
         args: %{"project_id" => project_id, "tier" => tier, "scope_key" => scope_key}
       }) do
-    with {:ok, loaded} <- Dsl.load(Config.fetch!(:generation, :bundles_root)),
+    with :ok <- still_sweepable(project_id),
+         {:ok, loaded} <- Dsl.load(Config.fetch!(:generation, :bundles_root)),
          {:ok, node} <- still_ready(loaded.chain, project_id, tier, scope_key),
          :ok <- not_blocked(project_id, node, tier),
          {:ok, request} <- ContextAssembly.build(loaded.chain, project_id, tier, node) do
@@ -47,6 +52,17 @@ defmodule Catapult.Generation.DispatchWorker do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # ORC-216: the third re-validation, alongside `still_ready/4` and
+  # `not_blocked/3` — a job the sweeper enqueued before a test project
+  # released must not dispatch after it.
+  defp still_sweepable(project_id) do
+    if Delivery.sweepable_project?(project_id) do
+      :ok
+    else
+      {:skip, {:not_sweepable, project_id}}
     end
   end
 

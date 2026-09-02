@@ -12,6 +12,7 @@ defmodule Catapult.Delivery do
 
   alias Catapult.Config.Secret
   alias Catapult.Delivery.Dispatch
+  alias Catapult.Delivery.Provisioning
   alias Catapult.Delivery.Store
 
   @impl Catapult.Component
@@ -35,6 +36,11 @@ defmodule Catapult.Delivery do
       {:host_port_adapter, "DELIVERY_HOST_PORT_ADAPTER",
        cast: &__MODULE__.cast_adapter/1, default: "actions"},
       {:oidc_audience, "DELIVERY_OIDC_AUDIENCE", cast: :string, default: "catapult"},
+      # The provisioning surface's bearer secret (ORC-216,
+      # `Catapult.Delivery.Provisioning`) — no default, so a build
+      # missing it fails at boot naming it, the same shape
+      # `:github_token` above already has.
+      {:provisioning_token, "DELIVERY_PROVISIONING_TOKEN", cast: :string, secret: true},
       {:oidc_jwks_url, "DELIVERY_OIDC_JWKS_URL",
        cast: :string, default: "https://token.actions.githubusercontent.com/.well-known/jwks"},
       # `false` in test (`config/test.exs`): the strategy process still
@@ -82,7 +88,19 @@ defmodule Catapult.Delivery do
       # acting on the project's behalf, never end users.
       {{:fetch_context, 2}, :get, "/dispatch/context/:run_key",
        version: "v1", audience: :partner},
-      {{:report_result, 2}, :post, "/dispatch/report/:run_key", version: "v1", audience: :partner}
+      {{:report_result, 2}, :post, "/dispatch/report/:run_key",
+       version: "v1", audience: :partner},
+      # ORC-216: the provisioning surface — a third, fourth and fifth
+      # path on this one listener, `:internal` audience since these
+      # are reached only by the milestone boundary's own live-suite
+      # job, bearer-authenticated rather than OIDC
+      # (`Catapult.Delivery.Provisioning`'s own moduledoc).
+      {{:provision_test_project, 1}, :post, "/dispatch/test-project",
+       version: "v1", audience: :internal},
+      {{:release_test_project, 2}, :post, "/dispatch/test-project/:project_id/release",
+       version: "v1", audience: :internal},
+      {{:test_project_dispatch_status, 3}, :get,
+       "/dispatch/test-project/:project_id/status/:tier", version: "v1", audience: :internal}
     ]
   end
 
@@ -194,6 +212,36 @@ defmodule Catapult.Delivery do
   @spec get_raft(binary()) :: [String.t()]
   def get_raft(project_id), do: Store.get_raft(project_id)
 
+  @doc """
+  Unwrapped for the one call site that needs it — the milestone
+  boundary's live suite, sending it as the provisioning surface's own
+  bearer token (`Catapult.Generation.ToySeedChainLiveTest`).
+  `Catapult.Delivery.Provisioning` itself reads the same declared
+  value straight off config rather than through this accessor, since
+  it is already the callee of this module's own defexports and a call
+  back here would close the cycle `mix xref graph --format cycles
+  --fail-above 0` refuses.
+  """
+  @spec provisioning_token() :: Secret.t()
+  def provisioning_token, do: Catapult.Config.fetch!(:delivery, :provisioning_token)
+
+  @doc """
+  Every project id this store has ever bound to a repo —
+  `Catapult.Generation.Sweeper`'s own union with the engine's
+  enumeration (`Catapult.Delivery.Store.list_bound_project_ids/0`, ORC-216).
+  """
+  @spec list_bound_project_ids() :: [binary()]
+  def list_bound_project_ids, do: Store.list_bound_project_ids()
+
+  @doc """
+  Whether `Catapult.Generation.Sweeper`/`Catapult.Generation
+  .DispatchWorker` may dispatch for `project_id` right now — the
+  test-project lifecycle's own read (`Catapult.Delivery.Store
+  .sweepable_project?/1`, ORC-216).
+  """
+  @spec sweepable_project?(binary()) :: boolean()
+  def sweepable_project?(project_id), do: Store.sweepable_project?(project_id)
+
   @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Dispatch.fetch_context/2`."
   @spec fetch_context(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   defexport(fetch_context(conn, run_key), do: Dispatch.fetch_context(conn, run_key))
@@ -201,4 +249,18 @@ defmodule Catapult.Delivery do
   @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Dispatch.report_result/2`."
   @spec report_result(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   defexport(report_result(conn, run_key), do: Dispatch.report_result(conn, run_key))
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.provision/1`."
+  @spec provision_test_project(Plug.Conn.t()) :: Plug.Conn.t()
+  defexport(provision_test_project(conn), do: Provisioning.provision(conn))
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.release/2`."
+  @spec release_test_project(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  defexport(release_test_project(conn, project_id), do: Provisioning.release(conn, project_id))
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.status/3`."
+  @spec test_project_dispatch_status(Plug.Conn.t(), binary(), String.t()) :: Plug.Conn.t()
+  defexport(test_project_dispatch_status(conn, project_id, tier),
+    do: Provisioning.status(conn, project_id, tier)
+  )
 end

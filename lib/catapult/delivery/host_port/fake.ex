@@ -56,7 +56,7 @@ defmodule Catapult.Delivery.HostPort.Fake do
       repo_name: "fake",
       root_tag: request.root_tag,
       rendered_prompt: request.rendered_prompt,
-      credential_sent: request.credential_name
+      credential_sent: request.credential_names
     })
 
     # Mirrors the Actions adapter's own contract: `{:ok, run_key}`
@@ -100,7 +100,11 @@ defmodule Catapult.Delivery.HostPort.Fake do
       component: :delivery
     )
 
-    :ok
+    # The same synthesized shape `Fake.Forge`'s own `head_sha/1`
+    # already generates for a branch head (ORC-216, `HostPort`'s own
+    # moduledoc) — this adapter has no real git object to read one
+    # from.
+    {:ok, "fake-sha-reset-#{project_id}-#{System.unique_integer([:positive])}"}
   end
 
   ## ORC-31: branch/PR/comment/label/check operations, against `Forge`

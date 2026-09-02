@@ -74,7 +74,7 @@ defmodule Catapult.Generation.IntegrationTest do
 
     assert {:ok, request} = ContextAssembly.build(loaded.chain, project_id, "vocab", node)
     assert request.root_tag == "vocab-entry"
-    assert request.credential_name == "claude_code_oauth_token"
+    assert request.credential_names == ["claude_code_oauth_token", "anthropic_api_key"]
 
     assert {:ok, %{run_key: run_key}} = FakeHostPort.dispatch_run(request)
 

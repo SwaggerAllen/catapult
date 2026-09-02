@@ -14,10 +14,26 @@ defmodule Catapult.Delivery.Store do
   alias Catapult.Delivery.Store.FeatureLifecycle
   alias Catapult.Delivery.Store.FeaturePublication
   alias Catapult.Delivery.Store.InputDocument
+  alias Catapult.Delivery.Store.Project
   alias Catapult.Delivery.Store.ProjectBinding
   alias Catapult.Engine.Store.Flow, as: EngineFlow
   alias Catapult.Engine.Store.Node, as: EngineNode
   alias Catapult.Repo
+
+  # Every delivery-owned table keyed by `project_id` — what
+  # `delete_test_project/1` purges (`systems/delivery.md`'s ORC-216
+  # entry names all eight). `Project` itself is not here: its own row
+  # survives deletion as a tombstone.
+  @delivery_owned_schemas [
+    ProjectBinding,
+    DispatchRun,
+    InputDocument,
+    DraftBody,
+    FeatureLifecycle,
+    FeaturePublication,
+    ContainerProposal,
+    ArtifactPush
+  ]
 
   ## Project bindings
 
@@ -34,6 +50,19 @@ defmodule Catapult.Delivery.Store do
       on_conflict: {:replace, [:repo_owner, :repo_name]},
       conflict_target: [:project_id]
     )
+  end
+
+  @doc """
+  Every project id this store has ever bound to a repo — the fact
+  `Catapult.Generation.Sweeper` unions with `Catapult.Engine.Store
+  .list_project_ids/0` (ORC-216, `systems/generation.md`'s ORC-216
+  entry): a freshly provisioned test project has no engine row of its
+  own yet (no node has ever been drafted for it), so the engine-only
+  enumeration alone would never surface it to a sweep tick.
+  """
+  @spec list_bound_project_ids() :: [binary()]
+  def list_bound_project_ids do
+    ProjectBinding |> select([b], b.project_id) |> Repo.all()
   end
 
   ## Dispatch runs
@@ -70,10 +99,171 @@ defmodule Catapult.Delivery.Store do
     :ok
   end
 
-  @spec complete_dispatch_run(binary(), :completed | :failed) :: :ok
-  def complete_dispatch_run(run_key, status) when status in [:completed, :failed] do
-    Repo.update_all(from(r in DispatchRun, where: r.id == ^run_key), set: [status: status])
+  @doc """
+  Closes out a run correlation record with both the coarse `status`
+  this table always had and the two facts ORC-216 added: `outcome`,
+  the fine-grained result a result-report actually carried, and
+  `credential_used`, the name the harness actually spent
+  (`systems/delivery.md`'s ORC-216 entry — "what 'the plane recorded
+  it' resolves to, concretely").
+  """
+  @spec complete_dispatch_run(
+          binary(),
+          :completed | :failed,
+          :success | :limit_class_failure | :other_failure,
+          String.t() | nil
+        ) :: :ok
+  def complete_dispatch_run(run_key, status, outcome, credential_used)
+      when status in [:completed, :failed] do
+    Repo.update_all(
+      from(r in DispatchRun, where: r.id == ^run_key),
+      set: [status: status, outcome: outcome, credential_used: credential_used]
+    )
+
     :ok
+  end
+
+  @doc """
+  `project_id`'s most recently dispatched run on `tier`, terminal-status
+  shape — the provisioning surface's own read (ORC-216,
+  `systems/delivery.md`'s ORC-216 entry): `status`, `outcome`,
+  `credential_used`, `node_id` and the node's own `body_sha` (a plain
+  cross-system read through to `Catapult.Engine.Store`, the same shape
+  `current_open_flow_id/1` above already uses) — a non-nil `body_sha`
+  is what "the committed draft" resolves to. `nil` if `tier` has never
+  been dispatched for `project_id`.
+  """
+  @spec terminal_dispatch_status(binary(), String.t()) :: map() | nil
+  def terminal_dispatch_status(project_id, tier) do
+    run =
+      DispatchRun
+      |> where([r], r.project_id == ^project_id and r.tier == ^tier)
+      |> order_by([r], desc: r.inserted_at)
+      |> limit(1)
+      |> Repo.one()
+
+    case run do
+      nil ->
+        nil
+
+      run ->
+        %{
+          status: run.status,
+          outcome: run.outcome,
+          credential_used: run.credential_used,
+          node_id: run.node_id,
+          body_sha: node_body_sha(project_id, run.node_id)
+        }
+    end
+  end
+
+  defp node_body_sha(_project_id, nil), do: nil
+
+  defp node_body_sha(project_id, node_id) do
+    Repo.one(
+      from n in EngineNode,
+        where: n.project_id == ^project_id and n.id == ^node_id,
+        select: n.body_sha
+    )
+  end
+
+  ## Test project lifecycle (ORC-216, systems/delivery.md)
+
+  @doc """
+  Mints `project_id` as the one active test project, atomically
+  releasing whichever was active before — "at most one active, by
+  construction of the mint operation, not a checked constraint"
+  (`systems/delivery.md`'s ORC-216 entry): both halves land in one
+  transaction, so no window exists where two rows read `:active` at
+  once.
+  """
+  @spec mint_test_project(binary()) :: Project.t()
+  def mint_test_project(project_id) do
+    {:ok, project} =
+      Repo.transaction(fn ->
+        Repo.update_all(
+          from(p in Project, where: p.test_project_state == :active),
+          set: [test_project_state: :released]
+        )
+
+        %Project{project_id: project_id}
+        |> Ecto.Changeset.change(%{test_project_state: :active})
+        |> Repo.insert!()
+      end)
+
+    project
+  end
+
+  @doc """
+  Releases `project_id` — held for a debugging session, never swept
+  again, until the next `delete_test_project/1`. A no-op if
+  `project_id` is not currently `:active` (idempotent — a caller
+  racing its own retry, or releasing a project already released,
+  costs nothing).
+  """
+  @spec release_test_project(binary()) :: :ok
+  def release_test_project(project_id) do
+    Repo.update_all(
+      from(p in Project, where: p.project_id == ^project_id and p.test_project_state == :active),
+      set: [test_project_state: :released]
+    )
+
+    :ok
+  end
+
+  @doc """
+  Every released test project's id — the boundary's before-run step
+  reads this to reclaim them ahead of a fresh mint (`systems/delivery
+  .md`'s ORC-216 entry: "reset happens before a run, never after").
+  """
+  @spec list_released_test_projects() :: [binary()]
+  def list_released_test_projects do
+    Project
+    |> where([p], p.test_project_state == :released)
+    |> select([p], p.project_id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Purges every delivery-owned row keyed by `project_id`
+  (`@delivery_owned_schemas`) and marks `delivery_projects`'s own row
+  `:deleted` — terminal, and the one row not purged, kept as a
+  tombstone so a project id is never reused
+  (`systems/delivery.md`'s ORC-216 entry). Engine-owned rows and the
+  project's own EventStore stream are untouched — a later archive/delete
+  design's own scope, not this one's.
+  """
+  @spec delete_test_project(binary()) :: :ok
+  def delete_test_project(project_id) do
+    Repo.transaction(fn ->
+      Enum.each(@delivery_owned_schemas, fn schema ->
+        Repo.delete_all(from(r in schema, where: r.project_id == ^project_id))
+      end)
+
+      Repo.update_all(
+        from(p in Project, where: p.project_id == ^project_id),
+        set: [test_project_state: :deleted]
+      )
+    end)
+
+    :ok
+  end
+
+  @doc """
+  Whether `Catapult.Generation.Sweeper` may dispatch for `project_id` —
+  `true` for an ordinary project (no row here at all) and for a test
+  project whose recorded state is `:active`; `false` for `:released`
+  or `:deleted` (`systems/generation.md`'s ORC-216 entry). A read, not
+  sweeper state: this store stays the one state of record for the
+  lifecycle.
+  """
+  @spec sweepable_project?(binary()) :: boolean()
+  def sweepable_project?(project_id) do
+    case Repo.get(Project, project_id) do
+      nil -> true
+      %Project{test_project_state: :active} -> true
+      %Project{} -> false
+    end
   end
 
   ## Draft bodies (the review-tier `draft` variable's own cache — see the owning migration)
