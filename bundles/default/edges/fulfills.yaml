@@ -1,10 +1,26 @@
 # Unchanged in shape now that resp is a real tier rather than
 # a field on requirements — comp -> resp is comp's fulfills.
+#
+# ORC-111 adds a second instance under this same mechanism rather than
+# minting a fourth edge name: a screen collection is the implementation
+# locus for the screens it groups, the identical relationship this
+# edge's comp -> resp instance already states for the backend ("this
+# architecture node is the one that implements this responsibility")
+# (systems/platform_content.md's ORC-111 entry). Moved to `instances:`
+# form (dsl-syntax.md §4.1) to carry both.
 edge: fulfills
 type: reference
-source: comp
-target: resp
-declared_in: sysarch.draft.components.component[].responsibilities.resp[].@id
-cardinality:
-  source: { min: 1 } # every comp fulfills ≥1 resp
-  target: { min: 1, max: 1 } # every resp is fulfilled by exactly one comp
+instances:
+  - source: comp
+    target: resp
+    declared_in: sysarch.draft.components.component[].responsibilities.resp[].@id
+    cardinality:
+      source: { min: 1 } # every comp fulfills ≥1 resp
+      target: { min: 1, max: 1 } # every resp is fulfilled by exactly one comp
+
+  - source: screen_coll
+    target: screen
+    declared_in: frontend_sysarch.draft.screen_collections.collection[].screens.screen[].@ref
+    cardinality:
+      source: { min: 1 } # a collection must group ≥1 screen to justify existing
+      target: { min: 1, max: 1 } # a screen is hosted by exactly one collection

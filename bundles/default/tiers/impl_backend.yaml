@@ -5,7 +5,11 @@
 # it normative for reconciliation ("named test descriptions are the
 # acceptance criteria"), and there is no `<tests>` block anywhere in
 # seed-docs/siege-prompts/impl.md to draw from — authored fresh.
-tier: impl
+# Family-qualified name (ORC-111, ORC-106): this was bare `impl` until
+# the UI and screen families' own `impl_ui`/`impl_screen` landed
+# alongside it — a name, not a restructuring; no other field here
+# changed shape for the rename.
+tier: impl_backend
 scope: per(subcomp)
 identity: id
 fields:

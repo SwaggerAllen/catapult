@@ -1,0 +1,8 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- Does `<behavior>` name the actual backend call for every data-loading or state-transition claim, grounded against a real dependency pubapi entry (given as context above) — not "loads the data"?
+- Does `<edge-cases>` cover every failure mode the called dependencies' pubapis can produce, mapped to a handling path (a named screen state, a flash, a redirect)? Flag a dependency failure mode with no corresponding edge-case.
+- Are the screen's own named states (`loading`/`error`/`empty`/…, given as context via the owning collection) each reachable from some described code path, or does the plan leave one unreachable?
+- Is `<tests>` proportionate — covering the primary paths in `<behavior>`, the properties in `<invariants>`, and every distinct condition `<edge-cases>` names?

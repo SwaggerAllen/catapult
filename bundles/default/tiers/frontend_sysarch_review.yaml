@@ -1,0 +1,19 @@
+# docs/v5-design-decisions.md §7.19: a review is a tier, not a nested
+# block. `reviews: frontend_sysarch` fixes this review's scope and
+# cardinality to frontend_sysarch's own (singleton) — not restated,
+# dsl-syntax.md §3.3. `context:` is the same set of walks as
+# frontend_sysarch's own, checked at load time (§13) rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# and are never context: entries.
+tier: frontend_sysarch_review
+reviews: frontend_sysarch
+generator: llm
+prompt: prompts/review/frontend_sysarch.md.liquid
+grammar: schemas/review.xsd
+context:
+  - all.journey.handle
+  - all.screen.handle
+  - all.sysarch.handle
+delivery:
+  phase: critique
+  agent_step: critique

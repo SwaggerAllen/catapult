@@ -1,0 +1,24 @@
+# A "join target" tier, comp's own shape (tiers/comp.yaml): no draft,
+# no prompt — content lives entirely in the fragments screen_collarch
+# writes onto self.parent (screen_collarch.yaml's produces:). `mint.*`
+# fields are set when frontend_sysarch's `decomposition` edge
+# (edges/decomposition.yaml) mints this node from its own
+# `screen_collections.collection[]` row. `ia_region` carries the
+# grouping rationale (shared layout shell, auth context, navigation
+# neighbourhood — v5 §5.3) frontend_sysarch decided when it formed this
+# collection; screen membership itself is the `fulfills`
+# `screen_coll -> screen` edge (edges/fulfills.yaml), not a field here
+# — the same reason `comp` doesn't mint `dependency`/`fulfills` as
+# fields, a downstream reader walks the edge (systems/platform_content.md's
+# ORC-111 entry).
+tier: screen_coll
+scope: child_of(frontend_sysarch)
+identity: id
+fields:
+  name: mint.name
+  purpose: mint.purpose
+  ia_region: mint.ia_region
+handle:
+  fields: [id, name, purpose, ia_region]
+  fragments: [techspec, pubapi, privapi, policies, failure_surface]
+generator: synthesis

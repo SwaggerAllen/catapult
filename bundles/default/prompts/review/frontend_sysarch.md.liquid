@@ -1,0 +1,10 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- **Screen collections**: is the grouping actually tracking IA region (shared shell, auth context, navigation neighbourhood), or has it drifted into gating on journeys? A single-screen collection should earn its existence — flag one with nothing else sharing its shell unless the isolation is genuinely argued. A journey scattered across three or more collections is usually wrong — flag it unless the introduction argues a real cross-region journey.
+- Does every screen from the input list land in exactly one collection? Flag orphans and double-claims.
+- **UI collections**: is each one seeded from a real signal (a load-bearing backend concept, a journey-shared render, genuine recurrence across screen definitions) rather than invented speculatively? Flag a collection with no stated rationale, and flag obvious recurrence the draft missed (the same displayed-data shape or affordance repeated across several screens with no collection covering it).
+- Do `<ui-dependencies>` and `<screen-dependencies>` stay strictly same-family — no entry crossing from one collection family into the other? A cross-family entry here is a layering violation this tier itself must not commit, separate from the audit check on generated code.
+- Are both dependency graphs acyclic and grounded (each edge traceable to a real compositional need, not asserted with nothing behind it)?
+- Are collection and subcomponent names project-distinctive, or generic shells ("Widget", "Panel", "Page")?

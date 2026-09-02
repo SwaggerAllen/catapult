@@ -1,0 +1,152 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are producing the **subcomponent architecture document** for a
+single leaf inside a screen collection — typically one hosted
+LiveView, or a shared piece of mounting/loading logic several LiveViews
+in the collection depend on. This is the final articulation layer
+before implementation. Your `<public-surface>` is what sibling leaves
+and `impl_screen` will build against; unlike a UI leaf, this one may
+legitimately own a live process (the LiveView itself) and call the
+backend.
+
+# Input
+
+Owning screen collection: `{{ parent.id }}` — this leaf's role, per
+the collection's decomposition: {{ parent.purpose }}
+
+What this leaf claims from the parent's decomposition:
+{{ parent.owns_summary }}
+
+Owning collection's technical specification:
+{{ parent.parent_techspec }}
+
+Owning collection's public surface (routes, layout-slot contract):
+{{ parent.parent_pubapi }}
+
+Owning collection's private surface:
+{{ parent.parent_privapi }}
+
+Same-parent sibling leaves this one may declare dependencies on (may be
+un-articulated — treat a skeletal pubapi as not yet architected):
+{% for sib in sibling_subs %}
+- **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<screen_subcomparch>` block containing
+five sections in a fixed order: a role-level technical specification,
+its public surface, its private surface, its process inventory, and
+its dependencies.
+
+# Output format
+
+Emit exactly one `<screen_subcomparch>` block with these children in
+this order: `<technical-specification>` → `<public-surface>` →
+`<private-surface>` → `<processes>` → `<dependencies>` →
+`<references>` (optional). Example (abbreviated):
+
+    <screen_subcomparch>
+      <technical-specification>
+    A LiveView mounted at `/plans`. On mount, loads the plan roster
+    from Billing and assigns it whole; `handle_event("select_plan",
+    ...)` starts a draft via Billing's boundary export and navigates
+    to the payment-details route with the draft id.
+      </technical-specification>
+      <public-surface>
+    ```
+    mount(_params, _session, socket) -> {:ok, socket}
+    handle_event("select_plan", %{"plan_id" => id}, socket) ->
+      {:noreply, Phoenix.LiveView.push_navigate(socket, ...)}
+    ```
+      </public-surface>
+      <private-surface>
+    ```
+    load_plan_roster() -> [Plan.t()] — wraps Billing's list call with
+    this LiveView's own sort/filter defaults.
+    ```
+      </private-surface>
+      <processes>
+        <process name="plan_select_live">
+          <category>local</category>
+          <purpose>The LiveView's own process — holds the mounted
+          socket's assigns between events; per-connection, no
+          cross-node coordination.</purpose>
+        </process>
+      </processes>
+      <dependencies>
+      </dependencies>
+    </screen_subcomparch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<screen_subcomparch>` root block. The five
+  children **must appear in this order**: `<technical-specification>`
+  → `<public-surface>` → `<private-surface>` → `<processes>` →
+  `<dependencies>` → `<references>` (omit entirely when nothing is
+  attached).
+
+## Fragment sections
+
+* `<technical-specification>` names the mount behavior, the events
+  this leaf handles, and which backend calls each handler makes —
+  narrow the parent collection's own technical specification to this
+  leaf's slice.
+* `<public-surface>` names every `mount`/`handle_event`/`handle_info`
+  entry point sibling leaves or the router need to know about, with
+  real signatures. `<private-surface>` is this leaf's own helpers.
+  **Every backend call this leaf makes must be grounded here** — name
+  which backend pubapi entry it calls, not just that a call happens.
+
+## Processes
+
+* Every LiveView leaf is its own process — declare it here, `category:
+  local` (per-connection, no cross-node coordination) is the default
+  for an ordinary mounted view. Use `singleton` only for a
+  collection-wide coordinator with no per-connection shape, and
+  `sharded` only for a genuinely keyed worker pool this leaf owns
+  (rare at this tier). Add `<guardrails>` when the techspec or private
+  surface describes unbounded input this process absorbs.
+
+## Dependencies
+
+* `<dependencies>` lists sibling leaves within the same screen
+  collection this one calls into (a shared mount helper, a shared
+  data-loading leaf), each `<dep to="..."/>` with a real id from the
+  list above.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the design. Output only the `<screen_subcomparch>` block.
+* Unescaped `&` and `<` inside fragment-section text are tolerated.
+* Do not emit `<policies>`, `<subcomponents>`, or `<sub-dependencies>`
+  — leaves in this tier don't introduce new policies and can't
+  decompose further.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  subcomparch.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback (surgical modification)
+
+* **Every section is independently sticky** — touch only the section
+  the feedback names. The pubapi section is the load-bearing handle
+  `impl_screen` and sibling leaves depend on.
+* **"Add an event handler to the pubapi"** — edit only pubapi. **"Add
+  a dependency on leaf X"** — edit only dependencies, grounded in the
+  technical specification. **"Add a process guardrail"** — edit only
+  the named process. **"Address review finding #N"** — map the finding
+  to one or two sections, modify only those.
+{% endif %}

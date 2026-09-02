@@ -1,0 +1,20 @@
+# docs/v5-design-decisions.md §7.19: a review is a tier, not a nested
+# block. `reviews: impl_screen` fixes this review's scope and
+# cardinality to impl_screen's own (per(screen_subcomp), 1:1) — not
+# restated, dsl-syntax.md §3.3. `context:` is the same set of walks as
+# impl_screen's own, checked at load time (§13) rather than trusted;
+# `draft`/`prior_review` reach the prompt automatically (§9) and are
+# never context: entries.
+tier: impl_screen_review
+reviews: impl_screen
+generator: llm
+prompt: prompts/review/impl_screen.md.liquid
+grammar: schemas/review.xsd
+context:
+  - self.parent.handle
+  - self.parent.dependency -> screen_subcomp.handle.fragments[pubapi]
+  - self.reference -> ref.handle
+  - all.feature_expansion.handle
+delivery:
+  phase: critique
+  agent_step: critique

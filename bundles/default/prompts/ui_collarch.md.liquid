@@ -1,0 +1,231 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are producing the **architecture document** for a single **UI
+collection** — a reusable widget family (an avatar, an order card),
+not a page. This is the last compression step before implementation:
+your `<public-surface>` fragment is the only thing a screen collection
+will ever read about this UI collection, and it is what every consumer
+imports directly.
+
+**The load-bearing constraint on this whole document: presentational
+components must be stateless.** A UI collection never fetches data,
+never calls a backend function, never holds server-round-trip state of
+its own. It receives everything it renders as assigns and slots from
+whatever screen collection mounts it, and it renders. This is what
+keeps a UI collection reviewable in isolation — in a storybook, with no
+socket, no backend running — and it is the entire reason `uses_shapes`
+(below) exists as a separate mechanism from a real dependency: you may
+read a backend component's **types**, never call its functions.
+
+**You also decompose the collection**: each subcomponent is a slice of
+the collection's own rendering surface — a variant, a sub-part, a named
+composition — not a claim on backend responsibilities the way a
+backend subcomponent claims a resp. There is no `<owns>` block here; a
+UI collection fulfills no `resp` at all (v5 §5.4).
+
+# Input
+
+UI collection handle: {{ parent }}
+
+Sibling UI collections this collection may declare a dependency on
+(same-tier, project-wide — may be un-articulated; treat a skeletal
+pubapi as not yet architected):
+{% for sib in siblings %}
+- **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
+{% endfor %}
+
+Backend component shapes available for `uses_shapes` (types and handle
+shapes only — never call these; the public surface below is the only
+thing you may read):
+{% for dep in backend_deps %}
+- **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
+{% endfor %}
+
+Design system (if the project supplied one — primitives to build on
+top of rather than reinvent):
+{{ design_system }}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<ui_collarch>` block containing ten
+sections in a fixed order: a role-level technical specification, the
+collection's public surface, its private surface, its failure surface,
+what it mints as policy considerations, its sibling dependencies, its
+design-system primitives, its subcomponent decomposition, the
+dependency edges between subcomponents, and attached references.
+
+# Output format
+
+Emit exactly one `<ui_collarch>` block with these children in this
+order: `<technical-specification>` → `<public-surface>` →
+`<private-surface>` → `<failure-surface>` → `<policies>` →
+`<dependencies>` → `<primitives>` → `<subcomponents>` →
+`<sub-dependencies>` → `<references>` (optional). Example (abbreviated):
+
+    <ui_collarch>
+      <technical-specification>
+    A function-component family with no internal state and no
+    lifecycle hooks. Every prop is either primitive data or a slot;
+    nothing here issues a network call or subscribes to anything.
+      </technical-specification>
+      <public-surface>
+    ```
+    Avatar(assigns) — assigns: %{user: %{name, image_url, presence},
+    size: :sm | :md | :lg}. Renders an image with a presence-colored
+    ring; falls back to initials when image_url is nil.
+
+    slot :badge — optional overlay content (a role indicator, an
+    unread-count pill).
+    ```
+      </public-surface>
+      <private-surface>
+    ```
+    initials(name) -> String.t() — internal helper, not exported.
+    ```
+      </private-surface>
+      <failure-surface>
+    A missing or unreachable image_url silently falls back to
+    initials — this is intended, not a residual risk to fix. A
+    presence value outside the known enum renders with no ring color
+    rather than raising, since a stale client is expected to send one
+    occasionally.
+      </failure-surface>
+      <policies>
+    No collection-local policy considerations.
+      </policies>
+      <dependencies>
+      </dependencies>
+      <primitives>
+        <design-system to="design_system01"/>
+      </primitives>
+      <subcomponents>
+        <subcomponent alias="avatar_image">
+          <name>AvatarImage</name>
+          <purpose>Renders the image-or-initials fallback and the
+          presence ring.</purpose>
+          <owned-invariants>
+            <invariant>a missing image always falls back to initials,
+            never a broken-image icon</invariant>
+            <invariant>the presence ring color is a pure function of
+            the presence value</invariant>
+          </owned-invariants>
+          <primary-operations>
+            <operation>render the image or initials fallback</operation>
+            <operation>render the presence ring</operation>
+          </primary-operations>
+          <responsibilities>The leaf rendering logic for one avatar;
+          the parent component composes this with the optional badge
+          slot.</responsibilities>
+          <implementation grade="real"/>
+        </subcomponent>
+      </subcomponents>
+      <sub-dependencies>
+      </sub-dependencies>
+    </ui_collarch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<ui_collarch>` root block. Nothing before,
+  nothing after.
+* The children **must appear in this order**: `<technical-specification>`
+  → `<public-surface>` → `<private-surface>` → `<failure-surface>` →
+  `<policies>` → `<dependencies>` → `<primitives>` → `<subcomponents>`
+  → `<sub-dependencies>` → `<references>` (omit entirely when nothing
+  is attached). Out-of-order sections are a structural error.
+
+## Fragment sections
+
+* `<technical-specification>`, `<public-surface>`, `<private-surface>`,
+  `<failure-surface>` and `<policies>` are all non-empty prose — the
+  same fragment discipline the backend `comparch` tier uses
+  (`<public-surface>` in fenced code blocks for signatures, prose
+  elsewhere). `<policies>` states cross-cutting rendering conventions
+  this collection is a candidate for (a required accessibility pattern,
+  a required loading-state convention) or states plainly that none
+  apply.
+* **No backend call ever belongs in `<public-surface>` or
+  `<private-surface>`.** If you find yourself describing a fetch, a
+  boundary-export call, or anything that waits on a network round
+  trip, that behavior belongs in a screen collection, not here — name
+  the data shape you need as an assign instead.
+
+## Dependencies and primitives
+
+* `<dependencies>` lists sibling UI collections this one composes,
+  each `<dep to="ui_coll_XXXX"/>` with a real id from the sibling list
+  above. May be empty.
+* `<primitives>` carries at most one `<design-system to="..."/>` —
+  include it only when the project supplied a design system (shown
+  above) and this collection actually builds on its primitives rather
+  than defining its own from scratch. Omit `<primitives></primitives>`
+  content (leave it empty) when no design system was supplied or this
+  collection doesn't use one.
+* **Never a `<dep>` to a backend component here.** A backend shape you
+  read is `uses_shapes`, expressed only through the `<technical-
+  specification>`/`<public-surface>` prose naming which backend type
+  this collection's props are shaped from — there is no structural
+  element for it, because naming the dependency structurally would
+  invite the next pass to read it as a call target.
+
+## Subcomponents
+
+* Each `<subcomponent>` carries an `alias`, `<name>`, `<purpose>`,
+  `<owned-invariants>` (2-4), `<primary-operations>` (3-6),
+  `<responsibilities>` (free prose — what this piece renders and how
+  it composes with its siblings), and `<implementation grade=
+  "real"|"stubbed"/>` (the same stub-grade doctrine every architecture
+  tier in this chain uses — a stub still needs `<swap>` and
+  `<exit-plan>`).
+* No `<owns>` block: a UI collection's subcomponents are a rendering
+  decomposition (a variant, a slot's own sub-tree, a shared visual
+  primitive local to this collection), not a claim on backend resps.
+* Decompose along **rendering seams** — a distinct visual state, a
+  reusable sub-part several variants share, a slot's own composition —
+  the UI-collection analogue of the data/operation seams a backend
+  subcomponent splits along.
+
+## Sub-dependencies
+
+* `<sub-dependencies>` lists edges between this collection's own
+  subcomponents, `<dep from="alias" to="alias"/>` using local aliases.
+  Must be acyclic; a cycle is a structural error fed back on retry.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+  When present, lists `<reference target="ref_..."/>` for every
+  attached ref shown above.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the decomposition. Output only the `<ui_collarch>` block.
+* Unescaped `&` and `<` inside fragment-section text are tolerated by
+  the parser.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  comparch.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback (surgical modification)
+
+* **Every subcomponent the feedback doesn't mention must round-trip
+  unchanged** — same alias, same `<name>`, same content. Preserve
+  `<public-surface>` signatures verbatim unless the feedback names them
+  directly: screen collections consume this handle, and rewording it
+  forces every consumer to revalidate.
+* **"Rename X to Y"** — edit the `<name>` only. **"Add a
+  subcomponent"** — add it without touching siblings. **"Drop
+  subcomponent X"** — remove it, drop `<sub-dependencies>` edges
+  touching it. **"Re-articulate the pubapi / privapi / failure-surface
+  / policies section"** — edit only that section.
+* Don't reshuffle `<dependencies>` or `<primitives>` the feedback isn't
+  pointed at; don't add "while we're here" tweaks.
+{% endif %}

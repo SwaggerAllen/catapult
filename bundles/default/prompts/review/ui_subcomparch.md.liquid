@@ -1,0 +1,9 @@
+{% render "partials/_review_framing", draft: draft, prior_review: prior_review %}
+
+Checklist for this tier:
+
+- Does this leaf's tech choice match the parent collection's technical specification given as context above? Flag drift.
+- **No backend call, fetch, or subscription anywhere in this document.** Flag one immediately if found — statelessness is the whole reason this family is reviewable without a socket.
+- Is the pubapi signature discipline followed — every callable entry showing its prop/parameter shape, not just a name with a comment?
+- Is the process inventory (if non-empty) actually justified — does this leaf hold standing state distinct from its caller, or is a declared process unnecessary ceremony around what should be a pure render?
+- Are the declared `<dependencies>` minimal and grounded in the technical specification — only siblings this leaf actually composes?

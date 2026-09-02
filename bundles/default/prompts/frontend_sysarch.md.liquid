@@ -1,0 +1,190 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are producing the **frontend system architecture** — the grouping
+decisions that turn a flat list of screens and a flat list of backend
+components into two families of collections: **UI collections**
+(reusable widgets — an avatar, an order card) and **screen
+collections** (the pages/LiveViews that host screens, grouped by
+shared layout, auth context, and navigation neighbourhood). Downstream,
+`ui_collarch` and `screen_collarch` each articulate one collection you
+mint here in full; your job is not to design their internals, it is to
+draw the boundaries correctly. A collection that shouldn't exist
+(one screen with nobody else in earshot) or a widget invented with no
+real reuse forces a downstream pass to either justify a boundary that
+doesn't hold or quietly merge it back — get the shape right here and
+every pass below inherits a correct starting point.
+
+You see the whole frontend in one pass deliberately: screen grouping
+and UI-collection seeding interact (a widget seeded from recurrence
+across screens only exists because those screens ended up grouped a
+certain way), so this tier fans out both collection families together
+rather than splitting the decision across two tiers that can't see
+each other's output.
+
+# Input
+
+Journeys (each with its ordered screen walk):
+{% for j in journey %}
+- `{{ j.id }}` — **{{ j.name }}**: {{ j.argument }}
+  - walk: {% for slug in j.screen_walk %}`{{ slug }}`{% unless forloop.last %} → {% endunless %}{% endfor %}
+{% endfor %}
+
+Screens (each with its purpose, states, affordances, displayed data,
+and its own author-supplied screen group signal):
+{% for s in screen %}
+- `{{ s.id }}` — **{{ s.slug }}**: {{ s.purpose }}
+  - screen group: {{ s.screen_group }}
+  - states: {% for st in s.states %}`{{ st }}`{% unless forloop.last %}, {% endunless %}{% endfor %}
+  - displayed data: {{ s.displayed_data }}
+{% endfor %}
+
+Backend system architecture handle (project-level techspec — the
+technical framing to design UI collections against; one per project):
+{% for sa in sysarch %}
+{{ sa.techspec }}
+{% endfor %}
+
+# Output format
+
+Output two top-level blocks in this order: `<introduction>` and
+`<frontend_sysarch>`. The `<introduction>` is optional — a short prose
+preamble naming your grouping rationale and any close calls.
+
+After `<introduction>`, output a single `<frontend_sysarch>` block with
+these children in this order: `<ui-collections>`, `<ui-dependencies>`,
+`<screen-collections>`, `<screen-dependencies>`. Example (abbreviated):
+
+    <introduction>
+    Grouped screens into three collections by shared shell: an
+    unauthenticated `auth` collection (login, signup, password-reset —
+    same minimal shell, no journey in common), an authed `account`
+    collection (settings, billing history), and a `checkout`
+    collection for the subscribe journey's own three screens, which
+    share a distinct progress-indicator shell the other authed screens
+    don't carry. Seeded two UI collections: `avatar` recurs across four
+    screens' displayed-data; `plan-card` is seeded directly from the
+    Billing backend component, since every screen in `checkout` renders
+    a plan's shape.
+    </introduction>
+    <frontend_sysarch>
+      <ui-collections>
+        <collection alias="avatar">
+          <name>Avatar</name>
+          <purpose>Renders a user's profile image with presence and
+          role badges, reused wherever a person is displayed.</purpose>
+        </collection>
+        <collection alias="plan_card">
+          <name>PlanCard</name>
+          <purpose>Renders a subscription plan's price, features, and
+          selection state, sourced from Billing's plan shapes.</purpose>
+        </collection>
+      </ui-collections>
+      <ui-dependencies>
+        <dep from="plan_card" to="avatar"/>
+      </ui-dependencies>
+      <screen-collections>
+        <collection alias="auth">
+          <name>Auth</name>
+          <purpose>Unauthenticated entry surfaces sharing a minimal
+          shell.</purpose>
+          <ia-region>Signed out</ia-region>
+          <screens>
+            <screen ref="screen_login0001"/>
+            <screen ref="screen_signup0002"/>
+            <screen ref="screen_pwreset03"/>
+          </screens>
+        </collection>
+        <collection alias="checkout">
+          <name>Checkout</name>
+          <purpose>The subscribe journey's own screens, sharing a
+          progress-indicator shell distinct from the rest of the authed
+          app.</purpose>
+          <ia-region>Checkout</ia-region>
+          <screens>
+            <screen ref="screen_planselec1"/>
+            <screen ref="screen_paydetail2"/>
+            <screen ref="screen_subconfirm3"/>
+          </screens>
+        </collection>
+      </screen-collections>
+      <screen-dependencies>
+        <dep from="checkout" to="auth"/>
+      </screen-dependencies>
+    </frontend_sysarch>
+
+# Rules
+
+## Screen collections — grouped by IA region, not gated on journeys
+
+* **The grouping signal is shared layout shell, auth context, and
+  navigation neighbourhood** — screens a user experiences as "the same
+  place." Two screens with no journey in common (login and signup)
+  belong together when they share a shell; a single journey's screens
+  may legitimately land in different collections when they don't (a
+  checkout journey that starts on a marketing page and ends inside the
+  authed app spans two IA regions, not one).
+* **Journeys are a signal, not a gate.** Use a journey's screen walk to
+  suggest a grouping — screens that always travel together in one
+  journey usually share a region — but never force a split or merge
+  purely to keep one journey inside one collection.
+* **A singleton collection (exactly one screen) should earn its
+  existence.** If nothing else shares its shell, auth context, or
+  navigation neighbourhood, ask whether it actually belongs inside a
+  neighbouring collection instead. A singleton is not forbidden — a
+  genuinely isolated surface (a public status page) is a legitimate
+  one — but don't default to one collection per screen.
+* **A journey scattered across three or more collections is usually
+  wrong, occasionally right.** If a journey's walk touches three-plus
+  distinct collections, re-check whether the grouping is actually
+  tracking IA region or has drifted into one-collection-per-screen.
+  Occasionally correct (a journey that genuinely crosses public,
+  onboarding, and authed regions) — state the reason in
+  `<introduction>` when you keep a 3+ split.
+* Every screen from the input list must land in exactly one
+  `<screen-collections>/<collection>`'s `<screens>` block. No orphans,
+  no screen claimed twice.
+
+## UI collections — designed, seeded three ways
+
+* **Backend architecture.** Where the project-level techspec above
+  names a domain concept load-bearing enough that every screen touching
+  it will need to render it the same way (a subscription plan, an
+  inventory item), seed a UI collection for that shape directly.
+* **Journeys.** A journey whose state block names something that
+  renders identically across its own screens (a running total, a
+  progress indicator) seeds a UI collection for that rendering.
+* **Recurrence across screen definitions.** The same displayed-data
+  shape or affordance appearing on several screens' definitions (a
+  card, an avatar, a status badge) is a collection trying to exist —
+  seed it once rather than letting every screen collection reinvent it.
+* **No UI-collection-count floor.** A project with no real reuse across
+  screens may legitimately seed few or zero UI collections — that is a
+  fact about the project, not under-production. Do not invent a
+  collection to have something to put here.
+* `<name>`/`<purpose>` follow the same handle discipline every
+  architecture tier in this chain uses: project-distinctive, not
+  generic ("Avatar" naming what it actually renders, not "UserWidget").
+
+## Dependencies
+
+* `<ui-dependencies>` and `<screen-dependencies>` each hold `<dep
+  from="alias" to="alias"/>` edges using the aliases declared in the
+  matching collections block above — `<ui-dependencies>` only ever
+  references `<ui-collections>` aliases, `<screen-dependencies>` only
+  ever references `<screen-collections>` aliases. Both may be empty.
+* **The layering rule is absolute: no `<screen-dependencies>` entry may
+  point the other direction, and no cross-family entry exists in
+  either block.** Screen collections may depend on any UI collection —
+  that is a separate mechanism (`renders`, articulated later, per
+  screen collection) — not a same-family dependency here. This block
+  is same-tier only: UI collections depending on UI collections,
+  screen collections depending on screen collections.
+* Both graphs must be acyclic; a cycle is a structural error fed back
+  on retry with the cycle path named.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the grouping. Output only `<introduction>` followed by
+  `<frontend_sysarch>`.
+* Unescaped `&` and `<` inside prose text are fine — the parser
+  tolerates them.

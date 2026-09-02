@@ -79,3 +79,36 @@ instances:
     cardinality:
       source: { min: 1 } # every project has at least one screen
       target: { min: 1, max: 1 } # every screen has exactly one mint
+
+  # ORC-111: frontend_sysarch fans out both collection families in one
+  # pass — the same "one source, several target tiers" shape sysarch's
+  # own comp/policy instances above already use, not a new mechanism
+  # (systems/platform_content.md's ORC-111 entry).
+  - source: frontend_sysarch
+    target: ui_coll
+    declared_in: frontend_sysarch.draft.ui_collections.collection[]
+    cardinality:
+      source: { min: 0 } # a project may seed no shared UI collections
+      target: { min: 1, max: 1 } # every ui_coll has exactly one mint
+
+  - source: frontend_sysarch
+    target: screen_coll
+    declared_in: frontend_sysarch.draft.screen_collections.collection[]
+    cardinality:
+      source: { min: 1 } # every project's screens need >=1 hosting collection
+      target: { min: 1, max: 1 } # every screen_coll has exactly one mint
+
+  - source: ui_collarch
+    target: ui_subcomp
+    declared_in: ui_collarch.draft.subcomponents.subcomponent[]
+    cardinality:
+      source: { min: 1 } # every ui_coll decomposes into >=1 subcomponent,
+      # the same closed-scope-set reason comparch->subcomp gives above
+      target: { min: 1, max: 1 } # every ui_subcomp has exactly one mint
+
+  - source: screen_collarch
+    target: screen_subcomp
+    declared_in: screen_collarch.draft.subcomponents.subcomponent[]
+    cardinality:
+      source: { min: 1 } # every screen_coll decomposes into >=1 subcomponent
+      target: { min: 1, max: 1 } # every screen_subcomp has exactly one mint

@@ -749,10 +749,12 @@ loader tickets carry `system:core_dsl`.
   system-status kind (`lib/catapult/dsl/chain.ex`), so nothing
   dispatches on which kind a tier picks. Tier values move together
   with that type-level split, never per-tier ahead of it: picking
-  `design`/`architecture` for a subset of the 13 `agent_step: design`
-  tiers reading `phase: generation` — `sysarch`, `impl`, `ref` and the
-  rest — would leave their siblings inconsistent against a split the
-  type declaration has not drawn (ORC-179).
+  `design`/`architecture` for a subset of the `agent_step: design`
+  tiers reading `phase: generation` (`grep -l 'agent_step: design'
+  bundles/default/tiers/*.yaml` finds them all — the set grows as new
+  families land, so this is the check rather than a count of it) would
+  leave their siblings inconsistent against a split the type
+  declaration has not drawn (ORC-179).
 
 - **`bundles/platform-elixir/` folds into `bundles/default/`, and
   `extends:` retires from the DSL** (ORC-153, design pass;
@@ -975,6 +977,244 @@ loader tickets carry `system:core_dsl`.
   against a new review gate: a second, dedicated pass over content the
   ordinary review already reads would be checking a thing already
   checked, not adding coverage.
+
+- **`frontend_sysarch` mints both collection families in one pass, and
+  the UI and screen families are each two authored tiers plus `impl`,
+  the identical mint-then-articulate shape the backend chain already
+  has** (ORC-111, design pass; `docs/v5-design-decisions.md` §5.1-§5.4;
+  `docs/build-plan.md`'s Phase 5 entry). Same reason `screens` commits
+  no entry under `screens/`/`storybook/`: there is no UI screen here to
+  define either, only chain content, and chain content is dev's to
+  write into `bundles/**`.
+
+  **Chain placement and per-family tiers.** `frontend_sysarch` is
+  `scope: singleton` (the ticket's own word for it, and the closed
+  scope set — dsl-syntax.md §3.1 — has a real kind for exactly this: no
+  `per(X)` parent it would otherwise need a context walk to reach), one
+  `generator: llm` draft per project, reading `context: [all.journey
+  .handle, all.screen.handle, all.sysarch.handle]` — three `all.<tier>`
+  walks (dsl-syntax.md §7.2), no edge needed for any of them, the same
+  no-owning-parent case `vocab`/`ref`/project-global `policy` already
+  use. `all.sysarch.handle` is what makes "reads … the backend sysarch
+  handle" (the ticket's own phrase) expressible at all: `sysarch` is
+  `scope: per(requirements)`, a sibling of `frontend_sysarch` under no
+  common fanout edge, so there is no `self.parent` walk between them —
+  `all.<tier>` is exactly the mechanism this loader ships for a needed
+  read with no walkable relationship, not a workaround.
+
+  Each family is `<coll> → <collarch> → <subcomp> → <subcomparch> →
+  impl_<family>`, the backend shape renamed per family: UI
+  (`ui_coll`/`ui_collarch`/`ui_subcomp`/`ui_subcomparch`/`impl_ui`) and
+  screen (`screen_coll`/`screen_collarch`/`screen_subcomp`/
+  `screen_subcomparch`/`impl_screen`). `ui_coll` and `screen_coll` are
+  `scope: child_of(frontend_sysarch)`, `generator: synthesis` join
+  targets — no draft, no prompt, `mint.<name>` fields, excluded from
+  dispatch by `ReadyScopes.generation_tier?/1` — the same shape `comp`
+  already has relative to `sysarch`. `ui_collarch`/`screen_collarch`
+  are `scope: per(ui_coll)`/`per(screen_coll)`, `generator: llm`, one
+  articulation pass per collection, mirroring `comparch`. `ui_subcomp`/
+  `screen_subcomp` are `child_of` their own `collarch`, synthesis join
+  targets exactly like `subcomp`; `ui_subcomparch`/`screen_subcomparch`
+  are `per(...)` their own subcomp, `generator: llm`, mirroring
+  `subcomparch`; `impl_ui`/`impl_screen` are `per(...)` their own
+  subcomp, `generator: llm`, mirroring `impl`. Fragment ownership
+  follows the same 5-then-3 split ORC-84 already settled for the
+  backend pair (`techspec`/`pubapi`/`privapi`/`policies`/
+  `failure_surface` at `*_coll`, written by `*_collarch`; `techspec`/
+  `pubapi`/`privapi` at `*_subcomp`, written by `*_subcomparch`) — the
+  fragment vocabulary is a bundle-wide closed set of 5 kinds, not a
+  per-family one, so this is that existing rule applied, not a fresh
+  choice. Every `generator: llm` tier in both families gains a sibling
+  `_review` tier (`frontend_sysarch_review`, `ui_collarch_review`,
+  `ui_subcomparch_review`, `impl_ui_review`, `screen_collarch_review`,
+  `screen_subcomparch_review`, `impl_screen_review`) the same way the
+  eight backend tiers already do — the per-tier triad invariant applies
+  identically, and there is nothing about a UI or screen collection
+  that exempts it. Every `agent_step: design` tier among the above
+  declares `delivery: {phase: generation, agent_step: design}`,
+  uniformly, per the standing rule that `delivery.phase` stays
+  uniformly `generation` for every `agent_step: design` tier until the
+  work-item type declaration itself draws a `design`/`architecture`
+  split (above) — none of these are that type-level declaration.
+
+  **Backend's terminal tier takes its family-qualified name now.**
+  `bundles/default/tiers/impl.yaml` becomes `impl_backend.yaml`
+  (`tier: impl_backend`), and `impl_review.yaml` follows it
+  (`impl_backend_review.yaml`, `reviews: impl_backend`) — ORC-106
+  settled that this happens once the other three families' `impl`
+  tiers exist alongside it; this ticket is what gives it the first two.
+  No other backend tier, edge or prompt changes shape for this — the
+  rename is a name, not a restructuring.
+
+  **Minting two target tiers from one source, resolved: already the
+  loader's shape, not a new one.** The ticket's own open question here
+  is answered by a site already shipped in this bundle rather than by
+  new grammar: `edges/decomposition.yaml`'s `sysarch` source already
+  fans into two different targets, `comp` and `policy`, as two
+  `instances:` entries under one edge name — "the same source fanning
+  out to several different target tiers," in dsl-syntax.md §4.1's own
+  words, describing exactly this shape and already load-bearing.
+  `frontend_sysarch` gains two more `decomposition` instances the
+  identical way: `source: frontend_sysarch, target: ui_coll,
+  declared_in: frontend_sysarch.draft.ui_collections.collection[]`
+  (`cardinality: source: {min: 0}` — a project may recurrence-seed no
+  shared widgets — `target: {min: 1, max: 1}`) and `source:
+  frontend_sysarch, target: screen_coll, declared_in: frontend_sysarch
+  .draft.screen_collections.collection[]` (`source: {min: 1}` — every
+  project's screens need at least one hosting collection, mirroring
+  `screens`' own `{min: 1}` — `target: {min: 1, max: 1}`).
+  `ui_collarch → ui_subcomp` and `screen_collarch → screen_subcomp` are
+  two further `decomposition` instances, the same shape `comparch →
+  subcomp` already has. `decomposition` (`bundles/default/edges
+  /decomposition.yaml`) now names `sysarch→comp`, `comparch→subcomp`,
+  `feature_expansion→vocab`, `requirements→resp`, `sysarch→policy`,
+  `comparch→policy`, `non_goals→policy`, `journeys→journey` and
+  `screens→screen` already, plus the four this entry adds — not a new
+  mechanism at any of them.
+
+  **The layering rule, resolved: enforced as load-time type-level
+  acyclicity, not merely unviolated by omission.** The ticket's other
+  open question is whether a UI-collection-to-screen-collection edge is
+  truly *inexpressible* or just never declared. `systems/core_dsl.md`'s
+  own standing decision records type-level acyclicity as a load-time
+  check (libgraph, over the full edge-instance graph — dsl-syntax.md
+  §13's "type-level acyclicity over the edge-instance graph," §4.1's
+  "every instance still contributes its own `{source, target}` pair to
+  the type-level acyclicity check … the graph is over sites, not over
+  edge names"). Two guarantees stack, not one: first, no edge instance
+  anywhere in this sketch names a UI-family tier as `source` and a
+  screen-family tier as `target` — the bundle simply carries no such
+  site, so nothing downstream can walk that direction — and second,
+  were a future bundle edit to add one anyway (mistakenly or not), the
+  full-graph acyclicity check would refuse the *load* over it, because
+  `screen_coll → ui_coll` (`renders`, below) already exists in the same
+  graph and the two together are a cycle at the tier level. `v5`
+  §5.1's "inexpressible" claim holds on both counts: absent by
+  construction, and rejected by the loader if that ever stops being
+  true.
+
+  **Shapes vs. calls, wired as distinct edge names, not distinct
+  instances of one name.** `dependency` already carries same-family
+  sites (`comp↔comp`, `subcomp↔subcomp`); the UI and screen families
+  gain the identical shape for their own same-tier deps — `ui_coll ↔
+  ui_coll` (declared in `frontend_sysarch`'s own draft, project-wide,
+  mirroring `comp↔comp`) and `ui_subcomp ↔ ui_subcomp` (declared in
+  `ui_collarch`'s own draft, sibling-scoped, mirroring
+  `subcomp↔subcomp`), and the same pair for `screen_coll`/
+  `screen_subcomp`. The three **cross-family** edges v5 §5.4 names each
+  take their own edge name instead of a further `dependency` instance,
+  because the audit-relevant fact is *which family may declare which
+  edge at all*, and a distinct name makes that a load-time
+  cross-reference check rather than a convention someone has to
+  remember to grep for:
+  - `renders` (`type: dependency`), `source: screen_coll, target:
+    ui_coll`, declared in `screen_collarch`'s own draft — a screen
+    collection's own composition decision, made when that collection is
+    fully articulated, the same moment backend's local `subcomp↔subcomp`
+    deps are decided.
+  - `uses_shapes` (`type: dependency`), `source: ui_coll, target: comp`
+    (the backend join-target tier, the same target `comp↔comp`
+    dependency already reads), declared in `ui_collarch`'s own draft.
+    Only `ui_collarch`'s tier file ever declares this edge — no
+    screen-family tier does, and no instance targets anything but
+    backend `comp` — which is what makes "a UI collection reads backend
+    shapes, never calls" a fact about which edges the *loaded bundle*
+    contains, not only about what a generated file happens to do.
+  - `calls` (`type: dependency`), `source: screen_coll, target: comp`,
+    declared in `screen_collarch`'s own draft — symmetric to
+    `uses_shapes`, and, again, the edge simply has no `ui_coll`- sourced
+    instance anywhere, so a UI collection has no declared path to a
+    backend call at all; the ticket's own "backend function invocation
+    inside a UI collection's file map is a layering violation" audit
+    check still catches a generated file that ignores its own graph,
+    but the graph itself already refuses the shape.
+
+  `screen_coll → screen` ("hosts") reuses `fulfills` rather than
+  minting a fourth new edge name: a screen collection is the
+  implementation locus for the screens it groups, the identical
+  relationship `fulfills`' existing `comp → resp` instance already
+  states for the backend ("this architecture node is the one that
+  implements this responsibility"), and the cardinality matches exactly
+  (`source: {min: 1}` — a collection must group ≥1 screen to justify
+  existing, `target: {min: 1, max: 1}` — a screen is hosted by exactly
+  one collection). `fulfills` moves to `instances:` form to carry both.
+  Declared inside `frontend_sysarch`'s own `screen_collections
+  .collection[].screens.screen[].@ref` rows — the same pass that groups
+  screens into collections is the one naming which screens land in
+  which collection, so this is an ordinary reference to already-minted
+  `screen` nodes (`screens` runs upstream in the chain), never a
+  forward one.
+
+  `screen_coll → journey` ("consumes journey state") is a new
+  `reference` instance, `declared_in: screen_collarch.draft.journeys
+  .journey[].@ref`, both sides `{min: 0}` — a collection may consume no
+  journey's live state, and a journey may back no screen collection
+  directly (it already reaches its screens through the product-tier
+  `journey → screen` reference `reference.yaml` already carries).
+  Declared at articulation time, not mint time: which journeys a
+  collection actually needs state from is a design decision for that
+  collection's own pass, not a grouping fact `frontend_sysarch` can
+  read off IA region alone. `ui_collarch`, `ui_subcomparch`, `impl_ui`,
+  `screen_collarch`, `screen_subcomparch` and `impl_screen` each gain
+  the same `reference → ref` attachment site backend's `comparch`,
+  `subcomparch` and `impl` already have, and each gains `all.vocab
+  .handle` in its own `context:` — both are the existing per-tier
+  convention applied to six more tiers, not a new one.
+
+  `ui_coll → design_system` ("primitives") is a further `dependency`
+  instance, declared in `ui_collarch`'s own draft: `source: ui_coll,
+  target: design_system`. ORC-110 minted the `design_system` tier
+  itself and named this edge as this ticket's own to make
+  (`systems/core_dsl.md`'s "Deferred to the ticket that lands
+  `frontend_sysarch`/`ui_coll`" entry, now closed): with the tier
+  landed on `main`, the edge has a real target. `design_system` mints
+  at most one node project-wide (ORC-110), so a project supplying none
+  simply has no instance of this edge to declare — absence, not a
+  zero-cardinality edge naming a node that doesn't exist.
+
+  **No `policy_application` instances for either family.** A UI or
+  screen collection fulfills no `resp`, so the through-responsibility
+  grain has nothing to scope through — a direct collection-to-policy
+  link would be speculative surface with no cited need behind it. A
+  future ticket needing component-collection policy scoping makes that
+  case against its own cited need, the same way this one would have
+  had to.
+
+  **Closes `platform_content.md`'s own ORC-84 open item.** That entry
+  named "a frontend/product-side parent-link edge (if one turns out to
+  be needed)" as this ticket's to decide, in place of `domain_parent`.
+  It turns out not to be needed: `fulfills`' new `screen_coll → screen`
+  instance and `reference`'s `screen_coll → journey` instance already
+  give the screen family everything `domain_parent` was for — a link
+  from an architecture node to the product-side surface it implements —
+  and the UI family, having no product-tier counterpart of its own to
+  link to, needs no such edge at all. No replacement edge is minted.
+
+  **Screen groups vs. IA regions was already settled, at ORC-109** —
+  cited here rather than re-decided: `docs/v5-design-decisions.md`
+  §4.3 records `screen group` as a free-form signal into
+  `frontend_sysarch`'s own IA-region grouping, not the region itself
+  and not a gate on it (the ORC-109 entry above, in full). Nothing in
+  this pass changes that.
+
+  **Not the same `system:` label this repo's own mutex uses, either.**
+  v5 §5.4's `system:ui-avatar` / `system:scr-account` slugs name
+  mutex labels a *generated project's* own per-collection systems docs
+  will carry, once a real `frontend_sysarch` run groups real
+  collections on a real project — the collection-level analogue of the
+  "not the same screen as this repo's own" note above, and unrelated to
+  how this repo's own `systems/*.md` file maps resolve `system:`
+  labels (the pipeline protocol's own mutex resolution: a `system:`
+  label derives from the mapped doc's filename, `systems/<name>.md` →
+  `system:<name>`, not a stored mapping —
+  `.pipeline/internal/filemap/filemap.go`). No entry in
+  `pipeline.config.json` names or needs to name this convention —
+  checked, not assumed: the file has no label-mapping section for
+  either axis, mutex labels here resolve straight off
+  `systems/*.md`/`screens/*.md` file maps, and nothing about a
+  *generated project's* own future label scheme touches that file at
+  all. The ticket's own caveat about a possible push-back here doesn't
+  apply.
 
 ## Initial vs target
 

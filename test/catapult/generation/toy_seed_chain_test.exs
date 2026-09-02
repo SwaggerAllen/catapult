@@ -88,13 +88,13 @@ defmodule Catapult.Generation.ToySeedChainTest do
 
   **What mint-time approval changes about "one ready scope."** Before
   this fix, only an explicitly-approved comp/subcomp let its `per(X)`
-  child (`comparch`/`subcomparch`/`impl`) become ready, which is what
+  child (`comparch`/`subcomparch`/`impl_backend`) become ready, which is what
   let this test single out one sibling of `redirector`/`link_admin`
   (and `lookup_engine`/`cache_layer`) to carry forward while the other
   sat unapproved as `dependency`/`fulfills` richness. A join target
   minting straight to `:approved` erases that asymmetry: both siblings
   of every pair are ready at once, for real, the moment their parent
-  commits. This test still drives only one branch to `impl` — a
+  commits. This test still drives only one branch to `impl_backend` — a
   scheduler picking one of several ready scopes is an ordinary dispatch
   decision, not a fabrication — via `ready_matching!/4` rather than
   `ready_one!/3`, which would now fail on the second, equally-real
@@ -202,7 +202,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    carry `alias`, the one identity shape the fallback covers) —
     #    both arrive already `:approved` (ORC-117: a join target mints
     #    straight there, ready is not asymmetric between siblings). This
-    #    test still carries only `redirector` all the way to `impl`;
+    #    test still carries only `redirector` all the way to `impl_backend`;
     #    `link_admin` is real and equally ready, and is used only to
     #    give `dependency`/`fulfills` a second real node to point at
     #    (richness, not depth) — see `ready_matching!/4` below. --
@@ -268,10 +268,10 @@ defmodule Catapult.Generation.ToySeedChainTest do
     review!(chain, project_id, "subcomparch_review", subcomparch, @approve_review_body)
     approve_real!(project_id, subcomparch.id, subcomparch.current_draft_id)
 
-    # -- impl: per(subcomp), same two-ready-scopes shape as subcomparch --
-    impl = ready_matching!(chain, project_id, "impl", lookup_engine.id)
-    impl = commit!(chain, project_id, "impl", impl, @impl_body)
-    review!(chain, project_id, "impl_review", impl, @approve_review_body)
+    # -- impl_backend: per(subcomp), same two-ready-scopes shape as subcomparch --
+    impl = ready_matching!(chain, project_id, "impl_backend", lookup_engine.id)
+    impl = commit!(chain, project_id, "impl_backend", impl, @impl_body)
+    review!(chain, project_id, "impl_backend_review", impl, @approve_review_body)
     approve_real!(project_id, impl.id, impl.current_draft_id)
 
     # -- every generation-tier node committed for real drafted (then approved) --
@@ -328,7 +328,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
 
   # For a `per(X)` tier where a join-target `X` mints straight to
   # `:approved` (ORC-117), every sibling scoped off it is ready at
-  # once — `comparch`/`subcomparch`/`impl` below each have two ready
+  # once — `comparch`/`subcomparch`/`impl_backend` below each have two ready
   # candidates once both siblings exist. This picks the one scoped to
   # `parent_id` deliberately (a scheduler choosing which of several
   # real ready scopes to dispatch next), rather than asserting away

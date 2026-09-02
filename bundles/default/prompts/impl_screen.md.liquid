@@ -1,0 +1,137 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are authoring the **implementation document** for a single leaf in
+a screen collection's component tree — typically one hosted LiveView.
+This is the last articulation layer before code territory; your
+downstream reader is the **plan prompt**, which translates your prose
+into a concrete list of (file, region, change) tuples. Same grammar as
+the backend chain's own `impl` tier. Unlike `impl_ui`, this leaf owns
+real state and makes real backend calls — mount behavior, event
+handling, and the actual data loading a UI collection only ever
+receives the result of.
+
+You will be given the owning leaf's metadata (name, techspec, public
+and private surface) and, optionally, a prior draft, user feedback, and
+a parse-validate error. You produce a single `<implementation>` block
+containing six sections in a fixed order: behavior, invariants,
+sequencing, edge-cases, tests, and references (optional).
+
+# Input
+
+Leaf (its own techspec, public and private surface): {{ parent }}
+
+Backend dependencies' public surfaces:
+{% for dep in dependencies %}
+- **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+# Output format
+
+Emit exactly one `<implementation>` block with these children in this
+order: `<behavior>` → `<invariants>` → `<sequencing>` →
+`<edge-cases>` → `<tests>` → `<references>` (optional). Example
+(abbreviated):
+
+    <implementation>
+      <behavior>
+    On mount, calls `Billing.list_plans/1` and assigns the roster
+    whole. `handle_event("select_plan", %{"plan_id" => id}, socket)`
+    calls `Billing.start_draft/1`, assigns the returned draft, and
+    navigates to the payment-details route carrying the draft id.
+      </behavior>
+      <invariants>
+    The assigned plan roster is never mutated locally — a re-render
+    always reflects what Billing returned, never a client-side
+    optimistic edit. Exactly one draft exists per navigated-forward
+    session; selecting a second plan before completing the first
+    replaces the draft rather than creating a second one.
+      </invariants>
+      <sequencing>
+    The roster load on mount blocks the first render (no separate
+    loading state needed — the roster is small and Billing responds
+    fast); the draft-start call on selection is async, with the view
+    entering a `selecting` assign the UI collections read to render a
+    disabled state until the navigate completes.
+      </sequencing>
+      <edge-cases>
+    Billing returning `{:error, :unavailable}` on mount surfaces as
+    the screen's own `error` state (named upstream in the screen
+    definition), not a crash. A `select_plan` event for a plan id no
+    longer in the roster (a stale client) is rejected with a flash and
+    no navigation.
+      </edge-cases>
+      <tests>
+        <test name="mount_loads_and_assigns_plan_roster">Mount calls
+        Billing.list_plans/1 and assigns the result.</test>
+        <test name="select_plan_starts_draft_and_navigates">Selecting
+        a valid plan id starts a draft and navigates to
+        payment-details with its id.</test>
+        <test name="select_plan_rejects_stale_id">Selecting a plan id
+        not in the assigned roster flashes an error and does not
+        navigate.</test>
+        <test name="mount_surfaces_billing_unavailable_as_error_state">
+        A Billing :unavailable error on mount renders the screen's own
+        error state rather than crashing.</test>
+      </tests>
+    </implementation>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<implementation>` root block. The children
+  **must appear in this order**: `<behavior>` → `<invariants>` →
+  `<sequencing>` → `<edge-cases>` → `<tests>` → `<references>` (omit
+  entirely when nothing is attached).
+
+## Content
+
+* `<behavior>` names every backend call this leaf makes, by the
+  dependency's own pubapi entry — not "loads the data," name the
+  actual call. `<invariants>` and `<sequencing>` follow the same
+  discipline the backend `impl` tier uses: data-shape and ordering
+  facts the plan prompt must preserve under edits.
+* `<edge-cases>` must cover every failure mode a called backend
+  dependency's pubapi names, mapped to how this leaf handles it — a
+  typed error the dependency can return with no corresponding
+  handling here is a gap the reviewer will flag. Cover the screen's
+  own named states (`loading`, `error`, `empty`, …) here too: which
+  code path puts the view into which named state.
+
+## Tests
+
+* `<tests>` holds one or more `<test name="...">` entries, covering
+  the primary paths named in `<behavior>`, the properties in
+  `<invariants>`, and every distinct condition `<edge-cases>` names.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+
+## Style
+
+* Prose, not pseudocode or markup. Don't restate the leaf's own public
+  surface — the plan prompt reads that separately.
+
+## Meta-rules
+
+* Unescaped `&` and `<` in prose are fine — the parser tolerates them.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  impl.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback
+
+Work from the same upstream context this prompt gives you for a fresh
+generation, together with the feedback, and produce the revised
+artifact. Touch only what the feedback names; the rest of the document
+stays verbatim.
+{% endif %}

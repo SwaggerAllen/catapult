@@ -1,0 +1,144 @@
+{% render "partials/_architecture_framing", feedback: feedback %}
+You are producing the **subcomponent architecture document** for a
+single leaf inside a UI collection — a specific rendering piece (a
+variant, a shared sub-part). This is the final articulation layer
+before implementation. Your `<public-surface>` is what sibling leaves
+and the collection's own consumers see; your `<technical-
+specification>` is what `impl_ui` will build against.
+
+# Input
+
+Owning UI collection: `{{ parent.id }}` — this leaf's role, per the
+collection's decomposition: {{ parent.purpose }}
+
+What this leaf claims from the parent's decomposition:
+{{ parent.owns_summary }}
+
+Owning collection's technical specification:
+{{ parent.parent_techspec }}
+
+Owning collection's public surface:
+{{ parent.parent_pubapi }}
+
+Owning collection's private surface:
+{{ parent.parent_privapi }}
+
+Same-parent sibling leaves this one may declare dependencies on (may be
+un-articulated — treat a skeletal pubapi as not yet architected):
+{% for sib in sibling_subs %}
+- **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
+{% endfor %}
+
+Attached references:
+{% for ref in refs %}
+### {{ ref.title }}
+
+{{ ref.body }}
+{% endfor %}
+
+Your job is to produce a single `<ui_subcomparch>` block containing
+five sections in a fixed order: a role-level technical specification,
+its public surface, its private surface, its process inventory, and
+its dependencies.
+
+# Output format
+
+Emit exactly one `<ui_subcomparch>` block with these children in this
+order: `<technical-specification>` → `<public-surface>` →
+`<private-surface>` → `<processes>` → `<dependencies>` →
+`<references>` (optional). Example (abbreviated):
+
+    <ui_subcomparch>
+      <technical-specification>
+    A pure function component. Props are validated at compile time via
+    the framework's own assign types; nothing here reads outside the
+    props it's given.
+      </technical-specification>
+      <public-surface>
+    ```
+    AvatarImage(assigns) — assigns: %{image_url: String.t() | nil,
+    initials: String.t(), presence: :online | :away | :offline}.
+    Renders <img> when image_url is present, initials div otherwise.
+    ```
+      </public-surface>
+      <private-surface>
+    ```
+    presence_ring_class(presence) -> String.t() — CSS class for the
+    presence-colored ring.
+    ```
+      </private-surface>
+      <processes>
+      </processes>
+      <dependencies>
+      </dependencies>
+    </ui_subcomparch>
+
+# Rules
+
+## Structure
+
+* Emit **exactly one** `<ui_subcomparch>` root block. The five
+  children **must appear in this order**: `<technical-specification>`
+  → `<public-surface>` → `<private-surface>` → `<processes>` →
+  `<dependencies>` → `<references>` (omit entirely when nothing is
+  attached).
+
+## Fragment sections
+
+* `<technical-specification>` is a role-level paragraph narrowing the
+  parent collection's techspec to this leaf's own slice — don't
+  restate the parent verbatim.
+* `<public-surface>` and `<private-surface>` follow the signature
+  discipline every leaf tier in this chain uses: every callable entry
+  shows its prop/parameter shape, whether it's a pure render or has a
+  side effect (rare here — most UI leaves have none), and any slot
+  contract. **No backend call, no fetch, no subscription belongs in
+  either surface** — that is the layering violation this whole family
+  exists to make structurally absent.
+
+## Processes
+
+* `<processes>` is almost always empty at this tier — a presentational
+  leaf runs inside its caller's process. Declare a named process only
+  when this leaf genuinely owns standing state distinct from its
+  caller (a client-side debounce timer implemented as its own process,
+  for instance) — the same `local`/`singleton`/`sharded` categories and
+  guardrail discipline every `*_subcomparch` tier in this chain uses.
+  Emit `<processes></processes>` empty otherwise.
+
+## Dependencies
+
+* `<dependencies>` lists sibling leaves within the same UI collection
+  this one composes, each `<dep to="..."/>` with a real id from the
+  list above. Almost always empty or very small — most rendering
+  decomposition is a parent composing children directly through slots,
+  not leaves calling across to each other.
+
+## References
+
+* `<references>` is optional — omit entirely when nothing is attached.
+
+## Meta-rules
+
+* Do not include commentary about what you are doing or how you
+  arrived at the design. Output only the `<ui_subcomparch>` block.
+* Unescaped `&` and `<` inside fragment-section text are tolerated.
+* Do not emit `<policies>`, `<subcomponents>`, or `<sub-dependencies>`
+  — leaves in this tier don't introduce new policies and can't
+  decompose further.
+{% comment %}
+  Guard on `.size > 0`, never on bare `feedback` (ORC-134). See
+  subcomparch.md.liquid's own comment for the full rationale.
+{% endcomment %}
+{% if feedback.size > 0 %}
+
+# Revising against feedback (surgical modification)
+
+* **Every section is independently sticky** — touch only the section
+  the feedback names. The pubapi section is the load-bearing handle
+  `impl_ui` and sibling leaves depend on; edit it only when asked.
+* **"Add an operation to the pubapi"** — edit only pubapi. **"Add a
+  dependency on leaf X"** — edit only dependencies, and ground it in
+  the technical specification. **"Address review finding #N"** — map
+  the finding to one or two sections, modify only those.
+{% endif %}
