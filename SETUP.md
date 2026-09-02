@@ -86,6 +86,7 @@ one.
 
 ```catapult:required-env
 DELIVERY_GITHUB_TOKEN
+DELIVERY_PROVISIONING_TOKEN
 FOUNDATION_ENDPOINT_SECRET_KEY_BASE
 ```
 
@@ -201,6 +202,25 @@ The facts a future session needs, recorded as facts:
   `DELIVERY_DISPATCH_WORKFLOW_FILE` (`catapult-dispatch.yml`) and
   `DELIVERY_DISPATCH_REF` (`main`) — both resolved against the *target*
   repository, not this one.
+- **`DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
+  suite own credential, set as an App Platform environment variable,
+  encrypted.** Declared by delivery with no default
+  (`lib/catapult/delivery.ex`), the same shape `DELIVERY_GITHUB_TOKEN`
+  above already has. A bearer secret, not a GitHub token: it
+  authenticates the provisioning surface's three routes
+  (`/dispatch/test-project*`, `Catapult.Delivery.Provisioning`) —
+  mint/bind/reset/intake a test project, release one, read a
+  project's terminal dispatch status — against
+  `pipeline-live-suite.yml`'s own job, the one caller with any reason
+  to reach them (ORC-216, `systems/delivery.md`'s ORC-216 entry: OIDC
+  was considered and rejected here, since every input `Oidc.verify/4`
+  needs comes from a `DispatchRun` row that does not exist yet at the
+  moment a provisioning call is made). **Set the identical value in
+  two places**: here, on the reference instance, and as this repo's
+  own `DELIVERY_PROVISIONING_TOKEN` Actions secret (§3) — the
+  live-suite job reads it from its own environment and sends it as the
+  provisioning surface's bearer token, so the two have to agree or
+  every live run fails at the first request with a 401.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
   is the deploy trigger; the migrate job runs PRE_DEPLOY.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
@@ -227,6 +247,25 @@ from tracker/host as signals before resuming authority).
   - `CLOUDFLARE_API_TOKEN` (Pages-scoped) + `CLOUDFLARE_ACCOUNT_ID`
   - `DIGITALOCEAN_TOKEN` (deploy detection against the App Platform
     API)
+  - `DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
+    suite job reads this and sends it as the provisioning surface's
+    bearer token (§2's own entry); it has to be the identical value
+    the reference instance holds under the same name, or every live
+    run fails at the first request with a 401.
+- **`SwaggerAllen/catapult-test` (the bound fixture repo — a
+  *different* repository, its own Actions secrets) needs its own
+  model credentials, the ones `catapult-dispatch.yml`'s `run-agent`
+  step reads (`test/catapult/generation/fixtures/toy_seed
+  /catapult-dispatch.yml`).** Actions secrets do not inherit across
+  repos, and this repo's own `CLAUDE_CODE_OAUTH_TOKEN`/
+  `ANTHROPIC_API_KEY` above (the ones this project's own agent jobs
+  run design/dev work with) answer no request made inside a dispatched
+  run on the fixture repo — set at least one of the same two names,
+  directly on `SwaggerAllen/catapult-test`'s own Settings → Secrets.
+  Without either, every live-suite run reports `other_failure` at the
+  run-agent step with `reason: "no_credential_available"`, never a
+  boot-time failure, since these are Actions secrets rather than a
+  declared `config/0` value this codebase checks.
 - **GitHub webhook on this repo** (per-repo, unlike Linear's
   team-level one): Settings → Webhooks → Add webhook — the Worker
   URL, content type `application/json`, the `WEBHOOK_SECRET` value

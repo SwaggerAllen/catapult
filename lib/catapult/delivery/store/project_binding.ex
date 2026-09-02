@@ -3,10 +3,12 @@ defmodule Catapult.Delivery.Store.ProjectBinding do
   Which GitHub repository a project's generation dispatches against
   (`delivery_project_bindings`). The smallest seam that makes the
   Actions adapter's `workflow_dispatch` call and OIDC's `repository`
-  claim match possible at all — no `projects` entity exists anywhere
-  in this store yet (`systems/engine.md`'s own scheduler/store
-  moduledocs: "a different, not-yet-built concern"), and this ticket
-  does not build one; it binds exactly the one fact dispatch needs.
+  claim match possible at all — it binds exactly the one fact dispatch
+  needs, no more. `Catapult.Delivery.Store.Project` (ORC-216) is the
+  first project-level record this store carries; a binding and a
+  project record answer different questions (which repo dispatch
+  targets, versus whether this project id means anything beyond a
+  binding) and neither implies the other.
   """
 
   use Ecto.Schema

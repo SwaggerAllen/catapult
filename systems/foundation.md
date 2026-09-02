@@ -681,6 +681,23 @@ because each has a cheaper alternative that is wrong (ORC-29).
   already exists and is the plane's job; a live check that waits out
   a rollout is a second, slower deploy detector whose long timeout is
   exactly where a real outage hides.
+- **The no-polling rule gains one named exception: a live check may
+  bound-poll a run it dispatched itself** (ORC-216, design pass;
+  `docs/conventions.md` §9, amended in the same change). The reason
+  above is specific to what it was written about — a live check
+  waiting out a *rollout* duplicates deploy detection, which already
+  exists and is the plane's own job, at a slower and less safe
+  cadence. A live check waiting on a dispatched generation run is not
+  a second deploy detector: nothing else in this system observes that
+  run's completion, and the observer is the same process that started
+  it — the "one request" version of this check would just be the
+  first poll with nothing to distinguish it from every poll after. The
+  exception is narrow by construction, not by convention: a bounded
+  overall deadline, an ordinary fixed poll interval against the
+  plane's own terminal-status read (`systems/delivery.md`'s
+  provisioning entry), and scoped to a run the same test call
+  dispatched — never to a deploy, a rollout, or any state the suite
+  did not itself create.
 - **HTTP client: Req — a new direct dependency**, named here rather
   than ported in (conventions §1 blesses it but `deps` does not yet
   carry it). `only: :test` while the live suite is its only

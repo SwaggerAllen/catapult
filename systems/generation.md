@@ -453,11 +453,60 @@ and validation logic and must not fork it.
   coverage for the path that was previously unreachable, not a
   replacement for it.
 
+- **The sweeper honours the test-project lifecycle, at both sites
+  that can dispatch** (`systems/delivery.md`'s ORC-216 entry).
+  `Sweeper.sweep_project/2` skips a project id `Catapult.Delivery
+  .sweepable_project?/1` answers `false` for, checked once per project
+  per tick rather than scope-by-scope after the fact: a released or
+  deleted test project's whole tier loop is skipped outright, upstream
+  of the tier walk. That alone leaves a gap open: a job already
+  enqueued on the tick before a project releases would otherwise
+  dispatch after it, since `DispatchWorker.perform/1`'s own
+  re-validation checks only `still_ready` and `not_blocked` today
+  (`DispatchWorker`'s own moduledoc, §7.1's validate-or-revert
+  discipline). `sweepable_project?/1` becomes a third check there,
+  run alongside those two, closing it. `sweepable_project?/1` answers
+  `true` for a project id naming no row in `delivery_projects` at all
+  (an ordinary, non-test project — none exist yet, and the predicate
+  is written to hold once one does) and for a test project whose
+  recorded state is `:active`; `false` for `:released` or `:deleted`.
+  This is a read, not new sweeper state — neither process holds any
+  memory of what it last enqueued, and `Catapult.Delivery` stays the
+  one state of record for the lifecycle.
+
+  **A dev-pass discovery, named here rather than left implicit: the
+  sweep's own project enumeration has to widen too, or a freshly
+  provisioned test project is never swept at all.** `Sweeper.sweep/0`
+  walked exactly `Catapult.Engine.Store.list_project_ids/0` — every
+  project id with a node, a flow or an active bundle version — and a
+  project the provisioning surface has only just minted, bound and
+  intake-pinned has none of the three until its first tier ever
+  drafts. `feature_expansion`'s own singleton candidate is
+  organically ready the moment a project id exists at all (this
+  file's own ORC-107 entry), so the missing piece was never
+  readiness — it was that the sweep never asked the question for a
+  project id it had not yet heard of. `Sweeper.sweep/0` now walks the
+  union of `Store.list_project_ids/0` and `Catapult.Delivery
+  .list_bound_project_ids/0` (every project id ever bound to a repo —
+  no dispatch happens without one regardless): Generation already
+  depends on Delivery for dispatch, so the union sits here rather
+  than widening `Catapult.Engine.Store.list_project_ids/0` itself,
+  which would reverse that dependency and close the cycle `mix xref
+  graph --format cycles --fail-above 0` refuses.
+
 ## Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,
 offline against the agent-port fake (canned bodies through the real
-commit path), live against dispatched runs on Actions. The host
+commit path). Live dispatch onto Actions returns `:dispatched` from
+the workflow hand-off alone; the dispatched run itself calls back to
+whichever plane is reachable, so closing that loop needs a project the
+*deployed* instance's own database holds a row for, never the boundary
+suite job's own throwaway one. The test-project lifecycle
+(`systems/delivery.md`) is the mechanism: the live suite provisions a
+project through the deployed plane itself, so a dispatched run's
+context-fetch and result-report land in the same database that issued
+the dispatch. The host
 port's dispatch-facing slice — context-fetch, result-report, OIDC
 validation, run correlation, its in-memory fake — is pulled forward
 into this phase from delivery's Phase 4 (`systems/delivery.md`),
