@@ -98,9 +98,8 @@ stopping at reviewed documents, with no code generated, no delivery,
 and no redeploy of Catapult from the result. That tests the intake
 and architecture-chain machinery end to end; it is not the
 self-hosting this entry refuses, which is building and *running*
-Catapult from its own graph — and it would not become that even if
-the seed were Catapult's own `docs/`/`systems/`, since this entry's
-refusal is about execution, not about what a raft describes.
+Catapult from its own graph: this entry's refusal is about execution,
+not about what a raft describes.
 
 ## No absorption of existing codebases
 scope: universal

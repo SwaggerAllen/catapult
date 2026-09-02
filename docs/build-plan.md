@@ -238,11 +238,10 @@ against a count — and at that size, the run goes to `impl` for every
 one of them, across all three families Phase 5 reaches (backend,
 UI-collection, screen-collection; the client family is Phase 7's,
 with its consumer, per v5 §5.1). Reviewing every subcomponent this
-seed mints is not a cost that scales with the raft the way it would
-against Catapult's own `docs/`/`systems/`: the seed's small footprint
-is what makes exhaustive review the bound, rather than an artificial
-cap laid on top of a large one. Somewhere in that run, at least one
-decline has to harvest into a regeneration that visibly answers it.
+seed mints is not a cost that scales with the raft: the seed's small
+footprint is what makes exhaustive review the bound. Somewhere in that
+run, at least one decline has to harvest into a regeneration that
+visibly answers it.
 
 The run is against a fresh project, never the reference instance's
 own: a fresh `project_id` keeps the run's evidence out of any graph
@@ -280,9 +279,8 @@ active; the sweeper carries the chain forward as gates pass, the
 author reviews and declines at each one, and releases the project
 when the proof is done. What triggers the provisioning call is a
 dispatch input on `pipeline-live-suite.yml` selecting this proof
-rather than the boundary suite — that file is author-owned, so the
-input lands ahead of the dev pass wiring the rest, and is named here
-rather than built.
+rather than the boundary suite; that file is author-owned
+(`systems/README.md`).
 
 Nothing the run produces reaches the tree: the run still commits —
 every scope's `CommitDraft` lands exactly as it does for any other
