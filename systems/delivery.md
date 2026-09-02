@@ -2154,10 +2154,12 @@ generating as scope-runs inside one ticket.
 - **Test projects are a recorded kind with a lifecycle, from the
   first project-level record this plane has** (ORC-216, design pass).
   No `projects` entity exists anywhere in this store before this
-  entry — `ProjectBinding`'s own moduledoc says so, correctly, of the
-  tree it was written against, because nothing before ORC-216 needed
-  to ask "does this project id mean anything beyond a binding." The
-  milestone boundary's live suite does: it needs to mint a project,
+  entry — `ProjectBinding`'s own moduledoc says so today ("no
+  `projects` entity exists anywhere in this store yet"), and that
+  moduledoc is amended in the same change this record lands in, since
+  nothing before ORC-216 needed to ask "does this project id mean
+  anything beyond a binding." The milestone boundary's live suite
+  does: it needs to mint a project,
   hold one aside for a debugging session to inspect after a failure,
   and reclaim it afterward, and doing that downstream of `Store
   .list_project_ids/0` with an ad hoc filter would mean every future
@@ -2184,11 +2186,14 @@ generating as scope-runs inside one ticket.
   defends against.
 
   **`:deleted` is terminal and the row survives it.** Deleting a test
-  project purges every row keyed by this `project_id` in a table this
-  system owns — `delivery_project_bindings`, `delivery_dispatch_runs`,
-  `delivery_input_documents`, any `DraftBody`/`FeaturePublication`-
-  shaped row the project has accumulated — and then sets
-  `test_project_state: :deleted` on the one row that is *not* purged:
+  project purges every row keyed by this `project_id` in every
+  delivery-owned table — all eight key by `project_id`:
+  `delivery_project_bindings`, `delivery_dispatch_runs`,
+  `delivery_input_documents`, `delivery_draft_bodies`,
+  `delivery_feature_lifecycles`, `delivery_feature_publications`,
+  `delivery_container_proposals`, `delivery_artifact_pushes` — and
+  then sets `test_project_state: :deleted` on the one row that is
+  *not* purged:
   `delivery_projects`'s own, kept as a tombstone so a project id is
   never reused and a `:deleted` project reads differently from one
   that never existed. **What this does not purge, named rather than
@@ -2243,8 +2248,9 @@ generating as scope-runs inside one ticket.
   These three routes register through `api_surface/0` exactly like
   `fetch_context/2` and `report_result/2` do, and reach the world
   through the identical `Catapult.Foundation.DispatchPlug` path
-  dispatch (`systems/foundation.md`) — a fourth and fifth path on the
-  one listener, not a second one.
+  dispatch (`systems/foundation.md`) — a third, fourth and fifth path
+  on the one listener, alongside `fetch_context/2` and
+  `report_result/2`, not a second listener.
 - **`reset_repo/2` widens to report the ref it produced** (ORC-216,
   design pass; `HostPort`, `HostPort.Actions` and `HostPort.Fake` in
   the same change, per this doc's own standing rule on this port). It
@@ -2256,10 +2262,11 @@ generating as scope-runs inside one ticket.
   no-op today (it only logs) and gains this much and no more.
   Provisioning is the first caller with anywhere to put a ref:
   `intake_raft/2` takes one explicitly rather than defaulting to
-  "whatever the default branch happens to be" (`HostPort
-  .read_directory/3`'s own moduledoc already refuses that default for
-  the identical reason), and the fixture files `reset_repo/2` just
-  wrote are the only source of a ref guaranteed to postdate them
+  "whatever the default branch happens to be" (`HostPort`'s own
+  moduledoc, its ORC-107 paragraph on `read_directory/3`, already
+  refuses that default for the identical reason), and the fixture
+  files `reset_repo/2` just wrote are the only source of a ref
+  guaranteed to postdate them
   without a second read racing a concurrent write to the same shared
   `catapult-test` repo — the exact hazard the "at most one active test
   project" invariant above exists to keep to one writer at a time.
@@ -2279,8 +2286,13 @@ generating as scope-runs inside one ticket.
   `body_sha` (a plain cross-system read through to `Catapult.Engine
   .Store`, the same shape `current_open_flow_id/1` above already
   uses) — a non-nil `body_sha` is what "the committed draft" resolves
-  to, since `Store.put_draft_body/4` never sets one except on a real
-  commit.
+  to, and it is `engine_nodes`'s own column, written only by
+  `CommitDraft` landing on `Catapult.Engine.Aggregate` and projected
+  from the `DraftCommitted` it emits. This system's own
+  `Store.put_draft_body/4` sets a `body_sha` too, but on
+  `delivery_draft_bodies` — its shift-then-write cache for the
+  publish-time diff (ORC-114) — a different column entirely from the
+  one the terminal-status read above surfaces.
 - **How far the toy chain runs before release is a cost question this
   pass names rather than answers** (ORC-216, design pass — one of this
   ticket's own open questions, deliberately left open rather than
@@ -2288,16 +2300,21 @@ generating as scope-runs inside one ticket.
   it observes the dispatched run's terminal status — synchronously, in
   the same request cycle that ends the bounded wait
   (`systems/foundation.md`'s polling exception) — which bounds the
-  race against the sweeper's own next tick (`sweep_interval_ms`,
-  default 30s, `systems/generation.md`) to whatever a real dispatched
-  run's own wall-clock time leaves before that tick fires, not to
-  anything this ticket engineers. No cap is added to the sweeper for
-  this: a released project stops being swept the instant its state
-  flips (above), and building a narrower "dispatch exactly one scope"
-  mode would be new dispatch mechanism this ticket's own scope refuses
-  — "let the sweeper dispatch the ready scope" reuses `Catapult
-  .Generation.Sweeper` unmodified. What this does cost — whether a
-  live run's own latency reliably beats one sweep interval, and what a
+  race against the sweeper's own next tick
+  (`GENERATION_SWEEP_INTERVAL_MS`, default `10000`,
+  `lib/catapult/generation.ex`) to whatever a real dispatched run's
+  own wall-clock time leaves before that tick fires, not to anything
+  this ticket engineers. No cap is added to the sweeper for this: a
+  released project stops being swept the instant its state flips, at
+  both sites that can dispatch one (`systems/generation.md`'s ORC-216
+  entry — `Sweeper.sweep_project/2` upstream of the tier walk, and
+  `DispatchWorker.perform/1`'s own re-validation, since a job already
+  enqueued on the tick before release would otherwise dispatch after
+  it), and building a narrower "dispatch exactly one scope" mode would
+  be new dispatch mechanism this ticket's own scope refuses — "let the
+  sweeper dispatch the ready scope" reuses `Catapult.Generation
+  .Sweeper` unmodified. What this does cost — whether a live run's own
+  latency reliably beats one sweep interval, and what a
   second scope becoming ready and dispatching before release would
   actually spend — is unmeasured, the same way the subscription
   credential's own ceiling behavior is (`systems/generation.md`'s own

@@ -453,33 +453,36 @@ and validation logic and must not fork it.
   coverage for the path that was previously unreachable, not a
   replacement for it.
 
-- **The sweeper honours the test-project lifecycle**
-  (`systems/delivery.md`'s ORC-216 entry). `Sweeper.sweep_project/2`
-  skips a project id `Catapult.Delivery.sweepable_project?/1` answers
-  `false` for, checked once per project per tick rather than
-  scope-by-scope after the fact: a released or deleted test project's
-  whole tier loop is skipped outright. `sweepable_project?/1` answers
+- **The sweeper honours the test-project lifecycle, at both sites
+  that can dispatch** (`systems/delivery.md`'s ORC-216 entry).
+  `Sweeper.sweep_project/2` skips a project id `Catapult.Delivery
+  .sweepable_project?/1` answers `false` for, checked once per project
+  per tick rather than scope-by-scope after the fact: a released or
+  deleted test project's whole tier loop is skipped outright, upstream
+  of the tier walk. That alone leaves a gap open: a job already
+  enqueued on the tick before a project releases would otherwise
+  dispatch after it, since `DispatchWorker.perform/1`'s own
+  re-validation checks only `still_ready` and `not_blocked` today
+  (`DispatchWorker`'s own moduledoc, §7.1's validate-or-revert
+  discipline). `sweepable_project?/1` becomes a third check there,
+  run alongside those two, closing it. `sweepable_project?/1` answers
   `true` for a project id naming no row in `delivery_projects` at all
   (an ordinary, non-test project — none exist yet, and the predicate
   is written to hold once one does) and for a test project whose
   recorded state is `:active`; `false` for `:released` or `:deleted`.
-  This is a read, not new sweeper state — the sweeper still holds no
+  This is a read, not new sweeper state — neither process holds any
   memory of what it last enqueued, and `Catapult.Delivery` stays the
-  one state of record for the lifecycle; this entry only adds one more
-  fact readiness's usual cross-system read already reaches for,
-  upstream of the tier walk rather than inside it.
+  one state of record for the lifecycle.
 
 ## Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,
 offline against the agent-port fake (canned bodies through the real
-commit path). Live dispatch onto Actions has always succeeded on its
-own terms — the plane hands a workflow off and gets `:dispatched`
-back — but the dispatched run itself calls back to whichever plane is
-reachable, and closing that loop needs a project the *deployed*
-instance's own database holds a row for, never the boundary suite
-job's own throwaway one (`ToySeedChainLiveTest`'s own moduledoc named
-this gap before this doc did). The test-project lifecycle
+commit path). Live dispatch onto Actions returns `:dispatched` from
+the workflow hand-off alone; the dispatched run itself calls back to
+whichever plane is reachable, so closing that loop needs a project the
+*deployed* instance's own database holds a row for, never the boundary
+suite job's own throwaway one. The test-project lifecycle
 (`systems/delivery.md`) is the mechanism: the live suite provisions a
 project through the deployed plane itself, so a dispatched run's
 context-fetch and result-report land in the same database that issued
