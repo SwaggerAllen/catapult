@@ -44,8 +44,10 @@ defmodule Catapult.Delivery.StoreTest do
       Store.bind_github_run_id(run_key, "99999")
       assert %{github_run_id: "12345"} = Store.get_dispatch_run(run_key)
 
-      Store.complete_dispatch_run(run_key, :completed)
-      assert %{status: :completed} = Store.get_dispatch_run(run_key)
+      Store.complete_dispatch_run(run_key, :completed, :success, "claude_code_oauth_token")
+
+      assert %{status: :completed, outcome: :success, credential_used: "claude_code_oauth_token"} =
+               Store.get_dispatch_run(run_key)
     end
   end
 
@@ -273,6 +275,114 @@ defmodule Catapult.Delivery.StoreTest do
       })
 
       assert [%{node_id: "n1"}, %{node_id: "n2"}] = Store.dispatch_runs_for_flow("p1", "f1")
+    end
+  end
+
+  describe "list_bound_project_ids/0" do
+    test "every project id ever bound to a repo" do
+      Store.put_project_binding("bound-1", "acme", "widgets")
+      Store.put_project_binding("bound-2", "acme", "gadgets")
+
+      assert "bound-1" in Store.list_bound_project_ids()
+      assert "bound-2" in Store.list_bound_project_ids()
+    end
+  end
+
+  describe "terminal_dispatch_status/2" do
+    test "nil when the tier has never been dispatched" do
+      assert Store.terminal_dispatch_status("no-such-project", "comp") == nil
+    end
+
+    test "status, outcome, credential_used, node_id and the node's own body_sha" do
+      EngineStore.upsert_node(%{
+        id: "n1",
+        project_id: "p1",
+        tier: "comp",
+        scope_key: %{},
+        status: :drafted,
+        fields: %{},
+        body_sha: "sha-of-the-committed-draft"
+      })
+
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "irrelevant",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      # A second, more recent run on the same tier is the one this
+      # read surfaces — "most recent", not "first".
+      newer_run_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: newer_run_key,
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "irrelevant",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      Store.complete_dispatch_run(newer_run_key, :completed, :success, "claude_code_oauth_token")
+
+      assert Store.terminal_dispatch_status("p1", "comp") == %{
+               status: :completed,
+               outcome: :success,
+               credential_used: "claude_code_oauth_token",
+               node_id: "n1",
+               body_sha: "sha-of-the-committed-draft"
+             }
+    end
+  end
+
+  describe "the test-project lifecycle (ORC-216)" do
+    test "an ordinary project (no row at all) is sweepable" do
+      assert Store.sweepable_project?("no-such-project") == true
+    end
+
+    test "mint_test_project/1 mints active, and releases whichever was active before" do
+      first = Store.mint_test_project("tp1")
+      assert first.test_project_state == :active
+      assert Store.sweepable_project?("tp1") == true
+
+      second = Store.mint_test_project("tp2")
+      assert second.test_project_state == :active
+      assert Store.sweepable_project?("tp2") == true
+
+      # Minting a second active project released the first.
+      assert Store.sweepable_project?("tp1") == false
+      assert "tp1" in Store.list_released_test_projects()
+    end
+
+    test "release_test_project/1 is idempotent and a no-op on an unminted project" do
+      assert Store.release_test_project("no-such-project") == :ok
+
+      Store.mint_test_project("tp3")
+      assert Store.release_test_project("tp3") == :ok
+      assert Store.release_test_project("tp3") == :ok
+      assert Store.sweepable_project?("tp3") == false
+    end
+
+    test "delete_test_project/1 purges delivery-owned rows and tombstones the project" do
+      Store.mint_test_project("tp4")
+      Store.put_project_binding("tp4", "acme", "widgets")
+      Store.release_test_project("tp4")
+
+      assert Store.delete_test_project("tp4") == :ok
+      assert Store.get_project_binding("tp4") == nil
+      assert Store.sweepable_project?("tp4") == false
+      refute "tp4" in Store.list_released_test_projects()
     end
   end
 end

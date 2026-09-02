@@ -474,6 +474,26 @@ and validation logic and must not fork it.
   memory of what it last enqueued, and `Catapult.Delivery` stays the
   one state of record for the lifecycle.
 
+  **A dev-pass discovery, named here rather than left implicit: the
+  sweep's own project enumeration has to widen too, or a freshly
+  provisioned test project is never swept at all.** `Sweeper.sweep/0`
+  walked exactly `Catapult.Engine.Store.list_project_ids/0` — every
+  project id with a node, a flow or an active bundle version — and a
+  project the provisioning surface has only just minted, bound and
+  intake-pinned has none of the three until its first tier ever
+  drafts. `feature_expansion`'s own singleton candidate is
+  organically ready the moment a project id exists at all (this
+  file's own ORC-107 entry), so the missing piece was never
+  readiness — it was that the sweep never asked the question for a
+  project id it had not yet heard of. `Sweeper.sweep/0` now walks the
+  union of `Store.list_project_ids/0` and `Catapult.Delivery
+  .list_bound_project_ids/0` (every project id ever bound to a repo —
+  no dispatch happens without one regardless): Generation already
+  depends on Delivery for dispatch, so the union sits here rather
+  than widening `Catapult.Engine.Store.list_project_ids/0` itself,
+  which would reverse that dependency and close the cycle `mix xref
+  graph --format cycles --fail-above 0` refuses.
+
 ## Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,

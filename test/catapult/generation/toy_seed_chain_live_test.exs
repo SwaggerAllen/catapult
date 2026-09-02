@@ -1,137 +1,150 @@
 defmodule Catapult.Generation.ToySeedChainLiveTest do
   @moduledoc """
-  The `:live` half of ORC-10's boundary test: the same toy seed
-  (`Catapult.ToySeed`) through `Catapult.Delivery.HostPort.Actions` —
-  real GitHub calls, no fake — against the bound fixture repo
-  (`SwaggerAllen/catapult-test`, `systems/delivery.md`'s ORC-10 entry:
-  "starts empty and no role here has a route to author a workflow file
-  in a different repository, so the plane writes it there instead").
+  ORC-216: the boundary's live suite proves a dispatched run end to
+  end against the reference instance — the toy seed
+  (`Catapult.ToySeed`) through the test-project lifecycle and
+  provisioning surface (`systems/delivery.md`'s ORC-216 entry), not
+  through this process's own `HostPort.Actions` calls the way ORC-10's
+  original version of this file did.
 
-  **Scope, and why it stops where it does** (ORC-29's live-suite
-  rules bind this file as much as the offline test —
-  `systems/foundation.md`'s live suite, conventions §9):
+  **Why this file used to stop at "dispatch accepted," and why it no
+  longer has to.** A dispatched GitHub Actions run calls back to
+  whichever plane is reachable — the reference instance's own database
+  (`SETUP.md` §2), never this job's own throwaway Postgres. A
+  `dispatch_run` issued from *this* process used to write its
+  correlation row into a database the deployed instance's callback
+  could never see, so observing a round trip from here was theater.
+  ORC-216 closes that gap: this test asks the *deployed* plane itself
+  to provision a project (mint, bind to the one fixture repo this
+  ticket's scope allows — `SwaggerAllen/catapult-test`, reset its
+  fixture content, intake the raft) and to dispatch against it, then
+  reads the outcome back from that same deployed plane over its own
+  provisioning surface — never from this job's own database.
 
-    * **No polling or retry-until-observed.** Closing the loop —
-      waiting for the dispatched GitHub Actions run to actually invoke
-      the pinned runner harness and report a result back — needs a
-      *reachable* plane for that runner to call back to, and the only
-      one that exists is the reference instance's own database
-      (`SETUP.md` §2), never this job's own throwaway Postgres
-      (`systems/foundation.md`'s live suite: the `test` alias does
-      not read argv, so the live-suite job gets a real, empty database
-      same as every other run). A
-      `dispatch_run` issued from *this* process writes its correlation
-      row into a database the deployed instance's callback can never
-      see, so any observed round trip here would be theater, not
-      proof. What this test proves instead — real, bounded, and
-      genuinely unavailable any other way — is that the two outbound
-      calls the plane itself makes (reset the bound repo's fixture
-      content, trigger a real `workflow_dispatch`) succeed against
-      GitHub for real. Closing the loop by hand — reading the
-      dispatched run's own log — is deliberately a human's job that
-      this test does not automate; the no-polling entry above is why.
-      **ORC-36 widens which of these calls this file exercises**, past
-      `feature_expansion`'s own bypass-readiness shape: a `vocab` scope
-      minted for real off a real, `Store`-backed parent node — the
-      ordinary shape every other generation tier dispatches through —
-      gets its own real `dispatch_run` below, for the same reason
-      `IntegrationTest`'s offline decline test doesn't stop at
-      `feature_expansion` either.
-    * **One bounded request per call, no retry** — the same discipline
-      `Catapult.HealthLiveTest` already keeps; `Catapult.Delivery
-      .HostPort.Actions` sets no explicit timeout of its own (ORC-9),
-      so this test relies on `Req`'s own defaults rather than
-      retrofitting one onto already-reviewed code outside this
-      ticket's `Touches:` line.
-    * **Needs setup this environment cannot supply.** `DELIVERY_GITHUB_TOKEN`
-      defaults to a fake string (`config/test.exs`) unless the live-suite
-      job's own environment overrides it with a real, `contents:
-      read`+`write`-scoped credential for the bound repo — see this
-      ticket's hand-back for exactly what the operator still has to
-      wire in.
+  **The no-polling rule's named exception is what makes closing the
+  loop legal at all** (`systems/foundation.md`'s live suite,
+  conventions §9): a live check may bound-poll a run it dispatched
+  itself, because nothing else in this system observes that run's
+  completion and the observer is the same process that started it.
+  This is not the "wait out a rollout" case §9 refuses — a bounded
+  overall deadline, an ordinary fixed poll interval, against the
+  plane's own terminal-status read, scoped to the one project this
+  test call itself provisioned.
+
+  **What this proves for real**: the provisioning surface's bearer
+  auth, minting and binding a project, resetting the bound repo's
+  fixture content and intaking the raft, the deployed sweeper picking
+  up a freshly bound project with no engine row of its own yet
+  (`Catapult.Generation.Sweeper`'s own ORC-216 entry) and dispatching
+  `feature_expansion` — the toy chain's one entry tier — onto a real
+  GitHub Actions run, that run installing Claude Code and running the
+  pinned runner harness for real, and the result-report landing back
+  on the same database that issued the dispatch. The rest of the toy
+  chain (every tier past `feature_expansion`) is not driven here — how
+  far the sweeper is allowed to carry it before release is a cost
+  question this ticket's design pass named rather than answered
+  (`systems/delivery.md`'s ORC-216 entry), so this test releases its
+  project the moment it observes `feature_expansion`'s own dispatched
+  run reach a terminal status.
+
+  **Needs setup this environment cannot supply.** `DELIVERY_PROVISIONING_TOKEN`
+  defaults to a fake string (`config/test.exs`) unless the live-suite
+  job's own environment overrides it with the same value the deployed
+  plane's own `DELIVERY_PROVISIONING_TOKEN` holds — see this ticket's
+  hand-back for what the operator still has to wire in.
   """
 
-  use Catapult.DataCase, async: true
+  use ExUnit.Case, async: true
 
-  alias Catapult.Delivery.HostPort.Actions
-  alias Catapult.Delivery.Store, as: DeliveryStore
-  alias Catapult.Dsl
-  alias Catapult.Engine.Store
-  alias Catapult.Engine.Store.Node
-  alias Catapult.Generation.ContextAssembly
+  alias Catapult.Config.Secret
+  alias Catapult.Delivery
   alias Catapult.ToySeed
 
   @moduletag :live
 
-  # ORC-10's design decision (systems/delivery.md): the fixture repo
-  # this project's dispatch-facing host port is bound against for the
-  # milestone boundary. One home, named here rather than duplicated —
-  # a second live test binding a project needs the same two strings,
-  # not a third fact to keep in sync.
-  @repo_owner "SwaggerAllen"
-  @repo_name "catapult-test"
+  # One bounded request per call, `Req`'s own defaults for the rest —
+  # the same discipline `Catapult.HealthLiveTest` already keeps.
+  @request_timeout :timer.seconds(30)
 
-  test "resetting the bound repo's fixture content succeeds for real" do
-    project_id = "toy-seed-live-#{System.unique_integer([:positive])}"
-    DeliveryStore.put_project_binding(project_id, @repo_owner, @repo_name)
+  # The no-polling rule's named exception (`systems/foundation.md`):
+  # an ordinary fixed interval, a bounded overall deadline, against a
+  # run this test call itself dispatched.
+  @poll_interval :timer.seconds(5)
+  @poll_deadline :timer.minutes(15)
 
-    assert :ok = Actions.reset_repo(project_id, ToySeed.reset_files())
+  @entry_tier "feature_expansion"
+
+  test "provisions a test project through the deployed plane and drives a dispatched run end to end" do
+    base = Application.fetch_env!(:catapult, :live_base_url)
+    headers = [{"authorization", "Bearer #{provisioning_token()}"}]
+
+    provisioned =
+      Req.post!(base <> "/dispatch/test-project",
+        headers: headers,
+        json: %{files: ToySeed.reset_files()},
+        retry: false,
+        receive_timeout: @request_timeout,
+        connect_options: [timeout: @request_timeout]
+      )
+
+    assert provisioned.status == 200
+    assert %{"project_id" => project_id} = provisioned.body
+
+    try do
+      terminal = poll_terminal_status!(base, headers, project_id, @entry_tier)
+
+      assert terminal["status"] == "completed",
+             "expected feature_expansion's dispatched run to complete, got: #{inspect(terminal)}"
+
+      assert terminal["outcome"] == "success",
+             "expected a successful outcome, got: #{inspect(terminal)}"
+
+      assert is_binary(terminal["credential_used"]) and terminal["credential_used"] != "",
+             "expected a credential_used name, got: #{inspect(terminal)}"
+
+      assert is_binary(terminal["body_sha"]) and terminal["body_sha"] != "",
+             "expected the committed draft's body_sha, got: #{inspect(terminal)}"
+    after
+      release!(base, headers, project_id)
+    end
   end
 
-  test "dispatching feature_expansion against the bound repo is accepted for real" do
-    project_id = "toy-seed-live-#{System.unique_integer([:positive])}"
-    DeliveryStore.put_project_binding(project_id, @repo_owner, @repo_name)
-
-    {:ok, loaded} = Dsl.load(".")
-
-    # Built directly rather than through `ReadyScopes` (the offline
-    # test's own moduledoc has the reasoning for why this file mirrors
-    # it): a hand-built candidate proves the two outbound calls below
-    # regardless of the selection query's own state, and this file's
-    # own scope (above) stops short of exercising that query for real.
-    candidate = %Node{
-      id: "virtual:feature_expansion:#{inspect(%{})}",
-      project_id: project_id,
-      tier: "feature_expansion",
-      scope_key: %{},
-      parent_node_id: nil,
-      status: :absent
-    }
-
-    assert {:ok, request} =
-             ContextAssembly.build(loaded.chain, project_id, "feature_expansion", candidate)
-
-    assert {:ok, %{run_key: run_key}} = Actions.dispatch_run(request)
-    assert DeliveryStore.get_dispatch_run(run_key).status == :dispatched
+  defp poll_terminal_status!(base, headers, project_id, tier) do
+    deadline = System.monotonic_time(:millisecond) + @poll_deadline
+    poll_terminal_status!(base, headers, project_id, tier, deadline)
   end
 
-  test "dispatching a vocab regeneration against the bound repo is accepted for real" do
-    project_id = "toy-seed-live-#{System.unique_integer([:positive])}"
-    DeliveryStore.put_project_binding(project_id, @repo_owner, @repo_name)
+  defp poll_terminal_status!(base, headers, project_id, tier, deadline) do
+    case Req.get(base <> "/dispatch/test-project/#{project_id}/status/#{tier}",
+           headers: headers,
+           retry: false,
+           receive_timeout: @request_timeout,
+           connect_options: [timeout: @request_timeout]
+         ) do
+      {:ok, %{status: 200, body: %{"status" => status} = body}}
+      when status in ["completed", "failed"] ->
+        body
 
-    Store.upsert_node(%{
-      id: "fe1",
-      project_id: project_id,
-      tier: "feature_expansion",
-      scope_key: %{},
-      status: :approved,
-      fields: %{}
-    })
-
-    vocab =
-      Store.mint_node(%{
-        id: "vocab:auth",
-        project_id: project_id,
-        tier: "vocab",
-        scope_key: %{"id" => "auth"},
-        parent_node_id: "fe1",
-        status: :absent
-      })
-
-    {:ok, loaded} = Dsl.load(".")
-
-    assert {:ok, request} = ContextAssembly.build(loaded.chain, project_id, "vocab", vocab)
-    assert {:ok, %{run_key: run_key}} = Actions.dispatch_run(request)
-    assert DeliveryStore.get_dispatch_run(run_key).status == :dispatched
+      _not_yet_terminal ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          flunk("timed out waiting for #{tier}'s dispatched run to reach a terminal status")
+        else
+          Process.sleep(@poll_interval)
+          poll_terminal_status!(base, headers, project_id, tier, deadline)
+        end
+    end
   end
+
+  defp release!(base, headers, project_id) do
+    Req.post!(base <> "/dispatch/test-project/#{project_id}/release",
+      headers: headers,
+      retry: false,
+      receive_timeout: @request_timeout,
+      connect_options: [timeout: @request_timeout]
+    )
+
+    :ok
+  end
+
+  defp provisioning_token, do: Secret.unwrap(Delivery.provisioning_token())
 end

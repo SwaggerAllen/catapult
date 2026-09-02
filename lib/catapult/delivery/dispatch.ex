@@ -75,8 +75,8 @@ defmodule Catapult.Delivery.Dispatch do
         })
 
       case result_handler().handle_result(payload) do
-        :ok -> mark_terminal(run_key, payload.status)
-        {:error, _reason} = error -> mark_failure(run_key, payload.status, error)
+        :ok -> mark_terminal(run_key, payload)
+        {:error, _reason} = error -> mark_failure(run_key, payload, error)
       end
     end
   end
@@ -90,15 +90,15 @@ defmodule Catapult.Delivery.Dispatch do
   # (`systems/generation.md`) — a further `report_result/2` call for
   # the same `run_key` is expected next, so the record is left exactly
   # as `bind_run_id/2` already left it.
-  defp mark_terminal(run_key, _status) do
-    Store.complete_dispatch_run(run_key, :completed)
+  defp mark_terminal(run_key, payload) do
+    Store.complete_dispatch_run(run_key, :completed, payload.status, payload.credential_used)
     :ok
   end
 
-  defp mark_failure(_run_key, :success, error), do: error
+  defp mark_failure(_run_key, %{status: :success}, error), do: error
 
-  defp mark_failure(run_key, _limit_class_or_other, error) do
-    Store.complete_dispatch_run(run_key, :failed)
+  defp mark_failure(run_key, payload, error) do
+    Store.complete_dispatch_run(run_key, :failed, payload.status, payload.credential_used)
     error
   end
 

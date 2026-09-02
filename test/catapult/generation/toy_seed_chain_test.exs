@@ -148,7 +148,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     # The fixture's repo-reset half exercises the same path a live run
     # would (systems/delivery.md's ORC-10 entry) — the fake's
     # `reset_repo/2` reaches no network, but the call is real.
-    assert :ok = FakeHostPort.reset_repo(project_id, ToySeed.reset_files())
+    assert {:ok, _ref} = FakeHostPort.reset_repo(project_id, ToySeed.reset_files())
 
     # -- intake: seed the forge with the same fixture content a real
     #    `reset_repo/2` would have written to the bound repo (the

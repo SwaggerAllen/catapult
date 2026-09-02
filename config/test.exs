@@ -45,6 +45,13 @@ config_seed = %{
   # (`systems/foundation.md`'s "the instance's shape comes from the
   # environment"), never a second config source switched on the tag.
   "DELIVERY_GITHUB_TOKEN" => System.get_env("DELIVERY_GITHUB_TOKEN", "test-token"),
+  # Same shape, same reason (ORC-216): the default suite never reaches
+  # the provisioning surface (it's inbound-only, exercised by a real
+  # HTTP caller), but `Catapult.Config.load!/2` loads every declared
+  # value at boot regardless. The `:live` suite's own provisioning test
+  # calls the deployed plane with this same value, supplied by the
+  # live-suite job's own environment.
+  "DELIVERY_PROVISIONING_TOKEN" => System.get_env("DELIVERY_PROVISIONING_TOKEN", "test-token"),
   "DELIVERY_HOST_PORT_ADAPTER" => "fake",
   "DELIVERY_FLAG_SET_ADAPTER" => "fake",
   "DELIVERY_OIDC_JWKS_AUTOSTART" => "false",

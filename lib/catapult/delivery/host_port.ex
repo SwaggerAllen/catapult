@@ -28,6 +28,17 @@ defmodule Catapult.Delivery.HostPort do
   test exercises the same reset path a live run does rather than a
   live-only mechanism.
 
+  **ORC-216: `reset_repo/2` reports the ref it produced.** It returns
+  `{:ok, ref}` rather than bare `:ok` — the default branch's head
+  commit SHA after the last file in `files` lands, in `HostPort
+  .Actions`, and a synthesized one in `HostPort.Fake`
+  (`systems/delivery.md`'s ORC-216 entry). Provisioning a test project
+  is the first caller with anywhere to put a ref: `Catapult.Delivery
+  .intake_raft/2` takes one explicitly rather than defaulting to
+  whatever the default branch happens to be, and the fixture files
+  `reset_repo/2` just wrote are the only source of a ref guaranteed to
+  postdate them.
+
   **ORC-31: the rest of Phase 4's operation vocabulary** —
   feature-lifecycle PR management and decline harvesting
   (`systems/delivery.md`'s ORC-31 entry). Each callback traces to the
@@ -132,7 +143,8 @@ defmodule Catapult.Delivery.HostPort do
         }
 
   @callback dispatch_run(request()) :: {:ok, %{run_key: binary()}} | {:error, term()}
-  @callback reset_repo(project_id :: binary(), files()) :: :ok | {:error, term()}
+  @callback reset_repo(project_id :: binary(), files()) ::
+              {:ok, ref :: String.t()} | {:error, term()}
 
   @callback create_branch(
               project_id :: binary(),

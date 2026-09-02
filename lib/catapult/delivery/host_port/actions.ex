@@ -49,11 +49,17 @@ defmodule Catapult.Delivery.HostPort.Actions do
   earlier one — a re-run of `reset_repo/2` is the recovery, the same
   idempotent-retry shape `systems/delivery.md`'s "intent → idempotent
   effect" bullet already asks of every outbound act in this system.
+
+  Reports the ref it produced (ORC-216, `Catapult.Delivery.HostPort`'s
+  own moduledoc): the default branch's head commit SHA after the last
+  file lands, read back the same way `create_branch/3` already reads
+  any ref's head — `fetch_ref_sha/2` below.
   """
   @impl Catapult.Delivery.HostPort
   def reset_repo(project_id, files) do
-    with {:ok, binding} <- fetch_binding(project_id) do
-      put_all_files(binding, files)
+    with {:ok, binding} <- fetch_binding(project_id),
+         :ok <- put_all_files(binding, files) do
+      fetch_ref_sha(binding, Config.fetch!(:delivery, :dispatch_ref))
     end
   end
 
