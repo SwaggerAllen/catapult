@@ -44,6 +44,13 @@ generating as scope-runs inside one ticket.
 
 ## Standing decisions
 
+- **`HostPort.request`'s `credential_name` widens to the bindings
+  tunable's full ordered pair** (ORC-215): the single-credential shape
+  was ORC-9's workaround for a runner harness that failed over on any
+  non-zero exit; `systems/generation.md`'s own entry retires the
+  workaround now that Catapult's own harness classifies limit-class
+  failures itself, and `HostPort.Actions.dispatch_run/1` sends the
+  pair whole.
 - **Ports with fakes, exactly like the Go pipeline** — the fake ships
   with the port; the sim-style test ring runs the whole protocol
   offline. This is the porting model (v5 §7.13): snapshot→actions

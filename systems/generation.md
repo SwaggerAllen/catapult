@@ -95,47 +95,125 @@ and validation logic and must not fork it.
   whose cadence the plane doesn't own — but a result report is
   plane-to-plane over a channel the plane owns both ends of, so the
   marker's reason for existing doesn't transfer here.
-- **The runner harness is orchestration's, consumed as a pinned
-  dependency — not a second implementation in this repo** (ORC-9's
-  other open question). The shape v5 §7.12.1 asks for — invoke the
-  agent with a model-credential pair, catch failure, fail over on
-  limit-class errors only — is not a new problem: it is the harness
-  already running every Catapult ticket, including this one. A
-  repo-local copy (a composite action in `.github/`, a script in
-  `bundles/default`) would duplicate exactly the logic v5
-  §1.2's third reason already refused to duplicate ("one execution
-  path... extended rather than duplicated"), and `docs/non-goals.md`'s
-  no-self-bootstrap entry ("Catapult consumes the shared components as
-  an ordinary library user") states the same preference one layer up.
-  Named consequence rather than a discovered one: today's shipped
-  harness fails over on any non-zero exit and string-matches another
-  tool's stderr to say why, which cannot honor "limit-class failures
-  only" — so until it exposes a structured signal (the CLI's JSON
-  output mode is the candidate), the Actions adapter dispatches with
-  **no failover**, enforced the only way it can be against a harness
-  that fails over on any non-zero exit by itself (design review
-  finding, ORC-9): **the adapter sends one credential, not the pair.**
-  The bindings `tunable`'s order still exists and still decides which
-  one — its first-ordered entry is the sole model-credential dispatch
-  input the harness receives; the second slot is read from bindings
-  same as always but withheld from the dispatch payload, so there is
-  nothing for the shipped harness's blind failover to reach for even
-  though it would try. A run failure therefore fails the run outright,
-  which is what "no failover" actually has to mean given a harness
-  that cannot be told not to. The day the harness's classification
-  lands, the adapter starts sending the tunable's full ordered pair
-  instead of its head — a one-line change on this system's side, not a
-  new decision, because the contract (v5 §7.12.1's model-credential
-  pair, order from the tunable) was already built for two; it was only
-  ever the transport withholding the second slot. This is a gap to
-  close upstream, not a reason to build a parallel classifier here.
+- **Catapult owns its generation runner harness, built here** (ORC-215,
+  reversing this entry's own prior reading of ORC-9's open question).
+  The prior text read v5 §1.2's third reason — "one execution path...
+  extended rather than duplicated" — as a mandate to consume
+  orchestration's own harness as a pinned dependency, and read
+  `docs/non-goals.md`'s no-self-bootstrap entry as supporting that.
+  Neither does: §1.2's reason is proven-*pattern*, not proven-*code*
+  (sharpened there, ORC-215), and no-self-bootstrap is about consuming
+  the shared components (`components/**`) as an ordinary library user
+  — a different question from which repo authors a `workflow_dispatch`
+  file this repo already pushes into a bound project's own repo
+  (`systems/delivery.md`'s ORC-10 entry). Orchestration builds
+  Catapult; it participates in none of Catapult's own mechanisms, this
+  one included.
+
+  The contract is unchanged (v5 §7.12.1: fetch rendered context, run
+  agent, commit, report) and so is the seam: the run-agent step is the
+  only implementation-specific piece, so a second agent implementation
+  is a bindings entry, never a rewrite of the steps around it (the
+  entry below settles which one).
+
+  **Where the run-agent step's code lives: inline in the dispatched
+  workflow content, the same fixture-content mechanism `reset_repo/2`
+  already pushes into a bound repo** (`systems/delivery.md`'s ORC-10
+  entry) — no new mechanism, the placeholder step is filled in place.
+  Two alternatives, ruled out rather than merely unconsidered: a
+  composite action under this repo's own `.github/actions/**`,
+  referenced cross-repo from every bound project's workflow (`uses:
+  <this repo>/…@ref`), would tie every dispatched run forever to this
+  repo's own git history instead of to the reviewed commit its own
+  bound-repo workflow file already pins — the mirror image of the
+  coupling §1.2's sharpened reason just closed off, one hop later —
+  and `.github/actions/**` has no owner in this repo today
+  (`systems/README.md`'s unowned-paths list doesn't carry it), so
+  creating one is the author's call, not a ticket's. A script fetched
+  from the plane at run time was the other candidate, also ruled out:
+  it would give the plane a live code-serving role beyond its two
+  settled dispatch endpoints (context-fetch, result-report), a new
+  authenticated surface bought for no protocol gain, and it ties an
+  in-flight run's behavior to whatever the plane's *current* deploy
+  happens to serve rather than to the commit its own workflow file
+  pinned when the run started.
+
+  **The classified outcome vocabulary is not new** —
+  `Catapult.Delivery.ResultHandler`'s `payload().status` is already
+  the closed `:success | :limit_class_failure | :other_failure` union,
+  and `Catapult.Generation.CommitPath`/`Catapult.Delivery.Dispatch`
+  already branch on it; what was missing is how the harness computes
+  which one applies. `claude -p --output-format json`'s terminal
+  `result` object's `subtype` (`success`, `error_during_execution`,
+  `error_max_turns`, `error_max_budget_usd`,
+  `error_max_structured_output_retries`) does not itself carry that
+  distinction: a usage/rate-limit failure and any other in-run failure
+  both surface as `error_during_execution`, so classifying off that
+  field alone would be exactly the stderr-string-matching shape this
+  harness exists to leave behind. The structured signal is one layer
+  down, in `--output-format stream-json`'s `system`/`api_retry` events
+  (`{"type": "system", "subtype": "api_retry", "error_status": …,
+  "error": …}`), whose documented `error` category — `rate_limit`,
+  `server_error`, `authentication_failed`, `billing_error`,
+  `invalid_request`, `max_output_tokens`, `unknown` — is a read of the
+  underlying API error, not a guess at the CLI's wording. `rate_limit`
+  and `billing_error` are the two that answer to v5 §7.12.1's own
+  phrase, "usage/rate limits, exhausted credits": a run whose stream
+  carries either reports `limit_class_failure`; a clean terminal
+  `success` reports `success`; everything else reports `other_failure`,
+  undifferentiated, because nothing downstream of that bucket consumes
+  a finer split today — refusal and transport are therefore not
+  distinguished at either layer, closing the third open question this
+  entry used to leave standing. **Unverified against a live run, and
+  flagged rather than assumed**: the OAuth/subscription credential's
+  own session- and weekly-limit ceiling is a different mechanism from
+  the retried-request `api_retry` path documented for API-key rate
+  limiting, and whether it surfaces through the same event shape is
+  for the dev pass to confirm against `toy_seed_chain_live_test.exs`'s
+  dispatched run before the credential pair leans on it equally.
+
+  **No failover retires today, not on a future date** (this same
+  entry's prior text already named the day: "the adapter starts
+  sending the tunable's full ordered pair instead of its head — a
+  one-line change... because the contract was already built for two").
+  That day is this ticket: `HostPort.request`'s `credential_name`
+  widens to the bindings tunable's full ordered pair
+  (`systems/delivery.md`'s own entry), and `Actions.dispatch_run/1`
+  sends it whole.
+- **The bindings entry is `:generation`, one kind in the same kind →
+  runtime map v5 §7.10 already describes for ticket-delivery agent
+  kinds** (design, dev, reconcile, validation, retro, setup — none
+  built yet, Phase 6), not a second, generation-only mechanism:
+  Catapult's own chain has exactly one kind today, and reusing the one
+  map is what makes "supporting a second agent implementation is a new
+  bindings entry and zero protocol or bundle change" (v5 §7.10) literal
+  rather than aspirational the moment Phase 6 lands its own kinds
+  beside this one. Per-tier executor-profile routing (model, effort,
+  harness requirements) stays Target, unchanged by this entry — this
+  ticket picks one runtime for every generation dispatch project-wide,
+  never per tier.
+
+  `Catapult.Generation.cast_credential_order/1`'s closed two-name set
+  (`claude_code_oauth_token`, `anthropic_api_key`) is Claude-Code-
+  specific and moves to bindings, keyed by whichever runtime is bound
+  to the `:generation` kind — a second implementation's own credential
+  names arrive as a new bindings entry, never a rewrite of this
+  validator. The general bindings-as-plane-entities store (v5 §7.10)
+  still doesn't exist and this ticket doesn't build it: the
+  credential-order and kind→runtime tunables keep the
+  "accepted-for-now" env-var-config shape `Catapult.Generation`'s own
+  `config/0` already uses for exactly this reason, reorganized to be
+  keyed by implementation rather than hardcoded to Claude Code's two
+  names — a fact that holds however long the real store takes to
+  land, not a placeholder timed to this ticket.
 - **Model credentials are a pair with limit-class failover** (v5
   §7.12.1): the runner harness accepts `ANTHROPIC_API_KEY` and/or
   `CLAUDE_CODE_OAUTH_TOKEN` — customer-side secrets the plane never
-  sees. Order is a per-project bindings `tunable` passed as a
-  dispatch input (a preference, not a secret); failover on
-  limit-class errors only; the run report names which credential
-  served.
+  sees, named by whichever runtime is bound to the `:generation` kind
+  (today, Claude Code's own two — the entry above). Order is a
+  per-project bindings `tunable` passed as a dispatch input (a
+  preference, not a secret); failover on limit-class errors only; the
+  run report names which credential served.
 - **The three §7.15 pause/resume invariants bind this executor, not
   aspirational**: one dispatched run per ready scope, one atomic
   commit per scope at the end, no memory across dispatches. The
