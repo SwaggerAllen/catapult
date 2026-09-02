@@ -195,16 +195,26 @@ and validation logic and must not fork it.
   `stop_reason == "refusal"` is a real, documented signal for
   detecting a declined request — the harness chooses not to consume
   it because nothing downstream of the `other_failure` bucket reads a
-  finer split today, not because the CLI fails to expose one. Closing
-  the third open question this entry used to leave standing: the
+  finer split today, not because the CLI fails to expose one. The
   undifferentiated bucket is a recorded choice, not an absence of
-  signal. **Unverified against a live run, and flagged rather than
-  assumed**: the OAuth/subscription credential's own session- and
-  weekly-limit ceiling is a different mechanism from the
-  retried-request `api_retry` path documented for API-key rate
-  limiting, and whether it surfaces through the same event shape is
-  for the dev pass to confirm against `toy_seed_chain_live_test.exs`'s
-  dispatched run before the credential pair leans on it equally.
+  signal.
+
+  **The subscription credential's own session and weekly ceiling is
+  classified by the same rule, on a stated assumption rather than a
+  documented shape.** Claude Code documents `api_retry`'s `error`
+  categories for retryable API errors and, separately, a claude.ai
+  usage limit as something that stops a run mid-task — a `-p` run
+  does not wait for the reset — without saying which event a
+  headless run emits when it does. Two shapes are possible, and the
+  rule is right on one and blind on the other: a `429` arriving as
+  `api_retry` with `rate_limit` fails over to the API key as
+  intended; a terminal `result` of `error_during_execution` with no
+  retry event reports `other_failure` and never fails over, which
+  loses exactly the case the pair exists for. The first run that
+  hits the ceiling settles which is real — its `stream-json` output
+  is in the bound repo's Actions log for that run — and until then
+  an `other_failure` on the subscription credential whose `result`
+  names a usage limit is this rule's failure mode, and reads as one.
 
   **No failover retires today, not on a future date** (this same
   entry's prior text already named the day: "the adapter starts
