@@ -180,14 +180,43 @@ The facts a future session needs, recorded as facts:
   it through the config layer at boot, so it belongs beside the other
   instance values here rather than in §3.
 
-  **Scope it needs, derived from the one call that uses it.**
-  `Catapult.Delivery.HostPort.Actions` makes exactly one request —
-  `POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches`.
-  Nothing reads runs back (correlation rides the `run_key` dispatch
-  input and the OIDC callback), so a fine-grained token with
-  **Actions: Read and write** plus the mandatory **Metadata: Read** is
-  the whole of it. Classic tokens want `repo`, since the target repos
-  are private — prefer fine-grained, as with `DISPATCH_TOKEN`.
+  **Scope it needs, derived from every call that uses it.**
+  `Catapult.Delivery.HostPort.Actions` is the only module that holds
+  it, and every request it makes maps onto six fine-grained
+  permissions — read off GitHub's own permissions table for each
+  endpoint, not inferred from the endpoint's name:
+
+  - **Actions: Read and write** —
+    `POST …/actions/workflows/{file}/dispatches` (`dispatch_run/1`).
+  - **Contents: Read and write** — `GET`/`PUT …/contents/{path}`
+    (`reset_repo/2`, `commit_files/4`, `read_directory/3`),
+    `GET …/git/ref/heads/{ref}` and `POST …/git/refs`
+    (`create_branch/3`), `POST …/merges` (`merge_forward/3`),
+    `PUT …/pulls/{n}/merge` (`merge_pr/3`).
+  - **Workflows: Read and write** — the same `PUT …/contents/{path}`
+    when the path is under `.github/workflows/`, which
+    `reset_repo/2`'s fixture write always includes (it pushes the
+    dispatch workflow itself). GitHub lists that PUT under both
+    Contents and Workflows and requires both; a token with Contents
+    alone is refused on exactly the file the whole mechanism needs.
+  - **Pull requests: Read and write** — `POST …/pulls` (`open_pr/2`),
+    `GET`/`PATCH …/pulls/{n}` (`read_diff/2`, `update_pr_body/3`),
+    `GET …/pulls/{n}/comments` (`read_review_comments/3`), and the
+    two issues-API calls made on a PR number —
+    `GET`/`POST …/issues/{n}/comments` (`write_marker_comment/4`) and
+    `PUT …/issues/{n}/labels` (`set_pr_labels/3`) — which GitHub lists
+    under Pull requests as well as Issues, so no Issues permission is
+    needed.
+  - **Checks: Read** — `GET …/commits/{sha}/check-runs`
+    (`read_check_status/2`).
+  - **Metadata: Read**, mandatory on every fine-grained token.
+
+  Nothing reads workflow runs back (correlation rides the `run_key`
+  dispatch input and the OIDC callback), so Actions needs nothing
+  beyond the dispatch write. Classic tokens want `repo` plus
+  `workflow`, since the target repos are private and the fixture
+  write lands a workflow file — prefer fine-grained, as with
+  `DISPATCH_TOKEN`.
 
   **The footgun is the repository list, and it is §1's footgun again.**
   The owner and name come from the *project binding*, not from this
