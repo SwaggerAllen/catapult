@@ -119,11 +119,15 @@ jobs:
       #     expose one (`systems/generation.md`'s own fuller
       #     reasoning, carried here).
       #
-      # Unverified against a live run (`systems/generation.md`'s own
-      # flag, carried here): whether the OAuth/subscription
-      # credential's own session/weekly ceiling surfaces through this
-      # same `api_retry`/`rate_limit` shape — documented for API-key
-      # request-rate limiting — or through some other event entirely.
+      # The subscription credential's own session/weekly ceiling is
+      # classified by this same rule on a stated assumption
+      # (`systems/generation.md`'s ORC-215 entry): the docs give no
+      # event shape for a `-p` run hitting it, only that the run stops
+      # rather than waits. A `429` arriving as `api_retry`/`rate_limit`
+      # fails over as intended; a terminal `error_during_execution`
+      # with no retry event reports `other_failure` and does not — the
+      # rule's known blind spot. The first run to hit the ceiling
+      # settles which shape is real; its stream is in that run's log.
       - name: Run the agent
         id: agent
         env:
