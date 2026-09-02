@@ -98,7 +98,7 @@ defmodule Catapult.Delivery.HostPort do
           scope_key: map(),
           root_tag: String.t(),
           rendered_prompt: String.t(),
-          credential_name: String.t()
+          credential_names: [String.t()]
         }
 
   @type files :: %{String.t() => String.t()}

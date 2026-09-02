@@ -64,12 +64,14 @@ defmodule Catapult.Generation.ContextAssembly do
   alias Catapult.Engine.Store.Node
   alias Catapult.Engine.Store.Review
   alias Catapult.Generation.NodeId
+  alias Catapult.Generation.Runtime
 
   @type failure ::
           {:unknown_tier, String.t()}
           | {:prompt_not_found, String.t()}
           | {:template_invalid, term()}
           | {:render_failed, term()}
+          | {:unknown_credential_names, atom(), [String.t()]}
 
   @doc """
   Builds the dispatch request for `tier_name`/`node` (a `ReadyScopes`
@@ -85,7 +87,8 @@ defmodule Catapult.Generation.ContextAssembly do
          variables = build_variables(chain, project_id, generator_tier, node, review?),
          {:ok, prompt_path} <- resolve_prompt(chain, tier),
          {:ok, template} <- parse_template(prompt_path),
-         {:ok, rendered} <- render(template, variables, chain) do
+         {:ok, rendered} <- render(template, variables, chain),
+         {:ok, credential_names} <- bound_credential_names() do
       {:ok,
        %{
          project_id: project_id,
@@ -94,8 +97,27 @@ defmodule Catapult.Generation.ContextAssembly do
          scope_key: node.scope_key,
          root_tag: root_tag(tier),
          rendered_prompt: rendered,
-         credential_name: List.first(Catapult.Config.fetch!(:generation, :credential_order))
+         credential_names: credential_names
        }}
+    end
+  end
+
+  # The bindings entry for the `:generation` kind decides which
+  # runtime's credential names are legal (`systems/generation.md`'s
+  # ORC-215 entry: "keyed by whichever runtime is bound to the
+  # :generation kind") — `Catapult.Generation.cast_credential_order/1`
+  # only checks the value is drawn from *some* known runtime's set at
+  # boot (catching a typo before the first dispatch); this is the
+  # narrower, runtime-scoped check, run at request-build time because
+  # only here are both config values loaded and read together.
+  defp bound_credential_names do
+    runtime = Catapult.Config.fetch!(:generation, :runtime)
+    names = Catapult.Config.fetch!(:generation, :credential_order)
+    known = Runtime.credential_names(runtime)
+
+    case Enum.reject(names, &(&1 in known)) do
+      [] -> {:ok, names}
+      unknown -> {:error, {:unknown_credential_names, runtime, unknown}}
     end
   end
 

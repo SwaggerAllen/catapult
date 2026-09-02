@@ -56,7 +56,7 @@ defmodule Catapult.Delivery.HostPort.Fake do
       repo_name: "fake",
       root_tag: request.root_tag,
       rendered_prompt: request.rendered_prompt,
-      credential_sent: request.credential_name
+      credential_sent: request.credential_names
     })
 
     # Mirrors the Actions adapter's own contract: `{:ok, run_key}`

@@ -158,7 +158,10 @@ agent session on a runner. Three reasons, in order of weight:
    and adding one is more machinery than using the agent capability
    that already exists.
 3. **One execution path**, proven in production by orchestration's
-   Go pipeline, extended rather than duplicated.
+   Go pipeline, extended rather than duplicated **as a pattern, never
+   as code** — Catapult's own chain runs its own runner harness and
+   shares no code path with the pipeline that builds Catapult
+   (`systems/generation.md`).
 
 The plane renders context and serves it; agents fetch, generate,
 commit, and report; the plane validates at commit. **Latency doctrine:

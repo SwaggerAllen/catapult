@@ -32,7 +32,7 @@ defmodule Catapult.Delivery.StoreTest do
         repo_name: "widgets",
         root_tag: "comp",
         rendered_prompt: "hello",
-        credential_sent: "claude_code_oauth_token"
+        credential_sent: ["claude_code_oauth_token"]
       })
 
       assert %{status: :dispatched, github_run_id: nil} = Store.get_dispatch_run(run_key)
@@ -240,7 +240,7 @@ defmodule Catapult.Delivery.StoreTest do
         repo_name: "widgets",
         root_tag: "comp",
         rendered_prompt: "hello",
-        credential_sent: "claude_code_oauth_token"
+        credential_sent: ["claude_code_oauth_token"]
       })
 
       Store.insert_dispatch_run(%{
@@ -254,7 +254,7 @@ defmodule Catapult.Delivery.StoreTest do
         repo_name: "widgets",
         root_tag: "comp",
         rendered_prompt: "hello again",
-        credential_sent: "claude_code_oauth_token"
+        credential_sent: ["claude_code_oauth_token"]
       })
 
       # A different flow's own run never bleeds in.
@@ -269,7 +269,7 @@ defmodule Catapult.Delivery.StoreTest do
         repo_name: "widgets",
         root_tag: "comp",
         rendered_prompt: "unrelated",
-        credential_sent: "claude_code_oauth_token"
+        credential_sent: ["claude_code_oauth_token"]
       })
 
       assert [%{node_id: "n1"}, %{node_id: "n2"}] = Store.dispatch_runs_for_flow("p1", "f1")
