@@ -2290,8 +2290,9 @@ generating as scope-runs inside one ticket.
   `CommitDraft` landing on `Catapult.Engine.Aggregate` and projected
   from the `DraftCommitted` it emits. This system's own
   `Store.put_draft_body/4` sets a `body_sha` too, but on
-  `delivery_draft_bodies` — its shift-then-write cache for the
-  publish-time diff (ORC-114) — a different column entirely from the
+  `delivery_draft_bodies` — its cache of the reviewed tier's `draft`
+  variable, whose previous-body pair serves `document-review`'s
+  per-sentence diff (ORC-114) — a different column entirely from the
   one the terminal-status read above surfaces.
 - **How far the toy chain runs before release is a cost question this
   pass names rather than answers** (ORC-216, design pass — one of this
