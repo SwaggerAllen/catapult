@@ -942,14 +942,11 @@ profiles.
   what earns the admission the paragraph above claims: a tier is
   designed to read the role because this entry designs it.
 
-  **Deferred to the ticket that lands `frontend_sysarch`/`ui_coll`**
-  (`docs/build-plan.md`'s Phase 5, ORC-111): the
-  `ui_coll → design_system` dependency edge. That edge is `ui_coll`'s
-  side of the relationship — it belongs to whichever tier declares
-  `ui_coll` and its dependency list, not to this entry — and nothing
-  above depends on it existing yet: a
-  `design_system` node mints and holds content whether or not anything
-  yet declares a dependency on it.
+  **The `ui_coll → design_system` dependency edge is `ui_coll`'s side
+  of the relationship, not this entry's.** It belongs to whichever
+  tier declares `ui_coll` and its dependency list, and nothing here
+  depends on it: a `design_system` node mints and holds content
+  whether or not anything declares a dependency on it.
 
 ## Initial vs target
 
