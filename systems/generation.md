@@ -41,16 +41,15 @@ and validation logic and must not fork it.
   generation means an autoscaling worker pool pulling from the
   queue — generation never moves in-plane.
 - **`Extraction.mints/4` decides a minted node's initial status, not
-  only its identity** (ORC-117, design pass). Building a mint entry
-  already means resolving the target tier's own declaration out of
-  `chain`; that same lookup now also reads whether the target
-  declares a `draft:` block and carries the answer on the entry
-  (`:approved` for a join target, `:absent` otherwise), rather than
-  the reducer inferring it from bundle content it isn't supposed to
-  read. The decision this answers to — what a join target's status
-  means and why readiness needed no change — is `systems/engine.md`'s;
-  this entry only records that the computation sits here rather than
-  being rediscovered as a surprise in that ticket's diff.
+  only its identity** (ORC-117). Building a mint entry already means
+  resolving the target tier's own declaration out of `chain`; that
+  same lookup also reads whether the target declares a `draft:` block
+  and carries the answer on the entry (`:approved` for a join target,
+  `:absent` otherwise), rather than the reducer inferring it from
+  bundle content it isn't supposed to read. The decision this answers
+  to — what a join target's status means and why readiness needed no
+  change — is `systems/engine.md`'s; what is settled here is only
+  that the computation sits in this system.
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
   cluster canonically, managed opt-in) are two adapters over one
@@ -71,17 +70,14 @@ and validation logic and must not fork it.
   tokens over the dispatch channel. **Rendered context never
   contains bindings or credentials.**
 - **The endpoint's listener is foundation's, not a second one this
-  system stands up** (design review finding, ORC-9): `systems
-  /foundation.md` records where context-fetch and result-report are
-  actually served — a second path on the existing health listener,
-  composed from generation's and delivery's `api_surface/0`
-  declarations, ahead of the general router that will eventually
-  absorb them — and why it isn't dashboard's router yet. This ticket
-  carries `system:foundation` alongside `system:generation` and
-  `system:delivery` for exactly that reason: the handler logic (OIDC
-  validation, run correlation, context/result payloads) stays here and
-  in delivery's file map; foundation owns only the listener it answers
-  on.
+  system stands up**: `systems/foundation.md` records where
+  context-fetch and result-report are actually served — a second path
+  on the existing health listener, composed from generation's and
+  delivery's `api_surface/0` declarations, ahead of the general router
+  that will eventually absorb them — and why it isn't dashboard's
+  router yet. The handler logic (OIDC validation, run correlation,
+  context/result payloads) stays here and in delivery's file map;
+  foundation owns only the listener it answers on.
 - **Run-result reporting is that same authenticated callback, not a
   marker comment** (ORC-9's open question, resolved): the
   result-report call reuses the identical OIDC bearer settled in the
@@ -96,16 +92,14 @@ and validation logic and must not fork it.
   whose cadence the plane doesn't own — but a result report is
   plane-to-plane over a channel the plane owns both ends of, so the
   marker's reason for existing doesn't transfer here.
-- **Catapult owns its generation runner harness, built here** (ORC-215,
-  reversing this entry's own prior reading of ORC-9's open question).
-  The prior text read v5 §1.2's third reason — "one execution path...
-  extended rather than duplicated" — as a mandate to consume
-  orchestration's own harness as a pinned dependency, and read
-  `docs/non-goals.md`'s no-self-bootstrap entry as supporting that.
-  Neither does: §1.2's reason is proven-*pattern*, not proven-*code*
-  (sharpened there, ORC-215), and no-self-bootstrap is about consuming
-  the shared components (`components/**`) as an ordinary library user
-  — a different question from which repo authors a `workflow_dispatch`
+- **Catapult owns its generation runner harness, built here**
+  (ORC-215). Neither v5 §1.2's third reason — "one execution path...
+  extended rather than duplicated" — nor `docs/non-goals.md`'s
+  no-self-bootstrap entry mandates consuming orchestration's own
+  harness as a pinned dependency: §1.2's reason is proven-*pattern*,
+  not proven-*code*, and no-self-bootstrap is about consuming the
+  shared components (`components/**`) as an ordinary library user — a
+  different question from which repo authors a `workflow_dispatch`
   file this repo already pushes into a bound project's own repo
   (`systems/delivery.md`'s ORC-10 entry). Orchestration builds
   Catapult; it participates in none of Catapult's own mechanisms, this
@@ -121,23 +115,21 @@ and validation logic and must not fork it.
   workflow content, the same fixture-content mechanism `reset_repo/2`
   already pushes into a bound repo** (`systems/delivery.md`'s ORC-10
   entry) — no new mechanism, the placeholder step is filled in place.
-  Two alternatives, ruled out rather than merely unconsidered: a
-  composite action under this repo's own `.github/actions/**`,
+  A composite action under this repo's own `.github/actions/**`,
   referenced cross-repo from every bound project's workflow (`uses:
   <this repo>/…@ref`), would tie every dispatched run forever to this
   repo's own git history instead of to the reviewed commit its own
   bound-repo workflow file already pins — the mirror image of the
-  coupling §1.2's sharpened reason just closed off, one hop later —
-  and `.github/actions/**` has no owner in this repo today
+  coupling §1.2's reason closes off, one hop later — and
+  `.github/actions/**` has no owner in this repo today
   (`systems/README.md`'s unowned-paths list doesn't carry it), so
   creating one is the author's call, not a ticket's. A script fetched
-  from the plane at run time was the other candidate, also ruled out:
-  it would give the plane a live code-serving role beyond its two
-  settled dispatch endpoints (context-fetch, result-report), a new
-  authenticated surface bought for no protocol gain, and it ties an
-  in-flight run's behavior to whatever the plane's *current* deploy
-  happens to serve rather than to the commit its own workflow file
-  pinned when the run started.
+  from the plane at run time would give the plane a live code-serving
+  role beyond its two settled dispatch endpoints (context-fetch,
+  result-report), a new authenticated surface bought for no protocol
+  gain, and it would tie an in-flight run's behavior to whatever the
+  plane's *current* deploy happens to serve rather than to the commit
+  its own workflow file pinned when the run started.
 
   **The classified outcome vocabulary is not new** —
   `Catapult.Delivery.ResultHandler`'s `payload().status` is already
@@ -216,11 +208,8 @@ and validation logic and must not fork it.
   an `other_failure` on the subscription credential whose `result`
   names a usage limit is this rule's failure mode, and reads as one.
 
-  **No failover retires today, not on a future date** (this same
-  entry's prior text already named the day: "the adapter starts
-  sending the tunable's full ordered pair instead of its head — a
-  one-line change... because the contract was already built for two").
-  That day is this ticket: `HostPort.request`'s `credential_name`
+  **No failover retires today, not on a future date**: the contract
+  was already built for two, so `HostPort.request`'s `credential_name`
   widens to the bindings tunable's full ordered pair
   (`systems/delivery.md`'s own entry), and `Actions.dispatch_run/1`
   sends it whole.
@@ -233,9 +222,8 @@ and validation logic and must not fork it.
   bindings entry and zero protocol or bundle change" (v5 §7.10) literal
   rather than aspirational the moment Phase 7 lands its own kinds
   beside this one. Per-tier executor-profile routing (model, effort,
-  harness requirements) stays Target, unchanged by this entry — this
-  ticket picks one runtime for every generation dispatch project-wide,
-  never per tier.
+  harness requirements) stays Target: one runtime serves every
+  generation dispatch project-wide, never per tier.
 
   `Catapult.Generation.cast_credential_order/1`'s closed two-name set
   (`claude_code_oauth_token`, `anthropic_api_key`) is Claude-Code-
@@ -243,13 +231,12 @@ and validation logic and must not fork it.
   to the `:generation` kind — a second implementation's own credential
   names arrive as a new bindings entry, never a rewrite of this
   validator. The general bindings-as-plane-entities store (v5 §7.10)
-  still doesn't exist and this ticket doesn't build it: the
-  credential-order and kind→runtime tunables keep the
-  "accepted-for-now" env-var-config shape `Catapult.Generation`'s own
-  `config/0` already uses for exactly this reason, reorganized to be
-  keyed by implementation rather than hardcoded to Claude Code's two
-  names — a fact that holds however long the real store takes to
-  land, not a placeholder timed to this ticket.
+  does not exist yet: the credential-order and kind→runtime tunables
+  keep the "accepted-for-now" env-var-config shape
+  `Catapult.Generation`'s own `config/0` already uses for exactly this
+  reason, reorganized to be keyed by implementation rather than
+  hardcoded to Claude Code's two names — a fact that holds however
+  long the real store takes to land.
 - **Model credentials are a pair with limit-class failover** (v5
   §7.12.1): the runner harness accepts `ANTHROPIC_API_KEY` and/or
   `CLAUDE_CODE_OAUTH_TOKEN` — customer-side secrets the plane never
@@ -267,10 +254,10 @@ and validation logic and must not fork it.
   so in its own moduledoc ("the payload is a hint, never an
   authority — a consumer re-validates before acting on it") — so this
   executor's own re-check at dispatch time (is this scope still ready?
-  is it already committed?) is the same discipline one layer up, not
-  new work. The first invariant is where dedup actually has to live:
-  Oban's own job uniqueness, keyed on `{project_id, tier, scope_key}`
-  and held for the scope's in-flight window, is what turns a
+  is it already committed?) is the same discipline one layer up. The
+  first invariant is where dedup actually has to live: Oban's own job
+  uniqueness, keyed on `{project_id, tier, scope_key}` and held for
+  the scope's in-flight window, is what turns a
   liberally-re-announcing broadcast into one dispatch per scope,
   rather than a new in-plane pending-set — the exact kind of
   coordination memory the "holds no state" bullet above already
@@ -279,11 +266,9 @@ and validation logic and must not fork it.
   named reason (§7.15), never a further retry: the readiness query
   cannot distinguish "will succeed next window" from "never fits in a
   window," so the executor answers that with a query, not a counter —
-  **the count is derived from the log, never held** (design review
-  finding, ORC-9, resolving the apparent conflict with the invariant
-  just stated). Every limit-class run failure is its own event, on the
-  scope's node, in generation's own `events/0` (a new entry this
-  ticket adds), landing in the same per-project stream engine's
+  **the count is derived from the log, never held**. Every limit-class
+  run failure is its own event, on the scope's node, in generation's
+  own `events/0`, landing in the same per-project stream engine's
   `draft_committed` already writes to — one aggregate per project, not
   one per system. The derivation walks the log backward from now to
   the node's most recent `draft_committed` (or the log's start, if
@@ -295,12 +280,11 @@ and validation logic and must not fork it.
   plane's log, the same place every other derived answer in this
   system already lives (`systems/engine.md`'s "no in-memory
   pending-set" doctrine, one layer down), not in a table row or an
-  Oban attempt counter. The rejected alternative is concrete enough to
-  name the reason it's wrong: an Oban attempt count is scoped to one
-  job, and the uniqueness key that turns a re-announced ready scope
-  into one dispatch (above) is held only for the scope's in-flight
-  window — once that window closes, a redispatch is a *new* job
-  starting its attempt count at zero, so the very mechanism that
+  Oban attempt counter. An Oban attempt count could not hold it: it is
+  scoped to one job, and the uniqueness key that turns a re-announced
+  ready scope into one dispatch (above) is held only for the scope's
+  in-flight window — once that window closes, a redispatch is a *new*
+  job starting its attempt count at zero, so the very mechanism that
   dedups dispatch would silently reset the failure count it would have
   to hold. The log has no such window.
 - **ORC-87 confirmed rather than assumed, and this design carries its
@@ -326,14 +310,13 @@ and validation logic and must not fork it.
   `draft`: neither is review-tier-only (`docs/dsl-syntax.md` §9/§3.3,
   which also carries their rendered shapes).
 
-  Two decisions this entry deliberately does not restate, because each
-  is recorded where it would be edited: `since_sequence` is
-  caller-supplied rather than computed inside `execute/2`
-  (`Catapult.Engine.Commands.DeclineGate`, on this system's purity
-  floor), and the reset boundary is neither `DraftCommitted` nor a
-  position in the resolution sequence — `CommentFeedback`'s own
-  moduledoc names both rejected alternatives, their failure modes, and
-  the shipped bundle that breaks the second.
+  Two neighbouring decisions are recorded where they would be edited:
+  `since_sequence` is caller-supplied rather than computed inside
+  `execute/2` (`Catapult.Engine.Commands.DeclineGate`, on this
+  system's purity floor), and the reset boundary is neither
+  `DraftCommitted` nor a position in the resolution sequence
+  (`CommentFeedback`'s own moduledoc, which names why each of those
+  is wrong and the shipped bundle that breaks the second).
 
 - **`ContextAssembly` renders an `input.<role>`/`input.*` entry from a
   second, direct read of delivery — never through the node-collection
@@ -384,24 +367,22 @@ and validation logic and must not fork it.
   ORC-34 entry), then a second dispatch through the same fake reading
   the regenerated context back.
 
-  The ticket names the assertion most likely to be quietly skipped,
-  and it is bucketing, not occurrence: the test must post its comment
-  against one named node, decline that node's gate, and assert that
-  the *regenerated context for that node* —
-  `ContextAssembly.build_variables/5`'s `feedback` entry — carries the
-  comment's body, **and** that a sibling node minted off the same
-  parent, never declined, regenerates with no such feedback.
-  `CommentFeedback.since_last_resolution/2` is a per-`node_id` fold
-  (`systems/engine.md`); a test asserting only "regeneration happened"
-  cannot tell that fold apart from one bucketed by project or by gate
-  — which is exactly the class of bug this same fold's history already
-  produced once (the position-based `since_sequence` inference that
-  broke the moment a workflow declared more than one gate, corrected
-  on a third design-review pass in that file). Two nodes, one
-  declined, is the cheapest fixture that makes the two hypotheses
-  disagree, and the reasoning is orchestration's own, restated here
-  because it applies: assert the thing that would go wrong, not a
-  side effect every wrong implementation produces too.
+  The assertion most likely to be quietly skipped is bucketing, not
+  occurrence: the test must post its comment against one named node,
+  decline that node's gate, and assert that the *regenerated context
+  for that node* — `ContextAssembly.build_variables/5`'s `feedback`
+  entry — carries the comment's body, **and** that a sibling node
+  minted off the same parent, never declined, regenerates with no
+  such feedback. `CommentFeedback.since_last_resolution/2` is a
+  per-`node_id` fold (`systems/engine.md`); a test asserting only
+  "regeneration happened" cannot tell that fold apart from one
+  bucketed by project or by gate — which is exactly the class of bug
+  this same fold's history already produced once (the position-based
+  `since_sequence` inference that broke the moment a workflow
+  declared more than one gate). Two nodes, one declined, is the
+  cheapest fixture that makes the two hypotheses disagree, and the
+  reasoning is orchestration's own: assert the thing that would go
+  wrong, not a side effect every wrong implementation produces too.
 
   The `:live` variant extends `Catapult.Generation.ToySeedChainLiveTest`
   under the tag and the ORC-29 non-asks this file already binds it
@@ -415,20 +396,9 @@ and validation logic and must not fork it.
   test that could run offline tagged to run less often instead is
   worse than an empty gate, because it reports as coverage).
 
-  `docs/chain-runbook.md`'s retirement (this same design pass) leaves
-  two references dangling in files outside `designOwnedPaths`, for
-  dev to repoint when this ticket's test work lands rather than
-  leave to be found later:
-  `test/catapult/generation/fixtures/toy_seed/catapult-dispatch.yml`'s
-  header comment, and `toy_seed_chain_live_test.exs`'s own moduledoc,
-  which names the runbook as the reason that test doesn't assert a
-  round trip — the reason still holds (above), only its citation is
-  stale.
-
 - **A test must be able to assert that a generated tier's rendered
-  prompt reflects an `input.<role>` document, offline** (ORC-107,
-  reversing what this entry recorded before intake existed — see the
-  entry above for the mechanism). `ContextResolver.resolve/2` now
+  prompt reflects an `input.<role>` document, offline** (ORC-107; the
+  entry above carries the mechanism). `ContextResolver.resolve/2`
   returns `{:ok, []}` for every `input.*` walk (`systems/engine.md`'s
   entry), and `ContextAssembly` reads the pinned document straight off
   `Catapult.Delivery` for the variable itself rather than through that
@@ -474,25 +444,24 @@ and validation logic and must not fork it.
   memory of what it last enqueued, and `Catapult.Delivery` stays the
   one state of record for the lifecycle.
 
-  **A dev-pass discovery, named here rather than left implicit: the
-  sweep's own project enumeration has to widen too, or a freshly
+  **The sweep's own project enumeration widens too, or a freshly
   provisioned test project is never swept at all.** `Sweeper.sweep/0`
-  walked exactly `Catapult.Engine.Store.list_project_ids/0` — every
-  project id with a node, a flow or an active bundle version — and a
-  project the provisioning surface has only just minted, bound and
-  intake-pinned has none of the three until its first tier ever
+  walks the union of `Store.list_project_ids/0` and `Catapult.Delivery
+  .list_bound_project_ids/0` (every project id ever bound to a repo —
+  no dispatch happens without one regardless), never
+  `Catapult.Engine.Store.list_project_ids/0` alone: that read covers
+  every project id with a node, a flow or an active bundle version,
+  and a project the provisioning surface has only just minted, bound
+  and intake-pinned has none of the three until its first tier ever
   drafts. `feature_expansion`'s own singleton candidate is
   organically ready the moment a project id exists at all (this
-  file's own ORC-107 entry), so the missing piece was never
-  readiness — it was that the sweep never asked the question for a
-  project id it had not yet heard of. `Sweeper.sweep/0` now walks the
-  union of `Store.list_project_ids/0` and `Catapult.Delivery
-  .list_bound_project_ids/0` (every project id ever bound to a repo —
-  no dispatch happens without one regardless): Generation already
-  depends on Delivery for dispatch, so the union sits here rather
-  than widening `Catapult.Engine.Store.list_project_ids/0` itself,
-  which would reverse that dependency and close the cycle `mix xref
-  graph --format cycles --fail-above 0` refuses.
+  file's own ORC-107 entry), so readiness is never the missing piece —
+  a sweep that only asks about project ids it has already heard of
+  never asks the question at all. Generation already depends on
+  Delivery for dispatch, so the union sits here rather than widening
+  `Catapult.Engine.Store.list_project_ids/0` itself, which would
+  reverse that dependency and close the cycle `mix xref graph --format
+  cycles --fail-above 0` refuses.
 
 ## Initial vs target
 
