@@ -79,7 +79,12 @@ defmodule Catapult.Generation.TodoAppProofLiveTest do
         connect_options: [timeout: @request_timeout]
       )
 
-    assert provisioned.status == 200
+    # Same reason as toy_seed_chain_live_test.exs: the body and headers
+    # are the only evidence a failed run leaves here.
+    assert provisioned.status == 200,
+           "provisioning answered #{provisioned.status}: body #{inspect(provisioned.body)}, " <>
+             "headers #{inspect(provisioned.headers)}"
+
     assert %{"project_id" => project_id, "ref" => ref} = provisioned.body
     assert is_binary(project_id) and project_id != ""
     assert is_binary(ref) and ref != ""

@@ -87,7 +87,13 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
         connect_options: [timeout: @request_timeout]
       )
 
-    assert provisioned.status == 200
+    # The body and headers are the only evidence a failed run leaves
+    # here: a bare status assertion reported a 504 that the plane
+    # itself never emits, and nothing in the log said where it came from.
+    assert provisioned.status == 200,
+           "provisioning answered #{provisioned.status}: body #{inspect(provisioned.body)}, " <>
+             "headers #{inspect(provisioned.headers)}"
+
     assert %{"project_id" => project_id} = provisioned.body
 
     try do
