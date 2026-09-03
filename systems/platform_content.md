@@ -254,31 +254,28 @@ loader tickets carry `system:core_dsl`.
   full definition — see the content-delta entry below); `policy` is
   `child_of(sysarch)` with three `decomposition` mints (sysarch→policy
   from sysarch's project-level `<policies>`, comparch→policy from
-  comparch's component-local `<policies>`, and — landed this ticket —
-  non_goals→policy from the distilled intake set's own candidates,
-  above; three fanout instances into one flat pool is legal under the
-  loader as implemented today, since `Catapult.Dsl.Tier`'s scope check
-  only requires `child_of(X)` to name a *declared* tier, not the sole
-  edge targeting it); `ref` is
+  comparch's component-local `<policies>`, and non_goals→policy from
+  the distilled intake set's own candidates, above; three fanout
+  instances into one flat pool is legal under the loader, since
+  `Catapult.Dsl.Tier`'s scope check only requires `child_of(X)` to
+  name a *declared* tier, not the sole edge targeting it); `ref` is
   `scope: singleton`, read the same loose way ("the pool", not "the
   one node") since `identity: id` over a literal singleton would be
   meaningless and refs are things that accrete via a write tool, never
   minted by a fanout edge at all. **`ref` may attach anywhere, any
-  parent, any child** — an author decision loosening v4's "comparch
-  and below" restriction to a general rule: no per-use kinds, no
-  special-case lifecycles. This pass wires the attachment sites
-  (`edges/reference.yaml`'s three instances — comparch, subcomparch,
-  impl, one edge name per dsl-syntax.md §4.1) only where content is
-  actually consumed today, matching v4's own choice of sites — the
-  looser rule is about the `ref` tier's own shape carrying no
-  restriction, not a mandate to pre-wire every tier against a need
-  nothing has yet. `reference` is not among this ticket's own named
-  five edges (`fulfills`, `dependency`, `domain_parent`,
-  `decomposition`, `policy_application`), and folding ref attachment
-  into one of those five to hit the literal count would misname the
-  mechanism rather than honor "same mechanism, one name": ref
+  parent, any child** — v4's "comparch and below" restriction loosened
+  to a general rule: no per-use kinds, no special-case lifecycles. The
+  attachment sites (`edges/reference.yaml`'s three instances —
+  comparch, subcomparch, impl, one edge name per dsl-syntax.md §4.1)
+  are wired only where content is actually consumed, matching v4's
+  own choice of sites — the looser rule is about the `ref` tier's own
+  shape carrying no restriction, not a mandate to pre-wire every tier
+  against a need nothing has yet. `reference` is its own edge name
+  rather than an instance of `fulfills`, `dependency`,
+  `domain_parent`, `decomposition` or `policy_application`: ref
   attachment is not a mint, not the comp↔resp binding, and not a
-  policy scope grain.
+  policy scope grain, and folding it into one of those would misname
+  the mechanism rather than honor "same mechanism, one name".
   **Policy scoping is v5 §4.5's three grains, never `child_of(resp)`**:
   project-global (no scope edge — a `<policy>` with neither `<required>`
   nor `<structural/>`, read via `all.policy` when a tier genuinely
@@ -287,46 +284,40 @@ loader tickets carry `system:core_dsl`.
   load-bearing grain, since a policy bound to a resp survives a
   sysarch re-decomposition instead of being re-typed by hand), and
   direct component links for genuinely structural policies
-  (`policy_application`'s policy→comp instance, new grammar — siege's
-  own `<policy>` element only ever names a resp id via `<required>`;
-  the `<structural/>` marker this pass adds to `schemas/sysarch.xsd`
+  (`policy_application`'s policy→comp instance — grammar siege lacks:
+  its own `<policy>` element only ever names a resp id via
+  `<required>`; the `<structural/>` marker in `schemas/sysarch.xsd`
   and `schemas/comparch.xsd` is what a policy declares instead,
   mutually exclusive with `<required>` by the grammar's own
   `xs:choice`, never both). Both are instances of one
   `policy_application` edge (dsl-syntax.md §4.1).
-  **The through-responsibility read is wired, not a recorded gap.**
-  An earlier pass here read `comparch`'s one-hop context grammar as
-  unable to reach it and left both grains unread rather than
-  under-deliver the load-bearing one; design review called that the
-  wrong response to a missing construct. `dsl-syntax.md` §7.1's hop chains and reversed hops
-  (`.<edge>~`) are what changed: `comparch.yaml` now reads
-  `self.parent.policy_application~ -> policy.handle` (direct grain,
-  one reversed hop) and `self.parent.fulfills.policy_application~ ->
-  policy.handle` (through-responsibility grain, forward then
-  reversed), and both land in one `policy` collection (dsl-syntax.md
-  §9). No new edge was needed — `policy_application`'s two existing
-  instances already carry both grains in their declared direction;
-  reversal reads them backward at walk time.
+  **The through-responsibility read is wired.** A one-hop context
+  grammar that cannot reach a grain is a missing construct to propose
+  in `dsl-syntax.md`, not a reason to leave the load-bearing grain
+  unread; §7.1's hop chains and reversed hops (`.<edge>~`) are that
+  construct: `comparch.yaml` reads `self.parent.policy_application~ ->
+  policy.handle` (direct grain, one reversed hop) and
+  `self.parent.fulfills.policy_application~ -> policy.handle`
+  (through-responsibility grain, forward then reversed), and both land
+  in one `policy` collection (dsl-syntax.md §9). No new edge is needed
+  — `policy_application`'s two instances already carry both grains in
+  their declared direction; reversal reads them backward at walk time.
 
   **A distilled non-goal mints project-global, grain one, only — and
-  the schema says so rather than the prompt** (this ticket). The
-  `non_goals` tier's own policy-analog element carries no
-  `<required>`/`<structural/>` choice at all, unlike `sysarch`'s and
-  `comparch`'s `<policy>`: at intake there is no `resp` or `comp` id
-  either grain could reference, so the grammar that would let a model
-  invent one is simply absent, the same "enforced by the grammar, not
-  a boolean flag" posture the `xs:choice` above already takes for the
-  other two grains.
+  the schema says so rather than the prompt.** The `non_goals` tier's
+  own policy-analog element carries no `<required>`/`<structural/>`
+  choice at all, unlike `sysarch`'s and `comparch`'s `<policy>`: at
+  intake there is no `resp` or `comp` id either grain could reference,
+  so the grammar that would let a model invent one is simply absent,
+  the same "enforced by the grammar, not a boolean flag" posture the
+  `xs:choice` above already takes for the other two grains.
 
-  **The revisit-condition field is new, checked rather than assumed
-  present.** Neither `bundles/default/tiers/policy.yaml`'s `fields:`
-  nor either existing `<Policy>` complex type (`schemas/sysarch.xsd`,
-  `schemas/comparch.xsd`) carries one today — this ticket's own first
-  open question, closed by reading the tier rather than guessing at
-  it. It is added to all three `Policy` shapes (both existing ones,
-  for the general case v5 §4.5 states — any policy can be an argued
-  deferral, not only a distilled one — and the new distillation
-  schema) as one optional, free-text element: "never, argued" and "not
+  **The revisit condition is one optional, free-text element on every
+  `Policy` shape.** `bundles/default/tiers/policy.yaml`'s `fields:`,
+  both `<Policy>` complex types (`schemas/sysarch.xsd`,
+  `schemas/comparch.xsd`) and the distillation schema carry it — the
+  first two for the general case v5 §4.5 states: any policy can be an
+  argued deferral, not only a distilled one. "Never, argued" and "not
   until X" are values of that one field, per §4.5, never two shapes:
   an ordinary policy simply omits it, and a deferral's prompt guidance
   is to always fill it, whichever value applies. No closed vocabulary
@@ -338,26 +329,22 @@ loader tickets carry `system:core_dsl`.
   **No policy in this chain declares a grade, distilled or authored.**
   §4.5's promote-from-prose ladder and its enforcement-ticket machinery
   are unbuilt entirely, so a distilled non-goal carries none either —
-  it is exactly as ungraded as every other policy this chain already
-  ships. `prose` is what an absent grade already means operationally,
-  a consistency fact about the chain rather than a choice this ticket
-  makes; the enforcement ladder above `prose` arrives with its
-  consumers, unrelated to distillation.
+  it is exactly as ungraded as every other policy this chain ships.
+  `prose` is what an absent grade means operationally; the enforcement
+  ladder above `prose` arrives with its consumers, unrelated to
+  distillation.
 
   **`all.policy` reads every scope indiscriminately, so the
   project-global grain is not added to any scoped tier's context.**
-  `comparch.yaml`'s own comment already records why: `all.policy` is
+  `comparch.yaml`'s own comment records why: `all.policy` is
   unfiltered by construction (dsl-syntax.md §7.2) and would return
   every resp- and comp-scoped policy too, indiscriminate noise next to
   the grains a tier already reads explicitly. A scope-filtered "only
   the unscoped grain" read has no expression in this DSL, and supplying
-  one is a `core_dsl` question, not bundle content — wiring any
-  particular consumer once that lands, or once a consumer wants
-  `all.policy`'s indiscriminate reading on its own merits
+  one is a `core_dsl` question, not bundle content. A consumer that
+  wants `all.policy`'s indiscriminate reading on its own merits
   (reconciliation, whose job is project-wide by nature, is the
-  plausible first taker), is that consumer's own future design pass,
-  the same way the through-responsibility grain above got its own pass
-  rather than landing with policy's introduction.
+  plausible first taker) wires it itself.
 - **`mint.<name>` is the field source for every join-target tier**
   (`comp`, `subcomp`, `resp`, `policy`, and the mint-time identity
   fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in
@@ -382,58 +369,51 @@ loader tickets carry `system:core_dsl`.
   `upward_propagation` is further simplified from v4's two-stage
   `assessment_plan` + `propagation_plan` to one combined planning
   tier, since sequencing two flow-scoped tiers needs instance-level
-  flow-state ("has the upstream stage closed yet") that
-  "projection-time instance checks" (this ticket's own stated
-  out-of-scope) would have to supply. Flow instance state becoming a
-  real, checkable loader or engine concept is what would reopen the
-  two-stage split, on its own merits rather than under a content
-  port.
+  flow-state ("has the upstream stage closed yet") that only
+  projection-time instance checks could supply. Flow instance state
+  becoming a real, checkable loader or engine concept is what would
+  reopen the two-stage split, on its own merits rather than under a
+  content port.
 
   **Each flow's planning tier mints one `cascade_visit`-scoped node
   per node the flow's cascade actually visits, not one `singleton`
-  node per open instance** (design review). The first pass here read v5's closed scope
-  set as having no tier standing for "whichever tier this cascade is
-  currently visiting" the way v4's informal `scaffold_tier` did, and
-  concluded a real per-visited-node plan fan-out was inexpressible
-  without a `core_dsl` ticket's mandate. Design review rejected that
-  conclusion: a missing scope kind is a `dsl-syntax.md` proposal, the
-  same move already used for `mint.<name>`, not a reason to ship
-  without the capability. `cascade_visit` (dsl-syntax.md §3.1) is that
-  proposal, landed (`systems/core_dsl.md` records the grammar side);
+  node per open instance.** v5's closed scope set had no kind standing
+  for "whichever tier this cascade is currently visiting" the way v4's
+  informal `scaffold_tier` did, and a missing scope kind is a
+  `dsl-syntax.md` proposal — the same move `mint.<name>` made — not a
+  reason to ship without the capability. `cascade_visit` (dsl-syntax.md
+  §3.1) is that kind (`systems/core_dsl.md` records the grammar side);
   every `<flow>_plan` tier uses it, and `edges/plan_target.yaml`
   supplies the live pointer from a plan instance to the specific
-  scaffold node it is planning for — the "schema delta is where
-  plan→target lives, and it is empty" gap design review named,
-  closed. Completion follows the same shift: `all(<flow>_plan ->
-  resolved)` (`predicates.yaml`) reads "every visited node's plan has
-  resolved," the universal quantifier over the tier's own name as path
-  root (dsl-syntax.md §8's addendum) — not v4's `count(open_visit) ==
-  0` (still unparseable under `lib/catapult/dsl/predicate.ex`'s actual
-  grammar: no `open_visit` edge, no `decomposed_by(...)` call), and no
-  longer the single-node `resolved == true` this entry previously
-  described.
+  scaffold node it is planning for. Completion follows the same shape:
+  `all(<flow>_plan -> resolved)` (`predicates.yaml`) reads "every
+  visited node's plan has resolved," the universal quantifier over the
+  tier's own name as path root (dsl-syntax.md §8's addendum) — not
+  v4's `count(open_visit) == 0`, which is unparseable under
+  `lib/catapult/dsl/predicate.ex`'s grammar (no `open_visit` edge, no
+  `decomposed_by(...)` call), and not a single-node `resolved == true`.
 
   One gap remains open and is *not* a grammar question: no planning
   tier reads `ticket.findings` (dsl-syntax.md §7's "ticket thread for
   the scope", v5's replacement for v4's dropped `seed:` block) —
   `lib/catapult/dsl/dialect.ex` registers no context-source extension
-  in either dialect yet, so declaring it fails load — measured, not
+  in either dialect, so declaring it fails load — measured, not
   assumed. What is missing is a registration rather than a grammar:
   `ticket.findings` already parses and is already spec'd, and what it
   needs is a platform module implementing
   `Catapult.Dsl.Extension`'s `context_sources/0` and registering
   `"findings"`. That is `core_dsl`'s delivery-system milestone —
   plane extension code, not bundle content. Every planning tier reads
-  `input.project_doc` instead today, which is the frozen original
-  intake, not the flow's own new prose.
+  `input.project_doc` instead, which is the frozen original intake,
+  not the flow's own new prose.
 
   `feature_request`'s planning-tier prompt is
   `seed-docs/siege-prompts/propose_feature.md`, ported close to
   verbatim (real source, real content). The other four have no siege
   source — only prose describes them, with no shipped prompt — so
-  their planning-tier prompts are
-  authored fresh and kept proportionately small rather than padded to
-  match `feature_request`'s length.
+  their planning-tier prompts are authored fresh and kept
+  proportionately small rather than padded to match
+  `feature_request`'s length.
 - **The `modify_*` prompts fold into each tier's own generation
   prompt as a `{% if feedback %}` section, not into the flow
   layer.** `seed-docs/siege-prompts/modify_sysarch.md`,
@@ -476,40 +456,31 @@ loader tickets carry `system:core_dsl`.
   placement is not load-bearing today — it is the ticket-instructed
   shape, validated only as "does not break the loader," not as "is
   read by anything yet."
-- **A review is a tier, not a nested `review:` block** (ORC-84,
-  revising the previous pass's `critique`-as-positional-wrapper
-  reading of `docs/v5-design-decisions.md` §7.19). The eight LLM tiers
-  that carried a nested `review: {prompt, grammar}` block —
+- **A review is a tier, not a nested `review:` block** (ORC-84;
+  `docs/v5-design-decisions.md` §7.19). The eight LLM tiers —
   `sysarch`, `comparch`, `subcomparch`, `requirements`,
-  `feature_expansion`, `impl`, `ref`, `vocab` — lose it; each gains a
-  sibling tier file (`tiers/<name>_review.yaml`) declaring `reviews:
-  <name>` instead. `dsl-syntax.md` §3.3 documents the mechanism: a
-  review tier's scope and cardinality are the reviewed tier's by
-  construction (never restated), it carries no `draft:`/`produces:`
-  (comments, not a commit), and its `context:` is restated verbatim
-  and checked at load time against the reviewed tier's own `context:`
-  — the per-tier triad invariant made a load-time property instead of
-  a shared-assembly-code discipline. `delivery: {phase: critique,
-  agent_step: critique}` replaces the old `delivery: {phase:
-  generation, agent_step: design}` + implicit-wrapper reading; `tiers:
-  [tiers/*.yaml]` in `bundle.yaml` already globs the eight new files
-  in, so no manifest edit was needed. `bundles/platform-elixir/schemas
-  /review.xsd` gained `<score>` (integer, 0-100) and `id` on
-  `<finding>` in the same pass — both were already named load-bearing
-  by `docs/v5-design-decisions.md` §7.19's original text and by design
-  review's explicit "nothing in the review grammar gets trimmed," but
-  neither actually existed in the shipped grammar until this pass
-  found the gap while rewiring the eight tiers around it.
-  `dsl-syntax.md` §15.1's system-status table now carries `critique`
-  (added by a later pass on this same ticket, once the eight
-  `*_review.yaml` tiers below made `delivery: {phase: critique,
-  agent_step: critique}` real bundle content rather than a design
-  proposal) and this dev pass mirrors it into the loader's own closed
-  set — `Catapult.Dsl.SystemStatus.kinds/0` gains `:critique` between
-  `:generation` and `:fanout`, `agent_steps/0` gains `:critique`
-  between `:dev` and `:reconcile` — the same accepted-gap shape
-  `cascade_visit` and the reversed context-walk hop had before their
-  own loader support landed, now closed the same way.
+  `feature_expansion`, `impl`, `ref`, `vocab` — carry no nested
+  `review: {prompt, grammar}` block; each has a sibling tier file
+  (`tiers/<name>_review.yaml`) declaring `reviews: <name>` instead.
+  `dsl-syntax.md` §3.3 documents the mechanism: a review tier's scope
+  and cardinality are the reviewed tier's by construction (never
+  restated), it carries no `draft:`/`produces:` (comments, not a
+  commit), and its `context:` is restated verbatim and checked at load
+  time against the reviewed tier's own `context:` — the per-tier triad
+  invariant made a load-time property instead of a shared-assembly-code
+  discipline. A review tier's delivery is `delivery: {phase: critique,
+  agent_step: critique}`, not the reviewed tier's `delivery: {phase:
+  generation, agent_step: design}` with the review read as an implicit
+  wrapper; `tiers: [tiers/*.yaml]` in `bundle.yaml` globs the review
+  files in, so the manifest names none of them.
+  `bundles/platform-elixir/schemas/review.xsd` carries `<score>`
+  (integer, 0-100) and `id` on `<finding>` — both load-bearing per
+  `docs/v5-design-decisions.md` §7.19, and nothing in the review
+  grammar gets trimmed. `dsl-syntax.md` §15.1's system-status table
+  carries `critique`, and the loader's own closed set mirrors it —
+  `Catapult.Dsl.SystemStatus.kinds/0` has `:critique` between
+  `:generation` and `:fanout`, `agent_steps/0` has `:critique` between
+  `:dev` and `:reconcile`.
 
 - **A gate reads `depth: 0`; the architecture chain's `critique`
   entries read `depth: [2, 0]`** (ORC-92; `docs/v5-design-decisions.md`
@@ -557,9 +528,9 @@ loader tickets carry `system:core_dsl`.
   carries the guard once; `sysarch`, `comparch` and `subcomparch` each
   carry their own second copy, guarding the tier-specific "preserve X,
   when the feedback says Y do Z" content the partial doesn't have
-  (below, ORC-193) — the rule is about the spelling, not about which
-  copies fire, so it reaches all four. It generalizes further still: it
-  is the bundle-authoring rule for any future prompt gating on a
+  (below) — the rule is about the spelling, not about which copies
+  fire, so it reaches all four. It generalizes further still: it is
+  the bundle-authoring rule for any future prompt gating on a
   collection.
 
   **It is a rule spanning two trees, which is why it is recorded here
@@ -574,112 +545,98 @@ loader tickets carry `system:core_dsl`.
   moduledoc. The Solid mechanics behind the spelling live there too,
   including why a filter pipe is not available inside a conditional
   under `Solid.parse/1`. `test/catapult/generation/context_assembly
-  _test.exs` held all five templates with a working top-level guard
-  against all three shapes; ORC-193's dev pass narrows that to the four
-  named above once `vocab` and `ref` lose their own redundant copy —
+  _test.exs` holds the four copies above against all three shapes —
   these are the suite's claims to keep current, not the next reader's
   to re-derive by reading `deps/solid`.
 
-  **Corrected at ORC-193: the shared partial's own copy of this guard
-  being inert was not a hook waiting on a future caller — it was
-  masking two live defects, and the five prompts' own top-level copies
-  were never the working half ORC-184 took them for.** `{% render
-  "partials/<name>" %}` isolates the partial's scope from its caller's
-  unless the call passes arguments (`deps/solid`'s `RenderTag` — a
-  `with`/`for` binding, or a plain comma-separated `key: value` list);
-  none of `partials/_architecture_framing`'s thirteen call sites across
-  `bundles/default/{prompts,flows}/**` do, so `feedback` never enters
-  its scope and its `{% if feedback.size > 0 %}` block has never fired,
-  on any tier or flow. `draft` was never going to enter that scope
-  either way: it is generation-prompt-off-limits by `dsl-syntax.md`
-  §9's own design (`Catapult.Generation.ContextAssembly.build_variables/5`
-  sets it only for a review tier's own dispatch), and every one of the
-  thirteen call sites is a generation tier. That half of ORC-184's
-  entry stands — the correction is the other half.
+  **Every `{% render "partials/_architecture_framing" %}` passes
+  `feedback` explicitly, because `{% render %}` isolates the partial's
+  scope from its caller's.** Solid's `RenderTag` (`deps/solid`) lets a
+  caller's variables into a partial only through the call's own
+  arguments — a `with`/`for` binding, or a plain comma-separated
+  `key: value` list. A bare `{% render "partials/<name>" %}` leaves
+  `feedback` outside the partial's scope, so its `{% if feedback.size
+  > 0 %}` block never fires, on any tier or flow — which is how the
+  partial's copy of this guard sat inert across all thirteen call
+  sites in `bundles/default/{prompts,flows}/**` while masking two live
+  defects (ORC-193). Each of the thirteen therefore reads `{% render
+  "partials/_architecture_framing", feedback: feedback %}`. `draft` is
+  not passed: it is generation-prompt-off-limits by `dsl-syntax.md`
+  §9's own design
+  (`Catapult.Generation.ContextAssembly.build_variables/5` sets it
+  only for a review tier's own dispatch), and every one of the
+  thirteen call sites is a generation tier, so the partial carries no
+  `{{ draft }}` and no "Current draft is below" framing; its section
+  is worded around what a generation-tier regeneration actually has:
+  the feedback text, and the same upstream `context:` the tier's
+  fresh-generation half already reads.
 
-  ORC-184 read the five prompts' own top-level guards (`vocab`, `ref`,
-  `subcomparch`, `sysarch`, `comparch`) as "what actually gates a
-  revision section today," on the reasoning that they read `feedback`
-  directly from `ContextAssembly`'s own context rather than through the
-  isolated partial. True as far as it goes, and not far enough: none of
-  the five ever interpolates `{{ feedback }}` — they gate on
-  `feedback.size > 0` and then emit static prose ("preserve everything
-  the feedback doesn't ask you to change") that never shows the model
-  what the feedback said. A firing guard with nothing behind it is not
-  the working half of anything; it is a second inert copy that merely
-  fails silently instead of failing loud.
+  The first defect the dead guard masked: a top-level guard that fires
+  and then emits only static prose ("preserve everything the feedback
+  doesn't ask you to change") never shows the model what the feedback
+  said. A prompt's own guard reads `feedback` directly from
+  `ContextAssembly`'s context rather than through the isolated
+  partial, so it does fire — and a firing guard with nothing behind it
+  is not the working half of anything; it is a second inert copy that
+  merely fails silently instead of failing loud. That was the shape of
+  all five shipped prompts' own guards (`vocab`, `ref`, `subcomparch`,
+  `sysarch`, `comparch`): none interpolated `{{ feedback }}` at all.
 
-  Worse, had the partial's own copy been made to fire by passing
-  `feedback` through unmodified — `{% render
-  "partials/_architecture_framing", feedback: feedback %}` and its
-  fellow twelve — its bare `{{ feedback }}` would not have started
-  rendering the comment text either. `feedback` is a list of maps
+  The second: a bare `{{ feedback }}` does not render the comment text
+  either. `feedback` is a list of maps
   (`body`/`locator`/`author_id`/`posted_at`); Solid's list-stringify
   path flattens and `Enum.join`s, which calls `to_string` per element,
   and a bare Elixir map has no `String.Chars` implementation — verified
   directly against `deps/solid`: `{{ feedback }}` on a non-empty list
-  raises `Protocol.UndefinedError`, not a wrong rendering. So the
-  straightforward-looking fix (pass the variable, leave the
-  interpolation as written) would have turned "the model never sees
-  feedback" into "generation crashes the first time any node carries
-  feedback" — a regression the partial's dead guard was accidentally
-  shielding against. **A `feedback`-shaped collection is rendered via
+  raises `Protocol.UndefinedError`, not a wrong rendering. So passing
+  the variable through and leaving the partial's interpolation as
+  written would have turned "the model never sees feedback" into
+  "generation crashes the first time any node carries feedback" — a
+  regression the partial's dead guard was accidentally shielding
+  against. **A `feedback`-shaped collection is rendered via
   `{% for entry in feedback %}`, printing the fields the model needs
   (`entry.body`, `entry.author_id`, `entry.posted_at`), never
   interpolated bare** — the same "spelling, not which copies fire"
-  generalization the `.size > 0` entry above makes, extended to cover
+  generalization the `.size > 0` rule above makes, extended to cover
   what a collection guard's own body does once it opens.
 
   That rule is the suite's to hold, not the next reader's to re-verify
-  against `deps/solid`. ORC-193's dev pass extends
-  `context_assembly_test.exs`'s direct-render harness (`Solid.parse/1`
-  + `Solid.render/3` against the real `bundles/default/prompts` tree,
-  cited above) to parse and render the partial file itself against the
-  same populated shape that harness already drives through the guarded
-  templates — `%{"feedback" => [%{"body" => "..."}]}`, string-keyed
-  because that is what Solid resolves against — asserting the `{% for
-  entry in feedback %}` loop renders each entry's fields. That is the
-  coverage a bare `{{ feedback }}` would fail, which is what makes the
-  spelling above a checked rule rather than a remembered one.
+  against `deps/solid`. `context_assembly_test.exs`'s direct-render
+  harness (`Solid.parse/1` + `Solid.render/3` against the real
+  `bundles/default/prompts` tree, cited above) parses and renders the
+  partial file itself against the same populated shape it drives
+  through the guarded templates — `%{"feedback" => [%{"body" =>
+  "..."}]}`, string-keyed because that is what Solid resolves against
+  — asserting the `{% for entry in feedback %}` loop renders each
+  entry's fields. That is the coverage a bare `{{ feedback }}` would
+  fail, which is what makes the spelling above a checked rule rather
+  than a remembered one.
 
-  The fix: all thirteen call sites pass `feedback` explicitly using
-  that corrected form, so the partial's guard and its `{% for %}` loop
-  finally reach every tier and flow. `{{ draft }}` and the "Current
-  draft is below" framing are retired from the partial along with it —
-  not wired through, since nothing will ever populate it there — and
-  the section is reworded around what a generation-tier regeneration
-  actually has: the feedback text, and the same upstream `context:`
-  the tier's fresh-generation half already reads. `vocab` and `ref`'s
-  own top-level guards, which duplicated the partial's generic framing
-  without ever showing the feedback either, are retired outright once
-  the partial reaches them correctly. `sysarch`, `comparch` and
-  `subcomparch` keep their own guards — a different location in the
-  file from the partial's render call at the top, so the partial firing
-  there doesn't reach it — but trimmed to only the tier-specific
-  "preserve X, when the feedback says Y do Z" bullets ported from their
-  `modify_*.md` sources; the generic preamble those three also carried
-  is dropped in favor of the partial's single copy. Three shipped
-  prompts carry their own guard after this fix, not five.
+  Three shipped prompts carry a guard of their own: `sysarch`,
+  `comparch` and `subcomparch`. Theirs sits at a different location in
+  the file from the partial's render call at the top, so the partial
+  firing there doesn't reach it, and it is trimmed to only the
+  tier-specific "preserve X, when the feedback says Y do Z" bullets
+  ported from their `modify_*.md` sources — the generic preamble is
+  the partial's single copy. `vocab` and `ref` carry none: theirs
+  duplicated the partial's generic framing without showing the
+  feedback either, and the partial reaches them.
 
-  **What this does not close.** Even with the feedback text now
-  visible, "preserve every alias, dep edge and policy the feedback
-  doesn't touch, verbatim" — the tier-specific content `sysarch`,
-  `comparch` and `subcomparch` keep — asks the model to round-trip a
-  body it is never shown: `draft` stays off-limits to a generation
-  tier's own prompt regardless of what this fix does, so nothing here
-  gives the model a baseline to preserve *against*. That gap predates
-  this ticket (it was already true of the five prompts' guards before
-  ORC-193, just masked by the guards never printing the feedback that
-  would have made someone notice), and closing it for real means either
-  admitting `draft` to a generation tier's prompt specifically when it
-  is regenerating over feedback — narrowing, not repealing, §9's
-  "review-tier alone" rule — or replacing the verbatim-preservation
-  instruction with something achievable without it. Left open here
-  because it is a standing-invariant question spanning `dsl-syntax.md`
-  §9/§3.3, `systems/generation.md`'s own restatement of the same rule,
-  and this doc, not a call-convention fix; a future ticket's to settle,
-  named rather than silently carried forward as unenforceable prompt
-  text.
+  **What this does not close.** Even with the feedback text visible,
+  "preserve every alias, dep edge and policy the feedback doesn't
+  touch, verbatim" — the tier-specific content `sysarch`, `comparch`
+  and `subcomparch` keep — asks the model to round-trip a body it is
+  never shown: `draft` stays off-limits to a generation tier's own
+  prompt, so nothing gives the model a baseline to preserve *against*.
+  Closing it means either admitting `draft` to a generation tier's
+  prompt specifically when it is regenerating over feedback —
+  narrowing, not repealing, §9's "review-tier alone" rule — or
+  replacing the verbatim-preservation instruction with something
+  achievable without it. It is a standing-invariant question spanning
+  `dsl-syntax.md` §9/§3.3, `systems/generation.md`'s own restatement
+  of the same rule, and this doc, not a call-convention fix, and it is
+  named here rather than carried forward silently as unenforceable
+  prompt text.
 
 - **`partials/_review_framing` has the same scope-isolation defect
   ORC-193 fixed on the generation side, and every review tier carries
@@ -757,28 +714,27 @@ loader tickets carry `system:core_dsl`.
   declaration has not drawn (ORC-179).
 
 - **`bundles/platform-elixir/` folds into `bundles/default/`, and
-  `extends:` retires from the DSL** (ORC-153, design pass;
+  `extends:` retires from the DSL** (ORC-153;
   `docs/v5-design-decisions.md` §5.5, §6, §7.18; `docs/dsl-syntax.md`
   §11). The layer's only content, `schemas/review.xsd` — a
-  platform-wide review grammar belonging to no language — moves into
+  platform-wide review grammar belonging to no language — lives in
   the chain bundle's own `schemas/`; nothing else was ever loaded onto
   the stub (the convention grammars, template tiers and enforcement
-  profiles the ORC-84 entry above scoped to "a separate ticket's job"
-  never shipped there). That was `extends:`'s last user on either
-  axis — the workflow axis lost its own base layer at ORC-105's fourth
-  pass — so a chain bundle becomes a single directory of authored
-  content, the same shape a workflow bundle has been since that pass,
-  and `extends:` becomes an unknown key on any bundle's manifest.
-  **The bundle-relative content-path traversal guard is not part of
-  what retires**: a `prompt:` or `grammar:` path is still checked
-  against escaping its own bundle wherever single-directory path
-  resolution lands, because that guard is about bundle-authored
-  content being untrusted input, not about there being a second layer
-  underneath to escape into.
+  profiles the ORC-84 entry above names for an elixir-target layer
+  never shipped there). The workflow axis carries no base layer either
+  (ORC-105), so `extends:` has no user on either axis: a chain bundle
+  is a single directory of authored content, the same shape a
+  workflow bundle has, and `extends:` is an unknown key on any
+  bundle's manifest. **The bundle-relative content-path traversal
+  guard is not part of what retires**: a `prompt:` or `grammar:` path
+  is still checked against escaping its own bundle under
+  single-directory path resolution, because that guard is about
+  bundle-authored content being untrusted input, not about there
+  being a second layer underneath to escape into.
 
 - **`journeys`/`journey` and `screens`/`screen` land as two more
   spine-plus-projection pairs, the identical shape `requirements`/
-  `resp` already has** (ORC-109, design pass; `docs/v5-design-decisions.md`
+  `resp` already has** (ORC-109; `docs/v5-design-decisions.md`
   §4.1-§4.3). Chain placement: `feature_expansion → journeys → screens
   → requirements → sysarch → …` — both new tiers sit `scope:
   per(feature_expansion)`, `context: [self.parent.handle]` (plus the
@@ -788,7 +744,7 @@ loader tickets carry `system:core_dsl`.
   responsibility. `journey` and `screen` are each a bare
   `child_of(journeys)` / `child_of(screens)` projection — `mint.<name>`
   fields only, `generator: synthesis`, no draft, no prompt, no review
-  — minted by two new `decomposition` instances (`journeys.draft
+  — minted by two `decomposition` instances (`journeys.draft
   .journey[]`, `screens.draft.screen[]`), the same join-target shape
   `resp` already has relative to `requirements` and `comp` has
   relative to `sysarch`. **Not `vocab`'s shape**: `vocab` splits mint
@@ -798,7 +754,7 @@ loader tickets carry `system:core_dsl`.
   records why). Neither `journeys` nor `screens` has that reason to
   split — each is already the tier whose job is to fully author its
   rows — so the `requirements`/`resp` shape is the one that fits, not
-  `vocab`'s, and no stub block is added to `feature_expansion.xsd` for
+  `vocab`'s, and `feature_expansion.xsd` carries no stub block for
   either. `journey`'s handle carries everything its mint row does
   (name/slug, argument, `feats`, the ordered screen-walk, the state
   block) rather than `resp`'s minimal `id, name, feats` — comp's own
@@ -813,12 +769,12 @@ loader tickets carry `system:core_dsl`.
   [self.parent.handle, all.journey.handle]`. `all.journey.handle` —
   the individual children, not `all.journeys.handle` — is the walk
   that actually reaches each journey's ordered screen-walk and state
-  block; `journeys`' own handle, like `requirements`' own handle today
+  block; `journeys`' own handle, like `requirements`' own handle
   (`fields: [id, intro]`), carries no per-row content.
 
   `feature_expansion` and `screens` both carry `input.mocks` in their
-  own `context:` — §4.1 names both, wired in the same change; the
-  entry below this block names the shape.
+  own `context:` — §4.1 names both; the entry below this block names
+  the shape.
 
   This is also why `screens` cannot be `child_of(journey)`: a screen
   legitimately named by more than one journey's walk (`v5 §4.2`'s
@@ -835,7 +791,7 @@ loader tickets carry `system:core_dsl`.
   feature-ish cross-reference in this bundle (features aren't a tier
   either, and nothing here promotes them to one). What *is* a formal,
   loader-checked graph fact is screen membership and IA navigation,
-  because both sides are now real tiers:
+  because both sides are real tiers:
   - **`reference` gains three instances**: `source: journey, target:
     screen, declared_in: screens.draft.screen[].journeys.journey[].@ref`
     (screen belongs to 0..n journeys — declared on the `screens` side,
@@ -854,61 +810,61 @@ loader tickets carry `system:core_dsl`.
   - **A new `navigation` edge**: `type: reference`, `navigation: true`,
     `source: screen, target: screen`, `declared_in: screens.draft
     .screen[].navigation.edge[].@to`, no `graph_constraint` — this is
-    the edge `docs/dsl-syntax.md`'s existing v5 rule ("navigation edges
-    \[…\] are cyclic-legal reference edges" and "must never appear in a
-    readiness-bearing context walk") already anticipated; this ticket
-    is what actually declares it. Declared inside `screens`' own draft
-    (same document as every screen it connects), so no forward
-    reference here either.
+    the edge `docs/dsl-syntax.md`'s v5 rule ("navigation edges \[…\]
+    are cyclic-legal reference edges" and "must never appear in a
+    readiness-bearing context walk") anticipates, and `screens` is
+    where it is declared. Declared inside `screens`' own draft (same
+    document as every screen it connects), so no forward reference
+    here either.
 
-  **Two of the three open questions this ticket named are settled by
-  the shape above, not left open:**
-  - *Whether a journey needs its own review tier*: yes, `journeys_review`
-    (`reviews: journeys`) and `screens_review` (`reviews: screens`) —
-    the per-tier triad invariant applies to the two authored spines the
-    same way it applies to `requirements`; `journey` and `screen`, like
-    `resp` and `comp`, are projections and get no review tier of their
-    own, because there is nothing there for a review to read that
-    `journeys`'/`screens`' own review doesn't already cover.
-  - *Whether requirements re-scopes or just gains walks*: **stays
-    `per(feature_expansion)`, gains `all.journey.handle` and
-    `all.screen.handle`.** Re-scoping to one requirements node per
-    screen would fragment the rotation requirements exists to do —
-    its whole job (seen already in `prompts/requirements.md.liquid`'s
-    own framing, "features onto system-side axes: auth produces
-    several…") is consolidating many surfaces into few cross-cutting
-    responsibilities, which needs one pass seeing every surface at
-    once, not one pass per surface. `<responsibility>` gains journey
-    and screen reference blocks alongside its existing `<feats>` (kept
-    — a responsibility can be grounded in a feature with no product
-    surface yet, and `<feats>` is still the primary grounding); the
-    requirements prompt is instructed to prefer citing a journey over
-    a screen when a responsibility's feature is journey-backed, falling
-    back to a direct screen reference for standalone screens (v5
-    §4.2's own "responsibilities prefer journey references" and "the
-    bridge falls back to screen refs"), and the `reference` edge's
-    resp→journey / resp→screen instances above are what those
-    citations resolve against.
+  **Two more decisions follow from that shape:**
+  - **`journeys` and `screens` each have a review tier**:
+    `journeys_review` (`reviews: journeys`) and `screens_review`
+    (`reviews: screens`) — the per-tier triad invariant applies to the
+    two authored spines the same way it applies to `requirements`;
+    `journey` and `screen`, like `resp` and `comp`, are projections and
+    get no review tier of their own, because there is nothing there
+    for a review to read that `journeys`'/`screens`' own review doesn't
+    already cover.
+  - **`requirements` stays `per(feature_expansion)`, and gains
+    `all.journey.handle` and `all.screen.handle`.** Re-scoping to one
+    requirements node per screen would fragment the rotation
+    requirements exists to do — its whole job (seen already in
+    `prompts/requirements.md.liquid`'s own framing, "features onto
+    system-side axes: auth produces several…") is consolidating many
+    surfaces into few cross-cutting responsibilities, which needs one
+    pass seeing every surface at once, not one pass per surface.
+    `<responsibility>` gains journey and screen reference blocks
+    alongside its existing `<feats>` (kept — a responsibility can be
+    grounded in a feature with no product surface yet, and `<feats>`
+    is still the primary grounding); the requirements prompt is
+    instructed to prefer citing a journey over a screen when a
+    responsibility's feature is journey-backed, falling back to a
+    direct screen reference for standalone screens (v5 §4.2's own
+    "responsibilities prefer journey references" and "the bridge falls
+    back to screen refs"), and the `reference` edge's resp→journey /
+    resp→screen instances above are what those citations resolve
+    against.
 
-  **The third — screen groups vs. IA regions — is settled in
-  `docs/v5-design-decisions.md` §4.3 itself**, where `screen group`'s
-  semantics are now recorded: a free-form signal into
-  `frontend_sysarch`'s later IA-region grouping (§5.3), not the region
-  itself and not a gate on it — §5.3's own "journeys are a signal, not
-  a gate" rule extended to this field. Nothing here changes because of
-  it: `screen group` was already a plain string in `screens`' grammar,
-  validated against no vocabulary, so this is a semantics-only
-  settlement with no schema consequence for this tier.
+  **Screen groups vs. IA regions is settled in
+  `docs/v5-design-decisions.md` §4.3 itself**, which records `screen
+  group`'s semantics: a free-form signal into `frontend_sysarch`'s
+  later IA-region grouping (§5.3), not the region itself and not a
+  gate on it — §5.3's own "journeys are a signal, not a gate" rule
+  extended to this field. `screen group` is a plain string in
+  `screens`' grammar, validated against no vocabulary, so the
+  settlement is semantics-only with no schema consequence for this
+  tier.
 
   **Not the same "screen" as this repo's own.** `journey`/`screen` are
   chain tiers a *generated project's* product tier mints; Catapult's
   own `screens/*.md` is orchestration's native screen machinery and is
   unrelated (`docs/build-plan.md`'s own standing decision for the
   build, not a Phase 5 one: "Catapult's product tier … doesn't apply
-  to Catapult itself"). This design pass commits no entry under
-  `screens/` or `storybook/` for that reason — there is no UI screen
-  here to define, only chain content, and chain content is dev's to
-  write into `bundles/**`.
+  to Catapult itself"). No entry under `screens/` or `storybook/`
+  exists for them for that reason — there is no UI screen here to
+  define, only chain content, and chain content is dev's to write
+  into `bundles/**`.
 
 - **`feature_expansion` and `screens` gain `input.mocks`, closing the
   wiring the entry above deferred** (ORC-110, design pass;
@@ -981,26 +937,27 @@ loader tickets carry `system:core_dsl`.
 - **`frontend_sysarch` mints both collection families in one pass, and
   the UI and screen families are each two authored tiers plus `impl`,
   the identical mint-then-articulate shape the backend chain already
-  has** (ORC-111, design pass; `docs/v5-design-decisions.md` §5.1-§5.4;
-  `docs/build-plan.md`'s Phase 5 entry). Same reason `screens` commits
-  no entry under `screens/`/`storybook/`: there is no UI screen here to
-  define either, only chain content, and chain content is dev's to
-  write into `bundles/**`.
+  has** (ORC-111; `docs/v5-design-decisions.md` §5.1-§5.4;
+  `docs/build-plan.md`'s Phase 5 entry). No entry under
+  `screens/`/`storybook/` exists for these tiers, for the same reason
+  `journeys`/`screens` have none: there is no UI screen here to define
+  either, only chain content, and chain content is dev's to write into
+  `bundles/**`.
 
   **Chain placement and per-family tiers.** `frontend_sysarch` is
-  `scope: singleton` (the ticket's own word for it, and the closed
-  scope set — dsl-syntax.md §3.1 — has a real kind for exactly this: no
-  `per(X)` parent it would otherwise need a context walk to reach), one
-  `generator: llm` draft per project, reading `context: [all.journey
-  .handle, all.screen.handle, all.sysarch.handle]` — three `all.<tier>`
-  walks (dsl-syntax.md §7.2), no edge needed for any of them, the same
-  no-owning-parent case `vocab`/`ref`/project-global `policy` already
-  use. `all.sysarch.handle` is what makes "reads … the backend sysarch
-  handle" (the ticket's own phrase) expressible at all: `sysarch` is
-  `scope: per(requirements)`, a sibling of `frontend_sysarch` under no
-  common fanout edge, so there is no `self.parent` walk between them —
-  `all.<tier>` is exactly the mechanism this loader ships for a needed
-  read with no walkable relationship, not a workaround.
+  `scope: singleton` (the closed scope set — dsl-syntax.md §3.1 — has
+  a real kind for exactly this: no `per(X)` parent it would otherwise
+  need a context walk to reach), one `generator: llm` draft per
+  project, reading `context: [all.journey.handle, all.screen.handle,
+  all.sysarch.handle]` — three `all.<tier>` walks (dsl-syntax.md
+  §7.2), no edge needed for any of them, the same no-owning-parent
+  case `vocab`/`ref`/project-global `policy` already use.
+  `all.sysarch.handle` is what makes reading the backend sysarch
+  handle expressible at all: `sysarch` is `scope: per(requirements)`,
+  a sibling of `frontend_sysarch` under no common fanout edge, so
+  there is no `self.parent` walk between them — `all.<tier>` is
+  exactly the mechanism this loader ships for a needed read with no
+  walkable relationship, not a workaround.
 
   Each family is `<coll> → <collarch> → <subcomp> → <subcomparch> →
   impl_<family>`, the backend shape renamed per family: UI
@@ -1018,13 +975,13 @@ loader tickets carry `system:core_dsl`.
   are `per(...)` their own subcomp, `generator: llm`, mirroring
   `subcomparch`; `impl_ui`/`impl_screen` are `per(...)` their own
   subcomp, `generator: llm`, mirroring `impl`. Fragment ownership
-  follows the same 5-then-3 split ORC-84 already settled for the
-  backend pair (`techspec`/`pubapi`/`privapi`/`policies`/
+  follows the same 5-then-3 split the backend pair has (the ORC-84
+  entry above: `techspec`/`pubapi`/`privapi`/`policies`/
   `failure_surface` at `*_coll`, written by `*_collarch`; `techspec`/
   `pubapi`/`privapi` at `*_subcomp`, written by `*_subcomparch`) — the
   fragment vocabulary is a bundle-wide closed set of 5 kinds, not a
-  per-family one, so this is that existing rule applied, not a fresh
-  choice. Every `generator: llm` tier in both families gains a sibling
+  per-family one, so this is that rule applied, not a per-family
+  choice. Every `generator: llm` tier in both families has a sibling
   `_review` tier (`frontend_sysarch_review`, `ui_collarch_review`,
   `ui_subcomparch_review`, `impl_ui_review`, `screen_collarch_review`,
   `screen_subcomparch_review`, `impl_screen_review`) the same way the
@@ -1037,58 +994,56 @@ loader tickets carry `system:core_dsl`.
   work-item type declaration itself draws a `design`/`architecture`
   split (above) — none of these are that type-level declaration.
 
-  **Backend's terminal tier takes its family-qualified name now.**
-  `bundles/default/tiers/impl.yaml` becomes `impl_backend.yaml`
-  (`tier: impl_backend`), and `impl_review.yaml` follows it
-  (`impl_backend_review.yaml`, `reviews: impl_backend`) — ORC-106
-  settled that this happens once the other three families' `impl`
-  tiers exist alongside it; this ticket is what gives it the first two.
-  No other backend tier, edge or prompt changes shape for this — the
-  rename is a name, not a restructuring.
+  **Backend's terminal tier carries its family-qualified name.**
+  `bundles/default/tiers/impl.yaml` is `impl_backend.yaml` (`tier:
+  impl_backend`), and `impl_review.yaml` follows it
+  (`impl_backend_review.yaml`, `reviews: impl_backend`) — the name
+  qualifies once another family's `impl` tier exists alongside it
+  (ORC-106), and `impl_ui`/`impl_screen` do. No other backend tier,
+  edge or prompt changes shape for this — the rename is a name, not a
+  restructuring.
 
-  **Minting two target tiers from one source, resolved: already the
-  loader's shape, not a new one.** The ticket's own open question here
-  is answered by a site already shipped in this bundle rather than by
-  new grammar: `edges/decomposition.yaml`'s `sysarch` source already
-  fans into two different targets, `comp` and `policy`, as two
-  `instances:` entries under one edge name — "the same source fanning
-  out to several different target tiers," in dsl-syntax.md §4.1's own
-  words, describing exactly this shape and already load-bearing.
-  `frontend_sysarch` gains two more `decomposition` instances the
-  identical way: `source: frontend_sysarch, target: ui_coll,
-  declared_in: frontend_sysarch.draft.ui_collections.collection[]`
-  (`cardinality: source: {min: 0}` — a project may recurrence-seed no
-  shared widgets — `target: {min: 1, max: 1}`) and `source:
-  frontend_sysarch, target: screen_coll, declared_in: frontend_sysarch
-  .draft.screen_collections.collection[]` (`source: {min: 1}` — every
-  project's screens need at least one hosting collection, mirroring
-  `screens`' own `{min: 1}` — `target: {min: 1, max: 1}`).
-  `ui_collarch → ui_subcomp` and `screen_collarch → screen_subcomp` are
-  two further `decomposition` instances, the same shape `comparch →
-  subcomp` already has. `decomposition` (`bundles/default/edges
-  /decomposition.yaml`) now names `sysarch→comp`, `comparch→subcomp`,
-  `feature_expansion→vocab`, `requirements→resp`, `sysarch→policy`,
-  `comparch→policy`, `non_goals→policy`, `journeys→journey` and
-  `screens→screen` already, plus the four this entry adds — not a new
+  **Minting two target tiers from one source is the loader's existing
+  shape, not a new one.** `edges/decomposition.yaml`'s `sysarch`
+  source already fans into two different targets, `comp` and `policy`,
+  as two `instances:` entries under one edge name — "the same source
+  fanning out to several different target tiers," in dsl-syntax.md
+  §4.1's own words, describing exactly this shape and already
+  load-bearing. `frontend_sysarch` carries two more `decomposition`
+  instances the identical way: `source: frontend_sysarch, target:
+  ui_coll, declared_in: frontend_sysarch.draft.ui_collections
+  .collection[]` (`cardinality: source: {min: 0}` — a project may
+  recurrence-seed no shared widgets — `target: {min: 1, max: 1}`) and
+  `source: frontend_sysarch, target: screen_coll, declared_in:
+  frontend_sysarch.draft.screen_collections.collection[]` (`source:
+  {min: 1}` — every project's screens need at least one hosting
+  collection, mirroring `screens`' own `{min: 1}` — `target: {min: 1,
+  max: 1}`). `ui_collarch → ui_subcomp` and `screen_collarch →
+  screen_subcomp` are two further `decomposition` instances, the same
+  shape `comparch → subcomp` already has. `decomposition`
+  (`bundles/default/edges/decomposition.yaml`) names `sysarch→comp`,
+  `comparch→subcomp`, `feature_expansion→vocab`, `requirements→resp`,
+  `sysarch→policy`, `comparch→policy`, `non_goals→policy`,
+  `journeys→journey`, `screens→screen` and the four above — not a new
   mechanism at any of them.
 
-  **The layering rule, resolved: enforced as load-time type-level
-  acyclicity, not merely unviolated by omission.** The ticket's other
-  open question is whether a UI-collection-to-screen-collection edge is
-  truly *inexpressible* or just never declared. `systems/core_dsl.md`'s
-  own standing decision records type-level acyclicity as a load-time
-  check (libgraph, over the full edge-instance graph — dsl-syntax.md
-  §13's "type-level acyclicity over the edge-instance graph," §4.1's
-  "every instance still contributes its own `{source, target}` pair to
-  the type-level acyclicity check … the graph is over sites, not over
-  edge names"). Two guarantees stack, not one: first, no edge instance
-  anywhere in this sketch names a UI-family tier as `source` and a
-  screen-family tier as `target` — the bundle simply carries no such
-  site, so nothing downstream can walk that direction — and second,
-  were a future bundle edit to add one anyway (mistakenly or not), the
+  **The layering rule is enforced as load-time type-level acyclicity,
+  not merely unviolated by omission.** A UI-collection-to-screen-
+  collection edge is inexpressible, not just never declared.
+  `systems/core_dsl.md`'s own standing decision records type-level
+  acyclicity as a load-time check (libgraph, over the full
+  edge-instance graph — dsl-syntax.md §13's "type-level acyclicity
+  over the edge-instance graph," §4.1's "every instance still
+  contributes its own `{source, target}` pair to the type-level
+  acyclicity check … the graph is over sites, not over edge names").
+  Two guarantees stack, not one: first, no edge instance anywhere in
+  the bundle names a UI-family tier as `source` and a screen-family
+  tier as `target` — the bundle simply carries no such site, so
+  nothing downstream can walk that direction — and second, were a
+  future bundle edit to add one anyway (mistakenly or not), the
   full-graph acyclicity check would refuse the *load* over it, because
-  `screen_coll → ui_coll` (`renders`, below) already exists in the same
-  graph and the two together are a cycle at the tier level. `v5`
+  `screen_coll → ui_coll` (`renders`, below) already exists in the
+  same graph and the two together are a cycle at the tier level. `v5`
   §5.1's "inexpressible" claim holds on both counts: absent by
   construction, and rejected by the loader if that ever stops being
   true.
@@ -1096,7 +1051,7 @@ loader tickets carry `system:core_dsl`.
   **Shapes vs. calls, wired as distinct edge names, not distinct
   instances of one name.** `dependency` already carries same-family
   sites (`comp↔comp`, `subcomp↔subcomp`); the UI and screen families
-  gain the identical shape for their own same-tier deps — `ui_coll ↔
+  carry the identical shape for their own same-tier deps — `ui_coll ↔
   ui_coll` (declared in `frontend_sysarch`'s own draft, project-wide,
   mirroring `comp↔comp`) and `ui_subcomp ↔ ui_subcomp` (declared in
   `ui_collarch`'s own draft, sibling-scoped, mirroring
@@ -1124,10 +1079,10 @@ loader tickets carry `system:core_dsl`.
     declared in `screen_collarch`'s own draft — symmetric to
     `uses_shapes`, and, again, the edge simply has no `ui_coll`- sourced
     instance anywhere, so a UI collection has no declared path to a
-    backend call at all; the ticket's own "backend function invocation
-    inside a UI collection's file map is a layering violation" audit
-    check still catches a generated file that ignores its own graph,
-    but the graph itself already refuses the shape.
+    backend call at all; the audit check for a backend function
+    invocation inside a UI collection's file map — a layering violation
+    — still catches a generated file that ignores its own graph, but
+    the graph itself already refuses the shape.
 
   `screen_coll → screen` ("hosts") reuses `fulfills` rather than
   minting a fourth new edge name: a screen collection is the
@@ -1137,7 +1092,7 @@ loader tickets carry `system:core_dsl`.
   implements this responsibility"), and the cardinality matches exactly
   (`source: {min: 1}` — a collection must group ≥1 screen to justify
   existing, `target: {min: 1, max: 1}` — a screen is hosted by exactly
-  one collection). `fulfills` moves to `instances:` form to carry both.
+  one collection). `fulfills` is in `instances:` form to carry both.
   Declared inside `frontend_sysarch`'s own `screen_collections
   .collection[].screens.screen[].@ref` rows — the same pass that groups
   screens into collections is the one naming which screens land in
@@ -1145,8 +1100,8 @@ loader tickets carry `system:core_dsl`.
   `screen` nodes (`screens` runs upstream in the chain), never a
   forward one.
 
-  `screen_coll → journey` ("consumes journey state") is a new
-  `reference` instance, `declared_in: screen_collarch.draft.journeys
+  `screen_coll → journey` ("consumes journey state") is a `reference`
+  instance, `declared_in: screen_collarch.draft.journeys
   .journey[].@ref`, both sides `{min: 0}` — a collection may consume no
   journey's live state, and a journey may back no screen collection
   directly (it already reaches its screens through the product-tier
@@ -1155,47 +1110,41 @@ loader tickets carry `system:core_dsl`.
   collection actually needs state from is a design decision for that
   collection's own pass, not a grouping fact `frontend_sysarch` can
   read off IA region alone. `ui_collarch`, `ui_subcomparch`, `impl_ui`,
-  `screen_collarch`, `screen_subcomparch` and `impl_screen` each gain
+  `screen_collarch`, `screen_subcomparch` and `impl_screen` each carry
   the same `reference → ref` attachment site backend's `comparch`,
-  `subcomparch` and `impl` already have, and each gains `all.vocab
+  `subcomparch` and `impl` already have, and each carries `all.vocab
   .handle` in its own `context:` — both are the existing per-tier
   convention applied to six more tiers, not a new one.
 
   `ui_coll → design_system` ("primitives") is a further `dependency`
   instance, declared in `ui_collarch`'s own draft: `source: ui_coll,
-  target: design_system`. ORC-110 minted the `design_system` tier
-  itself and named this edge as this ticket's own to make
-  (`systems/core_dsl.md`'s "Deferred to the ticket that lands
-  `frontend_sysarch`/`ui_coll`" entry, now closed): with the tier
-  landed on `main`, the edge has a real target. `design_system` mints
-  at most one node project-wide (ORC-110), so a project supplying none
+  target: design_system`. `design_system` is its own tier, minting at
+  most one node project-wide (ORC-110; `systems/core_dsl.md`'s
+  "Deferred to the ticket that lands `frontend_sysarch`/`ui_coll`"
+  entry), so the edge has a real target, and a project supplying none
   simply has no instance of this edge to declare — absence, not a
   zero-cardinality edge naming a node that doesn't exist.
 
   **No `policy_application` instances for either family.** A UI or
   screen collection fulfills no `resp`, so the through-responsibility
   grain has nothing to scope through — a direct collection-to-policy
-  link would be speculative surface with no cited need behind it. A
-  future ticket needing component-collection policy scoping makes that
-  case against its own cited need, the same way this one would have
-  had to.
+  link would be speculative surface with no cited need behind it, and
+  component-collection policy scoping is added only against a cited
+  need.
 
-  **Closes `platform_content.md`'s own ORC-84 open item.** That entry
-  named "a frontend/product-side parent-link edge (if one turns out to
-  be needed)" as this ticket's to decide, in place of `domain_parent`.
-  It turns out not to be needed: `fulfills`' new `screen_coll → screen`
-  instance and `reference`'s `screen_coll → journey` instance already
-  give the screen family everything `domain_parent` was for — a link
-  from an architecture node to the product-side surface it implements —
-  and the UI family, having no product-tier counterpart of its own to
-  link to, needs no such edge at all. No replacement edge is minted.
+  **No frontend/product-side parent-link edge replaces
+  `domain_parent`** (the open item the ORC-84 entry above leaves to
+  Phase 5). `fulfills`' `screen_coll → screen` instance and
+  `reference`'s `screen_coll → journey` instance already give the
+  screen family everything `domain_parent` was for — a link from an
+  architecture node to the product-side surface it implements — and
+  the UI family, having no product-tier counterpart of its own to link
+  to, needs no such edge at all.
 
-  **Screen groups vs. IA regions was already settled, at ORC-109** —
-  cited here rather than re-decided: `docs/v5-design-decisions.md`
-  §4.3 records `screen group` as a free-form signal into
-  `frontend_sysarch`'s own IA-region grouping, not the region itself
-  and not a gate on it (the ORC-109 entry above, in full). Nothing in
-  this pass changes that.
+  **Screen groups vs. IA regions is settled at the ORC-109 entry
+  above**, not here: `docs/v5-design-decisions.md` §4.3 records
+  `screen group` as a free-form signal into `frontend_sysarch`'s own
+  IA-region grouping, not the region itself and not a gate on it.
 
   **Not the same `system:` label this repo's own mutex uses, either.**
   v5 §5.4's `system:ui-avatar` / `system:scr-account` slugs name
@@ -1208,13 +1157,11 @@ loader tickets carry `system:core_dsl`.
   label derives from the mapped doc's filename, `systems/<name>.md` →
   `system:<name>`, not a stored mapping —
   `.pipeline/internal/filemap/filemap.go`). No entry in
-  `pipeline.config.json` names or needs to name this convention —
-  checked, not assumed: the file has no label-mapping section for
-  either axis, mutex labels here resolve straight off
-  `systems/*.md`/`screens/*.md` file maps, and nothing about a
-  *generated project's* own future label scheme touches that file at
-  all. The ticket's own caveat about a possible push-back here doesn't
-  apply.
+  `pipeline.config.json` names or needs to name this convention: the
+  file has no label-mapping section for either axis, mutex labels here
+  resolve straight off `systems/*.md`/`screens/*.md` file maps, and
+  nothing about a *generated project's* own future label scheme
+  touches that file at all.
 
 ## Initial vs target
 
