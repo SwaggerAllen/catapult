@@ -91,70 +91,59 @@ conventions §13).
   are each explicitly single-project, unaffected by this narrowing;
   `screens/my-queue.md` carries the argument in full.
 - **The gate action `ticket` and `document-review` render is real, not
-  anticipatory** (ORC-75 design pass, correcting an earlier draft of
-  this bullet written before ORC-34 landed the mechanism it was
-  waiting on). `Catapult.Engine.Commands.ApproveGate{project_id,
-  flow_id, gate, actor_id}` → `GateApproved`, and `Commands
-  .DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
-  actor_id}` → `GateDeclined` are coded on `main`
-  (`lib/catapult/engine/commands/{approve,decline}_gate.ex`,
-  `systems/engine.md`'s ORC-34 entry), and `Catapult.Delivery
-  .FeatureLifecycle` gained the two `interested?`/`handle` clauses that
-  actually move a ticket's projected status off them: `GateApproved`
-  advances to the next entry in the type's own `statuses:` array past
-  the gate, `GateDeclined` moves straight to `throwback_to`
+  anticipatory** (ORC-75, ORC-114). `Catapult.Engine.Commands
+  .ApproveGate{project_id, flow_id, gate, node_id, body_sha, actor_id}`
+  → `GateApproved`, and `Commands.DeclineGate{project_id, flow_id,
+  gate, throwback_to, since_sequence, node_id, body_sha, actor_id}` →
+  `GateDeclined` (`lib/catapult/engine/commands/{approve,decline}
+  _gate.ex`, `systems/engine.md`'s ORC-34 entry), and `Catapult
+  .Delivery.FeatureLifecycle`'s `interested?`/`handle` clauses move a
+  ticket's projected status off them: `GateApproved` advances to the
+  next entry in the type's own `statuses:` array past the gate,
+  `GateDeclined` moves straight to `throwback_to`
   (`systems/delivery.md`'s ORC-34 entry). Both screens' approve/throw-
-  back controls target these directly, so dev's pass wires a working
-  control rather than a disabled one naming a gap — the earlier draft
-  of this bullet is wrong on that point and is corrected rather than
-  struck through, since the command it was hedging against not
-  existing now does. **What stays open is narrower than the earlier
-  draft said**: §7.16's "what a passed gate pins" and which node(s) a
-  gate spanning more than one status validates against are both still
-  unanswered — `systems/engine.md`'s own ORC-34 entry leaves them so on
-  purpose — but neither blocks v1, since Phase 4's own `feature.yaml`
-  runs exactly one `generation` status ahead of each gate. `gate`/
-  `throwback_to` legality is validated at the command edge: whatever
-  constructs the command (dev's LiveView) checks that `throwback_to` is
-  earlier in the citing type's own effective sequence — the same
-  "earlier in the array" test `Catapult.Dsl.Workflow
-  .gate_throwback_problems/2` already runs at load time for a
-  *declared* target, generalized to every runtime pick now that ORC-115
-  retires the declared list as a legality bound (`docs/dsl-syntax.md`
-  §15.10, second design review; a third review narrowed the field
-  itself to a single-target override on the derived default rather
-  than retiring it outright, `docs/dsl-syntax.md` §15.4).
-  `document-review`'s throwback picker offers the same full
-  earlier-prefix Blocked-return's picker already gives (`docs/ui-spec.md` J4), one
-  click landing on the gate's own declared `throwback:` when the gate
-  names one, or its citing sub-array's own derived default otherwise —
-  never bounded, either way, to a gate's own declared exits as an
-  allow-list. **A decline
-  naming no comment is rejected by `DeclineGate`'s
-  own aggregate state, never by either screen** — the screen surfaces
-  that rejection synchronously, the same compare-and-swap conflict
-  rendering `ticket`'s stale-transition case already specs, but does
-  not perform the check itself (`docs/ui-spec.md` §2 rule 1;
-  `screens/document-review.md` and `screens/ticket.md` both name this
-  precisely).
+  back controls target these directly, so dev wires a working control
+  rather than a disabled one naming a gap. What stays open is narrow:
+  §7.16's "what a passed gate pins" has its design answer at the end
+  of this entry, and which node(s) a gate spanning more than one
+  status validates against is left open on purpose
+  (`systems/engine.md`'s ORC-34 entry); neither blocks v1, since
+  Phase 4's own `feature.yaml` runs exactly one `generation` status
+  ahead of each gate. `gate`/`throwback_to` legality is validated at
+  the command edge: whatever constructs the command (dev's LiveView)
+  checks that `throwback_to` is earlier in the citing type's own
+  effective sequence — the same "earlier in the array" test
+  `Catapult.Dsl.Workflow.gate_throwback_problems/2` runs at load time
+  for a *declared* target, generalized to every runtime pick, since a
+  gate's declared `throwback:` is a single-target override on the
+  derived default and not a legality bound (ORC-115;
+  `docs/dsl-syntax.md` §15.10, §15.4). `document-review`'s throwback
+  picker offers the same full earlier-prefix Blocked-return's picker
+  gives (`docs/ui-spec.md` J4), one click landing on the gate's own
+  declared `throwback:` when the gate names one, or its citing
+  sub-array's own derived default otherwise — never bounded, either
+  way, to a gate's own declared exits as an allow-list. **A decline
+  naming no comment is rejected by `DeclineGate`'s own aggregate
+  state, never by either screen** — the screen surfaces that rejection
+  synchronously, the same compare-and-swap conflict rendering
+  `ticket`'s stale-transition case specs, but does not perform the
+  check itself (`docs/ui-spec.md` §2 rule 1; `screens/document-review
+  .md` and `screens/ticket.md` both name this precisely).
 
-  **Corrected again at ORC-114, which built the compare-and-swap this
-  bullet had been describing as already real.** It wasn't:
-  `ApproveGate`'s `execute/2` bound no aggregate state and emitted
-  unconditionally, and `DeclineGate`'s only check was the comment mark
-  above — neither guarded a stale transition, the exact property both
-  screens' own text asserted (`systems/engine.md`'s own entry, found
-  reading the code against §7.16, not filed as a finding by either
-  screen). `ApproveGate`/`DeclineGate` now carry `node_id` and
-  `body_sha` beside the fields above, and the aggregate gains
-  `gate_resolutions: %{gate => :approved | :declined}` (absent key
-  means open): a second writer racing the first on one still-open
+  **A gate resolution is a compare-and-swap inside the aggregate, run
+  before either event is produced** (ORC-114). A command whose
+  `execute/2` binds no aggregate state and emits unconditionally
+  guards no stale transition — the exact property both screens' own
+  text asserts (§7.16) — so `ApproveGate`/`DeclineGate` carry
+  `node_id` and `body_sha` beside the fields above, and the aggregate
+  holds `gate_resolutions: %{gate => :approved | :declined}` (absent
+  key means open): a second writer racing the first on one still-open
   resolution is rejected with `{:engine_gate_already_resolved, gate:,
   disposition:}`, naming the value the loser's command conflicted
   with; a resolution against a body the aggregate has already moved
   past — regenerated after the actor's view was rendered — is rejected
   separately with `{:engine_stale_gate_resolution, node_id:, current:,
-  got:}`. Both run before either event is ever produced.
+  got:}`.
 
   **What the rejection names is the value, not the actor** — the same
   level of detail `AdvanceContainerQueue`'s own conflict already gives
@@ -170,38 +159,36 @@ conventions §13).
   mechanism. `screens/ticket.md` carries this precisely; `board` reuses
   it rather than redefining it.
 
-  **`board`'s cards do not dispatch `ApproveGate`/`DeclineGate` in v1,
-  reversing this doc's own earlier reading of `docs/ui-spec.md`'s "cards
-  carry pass-forward and pass-back directly."** Both commands now
-  require the `body_sha` of the body the actor is resolving against,
-  and a card shows a ticket, not a body — filling it from the
-  projection's current value would make the compare-and-swap pass
-  unconditionally while the card *looked* guarded, which is worse than
-  not offering the control at all. Every gate Phase 4's `feature.yaml`
-  declares reviews a prose artifact, so a card's pass-forward/pass-back
-  links into `document-review` instead, the identical move `ticket`'s
-  own gate action already makes for the same reason
-  (`screens/ticket.md`, `screens/board.md`). **`ORC-116` is where this
-  is expected to resolve for real** — once a gate's node set is
-  derivable, staleness is computable from any surface and a card needs
-  no body view of its own; until then this is a v1 scope choice, not a
-  defect.
+  **`board`'s cards do not dispatch `ApproveGate`/`DeclineGate` in v1;
+  `docs/ui-spec.md`'s "cards carry pass-forward and pass-back
+  directly" is met by a link, not a dispatch.** Both commands require
+  the `body_sha` of the body the actor is resolving against, and a
+  card shows a ticket, not a body — filling it from the projection's
+  current value would make the compare-and-swap pass unconditionally
+  while the card *looked* guarded, which is worse than not offering
+  the control at all. Every gate Phase 4's `feature.yaml` declares
+  reviews a prose artifact, so a card's pass-forward/pass-back links
+  into `document-review` instead, the identical move `ticket`'s own
+  gate action makes for the same reason (`screens/ticket.md`,
+  `screens/board.md`). Once a gate's node set is derivable (ORC-116),
+  staleness is computable from any surface and a card needs no body
+  view of its own; until then this is a v1 scope choice, not a defect.
 
   **`ResumeFlow{project_id, flow_id, to, actor_id}` → `FlowResumed`
-  gives `ticket`'s blocked return control a real write path** (ORC-114):
-  `Catapult.Delivery.FeatureLifecycle.Projection`'s own `resting/2` had
-  no way off `{:kind, :blocked}` except a fresh commit — no command
-  existed for a human to choose a return position, which is the gap
-  `my-queue`'s `unblock` kind and `ticket`'s own "Blocked" section both
-  assumed away. `to` is validated at the command edge against the
-  effective-sequence prefix up to and including `blocked_origin`, never
-  forward (`docs/ui-spec.md` §6) — the same bundle/projection-content
-  split every other command edge on this aggregate already draws.
+  gives `ticket`'s blocked return control a real write path**
+  (ORC-114). Without it `Catapult.Delivery.FeatureLifecycle
+  .Projection`'s own `resting/2` has no way off `{:kind, :blocked}`
+  except a fresh commit, and both `my-queue`'s `unblock` kind and
+  `ticket`'s own "Blocked" section need a human to choose a return
+  position. `to` is validated at the command edge against the
+  effective-sequence prefix up to and including `blocked_origin`,
+  never forward (`docs/ui-spec.md` §6) — the same bundle/projection-
+  content split every other command edge on this aggregate draws.
   `screens/ticket.md` carries the detail.
 
   **A ticket's title/argument, and the read both `board` and `my-queue`
-  place a ticket from, both exist now.** `argument` is a reserved
-  `fields:` name on a flow's entry tier (`docs/dsl-syntax.md` §3,
+  place a ticket from.** `argument` is a reserved `fields:` name on a
+  flow's entry tier (`docs/dsl-syntax.md` §3,
   `systems/platform_content.md`), folded into `Catapult.Delivery.Store
   .tickets_for_project/1` — one project-scoped read returning `id`,
   `ticket_ref`, `flow_name`, `entry_node_id`, `status_kind`,
@@ -210,37 +197,25 @@ conventions §13).
   `my-queue`'s three action kinds both place a ticket from
   (`systems/delivery.md`'s ORC-114 entry). `my-queue` calls it once per
   project the actor has standing in and merges the rows, the identical
-  fan-out its own "Cross-project, deliberately" section already
-  describes for the query that predated this one.
+  fan-out its own "Cross-project, deliberately" section describes.
 
-  **`document-review`'s stale marking does not ship in v1, and this is
-  a correction rather than a narrowing of something that worked.** The
-  mechanism ORC-75's own earlier draft described — deriving staleness
-  from whether a node's current `body_sha` matches what the gate's
-  approval event recorded — cannot be built: `GateApproved`/
-  `GateDeclined` carry no content identity, deliberately, and §7.16's
-  "what a passed gate pins" was, at the time this entry was written,
-  left open for Phase 7/ORC-115 by name in `systems/engine.md`'s own
-  entry. `Catapult.Delivery.Store
-  .get_previous_draft_body/2` (one previous body, not a log) answers
-  the per-sentence **diff** `document-review` renders — a narrower
-  question ("what changed since the last pass") than "has what this
-  gate approved changed," which needs a content pin this ticket does
-  not have. `screens/document-review.md` drops stale marking from v1
-  rather than shipping a stopgap `body_sha` on the gate events that
-  ORC-115 would be the first thing to delete.
-
-  **ORC-115 has since answered §7.16's item at the design level** (
-  `docs/dsl-syntax.md` §15.10; `docs/v5-design-decisions.md` §7.16):
-  what a gate pins is its citing sub-array's one non-review-shaped
+  **`document-review`'s stale marking does not ship in v1.** Staleness
+  cannot be read off whether a node's current `body_sha` matches what
+  the gate's approval event recorded, because `GateApproved`/
+  `GateDeclined` carry no content identity, deliberately: what a
+  passed gate pins is its citing sub-array's one non-review-shaped
   agent-balled entry, at the gate's declared `depth:`, derived rather
-  than stamped on the event. This is still not a `body_sha` and still
-  not built — the log join `systems/delivery.md`'s Phase 7 needs is
-  unbuilt, and this v1 scoping decision (drop stale marking rather than
-  ship a stopgap field) is unaffected. It is recorded here so a later
-  pass reads "why isn't this built yet" rather than "is this still
-  open" — the open question moved from *what* a gate pins to *building*
-  the join against the answer.
+  than stamped on the event (ORC-115; `docs/dsl-syntax.md` §15.10;
+  `docs/v5-design-decisions.md` §7.16), and reading staleness off that
+  derivation is the log join `systems/delivery.md`'s Phase 7 carries.
+  `Catapult.Delivery.Store.get_previous_draft_body/2` (one previous
+  body, not a log) answers the per-sentence **diff** `document-review`
+  renders — a narrower question ("what changed since the last pass")
+  than "has what this gate approved changed," which needs the content
+  pin the events do not carry. `screens/document-review.md` drops
+  stale marking from v1 rather than shipping a stopgap `body_sha` on
+  the gate events that the derived answer would be the first thing to
+  delete.
 - **No assignee or role-holder projection exists, and Phase 4's screens
   render the degenerate case rather than modeling an interim one**
   (ORC-114, design pass). `my-queue`'s two tabs, its `sign off`
@@ -398,41 +373,32 @@ conventions §13).
   the parent that spawned it — and nothing ahead of Phase 7 depends on it
   landing first.
 - **A screen or LiveView branches on `Catapult.Dsl.SystemStatus`'s own
-  predicates, never on a status-name literal** (ORC-116, generalizing
-  the correction ORC-151's own dev pass already made to `Catapult
-  .Delivery.ContainerLifecycle.inline_dispatch_point?/1` when it
-  retired that module's `status != "merge"` check). `Positions`'s
-  `{:kind, atom}` shape puts the raw status atom within reach of every
-  LiveView that touches it, and four call sites already match on one
-  directly (below). Blocked is a real orthogonal flavor rather than an
-  array position, so branching on it is correct; the form is what
-  ORC-151 already named as the thing to stop doing. `SystemStatus`
-  already exports `ball/1`, `agent_balled?/1`, `generation_shaped?/1`,
-  `review_shaped?/1` and `can_block?/1`; a screen wanting a distinction
-  none of those five draws grows a sixth predicate there instead of
-  re-deriving the answer locally. Dev's diff (`lib/catapult_web/**` is
-  outside this pass's own reach) — recorded here as the rule that diff
-  is written against, not a code change this pass makes.
+  predicates, never on a status-name literal** (ORC-116; the same rule
+  `Catapult.Delivery.ContainerLifecycle.inline_dispatch_point?/1`
+  follows since ORC-151 retired its `status != "merge"` check).
+  `Positions`'s `{:kind, atom}` shape puts the raw status atom within
+  reach of every LiveView that touches it. Blocked is a real orthogonal
+  flavor rather than an array position, so branching on it is correct;
+  the literal comparison is the form to stop using. `SystemStatus`
+  exports `ball/1`, `agent_balled?/1`, `generation_shaped?/1`,
+  `review_shaped?/1` and `can_block?/1`; a screen wanting a
+  distinction none of those five draws grows a sixth predicate there
+  instead of re-deriving the answer locally.
 
-  Four call sites match today: `{:kind, :blocked}` at
-  `ticket_live.ex:112,161`, `board_live.ex:124` and
-  `my_queue_live.ex:87`; `%{status_kind: "blocked"}` at
-  `board_live.ex:137`.
+  The rule reaches every Blocked branch in `ticket_live.ex`,
+  `board_live.ex` and `my_queue_live.ex` — a `{:kind, :blocked}` match
+  and a `%{status_kind: "blocked"}` match alike.
 - **Component modules live beside their story, under
   `storybook/screens/<name>/`, not under `lib/catapult_web/**`**
-  (ORC-35 design pass — the first ticket to exercise this system's
-  screen machinery). `component.ex` and `component.story.exs` are
-  both design-owned and both committed there; the LiveView that mounts
-  a screen for real is dev's, in this doc's own file map, and imports
+  (ORC-35). `component.ex` and `component.story.exs` are both
+  design-owned and both committed there; the LiveView that mounts a
+  screen for real is dev's, in this doc's own file map, and imports
   the component by its module name the same as it would from anywhere
   else in the tree — Elixir does not care which directory a module
   compiles from, only that `storybook/` is on the build's
-  `:elixirc_paths`. This is the pattern every later screen in this
-  system follows unless a later pass argues otherwise in writing.
+  `:elixirc_paths`. Every screen in this system follows this pattern.
 
-  **The placement decision carries no qualification: `mix.exs`,
-  `elixirc_paths` and `.formatter.exs` already carry the storybook
-  tree, so `storybook/screens/<name>/` is simply the pattern.**
+  **The build carries the storybook tree as ordinary source.**
   `phoenix_live_view` and `phoenix_storybook` are direct dependencies
   and `phoenix` is transitive, all three named in `boundary: check:
   apps:`; `elixirc_paths` includes `storybook` in every environment;
@@ -448,188 +414,165 @@ conventions §13).
   route, with no export task standing in for one.
 
   **The export renders stories directly and never boots the
-  application** (ORC-113) — on the merits, not because booting is
-  impossible on the preview runner. The design-agent job
-  (`.github/workflows/pipeline-agent-design.yml`) installs the pinned
-  toolchain with `erlef/setup-beam@v1`, runs under `MIX_ENV: test`, and
-  provisions a health-checked `postgres:16` service; `config/test.exs`
-  seeds `DATABASE_URL`,
+  application** (ORC-113) — a choice against a buildable alternative,
+  not a rule-out. Booting is possible on the preview runner: the
+  design-agent job (`.github/workflows/pipeline-agent-design.yml`)
+  installs the pinned toolchain with `erlef/setup-beam@v1`, runs under
+  `MIX_ENV: test`, and provisions a health-checked `postgres:16`
+  service, and `config/test.exs` seeds `DATABASE_URL`,
   `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` and `DELIVERY_GITHUB_TOKEN`
-  into `Catapult.Config.Static` for exactly that `MIX_ENV`. Under the
-  job's own environment, `Catapult.Boot.load!/0` would succeed.
-  `CLAUDE.md`'s "agent runs have no BEAM" is about what orchestration's
-  own `setup-pipeline` action provides — Go and nothing else, because
-  the pipeline is language-agnostic — and this project's workflow
-  layers a toolchain and a database on top of it. Both are true at
-  their own layer, so anything needing `mix` inside an agent job still
-  supplies its own.
-
-  What still stops a boot is `bin/preview-build.sh` itself, not the
-  runner. The script sets its own `export MIX_ENV=prod`,
-  unconditionally, to build the preview in the shape a real deploy
-  would; `config/prod.exs` declares no `:config_source`, so under that
-  `MIX_ENV`, `Catapult.Boot`'s compile-time default applies —
-  `{Catapult.Config.Env, []}`, the real-environment reader. Nothing in
-  the job sets `DATABASE_URL`, `DELIVERY_GITHUB_TOKEN` or
-  `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` as literal environment
+  into `Catapult.Config.Static` for exactly that `MIX_ENV`, so under
+  the job's own environment `Catapult.Boot.load!/0` succeeds.
+  (`CLAUDE.md`'s "agent runs have no BEAM" is about what
+  orchestration's own `setup-pipeline` action provides — Go and nothing
+  else, because the pipeline is language-agnostic — and this project's
+  workflow layers a toolchain and a database on top of it; both are
+  true at their own layer, so anything needing `mix` inside an agent
+  job still supplies its own.) What stops a boot is
+  `bin/preview-build.sh` itself: the script sets its own `export
+  MIX_ENV=prod`, unconditionally, to build the preview in the shape a
+  real deploy would; `config/prod.exs` declares no `:config_source`,
+  so under that `MIX_ENV` `Catapult.Boot`'s compile-time default
+  applies — `{Catapult.Config.Env, []}`, the real-environment reader —
+  and nothing in the job sets `DATABASE_URL`, `DELIVERY_GITHUB_TOKEN`
+  or `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` as literal environment
   variables (only `PGHOST`/`PGUSER`/`PGPASSWORD`, which nothing outside
-  `config/*.exs` assembles into a `DATABASE_URL`), so a boot attempted
-  from inside this script, as it stands, still fails — a fact about
-  this script's own chosen build shape, checked independently of the
-  stale `CLAUDE.md` line rather than inherited from it.
-
-  That is fixable — dev could set `MIX_ENV=test` for the export step
-  alone — so this is a real choice against a buildable alternative, not
-  a rule-out. It still lands on render-direct: stories are stateless
-  function components by this system's own placement rule, so nothing
-  about rendering them benefits from the request cycle, live PubSub or
-  persisted event store a boot would supply — the placement rule
-  already spent the effort of not needing them. Render-direct also
-  never depends on `Boot.load!/0` succeeding, so it stays correct
-  regardless of what a future component declares as required config; a
-  boot-based export would instead be one new non-defaulted `config/0`
-  entry away from a preview breaking over a change that has nothing to
-  do with the dashboard. What boot buys over render-direct is what the
-  next paragraph names — `phoenix_storybook`'s own navigation chrome —
-  already weighed and already traded for a generated index.
-
-  The alternative costs nothing this system's own placement rule
-  didn't already spend: a story's variations are hardcoded assigns
-  rendered by a stateless function component — "no socket, no live
-  data" above is a property the export gets for free, not one it has
-  to work around. Every `storybook/screens/<name>/component.story.exs`
-  already declares its own `function/0` and `variations/0`
-  (`PhoenixStorybook.Story`'s own `:component` shape); the export
-  calls each variation's attributes straight into its story's
-  component function and writes the rendered markup to `dist/` —
-  compiled, but with `Catapult.Application` never entered, so no
-  endpoint, no supervision tree, no database. What is lost is
+  `config/*.exs` assembles into a `DATABASE_URL`). Setting
+  `MIX_ENV=test` for the export step alone would lift that, so the
+  choice is made on merit: stories are stateless function components
+  by this system's own placement rule, so nothing about rendering them
+  benefits from the request cycle, live PubSub or persisted event
+  store a boot would supply — "no socket, no live data" is a property
+  the export gets for free, not one it has to work around. Render-
+  direct also never depends on `Boot.load!/0` succeeding, so it stays
+  correct regardless of what a future component declares as required
+  config; a boot-based export would instead be one new non-defaulted
+  `config/0` entry away from a preview breaking over a change that has
+  nothing to do with the dashboard. Every
+  `storybook/screens/<name>/component.story.exs` declares its own
+  `function/0` and `variations/0` (`PhoenixStorybook.Story`'s own
+  `:component` shape); the export calls each variation's attributes
+  straight into its story's component function and writes the
+  rendered markup to `dist/` — compiled, but with `Catapult.Application`
+  never entered, so no endpoint, no supervision tree, no database.
+  What boot would buy, and what is traded away, is
   `phoenix_storybook`'s own navigation chrome (its sidebar, its live
-  search): the export's index page is generated directly from the
-  same variation list instead, one link per story and variation. That
-  is the ticket's own named tradeoff, taken on merit against a
-  buildable alternative, per the correction above — not because the
-  alternative was impossible.
+  search): the export's index page is generated directly from the same
+  variation list instead, one link per story and variation.
 
   **The CSS build is Tailwind's standalone CLI, wrapped by the
   `:tailwind` Mix package, with daisyUI vendored rather than resolved
-  through npm** (ORC-183, design pass). No Node or npm dependency
-  anywhere in the toolchain — the same discipline `bin/preview-build.sh`
-  already keeps for OTP/Elixir itself (`Where things actually run`,
-  `CLAUDE.md`), and the standalone CLI has no npm resolution to lean on
-  in the first place. daisyUI ships as two vendored plugin files,
+  through npm** (ORC-183). No Node or npm dependency anywhere in the
+  toolchain — the same discipline `bin/preview-build.sh` keeps for
+  OTP/Elixir itself (`Where things actually run`, `CLAUDE.md`), and the
+  standalone CLI has no npm resolution to lean on in the first place.
+  daisyUI ships as two vendored plugin files,
   `assets/vendor/daisyui.js` and `assets/vendor/daisyui-theme.js`,
-  referenced from `assets/css/app.css` by a relative `@plugin` — Tailwind
-  v4's CSS-native plugin/import syntax, no `tailwind.config.js` needed —
-  the same shape Phoenix's own 1.8 generator settled on for the
-  identical constraint. `mix assets.build` (dev) and `mix assets.deploy`
-  (minified, then `phx.digest`, prod) compile to
-  `priv/static/assets/app.css`; the release `Dockerfile` runs
-  `assets.deploy` in its build stage — `MIX_ENV=prod`, after `mix
-  deps.get --only prod` — before `mix release`, so the digested CSS
-  ships inside the image. That is exactly why `:tailwind` cannot take
-  `credo`/`sobelow`/`mix_audit`'s own `mix.exs` treatment: those three
-  are `only: [:dev, :test], runtime: false`, so `deps.get --only prod`
-  never fetches them, which is fine because nothing in a prod build
-  needs them. `assets.deploy` is a prod build's own step, so `:tailwind`
-  carries `runtime: false` — the same build-time-only shape, never
-  started as part of the release — but **no `only:` restriction**,
-  since `prod` is exactly where it has to run.
+  referenced from `assets/css/app.css` by a relative `@plugin` —
+  Tailwind v4's CSS-native plugin/import syntax, no
+  `tailwind.config.js` needed — the same shape Phoenix's own 1.8
+  generator settled on for the identical constraint. `mix
+  assets.build` (dev) and `mix assets.deploy` (minified, then
+  `phx.digest`, prod) compile to `priv/static/assets/app.css`; the
+  release `Dockerfile` runs `assets.deploy` in its build stage —
+  `MIX_ENV=prod`, after `mix deps.get --only prod` — before `mix
+  release`, so the digested CSS ships inside the image. That is
+  exactly why `:tailwind` cannot take `credo`/`sobelow`/`mix_audit`'s
+  own `mix.exs` treatment: those three are `only: [:dev, :test],
+  runtime: false`, so `deps.get --only prod` never fetches them, which
+  is fine because nothing in a prod build needs them. `assets.deploy`
+  is a prod build's own step, so `:tailwind` carries `runtime: false`
+  — the same build-time-only shape, never started as part of the
+  release — but **no `only:` restriction**, since `prod` is exactly
+  where it has to run.
 
-  **Corrected at dev pass: `:tailwind` does carry a `boundary: check:
-  apps:` entry, against this paragraph's own earlier claim that it
-  would not.** `Catapult.Audit.BoundaryApps` computes what a `:prod`
-  build can reach from each dependency's `only:`, never from
-  `runtime:` — so an application with no `only:` restriction is
-  reachable regardless, and `:tailwind` names `Elixir.*` modules
-  Boundary can restrain. The check carries no waiver for an application
-  it finds this way — no ignore list, no per-application escape
+  **`:tailwind` carries a `boundary: check: apps:` entry.**
+  `Catapult.Audit.BoundaryApps` computes what a `:prod` build can
+  reach from each dependency's `only:`, never from `runtime:` — so an
+  application with no `only:` restriction is reachable regardless, and
+  `:tailwind` names `Elixir.*` modules Boundary can restrain. The check
+  carries no waiver for an application it finds this way — no ignore
+  list, no per-application escape
   (`components/substrate/lib/catapult/audit/boundary_apps.ex`'s own
-  documented shape) — so the only fix is the list entry itself; `mix
-  .exs`'s own comment on the dep carries this in full.
+  documented shape) — so the only fix is the list entry itself;
+  `mix.exs`'s own comment on the dep carries this in full.
 
-  `CatapultWeb.Endpoint` gains a `Plug.Static` serving `priv/static` at
-  `/assets` — absent today, so the live route serves no static asset of
-  any kind yet, not only unstyled daisyUI classes.
+  `CatapultWeb.Endpoint` serves `priv/static` at `/assets` through
+  `Plug.Static`; without it the live route serves no static asset of
+  any kind, not only unstyled daisyUI classes.
 
-  The export above already committed to relative asset paths rather than
-  root-absolute ones, since a Pages hash subdomain has no fixed base path
-  to hardcode against; this pipeline carries into the export the same
-  way, unchanged reasoning, now with something to carry — the export
-  copies `priv/static/assets/app.css` into `dist/assets/app.css` and
-  each generated page links it with a relative `href`.
+  The export links assets by relative path rather than root-absolute
+  ones, since a Pages hash subdomain has no fixed base path to
+  hardcode against: it copies `priv/static/assets/app.css` into
+  `dist/assets/app.css` and each generated page links it with a
+  relative `href`.
 
-  That copy needs something to have built it first, and
-  `bin/preview-build.sh` does not run any assets task today. This
-  record decides where: `mix assets.build` runs right after the
-  script's own `mix compile` step and before the export script, guarded
-  by the same `|| fall_back "..."` discipline as every other step in
-  that script (`Where things actually run`, `CLAUDE.md` — the script
-  never exits non-zero, so a step that can fail must degrade to the
-  placeholder itself rather than let a later step fail past it). Without
-  that guard, a CSS build failure would not stop the export — nothing
+  That copy needs something to have built it first, so
+  `bin/preview-build.sh` runs `mix assets.build` right after its own
+  `mix compile` step and before the export script, guarded by the same
+  `|| fall_back "..."` discipline as every other step in that script
+  (`Where things actually run`, `CLAUDE.md` — the script never exits
+  non-zero, so a step that can fail must degrade to the placeholder
+  itself rather than let a later step fail past it). Without that
+  guard, a CSS build failure would not stop the export — nothing
   downstream reads `priv/static/assets/app.css` before copying it — so
   the script would still exit 0 and publish pages linking a stylesheet
-  that was never built: this ticket's own symptom, reintroduced, with
-  the job reporting success.
+  that was never built, ORC-183's own symptom, with the job reporting
+  success.
 
   `assets/**` is on this doc's own file map but is not design-owned
   (`pipeline.config.json`'s `designOwnedPaths` names `screens/**`,
-  `storybook/**`, `systems/*.md`, `docs/*.md`, nothing under `assets/`):
-  this paragraph is the decision dev's diff is written against, not a
-  change this pass makes itself. That diff also touches `mix.exs`,
-  `Dockerfile` and `bin/preview-build.sh` — each unowned by any file map
-  (`systems/README.md`), git's textual conflict detection standing in
-  for a mutex on those three the same way it already does for every
-  other ticket that adds a dependency or touches the toolchain.
+  `storybook/**`, `systems/*.md`, `docs/*.md`, nothing under
+  `assets/`), so the CSS build is dev's diff. That diff also touches
+  `mix.exs`, `Dockerfile` and `bin/preview-build.sh` — each unowned by
+  any file map (`systems/README.md`), git's textual conflict detection
+  standing in for a mutex on those three the same way it does for
+  every other ticket that adds a dependency or touches the toolchain.
 
   **`--ignore Config.HTTPS` on the sobelow gate is permanent, and is
-  not waiting on this system's endpoint** (ORC-131). It was once
-  recorded here as a temporary suppression to drop the moment
-  `lib/catapult_web` landed an endpoint; the endpoint landed at ORC-35
-  and the reasoning did not survive it. App Platform terminates TLS
-  and coerces HTTP to HTTPS at its edge with no setting to disable it,
-  so a public request never reaches this app over http and
-  `Plug.SSL`'s redirect could never fire on one — while the one path
-  that does not come through the edge, App Platform's own health
-  probe, would be answered with a 301 and fail the deploy. HSTS, the
-  half the edge does not supply, is set on `CatapultWeb.Router`'s
-  `:browser` pipeline, which the check cannot see because it reads
-  endpoint config. `ci.yml`'s own comment carries this, and
-  `test/catapult_web/router_test.exs` asserts HSTS is absent on
-  `/health` so moving it to the endpoint turns a test red rather than
-  a deploy.
+  not waiting on this system's endpoint** (ORC-131). The endpoint
+  (ORC-35) changes nothing: App Platform terminates TLS and coerces
+  HTTP to HTTPS at its edge with no setting to disable it, so a public
+  request never reaches this app over http and `Plug.SSL`'s redirect
+  could never fire on one — while the one path that does not come
+  through the edge, App Platform's own health probe, would be answered
+  with a 301 and fail the deploy. HSTS, the half the edge does not
+  supply, is set on `CatapultWeb.Router`'s `:browser` pipeline, which
+  the check cannot see because it reads endpoint config. `ci.yml`'s
+  own comment carries this, and `test/catapult_web/router_test.exs`
+  asserts HSTS is absent on `/health` so moving it to the endpoint
+  turns a test red rather than a deploy.
 
 - **The root layout serves no LiveView client, so no `handle_event/3`
   is reachable in production** (ORC-220). `CatapultWeb.Layouts.root/1`
   links `/assets/app.css` but no script; `assets.deploy` runs
   `tailwind`/`phx.digest` only; `/assets/app.js` 404s on the reference
   instance. Every screen still dead-renders correctly, which is what
-  let this ship unnoticed through `document-review`'s approve/decline,
-  `board`'s and `ticket`'s gate actions — none of the three connect a
-  socket to fire on. **Why the omission survived**: every screen was
-  reviewed through the storybook export, a dead render by design (this
-  doc's own ORC-113 entry above), and the reference instance's screens
-  were never driven live before Phase 5's proof (`docs/build-plan.md`)
-  needed them to be. The storybook export renders stories directly and
-  never boots the application either, so it exercised nothing here —
-  the same dead-render property, hiding a second gap.
+  let this ship unnoticed through `document-review`'s approve/decline
+  and `board`'s and `ticket`'s gate actions — none of the three
+  connect a socket to fire on. **Why the omission survived**: every
+  screen was reviewed through the storybook export, a dead render by
+  design (this doc's own ORC-113 entry above), and the reference
+  instance's screens were never driven live before Phase 5's proof
+  (`docs/build-plan.md`) needed them to be. The export never boots the
+  application either, so it exercised nothing here — the same
+  dead-render property, hiding a second gap.
 
   **The fix is the standard LiveView client, built the no-Node way
-  ORC-183 already chose for CSS above, not a second toolchain
-  decision.** `assets/js/app.js` imports `phoenix`, `phoenix_html` and
+  ORC-183 chose for CSS above, not a second toolchain decision.**
+  `assets/js/app.js` imports `phoenix`, `phoenix_html` and
   `phoenix_live_view` — each already a direct or transitive dependency
   in `deps/`, so nothing is fetched through npm — bundled by the
   `esbuild` Mix package's own standalone binary. `mix esbuild catapult
   --minify` joins `assets.deploy` ahead of `phx.digest`, and `mix
-  esbuild catapult` joins `assets.build` the same way `tailwind` does
-  today, so dev and prod both produce `priv/static/assets/app.js`
-  through the identical alias shape this doc's own ORC-183 entry
-  already describes for the CSS half. `Plug.Static`'s existing `only:
-  ~w(assets)` on `CatapultWeb.Endpoint` already serves anything landing
-  under `priv/static/assets`, so unlike ORC-183's CSS half this needs no
-  endpoint change — the plug that serves `app.css` today serves
-  `app.js` for free the moment the build writes it there.
+  esbuild catapult` joins `assets.build` the same way `tailwind` does,
+  so dev and prod both produce `priv/static/assets/app.js` through the
+  identical alias shape this doc's own ORC-183 entry describes for the
+  CSS half. `Plug.Static`'s existing `only: ~w(assets)` on
+  `CatapultWeb.Endpoint` serves anything landing under
+  `priv/static/assets`, so unlike ORC-183's CSS half this needs no
+  endpoint change — the plug that serves `app.css` serves `app.js` for
+  free the moment the build writes it there.
 
   **The "nothing is fetched through npm" claim above rests on a
   `config :esbuild` profile, and the profile is what makes it true, not
@@ -658,8 +601,7 @@ conventions §13).
   `CatapultWeb.Layouts.root/1` already emits exactly that tag for the
   session infrastructure `CatapultWeb.Endpoint`'s own comment names.
 
-  **`:esbuild` takes the same `mix.exs` shape `:tailwind` was corrected
-  into, decided here rather than left for a repeat of that correction**:
+  **`:esbuild` takes the same `mix.exs` shape as `:tailwind`**:
   `runtime: false` since it is a build-time task never started as part
   of the release, but **no `only:` restriction**, since `assets.deploy`
   is a prod build's own step and `deps.get --only prod` has to fetch it
@@ -677,15 +619,14 @@ conventions §13).
 
   `assets/**` and `lib/catapult_web/layouts.ex` are on this doc's own
   file map but not design-owned, the identical split this doc's own
-  ORC-183 entry already states for the CSS half: this paragraph is the
-  decision dev's diff is written against, not a change this pass makes
-  itself. That diff also touches `mix.exs` and `Dockerfile` — both
-  unowned by any file map (`systems/README.md`), git's textual conflict
-  detection standing in for a mutex the same way it already does for
-  every other ticket that adds a dependency or touches the toolchain.
-  `Dockerfile` needs no new step: `assets.deploy` already runs in its
-  build stage, and folding `esbuild` into that alias is enough for the
-  existing `RUN mix assets.deploy` line to pick it up.
+  ORC-183 entry states for the CSS half, so the client is dev's diff.
+  That diff also touches `mix.exs` and `Dockerfile` — both unowned by
+  any file map (`systems/README.md`), git's textual conflict detection
+  standing in for a mutex the same way it does for every other ticket
+  that adds a dependency or touches the toolchain. `Dockerfile` needs
+  no new step: `assets.deploy` already runs in its build stage, and
+  folding `esbuild` into that alias is enough for the existing `RUN
+  mix assets.deploy` line to pick it up.
 
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
