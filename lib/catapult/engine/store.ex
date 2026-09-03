@@ -42,27 +42,53 @@ defmodule Catapult.Engine.Store do
     project_id = Map.fetch!(attrs, :project_id)
     replace = Map.keys(Map.delete(attrs, :id))
 
-    %Node{id: id, project_id: project_id}
-    |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(
-      on_conflict: {:replace, replace},
-      conflict_target: [:project_id, :id]
-    )
+    retry_on_deadlock(fn ->
+      %Node{id: id, project_id: project_id}
+      |> Ecto.Changeset.change(attrs)
+      |> Repo.insert!(
+        on_conflict: {:replace, replace},
+        conflict_target: [:project_id, :id]
+      )
+    end)
   end
 
   @doc "Mints a node if `{project_id, tier, scope_key}` doesn't already exist. Idempotent on replay."
   @spec mint_node(map()) :: Node.t()
   def mint_node(attrs) do
-    %Node{}
-    |> Ecto.Changeset.change(attrs)
-    |> Repo.insert!(
-      on_conflict: :nothing,
-      conflict_target: [:project_id, :tier, :scope_key]
-    )
+    retry_on_deadlock(fn ->
+      %Node{}
+      |> Ecto.Changeset.change(attrs)
+      |> Repo.insert!(
+        on_conflict: :nothing,
+        conflict_target: [:project_id, :tier, :scope_key]
+      )
+    end)
     |> case do
       %Node{id: nil} -> get_node_by_scope!(attrs.project_id, attrs.tier, attrs.scope_key)
       node -> node
     end
+  end
+
+  # `engine_nodes` carries a second unique index beyond whichever one a
+  # caller names as its `conflict_target` (`project_id, id` here,
+  # `project_id, tier, scope_key` in `mint_node/1`) — Postgres checks
+  # every unique index on every insert regardless of which one
+  # `ON CONFLICT` names, and two concurrent upserts landing on that
+  # other index's same btree page can deadlock each other even though
+  # neither targets it. One retry is the standard remedy (the losing
+  # side is a clean abort, not a corrupted write) rather than a schema
+  # change to a load-bearing natural key.
+  @deadlock_codes [:deadlock_detected, :serialization_failure]
+
+  defp retry_on_deadlock(fun) do
+    fun.()
+  rescue
+    e in Postgrex.Error ->
+      if match?(%{postgres: %{code: code}} when code in @deadlock_codes, e) do
+        fun.()
+      else
+        reraise e, __STACKTRACE__
+      end
   end
 
   @doc "A node is addressed by `(project_id, id)` — a bare id is not unique across projects (ORC-87)."
