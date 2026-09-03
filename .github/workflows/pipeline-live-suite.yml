@@ -122,3 +122,38 @@ jobs:
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
           github_token: ${{ github.token }}
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
+
+      # The plane's failure buffer holds the last 50 5xx responses and
+      # unhandled exceptions in memory, per boot
+      # (`systems/foundation.md`'s ORC-218 entry). Reading it afterwards
+      # from `catapult-failures.yml` races both a redeploy and the next
+      # run: three reads in one evening each landed before the run they
+      # were meant to explain, and each reported an empty list that was
+      # taken as evidence about a failure it predated. Reading it here,
+      # seconds after the suite fails and in the same job, is the one
+      # ordering that cannot invert. `catapult-failures.yml` stays — it
+      # is the on-demand read, and this is the automatic one.
+      #
+      # This step never fails the job: the suite's own verdict is the
+      # result, and a buffer that cannot be reached must not overwrite
+      # it with a different error.
+      - name: Read the plane's failure buffer
+        if: failure()
+        env:
+          TOKEN: ${{ secrets.FOUNDATION_OPERATOR_TOKEN }}
+          CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "FOUNDATION_OPERATOR_TOKEN is not set on this repo (SETUP.md §3); skipping."
+            exit 0
+          fi
+
+          body=$(mktemp)
+          code=$(curl -sS -m 30 -o "$body" -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            "$CATAPULT_BASE_URL/failures" || echo "000")
+
+          echo "GET $CATAPULT_BASE_URL/failures -> $code"
+          jq . "$body" 2>/dev/null || cat "$body" || true
+          echo
+          exit 0
