@@ -600,6 +600,73 @@ conventions §13).
   `/health` so moving it to the endpoint turns a test red rather than
   a deploy.
 
+- **The root layout serves no LiveView client, so no `handle_event/3`
+  is reachable in production** (ORC-220). `CatapultWeb.Layouts.root/1`
+  links `/assets/app.css` but no script; `assets.deploy` runs
+  `tailwind`/`phx.digest` only; `/assets/app.js` 404s on the reference
+  instance. Every screen still dead-renders correctly, which is what
+  let this ship unnoticed through `document-review`'s approve/decline,
+  `board`'s and `ticket`'s gate actions — none of the three connect a
+  socket to fire on. **Why the omission survived**: every screen was
+  reviewed through the storybook export, a dead render by design (this
+  doc's own ORC-113 entry above), and the reference instance's screens
+  were never driven live before Phase 5's proof (`docs/build-plan.md`)
+  needed them to be. The storybook export renders stories directly and
+  never boots the application either, so it exercised nothing here —
+  the same dead-render property, hiding a second gap.
+
+  **The fix is the standard LiveView client, built the no-Node way
+  ORC-183 already chose for CSS above, not a second toolchain
+  decision.** `assets/js/app.js` imports `phoenix`, `phoenix_html` and
+  `phoenix_live_view` — each already a direct or transitive dependency
+  in `deps/`, so nothing is fetched through npm — bundled by the
+  `esbuild` Mix package's own standalone binary. `mix esbuild catapult
+  --minify` joins `assets.deploy` ahead of `phx.digest`, and `mix
+  esbuild catapult` joins `assets.build` the same way `tailwind` does
+  today, so dev and prod both produce `priv/static/assets/app.js`
+  through the identical alias shape this doc's own ORC-183 entry
+  already describes for the CSS half. `Plug.Static`'s existing `only:
+  ~w(assets)` on `CatapultWeb.Endpoint` already serves anything landing
+  under `priv/static/assets`, so unlike ORC-183's CSS half this needs no
+  endpoint change — the plug that serves `app.css` today serves
+  `app.js` for free the moment the build writes it there.
+
+  The root layout gets a `<script>` tag beside its `<link
+  rel="stylesheet">`, deferred so it runs after the DOM it attaches to.
+  No CSRF plumbing changes: `phoenix_live_view`'s `LiveSocket` reads the
+  token from a `meta[name="csrf-token"]` tag by convention, and
+  `CatapultWeb.Layouts.root/1` already emits exactly that tag for the
+  session infrastructure `CatapultWeb.Endpoint`'s own comment names.
+
+  **`:esbuild` takes the same `mix.exs` shape `:tailwind` was corrected
+  into, decided here rather than left for a repeat of that correction**:
+  `runtime: false` since it is a build-time task never started as part
+  of the release, but **no `only:` restriction**, since `assets.deploy`
+  is a prod build's own step and `deps.get --only prod` has to fetch it
+  — and a `boundary: check: apps:` entry from the day it lands, since
+  `Catapult.Audit.BoundaryApps` computes `:prod` reachability from
+  `only:`, never from `runtime:`, and an application with no `only:`
+  restriction is reachable regardless.
+
+  **The storybook keeps its own client, untouched.** `live_storybook`
+  mounts `storybook_assets()` (`CatapultWeb.Router`), `phoenix_storybook`'s
+  own asset route, independent of `CatapultWeb.Layouts.root/1` and of
+  this `app.js`; nothing in this decision touches the storybook's
+  screens-as-dead-renders property, on either the live route or the
+  static export.
+
+  `assets/**` and `lib/catapult_web/layouts.ex` are on this doc's own
+  file map but not design-owned, the identical split this doc's own
+  ORC-183 entry already states for the CSS half: this paragraph is the
+  decision dev's diff is written against, not a change this pass makes
+  itself. That diff also touches `mix.exs` and `Dockerfile` — both
+  unowned by any file map (`systems/README.md`), git's textual conflict
+  detection standing in for a mutex the same way it already does for
+  every other ticket that adds a dependency or touches the toolchain.
+  `Dockerfile` needs no new step: `assets.deploy` already runs in its
+  build stage, and folding `esbuild` into that alias is enough for the
+  existing `RUN mix assets.deploy` line to pick it up.
+
 - **The dispatch-facing listener's hand-wiring retires in favor of a
   registry-driven successor, not a hand-authored router** —
   `systems/foundation.md`'s own diff carries the decision and the
