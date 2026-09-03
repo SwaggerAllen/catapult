@@ -165,26 +165,31 @@ The facts a future session needs, recorded as facts:
   consumers share**: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
   event store's own Postgrex pool (`ENGINE_EVENT_STORE_POOL_SIZE`),
   and one connection each for Oban's and the event store's
-  notification listeners. Two full instances are live at once during
-  a rolling deploy, so the ceiling is a *cutover* number:
+  notification listeners. Each of those is per *container*, and two
+  containers of the service are live at once during a rolling deploy,
+  so the ceiling is a *cutover* number across the whole service:
 
-      peak = 2 × (both pools + 2)
+      peak = 2 × containers × (both pools + 2)
 
-  The migrator's own two close before the new instance opens its
-  pool — it runs first in the same container's start command —
-  overlapping only the instance being replaced, so they are never
-  the peak. Keep the peak under **19**, leaving the cluster's
+  **The service runs one container.** That count multiplies the
+  entire budget rather than being a capacity knob turnable on its
+  own: it reached two once, which put the peak at 32 against this
+  22-connection cluster and had Postgres refusing connections while
+  the sizing below still read as correct, because a formula carrying
+  no term for it makes a second container look free. Raise it only by
+  dividing the pools by the same factor.
+
+  The migrator's own two close before the service opens its pools —
+  it runs first in the same container's start command — overlapping
+  only the container being replaced, so they are never the peak.
+  Keep the peak under **19**, leaving the cluster's
   maintenance reserve alone — the Overview graph is the authority on
   both the limit and live usage, and beats this arithmetic if they
   disagree.
 - **Set on the instance: `FOUNDATION_POOL_SIZE=2`,
-  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 12, which is also what
-  the next bullet's code defaults carry, so unsetting both is a
-  no-op. 4/2 computes to a peak of 16 and still produced `too many
-  connections` against this cluster: the arithmetic and the Overview
-  graph disagreed, so something holds connections the formula above
-  does not model, and the graph decides until that is measured.
-  **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the last is
+  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 12 at one container, and
+  also what the next bullet's code defaults carry, so unsetting both
+  is a no-op. **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the last is
   over the raw limit and the one before it leaves nothing for a
   reserve. Headroom, when there is any to spend, goes to the Repo
   rather than the event store's pool: the Repo serves the projector's
