@@ -631,6 +631,26 @@ conventions §13).
   endpoint change — the plug that serves `app.css` today serves
   `app.js` for free the moment the build writes it there.
 
+  **The "nothing is fetched through npm" claim above rests on a
+  `config :esbuild` profile, and the profile is what makes it true, not
+  a detail beneath it.** Phoenix's own generator shape is the one this
+  decision takes: `cd: Path.expand("../assets", __DIR__)`, `env:
+  %{"NODE_PATH" => Path.expand("../deps", __DIR__)}`, entry `js/app.js`,
+  args including `--bundle` and `--outdir=../priv/static/assets`.
+  Without `NODE_PATH` pointed at `deps/`, esbuild's bundler has nowhere
+  to resolve a bare `phoenix`/`phoenix_html`/`phoenix_live_view` import
+  from, and the build fails rather than silently reaching npm — dev
+  meets the claim above as a build error, not as a working client, if
+  the profile is left out.
+
+  `:esbuild` occupies a fourth site the `:tailwind` half already
+  occupies, beside the `mix.exs` dependency, the `assets.build`/
+  `assets.deploy` alias, and the `boundary: check: apps:` entry below:
+  `assets.setup` gains `esbuild.install --if-missing` next to the
+  existing `tailwind.install --if-missing` line, so a fresh checkout
+  installs both standalone binaries on first run rather than failing
+  the first `assets.build` with neither present.
+
   The root layout gets a `<script>` tag beside its `<link
   rel="stylesheet">`, deferred so it runs after the DOM it attaches to.
   No CSRF plumbing changes: `phoenix_live_view`'s `LiveSocket` reads the
