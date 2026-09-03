@@ -189,9 +189,9 @@ The facts a future session needs, recorded as facts:
 - **Set on the instance: `FOUNDATION_POOL_SIZE=2`,
   `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 12 at one container, and
   also what the next bullet's code defaults carry, so unsetting both
-  is a no-op. **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the last is
-  over the raw limit and the one before it leaves nothing for a
-  reserve. Headroom, when there is any to spend, goes to the Repo
+  is a no-op. **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the
+  last is over the raw limit and the one before it leaves nothing for
+  a reserve. Headroom, when there is any to spend, goes to the Repo
   rather than the event store's pool: the Repo serves the projector's
   writes, Oban's workers as queues land, the health check and the
   scheduler's readiness sweep, while the event store's pool serves
