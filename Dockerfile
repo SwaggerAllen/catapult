@@ -51,6 +51,17 @@ ENV LANG=C.UTF-8 MIX_ENV=prod
 WORKDIR /app
 COPY --from=build /app/_build/prod/rel/catapult ./
 COPY --from=build /app/GIT_SHA /app/GIT_SHA
+# The DSL bundle is content the release reads at runtime, not code the
+# release compiles in: every `Catapult.Dsl.load/1` in the plane — the
+# engine projector, both sweepers, the commit path, the dispatch
+# worker, and four screens — resolves `catapult.yaml` and `bundles/`
+# against `bundles_root`, which defaults to `.` and is this WORKDIR.
+# Without these two lines the reference instance booted green and then
+# failed every one of those loads with "./catapult.yaml does not
+# exist": the sweeper skipped every tick and the screens answered 500,
+# while /health stayed green because it loads nothing.
+COPY --from=build /app/catapult.yaml /app/catapult.yaml
+COPY --from=build /app/bundles /app/bundles
 
 # GIT_SHA is exported at start rather than baked as ENV so the migrate
 # job (which runs `eval`, not `start`) shares the image unchanged.
