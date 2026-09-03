@@ -21,5 +21,5 @@ context-fetch/result-report calls (`systems/generation.md`,
 this instance's one public listener, rather than each opening its own
 (`SETUP.md` §2, `systems/foundation.md`). The live app's own
 specifics — name, region, public hostname, port, autodeploy, the
-migrate PRE_DEPLOY job, the id of the app deploy detection watches —
-are in `SETUP.md` §2 and nowhere else.
+id of the app deploy detection watches — are in `SETUP.md` §2 and
+nowhere else.

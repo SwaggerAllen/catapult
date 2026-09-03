@@ -63,6 +63,31 @@ COPY --from=build /app/GIT_SHA /app/GIT_SHA
 COPY --from=build /app/catapult.yaml /app/catapult.yaml
 COPY --from=build /app/bundles /app/bundles
 
-# GIT_SHA is exported at start rather than baked as ENV so the migrate
-# job (which runs `eval`, not `start`) shares the image unchanged.
-CMD ["/bin/sh", "-c", "GIT_SHA=$(cat /app/GIT_SHA) exec /app/bin/catapult start"]
+# The migrator runs here, in the container's own start command, ahead
+# of `start` — not as an App Platform PRE_DEPLOY job. A job is a second
+# component with its own environment: every required variable
+# duplicated by hand and silently stale the day one is added. And on
+# the reference instance no job was ever configured, so every
+# migration dated 2026-09-01 or later went unapplied while each deploy
+# reported green — `delivery_projects` did not exist, provisioning
+# answered 500 for four live-suite runs, and nothing on the deploy
+# said so. Here the migrator boots from the same environment the
+# service does, by construction, and the failure semantics are the
+# ones a PRE_DEPLOY job promised: `eval` exits non-zero on a raise,
+# `&&` stops the container before `start`, the health check never
+# answers, and App Platform fails the deploy with the previous
+# deployment still serving. (Expected from App Platform's documented
+# behaviour; not yet observed on a failing migration.) Sequential, not
+# concurrent: the migrator's own connections (`Catapult.Release`'s
+# `@migrator_pool_size`) close before the service opens its pool, so
+# SETUP.md §2's cutover arithmetic holds unchanged, and two instances
+# of one rolling deploy migrating at once are serialized by Ecto's
+# migration lock on `schema_migrations`.
+#
+# The component's Run Command stays blank in the dashboard: a value
+# there replaces this CMD, migrator included, and the deploy goes
+# back to reporting green over an unmigrated database.
+#
+# GIT_SHA is exported at start rather than baked as ENV: /health is
+# its only reader, and the file is the build's one stamping site.
+CMD ["/bin/sh", "-c", "/app/bin/catapult eval Catapult.Release.migrate && GIT_SHA=$(cat /app/GIT_SHA) exec /app/bin/catapult start"]
