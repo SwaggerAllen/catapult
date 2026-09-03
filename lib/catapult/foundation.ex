@@ -7,6 +7,7 @@ defmodule Catapult.Foundation do
   """
   use Catapult.Component, slug: :foundation
 
+  alias Catapult.Foundation.Failures
   alias Ecto.Adapters.SQL
 
   # The plane is reached over a network by people who are not its
@@ -45,9 +46,27 @@ defmodule Catapult.Foundation do
       # request through the `:browser` pipeline, instead of naming
       # itself in the boot report next to every other wrong variable.
       {:endpoint_secret_key_base, "FOUNDATION_ENDPOINT_SECRET_KEY_BASE",
-       cast: &__MODULE__.cast_endpoint_secret_key_base/1, secret: true}
+       cast: &__MODULE__.cast_endpoint_secret_key_base/1, secret: true},
+      # `Catapult.Foundation.Failures`'s own bearer secret (ORC-218): a
+      # new declaration rather than a reuse of `DELIVERY_PROVISIONING_TOKEN`
+      # (`systems/foundation.md`'s ORC-218 entry) — that token's name says
+      # delivery, and it is delivery's own secret for delivery's own
+      # surface. No default, the same shape `endpoint_secret_key_base`
+      # above already has: a build without it fails at boot with the
+      # config report naming it.
+      {:operator_token, "FOUNDATION_OPERATOR_TOKEN", cast: :string, secret: true},
+      # `Catapult.Foundation.FailureLog`'s own injected clock (conventions
+      # §9 — no bare `DateTime.utc_now`), the same config-cast shape
+      # `Catapult.Generation`'s own `:clock` declaration already uses.
+      {:clock, "FOUNDATION_CLOCK", cast: &__MODULE__.cast_clock/1, default: "system"}
     ]
   end
+
+  @doc "Casts the configured clock name to its module."
+  @spec cast_clock(String.t()) :: {:ok, module()} | {:error, String.t()}
+  def cast_clock("system"), do: {:ok, Catapult.Clock.System}
+  def cast_clock("fake"), do: {:ok, Catapult.Foundation.Clock.Fake}
+  def cast_clock(other), do: {:error, "is #{inspect(other)}, expected \"system\" or \"fake\""}
 
   @doc """
   Casts a database URL into the options `Catapult.Repo` merges.
@@ -109,12 +128,25 @@ defmodule Catapult.Foundation do
   end
 
   @impl Catapult.Component
+  def api_surface do
+    [{{:list_failures, 1}, :get, "/failures", version: "v1", audience: :internal}]
+  end
+
+  @impl Catapult.Component
+  def processes do
+    [{:foundation_failure_log, :singleton}]
+  end
+
+  @impl Catapult.Component
   def children do
-    if Application.get_env(:catapult, :start_persistence, true) do
-      [Catapult.Repo, {Oban, Application.fetch_env!(:catapult, Oban)}]
-    else
-      []
-    end
+    persistence =
+      if Application.get_env(:catapult, :start_persistence, true) do
+        [Catapult.Repo, {Oban, Application.fetch_env!(:catapult, Oban)}]
+      else
+        []
+      end
+
+    persistence ++ [Catapult.Foundation.FailureLog]
   end
 
   @impl Catapult.Component
@@ -127,4 +159,8 @@ defmodule Catapult.Foundation do
   rescue
     _ -> false
   end
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Foundation.Failures.list/1`."
+  @spec list_failures(Plug.Conn.t()) :: Plug.Conn.t()
+  defexport(list_failures(conn), do: Failures.list(conn))
 end

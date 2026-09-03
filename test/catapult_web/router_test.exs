@@ -45,4 +45,44 @@ defmodule CatapultWeb.RouterTest do
       assert get_resp_header(conn, "strict-transport-security") == []
     end
   end
+
+  describe "the failure buffer (ORC-218)" do
+    test "GET /failures is reachable through the full endpoint pipeline, bearer-authenticated", %{
+      conn: conn
+    } do
+      conn = get(conn, "/failures")
+      assert conn.status == 401
+
+      conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer test-token")
+        |> get("/failures")
+
+      assert conn.status == 200
+      assert %{"failures" => failures} = Jason.decode!(conn.resp_body)
+      assert is_list(failures)
+    end
+
+    test "an ordinary 200 leaves no trace of its own path in the buffer", %{conn: conn} do
+      get(conn, "/health")
+
+      assert %{"failures" => failures} = current_failures()
+      refute Enum.any?(failures, &(&1["path"] == "/health"))
+    end
+
+    test "the router's own terminal 404 leaves no trace of its path in the buffer", %{conn: conn} do
+      get(conn, "/nope")
+
+      assert %{"failures" => failures} = current_failures()
+      refute Enum.any?(failures, &(&1["path"] == "/nope"))
+    end
+  end
+
+  defp current_failures do
+    build_conn()
+    |> put_req_header("authorization", "Bearer test-token")
+    |> get("/failures")
+    |> then(& &1.resp_body)
+    |> Jason.decode!()
+  end
 end

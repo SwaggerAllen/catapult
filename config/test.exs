@@ -55,7 +55,15 @@ config_seed = %{
   "DELIVERY_HOST_PORT_ADAPTER" => "fake",
   "DELIVERY_FLAG_SET_ADAPTER" => "fake",
   "DELIVERY_OIDC_JWKS_AUTOSTART" => "false",
-  "GENERATION_CLOCK" => "fake"
+  "GENERATION_CLOCK" => "fake",
+  # `Catapult.Foundation.Failures`'s own bearer secret (ORC-218) —
+  # never exercised by the default suite (the buffer's feed is
+  # telemetry, not an inbound caller other tests drive), but
+  # `Catapult.Config.load!/2` loads every declared value at boot
+  # regardless, the same shape `DELIVERY_PROVISIONING_TOKEN` above
+  # already has.
+  "FOUNDATION_OPERATOR_TOKEN" => "test-token",
+  "FOUNDATION_CLOCK" => "fake"
 }
 
 config :catapult, :config_source, {Catapult.Config.Static, config_seed}

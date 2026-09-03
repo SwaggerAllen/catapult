@@ -110,4 +110,38 @@ defmodule Catapult.Foundation.DispatchPlugTest do
       assert conn.status == 404
     end
   end
+
+  describe "GET /failures (ORC-218)" do
+    test "401s with no bearer" do
+      opts = DispatchPlug.init([])
+      conn = DispatchPlug.call(conn(:get, "/failures"), opts)
+
+      assert conn.status == 401
+    end
+
+    test "401s with the wrong bearer" do
+      opts = DispatchPlug.init([])
+
+      conn =
+        conn(:get, "/failures")
+        |> put_req_header("authorization", "Bearer not-the-token")
+        |> DispatchPlug.call(opts)
+
+      assert conn.status == 401
+    end
+
+    test "200s authenticated, with the buffer's current records" do
+      opts = DispatchPlug.init([])
+
+      conn =
+        conn(:get, "/failures")
+        |> put_req_header("authorization", "Bearer test-token")
+        |> DispatchPlug.call(opts)
+
+      assert conn.status == 200
+      assert conn.halted
+      assert %{"failures" => failures} = Jason.decode!(conn.resp_body)
+      assert is_list(failures)
+    end
+  end
 end

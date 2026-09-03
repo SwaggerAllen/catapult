@@ -88,6 +88,7 @@ one.
 DELIVERY_GITHUB_TOKEN
 DELIVERY_PROVISIONING_TOKEN
 FOUNDATION_ENDPOINT_SECRET_KEY_BASE
+FOUNDATION_OPERATOR_TOKEN
 ```
 
 `DATABASE_URL` is deliberately absent: it is declared `external: true`
@@ -133,6 +134,23 @@ The facts a future session needs, recorded as facts:
   the CSRF token on — no login and no writes ride it yet, but Phoenix
   requires it regardless of whether a session is ever meaningfully
   read.
+- **`FOUNDATION_OPERATOR_TOKEN` — `Catapult.Foundation.Failures`'s own
+  bearer secret, set as an App Platform environment variable,
+  encrypted** (ORC-218). Declared by foundation with no default, the
+  same shape `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` above already has.
+  A bearer secret, not a GitHub token: it authenticates `GET
+  /failures` (`systems/foundation.md`'s ORC-218 entry — the last 50
+  unhandled exceptions and 5xx responses, held in memory), constant-time
+  (`Plug.Crypto.secure_compare/2`). A new declaration rather than a
+  reuse of `DELIVERY_PROVISIONING_TOKEN` below — that token's name says
+  delivery, because it is delivery's own secret for delivery's own
+  surface. **Set the identical value in two places**, the same
+  footgun `DELIVERY_PROVISIONING_TOKEN` below already has: here, on the
+  reference instance, and as this repo's own `FOUNDATION_OPERATOR_TOKEN`
+  Actions secret (§3) — the dispatch-only workflow that curls this route
+  reads it from its own environment and sends it as the bearer token, so
+  the two have to agree or every run fails at the first request with a
+  401.
 - Database: managed PG 16, component/cluster
   `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
   bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted
@@ -281,6 +299,11 @@ from tracker/host as signals before resuming authority).
     bearer token (§2's own entry); it has to be the identical value
     the reference instance holds under the same name, or every live
     run fails at the first request with a 401.
+  - `FOUNDATION_OPERATOR_TOKEN` — the phone-readable, dispatch-only
+    workflow reads this and sends it as `GET /failures`'s bearer token
+    (§2's own entry); it has to be the identical value the reference
+    instance holds under the same name, or every run fails at the
+    first request with a 401.
 - **`SwaggerAllen/catapult-test` (the bound fixture repo — a
   *different* repository, its own Actions secrets) needs its own
   model credentials, the ones `catapult-dispatch.yml`'s `run-agent`

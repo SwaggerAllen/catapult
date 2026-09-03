@@ -688,6 +688,14 @@ envelope** — the system that reports failures must not share a failure
 domain with the system it reports on; users likely want external
 providers anyway.
 
+**A bounded, volatile in-process buffer of the app's own last N
+failures is not a backend, and this rule does not reach it** (ORC-218,
+`systems/observability.md`). It keeps nothing past a restart, ships
+nothing off-host, and exists for exactly the case this rule's own
+domain-sharing worry doesn't cover: no backend configured yet, and a
+5xx that needs to be readable within the minute it happens. The rule
+above still binds anything durable or reachable off this instance.
+
 - **PromEx** as the metrics engine: Prometheus exposition, plugins for
   Phoenix/Ecto/Oban/LiveView, and Grafana dashboard provisioning as
   code — each component's registered events generate a per-component

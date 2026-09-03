@@ -619,6 +619,162 @@ reached only through their APIs per v5 §2.4).
   implementing diff updates both in the same change — the failure mode
   `docs/non-goals.md`'s "no second home for the reference instance's
   live facts" entry exists to catch, one document over.
+- **A bounded, volatile last-N-failures buffer, fed by telemetry
+  `CatapultWeb.Endpoint` already emits** (ORC-218). The
+  reference instance answering 500 on every screen and on the
+  provisioning surface for a day left nothing behind but App
+  Platform's own runtime log — unnavigable for anything not happening
+  right now, unforwarded, and read by nobody until this ticket. The
+  fix is a small in-process record, not a backend: `systems
+  /observability.md`'s own ORC-218 entry is the rule this bullet's
+  mechanism satisfies.
+
+  **Fed off two hooks that already exist, measured rather than
+  added — one for completeness, one for the trace.**
+  `CatapultWeb.Endpoint`'s `render_errors:` config (`config/config.exs`)
+  arms `Phoenix.Endpoint.RenderErrors`, which wraps this listener's
+  entire `call/2` in a rescue and executes `:telemetry.execute([:phoenix,
+  :error_rendered], %{duration: _}, %{conn:, status:, kind:, reason:,
+  stacktrace:, log:})` before re-raising (verified against `deps/phoenix
+  /lib/phoenix/endpoint/render_errors.ex`) — the exception and its stack
+  trace, for anything that raises. But a 5xx that never raises never
+  reaches that event (below), so the buffer's actual feed is the plug
+  already ahead of it in the same file: `plug Plug.Telemetry,
+  event_prefix: [:phoenix, :endpoint]`, whose `[:phoenix, :endpoint,
+  :stop]` fires immediately before the response is sent on a conn that
+  still carries the callback it registered, carrying the final `conn` —
+  status included — whatever produced that status (verified against
+  `deps/plug/lib/plug/telemetry.ex`; the "still carries the callback"
+  qualifier is not decorative — the paragraph below names the one path
+  where it doesn't).
+  `Catapult.Foundation.FailureLog` attaches to both, and **whichever
+  fires first for a given request creates the record; the other, if it
+  fires at all, enriches the existing one rather than pushing a
+  second** — correlated by the request id `plug Plug.RequestId` —
+  already the plug ahead of `Plug.Telemetry` in the same file — writes
+  to `Logger.metadata()` for every request regardless of whether
+  `:assign_as` is set (verified against `deps/plug/lib/plug
+  /request_id.ex`): both handlers run inside the request's own process,
+  so both read the identical id back off `Logger.metadata()`, with no
+  new plug and no conn threading added to reach it. A created record
+  carries the request path and a `DateTime` from `Catapult.Clock` (no
+  bare `DateTime.utc_now`); whichever event supplies a stack trace
+  attaches it. Rejected: a `:logger` handler or a fresh `Plug
+  .ErrorHandler`, the two mechanisms the ticket itself named — both
+  would duplicate a rescue-and-classify `render_errors.ex` already
+  performs for the raising half, and neither sees a response that never
+  raised at all.
+
+  **Order is not fixed, because for one path `:stop` never fires at
+  all, so "`:stop` is always the record" would silently drop that
+  path's trace.** `Plug.Builder`'s generated
+  `call/2` wraps its plug chain in no `try` of its own (verified against
+  `deps/plug/lib/plug/builder.ex`), so a raise inside a function plug —
+  `plug :dispatch_plug`, which runs `Catapult.Foundation.DispatchPlug`'s
+  `apply/3` dispatch — propagates unwrapped past every later plug in
+  `CatapultWeb.Endpoint`'s own list, including `Plug.Telemetry`'s
+  `register_before_send`. `Phoenix.Endpoint.__before_compile__`'s
+  generated `call/2` catches it on its bare `catch kind, reason ->`
+  clause rather than the `rescue e in Plug.Conn.WrapperError ->` one
+  (verified against `deps/phoenix/lib/phoenix/endpoint.ex`) — that
+  clause only fires for a raise `CatapultWeb.Router` itself wrapped, and
+  a raise inside a function plug ahead of the router never reaches it —
+  and that bare clause hands `Phoenix.Endpoint.RenderErrors.__catch__/5`
+  the `conn` bound before the pipeline ran, not the one `Plug.Telemetry`
+  registered its callback on. `[:phoenix, :endpoint, :stop]` fires on
+  `register_before_send` callbacks attached to the conn that's actually
+  sent; a callback registered on a conn nothing downstream ever sends is
+  simply never invoked, so `:stop` does not fire for this path at all —
+  not late, not without a trace, not at all. `:error_rendered` is fired
+  from `__catch__` itself, unconditionally, so it is this path's only
+  event and has to be able to create the record alone. A raise the
+  router itself wraps (`Plug.Conn.WrapperError`, verified against `deps
+  /phoenix/lib/phoenix/router.ex`) carries the piped conn from inside
+  the router's own dispatch — by then already carrying `Plug.Telemetry`'s
+  callback, registered earlier in the same pipeline — so `:stop` still
+  fires there once `RenderErrors` sends the rendered response;
+  wherever both events fire, `:stop` arrives first and `:error_rendered`
+  enriches it.
+
+  **The predicate is "left this listener with `conn.status >= 500`,"
+  not a grep for how it got there.**
+  `Catapult.Delivery.Provisioning.provision/1` answers a `502` when
+  reset or intake fails (`lib/catapult/delivery/provisioning.ex:82`,
+  `error_response/3` calling `send_resp` directly, nothing raised) —
+  exactly the provisioning failure this ticket's own incident names,
+  and one a grep for raise-shaped call sites (`put_status(5`,
+  `send_resp(5`, `:internal_server_error`) missed by construction,
+  because it isn't shaped like the thing the grep was looking for.
+  Naming three strings as a stand-in for "nothing else produces a 5xx"
+  was the mistake the grep made; `conn.status >= 500` at the point a
+  response leaves the listener is the actual predicate. This
+  provisioning 502 never raises, so it is unaffected by the gap the
+  paragraph above names — `:endpoint, :stop` fires for it exactly as
+  described — and a future deliberate, non-raising 5xx is fed the same
+  way this one is, with no diff required to widen anything.
+
+  **Scoped to this listener's own requests, not every process crash.**
+  An Oban worker or an unrelated supervised process crashing is not
+  fed here: Oban already has its own execution lifecycle (retries,
+  `discarded`) for the first, and the ticket's own argument is about an
+  HTTP-facing incident (every screen, the provisioning surface) — the
+  same boundary `CatapultWeb.Endpoint` already draws. Widening the feed
+  to arbitrary process crashes is a different, unasked decision, not a
+  narrower reading of this one.
+
+  **The buffer is plane code under `lib/catapult/foundation/`, not the
+  observability component, because its audience is this instance's own
+  operator** — the same class of concern `/health` and `DispatchPlug`
+  already are, not a capability a generated project inherits by
+  adopting a shared component. A generated project wanting the
+  identical read surface is a separate, unasked product decision;
+  nothing here presumes it. `Catapult.Foundation.FailureLog` is a
+  `processes/0` entry like any other (`{:foundation_failure_log,
+  :singleton}`), holding the last **50** records — small and stated.
+  It declares no `max_heap_size:` guardrail, not a default one: there
+  is no default to fall back on, since `Catapult.Guardrails` applies
+  only what a `processes/0` entry names — `enforceable/0` is
+  `[:max_heap_size]` alone, and an entry naming nothing gets nothing
+  applied (verified against `components/substrate/lib/catapult
+  /guardrails.ex`) — and 50 small records bounded in count is not the
+  case this ticket's incident argues needs one. Oldest record drops
+  first once the 51st arrives.
+
+  **One read surface beside `/health`: `GET /failures`, registered
+  through `api_surface/0` on `Catapult.Foundation` exactly like
+  delivery's provisioning routes, `version: "v1", audience: :internal`**
+  — reached through the identical `Catapult.Foundation.DispatchPlug`
+  path dispatch (this doc's ORC-9/ORC-35 entries above), a sixth path on
+  the one listener rather than a new one. Bearer-authenticated,
+  constant-time (`Plug.Crypto.secure_compare/2`), against a secret this
+  bullet settles the ticket's own open question about: **a new
+  `FOUNDATION_OPERATOR_TOKEN`, declared in `Catapult.Foundation.config/0`
+  exactly like `endpoint_secret_key_base` above (`secret: true`, no
+  default), not a reuse of `DELIVERY_PROVISIONING_TOKEN`.** Reusing it
+  was the simpler count — one fewer required-env line — and is rejected
+  on the same argument that renamed `POOL_SIZE`/`HEALTH_PORT` above: the
+  provisioning token's name says delivery, because it is delivery's own
+  secret for delivery's own surface, and gating an unrelated
+  foundation-owned route on it would be exactly the kind of name a
+  reviewer can see is wrong the moment the two surfaces' owners diverge.
+  Foundation already declares its own secrets by its own slug; this is
+  one more. The implementing diff adds `FOUNDATION_OPERATOR_TOKEN` to
+  `SETUP.md` §2's required-env manifest, the same way
+  `DELIVERY_PROVISIONING_TOKEN`'s own entry landed.
+
+  **The phone-readable half is a dispatch-only GitHub Actions
+  workflow, author-owned and outside this pass's reach** (invariants,
+  above): the same shape `catapult-test-project.yml` already has — a
+  `workflow_dispatch` job that curls `GET /failures` with the bearer
+  token and prints the JSON to the run's own log, readable from the
+  Actions tab on a phone with no other tooling. Design commits none of
+  it; the route above is what it curls.
+
+  **No dashboard screen.** The ticket's own open question answers
+  itself the same way the workflow above does: a route is what "readable
+  from a phone within a minute" needs, and a rendered screen over the
+  identical data is a later convenience with no argument for it yet —
+  not a refusal, just nothing this ticket's argument asks for.
 
 ## The live suite
 
