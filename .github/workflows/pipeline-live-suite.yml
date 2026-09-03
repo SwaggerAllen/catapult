@@ -13,6 +13,17 @@ on:
         description: Boundary ticket key
         required: true
         type: string
+      command:
+        # The boundary suite by default. The Phase 5 proof selects
+        # `mix test --only live_todo_app_proof` instead — that tag is
+        # excluded from `--only live` on purpose, because the two would
+        # race for the one `:active` test-project slot if they ran in
+        # the same batch (test/test_helper.exs, docs/build-plan.md's
+        # Phase 5 section). One workflow, two suites, never both.
+        description: The test command to run (default is the boundary suite)
+        required: false
+        type: string
+        default: "mix test --only live"
 
 # Every pipeline command builds a snapshot first, and the snapshot has a
 # fixed read-set: the agent run list (actions), the open PRs
@@ -105,8 +116,9 @@ jobs:
         with:
           ticket: ${{ inputs.ticket }}
           # The project's :live-tagged tests: real network, real
-          # providers, budget-capped. Once per milestone.
-          command: "mix test --only live"
+          # providers, budget-capped. Once per milestone — or the Phase
+          # 5 proof, when the `command` input selects it.
+          command: ${{ inputs.command }}
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
           github_token: ${{ github.token }}
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
