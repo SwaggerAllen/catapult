@@ -41,7 +41,8 @@ defmodule Catapult.Foundation.Failures do
       path: record.path,
       status: record.status,
       occurred_at: DateTime.to_iso8601(record.occurred_at),
-      stacktrace: record.stacktrace
+      stacktrace: record.stacktrace,
+      body: record.body
     }
   end
 
