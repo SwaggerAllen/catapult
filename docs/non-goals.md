@@ -91,14 +91,15 @@ never shipped. The sane residue: Catapult consumes the shared
 components as an ordinary library user.
 
 **Narrower than it sounds — a documentation-only proof does not trip
-this.** Phase 5's exit criterion scaffolds a reviewed architecture
-chain from Catapult's own `docs/` and `systems/` as the seed raft:
-intake through the architecture chain only, stopping at reviewed
-documents, with no code generated, no delivery, and no redeploy of
-Catapult from the result. That tests the intake and architecture-chain
-machinery on a real, structurally unusual raft; it is not the
+this.** Phase 5's exit criterion (`docs/build-plan.md`'s Phase 5
+section) scaffolds a reviewed architecture chain from a small seed
+written for the purpose: intake through the architecture chain only,
+stopping at reviewed documents, with no code generated, no delivery,
+and no redeploy of Catapult from the result. That tests the intake
+and architecture-chain machinery end to end; it is not the
 self-hosting this entry refuses, which is building and *running*
-Catapult from its own graph.
+Catapult from its own graph: this entry's refusal is about execution,
+not about what a raft describes.
 
 ## No absorption of existing codebases
 scope: universal

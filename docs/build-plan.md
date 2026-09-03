@@ -198,12 +198,94 @@ lands in Phase 7, with its consumer (`systems/client_ts.md`). Also
 here: the platform's input-document role vocabulary — `project_doc`,
 `mocks`, `non_goals`, `design_system` (`dsl-syntax.md` §7).
 
-Exit criterion — the first big one: **Catapult scaffolds a reviewed
-architecture chain from its own `docs/` and `systems/` as the seed
-raft** — real, large, and structurally unusual on purpose, with no
-external project needed — reviewed through the Phase 4 loop. The doc
-chain producing reviewed architecture is a usable product before any
+Exit criterion — the first big one: **a small todo application,
+scaffolded from spec documents written for the purpose, produces a
+reviewed architecture chain through the Phase 4 loop.** The doc chain
+producing reviewed architecture is a usable product before any
 delivery machinery exists.
+
+Not Catapult's own `docs/`/`systems/`, and not because that raft is
+unavailable: the claim under test is mechanism — fan-out, gates, and
+a decline visibly changing what comes back — and that claim is
+size-independent, so a large seed buys review load rather than
+evidence. Phase 5's own tiers are product tiers (journeys, screens,
+mocks, `design_system`, the UI and screen collection families), and a
+small application with mocks exercises every one of them, where a
+control plane's own design record barely reaches them. The reviewer
+knowing the right answer is what a mechanism proof wants — a wrong
+fan-out is visible at a glance — and that holds for any seed the
+reviewer wrote, not only a self-referential one. `systems/*.md` is
+the architecture the chain exists to produce; reading it back in as
+`input.behavior_docs` would make `sysarch` a paraphrase of its own
+input. And the seed doubles as Phase 6's first cohort fixture: small
+enough for an agent to evaluate, which is the property that harness
+needs from day one.
+
+The seed is a second fixture beside `toy_seed` — spec documents
+carrying the same file-per-role shape `toy_seed`'s own raft already
+uses (`role: Path.rootname(filename)`, `Store.pin_input_documents/3`):
+`project_doc`, `non_goals` and `mocks` are platform roles
+(`dsl-syntax.md` §7), and `behavior_docs`, `invariants`,
+`capability_inventories`, `forward_strategies` are the same
+project-declared names `toy_seed`'s own fixture files already carry
+— a project's own role name is that project's declaration, not
+platform vocabulary, and an unread one is simply never walked
+(`dsl-syntax.md` §7). It carries no canned tier bodies — it only ever
+runs live, and `toy_seed` stays the offline fixture, untouched. The
+spec names the three to five components it intends the chain to
+mint, so the proof checks the fan-out against those names rather than
+against a count — and at that size, the run goes to `impl` for every
+one of them, across all three families Phase 5 reaches (backend,
+UI-collection, screen-collection; the client family is Phase 7's,
+with its consumer, per v5 §5.1). Reviewing every subcomponent this
+seed mints is not a cost that scales with the raft: the seed's small
+footprint is what makes exhaustive review the bound. Somewhere in that
+run, at least one decline has to harvest into a regeneration that
+visibly answers it.
+
+The run is against a fresh project, never the reference instance's
+own: a fresh `project_id` keeps the run's evidence out of any graph
+the instance later runs for real, and costs a binding row and a bound
+repo. Every engine table already keys by `(project_id, id)`, and
+`FeatureLifecycle`'s own process-manager identity is the composited
+pair `(project_id, flow_id)` (`systems/engine.md`,
+`systems/delivery.md`) — a fresh `project_id` gets its own key space
+and its own process managers by construction, with no second
+deployment involved.
+
+Concretely, the seed's project is a **test project** in
+`systems/delivery.md`'s ORC-216 sense: provisioned through
+`Catapult.Delivery.Provisioning`'s `POST /dispatch/test-project`
+(which binds it to `catapult-test` and intakes the todo-app raft at
+the ref that call produces), carried forward by the sweeper as gates
+pass, released through `POST
+/dispatch/test-project/:project_id/release` once the author is done
+reviewing, and later deleted like the boundary's own test project —
+the lifecycle already supports exactly this.
+
+Dispatch runs through the harness `systems/generation.md`'s ORC-215
+entry built, not a placeholder: the seed project's bindings carry the
+ordered credential pair, the bound repo (`catapult-test`) carries
+those credentials as Actions secrets, the run executes in that repo's
+dispatched workflow, and the classified outcome (`success |
+limit_class_failure | other_failure`, plus which credential served)
+reports back to the plane that issued it.
+
+The proof itself is not a `:live` test — its middle is the author
+reviewing and declining through `document-review` across hours or
+days, which no bounded test spans. What starts it is the provisioning
+call above, posting the todo-app fixture and leaving the project
+active; the sweeper carries the chain forward as gates pass, the
+author reviews and declines at each one, and releases the project
+when the proof is done. What triggers the provisioning call is a
+dispatch input on `pipeline-live-suite.yml` selecting this proof
+rather than the boundary suite; that file is author-owned
+(`systems/README.md`).
+
+Nothing the run produces reaches the tree: the run still commits —
+every scope's `CommitDraft` lands exactly as it does for any other
+project — but nothing it commits is a second, generated copy of
+anything landing in this repo.
 
 ## Phase 6 — Prompt harness v0
 
