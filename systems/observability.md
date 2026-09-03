@@ -43,13 +43,18 @@ outside the deployment envelope.
   above it.
 
   **The tower-based error reporting this doc's own opening paragraph
-  names feeds the same buffer rather than opening a second one**
-  (v5 §2.11's "error tracking via tower... as one more adapter"). One
-  crash is one occurrence: when tower's own provider-adapter hook
-  lands, it attaches to the identical `[:phoenix, :error_rendered]`
-  telemetry event `systems/foundation.md`'s ORC-218 entry already
-  reads, forwarding to a durable, off-host backend — exactly the shape
-  "backends live outside the envelope" asks for — rather than a second,
+  names feeds off the same events rather than opening a second capture
+  path** (v5 §2.11's "error tracking via tower... as one more
+  adapter"). One crash is one occurrence: when tower's own
+  provider-adapter hook lands, it attaches to the identical
+  `[:phoenix, :endpoint, :stop]` and `[:phoenix, :error_rendered]`
+  events `systems/foundation.md`'s ORC-218 entry already reads —
+  both, not `:error_rendered` alone, for the same reason that entry
+  gives: a 5xx that never raises never reaches `:error_rendered`, and
+  an off-host backend missing exactly the failures that don't raise
+  would be a worse gap than the in-process buffer ever had — forwarding
+  to a durable, off-host backend, exactly the shape "backends live
+  outside the envelope" asks for, rather than a second,
   independently-written capture path that could disagree with the
   buffer about what happened.
 - **Instrumentation comes from the substrate's macro, not from this
