@@ -139,6 +139,7 @@ defmodule Catapult.Foundation.DispatchPlugTest do
         |> DispatchPlug.call(opts)
 
       assert conn.status == 200
+      assert conn.halted
       assert %{"failures" => failures} = Jason.decode!(conn.resp_body)
       assert is_list(failures)
     end
