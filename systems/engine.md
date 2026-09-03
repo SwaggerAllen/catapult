@@ -319,10 +319,11 @@ them.
   §7.16's item stands exactly as recorded; nothing here resolves it.
   **A tick walks its projects serially, not fanned out.** `Catapult
   .Repo`'s pool is a shared, finite budget, not this ticket's alone to
-  spend — SETUP.md §2 sizes it (`FOUNDATION_POOL_SIZE=4`) against the
-  projector's writes, Oban's workers as queues land, the health check,
-  *and* this sweep together, on the one reference cluster this code
-  deploys to. `Task.async_stream`'s default width
+  spend — SETUP.md §2 sizes it against the projector's writes, Oban's
+  workers as queues land, the health check, *and* this sweep together,
+  on the one reference cluster this code deploys to, and owns that
+  number alone (`docs/non-goals.md`: the instance's live facts have
+  one home). `Task.async_stream`'s default width
   (`System.schedulers_online`) is the idiomatic move and the wrong one
   here: on a run of any real size it alone can reach for more
   connections than the pool holds, ahead of a request the pool exists

@@ -177,15 +177,21 @@ The facts a future session needs, recorded as facts:
   maintenance reserve alone — the Overview graph is the authority on
   both the limit and live usage, and beats this arithmetic if they
   disagree.
-- **Set on the instance: `FOUNDATION_POOL_SIZE=4`,
-  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 16. Deliberately
-  asymmetric: the Repo serves the projector's writes, Oban's workers
-  as queues land, the health check and the scheduler's readiness
-  sweep, while the event store's pool serves appends and subscription
-  reads that are low-concurrency in a plane this size. An even 3/3 is
-  the same peak with the headroom in the quieter place. **4/4 is 20
-  and 5/5 is 24** — the second is over the raw limit, and the first
-  leaves nothing for a reserve.
+- **Set on the instance: `FOUNDATION_POOL_SIZE=2`,
+  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 12, which is also what
+  the next bullet's code defaults carry, so unsetting both is a
+  no-op. 4/2 computes to a peak of 16 and still produced `too many
+  connections` against this cluster: the arithmetic and the Overview
+  graph disagreed, so something holds connections the formula above
+  does not model, and the graph decides until that is measured.
+  **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the last is
+  over the raw limit and the one before it leaves nothing for a
+  reserve. Headroom, when there is any to spend, goes to the Repo
+  rather than the event store's pool: the Repo serves the projector's
+  writes, Oban's workers as queues land, the health check and the
+  scheduler's readiness sweep, while the event store's pool serves
+  appends and subscription reads that are low-concurrency in a plane
+  this size.
 - **Both default to `2` in code**, so a deploy is correct with neither
   variable set. That matters more than it looks: a first attempt sized
   them from the environment alone and left the code defaults at 10,
