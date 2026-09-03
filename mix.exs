@@ -137,6 +137,7 @@ defmodule Catapult.MixProject do
             :decimal,
             :ecto,
             :ecto_sql,
+            :esbuild,
             :eventstore,
             :finch,
             :fsm,
@@ -293,7 +294,14 @@ defmodule Catapult.MixProject do
       # sketch called this omittable; running the audit (dev's own gate,
       # not design's) says otherwise, and the check has no waiver for
       # this — the fix is naming it, not arguing with the gate.
-      {:tailwind, "~> 0.5", runtime: false}
+      {:tailwind, "~> 0.5", runtime: false},
+      # The dashboard's JS build (ORC-220, `systems/dashboard.md`): wraps
+      # esbuild's standalone binary, no Node/npm resolution — the same
+      # no-Node shape ORC-183 above already chose for the CSS half.
+      # `runtime: false` and no `only:` restriction, and a `boundary:
+      # check: apps:` entry above, for the identical reason `:tailwind`
+      # carries all three.
+      {:esbuild, "~> 0.10", runtime: false}
     ]
   end
 
@@ -351,10 +359,16 @@ defmodule Catapult.MixProject do
       ],
       # The dashboard's CSS build (ORC-183, `systems/dashboard.md`):
       # `tailwind.install --if-missing` fetches the standalone CLI binary
-      # itself (no Node/npm), never a package resolved through npm.
-      "assets.setup": ["tailwind.install --if-missing"],
-      "assets.build": ["tailwind catapult"],
-      "assets.deploy": ["tailwind catapult --minify", "phx.digest"]
+      # itself (no Node/npm), never a package resolved through npm. The
+      # JS build (ORC-220) occupies the same site the same way:
+      # `esbuild.install --if-missing` beside it.
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind catapult", "esbuild catapult"],
+      "assets.deploy": [
+        "tailwind catapult --minify",
+        "esbuild catapult --minify",
+        "phx.digest"
+      ]
     ]
   end
 end
