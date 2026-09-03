@@ -659,7 +659,24 @@ reached only through their APIs per v5 §2.4).
   new plug and no conn threading added to reach it. A created record
   carries the request path and a `DateTime` from `Catapult.Clock` (no
   bare `DateTime.utc_now`); whichever event supplies a stack trace
-  attaches it. Rejected: a `:logger` handler or a fresh `Plug
+  attaches it, and `:stop` additionally attaches the response body,
+  capped. **The body is what a deliberate 5xx has instead of a trace.**
+  `Catapult.Delivery.Provisioning`'s 502 answers `{"error": inspect(
+  reason)}` and never raises, and App Platform replaces the body of an
+  upstream 502 with its own error page, so that reason reaches no
+  caller and exists nowhere else; five live-suite runs were read as an
+  infrastructure fault on that basis. Only `:stop` can supply it —
+  `Plug.Telemetry` fires from a `register_before_send` callback, and
+  `Plug.Conn.send_resp/1` runs those callbacks before handing the body
+  to the adapter, then replaces `resp_body` with whatever that adapter
+  returns (verified against `deps/plug/lib/plug/conn.ex`). Under
+  `Plug.Cowboy` that return is `nil` (verified against
+  `deps/plug_cowboy/lib/plug/cowboy/conn.ex`), so the callback is the
+  only point where the body is readable at all — and the trap is that
+  `Plug.Test`'s adapter returns the body instead, so a test reading
+  `conn.resp_body` after the fact proves nothing about production.
+  `:error_rendered` fires before the error response is built and has no
+  body to give. Rejected: a `:logger` handler or a fresh `Plug
   .ErrorHandler`, the two mechanisms the ticket itself named — both
   would duplicate a rescue-and-classify `render_errors.ex` already
   performs for the raising half, and neither sees a response that never
