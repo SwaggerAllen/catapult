@@ -384,5 +384,88 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.sweepable_project?("tp4") == false
       refute "tp4" in Store.list_released_test_projects()
     end
+
+    test "delete_test_project/1 purges all eight delivery-owned tables, not just bindings" do
+      Store.mint_test_project("tp5")
+      Store.put_project_binding("tp5", "acme", "widgets")
+
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: "tp5",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      Store.pin_input_documents("tp5", "sha1", %{"project_doc.md" => "content"})
+      Store.put_draft_body("tp5", "n1", "body", "body-sha")
+
+      Store.upsert_feature_lifecycle(%{
+        id: "flow1",
+        project_id: "tp5",
+        status_kind: "pending"
+      })
+
+      Store.upsert_feature_publication(%{
+        id: "flow1",
+        project_id: "tp5",
+        branch_name: "feature/x",
+        base_ref: "main",
+        pr_number: 1
+      })
+
+      Store.upsert_container_proposal(%{
+        id: "prop1",
+        project_id: "tp5",
+        source_container_id: "c1",
+        target_queue: "prep",
+        work_item_id: "w1"
+      })
+
+      Store.upsert_artifact_push(%{
+        project_id: "tp5",
+        node_id: "n1",
+        flow_id: "flow1",
+        tier: "comp",
+        path: "docs/x.md",
+        body_sha: "body-sha"
+      })
+
+      Store.release_test_project("tp5")
+      assert Store.delete_test_project("tp5") == :ok
+
+      import Ecto.Query
+      alias Catapult.Delivery.Store.ArtifactPush
+      alias Catapult.Delivery.Store.ContainerProposal
+      alias Catapult.Delivery.Store.DispatchRun
+      alias Catapult.Delivery.Store.DraftBody
+      alias Catapult.Delivery.Store.FeatureLifecycle
+      alias Catapult.Delivery.Store.FeaturePublication
+      alias Catapult.Delivery.Store.InputDocument
+      alias Catapult.Delivery.Store.ProjectBinding
+
+      for schema <- [
+            ProjectBinding,
+            DispatchRun,
+            InputDocument,
+            DraftBody,
+            FeatureLifecycle,
+            FeaturePublication,
+            ContainerProposal,
+            ArtifactPush
+          ] do
+        remaining = Catapult.Repo.all(from(r in schema, where: r.project_id == "tp5"))
+
+        assert remaining == [],
+               "expected #{inspect(schema)} to be purged, found #{inspect(remaining)}"
+      end
+
+      assert Store.sweepable_project?("tp5") == false
+    end
   end
 end

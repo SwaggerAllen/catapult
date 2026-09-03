@@ -38,8 +38,19 @@ defmodule Catapult.Foundation.DispatchPlug do
   @impl Plug
   def call(conn, health_opts) do
     case route(conn) do
-      :health -> HealthEndpoint.call(conn, health_opts)
-      {module, function, params} -> apply(module, function, [conn | params])
+      # A matched route already sent its own response — `halt/1` here
+      # is what actually stops `CatapultWeb.Router` from running next
+      # in the endpoint's own plug pipeline (`send_resp/3` alone
+      # leaves `conn.halted` false; `Plug.Builder`-generated pipelines
+      # check `halted`, never `state`). Without it every `/health` and
+      # `/dispatch/*` request fell through into the router too, which
+      # found no route and raised `Phoenix.Router.NoRouteError` —
+      # silently, since Phoenix does not re-raise that one, but on a
+      # `conn` already past the point a real send could still reach
+      # the wire, corrupting whatever read `conn.status`/`conn.halted`
+      # afterward (endpoint-level telemetry, an in-process test).
+      :health -> conn |> HealthEndpoint.call(health_opts) |> Plug.Conn.halt()
+      {module, function, params} -> apply(module, function, [conn | params]) |> Plug.Conn.halt()
       nil -> conn
     end
   end

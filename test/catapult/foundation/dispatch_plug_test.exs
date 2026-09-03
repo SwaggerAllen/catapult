@@ -11,6 +11,7 @@ defmodule Catapult.Foundation.DispatchPlugTest do
 
     assert conn.status == 200
     assert Jason.decode!(conn.resp_body)["ok"] == true
+    assert conn.halted
   end
 
   test "GET /dispatch/context/:run_key forwards to delivery, 404s on an unknown run" do
@@ -18,6 +19,7 @@ defmodule Catapult.Foundation.DispatchPlugTest do
     conn = DispatchPlug.call(conn(:get, "/dispatch/context/no-such-run"), opts)
 
     assert conn.status == 404
+    assert conn.halted
   end
 
   test "POST /dispatch/report/:run_key forwards to delivery, 401s with no bearer" do
