@@ -1,0 +1,102 @@
+# Test-project operations the author runs by hand, from wherever they
+# are — the same reason pipeline-admin.yml exists: these are curls
+# against the deployed plane's provisioning surface
+# (`Catapult.Delivery.Provisioning`, systems/delivery.md's ORC-216
+# entry), and a curl does not happen while the person who needs it is
+# holding a phone.
+#
+# Two operations, both dispatch-only:
+#
+#   status  — GET  /dispatch/test-project/<project_id>/status/<tier>
+#             The terminal status of the project's most recent
+#             dispatched run on a tier: status, outcome,
+#             credential_used, node_id, body_sha. 404 means no run on
+#             that tier has reached a terminal status yet, which is
+#             the ordinary answer while a run is still in flight.
+#   release — POST /dispatch/test-project/<project_id>/release
+#             Marks the project released: the sweeper stops
+#             dispatching for it, its state stays for debugging, and
+#             the next boundary's before-run step deletes it. The
+#             Phase 5 proof ends with this call once the author's
+#             review is done (docs/build-plan.md's Phase 5 section).
+#
+# Provisioning is deliberately not here: it needs the fixture files
+# from a checkout, which is the live-suite job's business
+# (pipeline-live-suite.yml, its `command` input).
+#
+# Not a `pipeline: …` run-name on purpose: orchestration's sweep
+# correlates agent runs by that prefix, and this is not one.
+name: catapult-test-project
+run-name: "catapult test project: ${{ inputs.action }} ${{ inputs.project_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        required: true
+        type: choice
+        options:
+          - status
+          - release
+      project_id:
+        description: The test project's id (printed by the provisioning run's log)
+        required: true
+        type: string
+      tier:
+        description: Tier to read the terminal status for (status only)
+        required: false
+        type: string
+        default: feature_expansion
+
+permissions:
+  contents: read
+
+env:
+  CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app # SETUP.md §2 / config/test.exs's :live_base_url
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ${{ inputs.action }}
+        env:
+          ACTION: ${{ inputs.action }}
+          PROJECT_ID: ${{ inputs.project_id }}
+          TIER: ${{ inputs.tier }}
+          # Same value the reference instance holds under the same
+          # name (SETUP.md §2/§3); the live-suite job sends the same
+          # secret as its bearer.
+          TOKEN: ${{ secrets.DELIVERY_PROVISIONING_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TOKEN" ]; then
+            echo "DELIVERY_PROVISIONING_TOKEN is not set on this repo (SETUP.md §3)." >&2
+            exit 1
+          fi
+          case "$ACTION" in
+            status)
+              url="$CATAPULT_BASE_URL/dispatch/test-project/$PROJECT_ID/status/$TIER"
+              method=GET ;;
+            release)
+              url="$CATAPULT_BASE_URL/dispatch/test-project/$PROJECT_ID/release"
+              method=POST ;;
+            *)
+              echo "unknown action: $ACTION" >&2; exit 1 ;;
+          esac
+          body=$(mktemp)
+          code=$(curl -sS -o "$body" -w '%{http_code}' -X "$method" \
+            -H "Authorization: Bearer $TOKEN" "$url")
+          echo "$method $url -> $code"
+          cat "$body"; echo
+          case "$code" in
+            2*) ;;
+            404)
+              if [ "$ACTION" = status ]; then
+                echo "No run on tier '$TIER' has reached a terminal status yet."
+              else
+                exit 1
+              fi ;;
+            401) echo "401: the token here and the plane's DELIVERY_PROVISIONING_TOKEN disagree." >&2; exit 1 ;;
+            *) exit 1 ;;
+          esac
