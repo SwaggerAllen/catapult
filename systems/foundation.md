@@ -619,6 +619,104 @@ reached only through their APIs per v5 §2.4).
   implementing diff updates both in the same change — the failure mode
   `docs/non-goals.md`'s "no second home for the reference instance's
   live facts" entry exists to catch, one document over.
+- **A bounded, volatile last-N-failures buffer, fed by the exception
+  handling `CatapultWeb.Endpoint` already has** (ORC-218). The
+  reference instance answering 500 on every screen and on the
+  provisioning surface for a day left nothing behind but App
+  Platform's own runtime log — unnavigable for anything not happening
+  right now, unforwarded, and read by nobody until this ticket. The
+  fix is a small in-process record, not a backend: `systems
+  /observability.md`'s own ORC-218 entry is the rule this bullet's
+  mechanism satisfies.
+
+  **Fed off a hook that already exists, measured rather than added.**
+  `CatapultWeb.Endpoint`'s `render_errors:` config (`config/config.exs`)
+  arms `Phoenix.Endpoint.RenderErrors`, which already wraps this
+  listener's entire `call/2` in a rescue, computes the HTTP status an
+  exception would render as, and executes `:telemetry.execute([:phoenix,
+  :error_rendered], %{duration: _}, %{conn:, status:, kind:, reason:,
+  stacktrace:, log:})` before re-raising (verified against `deps/phoenix
+  /lib/phoenix/endpoint/render_errors.ex` rather than assumed) —
+  `conn.request_path`, the exception, and its stack trace, in one place,
+  for every request through this one listener: dashboard's screens and
+  every `api_surface/0` route alike, which is the exact pair the
+  argument above names. `Catapult.Foundation.FailureLog` attaches a
+  `:telemetry.attach/4` handler to that event at boot, filters to
+  `metadata.status >= 500`, and pushes a record — a `DateTime` from
+  `Catapult.Clock` (no bare `DateTime.utc_now`), the request path, and
+  the formatted exception and stack trace. Rejected: a `:logger` handler
+  or a fresh `Plug.ErrorHandler`, the two mechanisms the ticket itself
+  named — both would duplicate a rescue-and-classify this listener
+  already performs, for a fact (`conn`, `kind`, `reason`, `stack`)
+  `render_errors.ex` already hands anything that asks.
+
+  **This is a complete feed today, not a partial one, because nothing
+  in this tree raises a 5xx any other way.** Grepped rather than
+  assumed: no call site in `lib/**` or `components/**` sets a `5xx`
+  status without an exception (`put_status(5`, `send_resp(5`, and
+  `:internal_server_error` all return no hits). A deliberate,
+  non-raising 500 added later would not reach `[:phoenix,
+  :error_rendered]` and so would not reach this buffer — the diff that
+  adds one is the diff that has to widen the feed, not a gap this
+  ticket leaves quietly open.
+
+  **Scoped to this listener's own requests, not every process crash.**
+  An Oban worker or an unrelated supervised process crashing is not
+  fed here: Oban already has its own execution lifecycle (retries,
+  `discarded`) for the first, and the ticket's own argument is about an
+  HTTP-facing incident (every screen, the provisioning surface) — the
+  same boundary `CatapultWeb.Endpoint` already draws. Widening the feed
+  to arbitrary process crashes is a different, unasked decision, not a
+  narrower reading of this one.
+
+  **The buffer is plane code under `lib/catapult/foundation/`, not the
+  observability component, because its audience is this instance's own
+  operator** — the same class of concern `/health` and `DispatchPlug`
+  already are, not a capability a generated project inherits by
+  adopting a shared component. A generated project wanting the
+  identical read surface is a separate, unasked product decision;
+  nothing here presumes it. `Catapult.Foundation.FailureLog` is a
+  `processes/0` entry like any other (`{:foundation_failure_log,
+  :singleton}`), guardrailed the same way, holding the last **50**
+  records — small and stated, and small enough that no heap guardrail
+  beyond the default is worth declaring for it. Oldest record drops
+  first once the 51st arrives.
+
+  **One read surface beside `/health`: `GET /failures`, registered
+  through `api_surface/0` on `Catapult.Foundation` exactly like
+  delivery's provisioning routes, `version: "v1", audience: :internal`**
+  — reached through the identical `Catapult.Foundation.DispatchPlug`
+  path dispatch (this doc's ORC-9/ORC-35 entries above), a sixth path on
+  the one listener rather than a new one. Bearer-authenticated,
+  constant-time (`Plug.Crypto.secure_compare/2`), against a secret this
+  bullet settles the ticket's own open question about: **a new
+  `FOUNDATION_OPERATOR_TOKEN`, declared in `Catapult.Foundation.config/0`
+  exactly like `endpoint_secret_key_base` above (`secret: true`, no
+  default), not a reuse of `DELIVERY_PROVISIONING_TOKEN`.** Reusing it
+  was the simpler count — one fewer required-env line — and is rejected
+  on the same argument that renamed `POOL_SIZE`/`HEALTH_PORT` above: the
+  provisioning token's name says delivery, because it is delivery's own
+  secret for delivery's own surface, and gating an unrelated
+  foundation-owned route on it would be exactly the kind of name a
+  reviewer can see is wrong the moment the two surfaces' owners diverge.
+  Foundation already declares its own secrets by its own slug; this is
+  one more. The implementing diff adds `FOUNDATION_OPERATOR_TOKEN` to
+  `SETUP.md` §2's required-env manifest, the same way
+  `DELIVERY_PROVISIONING_TOKEN`'s own entry landed.
+
+  **The phone-readable half is a dispatch-only GitHub Actions
+  workflow, author-owned and outside this pass's reach** (invariants,
+  above): the same shape `catapult-test-project.yml` already has — a
+  `workflow_dispatch` job that curls `GET /failures` with the bearer
+  token and prints the JSON to the run's own log, readable from the
+  Actions tab on a phone with no other tooling. Design commits none of
+  it; the route above is what it curls.
+
+  **No dashboard screen.** The ticket's own open question answers
+  itself the same way the workflow above does: a route is what "readable
+  from a phone within a minute" needs, and a rendered screen over the
+  identical data is a later convenience with no argument for it yet —
+  not a refusal, just nothing this ticket's argument asks for.
 
 ## The live suite
 

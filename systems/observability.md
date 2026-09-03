@@ -20,6 +20,38 @@ outside the deployment envelope.
   failures must not share a failure domain with the system it
   reports on (v5 §2.11). The app's contract is `/metrics`,
   structured stdout, `/health`; where those land is ops config.
+
+  **A bounded, volatile in-process buffer of the app's own last N
+  failures is not a backend, and this rule does not reach it**
+  (ORC-218; the same carve-out is in `docs/v5-design-decisions.md`
+  §2.11, since that section states the rule this bullet restates).
+  A backend is durable and reached off-host — Prometheus, Loki, a
+  future tower provider — and sharing this instance's failure domain
+  with one of those is the actual hazard the rule guards against: an
+  outage that takes the app down also takes its own metrics/log
+  shipping down, so the record of the outage has to live somewhere
+  else. A buffer that stores nothing past a restart and answers no
+  request from outside this instance shares no domain with anything,
+  because it isn't reporting to a second system at all — it's the
+  first system holding its own recent failures long enough for its
+  own operator to read them before they're gone. `systems
+  /foundation.md`'s ORC-218 entry is the concrete mechanism: what
+  the buffer holds, how it's fed, and the route that reads it back.
+  Bound and mechanism live there because the code does — `lib/catapult
+  /foundation/**`, not a shared component — and this bullet is what
+  stops that read from looking like a quiet reversal of the rule
+  above it.
+
+  **The tower-based error reporting this doc's own opening paragraph
+  names feeds the same buffer rather than opening a second one**
+  (v5 §2.11's "error tracking via tower... as one more adapter"). One
+  crash is one occurrence: when tower's own provider-adapter hook
+  lands, it attaches to the identical `[:phoenix, :error_rendered]`
+  telemetry event `systems/foundation.md`'s ORC-218 entry already
+  reads, forwarding to a durable, off-host backend — exactly the shape
+  "backends live outside the envelope" asks for — rather than a second,
+  independently-written capture path that could disagree with the
+  buffer about what happened.
 - **Instrumentation comes from the substrate's macro, not from this
   component** — this component consumes the registries and spans;
   it never asks app code to instrument itself.
