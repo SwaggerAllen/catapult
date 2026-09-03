@@ -641,26 +641,60 @@ reached only through their APIs per v5 §2.4).
   reaches that event (below), so the buffer's actual feed is the plug
   already ahead of it in the same file: `plug Plug.Telemetry,
   event_prefix: [:phoenix, :endpoint]`, whose `[:phoenix, :endpoint,
-  :stop]` fires once per request, immediately before the response is
-  sent, carrying the final `conn` — status included — whatever produced
-  that status (verified against `deps/plug/lib/plug/telemetry.ex`).
-  `Catapult.Foundation.FailureLog` attaches to both: `:endpoint, :stop`
-  is the record, filtered to `conn.status >= 500` and pushing the
-  request path plus a `DateTime` from `Catapult.Clock` (no bare
-  `DateTime.utc_now`); `:error_rendered`, when it fires for the same
-  request, adds the stack trace to that same record rather than pushing
-  a second one. The two are correlated by the request id `plug
-  Plug.RequestId` — already the plug ahead of `Plug.Telemetry` in the
-  same file — writes to `Logger.metadata()` for every request
-  regardless of whether `:assign_as` is set (verified against `deps
-  /plug/lib/plug/request_id.ex`): both handlers run inside the
-  request's own process, so both read the identical id back off
-  `Logger.metadata()`, with no new plug and no conn threading added to
-  reach it. Rejected: a `:logger` handler or a fresh `Plug
+  :stop]` fires immediately before the response is sent on a conn that
+  still carries the callback it registered, carrying the final `conn` —
+  status included — whatever produced that status (verified against
+  `deps/plug/lib/plug/telemetry.ex`; the "still carries the callback"
+  qualifier is not decorative — the paragraph below names the one path
+  where it doesn't).
+  `Catapult.Foundation.FailureLog` attaches to both, and **whichever
+  fires first for a given request creates the record; the other, if it
+  fires at all, enriches the existing one rather than pushing a
+  second** — correlated by the request id `plug Plug.RequestId` —
+  already the plug ahead of `Plug.Telemetry` in the same file — writes
+  to `Logger.metadata()` for every request regardless of whether
+  `:assign_as` is set (verified against `deps/plug/lib/plug
+  /request_id.ex`): both handlers run inside the request's own process,
+  so both read the identical id back off `Logger.metadata()`, with no
+  new plug and no conn threading added to reach it. A created record
+  carries the request path and a `DateTime` from `Catapult.Clock` (no
+  bare `DateTime.utc_now`); whichever event supplies a stack trace
+  attaches it. Rejected: a `:logger` handler or a fresh `Plug
   .ErrorHandler`, the two mechanisms the ticket itself named — both
   would duplicate a rescue-and-classify `render_errors.ex` already
   performs for the raising half, and neither sees a response that never
   raised at all.
+
+  **Order is not fixed, and design review's second pass is why: for one
+  path, `:stop` never fires at all, so "`:stop` is always the record"
+  would silently drop that path's trace.** `Plug.Builder`'s generated
+  `call/2` wraps its plug chain in no `try` of its own (verified against
+  `deps/plug/lib/plug/builder.ex`), so a raise inside a function plug —
+  `plug :dispatch_plug`, which runs `Catapult.Foundation.DispatchPlug`'s
+  `apply/3` dispatch — propagates unwrapped past every later plug in
+  `CatapultWeb.Endpoint`'s own list, including `Plug.Telemetry`'s
+  `register_before_send`. `Phoenix.Endpoint.__before_compile__`'s
+  generated `call/2` catches it on its bare `catch kind, reason ->`
+  clause rather than the `rescue e in Plug.Conn.WrapperError ->` one
+  (verified against `deps/phoenix/lib/phoenix/endpoint.ex`) — that
+  clause only fires for a raise `CatapultWeb.Router` itself wrapped, and
+  a raise inside a function plug ahead of the router never reaches it —
+  and that bare clause hands `Phoenix.Endpoint.RenderErrors.__catch__/5`
+  the `conn` bound before the pipeline ran, not the one `Plug.Telemetry`
+  registered its callback on. `[:phoenix, :endpoint, :stop]` fires on
+  `register_before_send` callbacks attached to the conn that's actually
+  sent; a callback registered on a conn nothing downstream ever sends is
+  simply never invoked, so `:stop` does not fire for this path at all —
+  not late, not without a trace, not at all. `:error_rendered` is fired
+  from `__catch__` itself, unconditionally, so it is this path's only
+  event and has to be able to create the record alone. A raise the
+  router itself wraps (`Plug.Conn.WrapperError`, verified against `deps
+  /phoenix/lib/phoenix/router.ex`) carries the piped conn from inside
+  the router's own dispatch — by then already carrying `Plug.Telemetry`'s
+  callback, registered earlier in the same pipeline — so `:stop` still
+  fires there once `RenderErrors` sends the rendered response;
+  first-fires-wins degrades to the order this doc originally stated
+  wherever both events are actually available.
 
   **The predicate is "left this listener with `conn.status >= 500`,"
   not a grep for how it got there — design review's own finding.**
@@ -673,9 +707,10 @@ reached only through their APIs per v5 §2.4).
   because it isn't shaped like the thing the grep was looking for.
   Naming three strings as a stand-in for "nothing else produces a 5xx"
   was the mistake the grep made; `conn.status >= 500` at the point a
-  response leaves the listener is the actual predicate, and the
-  `:endpoint, :stop` attachment above is what evaluates it for every
-  response, raised or not — so a future deliberate 5xx is fed the same
+  response leaves the listener is the actual predicate. This
+  provisioning 502 never raises, so it is unaffected by the gap the
+  paragraph above names — `:endpoint, :stop` fires for it exactly as
+  described — and a future deliberate, non-raising 5xx is fed the same
   way this one is, with no diff required to widen anything.
 
   **Scoped to this listener's own requests, not every process crash.**
