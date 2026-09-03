@@ -1,12 +1,9 @@
 # Catapult v5 — design decisions (working notes)
 
 **Status:** working notes from an ongoing design conversation. This
-document records decisions made and their rationale; it is not yet a
+document records decisions made and their rationale; it is not a
 spec. It supersedes specific parts of the v4 spec
-(`seed-docs/catapult-spec-v4.md` in the SiegeEngine repo) where noted,
-and leaves one seam — the delivery/ticket model (§7) — deliberately
-open, because it is the next conversation and may reshape adjacent
-decisions.
+(`seed-docs/catapult-spec-v4.md` in the SiegeEngine repo) where noted.
 
 **Style requirement (inherited from orchestration's DESIGN.md):** every
 rule states its rationale inline. The sessions that build this system
@@ -60,19 +57,15 @@ sketch. Delivery batching is not the defense; structure is. Honest
 limit: this buys a debt-free starting position for the initial feature
 list, not immunity — post-launch drift pressure is met by the standing
 machinery (staleness cascades, upward absorption, re-evaluation, the
-audit, every milestone's own `cleanup` and `prep` queues — §7.8,
-revised at ORC-105 from an earlier, since-reversed design where debt
-accrued to alternating whole milestones instead), and the residual
-risk of
-feature-sized delivery (private-side entropy inside clean contracts)
-is exactly what boundary-level testing, the debt scan, and the
-refactor flow exist for.
+audit, every milestone's own `cleanup` and `prep` queues — §7.8), and
+the residual risk of feature-sized delivery (private-side entropy
+inside clean contracts) is exactly what boundary-level testing, the
+debt scan, and the refactor flow exist for.
 
-**The negative-space doctrine (from the Haven and Polyphony gap
-passes; carrier settled in the non-goals design pass):** the graph
-records what is deliberately *not* built and *not yet* decided, with
-its argument, and every generator and planner reads it. **The
-carrier is policy nodes — non-goals are negative policies** (§4.5):
+**The negative-space doctrine:** the graph records what is
+deliberately *not* built and *not yet* decided, with its argument,
+and every generator and planner reads it. **The carrier is policy
+nodes — non-goals are negative policies** (§4.5):
 same lifecycle, same three-grain scoping (project-global is the
 default and is what "off to the side" means as a first-class thing),
 same enforcement ladder — a non-goal's natural grade is `prose`
@@ -97,8 +90,8 @@ with the stub grade (§2.16) attaching when the deferral is
 implementation-shaped. An unargued deferral is a §2.8-class
 violation.
 
-**Input documents freeze at intake** (from the docs review pass).
-The seed raft is read by the intake/scaffold pass and never again:
+**Input documents freeze at intake.** The seed raft is read by the
+intake/scaffold pass and never again:
 `input.<role>` walks resolve to the version pinned at intake, and a
 later edit to an input file **stales nothing and changes nothing** —
 deliberately. Rationale: input docs are the likeliest duplication
@@ -140,9 +133,7 @@ projection. The cleanest statement of the change: **`ready_scopes`
 stops being something an agent polls and becomes something that
 enqueues Oban jobs.**
 
-**Catapult is agents end-to-end, for its full lifespan** (settled
-after deliberation; supersedes the earlier two-substrate assignment
-that put doc-tier generation on in-plane API calls). Every
+**Catapult is agents end-to-end, for its full lifespan.** Every
 generation — doc tiers and ticket delivery alike — is a dispatched
 agent session on a runner. Three reasons, in order of weight:
 
@@ -169,9 +160,8 @@ if generation is slow, the answer is an autoscaling worker pool
 pulling from our queue — never moving generation in-plane.** The
 synchronous-completion substrate still exists, but its customer is
 the generation runtime (target apps, §10.1) — Catapult's own chain
-never uses it. Noted without irony: this lands closer to v4's
-"the server is pure state" commitment than the interim design did —
-the plane coordinates and validates; it does not generate.
+never uses it. The plane coordinates and validates; it does not
+generate.
 
 ### 1.3 Self-bootstrapping: descoped
 
@@ -209,7 +199,7 @@ Consequence: Catapult's own repo follows orchestration's conventions
 
 ### 1.4 Target opinionation
 
-- **Backends: Elixir only**, with the non-Elixir escape hatch now
+- **Backends: Elixir only**, with the non-Elixir escape hatch
   defined in two grains (§2.15): in-repo foreign-language
   subcomponents (Rust crates as NIFs/WASM) and out-of-envelope
   services.
@@ -256,10 +246,10 @@ once (at sysarch/comparch approval) and everything downstream derived
 and compiler-checked. Hand-maintained mappings drift; derivations
 can't.
 
-**Renames run through a rename system, never drive-by** (docs
-review pass). Every derivation the spine produces registers, beside
-the derivation itself, its **rename transform**: a codemod for
-code-shaped consumers (namespace, topics, queues, telemetry, flags,
+**Renames run through a rename system, never drive-by.** Every
+derivation the spine produces registers, beside the derivation
+itself, its **rename transform**: a codemod for code-shaped
+consumers (namespace, topics, queues, telemetry, flags,
 permissions, docs path, admin mount, mutex label) and a generated,
 lint-gated migration for data-shaped ones (table prefixes — live
 data on an unattended pipeline). A slug rename is a maintenance-flow
@@ -272,15 +262,15 @@ improved a name in passing" is the forbidden thing.
 
 ### 2.2 Component behaviour and registries
 
-Every component adopts a platform behaviour (`use Catapult.Component`,
-name TBD) with callbacks that register claims on shared root
-resources, aggregated by a compile-time root composer that fails the
-build on collision:
+Every component adopts a platform behaviour (`use Catapult.Component`)
+with callbacks that register claims on shared root resources,
+aggregated by a compile-time root composer that fails the build on
+collision:
 
 - `config/0` — Vapor provider; per-component `.env`, prefixed env
-  vars. Entries may carry **`secret: true`** (ops-enforcement pass):
-  the audit forbids secret-flagged values in logs and error
-  payloads; settings surfaces mask them by construction.
+  vars. Entries may carry **`secret: true`**: the audit forbids
+  secret-flagged values in logs and error payloads; settings
+  surfaces mask them by construction.
 - `pubsub_topics/0` — topics as functions (`Comp.Topics.user_updated(id)`),
   never raw strings.
 - `oban_queues/0` — queue and worker names. Periodic schedules are
@@ -289,11 +279,11 @@ build on collision:
 - `telemetry_events/0` — see §2.11.
 - `feature_flags/0` — see §2.10.
 - `permissions/0` — see §2.9.
-- `errors/0` (ops-enforcement pass) — the component's **deliberate
-  failure vocabulary at its boundary**: spine-prefixed kinds, each
-  with a one-line meaning and a **remedy** — minimally "what to do
-  about it" prose, gradable up to a runbook ref or an admin-surface
-  link (the policy ladder's promote-from-prose instinct). Scope
+- `errors/0` — the component's **deliberate failure vocabulary at
+  its boundary**: spine-prefixed kinds, each with a one-line meaning
+  and a **remedy** — minimally "what to do about it" prose, gradable
+  up to a runbook ref or an admin-surface link (the policy ladder's
+  promote-from-prose instinct). Scope
   lines that make it workable: it governs what crosses `defexport`,
   never every internal tagged tuple; and **crashes are out** —
   exceptions are for bugs, and registering bug-shapes is
@@ -309,9 +299,9 @@ build on collision:
   failure taxonomy becomes the adapter component's registered
   vocabulary; "generation failures as domain read models with
   affordances" — the affordance is the remedy pointer made live.
-- `externals/0` (ops-enforcement pass) — every third-party service
-  the component wraps (§2.12): the adapter module, its fake, its
-  kill-switch flag, a data-classification note. The enumeration
+- `externals/0` — every third-party service the component wraps
+  (§2.12): the adapter module, its fake, its kill-switch flag, a
+  data-classification note. The enumeration
   that makes the adapter convention *enforceable*: the audit checks
   every HTTP-client usage sits inside a registered adapter (with
   Boundary's externals mode as the compile-grade half), the
@@ -322,7 +312,7 @@ build on collision:
 - `processes/0` — see §2.5.
 - `seeds/0` — see §2.12.
 - `api_surface/0` — see §4.4. Sibling: `cli/0` (same pattern, escript
-  composer; spec'd now, built later).
+  composer).
 - `admin/0` — routes/LiveViews mounted by the root admin router. Every
   component publishes its own admin surface.
 - docs — every component/subcomponent carries a `docs/` folder composed
@@ -384,9 +374,9 @@ export module, and drift between them is checkable.
 - Migrations live per-store (composed migration paths); a migration-
   safety linter is a required gate because merges auto-deploy with no
   human in the loop.
-- **Event-sourced persistence is a platform store family** (from the
-  gap passes: Haven's signed-log mailboxes and Polyphony's Commanded
-  domain are one family, two grades). Shared core, regardless of
+- **Event-sourced persistence is a platform store family** (Haven's
+  signed-log mailboxes and Polyphony's Commanded domain are one
+  family, two grades). Shared core, regardless of
   grade: append-only insert path, deterministic projection functions,
   replay-safe consumers, an **`events/0` registry** (event types
   declared by the owning component, collision-checked, sketch-
@@ -405,7 +395,7 @@ export module, and drift between them is checkable.
   env-switched adapter — in-memory for dev/test so the domain runs
   offline, persistent in prod, identical aggregates either way.
   **Versioning and upcasting are built into the family, not added
-  when needed** (docs review pass): events are immutable contracts;
+  when needed**: events are immutable contracts;
   a shape change — additive included — is a **new version** with a
   **pure upcaster** registered beside the reducer, applied on read;
   the log is never rewritten. `events/0` carries versions, and the
@@ -416,7 +406,7 @@ export module, and drift between them is checkable.
   discipline the first post-launch schema change either breaks
   replay or gets handled ad hoc per project — the classic ES cliff,
   cheap to preempt in the substrate and miserable to retrofit.
-  **Property tests are the family's testing grade** (sleeper pass):
+  **Property tests are the family's testing grade**:
   the family's invariants are property-shaped by nature, so every
   reducer ships a replay-determinism property, every worker an
   idempotency/double-delivery property, every upcaster a round-trip
@@ -444,7 +434,7 @@ GenServer) on day one instead of at the first scale event.
   from persistent state; node-local caches declare their invalidation
   topic. Rationale: Horde hand-off and split-brain are manageable for
   coordinators and caches, catastrophic for sole copies of state.
-- **Registered processes may declare VM guardrails** (sleeper pass):
+- **Registered processes may declare VM guardrails**:
   optional `max_heap_size` and message-queue bounds on a
   `processes/0` entry, and the BEAM itself enforces them — a runaway
   process dies before it takes the node. `runtime`-grade enforcement
@@ -455,16 +445,16 @@ GenServer) on day one instead of at the first scale event.
   week-to-month rewrite this exists to preempt; dev-mode ergonomics
   (single-node topology, identical behavior) get deliberate attention
   in the skeleton.
-- **§2.5 splits into discipline and runtime** (the Polyphony pass's
-  over-fit finding, adopted): the *discipline* — `processes/0`
-  registry, placement categories, processes-never-state-of-record,
-  the subcomparch process inventory — is **mandatory**; the *runtime*
-  is a declared project option, `topology: single | clustered`. The
+- **§2.5 splits into discipline and runtime**: the *discipline* —
+  `processes/0` registry, placement categories,
+  processes-never-state-of-record, the subcomparch process
+  inventory — is **mandatory**; the *runtime* is a declared project
+  option, `topology: single | clustered`. The
   discipline is what makes a later flip mechanical, which is the
   actual insurance; the runtime tax is only worth charging where
   scale exists. Commanded's and Oban's own process registration gets
   the infra exemption, like their tables.
-- **Blessed deploy target: DOKS.** Settled. Rationale: k8s manifests
+- **Blessed deploy target: DOKS.** Rationale: k8s manifests
   are portable across providers in a way platform-specific specs
   never are, and clustering becomes a replica-count question rather
   than a capability question — both topologies are legal on one
@@ -524,9 +514,9 @@ injected clock, seeded randomness.
 **The `:live` suite is the deliberate exception, on a cadence rather
 than a gate.** A `:live`-tagged suite (real providers, real external
 services, deployed surfaces) is excluded from ticket CI and runs once
-per milestone — **settled at ORC-105: at the milestone level
-specifically, gating that milestone's own `main → retro` transition
-(§7.8)**, not at the project level and not at every nesting level a
+per milestone — **at the milestone level specifically, gating that
+milestone's own `main → retro` transition (§7.8)**, not at the
+project level and not at every nesting level a
 future container kind might add. Results post on the milestone,
 failures file as milestone blockers held against `retro`'s declared
 `blocks:` relation to `main` (§7.8, `dsl-syntax.md` §15.7), and the
@@ -535,7 +525,7 @@ project's own queues are too coarse-grained a cadence for this check
 (`build-out` and `iteration` each span many milestones) and nothing
 nests inside a milestone today for a finer one to attach to; the
 question stays open only for whatever container kind eventually
-nests there. Rationale for the cadence itself, unchanged: per-ticket
+nests there. Rationale for the cadence itself: per-ticket
 determinism is what the escalation rules depend on, but a live check
 that never runs is how "merged and green" quietly diverges from
 "works against the world"; both properties hold, each at its own
@@ -561,8 +551,7 @@ system running a different loop, `systems/delivery.md`.)
   asked," and gives reconcile a mechanical check where it's currently
   weakest.
 - `@tag :skip` requires a ticket key; CI rejects bare skips — keeps
-  `retro`'s debt-scan input trustworthy (`boundary`, ORC-105's
-  retired predecessor, did this job under the older name).
+  `retro`'s debt-scan input trustworthy.
 - Factories (ex_machina) per component, exported via a boundary-
   exported `Comp.TestSupport` (test env only) — cross-component test
   data through a declared door, not a hole in isolation.
@@ -617,8 +606,7 @@ system running a different loop, `systems/delivery.md`.)
   hook that raises on unscoped access to tenant-owned tables) —
   promoting the worst auth bug class from review-hope to runtime
   guarantee + audit check. Default-on vs opt-in: **open**.
-- **Consolidated identity design (from both gap passes + author
-  additions):**
+- **Consolidated identity design:**
   - **Consumption is optional; the principal is pluggable.** Shared
     components are dependencies a project declares, not obligations.
     `@requires_permission` and role rows bind to a principal
@@ -657,18 +645,17 @@ are the platform primitive that makes the deploy model safe:
   checked; a new flag is a §2.8 named decision.
 - **Lifecycle from existing machinery:** a feature's tickets land
   behind the feature's flag; a milestone's `retro` queue closing (the
-  author's manual pass — already the only manual-testing point —
-  revised at ORC-105 from "the milestone boundary") is the natural
-  flip point; flag *removal* is gating debt — `retro`'s debt scan gets
-  a bounded input "flags fully-on for > N milestones" and files
-  cleanup proposals into `cleanup`/the next milestone's `prep`
-  (§4.5, §7.8).
+  author's manual pass — already the only manual-testing point) is
+  the natural flip point; flag *removal* is gating debt — `retro`'s
+  debt scan gets a bounded input "flags fully-on for > N milestones"
+  and files cleanup proposals into `cleanup`/the next milestone's
+  `prep` (§4.5, §7.8).
 - **Flags partially substitute for staging:** the author's pass
   exercises flagged-off features on production via actor targeting.
   Not a full substitute (schema changes and deploy-time behavior still
   hit prod raw) but covers review-before-users-see-it, which is most
   of what staging was for.
-- **Delivery-model update (§7.5, §7.8):** deploys are per-feature
+- **Under the delivery model (§7.5, §7.8),** deploys are per-feature
   (feature PR squash-merges to main), so "partial feature on prod"
   mostly evaporates; flags earn their keep as staged rollout,
   kill-switch, the author's flagged-in prod validation, and the
@@ -689,8 +676,8 @@ domain with the system it reports on; users likely want external
 providers anyway.
 
 **A bounded, volatile in-process buffer of the app's own last N
-failures is not a backend, and this rule does not reach it** (ORC-218,
-`systems/observability.md`). It keeps nothing past a restart, ships
+failures is not a backend, and this rule does not reach it**
+(`systems/observability.md`). It keeps nothing past a restart, ships
 nothing off-host, and exists for exactly the case this rule's own
 domain-sharing worry doesn't cover: no backend configured yet, and a
 5xx that needs to be readable within the minute it happens. The rule
@@ -713,7 +700,7 @@ above still binds anything durable or reachable off this instance.
   over ELK (pairs with the required Prometheus/Grafana, label-indexed,
   far lighter); ELK is just another provider adapter.
 - **Logs are write-only, with a metadata floor — and deliberately
-  unregistered** (ops-enforcement pass). No log registry, because
+  unregistered.** No log registry, because
   anything worth replaying is an event and anything worth counting
   or alerting on is registered telemetry — logs are the residue,
   human-readable forensic context, and ad hoc is *correct* for
@@ -726,7 +713,7 @@ above still binds anything durable or reachable off this instance.
   boundary macro sets Logger metadata (component, trace id) at
   every export entry, so even a one-off log inside a component
   arrives structured and greppable at zero per-call cost.
-- **Content-log channel split** (Polyphony pass): the logging
+- **Content-log channel split**: the logging
   convention supports a declared split between operational logs and
   content-bearing logs (user data, transcripts), the latter on its
   own channel with a declared retention window and a project-supplied
@@ -779,14 +766,14 @@ shipped as **`mix catapult.audit`**, the target-project counterpart of
 orchestration's `pipeline audit`, checking compiler-backed facts
 instead of YAML. The reconcile agent runs the same task — keeps its
 verification honest across projects. **Type checking: the native
-set-theoretic checker, not Dialyzer** (sleeper pass — resolves the
-former open item): Elixir's built-in gradual type checker runs
-*inside* `mix compile`, so `--warnings-as-errors` — already a gate —
-makes it an enforcement organ with zero added latency, and it
-strengthens with every Elixir release. Boundary exports carry
-typespecs (they're documentation there anyway); signature drift on a
-pubapi becomes a compile failure. Dialyzer stays out: its CI-loop
-cost buys mostly overlap now, and the overlap grows.
+set-theoretic checker, not Dialyzer**: Elixir's built-in gradual type
+checker runs *inside* `mix compile`, so `--warnings-as-errors` —
+already a gate — makes it an enforcement organ with zero added
+latency, and it strengthens with every Elixir release. Boundary
+exports carry typespecs (they're documentation there anyway);
+signature drift on a pubapi becomes a compile failure. Dialyzer
+stays out: its CI-loop cost buys mostly overlap now, and the overlap
+grows.
 
 ### 2.14 The audit as the enforcement organ
 
@@ -808,7 +795,7 @@ plane-authored marker comment naming the paths, `Ready for rework`,
 no human involved. Orchestration's mutex audit promoted from
 CI-blocking finding to auto-routing.
 
-Additions from the gap passes: the ES family's purity-floor
+Further checks: the ES family's purity-floor
 call-graph check and `events/0` collision check (§2.4); foreign-
 language subcomponent gates (`cargo test`/`clippy`, §2.15); the
 client-side audit (declared-slot checks, no-backend-calls-in-UI-
@@ -821,7 +808,7 @@ inventory and its ticket-sync check — every policy×scope missing its
 declared-grade artifact has exactly one open enforcement ticket
 (§4.5).
 
-**Sleeper-check additions (ecosystem pass — adopted wholesale):**
+**Sleeper checks:**
 
 - **Dependency vulnerability + retirement checks** (`mix deps.audit`,
   `mix hex.audit`) as the CI-side floor beneath §7.10's maintenance
@@ -850,7 +837,7 @@ declared-grade artifact has exactly one open enforcement ticket
   library anywhere in plane code, making conventions §11 a compile
   error rather than an architecture-review catch.
 
-**Registry-completeness additions (ops-enforcement pass):** the
+**Registry-completeness checks:** the
 `errors/0` declared↔constructed check plus remedy presence (a
 registered kind with no remedy is an audit failure); every
 external-HTTP usage inside a registered `externals/0` adapter;
@@ -860,7 +847,7 @@ plugin config.
 
 ### 2.15 Non-Elixir components (the escape hatch, defined)
 
-Two grains, replacing §1.4's "shape TBD":
+Two grains:
 
 - **Foreign-language subcomponent** (library grain): the crate lives
   *inside* a component's file map; the component's Elixir wrapper
@@ -934,13 +921,9 @@ delivery machinery only.
 
 ### 3.1 The registry
 
-**Git for distribution; public hex.pm for public publishing.**
-Revised from the original `mini_repo` decision (self-hosted
-hex-compatible registry, packages published from the monorepo rather
-than hex.pm), which is struck rather than deleted because the
-reasoning is worth keeping: it was made for *components*, and it
-silently became the assumed answer for bundles and policy packs,
-which were never in the registry's artifact list at all.
+**Git for distribution; public hex.pm for public publishing.** The
+decision covers every distributed artifact — components, bundles and
+policy packs — not components alone.
 
 The two things hex does that git cannot are **retirement and advisory
 signalling** (`mix hex.audit`, armed in CI and load-bearing) and
@@ -950,9 +933,9 @@ single release train designs the diamond away (*"which auth works
 with which catapult"* is a non-question by construction), and
 Catapult's own components appear in no advisory database — third-
 party deps, which remain ordinary hex packages, keep their audit
-coverage untouched. What hex was being bought for — **private,
-org-blessed registries** — git provides as ordinary private repos,
-so that argument never favored hex to begin with.
+coverage untouched. The one thing a self-hosted hex-compatible
+registry would add — **private, org-blessed registries** — git
+provides as ordinary private repos.
 
 What git adds is the thing the artifacts actually need: **fork, tailor,
 and merge upstream later.** Hex has no merge story; a fork is a
@@ -966,8 +949,7 @@ to hex, everything internal and org-private lives in git.
 
 **Distribution is independent of the forge** (§7.17). Git-based
 distribution works on whatever forge a customer already uses and does
-**not** require Gitea; the two decisions were briefly entangled and
-are hereby separated. Keeping the registry off the forge is what
+**not** require Gitea. Keeping the registry off the forge is what
 keeps the forge a cheap swap — an artifact store riding the forge
 would relocate every customer's artifacts on a forge migration, not
 just their code.
@@ -1008,9 +990,7 @@ version. Lifecycle maps onto existing machinery:
   nodes and its code is generated into the tree. The transition is
   explicit, recorded, and one-way in practice — an adopted component
   stops receiving the version-bump staleness above and receives
-  handle-diff-seeded absorption tickets instead. Nothing else in this
-  section changes: an unadopted external node behaves exactly as
-  described.
+  handle-diff-seeded absorption tickets instead.
 
 Upgrades have two channels: **codemods for the mechanical part**
 (dep bump, renames — Igniter is the candidate framework, run inside
@@ -1051,26 +1031,24 @@ discipline as the predicate language, deliberately not expressions.
     read-only and whose "approval" is version pinning. Here the
     standing guarantee holds — **the dev agent never edits
     shared-component code, structurally**. That guarantee rests on
-    *being a dependency*, not on being a hex one, so it survives
-    §3.1's move to git unchanged: a mix git dep resolves into `deps/`
+    *being a dependency*, not on being a hex one, so it holds under
+    §3.1's git distribution: a mix git dep resolves into `deps/`
     exactly as a hex package does.
   - **Adopted**: the component's *documents* enter the project's
     graph as ordinary generated nodes, and its code is generated into
     the tree like any other component's. Agents edit it because it is
     now the project's, and it passes the same review gates as
     everything else.
-- **Adoption is the fork, and it is legitimate.** An earlier draft
-  called forking pathological and then tried to save the claim with
-  an org-versus-project distinction. Both were wrong. `LICENSING.md`
+- **Adoption is the fork, and it is legitimate.** `LICENSING.md`
   puts `components/**` under Apache-2.0 *precisely* so it ships into
   generated projects; §2.9 already builds in a pluggable principal;
-  and the org/project split does no work at this target class, where
-  an enterprise-scale monorepo means one org routinely has exactly
-  one project. Auth is the likeliest adoption of all — bespoke SSO,
-  legacy password hashes, jurisdictional requirements. Adoption works
-  *because* these components are Catapult-shaped: comparch documents,
-  file maps, handles, conventions. They slot into a graph natively in
-  a way no ordinary dependency could.
+  and no org-versus-project distinction gates it, because at this
+  target class an enterprise-scale monorepo means one org routinely
+  has exactly one project. Auth is the likeliest adoption of all —
+  bespoke SSO, legacy password hashes, jurisdictional requirements.
+  Adoption works *because* these components are Catapult-shaped:
+  comparch documents, file maps, handles, conventions. They slot
+  into a graph natively in a way no ordinary dependency could.
 - **The merge target is the documents, never the code.** This is what
   makes adoption survivable rather than a one-time copy. Regenerated
   code does not correspond to upstream's code, so merging upstream
@@ -1085,16 +1063,16 @@ discipline as the predicate language, deliberately not expressions.
 - **What adoption costs, stated rather than hidden:** you own that
   component's security patches, §2.9's central-propagation argument
   stops protecting you for it, and the handle is now yours — upstream
-  handle diffs become advisory rather than authoritative. §2.9 still
+  handle diffs become advisory rather than authoritative. §2.9
   refuses *accidental* generate-and-own ("N projects with drifting
-  unpatchable auth code"); what it never refused is a deliberate,
-  recorded divergence that someone chose with the bill in view.
+  unpatchable auth code"), not a deliberate, recorded divergence
+  that someone chose with the bill in view.
 - **This is not the absorption `docs/non-goals.md` refuses.** That
   entry rejects ingesting *existing outside codebases*, on the stated
   grounds that "the platform's structure is narrow by design and
   existing apps won't conform to it." A Catapult component conforms
   by construction — it is the structure. The reason does not reach
-  this case, which is why the resemblance is worth a sentence.
+  this case.
 - Push-back channel: a project's pipeline discovering a shared
   component is wrong files a **cross-project upward finding** — an
   issue against Catapult's own tracker. Designed escape hatch, not
@@ -1138,8 +1116,8 @@ Chain placement: `inputs → feature_expansion → journeys → screens →
 requirements → sysarch → …`. UX/IA before requirements grounds the
 rotation tier in concrete surfaces — historically the mushiest tier.
 
-**Screens-first and hybrid intake: one chain, always downward**
-(mocks pass). Many projects now arrive screens-first — the author
+**Screens-first and hybrid intake: one chain, always downward.**
+Many projects arrive screens-first — the author
 worked the idea out as mocks or a vibe-coded prototype, and the
 feature list lives in those screens. Supported without a second
 traversal mode: **mocks are raft members** (an optional `mocks`
@@ -1226,8 +1204,8 @@ The public API is **not** a frontend and not a tier. It hangs off the
 backend component as a behaviour (`api_surface/0`), declaring entries
 `{exported_function, path, verb, version, audience}`. The macro
 accepts only boundary-exported function references — **thin-wrapper
-enforced structurally; there is nowhere to put logic.** Rationale
-stated aggressively: any logic living only in the API layer is drift
+enforced structurally; there is nowhere to put logic.** Rationale:
+any logic living only in the API layer is drift
 by construction — behavior external callers get that internal callers
 don't, invisible to the component's tests. A composition worth
 exposing is a read-model component (§2.6) — which then gets its own
@@ -1250,10 +1228,9 @@ system; no second path, no full-API-component tier.
   a machine-audience journey when a partner flow is real); the *shape*
   is architecture-tier (comparch declares which exports go public).
   The UX/IA tier stays purely human surfaces.
-- CLI distribution: same behaviour pattern, escript composer, built
-  later.
-- **The realtime section (unified across both gap passes — one
-  mechanism, two very different consumers as its proof):**
+- CLI distribution: same behaviour pattern, escript composer.
+- **The realtime section (one mechanism, two very different
+  consumers as its proof):**
   `api_surface/0` grows declared **topic families** parameterized by
   `(resource, lens)`, each with: a **per-family authz predicate and a
   server-side filter hook** the project plugs a pure predicate into
@@ -1276,8 +1253,7 @@ system; no second path, no full-API-component tier.
 ### 4.5 Supporting tiers: refs, app prompts, policies
 
 **The v4 supporting tiers (`ref`, `vocab`, `policy`) carry forward**
-into the default bundle; this section records their v5 form (from
-the refs/policies design pass).
+into the default bundle; this section records their v5 form.
 
 **Refs** — project-local supplemental content (runbooks, style
 guides, implementation guides, app prompt text, user-supplied mocks
@@ -1294,11 +1270,11 @@ and stay general on purpose**: no per-use kinds, no special-case
 lifecycles — an escape hatch that accretes special cases becomes N
 more mechanisms. A ref type system is future design, taken up when
 real usage shows what types would need to mean. (External components
-are the sanctioned exception, and are by now their own mechanism
-rather than a ref variant.)
+are the sanctioned exception: their own mechanism rather than a ref
+variant.)
 
 **Policies** (siege's "invariants," orchestration's "standing
-decisions," v4's policy tier — one concept, one name now) are
+decisions," v4's policy tier — one concept, one name) are
 first-class nodes. **Non-goals are policies with negative content**
 (§1.1's carrier decision): "we do not build X" is a policy like any
 other — `prose` grade by default (reconciliation's refusal to
@@ -1312,7 +1288,7 @@ would be the policy tier with the sign flipped and a second
 lifecycle to maintain. Two additions beyond v4:
 
 - **An enforcement grade per node**, a promote-from-prose ladder:
-  `prose` (reconciliation's standing-decision check — exists),
+  `prose` (reconciliation's standing-decision check),
   `test` (the policy names the tests that pin it; the audit checks
   they exist — Polyphony's membership-parity test pinned to the
   irony seam is the archetype), `audit` (a registered check via the
@@ -1357,14 +1333,13 @@ lanes, author-overridable per ticket:
   the archetype) the enforcement is part of what "the feature
   works" means. A policy created against already-shipped scopes
   files into the current milestone directly.
-- **`debt`** — **revised at ORC-105**, since there is no next debt
-  milestone to accumulate to: the same gating test that used to sort
-  "next debt milestone" from "backlog" now sorts the *current*
-  milestone's `cleanup` queue from the *next* milestone's `prep` queue
-  (§7.8) — "does the next milestone get materially harder without
-  this" routes to `prep`; everything else lands in this milestone's
-  own `cleanup` rather than an indefinite backlog. Code style and
-  non-load-bearing conventions.
+- **`debt`** — there is no debt milestone to accumulate to, so a
+  gating test sorts the *current* milestone's `cleanup` queue from
+  the *next* milestone's `prep` queue (§7.8) — "does the next
+  milestone get materially harder without this" routes to `prep`;
+  everything else lands in this milestone's own `cleanup` rather
+  than an indefinite backlog. Code style and non-load-bearing
+  conventions.
 
 The default policy set ships with routings (structural/`fixed`
 leans `urgent`; style leans `debt`); registry policies declare
@@ -1379,8 +1354,8 @@ shared-component dep where needed, test templates. Compliance is
 the founding case: regulation changes propagate through the same
 upgrade flow as any external node.
 
-**The convention corpus ships as the default policy set** (author
-proposal, adopted): the elixir-target conventions become external
+**The convention corpus ships as the default policy set**: the
+elixir-target conventions become external
 policy nodes — each with its enforcement attached (the substrate's
 audit checks and macros are the artifacts), consumed by every
 project as defaults. Three payoffs: the policy mechanism gets its
@@ -1394,14 +1369,14 @@ policy carries a **mutability grade**, the `tunable` idiom
 generalized: `fixed` (automation-load-bearing — the pipeline's
 correctness depends on it; overriding is a load error: single-owner
 tables, registry collisions, test determinism, file-map honesty,
-marker discipline — enumeration illustrative, finalized with the
-policy-set build), `tunable` (declared parameters within a shape),
+marker discipline — enumeration illustrative), `tunable` (declared
+parameters within a shape),
 `optional` (default-on, replaceable with a declared substitute).
 Strengthening is always allowed; weakening only within declared
 mutability. Because defaults arrive *with* their enforcement,
 consuming the set files zero enforcement-gap tickets — gaps appear
 only for project-added policies and raised grades, exactly when a
-human should see one. Known drift risk, recorded: `conventions.md`
+human should see one. Known drift risk: `conventions.md`
 governs Catapult's own repo (no doc graph); the policy set governs
 target projects; both derive from this document — eventually the
 conventions doc's target-relevant sections should *generate from*
@@ -1445,10 +1420,10 @@ are `generator: synthesis` join targets — no draft, no prompt,
 excluded from dispatch by `ReadyScopes.ready/3`'s own
 `generation_tier?/1` filter (`systems/platform_content.md`). They are
 declarations, not design work; only the two arch tiers and `impl`
-itself carry a prompt. Backend's terminal tier ships today as bare
-`impl` (`bundles/default/tiers/impl.yaml`) because it has no siblings
-yet; it takes the family-qualified name `impl_backend` once the other
-three families' `impl` tiers exist alongside it.
+itself carry a prompt. Backend's terminal tier is bare `impl`
+(`bundles/default/tiers/impl.yaml`) while it has no siblings; it
+takes the family-qualified name `impl_backend` once the other three
+families' `impl` tiers exist alongside it.
 
 ### 5.2 The layering rule
 
@@ -1499,12 +1474,11 @@ Frontend edge inventory: `screen_coll → screen` (hosts),
 `ui_coll → backend comp` (shapes), `ui_coll → design_system`
 (primitives), plus same-tier `dependency` edges within families.
 
-**`design_system` may be supplied, not generated** (mocks pass): a
-user arriving with a design system pins it — an external or
-vendored node like any §3.2 external — and the UI tiers design
-against its primitives instead of deriving them. The Polyphony
-pass's single-source kit-with-drift-test stance (§5.5) is the
-maintenance discipline either way.
+**`design_system` may be supplied, not generated**: a user arriving
+with a design system pins it — an external or vendored node like any
+§3.2 external — and the UI tiers design against its primitives
+instead of deriving them. The single-source kit-with-drift-test
+stance (§5.5) is the maintenance discipline either way.
 
 Per-family handles: backend pubapi = exported functions; UI-collection
 pubapi = exported function components with assigns/slots contracts;
@@ -1526,14 +1500,12 @@ which pubapi representation the frontend tiers consume (in-process
 boundary exports vs. the generated OpenAPI client) and which delivery
 conventions apply (phoenix_storybook vs Storybook JS; tokens in theme
 file vs Tailwind config). The product tier doesn't know which frontend
-exists. Whether React is a first-class peer or tolerated variant:
-effectively answered as *peer with shared spine*, but the React
-convention set is less developed and needs its own pass. The blessed
-shape for that pass is settled (§1.4): React hosted by Phoenix, SSR
-for public content, hydrate for the authed app; Node workers under
-the supervision tree, inside the observability and health
-conventions. Carry-in from the Polyphony pass: the single-source
-design-kit-with-drift-test stance.
+exists. React is a first-class *peer with shared spine*, though its
+convention set is less developed and gets its own pass. That pass's
+blessed shape (§1.4): React hosted by Phoenix, SSR for public
+content, hydrate for the authed app; Node workers under the
+supervision tree, inside the observability and health conventions;
+the single-source design-kit-with-drift-test stance.
 
 **One chain bundle carries every target platform a project has; chain
 bundles do not split by language.** A polyglot project still has one
@@ -1551,12 +1523,12 @@ inside that one bundle's own architecture and implementation prompts
 surrounding structure is shared by construction — never as a second
 bundle merged in.
 
-**Settled: `platform-elixir` folds into `bundles/default/` rather
-than surviving as a layer** (§6 carries the decision and its
-rationale; `dsl-syntax.md` §11 the mechanism). Its only content,
+**`platform-elixir` is not a layer; its content lives in
+`bundles/default/`** (§6 carries the decision and its rationale;
+`dsl-syntax.md` §11 the mechanism). Its only content,
 `schemas/review.xsd` — a platform-wide review grammar belonging to no
-language — moves into the chain bundle's own `schemas/`. That was
-`extends:`'s last shipped user, and the field retires from the DSL in
+language — lives in the chain bundle's own `schemas/`. It was
+`extends:`'s last user, and the DSL has no `extends:` field in
 consequence.
 
 **Three coupled questions stay open, and they settle together (§8).**
@@ -1584,11 +1556,12 @@ platform to select between — not before, and not separately.
 splitting UI and screen into their own tiers — type-level acyclicity
 makes the layering rule a bundle-load guarantee, where a kind-flag is
 a same-tier edge policed by weaker instance-level machinery — applies
-here identically; a `locus:` flag on the backend family was that same
-argument applied in one direction and not the other. A client-locus
-component mints as the client family's own tier chain instead (§5.1:
+here identically; a `locus:` flag on the backend family would be
+that same argument applied in one direction and not the other. A
+client-locus component mints as the client family's own tier chain
+instead (§5.1:
 `client_comp/client_comparch/client_subcomp/client_subcomparch/
-impl_client`). Secondary argument, and the author's own: a client
+impl_client`). Secondary argument: a client
 store with persistence, outbox, retraction and lifecycle hooks (the
 slot list below) wants different prompts, grammar and review criteria
 from a server domain component — the same genuinely-differ argument
@@ -1602,15 +1575,15 @@ cursors). The thickest code in a client gets the full architecture
 treatment — comparch, pubapi fragments, store subcomponent,
 boundary-level tests against fakes.
 
-**Minting is open — the one cost this split introduces.** Under the
-old attribute model, minting was free: `sysarch` decomposes the
-domain and tags each component's locus as it goes. As a family,
-something has to mint the client family's nodes, and neither
+**Minting is open — the one cost this split introduces.** A locus
+flag would make minting free — `sysarch` decomposes the domain and
+tags each component's locus as it goes — but as a family, something
+has to mint the client family's nodes, and neither
 candidate is obviously right — domain decomposition is `sysarch`'s
 job, but client deployment shape is `frontend_sysarch`'s (§5.3),
 which already reads the backend sysarch handle. Undecided between
 `sysarch`, `frontend_sysarch`, and a split between them; settle it
-with the client family's own tickets, not here.
+with the client family's own tickets.
 
 **Phase placement: the client family lands in Phase 7, with its
 consumer.** A client-locus component's pubapi is consumed through
@@ -1619,12 +1592,12 @@ at the React pass (Phase 7) under its own standing decision that
 nothing lands in the corpus without a consumer. Phase 5 builds
 `frontend_sysarch` and the UI and screen families only.
 
-**`platform-client-ts` is a platform-layer deliverable** (author
-call), seeded by Haven (the stress case) and Polyphony (the median
-case). Its slots, consolidated from both passes — and the governing
-rule, forced by Polyphony's no-client-held-unsaved-work standing
-decision: **slots are declared capabilities, not mandates; the audit
-checks what a project declares**:
+**`platform-client-ts` is a platform-layer deliverable**, seeded by
+Haven (the stress case) and Polyphony (the median case). Its slots —
+and the governing rule, forced by Polyphony's
+no-client-held-unsaved-work standing decision: **slots are declared
+capabilities, not mandates; the audit checks what a project
+declares**:
 
 - **Persistence convention** (client store; must support
   **retraction** — "forget X" — as a first-class store operation,
@@ -1773,7 +1746,6 @@ into Turing-completeness.
 
 ## 7. The delivery model
 
-Settled. Supersedes the earlier "open seam" framing of this section.
 The target lifecycle, per unit of work: (1) the author writes a
 feature they want → (2) UI design if applicable → (3) architecture →
 (4) code → (5) validate → (6) ship — with each instance of (1) a
@@ -1802,9 +1774,8 @@ but **every state where the author must act is unmistakable**, and
 there are few of them. Orchestration's naming discipline is retained:
 no two states (or a state and a label) one hyphen apart in meaning.
 
-**The log records decisions and observations, never wishes** (the
-events×external-effects question, settled at the docs review pass).
-One answer for every external surface — tracker, host, git,
+**The log records decisions and observations, never wishes.** One
+answer for every external surface — tracker, host, git,
 deploys: **an external effect never shares a transaction with an
 event.** Outbound, the plane records the *intent* as an event,
 executes the effect through an idempotent outbox worker (§2.6's
@@ -1863,11 +1834,9 @@ pass generalized; everything downstream is standard. The taxonomy:
   requirements; the first author gate is architecture review.
 - **Tech debt / refactor** — enters at architecture (sysarch/comparch
   deltas, no product change). Orchestration's gating-debt rule
-  survives (§4.5); the alternating debt milestone it used to route
-  through does not — **reversed at ORC-105** (§7.8) — debt tickets
-  are this entry with the `tech-debt` label, filed into a milestone's
-  `prep` or `cleanup` queue per §4.5's revised routing rather than a
-  dedicated milestone.
+  survives (§4.5); debt tickets are this entry with the `tech-debt`
+  label, filed into a milestone's `prep` or `cleanup` queue per §4.5's
+  routing (§7.8), never a dedicated debt milestone.
 - **Bug, fixed in-flow** — enters wherever the plan tier localizes
   the defect. "Which artifact was wrong — impl, comparch, screen
   definition?" is itself the first planning question; the cascade
@@ -1885,7 +1854,7 @@ pass generalized; everything downstream is standard. The taxonomy:
   scopes and opens an **absorption ticket** running the upward flow:
   docs absorb reality, walking upward only as far as the change
   argues.
-- **Doc edited out-of-band** (docs review pass) — a *body file*
+- **Doc edited out-of-band** — a *body file*
   changed on main outside the pipeline: the author hand-edited
   architecture. The projections are insulated (walks read bodies at
   recorded SHAs, so the graph itself doesn't move), but agents check
@@ -1903,10 +1872,9 @@ pass generalized; everything downstream is standard. The taxonomy:
 - **Urgent / stop-the-world** — orchestration's rules port verbatim:
   `Urgent` preempts at pickup, never interrupts in-flight work, never
   steals an in-flight mutex, dispatches regardless of which queue a
-  milestone currently sits in (§7.8, revised at ORC-105 from
-  "overrides the milestone pause" — there is no longer a distinct
-  pause state to override; an Urgent ticket simply ignores queue
-  ordering, by construction). A true security patch bypasses the
+  milestone currently sits in (§7.8 — there is no distinct pause
+  state to override; an Urgent ticket simply ignores queue ordering,
+  by construction). A true security patch bypasses the
   pipeline onto main — and its afterlife *is* the absorption path
   above. One mechanism, two doors.
 
@@ -1930,19 +1898,16 @@ dissolved by giving every feedback type a home:
    — a decline on a prose artifact is harvested the same way from
    the native surface instead (`docs/ui-spec.md`,
    `systems/delivery.md`), not from this PR.
-   **How machine and human comments are told apart now depends on the
+   **How machine and human comments are told apart depends on the
    surface.** On surfaces we own, plane-authored annotations are
-   *records with kinds* and no prose is parsed — the marker rule is
-   retired there (`docs/ui-spec.md`, `systems/delivery.md`). On
-   GitHub PRs, which we do not own, the
-   plane's own comments still carry fixed markers, posted issue-level
-   rather than line-anchored, which is what the original reason —
-   the store is somebody else's, so typed data needs a convention —
-   still covers exactly. **Revised (ORC-31): that convention no
-   longer decides which *review* comments count as human.** The
-   original rule assumed any machine-authored comment could be told
-   apart by checking for the marker, but a marker is a convention
-   only *our* machine follows; any third-party actor with review
+   *records with kinds* and no prose is parsed — no marker rule is
+   needed there (`docs/ui-spec.md`, `systems/delivery.md`). On
+   GitHub PRs, which we do not own, the plane's own comments carry
+   fixed markers, posted issue-level rather than line-anchored,
+   because the store is somebody else's, so typed data needs a
+   convention. **That convention does not decide which *review*
+   comments count as human.** A marker is a convention only *our*
+   machine follows; any third-party actor with review
    access — a GitHub App, a bot, a review tool, Claude Code's own
    inline review comments — posts through the identical line-anchored
    review-comment endpoint a human uses, unmarked, and endpoint-of-
@@ -1963,7 +1928,7 @@ on the child (or the artifact), moved by the plane with a note.
 Scope rules only protect you if scope stays where it belongs.
 
 **Notifications have exactly two channels, and a third would be a
-bug** (notifications pass). If a fact is about *the work*, it is a
+bug.** If a fact is about *the work*, it is a
 ticket — the machinery-filed shapes (enforcement, swap, maintenance,
 absorption, doc-reconciliation, Triage notices) — and Linear's inbox
 is the delivery mechanism; that stays the overwhelming majority. If
@@ -1993,14 +1958,14 @@ documents diff per sentence rather than per line, and the ticket
 graph under a top-level ticket is a view a general tracker cannot
 easily draw.
 
-**The debugging half survives untouched and is still the hard part** —
+**The debugging half is still the hard part** —
 event-log inspection, replay-to-sequence, `ready_scopes` explain-why
 ("what is blocking this scope" as a first-class query), staleness
 provenance, dispatch history, agent-run transcripts. When a pipeline
 this deep stalls, "why is nothing happening" must be answerable in
 minutes. Budgeted as a real engineering line item, not a leftover
-dashboard — and now sharing a surface with the work loop rather than
-sitting beside it.
+dashboard — sharing a surface with the work loop rather than sitting
+beside it.
 
 
 ### 7.5 Branches, merges, reconciliation
@@ -2032,9 +1997,9 @@ sitting beside it.
   against the feature's argument, merges to main. The composition
   check orchestration's pre-merge placement "genuinely lost" comes
   back at the feature level. **"Reconcile" here names the `reconcile`
-  system status** (`dsl-syntax.md` §15.1, §15.11; §7.19 below,
-  ORC-151) — the read is a distinct, required step from the mechanical
-  merge that follows it, not a description of `merge` doing both.
+  system status** (`dsl-syntax.md` §15.1, §15.11; §7.19 below) — the
+  read is a distinct, required step from the mechanical merge that
+  follows it, not a description of `merge` doing both.
 - **Deploys are per-feature.** Features merge dark behind their flag
   (§2.10); post-deploy validation runs against the feature's
   affordances/states; the author's flagged-in validation happens on
@@ -2064,18 +2029,15 @@ state.
   Shipped/Done`, `Blocked` anywhere. Two author gates, per
   orchestration's touchpoint budget; entry tier (§7.3) determines which
   early states are skipped. **No `Building` state between architecture
-  review and `Implementation`, retired along with the system status it
-  named** (`dsl-syntax.md` §15.1, §15.11, ORC-151's third design
-  review): the feature's own implementation is real dispatched work,
-  `Implementation` (named at ORC-151's fourth design review,
-  `dsl-syntax.md` §15.1), immediately after architecture review passes
-  — not a wait. What `Building` used to mark, children still in
-  flight, is now `Reconciling`'s own entry precondition rather than a
+  review and `Implementation`** (`dsl-syntax.md` §15.1, §15.11): the
+  feature's own implementation is real dispatched work,
+  `Implementation`, immediately after architecture review passes — not
+  a wait. What a `Building` state would mark, children still in
+  flight, is `Reconciling`'s own entry precondition rather than a
   status of its own: once the feature's own `Implementation` and
   `Checks` complete, the ticket sits at `Checks` for as long as its
-  own children take to finish their own subflows, which is the
-  identical dwell `Building` used to visualize, needing no separate
-  status to do it in.
+  own children take to finish their own subflows — a dwell needing no
+  separate status to do it in.
 - Child lifecycle: orchestration's states nearly verbatim — `Ready
   for dev → In progress → Checks → Reconciling → Merged → Done`, plus
   `Ready for rework / Reworking`, design states gone: children are
@@ -2084,20 +2046,19 @@ state.
   every-ticket-gets-a-design-pass is satisfied at the parent. **This is
   the generic shape — one undifferentiated generation-shaped visit —
   and it is a second declared type, never the feature type
-  depth-filtered, settled at ORC-151's fourth design review**
-  (`dsl-syntax.md` §15.11): `design`/`Product design` is feature-only
-  vocabulary with no depth-based way to no-op below the root, so a
-  component or subcomponent instance cannot legally be running
-  `types/feature.yaml`'s own array. **A child spawned by architecture's
-  own recursive fan-out (comparch/subcomparch, `dsl-syntax.md` §15.11)
-  runs a third, richer type instead of this one** — `In progress` split
-  into its own `Architecting`/`Implementation` pair, each with its own
-  review, the identical split the feature lifecycle above just took —
-  because that child's own artifact needs the same reading before it
-  merges that the feature's does. An ordinary child entering directly
-  at implementation, with no architecture review of its own to run
-  (§7.3's entry-tier taxonomy), still runs this simpler bullet's own
-  shape unchanged.
+  depth-filtered** (`dsl-syntax.md` §15.11): `design`/`Product design`
+  is feature-only vocabulary with no depth-based way to no-op below the
+  root, so a component or subcomponent instance cannot legally be
+  running `types/feature.yaml`'s own array. **A child spawned by
+  architecture's own recursive fan-out (comparch/subcomparch,
+  `dsl-syntax.md` §15.11) runs a third, richer type instead of this
+  one** — `In progress` split into its own `Architecting`/
+  `Implementation` pair, each with its own review, the identical split
+  the feature lifecycle above takes — because that child's own
+  artifact needs the same reading before it merges that the feature's
+  does. An ordinary child entering directly at implementation, with no
+  architecture review of its own to run (§7.3's entry-tier taxonomy),
+  still runs this simpler bullet's own shape unchanged.
 - **`Stubbed`** — machinery-filed swap tickets only (§2.16):
   committed work deliberately waiting on an external timeline. Passes
   the admission test with a distinct who-has-the-ball answer — the
@@ -2107,8 +2068,7 @@ state.
   staleness and escalation checks (nothing is stale about waiting
   deliberately); carries no milestone until scheduled, so it can
   never be the unresolved work that holds a milestone's own queues
-  open (§7.8's `blocks:` relation, revised at ORC-105 — "block a
-  boundary" in the older phrasing this replaces).
+  open (§7.8's `blocks:` relation).
 - **Blocked carries flavor labels and its origin** (ported from
   orchestration `372630a`). Three flavors, as labels — never
   states, because a flavor dispatches nothing and a state would be
@@ -2144,190 +2104,148 @@ head SHA regardless of base branch.
 
 ### 7.8 Containers, queues, and milestones
 
-**Revised wholesale at ORC-105, superseding ORC-103's own unmerged
-milestone-only framing of this section.** ORC-103 first tried "give
-the milestone its own statuses and the steps that close it" — the
-right instinct, a fifth of the actual decision: the milestone is one
-declared **container** and the close is one **queue** among five.
-Every reason ORC-103 gave for retiring orchestration's boundary
-ticket still holds and generalizes rather than being re-argued
-(carried forward, not re-derived): the pause needed to be *tracked*
-somewhere and the pass needed a *place to live*, both true only
-because orchestration has no tracker of its own to hold either
-directly; Catapult's ticket state is its own event log (§7.1, §7.17),
-so a container can carry its own progress and the record of its own
-history without proxying through a ticket. What follows is the
-decision set (ORC-105, all four of its passes); the grammar it's
-built from is `dsl-syntax.md` §15.1-§15.9. Building the dispatcher,
-the sweep, and the scan/setup/retro machinery itself is ORC-104's —
-this section settles the shape, not the diff.
+**The milestone is one declared container, and its close is one of
+its five fixed anchor entries.** Orchestration's boundary ticket has
+no counterpart here. It existed because the pause needed to be
+*tracked* somewhere and the boundary pass needed a *place to live*,
+both true only because orchestration has no tracker of its own to
+hold either directly; Catapult's ticket state is its own event log
+(§7.1, §7.17), so a container carries its own progress and the record
+of its own history without proxying through a ticket. The grammar
+this section is built from is `dsl-syntax.md` §15.1-§15.9.
 
 **A work-item type names its own gates; a gate names no types.** A
 type's effective status sequence is its own declared array, not
 something assembled by scanning every gate for a `ticket_types:` entry
-naming it — that field is retired from a gate's declaration outright,
-so the fact lives in one place. The same move that gave the container form its array applied
-to plain ticket types too, and it collapsed `flow:` and `opens:` into
+naming it — a gate's declaration carries no such field, so the fact
+lives in one place. The same rule collapses `flow:` and `opens:` into
 one required field: a queue entry's `flow:` names a member of one
 shared registry, and whether that member turns out to be a plain type
 (dispatch terminates, an ordinary ticket) or a container (dispatch
 mints a nested instance) is visible only in what the *resolved*
 declaration itself contains, never in anything the queue entry
-declares. This is a real extension of what's declarable, and it
-argues with a recorded decision rather than sidestepping it:
+declares. This is a real extension of what's declarable, and
 `docs/non-goals.md`'s "No per-project restructuring of the automation
-protocol" entry is amended alongside this section to record it,
-because its own admission rule ("a state may be declared iff no plane
-logic branches on it") already covers the addition without needing to
-change.
+protocol" entry records it: its own admission rule ("a state may be
+declared iff no plane logic branches on it") already covers the
+addition.
 
-**One declaration shape, not three.** `queues/project.yaml`, a
-directory of named containers and a directory of named types were
+**One declaration shape, not three.** A project queue file, a
+directory of named containers and a directory of named types would be
 three file formats for one thing, and most of the differences among
-them were artifacts of the split rather than facts about queues or
-generations. **The governing rule: a container is any work item whose skeleton has
-queues, a ticket is any work item whose skeleton has a generation, and
-they are otherwise interchangeable** — a milestone with a `main`
-queue, then a human sign-off gate, then a staging deployment, then
-`retro` is now an ordinary sentence, where the third pass's grammar
-could not have said it (a container's array admitted no gates or
-environments at all). One declaration shape holds all three cases —
-`ticket`, `container` and the project's own `none` — distinguished by
-a `skeleton:` field rather than by which file a declaration lived in
-(`dsl-syntax.md` §15.1-§15.2). **Gates and environments widen onto
-`container`, joining `ticket`; the project's own `none` does not
-join them.** A project's array stays entirely queue-shaped, since
-"all review happens at lower levels" (`dsl-syntax.md` §15.1) is a
-fact about the outermost scope specifically, not a case the governing
-rule above was making a claim about — that rule is ticket versus
-container, and never mentions the project. **Critique is a second,
-narrower carve-out on top of that**, because its depth selects which
-tiers a generation fanned into, and only a `generation` anchor —
-which neither a `container`- nor a `none`-skeleton type has — gives
-it something to select within (`dsl-syntax.md` §15.5).
+them would be artifacts of the split rather than facts about queues or
+generations. **The governing rule: a container is any work item whose
+skeleton has queues, a ticket is any work item whose skeleton has a
+generation, and they are otherwise interchangeable** — a milestone
+with a `main` queue, then a human sign-off gate, then a staging
+deployment, then `retro` is an ordinary sentence. One declaration
+shape holds all three cases — `ticket`, `container` and the
+skeleton-less project — distinguished by the `skeleton:` field rather
+than by which file a declaration lives in (`dsl-syntax.md`
+§15.1-§15.2).
 
 **`skeleton:` is optional, and rootness is derived rather than
-declared.** `ticket` and `container` are the only two real values, and
-a type declaring neither has no anchors at all (`dsl-syntax.md`
-§15.1); a `skeleton: none` value would be spent on exactly the fact
-its own absence already states. Nothing polices rootness with a load
-check either — it falls out of the declaration graph (below). Second,
-and
-load-bearing rather than cosmetic: excluding the project's array from
-gates and environments read "all review happens at lower levels" as a
-claim about array *content*, when it was only ever the argument for
-why a project needs no *re-resolution anchor* — a different claim, and
-the governing rule this section opens with never mentioned the project
-either way. **Gates and environments now widen onto every type,
-skeleton-less ones included**; a human sign-off between two of a
-project's own queues is the milestone example's own logic one level
-up, and there was never an argued reason to refuse it. Critique alone
-stays the one carve-out, for the reason already given — a `generation`
-anchor is what gives its depth something to select within, and no
-skeleton-less type has one.
+declared.** `ticket` and `container` are the only two values, and a
+type declaring neither has no anchors at all (`dsl-syntax.md` §15.1);
+a `skeleton: none` value would be spent on exactly the fact its own
+absence already states. Nothing polices rootness with a load check
+either — it falls out of the declaration graph (below). **Gates and
+environments are declarable on every type, skeleton-less ones
+included**: "all review happens at lower levels" (`dsl-syntax.md`
+§15.1) is the argument for why a project needs no *re-resolution
+anchor*, not a claim about what its array may contain, and a human
+sign-off between two of a project's own queues is the milestone
+example's own logic one level up. **Critique is the one carve-out**,
+because its depth selects which tiers a generation fanned into, and
+only a `generation` anchor — which neither a `container`- nor a
+skeleton-less type has — gives it something to select within
+(`dsl-syntax.md` §15.5).
 
-**`after:` is retired: array position says everything it did, and
-more precisely.** A gate's own former predecessor field required
-one linear order for the whole bundle; with order living on each
-citing type's own array instead, two types may run the same two gates
-in different relative order, which the old model could not express
-without contradiction (`dsl-syntax.md` §15.3). This reaches gates and
-environments as they exist today, not merely the container form this
-section is about, and the grammar section is where the full argument
-lives.
+**There is no `after:` on a gate: array position says everything a
+predecessor field would, and more precisely.** A predecessor field on
+a gate requires one linear order for the whole bundle; with order
+living on each citing type's own array instead, two types may run the
+same two gates in different relative order, which a single bundle-wide
+order cannot express without contradiction (`dsl-syntax.md` §15.3).
+This reaches gates and environments generally, not merely containers,
+and the grammar section is where the full argument lives.
 
-**And it reversed v5 §7.18's own workflow-axis base layer: workflow
-bundles are forked, not layered.** §7.18's reasoning — that a
-project's gates and environments live "in its bundle's `extends:`
-layer" — assumed the loader composes a project's workflow bundle from
-a platform base at load time. That is not how bundles are actually
-distributed: §3.1 already chose fork-tailor-merge as the lifecycle for
-bundles and policy packs generally, because git has a merge story hex
-does not, and a workflow bundle is exactly this shape. `bundles/`'s
-platform workflow content becomes a template a project forks from and
-pulls later revisions into by git merge, never a base layer the
-loader composes underneath a leaf bundle. The chain axis followed the
-same reversal at ORC-153, once `platform-elixir` — the one piece of
-shipped content still riding a real layer — folded into
-`bundles/default/` (§6): `dsl-syntax.md` §11 now carries the full
-argument for both axes and the load-time consequence, general rather
-than workflow-only — a bundle declaring `extends:` at all is a load
-error.
+**Workflow bundles are forked, not layered.** §3.1 chose
+fork-tailor-merge as the lifecycle for bundles and policy packs
+generally, because git has a merge story hex does not, and a workflow
+bundle (§7.18) is exactly this shape: `bundles/`'s platform workflow
+content is a template a project forks from and pulls later revisions
+into by git merge, never a base layer the loader composes underneath a
+leaf bundle. The chain axis takes the same shape (§6): `dsl-syntax.md`
+§11 carries the full argument for both axes and the load-time
+consequence — a bundle declaring `extends:` at all is a load error.
 
-**A project is not a container, even though the two now share one
-declaration shape.** The reversal at this section's second pass —
-against its own first draft, which gave `project` and `milestone` a
-shared shape off one `container:` field checked against a two-member
-registry — still holds; the fourth pass's unification gives every
-type the same *file* shape, whatever `skeleton:` it declares or
-omits, without erasing what makes a skeleton-less declaration
-different. **A project's queue sequence is fully declared by
-the workflow bundle** — any names, any count, any order, chosen
-freely because a project needs no re-resolution anchor (all review
-happens at lower levels, and a workflow cutover mid-project isn't the
-hazard a cutover mid-container is). **A container's `skeleton:` is
-one kind, arbitrarily nestable, and every instance carries the
-identical required anchor sequence** — `setup` → `prep` → `main` →
-`retro` → `cleanup`, platform-fixed, declarable by neither axis, for
-the identical re-resolution reason ticket skeletons aren't
-(`dsl-syntax.md` §15.1): the anchor a container parked mid-sequence
-falls back to when a workflow cutover changes what a queue dispatches
-underneath it. This is a required backbone, never an exclusive
-membership (a seventh-pass reversal, ORC-148, below): a container's
-array may additionally hold a bare generation-shaped entry, a second
-population anchor, gates or environments around that backbone. What
-varies per declared container is its **name** and what each of its
-population-anchor entries' `flow:` *points at* — a registered
-ticket-skeleton type (a **work flow**) or another declared container's
-name (a **container flow**), the same registry either way
-(`dsl-syntax.md` §15.2) — never the anchor names or their required
-relative order. Nothing requires a container's queues to bottom out in
-tickets at all: with more than one work type, "is this a ticket"
-stops being definable, and a queue sequence built entirely from
-container-opening queues is legitimate. Declaring `epic` gets
-epics-and-milestones for free the moment an `epic` container's own
-`main` entry's `flow:` names `milestone` — no new mechanism, because
-there is only the one container skeleton and one field; a genuinely
-distinct skeleton, if real usage ever wants one, is new
-system-status-style vocabulary decided then, on evidence, not guessed
-at now.
+**A project is not a container, even though the two share one
+declaration shape.** Every type has the same *file* shape, whatever
+`skeleton:` it declares or omits, without erasing what makes a
+skeleton-less declaration different. **A project's queue sequence is
+fully declared by the workflow bundle** — any names, any count, any
+order, chosen freely because a project needs no re-resolution anchor
+(all review happens at lower levels, and a workflow cutover
+mid-project isn't the hazard a cutover mid-container is). **A
+container's `skeleton:` is one kind, arbitrarily nestable, and every
+instance carries the identical required anchor sequence** — `setup` →
+`prep` → `main` → `retro` → `cleanup`, platform-fixed, declarable by
+neither axis, for the identical re-resolution reason ticket skeletons
+aren't (`dsl-syntax.md` §15.1): the anchor a container parked
+mid-sequence falls back to when a workflow cutover changes what a
+queue dispatches underneath it. This is a required backbone, never an
+exclusive membership: a container's array may additionally hold a
+bare generation-shaped entry, a second population anchor, gates or
+environments around that backbone. What varies per declared container
+is its **name** and what each of its population-anchor entries'
+`flow:` *points at* — a registered ticket-skeleton type (a **work
+flow**) or another declared container's name (a **container flow**),
+the same registry either way (`dsl-syntax.md` §15.2) — never the
+anchor names or their required relative order. Nothing requires a
+container's queues to bottom out in tickets at all: with more than one
+work type, "is this a ticket" stops being definable, and a queue
+sequence built entirely from container-opening queues is legitimate.
+Declaring `epic` gets epics-and-milestones for free the moment an
+`epic` container's own `main` entry's `flow:` names `milestone` — no
+new mechanism, because there is only the one container skeleton and
+one field; a genuinely distinct skeleton, if real usage ever wants
+one, is new system-status-style vocabulary decided then, on evidence,
+not guessed at now.
 
 **Acyclicity is a load-time check over container *declarations*, not
-a runtime check over container *instances* — getting this altitude
-right took two passes, and getting the graph's own node set right took
-a third.** The first pass reached for "no container may be its own
-ancestor," checked as instances mint; the corrected version is a
-static check of the declaration graph itself — **nodes are every type
-with a queue-shaped anchor, edges are `flow:` references between
-them** — which must be acyclic, with a type naming itself the
-degenerate one-node case of the same rule (`dsl-syntax.md` §13). A
-`flow:` edge whose target resolves to a `ticket`-skeleton type takes
-no part in this graph — a `ticket`-skeleton type declares no further
-`flow:` of its own, so it is always a leaf. **The fourth pass's own
-version of this graph admitted only `container`-skeleton types as
-nodes, which left a hole a fifth pass found:** excluding skeleton-less
-types from the node set excludes every edge *into* one by
-construction, and that is exactly the edge a cycle through the project
-can run on — `milestone`'s `main` entry naming `flow: project`
-alongside `project`'s `build-out` entry naming `flow: milestone` is a
-genuine two-node cycle that the narrower graph never built, so it
-loaded clean and would have been caught only if some live chain of
-instances happened to close the loop. A skeleton-less type's array is
-entirely queue-shaped — the same property that makes a
-`container`-skeleton type nestable — so the node set now includes both
-alike. The instance-level
-version is not merely redundant, it is the wrong tool: it leaves unbounded depth
-*declarable*, caught only when some live chain of instances happens
-to close the loop, which trades a load-time failure for a mid-flight
-one — the identical trade this project has already made the other
-way (v5 §2.4: failing at config load beats failing mid-flight). The
-declaration-graph check is also what actually bars same-name nesting
-(a `milestone` declaration cannot open `milestone`) and what bounds
-depth without counting it: an acyclic graph has a finite longest path,
-so a bundle's maximum nesting depth is knowable from the bundle alone,
-even though the number of distinct levels an author declares is
-unbounded. No further instance-level check is needed — it falls out
-of the declaration graph's acyclicity for free.
+a runtime check over container *instances*.** It is a static check of
+the declaration graph itself — **nodes are every type with a
+queue-shaped anchor, edges are `flow:` references between them** —
+which must be acyclic, with a type naming itself the degenerate
+one-node case of the same rule (`dsl-syntax.md` §13). A `flow:` edge
+whose target resolves to a `ticket`-skeleton type takes no part in
+this graph — a `ticket`-skeleton type declares no further `flow:` of
+its own, so it is always a leaf. Skeleton-less types are nodes
+alongside `container`-skeleton ones, and that is load-bearing:
+excluding skeleton-less types from the node set excludes every edge
+*into* one by construction, and that is exactly the edge a cycle
+through the project can run on — `milestone`'s `main` entry naming
+`flow: project` alongside `project`'s `build-out` entry naming `flow:
+milestone` is a genuine two-node cycle that a narrower graph never
+builds, so it would load clean and be caught only if some live chain
+of instances happened to close the loop. A skeleton-less type's array
+is entirely queue-shaped — the same property that makes a
+`container`-skeleton type nestable — so the node set includes both
+alike. An instance-level check ("no container may be its own
+ancestor," checked as instances mint) is not merely redundant, it is
+the wrong tool: it leaves unbounded depth *declarable*, caught only
+when some live chain of instances happens to close the loop, which
+trades a load-time failure for a mid-flight one — the identical trade
+this project has already made the other way (v5 §2.4: failing at
+config load beats failing mid-flight). The declaration-graph check is
+also what actually bars same-name nesting (a `milestone` declaration
+cannot open `milestone`) and what bounds depth without counting it: an
+acyclic graph has a finite longest path, so a bundle's maximum nesting
+depth is knowable from the bundle alone, even though the number of
+distinct levels an author declares is unbounded. No further
+instance-level check is needed — it falls out of the declaration
+graph's acyclicity for free.
 
 **A queue is a query, never stored.** "Work items in this project or
 container whose declared flow is this queue's, unresolved" —
@@ -2344,38 +2262,33 @@ not tickets — the distinction only matters the day a non-ticket work
 type exists, but the grammar doesn't assume it away.
 
 **One queue may block another, declared, and a block may only name a
-sibling.** A queue declaring `blocks:` guards *entry into* the queue it
-names: a container or project cannot move into a blocked queue while
-the queue that blocks it still holds unresolved work — checked once,
-at the transition, corrected to this entry-guard reading at ORC-148's
-design review below (an earlier reading of this same paragraph held
-the block as a standing condition on the *blocked* queue's own
-completion, recomputed for as long as it ran; that reading is
-retired). This is what makes "the retro can't finish [be *entered*]
-while milestone work is open" an instance of a
-general rule (`main` blocking `retro`, below) rather than a special
-case, and which also closes the stranding hole ORC-103 solved
-narrowly: work in a blocking queue cannot be quietly closed over. A
-`blocks:` entry may only name a queue declared in the same type's own
-`statuses:` array — a container's other four anchor entries, or
-another entry in the project's own array (`dsl-syntax.md` §15.7) —
-reaching into a
-nested container's own queues would make its internals part of its
-interface to whatever blocks it, exactly backwards from
-composability. To block on something nested, block on the queue
-entry whose `flow:` opens it.
+sibling.** A queue declaring `blocks:` guards *entry into* the entry
+it names: a container or project cannot move into a blocked entry
+while the queue that blocks it still holds unresolved work — checked
+once, at the transition, never a standing condition on the blocked
+entry's own completion recomputed for as long as it runs (below).
+This is what makes "the retro can't be *entered* while milestone work
+is open" an instance of a general rule (`main` blocking `retro`,
+below) rather than a special case, and what closes the stranding hole
+a boundary ticket solves only narrowly: work in a blocking queue
+cannot be quietly closed over. A `blocks:` entry may only name an
+entry declared in the same type's own `statuses:` array — a
+container's other four anchor entries, or another entry in the
+project's own array (`dsl-syntax.md` §15.7) — reaching into a nested
+container's own queues would make its internals part of its interface
+to whatever blocks it, exactly backwards from composability. To block
+on something nested, block on the queue entry whose `flow:` opens it.
 
 **The project is the outermost scope, and having a lifecycle at all
-is less new than it looks — even though being a *container* was the
-wrong way to give it one.** `project_id` is already the top-level
-scope in the engine store (`systems/engine.md`) — every table carries
-it post-ORC-87, `Store.list_project_ids/0` enumerates them, and the
-active-bundle-version projection already keys current bundle versions
-per project per axis (`systems/engine.md`'s ninth projection). The
-project isn't a new concept acquiring a workflow; it's the existing
-outermost scope finally having one, declared with no `skeleton:` at
-all (`dsl-syntax.md` §15.1) rather than borrowing the container's
-fixed anchors. Its queues, in order:
+is less new than it looks.** `project_id` is the top-level scope in
+the engine store (`systems/engine.md`) — every table carries it,
+`Store.list_project_ids/0` enumerates them, and the
+active-bundle-version projection keys current bundle versions per
+project per axis (`systems/engine.md`'s ninth projection). The project
+isn't a new concept acquiring a workflow; it's the existing outermost
+scope having one, declared with no `skeleton:` at all (`dsl-syntax.md`
+§15.1) rather than borrowing the container's fixed anchors. Its
+queues, in order:
 `initialization` → `scaffolding` → `build-out` → `iteration` →
 `maintenance` → `deprecating` → `sunsetting` — the default bundle's
 own authored choice, not a platform requirement, since a project's
@@ -2388,165 +2301,138 @@ is autopopulated by business logic, not protocol: the grammar
 declares the queue exists; what lands in it on a fresh project is not
 the loader's business. `deprecating` and `sunsetting` are real,
 ordinary declared queues **from the start** — not dummies promoted
-later, since there is no platform-fixed project sequence left for
-"later" to mean anything against. **This also settles §6's open
-question:** the root has statuses because it is a project like any
-other, with its own declared queue list, and closing it means that
-list's last entry (`sunsetting`, in the default bundle's own
-ordering) resolving with nothing open behind it (`dsl-syntax.md`
-§15.6) — not because the root is a container reaching a fixed
-terminal kind, which is a mechanism only `container`-skeleton
+later, since there is no platform-fixed project sequence for "later"
+to mean anything against. **The root has statuses because it is a
+project like any other** (§6), with its own declared queue list, and
+closing it means that list's last entry (`sunsetting`, in the default
+bundle's own ordering) resolving with nothing open behind it
+(`dsl-syntax.md` §15.6) — not because the root is a container reaching
+a fixed terminal kind, which is a mechanism only `container`-skeleton
 declarations have.
 
-**Milestone queues, and the end of the debt milestone.** `milestone`
+**Milestone queues, and why there is no debt milestone.** `milestone`
 is a declared **`container`-skeleton type** (`dsl-syntax.md` §15.1) —
 one instance of the one container skeleton, not a platform-registered
 second kind — whose five fixed anchor entries point, in order, at:
-`setup` → `prep` →
-`main` → `retro` → `cleanup`. `setup` constitutes the instance, once,
-at mint; `prep` is work the milestone requires before beginning;
-`cleanup` is work that
-got missed during it — distinct on purpose, because "debt left over
-from the last milestone" and "debt required for the next one" used to
-land in one place and are different questions. **This reverses this
-section's own earlier framing** (the alternating-debt-milestone
-picture inherited from orchestration and restated informally at §1.1)
-**, and the reversal is the point.** Debt becomes a queue inside every
-milestone instead of a milestone every other slot: nothing has to be
-inserted into the project's own queue sequence, no debt milestone has
-to be autogenerated, and the alternation stops being prose nothing
-enforces. §4.5's `debt`-routing gating test is revised to match: it
-now sorts a milestone's own `cleanup` from the next milestone's `prep`
-rather than "next debt milestone" from "backlog" — arguably a clearer
-question, and every place that gating test is invoked reads it this
-way from here.
+`setup` → `prep` → `main` → `retro` → `cleanup`. `setup` constitutes
+the instance, once, at activation (below); `prep` is work the
+milestone requires before beginning; `cleanup` is work that got missed
+during it — distinct on purpose, because "debt left over from the last
+milestone" and "debt required for the next one" are different
+questions and must not land in one place. Debt is a queue inside every
+milestone rather than a milestone every other slot (orchestration's
+alternating-debt-milestone picture): nothing has to be inserted into
+the project's own queue sequence, no debt milestone has to be
+autogenerated, and the alternation stops being prose nothing enforces.
+§4.5's `debt`-routing gating test matches: it sorts a milestone's own
+`cleanup` from the next milestone's `prep` — a clearer question than
+"next debt milestone" from "backlog" — and every place that gating
+test is invoked reads it this way.
 
 **Two agents, dispatched as ordinary work items, and what stays
-human.** `boundary` is retired as a chain-level agent step
-(`dsl-syntax.md` §15.1) and becomes `retro`, a queue-dispatched flow —
-it never named anything a tier's `delivery:` actually used, and the
-single static pass is exactly what the queue model replaces. A
-`setup` flow joins it, dispatched as `milestone`'s own `setup` entry's
-declared `flow:` once a milestone instance becomes the *active* one at
-whichever of the project's own queues a workflow bundle assigns it to
-(`build-out`, `iteration`, ...) — **not once it is minted**
-(`dsl-syntax.md` §15.8, this section's own fourth-pass correction).
-Minting a milestone instance and activating it are different events:
-the instance can exist, and accept groomed work into its own future
-queues, well before the project's own queue reaches it — "we set
-blockers for and groom the tickets of the next milestone" is exactly
-this, done during the current milestone's own `main`. Minting and
-constituting were always necessarily two different declarations (the
-project's queue entry and the new milestone's own `setup` entry), so
-there was never a "before `prep`" position to invent: `setup` **is**
-the position, first in the minted instance's own five-entry sequence
-rather than a value stashed on `prep`'s own `flow:` (an earlier draft
-of this section did exactly that, which runs `setup` once per
-*container* rather than once per *mint*). What changes at the fourth
-pass is only *when* `setup` fires relative to mint — at activation,
-not at mint — which is what makes "runs once" true without leaning on
-mint timing, and what lets a milestone be groomed before it opens
-without `setup` running twice or early. The split
-follows the direction each looks: `retro` —
-backward — adjudicates carried findings, scans the diff for debt,
-updates the milestone's tickets to reflect what actually landed, and
-flips the aggregated flag set (below); `setup` — forward — grooms,
-sets blockers, and fills `prep`. **Both are ordinary agent-balled
-entries directly in `milestone`'s own array** (ORC-148, superseding
-the singleton-ticket shape below): `retro` inside the sub-array it
+human.** There is no chain-level `boundary` agent step
+(`dsl-syntax.md` §15.1); its work is `retro`, dispatched from
+`milestone`'s own array — a single static boundary pass never names
+anything a tier's `delivery:` actually uses, and it is exactly what
+the queue model replaces. A `setup` flow joins it, dispatched as
+`milestone`'s own `setup` entry once a milestone instance becomes the
+*active* one at whichever of the project's own queues a workflow
+bundle assigns it to (`build-out`, `iteration`, ...) — **not once it
+is minted** (`dsl-syntax.md` §15.8). Minting a milestone instance and
+activating it are different events: the instance can exist, and accept
+groomed work into its own future queues, well before the project's own
+queue reaches it — "we set blockers for and groom the tickets of the
+next milestone" is exactly this, done during the current milestone's
+own `main`. Minting and constituting are necessarily two different
+declarations (the project's queue entry and the new milestone's own
+`setup` entry), so there is no "before `prep`" position to invent:
+`setup` **is** the position, first in the minted instance's own
+five-entry sequence, never a value stashed on `prep`'s own `flow:` —
+that shape runs `setup` once per *container* rather than once per
+*mint*. Firing at activation rather than at mint is what makes "runs
+once" true without leaning on mint timing, and what lets a milestone
+be groomed before it opens without `setup` running twice or early. The
+split follows the direction each looks: `retro` — backward —
+adjudicates carried findings, scans the diff for debt, updates the
+milestone's tickets to reflect what actually landed, and flips the
+aggregated flag set (below); `setup` — forward — grooms, sets
+blockers, and fills `prep`. **Both are ordinary agent-balled entries
+directly in `milestone`'s own array**: `retro` inside the sub-array it
 shares with the sign-off gates around it, `setup` needing no sub-array
 of its own (`dsl-syntax.md` §15.2, §15.10). Neither carries `flow:`,
-and neither is dispatched as a separately minted child; each runs
-once per pass through its own position in `milestone`'s array, the
-identical guarantee "runs once, at activation" already gives `main` or
-`prep` (§15.8) — a guarantee that needs no declared bound, because
-there is exactly one `milestone` instance and exactly one array
-position for each to occupy. This is also why `singleton: true`
-(`dsl-syntax.md` §15.7) is retired rather than corrected again: it
-bounded a *queue*'s lifetime cardinality, the mechanism `setup` and
-`retro` needed only while each was a `flow:` naming a separately
-minted, ticket-skeleton child (`types/setup.yaml`, `types/retro.yaml`,
-both deleted); an inline entry was never a queue, so there is no
-cardinality left to bound. Both are still **ordinary work items**:
-what's absent is the *pause-proxy* — a ticket standing in for
-container state a borrowed tracker had nowhere else to hold
-(`dsl-syntax.md` §14's corresponding entry draws this distinction
-explicitly, so the next reader doesn't take this shape as a
-reversal). What's present is dispatched work, with the same
-chain-bundle machinery any other agent-balled entry uses (§7.10's
+and neither is dispatched as a separately minted child; each runs once
+per pass through its own position in `milestone`'s array, the
+identical guarantee "runs once, at activation" gives `main` or `prep`
+(§15.8) — a guarantee that needs no declared bound, because there is
+exactly one `milestone` instance and exactly one array position for
+each to occupy. This is also why there is no `singleton: true` on a
+queue (`dsl-syntax.md` §15.7): it would bound a *queue*'s lifetime
+cardinality, a mechanism `setup` and `retro` would need only as a
+`flow:` naming a separately minted, ticket-skeleton child; an inline
+entry is not a queue, so there is no cardinality to bound. Both are
+still **ordinary work items**: what's absent is the *pause-proxy* — a
+ticket standing in for container state a borrowed tracker had nowhere
+else to hold (`dsl-syntax.md` §14's corresponding entry draws this
+distinction explicitly). What's present is dispatched work, with the
+same chain-bundle machinery any other agent-balled entry uses (§7.10's
 "opening a ticket IS opening a flow instance" generalizes to "reaching
-an agent-balled entry IS dispatching a flow instance," ORC-148) —
-`milestone`'s own chain-bundle counterpart carries the tiers whose
-`delivery:` blocks give `setup` and `retro` their actual agent
-behavior, exactly as a ticket-skeleton type's chain gives its
-`generation` entries theirs. **Human, irreducibly:** manual testing
-across the milestone (the pipeline protocol's own DESIGN §10 names
-this the only place manual testing happens, and nothing here changes
-that), reading the `:live` verdict (§2.8), clearing `Blocked` tickets
-carrying `needs-review`, accepting or declining `retro`'s Triage-filed
+an agent-balled entry IS dispatching a flow instance") — `milestone`'s
+own chain-bundle counterpart carries the tiers whose `delivery:`
+blocks give `setup` and `retro` their actual agent behavior, exactly
+as a ticket-skeleton type's chain gives its `generation` entries
+theirs. **Human, irreducibly:** manual testing across the milestone
+(the pipeline protocol's own DESIGN §10 names this the only place
+manual testing happens, and nothing here changes that), reading the
+`:live` verdict (§2.8), clearing `Blocked` tickets carrying
+`needs-review`, accepting or declining `retro`'s Triage-filed
 proposals.
 
-**Settled at ORC-148: a container instance is a legal agent dispatch
-target, on the identical footing as a ticket instance.** ORC-115 first
-named the direction — `setup` and `retro` folding into sub-arrays of
-`milestone`'s own array rather than staying separately minted
-ticket-skeleton types — and left open whether a container instance
-could be a dispatch subject at all, since the shape at the time still
-routed both through machinery built only for tickets. The question
-does not need a container-specific answer: dispatching from a work
-item with a queue and dispatching from one without are the same
-operation, attached to different status flows — the container/ticket
-split is semantic, never functional (`dsl-syntax.md` §15.2) — and the
-queue was never what made a work item a dispatch target. Concretely,
-this reaches the executor (it runs against the container instance's
-own branch and PR, not a child ticket's), the mutex mapping (a
-container instance's own file-map paths, exactly as a ticket's are
-today), and `DispatchRun`'s own keying (keyed on the container
-instance's id where it was keyed on a ticket id). It also resolves
-what `main` blocking `retro` (§15.7) means once `retro` is `milestone`'s
-own inline entry rather than a population of unresolved tickets:
-`retro` cannot be *entered* while `main`'s own queue still carries
-unresolved work — the entry-guard reading `blocks:` takes generally
-(below), applied to a guarded entry that is not itself a queue.
-`dsl-syntax.md` and `systems/delivery.md` carry
-the grammar and the dispatcher's own diff against this; this paragraph
-records the decision, not a diff to `bundles/default-flow/**`, which
-is dev's to make.
+**A container instance is a legal agent dispatch target, on the
+identical footing as a ticket instance.** The question needs no
+container-specific answer: dispatching from a work item with a queue
+and dispatching from one without are the same operation, attached to
+different status flows — the container/ticket split is semantic,
+never functional (`dsl-syntax.md` §15.2) — and the queue was never
+what made a work item a dispatch target. Concretely, this reaches the
+executor (it runs against the container instance's own branch and PR,
+not a child ticket's), the mutex mapping (a container instance's own
+file-map paths, exactly as a ticket's), and `DispatchRun`'s own keying
+(keyed on the container instance's id exactly as on a ticket id). It
+also gives `main` blocking `retro` (§15.7) its meaning when `retro` is
+`milestone`'s own inline entry rather than a population of unresolved
+tickets: `retro` cannot be *entered* while `main`'s own queue still
+carries unresolved work — the entry-guard reading `blocks:` takes
+generally (below), applied to a guarded entry that is not itself a
+queue. `dsl-syntax.md` and `systems/delivery.md` carry the grammar and
+the dispatcher's mechanism.
 
-**A design review corrected four things about this section's own
-record, and a third review round corrected a fifth, all still
-ORC-148's** (`dsl-syntax.md` §13, §15.1, §15.5, §15.7, §15.8, §15.10).
-The pass above got the shape of `setup`/`retro` folding into
-`milestone`'s own array right and three of its own consequences wrong;
-none of the five widen what a bundle may declare — each is a
-correction to how the platform-fixed vocabulary or the dispatcher
-reads it.
+**Five rules govern how the platform-fixed vocabulary and the
+dispatcher read a container's array** (`dsl-syntax.md` §13, §15.1,
+§15.5, §15.7, §15.8, §15.10); none widens what a bundle may declare.
 
-**First, `blocks:` inverts to an entry guard, checked once at the
-transition it guards, never a standing hold a projection recomputes.**
-The paragraph above already reads this way (corrected in the same
-edit): `main blocks: [retro]` means `retro` cannot be *entered* while
-`main` still carries unresolved work, checked exactly once, at the
-moment something attempts to move into `retro`, not continuously for
-as long as `retro` runs. This removes a real defect the standing-hold
-reading had: a queue refilling while the guarded entry was already
-mid-run pulled the container back out of it, and `retro` is the case
-that makes this more than academic — `retro`'s own output lands back
-in `main` (adjudicated findings, filed debt), so a completion-hold
-form of `blocks:` would have had `retro` interrupting itself the
-moment its own run produced the work `main`'s queue was watching for.
-A reassignment to a new status must never interrupt an already-
-dispatched flow instance; checked once, at entry, this holds by
-construction rather than by care taken in the dispatcher. **"Checked
-once" describes each attempt, not how many attempts there are or who
-makes them**: this system's dispatcher is event-driven, re-attempting
-a guarded entry on every engine event that could change the guard's
-answer, and it advances the container itself the moment the guard
-reads clear — automatically, with no separate human step, the same way
-a ticket's own `checks` → `merge` transition already needs none once
-its precondition clears. `systems/delivery.md` carries the mechanism
-(`ContainerLifecycle`, its dispatcher process manager); this paragraph
-states only the semantics the mechanism has to honor.
+**First, `blocks:` is an entry guard, checked once at the transition
+it guards, never a standing hold a projection recomputes.** `main
+blocks: [retro]` means `retro` cannot be *entered* while `main` still
+carries unresolved work, checked exactly once, at the moment something
+attempts to move into `retro`, not continuously for as long as `retro`
+runs. A standing-hold reading has a real defect: a queue refilling
+while the guarded entry was already mid-run pulls the container back
+out of it, and `retro` is the case that makes this more than academic
+— `retro`'s own output lands back in `main` (adjudicated findings,
+filed debt), so a completion-hold form of `blocks:` would have `retro`
+interrupting itself the moment its own run produced the work `main`'s
+queue was watching for. A reassignment to a new status must never
+interrupt an already-dispatched flow instance; checked once, at entry,
+this holds by construction rather than by care taken in the
+dispatcher. **"Checked once" describes each attempt, not how many
+attempts there are or who makes them**: the dispatcher is
+event-driven, re-attempting a guarded entry on every engine event that
+could change the guard's answer, and it advances the container itself
+the moment the guard reads clear — automatically, with no separate
+human step, the same way a ticket's own `checks` → `merge` transition
+needs none once its precondition clears. `systems/delivery.md` carries
+the mechanism (`ContainerLifecycle`, its dispatcher process manager);
+this paragraph states only the semantics the mechanism has to honor.
 
 **Second, reaching `terminal` is guarded by every one of a
 container's own queues holding no unresolved work, as a platform rule
@@ -2555,34 +2441,32 @@ An authored `blocks:` relation is one entry guarding one other,
 wherever an author chose to write it; a queue nobody thought to name
 in some other entry's `blocks:` list, left unguarded, would otherwise
 close over quietly on the way to `terminal` — exactly the stranding
-hole this section's "no boundary ticket" decision (above) already
-closed once, reopened by omission if `terminal`'s own guard depended
-on bundle-authored coverage. This system's dispatcher, not the loader,
-enforces it (`systems/delivery.md`), the identical split every other
-undeclarable-but-checked fact in this section already takes.
+hole the absence of a boundary ticket (above) closes, reopened by
+omission if `terminal`'s own guard depended on bundle-authored
+coverage. The dispatcher, not the loader, enforces it
+(`systems/delivery.md`), the identical split every other
+undeclarable-but-checked fact in this section takes.
 
-**Third, `generation`'s closed vocabulary grows two named kinds:
-`design` and `architecture`.** One `generation` kind could not carry
-what a workflow with more than one generation-shaped visit needed to
-say — this section's own feature lifecycle (§7.6) has always described
-two, *Product design* then *Architecting*, told apart only by array
-position and by which review followed each, never by the entry itself.
-`design` and `architecture` say it directly, platform-fixed in the same
-table `generation` already sits in, not bundle-authored: that is what
-keeps a blocked ticket's re-resolution anchor set intact, since the set
-it re-resolves against can only be what it is *because* it is not
-declarable, and a bundle-invented generation-phase label would be
-exactly the undeclarable set acquiring a declarable member. Plain
-`generation` is unaffected and stays correct for a single visit —
-`setup`, `retro` and the seed pass all keep it. Which of a bundle's own
-generation-shaped chain tiers (`sysarch`, `impl`, `ref`, and the rest of
-`bundles/default/tiers/**`, today uniformly declaring
-`delivery: {phase: generation, agent_step: design}`) picks `generation`,
-`design` or `architecture` is bundle content, dev's diff against this
-record, not a mapping this pass assigns.
+**Third, `generation`'s closed vocabulary carries two further named
+kinds: `design` and `architecture`.** One `generation` kind cannot
+carry what a workflow with more than one generation-shaped visit needs
+to say — the feature lifecycle (§7.6) describes two, *Product design*
+then *Architecting*, which plain `generation` alone would tell apart
+only by array position and by which review follows each, never by the
+entry itself. `design` and `architecture` say it directly,
+platform-fixed in the same table `generation` sits in, not
+bundle-authored: that is what keeps a blocked ticket's re-resolution
+anchor set intact, since the set it re-resolves against can only be
+what it is *because* it is not declarable, and a bundle-invented
+generation-phase label would be exactly the undeclarable set acquiring
+a declarable member. Plain `generation` stays correct for a single
+visit — `setup`, `retro` and the seed pass all use it. Which of a
+bundle's own generation-shaped chain tiers (`sysarch`, `impl`, `ref`,
+and the rest of `bundles/default/tiers/**`) picks `generation`,
+`design` or `architecture` is bundle content, not platform vocabulary.
 
 **Fourth, a sub-array is referenced by an entry it contains, never by
-a name of its own.** Sub-arrays stay anonymous (`dsl-syntax.md` §15.10
+a name of its own.** Sub-arrays are anonymous (`dsl-syntax.md` §15.10
 — no `name:`, no `id:`), and `blocks:` (and any future reference into
 one) resolves by finding the one entry the reference names and
 reaching whatever contains it: `main blocks: [retro]` reaches the
@@ -2590,34 +2474,16 @@ sub-array `retro` sits in exactly the same way it would reach a bare
 top-level `retro`. Uniqueness is a property of the reference, not the
 declaration — a reference resolving to zero or to two or more matches
 is the load error; duplicate entries the reference itself never
-reaches are unaffected. This is what makes the two worked examples this
-section and `dsl-syntax.md` §15.2/§15.10 carry — `main`'s `blocks:
-[retro]` naming a `retro` that carries no `flow:` of its own — load
-cleanly: the seventh-pass rule requiring a `blocks:` target to be a
-population anchor never fit an inline `retro` in the first place, and
-is retired along with the sentence it read from.
+reaches are unaffected. This is what makes the worked example this
+section describes and `dsl-syntax.md` §15.2/§15.10 carry — `main`'s
+`blocks: [retro]` naming a `retro` that carries no `flow:` of its own
+— load cleanly: a `blocks:` target need not be a population anchor.
 
-**Fifth (a third design review, catching what the second missed, and a
-fourth catching that the third over-corrected): a container's position
-moves backward on a step's own outcome or an explicit author
-transition, never as a side effect of a queue refilling.** The second
-review's own account of the first correction above was incomplete:
-inverting `blocks:` to a precondition checked once at entry removed
-the standing-hold reading's defect from the guard, but `dsl-syntax.md`
-§15.8 still stated the identical defect in terms of *position* rather
-than of the guard — "a resolved queue un-resolves the moment its
-population refills" as one of two ways a container's position moves
-backward, un-gated. That sentence is retired: a queue refilling still
-un-resolves that queue (§15.7 is unaffected), it no longer implies the
-container's own position moved.
-
-The third review's own fix named the surviving cause "an authored
-transition," which named *who* moves the position rather than *why*,
-and ruled out more than it meant to: a `critique` entry's own decline
-is automatic, with no author in it, and §7.19 requires it be
-structurally identical to a human decline at a gate — one mechanism,
-not two, for regeneration feedback (below). What is left, correctly
-stated, is two causes: **a step's own outcome** — a decline, whether a
+**Fifth, a container's position moves backward on a step's own
+outcome or an explicit author transition, never as a side effect of a
+queue refilling.** A queue refilling un-resolves that queue (§15.7);
+it never implies the container's own position moved (§15.8). Two
+causes, and only two: **a step's own outcome** — a decline, whether a
 `critique` entry's own agent run issues it (landing back on the
 generation entry it pairs with, §15.5) or a human issues it at a gate
 (landing per its `throwback:`, §15.4) — and **an explicit author
@@ -2625,30 +2491,27 @@ transition** — concretely, the return from `retro` to `main`, which
 runs `retro`'s own sub-array (its agent step and the human gates
 around it) to completion before `main` starts churning the tickets
 `retro` just filed, rather than automatically the moment `retro`'s
-output lands back in `main` and un-resolves it. A queue's population
-changing is still never among them. This is also the reason the second
-correction's `terminal` guard is reachable at all: the shipped
+output lands back in `main` and un-resolves it. The first cause is
+stated as *what* moves the position rather than *who*, because a
+`critique` entry's own decline is automatic, with no author in it, and
+§7.19 requires it be structurally identical to a human decline at a
+gate — one mechanism, not two, for regeneration feedback. This is also
+the reason the `terminal` guard above is reachable at all: the shipped
 `milestone`'s only throwback to `main` is `milestone-signoff`, placed
 *before* `retro` (`dsl-syntax.md` §15.10), so without the manual
 return `retro` filing work into `main` would leave `cleanup`/`terminal`
-blocked with no declared path back. `lib/catapult/engine/projections/
-container_queues.ex`'s resolution condition 1 and its own citation to
-§15.8 predate this correction and are dev's diff against it, not
-design's — named here so a dev pass does not carry the retired reading
-forward on the strength of a comment citing a section this pass
-changed.
+blocked with no declared path back.
 
-The **`:live` suite** still runs once per milestone (§2.8, settled at
-ORC-105 to gate `main`'s completion specifically), and a failing
-verdict is exactly the sort of unresolved work `main`'s `blocks:`
-relation to `retro` holds open for: `retro` will not begin — and
-`:live` re-runs — until it clears. "Shipping" a milestone still
-aggregates the flag set from its included features and flips it once
-`retro` closes clean, after a green live run and the author's pass —
-features merge dark as they complete; the milestone lights up
-together.
+The **`:live` suite** runs once per milestone (§2.8, gating `main`'s
+completion specifically), and a failing verdict is exactly the sort of
+unresolved work `main`'s `blocks:` relation to `retro` holds open for:
+`retro` will not begin — and `:live` re-runs — until it clears.
+"Shipping" a milestone aggregates the flag set from its included
+features and flips it once `retro` closes clean, after a green live
+run and the author's pass — features merge dark as they complete; the
+milestone lights up together.
 
-**Archive is policy, and the retro note dies with it.** Archiving a
+**Archive is policy, and there is no retro note.** Archiving a
 container's old work items is a user action, and optionally a status
 for operators who want a button rather than immediate archival — it
 exists in orchestration because of a borrowed tracker's ticket cap,
@@ -2656,40 +2519,37 @@ which is not a protocol concern here and is never load-checked to
 precede anything (`dsl-syntax.md` §14's corresponding entry). What
 protocol *does* guarantee: **containers and projects alike keep
 references to their work items even once archived**, so either is
-always a path to its own history. That kills the retro note
-outright — its whole job was duplicate detection over work that
-archiving had made invisible, and
-nothing here is invisible in the one context that matters. The
-archive-precedes-every-step load check ORC-103 drew up goes with it:
-it was well-formed only on the premise a scan couldn't otherwise see
-archived tickets, and that premise no longer holds — keeping a rule
-after its reason is gone is the failure the mix.exs cowlib
-advisory-ignore rationale went stale the same way (ORC-91): a
-justification that quietly outlives the fact it was true of.
+always a path to its own history. That is what makes a retro note
+unnecessary — its whole job would be duplicate detection over work
+that archiving had made invisible, and nothing here is invisible in
+the one context that matters. Nor is there an
+archive-precedes-every-step load check: it would be well-formed only
+on the premise a scan couldn't otherwise see archived tickets, and
+that premise does not hold — keeping a rule after its reason is gone
+is how the mix.exs cowlib advisory-ignore rationale went stale
+(ORC-91): a justification that quietly outlives the fact it was true
+of.
 
-**A sixth pass named the plane's own starting point, which derived
-rootness never did.** The fifth pass's declaration-graph fix (above)
-answers "is this type a root" — a node nothing else's `flow:`
-targets — and a bundle that declares `epic` without ever nesting it
-under something else has *two* roots the moment it does, since `epic`
-was already one before `milestone` joined it as another. Roots are
-not projects, and "the project is a project by convention" — every
-earlier pass's own phrasing — named nothing the loader could check.
-**`entry:`, a new required key on a workflow bundle's own
+**`entry:` names the plane's own starting point, which derived
+rootness never does.** The declaration graph (above) answers "is this
+type a root" — a node nothing else's `flow:` targets — and a bundle
+that declares `epic` without ever nesting it under something else has
+*two* roots the moment it does, since `epic` was already one before
+`milestone` joined it as another. Roots are not projects, and "the
+project is a project by convention" names nothing the loader can
+check. **`entry:`, a required key on a workflow bundle's own
 `bundle.yaml`, names the type a fresh project actually dispatches
 from** (`dsl-syntax.md` §2): a reference, the identical shape
-`catapult.yaml` already has pinning one bundle per axis, not a second
-copy of a fact the graph produces on its own. The loader checks it in
-full — the name resolves, the resolved type carries a population
-anchor of its own, and it is a root in the declaration graph — so a
-bundle that
+`catapult.yaml` has pinning one bundle per axis, not a second copy of
+a fact the graph produces on its own. The loader checks it in full —
+the name resolves, the resolved type carries a population anchor of
+its own, and it is a root in the declaration graph — so a bundle that
 loads has a starting point the loader has actually verified rather
 than one a reader has to infer from which declaration looks
-project-shaped. Worth recording alongside it: acyclicity already
-guarantees at least one root exists in any loaded bundle (a finite
-DAG always has a node with no incoming edge), so `entry:` is the only
-missing piece here, not a general well-formedness rule needing a
-companion check of its own.
+project-shaped. Acyclicity already guarantees at least one root exists
+in any loaded bundle (a finite DAG always has a node with no incoming
+edge), so `entry:` is the only missing piece here, not a general
+well-formedness rule needing a companion check of its own.
 
 ### 7.9 The scaffold
 
@@ -2698,8 +2558,7 @@ companion check of its own.
 feature-by-feature for the rest of the initial list, re-prioritized
 by real usage → the standard flow forever.
 
-The reasoning, recorded because phases were seriously considered and
-the arguments shouldn't be re-derived:
+The reasoning, recorded so the arguments aren't re-derived:
 
 - Once the architecture is total and approved, **a phase ticket and a
   delivery-only feature ticket are the same object** — both enter at
@@ -2775,11 +2634,11 @@ holds content** (bundle, `catapult.yaml`) — versioned with the
 design; **plane holds bindings** — queried, picked, stored. Not
 urgent to build (§8); cheap and high-value when it lands.
 
-**The store test, completing the family** (from the
-configurable-policy design pass): *does changing it change what would
-be generated, validated, or enforced?* → **graph state** — repo
-content, versioned, staleness-propagating, because replay determinism
-requires every generation input to be answerable from git history.
+**The store test, completing the family:** *does changing it change
+what would be generated, validated, or enforced?* → **graph state**
+— repo content, versioned, staleness-propagating, because replay
+determinism requires every generation input to be answerable from
+git history.
 Policy tunings, component `options:`, the per-project policy overlay
 all pass this test: they live in the bundle's own content and a
 change is a PR, not a settings write. *Does changing it change only
@@ -2806,15 +2665,13 @@ membership must be declared at the member, with the protocol defining
 only the slots:
 
 - **Tiers gain a `delivery:` block** — `phase:` (status shown while
-  the tier generates) and the agent step that generates it. **Amended
-  at §7.18:** this block names *only* platform-fixed vocabulary. It
-  formerly also carried `gate:`, naming the author gate whose PR diff
-  approved the tier, with a gate's review set derived from the tiers
-  declaring it. Both are gone: a chain cannot name a gate, because
-  gates are workflow-bundle declarations and the two axes must
-  compose without a shared vocabulary. The review set is still
-  derived, keyed on position instead — a gate reviews whatever the
-  chain produced at the fixed step it follows. Bundle-load validates
+  the tier generates) and the agent step that generates it. This
+  block names *only* platform-fixed vocabulary (§7.18): a chain
+  cannot name a gate, because gates are workflow-bundle declarations
+  and the two axes must compose without a shared vocabulary. A
+  gate's review set is derived, keyed on position — a gate reviews
+  whatever the chain produced at the fixed step it follows.
+  Bundle-load validates
   annotations against the protocol vocabulary: an unknown phase or
   agent step is a load error; one loader spans both worlds.
 - **Flows gain a ticket face.** Entry types (§7.3) and v4's flow
@@ -2831,8 +2688,8 @@ only the slots:
   (plan/staleness data), one child per impacted component, nesting to
   subcomponents only where the plan proves independent parallel work;
   ticket type follows nesting depth.
-  **Amended: children are created when the plan node names them, not
-  at the Building transition** (`docs/ui-spec.md` §3.1). The reason
+  **Children are created when the plan node names them, not at the
+  Building transition** (`docs/ui-spec.md` §3.1). The reason
   is review, not display: reviewing a design that names its children
   is better with those children in existence, so the artifacts and
   comments attach where they belong from the start. Spawning at
@@ -2851,11 +2708,10 @@ only the slots:
   a fan-out layer be claimed from the moment that layer exists —
   which is the shape the initial build-out wants, where every
   component is new at once.
-  **Clutter was the original objection and it is answered elsewhere:**
-  the board collapses fan-outs by default (`docs/ui-spec.md` §3.1),
-  so early children cost nothing in legibility. Noted because the
-  amendment was first reached *from* that screen work; it does not
-  depend on it, and the reasoning above is what it rests on.
+  **Clutter is not a cost:** the board collapses fan-outs by default
+  (`docs/ui-spec.md` §3.1), so early children cost nothing in
+  legibility. The rule does not depend on that screen behavior; the
+  structural reason above is what it rests on.
   **Creation is not dispatchability.** A child created at plan time
   enters a pre-queue state and becomes queue-eligible only when its
   parent's design gates have passed; otherwise agents would start
@@ -2878,8 +2734,7 @@ counterpart:
   transition — one field, and it makes the state-admission test
   executable by the sim ring), plus which states are gates, plus
   **display metadata: a per-state color, with board order = the
-  file's declaration order** (previously unstipulated; caught at
-  the states pass). Provisioning writes both, so every
+  file's declaration order**. Provisioning writes both, so every
   Catapult-provisioned tracker board reads identically. The palette
   originates in orchestration and is **restated here in full**
   (whoever builds states.yaml reads this document, not orchestration
@@ -2904,13 +2759,12 @@ counterpart:
   Rule two, carried with its reason: **Done is deliberately grey,
   not green** — finished work is out of mind, and green is spent on
   work in flight. Nothing reads colors back; they exist so the
-  author sees the queue without reading it. **`Building` drops from
-  the green row, retired along with the status it named**
-  (`dsl-syntax.md` §15.1, ORC-151's third design review): a feature
-  runs its own `Implementation` (violet, above — real dispatched work,
-  ORC-151's fourth design review), then sits at `Checks` while its own
-  children build, and `Checks` already carries the yellow row above —
-  no separate wait-status, no separate color for it.
+  author sees the queue without reading it. **There is no `Building`
+  status and no green row for one** (`dsl-syntax.md` §15.1): a
+  feature runs its own `Implementation` (violet, above — real
+  dispatched work), then sits at `Checks` while its own children
+  build, and `Checks` already carries the yellow row above — no
+  separate wait-status, no separate color for it.
 - `types.yaml` — ticket types, per-type lifecycles, PR topology
   (feature: base main, squash; child: base parent branch, merge).
 - `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
@@ -2918,20 +2772,17 @@ counterpart:
 
 CI suite selection is *derived*, not declared: gate phases are
 docs-phases → `ci:docs`; a ticket's own `implementation` phase
-(`dsl-syntax.md` §15.1, ORC-151's fourth design review — `Building`
-no longer names this transition, and it is real dispatched work
-rather than the bare `checks` an earlier pass stood in for it) →
-`ci:code`. A `ci.yaml`
-exists only if a real exception ever forces it.
+(`dsl-syntax.md` §15.1 — real dispatched work, not bare `checks`) →
+`ci:code`. A `ci.yaml` exists only if a real exception ever forces
+it.
 
 **Agents are three layers, changing at three rates.** The writer
 matrix carries *roles* only — authority, invariant across
 implementations. The protocol names *agent kinds* (design, dev,
 reconcile, validation, and — dispatched through a milestone's
-declared queues rather than a tier's `delivery:` block, §7.8, revised
-at ORC-105 from the single static `boundary` kind — retro and setup)
-as vocabulary. Tier declarations may
-carry an *executor profile* (model, effort, harness requirements —
+declared queues rather than a tier's `delivery:` block, §7.8 — retro
+and setup) as vocabulary. Tier declarations may carry an *executor
+profile* (model, effort, harness requirements —
 v4's per-tier `thinking_effort` is the precedent). The project
 bindings file maps kind → runtime (orchestration's `agents:` config,
 generalized). Supporting a second agent implementation is a new
@@ -2954,10 +2805,9 @@ strictly worse. The auto-queue threshold is a `tunable`. Bumps touch
 `mix.exs`/`mix.lock` (accepted shared-file territory) and serialize
 textually at their natural cadence. `Urgent` itself is a **modifier
 on any type**, never a type: pure precedence (preempts at pickup,
-dispatches regardless of which queue a milestone currently sits in —
-revised at ORC-105 from "overrides the milestone pause," which named
-a mechanism §7.8 no longer has — never steals an in-flight mutex),
-preserving orchestration's treatment.
+dispatches regardless of which queue a milestone currently sits in,
+never steals an in-flight mutex), preserving orchestration's
+treatment.
 
 **Restricted scopes carry a third touchpoint, and the budget
 principle bends knowingly.** A scope marked `codegen: restricted`
@@ -2978,15 +2828,15 @@ gets rarer still.
 
 **Stubbed scopes project into the working surface as swap tickets.**
 When a stub declaration is approved, the plane files the swap ticket
-(machinery-filed, like a milestone's `scan`-sourced proposals — §7.8,
-revised at ORC-105 from "the boundary ticket" — and maintenance) in
+(machinery-filed, like a milestone's `scan`-sourced proposals — §7.8
+— and maintenance) in
 the **`Stubbed`** status (§7.6), carrying the scope's mutex labels,
 the deferral argument, the exit plan, and the gate it will run when
 scheduled. **No milestone** — the point is an open timeline, and a
 milestone-bound Stubbed ticket would hold that milestone's queues
 open forever (§7.8's `blocks:` relation). Scheduling is the author's
-act: assign a milestone, move it into the
-flow, ordinary (gated) ticket from there. The audit keeps tickets and
+act: assign a milestone, move it into the flow, ordinary (gated)
+ticket from there. The audit keeps tickets and
 inventory in lockstep (§2.14). Rationale: the stub inventory is the
 mechanical truth; the Stubbed column is that truth standing
 permanently in the author's field of view — a live, visible list of
@@ -3004,9 +2854,9 @@ reassignment within an author-owned state is delegation and is
 respected until the next state entry re-derives. At one human this
 degenerates correctly: "My Issues" is exactly the cross-project list
 of tickets needing the author — the inbox property, with no
-filtering. (Deliberately rejected: assigning everything to the
-author — if every ticket is yours, the attention signal dies; the
-full inventory already exists as project views.) Catapult-plane
+filtering. Assigning everything to the author is refused: if every
+ticket is yours, the attention signal dies, and the full inventory
+already exists as project views. Catapult-plane
 feature only: for Catapult's own build the author runs a simple
 external assign-when-needed rule; nothing is ported into the Go
 pipeline.
@@ -3059,9 +2909,9 @@ The mechanics, all built from existing machinery:
   bounce-twice — the author is the fixed point of every
   non-converging loop.
 
-**Staleness is a projection, never stored state** (from the
-staleness design pass — explicit because whoever builds this won't
-have read v4 and must not reinvent its mechanism). v4 held staleness
+**Staleness is a projection, never stored state** (stated in full
+because whoever builds this won't have read v4 and must not reinvent
+its mechanism). v4 held staleness
 as a persistent per-node flag with comments parked on the node: the
 node was the mailbox, and "whatever run procs next" was the delivery
 mechanism, because v4 had nowhere else to hold pending work. v5
@@ -3112,8 +2962,8 @@ normative, composed-journey checks) is specced in pieces across
 #### 7.12.1 Agent-run substrate
 
 Actions vs owned runners, and how many concurrent sessions the
-plane dispatches — now covering *all* generation, not just
-children (§1.2). Direction decided, shape open: start on Actions
+plane dispatches — covering *all* generation, not just children
+(§1.2). Direction decided, shape open: start on Actions
 with **prebaked container images** (the browser/toolchain stack
 pulls, never builds, per firing); the scale-out is an autoscaling
 worker pool pulling from our queue —
@@ -3125,8 +2975,8 @@ Pages previews + containerized screenshot/trace jobs whose
 artifacts agents read (orchestration's preview machinery
 extended). Likely pool shape: actions-runner-controller on the
 already-blessed DOKS cluster, images cached on nodes.
-Refinements from the hosted-option pass (§8): **the execution
-substrate is an adapter behind the dispatch port** — Actions and
+Under the hosted option (§8), **the execution substrate is an
+adapter behind the dispatch port** — Actions and
 the worker pool are two adapters over one runner-harness contract
 (fetch rendered context, run agent, commit, report); the contract
 is the invariant, the substrate is swappable, and the executor
@@ -3137,12 +2987,11 @@ rides BYO like everything else**: its canonical home is the
 customer's cluster (ARC on their DOKS — the same blessed pattern),
 with plane-adjacent managed runners as the opt-in for zero-infra
 customers, not the default. **The dispatch-concurrency cap is a
-per-instance, plane-enforced `tunable` in the bindings** — this
-open item's "how many concurrent sessions" question now has two
+per-instance, plane-enforced `tunable` in the bindings** — the
+"how many concurrent sessions" question has two
 consumers (scheduler backpressure and hosted tiering), so the cap
 is plane state from the start, never a config constant.
-**Runner↔plane authentication (docs review pass, settled — this
-was the review's top gap):** the Actions adapter authenticates
+**Runner↔plane authentication:** the Actions adapter authenticates
 runs with **GitHub Actions OIDC** — the runner requests GitHub's
 signed ID token and presents it as a bearer to the plane's
 context-fetch and result-report endpoints; the plane validates
@@ -3163,7 +3012,7 @@ wanted. Corollary under both adapters: **rendered context never
 contains bindings or credentials** — context is design content
 only.
 **Model credentials are a pair, and the runner harness carries
-the failover** (credential pass): the harness's run-agent step
+the failover:** the harness's run-agent step
 accepts `ANTHROPIC_API_KEY` and/or `CLAUDE_CODE_OAUTH_TOKEN` —
 both customer-side secrets per the BYO rule; the plane never
 sees either. This is budget-path economics, not a convenience:
@@ -3179,8 +3028,8 @@ bugs, or a real failure gets paid for twice. The run report
 names which credential served, so dispatch history answers
 "when did we start spilling onto the meter" as a query, not
 archaeology.
-**A daily dispatch budget rides beside the concurrency cap**
-(notifications pass): the cap bounds parallelism, not volume, and
+**A daily dispatch budget rides beside the concurrency cap:** the
+cap bounds parallelism, not volume, and
 an unattended system spending customer money needs both. Two
 `tunable` thresholds per instance: **warn** (notification +
 dashboard banner) and **cutoff** (dispatch halts; in-flight runs
@@ -3373,14 +3222,10 @@ and the log carries per-scope events from the beginning. The *ticket*
 tree is a separate, deliberately coarser projection of the same
 fanout (§7.2), and its children spawn when the plan document proves
 independent parallel work exists — depth earned, never reflexive,
-never at a status transition (§7.10's own amendment, corrected here to
-match: an earlier draft of this paragraph had children spawning "at
-`Building`," which §7.10 had already retired in favor of spawning at
-plan-node-naming time by the point this section was itself written,
-and the correction was never carried over).
+never at a status transition (§7.10).
 
 **For the architecture tree specifically, scope and ticket are the
-same grain, settled at ORC-151.** A `critique` decline needs to land
+same grain.** A `critique` decline needs to land
 on the one tier that produced what it declined, never on a sibling or
 a parent (`dsl-syntax.md` §15.5, §15.11) — which a ticket sitting in
 one status covering several fanned-out scopes at once cannot give it,
@@ -3388,10 +3233,10 @@ since a ticket has one status at a time (§7.19). So sysarch, each
 comparch and each subcomparch dispatches through its own ticket
 instance, spawned the identical way any other component or
 subcomponent child already is, one level at a time as the plan proves
-each layer's own independent parallel work — not a second grain this
-paragraph's own distinction argues against, since the distinction
-above is about *when* graph nodes and ticket nodes each come to exist,
-not about how finely either fans out. A tier whose own critique never
+each layer's own independent parallel work — not a second grain: the
+distinction above is about *when* graph nodes and ticket nodes each
+come to exist, not about how finely either fans out. A tier whose own
+critique never
 needs an independent bounce — this section's own subject, an internal
 architecture pass pausing and resuming mid-run — still dispatches per
 scope beneath whichever ticket its own fan-out level sits at; nothing
@@ -3444,21 +3289,16 @@ announcement carries when it intends to wake.
 
 ### 7.16 Concurrent writers
 
-**Small teams are supported.** This reconciles a contradiction the
-record carried rather than reversing a decision: §1's target class
-has read "single-author / **small teams** shipping enterprise-scale
-systems" from the start, and §2.9's identity component already ships
-orgs, membership, invitations and roles-as-data. The old
-`No multi-writer projects` non-goal was the outlier, inherited from
-v4 rather than decided here.
+**Small teams are supported.** §1's target class is "single-author /
+**small teams** shipping enterprise-scale systems", and §2.9's
+identity component ships orgs, membership, invitations and
+roles-as-data.
 
-**The two things that entry welded together, separated — one stays
-out:**
+**Multi-writer is two things, and one stays out:**
 
-- **Concurrent authoring of artifact bodies** is still out. Bodies
-  live in git; PRs already carry merge semantics, and the plane does
-  not grow a second set. This is what v4 actually carved out and the
-  carve-out holds.
+- **Concurrent authoring of artifact bodies** is out. Bodies live in
+  git; PRs already carry merge semantics, and the plane does not grow
+  a second set.
 - **Concurrent action on the delivery protocol** is in, and is the
   subject of this section. It is optimistic concurrency, not merge
   semantics — a solved problem rather than a different system.
@@ -3468,10 +3308,10 @@ Product/design sign-off and architecture sign-off are distinct
 permissions; one or more people hold each; any one of them can give
 their role's. This lands exactly on §2.9's split — **permissions are
 code, roles are data**: the delivery system defines the sign-off
-atoms, identity stores who holds them and evaluates the grant. More
-sign-off classes, and whatever states they imply, are a later
-increment (§7.6's admission test still governs); nothing here may
-assume today's two.
+atoms, identity stores who holds them and evaluates the grant.
+Further sign-off classes, and whatever states they imply, are
+governed by §7.6's admission test; nothing here may assume today's
+two.
 
 **Every transition carries the state it believed it was leaving.**
 First writer wins. A second writer's command whose `from` no longer
@@ -3488,16 +3328,14 @@ that is a property of the tracker, not of this design.** Two humans
 both moving a ticket in Linear both succeed there — Linear applies
 last-write-wins and tells nobody — and the plane sees the result
 afterwards, by webhook or sweep. The loser is therefore reverted
-after the fact with a comment (§7.1's validate-or-revert, already the
-designed behavior) rather than stopped at the point of action. "Pop
-an error and make them try again" requires a surface the plane
-controls. Recorded here because it is a standing force on §7.17's
-tracker question, and because the degradation must be understood as
-chosen rather than discovered.
+after the fact with a comment (§7.1's validate-or-revert) rather than
+stopped at the point of action. "Pop an error and make them try
+again" requires a surface the plane controls. This is a standing
+force on §7.17's tracker decision, and the degradation is chosen
+rather than discovered.
 
-**Approval is a status, and review states are declared** (shape
-settled; the mechanism is a later increment, and a sizeable one).
-There is no separate approval object: a human approves by moving the
+**Approval is a status, and review states are declared.** There is
+no separate approval object: a human approves by moving the
 ticket, and the state it lands in *is* the record. This is why the
 one-approves-one-rejects case needs no resolution rule — the ticket
 is in exactly one place at all times, the first mover wins under the
@@ -3543,8 +3381,8 @@ state is the unmapped-state halt (§7.17's evidence list) — the plane
 provisions its own states and validates the mapping at boot and in
 the audit, turning a silent runtime halt into a loud misconfiguration.
 And §7.6's naming discipline — no two states, or a state and a label,
-one hyphen apart in meaning — was cheap to hold against a fixed list
-and is not against a declared one, so it becomes an audit check.
+one hyphen apart in meaning — is cheap to hold against a fixed list
+and is not against a declared one, so it is an audit check.
 
 **Still open within this section:**
 
@@ -3560,72 +3398,53 @@ and is not against a declared one, so it becomes an audit check.
   More writers means more resets, and the constant (§7.13) was chosen
   against a single-writer rate.
 
-**What a passed gate pins — resolved (ORC-115).** A chain-axis review
-tier is not the object in question: `reviews: <tier>` is 1:1 with the
-tier it reviews and its staleness already falls out of §7.11, but this
-item names the declared *workflow* gate this section itself defines
-above
-("Approval is a status, and review states are declared"). §7.19
-draws exactly this line: a throwback reopening "the two approvals
-before it" names workflow gates, and separately exempts a review
-*tier* by name — "It therefore has no throwback semantics: there is
-no passed gate downstream of it to reopen" — and a review tier
-declares no committed artifact, so there is nothing for the
-derivation to anchor on regardless. What the ORC-6 pass actually
-found, correctly, is not the answer to this item but a reason it
-never engages with a different object: a review tier needs no
-staleness treatment at all. `systems/engine.md` records that
-finding. This item is open again, unchanged:
+**What a passed gate pins.** A gate approves a version of an
+artifact; the ticket then moves past it. When the artifact
+regenerates underneath, the ticket is already downstream and the
+judgment it carries is stale while nothing says so. §7.11's
+staleness-is-derived machinery is the home — a passed gate goes stale
+when what it approved does, and reopens — and that needs the gate to
+have a derivable referent. `dsl-syntax.md` §15.10's sub-array
+grouping gives it one: a gate's citing sub-array holds exactly one
+non-review-shaped agent-balled entry, by its own load-time check, so
+what the gate approves is that entry's own committed content, read at
+the gate's declared `depth:` — the same node set `critique`'s own
+depth already selects among when a critique entry shares the group.
+The gate stores nothing on its own behalf: the plane already logs the
+transition command with its actor (this section, above), so an
+approval event carries a sequence, the pinned node has a
+latest-commit sequence, and "did what this gate approved change" is
+a log join against a structurally derived node — §7.11's ordinary
+staleness-is-derived question, asked of the pinned node instead of an
+implied one. The join itself — reading the pinned node's
+latest-commit sequence against the gate's own approval-event
+sequence — is `systems/delivery.md`'s Phase 7, alongside the rest of
+declared workflow gates.
 
-A gate approves a version of an artifact; the ticket
-then moves past it. When the artifact regenerates underneath, the
-ticket is already downstream and the judgment it carries is stale
-while nothing says so. §7.11's staleness-is-derived machinery is
-the natural home — a passed gate goes stale when what it approved
-does, and reopens — but the gate has to record what it approved for
-that to be derivable at all. A direction, not a decision: the plane
-already logs the transition command with its actor (this section,
-above), so an approval event carries a sequence and the node it
-approved has a latest-commit sequence — "did what this gate
-approved change" may be answerable as a log join rather than a
-stored field. Whether that holds is a workflow-gate design
-question, for whenever gates are declared (`systems/delivery.md`'s
-Phase 7), not this ticket's to settle.
-
-**Resolved (ORC-115).** `dsl-syntax.md` §15.10's sub-array grouping
-gives a gate the structural referent this item was missing: a gate's
-citing sub-array holds exactly one non-review-shaped agent-balled
-entry, by its own load-time check, so what the gate approves is that
-entry's own committed content, read at the gate's declared `depth:`
-— the same node set `critique`'s own depth already selects among
-when a critique entry shares the group. The direction left open
-above — a log join rather than a stored field — is confirmed rather
-than merely plausible: the join is against a structurally derived
-node, never a value the loader or the plane has to remember on the
-gate's own behalf, so "did what this gate approved change" reduces
-to §7.11's ordinary staleness-is-derived question, asked of the
-pinned node instead of an implied one. Building the join itself —
-reading the pinned node's latest-commit sequence against the gate's
-own approval-event sequence — is still `systems/delivery.md`'s Phase
-7, alongside the rest of declared workflow gates; this pass gives
-that future build an object to pin against, where the ORC-6 pass
-correctly found there wasn't one.
+The object pinned is the declared *workflow* gate this section
+defines above ("Approval is a status, and review states are
+declared"), never a chain-axis review tier. `reviews: <tier>` is 1:1
+with the tier it reviews, its staleness already falls out of §7.11,
+and it declares no committed artifact, so there is nothing for the
+derivation to anchor on — a review tier needs no staleness treatment
+at all (`systems/engine.md`). §7.19 draws exactly this line: a
+throwback reopening "the two approvals before it" names workflow
+gates, and separately exempts a review *tier* by name — "It therefore
+has no throwback semantics: there is no passed gate downstream of it
+to reopen".
 
 ### 7.17 The tracker is ours; the host is an adapter
 
-**Reversed, deliberately, and it is the largest change to the record
-since §1.2's inversion.** An earlier draft of this section had the
-tracker as a port with Linear the only adapter and a native tracker
-deferred. That is inverted: **every user gets Catapult's own ticket
-UI, and external trackers become an add-on.** The reason is the one
-§7.16 exposed — a protocol this specific fights a general-purpose
-tracker at every step. Declared review states must be provisioned
-into someone else's product and mapped, an unmapped one halts the
-sweep, the tracker applies last-write-wins where the protocol needs
-compare-and-swap, it cannot say who wrote a change, and the
-rejection §7.16 specifies cannot be delivered at the point of action.
-Each is survivable; together they are a permanent tax on the
-protocol's own semantics.
+**Every user gets Catapult's own ticket UI, and external trackers
+are an add-on.** The tracker is not a port with an external product
+as its adapter, for the reason §7.16 exposes — a protocol this
+specific fights a general-purpose tracker at every step. Declared
+review states must be provisioned into someone else's product and
+mapped, an unmapped one halts the sweep, the tracker applies
+last-write-wins where the protocol needs compare-and-swap, it cannot
+say who wrote a change, and the rejection §7.16 specifies cannot be
+delivered at the point of action. Each is survivable; together they
+are a permanent tax on the protocol's own semantics.
 
 **What the add-on is: an outbound projection, and one grain only.**
 Events duplicate out to the customer's tracker of choice (Jira,
@@ -3644,15 +3463,13 @@ command surface (comments, at most a bounded set of transitions),
 never a general write path, and every inbound event is a §7.1 signal
 validated like any other rather than a state change to be adopted.
 
-**Two things follow that were not obvious before the reversal.** The
-review surface partly comes home: our docs diff better per sentence
-than per line, and a graph view of the tickets under a top-level
-ticket is something a general tracker cannot easily replicate — both
-are reasons the native UI is not merely a substitute but the better
-surface for this content. And the UI stops being a debugging
-dashboard and becomes a working surface, which reverses a second
-non-goal; how far it extends is what the UI spec has to settle, not
-this section.
+**Two things follow.** The review surface partly comes home: our
+docs diff better per sentence than per line, and a graph view of the
+tickets under a top-level ticket is something a general tracker
+cannot easily replicate — both are reasons the native UI is not
+merely a substitute but the better surface for this content. And the
+UI is a working surface, not a debugging dashboard; how far it
+extends is the UI spec's to settle, not this section's.
 
 **The host stays a port with swappable adapters**, GitHub the only
 one built, for the reasons the rest of this section gives. The
@@ -3686,11 +3503,11 @@ dispatch port, already committed as an adapter) are different
 questions, and a forge swap needs both. Keeping them distinct means
 the CI-substrate work, which is planned, does not entangle with a
 forge swap, which is not. The one genuinely hard piece is
-runner↔plane authentication: §7.12.1 settled it on GitHub-minted
-Actions OIDC, which is a good design and a GitHub-specific one.
+runner↔plane authentication: §7.12.1's GitHub-minted Actions OIDC is
+a good design and a GitHub-specific one.
 
-**The evidence the reversal rests on**, recorded so the decision
-reads as accumulation rather than as a bad afternoon: the pipeline
+**The evidence the decision rests on**, so that it reads as
+accumulation rather than as a bad afternoon: the pipeline
 already needs an external state store because the tracker cannot say
 *who* wrote a change; protocol state already rides in tracker
 comments behind markers; an unmapped tracker state has halted a sweep
@@ -3702,30 +3519,28 @@ every entry is the same shape, a general tracker refusing a specific
 protocol, and that is a tax that grows with the protocol rather than
 one that gets paid off.
 
-**There is no cutover, and no tracker adapter is ever written.** The
-reversal landed before any tracker integration existed, so the plane
-never acquires one and nothing has to be migrated off. Worth stating
-plainly because the opposite reading is the natural one: **Catapult
-the platform does not talk to Linear at all.** Orchestration builds
-Catapult and orchestration uses Linear — a different system running a
-different loop, unaffected by any of this and not a dependency of it.
+**No tracker adapter is ever written, and there is nothing to
+migrate off.** Stated plainly because the opposite reading is the
+natural one: **Catapult the platform does not talk to Linear at
+all.** Orchestration builds Catapult and orchestration uses Linear —
+a different system running a different loop, not a dependency of
+this one.
 
-**What this costs, recorded honestly.** A working tracker is a real
-product surface: search, notifications, permissions, and mobile —
-and mobile matters more than its line here suggests, because the
-author works from a phone and the incumbent's app is good. And the
-cost lands *earlier* than a staged reading suggests: with no borrowed
-surface to lean on, **UI v1 is the authoring loop's floor rather than
-a later stage** (`docs/ui-spec.md` §5). Nothing renders the loop
-until it exists. That is the honest shape of the bill — the reversal
-does not defer the UI, it makes it a prerequisite.
+**Accepted cost.** A working tracker is a real product surface:
+search, notifications, permissions, and mobile — and mobile matters
+more than its line here suggests, because the author works from a
+phone and the incumbent's app is good. And the cost lands early: with
+no borrowed surface to lean on, **UI v1 is the authoring loop's floor
+rather than a later stage** (`docs/ui-spec.md` §5). Nothing renders
+the loop until it exists — owning the tracker does not defer the UI,
+it makes it a prerequisite.
 
 ### 7.18 Configurable deployments, and where configurability lives
 
 **Deployment environments are declared, on the same rule as §7.16's
 review states.** The default set is `dev` and `staging`; per-PR
-environments are a later addition and, when they land, are `deploy`
-at fan-out depth `0` (§7.19) rather than a special case — the fan-out
+environments are `deploy` at fan-out depth `0` (§7.19) rather than a
+special case — the fan-out
 would otherwise mint an environment per child, which is the cost that
 makes per-PR previews expensive everywhere they are expensive.
 Promotion between environments is automation and stays
@@ -3792,21 +3607,18 @@ says how its own steps relate to those same fixed positions: this
 gate sits after that agent step, this environment is promoted into at
 that status. Neither names anything the other declares.
 
-The consequence is the strong form of what the split was reaching
-for: **any workflow bundle composes with any chain bundle**, with no
-shared gate or environment vocabulary and no compatibility contract
-between them. An earlier draft of this section had tiers naming their
-gate, which made the workflow's gate names a published interface and
-the pairing a thing to check. That was a weaker design for a worse
-reason — it kept a coupling that buys nothing, since a gate does not
-need to know which tier it is reviewing to review it.
+The consequence is the strong form of the split: **any workflow
+bundle composes with any chain bundle**, with no shared gate or
+environment vocabulary and no compatibility contract between them.
+Tiers naming their gate would make the workflow's gate names a
+published interface and the pairing a thing to check — a coupling
+that buys nothing, since a gate does not need to know which tier it
+is reviewing to review it.
 
 **The review set is derived from position, not from naming.** A gate
 placed after a fixed step reviews whatever the chain produced at that
-step — one tier or six, and the gate is unchanged either way. This
-replaces §7.10's earlier derivation ("a gate's review set is the
-tiers declaring it") with the same principle keyed differently, and
-it is what lets a decomposition grow a tier without any workflow
+step — one tier or six, and the gate is unchanged either way (§7.10).
+This is what lets a decomposition grow a tier without any workflow
 noticing.
 
 **The cost, stated plainly: review granularity is bounded by the
@@ -3822,32 +3634,28 @@ already separates product-tier from architecture-tier generation,
 which is what makes the two default gates expressible without any
 project-specific reference.
 
-**A near miss worth recording, because it looks like a leak and is
-not:** comparch's `enforcement:` block names profiles like
+**What looks like a leak and is not:** comparch's `enforcement:`
+block names profiles like
 `codegen: restricted`, which bind delivery gates. Those profiles are
 platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
 vocabulary there too, not a workflow bundle's declaration. The rule
 holds; the resemblance is what makes it worth a sentence.
 
-**There is no platform *workflow* layer, and there is no platform
-*chain* layer either, now that `platform-elixir` has folded into
-`bundles/default/`** (§6). Shipping the delivery DSL from a base
-layer would have tied the workflow vocabulary to one language
-binding, which is the weld this section breaks; a workflow layer by
-analogy to the chain axis's old `platform-elixir` layer never held
-for the same reason, and now neither axis has a layer to analogize
-from. Delivery's default gates and environments, and a chain bundle's
-default tiers and prompts, are alike a **template** a project's own
-bundle forks from and tailors, pulling later platform revisions in by
-ordinary git merge — never composed from two files by a loader at
-runtime (v5 §3.1's fork-tailor-merge). What survives unchanged:
-delivery still shares no vocabulary with any one language binding,
-and the default gates (a UX review and an engineering review) and
-environments (`dev`, `staging`) are still where a fresh project's
-workflow bundle starts from — only the mechanism that gets them there
-changed, from a runtime layer to a fork (`dsl-syntax.md` §11 carries
-the load-time consequence: `extends:` is an unknown field on any
-bundle's manifest).
+**There is no platform *workflow* layer, and no platform *chain*
+layer either** (§6; the shipped chain bundle is `bundles/default/`).
+Shipping the delivery DSL from a base layer would tie the workflow
+vocabulary to one language binding, which is the weld this section
+breaks, and neither axis has a layer to analogize from. Delivery's
+default gates and environments, and a chain bundle's default tiers
+and prompts, are alike a **template** a project's own bundle forks
+from and tailors, pulling later platform revisions in by ordinary git
+merge — never composed from two files by a loader at runtime (v5
+§3.1's fork-tailor-merge). Delivery shares no vocabulary with any one
+language binding, and the default gates (a UX review and an
+engineering review) and environments (`dev`, `staging`) are where a
+fresh project's workflow bundle starts from (`dsl-syntax.md` §11
+carries the load-time consequence: `extends:` is an unknown field on
+any bundle's manifest).
 
 **A consequence worth keeping straight: the `runtime` dialect loads
 no workflow bundle at all.** §12 defines it as having no review
@@ -3855,40 +3663,39 @@ lifecycle and no git bodies, so a workflow bundle there is not merely
 unused but incoherent, and the loader should say so rather than
 accept it.
 
-**Two recorded absences have to narrow to admit this**, the same
-narrowing `docs/non-goals.md` took at §7.16 and for the same reason:
+**Two recorded absences read narrowly**, on the same reading
+`docs/non-goals.md` gives §7.16 and for the same reason:
 `dsl-syntax.md` §11's "the protocol's own files never override" and
-§14's "per-project protocol restructuring, deliberately absent". Both
-were written when every state was platform-fixed. What they protect —
-that no project rewires the automation graph — is untouched: a
-declared gate or environment adds a node the plane parks at, and the
-plane still branches only on a fixed resolution vocabulary. What
-narrows is the claim that *nothing* in the protocol is declarable.
-Load-time validation (§13) is where this is enforced, and it grows
-the checks §7.16 named: a gate whose role has no holders, a declared
-state with no counterpart in the mirror mapping, and §7.6's
-one-hyphen-apart naming rule over the declared set.
+§14's "per-project protocol restructuring, deliberately absent". What
+they protect — that no project rewires the automation graph — holds:
+a declared gate or environment adds a node the plane parks at, and
+the plane still branches only on a fixed resolution vocabulary. What
+they do not claim is that *nothing* in the protocol is declarable.
+Load-time validation (§13) enforces this, with the checks §7.16
+names: a gate whose role has no holders, a declared state with no
+counterpart in the mirror mapping, and §7.6's one-hyphen-apart naming
+rule over the declared set.
 
 ### 7.19 System statuses, review sequences, and fan-out depth
 
 **The fixed vocabulary is the set of *system statuses*** — `pending`
-(renamed from `queue` at ORC-105's fourth pass, once a container's own
-queue positions joined the same vocabulary — `dsl-syntax.md` §15.1),
-generation, checks, merge, deploy. These are the platform's, they are
-what both bundle axes reference (§7.18), and they are the anchors
-everything else positions against. The earlier framing of "between
-generation steps" was too narrow: a security review before merge and
-an approval before a staging deploy are both obviously wanted and
-neither sits between generations.
+(one name for a wait position, shared with a container's own queue
+positions — `dsl-syntax.md` §15.1), generation, checks, merge, deploy.
+These are the platform's, they are what both bundle axes reference
+(§7.18), and they are the anchors everything else positions against.
+Review is positioned against any of them, not only between
+generation steps: a security review before merge and an approval
+before a staging deploy are both obviously wanted and neither sits
+between generations.
 
 **A workflow bundle declares an arbitrary sequence of review statuses
 on any edge between system statuses.** The default workflow ships a
 product review between the product and architecture generations; an
 organization is free to insert a UX review and a security review
 beside it, or before merge, without the chain knowing. §7.6's
-existing feature lifecycle is the degenerate case of this model with
-every sequence length pinned at one, which is a good sign the shape
-is right rather than novel.
+feature lifecycle is the degenerate case of this model with every
+sequence length pinned at one, which is a good sign the shape is
+right rather than novel.
 
 **Queue statuses are required before every generation and every
 deployment**, and that is a load-time check rather than a convention.
@@ -3920,43 +3727,37 @@ from a loose end into a dependency: without the pin there is no
 derivation, and all-reopen degrades into re-reviewing everything by
 hand every time.
 
-**Structural as of ORC-115, not merely affordable.** The paragraph
-above was written as a description of intended behavior with no
-mechanism enforcing it: "downstream of the regeneration" named a
-region of the array by prose, not by anything a loader or a dispatcher
-computed. `dsl-syntax.md` §15.10's sub-array grouping gives it one —
-a throwback's default fallback is its citing sub-array's own earliest
-entry, its own leading `pending` for a generation-shaped group (§13's
-tightened check, a fourth-pass correction from resolving straight to
-the agent step), so "everything downstream of the regeneration" *is*
-"everything in this sub-array," derived from the same structure that
-already answers §7.16's open item above. A gate sitting first in its
-own sub-array, or in no sub-array at all, has no earlier entry there
-to fall back to, so this derivation gives it no default and it must
-declare `throwback:` explicitly (ORC-181, `dsl-syntax.md` §15.4, §13,
-§15.10).
-The derivation supplies the sub-array's own default landing point, and
-`throwback:` (below) survives beside it as a single, explicit override
-for the gate that wants a different one — never a second, narrower
-*legality* rule (§4.5's escape-hatch discipline): the "earlier in the
-effective sequence" test below is the only bound on what a decline may
-target, declared or not.
+**"Downstream of the regeneration" is structural, not prose.**
+`dsl-syntax.md` §15.10's sub-array grouping is the mechanism: a
+throwback's default fallback is its citing sub-array's own earliest
+entry — its own leading `pending` for a generation-shaped group
+(§13's check), never straight to the agent step — so "everything
+downstream of the regeneration" *is* "everything in this sub-array,"
+derived from the same structure that already answers §7.16's open
+item above. A gate sitting first in its own sub-array, or in no
+sub-array at all, has no earlier entry there to fall back to, so this
+derivation gives it no default and it must declare `throwback:`
+explicitly (`dsl-syntax.md` §15.4, §13, §15.10). The derivation
+supplies the sub-array's own default landing point, and `throwback:`
+(below) is a single, explicit override for the gate that wants a
+different one — never a second, narrower *legality* rule (§4.5's
+escape-hatch discipline): the "earlier in the effective sequence"
+test below is the only bound on what a decline may target, declared
+or not.
 
-**Blocked stays a single system status** (§7.6's decision, revisited
-under declarable statuses and upheld), with flavor labels for the
-reason dimension. It is itself a system status, not a review status:
-the automation kicks tickets into it, so it belongs to the fixed
-vocabulary.
+**Blocked stays a single system status** (§7.6), with flavor labels
+for the reason dimension. It is itself a system status, not a review
+status: the automation kicks tickets into it, so it belongs to the
+fixed vocabulary.
 
 **The origin status is tracked beside it, and needs no new
-mechanism.** §7.6 already requires every Blocked entry to name its
-origin, and already observes that in Catapult the event log holds
-this natively — `from` is a projection, not bookkeeping. What
-changes with the native UI (§7.17) is that the projection is *read*
-rather than stamped onto a comment: §7.6 stamped it because "the
-author reads Linear, not the log", and owning the surface retires
-that workaround. Swim lanes group blocked tickets under the status
-that kicked them over.
+mechanism.** §7.6 requires every Blocked entry to name its origin,
+and in Catapult the event log holds this natively — `from` is a
+projection, not bookkeeping. Under the native UI (§7.17) the
+projection is *read* rather than stamped onto a comment: stamping it
+was a workaround for the author reading Linear rather than the log,
+and owning the surface retires it. Swim lanes group blocked tickets
+under the status that kicked them over.
 
 **Returning from Blocked is one rule: the origin status, or any
 earlier status in this ticket's effective sequence. Never forward.**
@@ -3977,7 +3778,7 @@ needed it.
 load.** The return defaults to the origin status — one action,
 covering nearly every unblock — with the earlier-prefix offered as a
 picker behind it. Per-pair routing hints (blocked label × source
-status) were the reason multiple blocked statuses looked attractive;
+status) are the reason multiple blocked statuses look attractive;
 with origin tracked and the prefix computable, the matrix has nothing
 left to say and is not introduced.
 
@@ -3988,29 +3789,26 @@ staleness makes the re-pass free where nothing a review saw actually
 changed. Specifying them separately would let an unblock leave a
 stale approval standing downstream.
 
-**Corrected on a second design review: the equivalence is about target
-legality too, not reopen scope alone.** The paragraph above still
-states what it always stated — both reopen everything downstream —
-but the claim that a declared gate `throwback:` stays a *bounded
-allow-list, distinct from* this section's rule rested on a
-shipped-enforcement claim that does not hold: `Catapult.Engine
-.Aggregate`'s `DeclineGate` clause enforces no such membership check
-against a gate's declared list — that validation is the command
-edge's, and the command edge does not exist yet (`dsl-syntax.md`
-§15.10 records the correction in full). A gate's decline and a
-Blocked-return are the same movement on both counts now: reopen scope,
-from this section, and target legality — any earlier status in the
-ticket's effective sequence, never narrower — from the same "earlier"
-prefix this section already defines two paragraphs above.
-**Third design review: `throwback:` survives the correction above, and
-narrows.** A declared list has no remaining role once legality is
-unbounded — naming several targets said "any of these is legal," which
-is exactly the bound just retired. But a landing point is a different
-fact from a legal-target set, and it survives: `throwback:`
-(`dsl-syntax.md` §15.4) narrows to a single, optional status, the
-explicit override a gate declares when its citing sub-array's own
-earliest entry — the derived default, above — is not the one-click
-landing point it wants. Blocked-return has no equivalent override; its
+**The equivalence covers target legality too, not reopen scope
+alone.** A declared gate `throwback:` is not a bounded allow-list
+distinct from this section's rule, and nothing in the plane enforces
+one: `Catapult.Engine.Aggregate`'s `DeclineGate` clause carries no
+membership check against a gate's declared list — a decline's target
+is validated at the command edge, against this section's own test
+(`dsl-syntax.md` §15.10). A gate's decline and a Blocked-return are
+the same movement on both counts: reopen scope, from this section,
+and target legality — any earlier status in the ticket's effective
+sequence, never narrower — from the same "earlier" prefix this
+section defines above.
+
+**`throwback:` is a landing point, not a legal-target set.** A
+declared list of several targets would say "any of these is legal,"
+which is exactly the bound the rule above refuses. But a landing
+point is a different fact from a legal-target set: `throwback:`
+(`dsl-syntax.md` §15.4) is a single, optional status, the explicit
+override a gate declares when its citing sub-array's own earliest
+entry — the derived default, above — is not the one-click landing
+point it wants. Blocked-return has no equivalent override; its
 one-click action is always the tracked origin, because nothing groups
 it into a sub-array the way a gate's decline is grouped.
 
@@ -4025,13 +3823,12 @@ label already uses), never a softening of the routing rule.
 **A workflow bundle can change while a ticket sits blocked, and §6's
 drain does not cover it.** §6 requires a destructive bundle change to
 be a cutover whose first act is that *the pipeline drains — no
-in-flight flow instances*. That rule was written when there was one
-bundle. It is satisfiable on the chain axis, where flow instances
-complete; it is **not reliably satisfiable on the workflow axis**,
-because a blocked ticket is in-flight and blocked tickets are
-long-lived by definition — a `needs-setup` block waits on a human
-creating an account, for as long as that takes. Requiring a fully
-empty pipeline before any workflow change would make workflow
+in-flight flow instances*. That is satisfiable on the chain axis,
+where flow instances complete; it is **not reliably satisfiable on
+the workflow axis**, because a blocked ticket is in-flight and blocked
+tickets are long-lived by definition — a `needs-setup` block waits on
+a human creating an account, for as long as that takes. Requiring a
+fully empty pipeline before any workflow change would make workflow
 evolution hostage to the slowest human in the organization.
 
 **So blocked tickets survive the cutover, and the system statuses are
@@ -4053,14 +3850,13 @@ never saw is correct rather than a defect — the new workflow says
 that review is required, and the ticket has not had it.
 
 **This requires the active-bundle flip to be an event, on both axes.**
-§7.10 already records binding changes as event-sourced; the bundle
-flip is stated in §6 as act (4) of the cutover but not explicitly as
-a recorded event, and it now has to be, because rule (a) above is a
-join between a ticket's status history and the bundle-version
-timeline. Neither half is answerable without the other in the log.
-This is §7.1's doctrine applied to our own configuration: the world
-is observed into the log, and a graph the engine switched to is an
-observation like any other.
+§7.10 records binding changes as event-sourced; the bundle flip is
+act (4) of §6's cutover, and it is a recorded event too, because rule
+(a) above is a join between a ticket's status history and the
+bundle-version timeline. Neither half is answerable without the other
+in the log. This is §7.1's doctrine applied to our own configuration:
+the world is observed into the log, and a graph the engine switched
+to is an observation like any other.
 
 **Every generation status must have at least one blocked exit** — a
 load-time check, since a generation that can fail with nowhere to
@@ -4093,22 +3889,21 @@ is precisely the cross-axis coupling §7.18 removed. Depth is a number
 rather than a name, which is the whole reason it can scope without
 coupling.
 
-**One special case disappears into this.** §7.18 said per-PR
-environments would attach to top-level tickets only. That is not a
-special case; it is `deploy` at depth `0`, and it stops needing its
-own rule.
+**Per-PR environments are not a special case.** Attaching them to
+top-level tickets only (§7.18) is `deploy` at depth `0`, and needs no
+rule of its own.
 
-**The chain's own auto-review had nowhere to run — `critique`.** v4's
-siege bundle paired every LLM tier's generation prompt with a review
-prompt (`review_comparch.md` and its siblings), and the whole reason
-the per-tier triad invariant is worded as "generation and review
-receive identical context plus `draft`" is that both runs read the
-same graph. `delivery:` gives a tier exactly one `phase:` and one
+**`critique` is where the chain's own auto-review runs.** v4's siege
+bundle paired every LLM tier's generation prompt with a review prompt
+(`review_comparch.md` and its siblings), and the whole reason the
+per-tier triad invariant is worded as "generation and review receive
+identical context plus `draft`" is that both runs read the same
+graph. `delivery:` gives a tier exactly one `phase:` and one
 `agent_step:`, so a tier that both generates and is reviewed needs
-somewhere for the second run's own schedule position to live. The v5
-workflow design missed the use case outright — the review sequence
-was designed for *human* gates declared on the workflow axis, and an
-agent critiquing a draft is neither a human gate nor a generation.
+somewhere for the second run's own schedule position to live — and
+the review sequence's *human* gates, declared on the workflow axis,
+are not it: an agent critiquing a draft is neither a human gate nor a
+generation.
 
 **`validating`/`validate` is not its home**, though the names invite
 it. That status is post-deploy verification with the ball on the
@@ -4118,46 +3913,45 @@ word, opposite end of the lifecycle, different subject — folding them
 together would conflate "did the shipped thing work" with "is this
 draft any good."
 
-**Resolution, revised: a review is a tier, not a nested block on the
-tier it reviews.** `critique` is an ordinary system status — the
-agent step a review tier's own `delivery:` names, exactly as
-`generation` is the status a generation tier's `delivery:` names.
-There is no `review:` sub-block anywhere and nothing materializes
-positionally: a review tier is declared, scheduled and dispatched the
-same way as any other tier, because it is one.
+**A review is a tier, not a nested block on the tier it reviews.**
+`critique` is an ordinary system status — the agent step a review
+tier's own `delivery:` names, exactly as `generation` is the status a
+generation tier's `delivery:` names. There is no `review:` sub-block
+anywhere and nothing materializes positionally: a review tier is
+declared, scheduled and dispatched the same way as any other tier,
+because it is one.
 
-This supersedes an earlier version of this entry, which kept the
-nested `review: {prompt, grammar, required:}` block and had the
-platform wrap every generation step as `queue → generation →
-⟨critique⟩`, materializing the critique slot only when a tier declared
-one. That wrapper existed solely to compensate for review not being a
-tier — a generation tier declares its prompt, grammar, **context** and
-a status; the nested block declared a prompt and grammar with **no
+The shape this refuses is a nested `review: {prompt, grammar,
+required:}` block on the generation tier, with the platform wrapping
+every generation step as `queue → generation → ⟨critique⟩` and
+materializing the critique slot only when a tier declared one. That
+wrapper exists solely to compensate for review not being a tier — a
+generation tier declares its prompt, grammar, **context** and a
+status; the nested block declares a prompt and grammar with **no
 context of its own and no status**. Making review a tier deletes the
 asymmetry along with the machinery built to paper over it, and buys a
 second thing along the way: **the triad invariant becomes checkable.**
-"Generation and review receive identical context plus `draft`" was a
-runtime discipline living in a shared assembly path; a review tier now
-declares its own `context:`, so the loader can verify it against the
-reviewed tier's walk at load time instead of trusting the assembly
-code to keep them in step forever.
+"Generation and review receive identical context plus `draft`" is
+otherwise a runtime discipline living in a shared assembly path; a
+review tier declares its own `context:`, so the loader verifies it
+against the reviewed tier's walk at load time instead of trusting the
+assembly code to keep them in step forever.
 
-Two things this does *not* rest on, because they were already true
-and are not the reason for the change: per-tier review prompts
-(`prompts/review/comparch.md.liquid` was already declared per tier)
-and chain-side ownership of the review declaration. Both survive the
-tier-ification unchanged.
+Two things are independent of this, and not the reason for it:
+per-tier review prompts (`prompts/review/comparch.md.liquid` is
+declared per tier) and chain-side ownership of the review
+declaration. Both hold with review as a tier.
 
 **This does not leak across the axis.** A chain may declare a review
-tier that the active workflow never runs — a workflow disabling the
-critique slot after a given generation status is how a workflow turns
-review off, and that is the right direction of decoupling. But the
-match is on **platform-fixed vocabulary only**: "no `critique` after
-`generation`" is a legal workflow declaration, and naming a review
-tier — `comparch_review` — from the workflow side is the cross-axis
-leak §7.18 exists to prevent, precisely as a chain may never name a
-workflow's gate. It is symmetric with `pending`, which is likewise a
-platform-fixed position nobody's content declares by name.
+tier that the active workflow never runs — declaring, or not
+declaring, a `critique` entry after a given generation status is how
+a workflow turns review on or off, and that is the right direction of
+decoupling. But the match is on **platform-fixed vocabulary only**:
+`critique` after `generation` is a legal workflow declaration, and
+naming a review tier — `comparch_review` — from the workflow side is
+the cross-axis leak §7.18 exists to prevent, precisely as a chain may
+never name a workflow's gate. It is symmetric with `pending`, which is
+likewise a platform-fixed position nobody's content declares by name.
 
 **It is a second dispatched run, and it reads committed state.** Not
 a phase inside the generation run: a critique whose output lived only
@@ -4168,10 +3962,10 @@ a review tier doubles its dispatches, which is a real draw on
 §7.12.1's per-instance concurrency cap.
 
 **Its output is comments, not a committed artifact — a deliberate
-break from v4, and this is the thing tier-ification puts most at
-risk.** Every other tier has a `draft:` and commits a body; the v4
-bundles commit `review.md` beside `body.md` and give tier declarations
-a `review_path:` next to `body_path:`. v5 does not port that, and
+break from v4, and the thing review-as-a-tier puts most at risk.**
+Every other tier has a `draft:` and commits a body; the v4 bundles
+commit `review.md` beside `body.md` and give tier declarations a
+`review_path:` next to `body_path:`. v5 does not port that, and
 making review an ordinary tier does not reopen it: a review tier
 declares prompt, grammar, context and scope **without** a `draft:` and
 without a committed artifact. Do not infer one because every sibling
@@ -4185,16 +3979,16 @@ stays retired** — a fourth v4→v5 delta beyond the three
 `seed-docs/README.md` enumerates, and one a faithful port would
 otherwise reproduce correctly and wrongly.
 
-**The review grammar survives the move unchanged; only the storage
-changes, and nothing about tier-ification trims it.** The run's output
-is still validated against the platform-wide review grammar at the
-commit path — it is projected into comments rather than written to a
-file. Two of its fields stay load-bearing rather than decorative:
-`<score>` (0-100, v4's buckets: 0-30 fundamental rework, 31-60
-structural, 61-85 minor, 86-100 ready) is what a threshold predicate
-reads, and each `<finding id="...">` is what becomes one anchored
-comment. The score lands in the log with the run's result event, which
-is where a threshold or a cycle count is answerable from.
+**The review grammar is unchanged; only the storage differs, and
+nothing about review-as-a-tier trims it.** The run's output is
+validated against the platform-wide review grammar at the commit path
+— it is projected into comments rather than written to a file. Two of
+its fields are load-bearing rather than decorative: `<score>` (0-100,
+v4's buckets: 0-30 fundamental rework, 31-60 structural, 61-85 minor,
+86-100 ready) is what a threshold predicate reads, and each `<finding
+id="...">` is what becomes one anchored comment. The score lands in
+the log with the run's result event, which is where a threshold or a
+cycle count is answerable from.
 
 **Position and loop.** A review tier is dispatched immediately after
 the generation tier it reviews and before every workflow gate
@@ -4202,11 +3996,10 @@ downstream of that generation status, so the default shape is one
 generation → critique → generation cycle before a human sees anything.
 It therefore has **no throwback semantics**: there is no passed gate
 downstream of it to reopen, and this section's all-reopen rule never
-engages. A review tier currently carries no gating flag of its own —
-its verdict is recorded and available to a downstream predicate, but
-nothing yet stops the chain from proceeding on a low score; that is
-the threshold-passing item below, not something this entry's removal
-of `required:` quietly drops.
+engages. A review tier carries no gating flag of its own — its verdict
+is recorded and available to a downstream predicate, and nothing stops
+the chain from proceeding on a low score; gating on the score is the
+threshold-passing item below.
 
 **Wanted later, not now: threshold passing.** A draft leaves
 `critique` on a score bar or after a bounded number of cycles rather
@@ -4214,267 +4007,216 @@ than after exactly one pass. The grammar already carries the field
 this needs, so it is a scheduler decision rather than a content one.
 
 Scheduling — where `critique` sits in the dispatch machinery and how a
-cycle terminates — lands with the workflow-bundle work, not with the
-chain port. The port only has to carry the review tiers themselves
-(prompt, grammar, context, `delivery: {phase: critique, agent_step:
-critique}`) and the platform-wide review grammar, both of which it
-already does.
+cycle terminates — belongs with the workflow axis, not with the chain.
+The chain carries only the review tiers themselves (prompt, grammar,
+context, `delivery: {phase: critique, agent_step: critique}`) and the
+platform-wide review grammar.
 
-**Revised (ORC-92): depth generalizes to a pair, and gains a
-declaration form for a system status.** Two gaps stood before this
-ticket. `depth:` accepted only a bare integer — one ceiling, no way
-to say "the project's first pass through this status wants more
-scrutiny than every later one." And `depth:` itself existed on a
-gate and an environment (§15.4), both declarable, while
-`critique` is a system status (§15.1), declarable by neither axis —
-so "disable the critique slot" was asserted twice in this repo's own
-prose (this section, and `dsl-syntax.md` §3.3) and declarable
-nowhere. Both close together, and one leans on the other: a
-declaration form for `critique`'s own participation is only worth
-building because the depth it carries can now say more than one
-number.
+**Depth generalizes to a pair, and `critique`'s own participation has
+a declaration form.** A bare integer is one ceiling, with no way to
+say "the project's first pass through this status wants more scrutiny
+than every later one." And `depth:` on a gate and an environment
+(§15.4), both declarable, cannot reach `critique`, a system status
+(§15.1) declarable by neither axis — so "disable the critique slot"
+needs a declaration form of its own or it is declarable nowhere. The
+two lean on each other: a declaration form for `critique`'s own
+participation is only worth having because the depth it carries can
+say more than one number.
 
-**Depth may now be a pair, `[first, rest]`.** Scaffolding a project
-from its seed has no reviewed prior graph to trust, so that pass
-wants its fan-out reviewed in full; every later pass runs against a
-graph a human, or the auto-reviewer, has already read once and
-returns to the top level. "First" names **the project's first
-traversal of the status a depth is attached to** — not the first
-time a given ticket visits it, and not the pass right after a
-throwback sends the status back for a repeat visit; both of those are
-ordinary later traversals of a status the project has already been
-through once. A bare integer still means both positions at once, so
-no declaration that predates this pair form changes meaning. The
-selector is positional — first/rest by position in the pair, never a
-name — because naming one would put a chain-side concept (which flow,
-which cascade) into a workflow-side declaration, exactly the
-cross-axis coupling §7.18 exists to prevent; depth already scopes
-without naming a tier for the identical reason, and a named position
-would undo that for the one case that needs it least.
+**Depth may be a pair, `[first, rest]`.** Scaffolding a project from
+its seed has no reviewed prior graph to trust, so that pass wants its
+fan-out reviewed in full; every later pass runs against a graph a
+human, or the auto-reviewer, has already read once and returns to the
+top level. "First" names **the project's first traversal of the
+status a depth is attached to** — not the first time a given ticket
+visits it, and not the pass right after a throwback sends the status
+back for a repeat visit; both of those are ordinary later traversals
+of a status the project has already been through once. A bare integer
+means both positions at once. The selector is positional — first/rest
+by position in the pair, never a name — because naming one would put
+a chain-side concept (which flow, which cascade) into a workflow-side
+declaration, exactly the cross-axis coupling §7.18 exists to prevent;
+depth already scopes without naming a tier for the identical reason,
+and a named position would undo that for the one case that needs it
+least.
 
 **`critique` is an entry in a type's own array, not a file**
 (`dsl-syntax.md` §15.5): a `critique` entry, immediately following a
-`generation` entry in a `ticket`-skeleton type's own `statuses:`
-array, carrying the same `depth:` grammar the file used to. What moved
-is only the file: the same fixed-vocabulary kind (`critique`, §15.1)
-is still configured rather than declared, and the reasoning below
-survives unchanged because it was never about the file, only about
-what presence means.
+`generation` entry — or that entry's own `checks` (below) — in a
+`ticket`-skeleton type's own `statuses:` array, carrying the `depth:`
+grammar above. The fixed-vocabulary kind (`critique`, §15.1) is
+configured rather than declared; what the entry's presence means is
+the whole of what a workflow says about it.
 
-**Settled: critique is opt-in, not on-by-default — a conclusion the
-retirement above doesn't touch.** Both readings were defensible from
-this section's own words — "a workflow disabling the critique slot"
-reads as present-by-default — but the mechanism decides it once
-stated plainly. As first argued here, that mechanism was `extends:`
-composing by union and same-path replacement, with nothing that
-expresses "the layer below declared this; unmake it." The workflow
-axis no longer has `extends:` at all (§7.8, §7.18), but the same shape
-of argument holds one level down: a type's own `statuses:` array has
-no "the type below named this; unmake it" primitive either, only
-presence or absence of a `critique` entry next to a given `generation`
-entry. A default-on critique could only be turned off by a declaration
-whose entire content is a negative, a shape this DSL has nowhere else,
-whichever layer or level the declaration lives at. Default-off costs
-nothing equivalent: turning critique on is an ordinary addition,
-exactly the shape a gate or an environment already takes, and it never
-needs to un-declare anything. Consequence, stated because it is not
-free: `bundles/default-flow` declares no `critique` entries today, so
-the day this form ships, the default chain's eight review tiers stop
-being merely unscheduled (true since the tier-ification decision
-above) and start being a workflow that has been asked, plainly,
-whether it wants them, and has not yet answered. Answering that is
-bundle content, not this decision; `systems/platform_content.md`
-carries the recommendation for the implementing pass.
+**`critique` is opt-in, not on-by-default.** The mechanism decides
+it: a type's own `statuses:` array has no "the type below named this;
+unmake it" primitive, only presence or absence of a `critique` entry
+next to a given `generation` entry — and the workflow axis has no
+`extends:` (§7.8, §7.18) that could supply one, since `extends:`
+composes by union and same-path replacement, with nothing that
+expresses "the layer below declared this; unmake it." A default-on
+critique could only be turned off by a declaration whose entire
+content is a negative, a shape this DSL has nowhere else, whichever
+layer or level the declaration lives at. Default-off costs nothing
+equivalent: turning critique on is an ordinary addition, exactly the
+shape a gate or an environment already takes, and it never needs to
+un-declare anything. Consequence, stated because it is not free: a
+workflow that declares no `critique` entry next to a generation has
+been asked, plainly, whether it wants the chain's review tiers, and
+has answered no — they stay declared on the chain and unscheduled.
+Which entries the default workflow declares is bundle content, not
+this decision (`systems/platform_content.md`).
 
 **A gate's depth 0 is the rule, not merely its default.** A gate is a
 human sign-off, and a human reads the top level; reasoning about how
 far a chain fans out to set a gate's depth is arguing the
-auto-reviewer's case inside the human reviewer's own declaration.
-`bundles/default-flow/gates/engineering-review.yaml` currently
-declares `depth: 2`, justified in its own comment by the chain's
-fan-out — exactly that misplaced argument, and wrong for it;
-`systems/platform_content.md` carries the fix as a decision for the
-implementing pass. Fan-out reasoning belongs to `critique.yaml`'s own
-depth instead, which is the whole reason it exists as a separate
+auto-reviewer's case inside the human reviewer's own declaration, and
+wrong for it. Fan-out reasoning belongs to `critique`'s own depth
+instead, which is the whole reason it exists as a separate
 declaration rather than a new field bolted onto a gate.
 
-**Sequencing, stated so nobody lands half of it.**
-`Catapult.Dsl.Gate.parse_depth/2` (and `Catapult.Dsl.Environment`'s
-own copy) accept a scalar today and reject a list — the grammar
-change, the loader change and the shipped bundle content that uses
-the pair form move in one change, because updating content ahead of
-the parser fails every bundle load, including the reference
-deployment's. `depth:` is not read by anything today, on a gate, an
-environment or a `critique` entry, so — as before this ticket — there
-is no scheduling consumer to migrate; the window stays free until one
-exists. (`ticket_types:` and `after:`, both a gate's own fields at the
-time this paragraph was written, are retired outright at ORC-105 —
-§7.8 above and `dsl-syntax.md` §15.3 respectively — so neither applies
-to it at all anymore, rather than merely applying to an unread one.)
+**The pair form's grammar, loader and shipped bundle content move in
+one change**, because updating content ahead of the parser fails
+every bundle load, including the reference deployment's.
 
 **A second review status category, `reconcile`, joins `critique` as
-review-shaped — ORC-151, design pass.** `dsl-syntax.md` §15.1's fixed
-table has always had a fact missing: what an entry *does to the
-artifact*, as opposed to who holds the ball while at it. Every kind is
-either
+review-shaped.** `dsl-syntax.md` §15.1's fixed table records what an
+entry *does to the artifact*, as opposed to who holds the ball while
+at it. Every kind is either
 **generation-shaped** (`generation`, `design`, `architecture`) —
 originates an artifact — or **review-shaped** (`critique`,
 `reconcile`) — judges one that already exists. `reconcile` names what
-§7.5 above has always described as reading a produced PR against its
-own argument before merge, and what `Catapult.Dsl.SystemStatus
-.agent_steps/0` has always carried as `:reconcile` with no matching
-`phase:` to declare — until now, both the judgment and the mechanical
-join it precedes shared one kind, `merge`. `dsl-syntax.md` §15.1,
-§15.11 carries the grammar; the decision recorded here is the split
-itself and why it is a table growth rather than a bundle-declarable
-addition, the identical shape §7.8 above already used for
-`design`/`architecture`: `docs/non-goals.md`'s "No per-project
+§7.5 above describes as reading a produced PR against its own
+argument before merge, and what `Catapult.Dsl.SystemStatus
+.agent_steps/0` carries as `:reconcile`; the judgment and the
+mechanical join it precedes are two kinds, never one `merge`.
+`dsl-syntax.md` §15.1, §15.11 carries the grammar; the decision
+recorded here is the split itself and why it is a table growth rather
+than a bundle-declarable addition, the identical shape §7.8 above uses
+for `design`/`architecture`: `docs/non-goals.md`'s "No per-project
 restructuring of the automation protocol" entry covers it without
 amendment, because the admission rule it states ("a state may be
 declared iff no plane logic branches on it") is about what a bundle
 may declare, and nothing here grows that — the platform-fixed table
 itself is growing, the same way it grew for `design`/`architecture`.
 
-**`merge`'s own `ball` changes from `agent` to `plane`.** Once
-`reconcile` carries the judgment, the join into the parent branch is
-mechanical — the plane performs it the moment `reconcile` approves,
-barring a conflict, which routes to `Blocked` the ordinary way any
-agent-balled entry's failure already does. This is what removes the
-one named exception `Catapult.Delivery.ContainerLifecycle
-.inline_dispatch_point?/1` has carried since ORC-148's dev pass — a
-`status != "merge"` check inside a module whose own moduledoc asserts
-it branches on no status name at all. The predicate needed the name
-check only because `merge` was agent-balled without being a fresh
-dispatch point; once it is not agent-balled, "agent-balled and not
-review-shaped" already excludes it, and the exception disappears
-rather than needing documentation.
+**`merge`'s own `ball` is `plane`, not `agent`.** With `reconcile`
+carrying the judgment, the join into the parent branch is mechanical
+— the plane performs it the moment `reconcile` approves, barring a
+conflict, which routes to `Blocked` the ordinary way any agent-balled
+entry's failure already does. This is what lets `Catapult.Delivery
+.ContainerLifecycle.inline_dispatch_point?/1` branch on no status name
+at all, as its own moduledoc asserts: a `status != "merge"` exception
+is needed only while `merge` is agent-balled without being a fresh
+dispatch point, and once it is not agent-balled, "agent-balled and
+not review-shaped" already excludes it.
 
 **`reconcile` is required wherever `merge` appears, stated
-positionally — a design-review correction to this decision's own
-first pass, which had stated it as a `ticket`-skeleton rule.**
-`dsl-syntax.md` §15.11: a `merge` entry must be preceded, earlier in
-the same array, by a `reconcile` entry, a fact about that array's own
-contents rather than one keyed to which skeleton, if any, the citing
-type declares — reaching `container`-skeleton arrays too, which closed
-a gap the skeleton-keyed version left open: `dsl-syntax.md` §15.2's
-`milestone.yaml` worked example once ran `setup` and `retro` each
-through a bare `checks → merge → deploy`, merging unread, twice, before
-gaining a `reconcile` of its own for each. **The rule still reaches
-`container`-skeleton arrays; `milestone.yaml` itself no longer
-exercises it** (ORC-155) — neither `setup` nor `retro` produces code
-any more, so neither merges, and the current declaration holds no
-`merge` at all. A
-generation-shaped entry with no adjacent `critique` simply runs no
-auto-review — a workflow's prerogative; nothing merges, of any
+positionally.** `dsl-syntax.md` §15.11: a `merge` entry must be
+preceded, earlier in the same array, by a `reconcile` entry, a fact
+about that array's own contents rather than one keyed to which
+skeleton, if any, the citing type declares — so it reaches
+`container`-skeleton arrays too. A skeleton-keyed rule leaves those
+open: a container running `setup` or `retro` through a bare `checks →
+merge → deploy` merges unread. `milestone.yaml` itself holds no
+`merge` — neither `setup` nor `retro` produces code, so neither
+merges — but the rule reaches any `container`-skeleton array that
+does. A generation-shaped entry with no adjacent `critique` simply
+runs no auto-review — a workflow's prerogative; nothing merges, of any
 skeleton, without having been read against its own argument first.
 `reconcile` may also recur, the way a generation-shaped entry and
-`merge` already could — `dsl-syntax.md` §15.11's own worked example
+`merge` already can — `dsl-syntax.md` §15.11's own worked example
 carries two, one per phase closed, rather than one pinned between
 `checks` and a single `merge`.
 
-**Gate scope — an open question with no definition in this grammar
-before now — is derived from position relative to the nearest
+**Gate scope is derived from position relative to the nearest
 `reconcile` entry before it, not declared.** `reconcile` may recur
 (above), so this is not a single before/after split: a gate earlier
 than every `reconcile` in a type's own effective sequence approves
 that tier's own artifact alone; one sitting after a `reconcile`
 approves what the nearer one has already read and accepted, superseded
-again by whichever `reconcile` follows it later in the array — and,
-settled at this same review's third pass (below), approves content
-already merged onto the citing instance's own branch, not merely read
-by the reconcile agent. This settles nothing about what a passed gate
-*pins* — `dsl-syntax.md` §15.10's own answer to that (the sub-array's
-one generation-shaped entry) is unaffected for a gate inside a
-sub-array — it gives the *other* case, a gate positioned relative to a
-join rather than to a single draft, a structural answer for the first
-time. No new field: a `scope:` field restating what array position
-already determines was considered and rejected on the identical
-reasoning `throwback:`'s own narrowing already used (`dsl-syntax.md`
-§15.10) — a fact computable from position does not need a bundle
-author to restate it.
+again by whichever `reconcile` follows it later in the array — and
+approves content already merged onto the citing instance's own branch
+(below), not merely read by the reconcile agent. This settles nothing
+about what a passed gate *pins* — `dsl-syntax.md` §15.10's own answer
+to that (the sub-array's one generation-shaped entry) is unaffected
+for a gate inside a sub-array — it gives the *other* case, a gate
+positioned relative to a join rather than to a single draft, a
+structural answer. No new field: a `scope:` field restating what
+array position already determines is refused on the identical
+reasoning `throwback:`'s own narrowing uses (`dsl-syntax.md` §15.10)
+— a fact computable from position does not need a bundle author to
+restate it.
 
-**`fanout` retires from the fixed table, at this same review's third
-pass.** It named a status the feature ticket sat in "while children in
-flight, progress rolls up," and nothing ever dispatched from it — the
-shipped default bundle had already dropped the anchor by ORC-104. Its
-only remaining job, marking the wait before a ticket's own
-implementation-phase `reconcile` can run, is now a load-bearing
-*precondition on entering that `reconcile`* (below), not a status to
-sit in meanwhile — a real status kind needs a dispatch of its own to
-justify existing, and this one had none left. `dsl-syntax.md` §15.1,
-§15.11 carries the grammar; the edge type of the identical name
+**`fanout` is not a status kind.** A status the feature ticket sat in
+"while children in flight, progress rolls up," with nothing ever
+dispatching from it, has no job a real status kind needs — a real
+status kind needs a dispatch of its own to justify existing. The one
+thing it marked, the wait before a ticket's own implementation-phase
+`reconcile` can run, is a load-bearing *precondition on entering that
+`reconcile`* (below), not a status to sit in meanwhile. `dsl-syntax.md`
+§15.1, §15.11 carries the grammar; the edge type of the identical name
 (`Catapult.Dsl.Edge`'s `@types`, node-id minting "at fanout time") is
-untouched — this is a status-kind retirement, not a rename that
-reaches the minting mechanism architecture's own generation tier
-still uses.
+a different thing — a status kind is absent, while the minting
+mechanism architecture's own generation tier uses stays.
 
 **Architecture's own fan-out dispatches through the ticket tree, one
 instance per tree level, rather than through one ticket spanning every
-level — settled at this same review's third pass, correcting the
-decision's own second pass.** That pass's own worked example ran a
-single `architecture, depth: 2` visit inside one ticket, dispatching
-comparch and subcomparch as scope-runs beneath it. That cannot give a
-subcomparch `critique` its own bounce: a ticket has one status at a
-time (above), so a decline on any one scope regenerates everything the
-single ticket's single visit fanned out, sysarch through subcomparch
-alike — no `depth:` value narrows a throwback to one branch, because
-depth was never able to say "only this branch." Sysarch, each comparch
-and each subcomparch instead dispatches through its own ticket
-instance of the identical declared type, spawned the way a feature's
-own component and subcomponent children already spawn — "when the
-plan node names them" (§7.10 above), recursively, one level at a time,
-wherever the plan proves independent parallel work exists — not a
-second spawn mechanism, and not a change to the grain rule (§7.2)
-that already governs how far any fan-out earns a child. §7.15's own
-account of ticket spawning is corrected to match: an earlier draft had
-children spawning "at `Building`," which this section had already
-retired in `Building`'s own favor before that correction was carried
-through everywhere it needed to be.
+level.** A single `architecture, depth: 2` visit inside one ticket,
+dispatching comparch and subcomparch as scope-runs beneath it, cannot
+give a subcomparch `critique` its own bounce: a ticket has one status
+at a time (above), so a decline on any one scope regenerates
+everything the single ticket's single visit fanned out, sysarch
+through subcomparch alike — no `depth:` value narrows a throwback to
+one branch, because depth was never able to say "only this branch."
+Sysarch, each comparch and each subcomparch instead dispatches through
+its own ticket instance of the identical declared type, spawned the
+way a feature's own component and subcomponent children already spawn
+— "when the plan node names them" (§7.10 above), recursively, one
+level at a time, wherever the plan proves independent parallel work
+exists — not a second spawn mechanism, and not a change to the grain
+rule (§7.2) that already governs how far any fan-out earns a child.
+§7.15's account of ticket spawning is this same rule.
 
-**Merge becomes implicit for every instance but the root — the third
-pass's own largest structural change, and not a rule about subflows or
-grouping.** Two rules, read as the completion rule above applied
-twice: a ticket cannot enter its own `reconcile` until every child
-blocking its completion has finished that child's own subflow
-(§7.2's child-blocks-parent, as a precondition on entry rather than
-only on completion); and the moment a ticket enters `reconcile`, the
-plane mechanically merges every child now ready, before the reconcile
-agent run reads what they produced. `merge`'s own depth is 0 by rule,
-the identical posture a gate's own depth 0 already has — a mechanical
-join belongs to the root because "the root" is what merging into main
-means — which is what keeps `merge` out of every non-root instance's
-own effective sequence: excluded by the same ceiling mechanism as any
-entry too deep for it, nothing added. Every `ticket`-skeleton type
-still declares exactly one `merge`, reconcile-preceded, load-checked
-exactly as before; what changes is that only the root instance ever
+**Merge is implicit for every instance but the root — a rule about
+tree shape, not about subflows or grouping.** Two rules, read as the
+completion rule above applied twice: a ticket cannot enter its own
+`reconcile` until every child blocking its completion has finished
+that child's own subflow (§7.2's child-blocks-parent, as a
+precondition on entry rather than only on completion); and the moment
+a ticket enters `reconcile`, the plane mechanically merges every child
+now ready, before the reconcile agent run reads what they produced.
+`merge`'s own depth is 0 by rule, the identical posture a gate's own
+depth 0 already has — a mechanical join belongs to the root because
+"the root" is what merging into main means — which is what keeps
+`merge` out of every non-root instance's own effective sequence:
+excluded by the same ceiling mechanism as any entry too deep for it,
+nothing added. Every `ticket`-skeleton type still declares exactly one
+`merge`, reconcile-preceded, load-checked; only the root instance ever
 reaches it by its own dispatch, and every other instance's copy of the
-identical declaration means "merge, once your parent says so." **This
-withdraws a claim the second pass made, rather than merely correcting
-one it hadn't:** implying `merge` from tree shape is not plane logic
-branching on grouping, and it was never in tension with
-`docs/non-goals.md`'s automation-protocol entry — that entry's own
-admission rule is about *states*, extended by `dsl-syntax.md` §15.10
-to *groupings* of already-legal entries because a sub-array is an
-authored choice; the trigger this decision actually uses is the
-doc-graph tree's own shape, a runtime fact the plane observes the
-identical way spawning itself already does, never vocabulary a bundle
-declares or arranges.
+identical declaration means "merge, once your parent says so."
+Implying `merge` from tree shape is not plane logic branching on
+grouping, and it is not in tension with `docs/non-goals.md`'s
+automation-protocol entry — that entry's own admission rule is about
+*states*, extended by `dsl-syntax.md` §15.10 to *groupings* of
+already-legal entries because a sub-array is an authored choice; the
+trigger this decision actually uses is the doc-graph tree's own
+shape, a runtime fact the plane observes the identical way spawning
+itself already does, never vocabulary a bundle declares or arranges.
 
-**`reconcile` does not gain a `depth:`, reversing this decision's own
-second pass.** That pass gave the first occurrence `depth: 1` and let
-the second inherit depth 0 from its own omission; both readings assume
-one ticket dispatching a join at several depths, which the correction
-above retires. Once architecture dispatches per instance, whether a
-given instance runs its own `reconcile` is a fact about that
-instance's own children — has it any work beneath it needing a join —
-never a declared ceiling: a ceiling would only restate what the tree
-already settles. `depth:` stays exactly where it narrows something the
-tree's own shape does not answer by itself, on a gate and on
-`critique`, both of which review a level regardless of whether that
-level has children at all. This also retires the widened
-never-validated-against-the-chain posture the second pass gave
-`reconcile`, along with the gap it named there: there is no ceiling
-left to set too shallow, so there is nothing left to silently drop.
+**`reconcile` carries no `depth:`.** A depth on `reconcile` — a first
+occurrence at `depth: 1`, a second inheriting depth 0 from its own
+omission — assumes one ticket dispatching a join at several depths,
+which per-instance dispatch retires. Once architecture dispatches per
+instance, whether a given instance runs its own `reconcile` is a fact
+about that instance's own children — has it any work beneath it
+needing a join — never a declared ceiling: a ceiling would only
+restate what the tree already settles. `depth:` stays exactly where it
+narrows something the tree's own shape does not answer by itself, on
+a gate and on `critique`, both of which review a level regardless of
+whether that level has children at all. With no ceiling to set too
+shallow, there is nothing for a chain's deeper fan-out to silently
+drop.
 
 **A chain bundle may attach a synthesis tier to a `reconcile`
 position, and does not have to.** The `synthesis` edge type
@@ -4488,108 +4230,99 @@ a real, structurally present fan-in for gate-scope and staleness
 derivation; declaring one only decides whether a human reading the
 post-join gate sees an authored document or the composed diff alone.
 
-**`implementation` joins the fixed table as a third named generation
-kind, at this same review's fourth pass.** The third pass's own worked
-example dispatched a tier's code through a second, bare `checks` entry
-— but `checks` is world-balled CI against produced work; nothing in
-that shape ever wrote the code `checks` then ran against.
-`implementation` names the generation run that actually produces it,
-generation-shaped on the identical footing `design` and `architecture`
-already stand on (`dsl-syntax.md` §15.1). It is deliberately gateless
-in the default bundle: the touchpoint budget (§7.10 above) calibrates
-a feature to two author gates, product and architecture, and a third
-keyed to implementation is the "restricted scopes carry a third
-touchpoint" exception rather than the ordinary case — architecture and
-policy are what constrain intention narrowly enough that no ordinary
-scope needs a human reading the code it produces.
+**`implementation` is in the fixed table as a third named generation
+kind.** A bare `checks` entry cannot stand in for it: `checks` is
+world-balled CI against produced work, and nothing in that shape ever
+writes the code `checks` then runs against. `implementation` names
+the generation run that actually produces it, generation-shaped on
+the identical footing `design` and `architecture` already stand on
+(`dsl-syntax.md` §15.1). It is deliberately gateless in the default
+bundle: the touchpoint budget (§7.10 above) calibrates a feature to
+two author gates, product and architecture, and a third keyed to
+implementation is the "restricted scopes carry a third touchpoint"
+exception rather than the ordinary case — architecture and policy are
+what constrain intention narrowly enough that no ordinary scope needs
+a human reading the code it produces.
 
-**Two type declarations, not one array depth-filtered — settled at
-this review's fourth pass, answering a question the third pass's own
-worked example left open.** That pass instantiated "one declared
-type… once per node the plan names," the feature ticket included, at
-depth 0 of its own array. That cannot be the feature's own type:
-`design` and its product review are feature-only, and neither `design`
-nor a bare `status:` entry carries a `depth:` field to make it no-op
-below the root the way a gate or `critique` already can. The feature
-type (design → architecture → implementation → merge, one instance,
-ever) and the type architecture's own fan-out spawns (architecture →
-implementation, recurring per tree level) are therefore two separate
-declarations sharing the vocabulary, never one array read two ways.
-This is v5 §7.6's own "Child" lifecycle, read correctly for the first
-time: a child spawned by architecture's own recursive fan-out runs
-this second, richer type — its own `In progress` split into
+**Two type declarations, not one array depth-filtered.** One declared
+type instantiated once per node the plan names, the feature ticket
+included at depth 0 of its own array, cannot be the feature's own
+type: `design` and its product review are feature-only, and neither
+`design` nor a bare `status:` entry carries a `depth:` field to make
+it no-op below the root the way a gate or `critique` already can. The
+feature type (design → architecture → implementation → merge, one
+instance, ever) and the type architecture's own fan-out spawns
+(architecture → implementation, recurring per tree level) are
+therefore two separate declarations sharing the vocabulary, never one
+array read two ways. This is v5 §7.6's own "Child" lifecycle: a child
+spawned by architecture's own recursive fan-out runs this second,
+richer type — its own `In progress` split into
 `Architecting`/`Implementation`, mirroring the feature's own split —
 while an ordinary child entering directly at implementation, with no
 architecture review of its own to run, still runs §7.6's simpler
-generic shape unchanged. It is also the exercised case behind this
-ticket's own "two types declaring different ceilings" precedent
-(`dsl-syntax.md` §13's never-validated-against-the-chain posture for
-`depth:`): the fan-out type's own gates reach one level deeper than
-the feature type's ever need to, because the two types fan to
-different depths by declaration, not by anything the chain claims.
+generic shape unchanged. It is also the exercised case behind the
+"two types declaring different ceilings" precedent (`dsl-syntax.md`
+§13's never-validated-against-the-chain posture for `depth:`): the
+fan-out type's own gates reach one level deeper than the feature
+type's ever need to, because the two types fan to different depths by
+declaration, not by anything the chain claims.
 
-**`pending` recurs, once per generation-shaped entry's own sub-array —
-a fourth-pass tightening of the original "somewhere earlier in the
-array" reading.** A single leading `pending` used to license every
-later generation-shaped entry in the same array, which satisfied the
-load-time check while leaving a second or third such entry nowhere to
-wait for dispatch capacity — invisible while `fanout` still gave a
-ticket somewhere else to sit meanwhile, load-bearing now that `fanout`
-retires (above) and `pending` is the only plane-balled wait position
-left. `dsl-syntax.md` §13 states the check in full; the consequence
-that matters here is throwback's own derived default (§15.10), which
-now falls back to a generation-shaped sub-array's own leading `pending`
-rather than straight to the generation-shaped entry itself — matching
-this section's own repair-loop mapping, `Ready for rework`(pending) /
+**`pending` recurs, once per generation-shaped entry's own
+sub-array.** A single leading `pending` licensing every later
+generation-shaped entry in the same array would satisfy a load-time
+check while leaving a second or third such entry nowhere to wait for
+dispatch capacity — and with no `fanout` status (above), `pending` is
+the only plane-balled wait position there is. `dsl-syntax.md` §13
+states the check in full; the consequence that matters here is
+throwback's own derived default (§15.10), which falls back to a
+generation-shaped sub-array's own leading `pending` rather than
+straight to the generation-shaped entry itself — matching this
+section's own repair-loop mapping, `Ready for rework`(pending) /
 `Reworking`(generation), rather than skipping the queued wait every
 other entry into that status goes through.
 
 **The same declared gate may be cited twice within one type's own
 array — but only when the two citations land in distinguishable
-namespaces, a narrowing at ORC-155's design review to what this same
-pass first settled without that condition.** This is the gate-and-
-environment analogue of `critique`'s own established precedent —
-citing a system status more than once to give two generation phases
-different depths — for the identical reason: depth and scope are
-facts about a citation's *position*, not about the declaration, so two
-citations of the same gate can compute two different answers from the
-identical declared `role:`/`escalation:`/`throwback:` only when
-something actually distinguishes the two positions. Once a status
-entry can carry a bundle-authored name of its own (`dsl-syntax.md`
-§15.12), a position's identity is namespaced by the sub-array it sits
-in, one level deep — and two citations sharing one sub-array are not
+namespaces.** This is the gate-and-environment analogue of
+`critique`'s own precedent — citing a system status more than once to
+give two generation phases different depths — for the identical
+reason: depth and scope are facts about a citation's *position*, not
+about the declaration, so two citations of the same gate can compute
+two different answers from the identical declared
+`role:`/`escalation:`/`throwback:` only when something actually
+distinguishes the two positions. A status entry can carry a
+bundle-authored name of its own (`dsl-syntax.md` §15.12), so a
+position's identity is namespaced by the sub-array it sits in, one
+level deep — and two citations sharing one sub-array are not
 distinguished by that scheme merely because one sits before a
 `reconcile` and the other after it: a citation told apart from its
 sibling only by which side of a `reconcile` it falls on needs a second
-level of qualification namespacing refuses to add. `architecture-review`
-was this pass's own exercised case for the rule as first stated — cited
-once before a `reconcile`, scoped to the tier's own artifact, and once
+level of qualification namespacing refuses to add. A gate wanted once
+before a `reconcile`, scoped to the tier's own artifact, and once
 after, scoped to what that `reconcile` has joined, both inside the
-identical sub-array. ORC-155 renames the second citation instead: two
-distinct declared gates, `architecture-review` and
-`architecture-synthesis-review`, each reviewing what its own name says
-rather than being told apart by a join neither name mentions.
+identical sub-array, is therefore two distinct declared gates —
+`architecture-review` and `architecture-synthesis-review` — each
+reviewing what its own name says rather than being told apart by a
+join neither name mentions.
 
 **`checks` sits between a generation-shaped entry and the `critique`
-that reviews it, wherever a sub-array declares both — a fifth-pass
-correction, not a new field.** Every worked example `dsl-syntax.md`
-§15.2 and §15.11 carried had `checks` running after `critique` instead,
-in two cases after the human gate as well, so a reviewer could sign off
-on a draft CI had not yet run against. Machine validation runs first:
-neither an agent's `critique` nor a human gate should spend a read on
-a draft that fails CI. `dsl-syntax.md` §13 and §15.5 carry the grammar
-— `critique`'s own adjacency rule now reads "immediately after a
+that reviews it, wherever a sub-array declares both — a positional
+rule, not a new field.** Machine validation runs first: neither an
+agent's `critique` nor a human gate should spend a read on a draft
+that fails CI, and `checks` placed after `critique` — or after the
+human gate — lets a reviewer sign off on a draft CI has not yet run
+against. `dsl-syntax.md` §13 and §15.5 carry the grammar —
+`critique`'s own adjacency rule reads "immediately after a
 generation-shaped entry, or immediately after that entry's own
 `checks`, never before it" — and `dsl-syntax.md` §15.1's own mapping
-onto this section's lifecycles is corrected to match, one `Checks` per
+onto this section's lifecycles matches, one `Checks` per
 generation-shaped visit, positioned before its review.
 
-**Not in this ticket's scope**, named because a reader following
-`reconcile`'s own thread might look for them here: the critique
-threshold and its conditional throwback (ORC-150) — a threshold
-becomes easier to state once review-shaped is a named category, but
-declaring one is not this decision; and ORC-150's container-dispatcher
-corrections, unaffected by anything above.
+Open, and separate from the `reconcile` decision, named because a
+reader following `reconcile`'s own thread might look for it here: the
+critique threshold and its conditional throwback (ORC-150) — a
+threshold is easier to state once review-shaped is a named category,
+but declaring one is its own decision.
 
 ---
 
@@ -4606,7 +4339,7 @@ corrections, unaffected by anything above.
   hosting cheap is the recorded architecture itself (§1.2; "never
   executes target-project code"): the plane is coordination-only and
   IO-bound, so per-org cost is one small instance and its database —
-  and nothing may erode that property. Three constraints are active
+  and nothing may erode that property. These constraints are active
   today so the hosted product stays a fork-free extension rather
   than a rewrite:
   1. **Per-project credentials and connectivity are bindings
@@ -4642,9 +4375,9 @@ corrections, unaffected by anything above.
   preserves the commercial-license option without offering it).
   Hosted is the monetization path; self-hosting is the budget path;
   hosted tiers are business-targeted.
-- **Restore-from-backup semantics** (docs review pass; **settled at
-  the evidence model**; cold-storage rider open). The authority
-  question resolved as a distinction, not a demotion: **the event
+- **Restore-from-backup semantics** (**settled at the evidence
+  model**; cold-storage rider open). The authority question is a
+  distinction, not a demotion: **the event
   log is the source of truth in operation; git and Linear are
   evidence in recovery** — recoverability is a property of the
   system, not a transfer of the crown. Two cases, both supported:
@@ -4697,8 +4430,8 @@ corrections, unaffected by anything above.
   and break replay determinism — generation inputs must be
   answerable from recorded context, and an ad-hoc query is an
   unrecorded input.
-  **Bounded by run class (§7.14, and the boundary was found by
-  pushing on it).** That reasoning is about *generation* runs, where
+  **Bounded by run class (§7.14).** That reasoning is about
+  *generation* runs, where
   it holds absolutely: an artifact's inputs must be answerable from
   its recorded context walk, or staleness and regeneration mean
   nothing. A **diagnostic** run — a bug or harness finding attached
@@ -4715,12 +4448,12 @@ corrections, unaffected by anything above.
   warnings-as-errors makes it a gate for free; Dialyzer's cost
   bought only overlap.
 - Registry notifications / push-on-release (§3.1) — seam designed,
-  build later. The registry is now multi-kind: packages, extracted
+  build later. The registry is multi-kind: packages, extracted
   handles, handle diffs, whole-app operator releases, harness
   baselines, **external policies with their enforcement** (§4.5) —
   name new kinds as entries, not debates.
-- Release distribution to third-party operators (Haven pass) —
-  "validated on the reference instance" vs "released to operators"
+- Release distribution to third-party operators — "validated on the
+  reference instance" vs "released to operators"
   as a versioned whole-app artifact through the registry; flags
   default-off in releases, operator flips are ops acts. Shaped, not
   designed; Phase-2-of-Haven timing.
@@ -4771,14 +4504,13 @@ corrections, unaffected by anything above.
 
 - **A bundle-authoring surface** (direction favored, not committed;
   **out of the current spec, and deliberately not a non-goal**).
-  An earlier draft had it — v2 §A.11.6: "because the bundle is a typed
-  graph, it visualizes directly: tiers as boxes, edges as labeled
-  arrows with crow's-foot cardinality, predicates as badges opening an
-  expression builder", with bundle diffs rendering as diagram diffs,
-  "which makes bundle governance workable without reading YAML."
-  v5 dropped it without recording why, which is the actual gap: it is
-  absent from `docs/ui-spec.md` §6's deliberately-absent list, so
-  nothing says whether it was rejected or forgotten. It was forgotten.
+  Shape (v2 §A.11.6): because the bundle is a typed graph, it
+  visualizes directly — tiers as boxes, edges as labeled arrows with
+  crow's-foot cardinality, predicates as badges opening an expression
+  builder — with bundle diffs rendering as diagram diffs, which makes
+  bundle governance workable without reading YAML. It is not on
+  `docs/ui-spec.md` §6's deliberately-absent list, because it is open
+  rather than rejected.
 
   **The rationale is the DSL's own premise.** Customization is why the
   DSL exists rather than hard-coded chain logic. If customizing
@@ -4859,9 +4591,8 @@ start, each need becomes a fork and the dialects drift apart
   that project's own git history — two different questions, not two
   competing content mechanisms.
 
-Retroactive tidiness note: the delivery DSL (§7.10), the enforcement
-block, and the runtime profile were each invented as one-off moves;
-this section names the mechanism they were all instances of.
+The delivery DSL (§7.10), the enforcement block, and the runtime
+profile are each instances of this one mechanism.
 
 ---
 
@@ -4869,11 +4600,10 @@ this section names the mechanism they were all instances of.
 
 ### 10.1 The generation runtime
 
-**The insight (integration pass over both gap reports): the
-LLM-Oban-Commanded component apps need is Catapult's own engine,
-extracted.** The plane's doc generation (Oban worker → Liquid render
-over projections → provider call → grammar validation → event →
-reducer → scheduler finds next ready scope) and Polyphony's beat loop
+**The LLM-Oban-Commanded component apps need is Catapult's own
+engine, extracted.** The plane's doc generation (Oban worker → Liquid
+render over projections → provider call → grammar validation → event
+→ reducer → scheduler finds next ready scope) and Polyphony's beat loop
 (Oban job → context from filtered projections → provider call →
 schema validation → command → aggregate → projectors →
 enqueue-on-completion) are the same machine. Every abstraction in
@@ -4918,10 +4648,9 @@ The stack, three layers, each a shared component:
    wholesale.
 3. **Prompt harness** — see §10.2.
 
-**Dogfooding note, corrected for §1.2** (stale text caught at the
-docs review pass — the original claimed the plane's doc tiers ran on
-layers 1–2): the plane's chain is agents end-to-end and never
-touches the adapter. The adapter and runtime get their exercise from
+**Dogfooding, per §1.2:** the plane's chain is agents end-to-end and
+never touches the adapter — the plane's doc tiers do not run on
+layers 1–2. The adapter and runtime get their exercise from
 the harness's runtime-dialect campaigns (§10.2) and from the
 runtime's first real consumer — Polyphony's beat loop, Phase 8 —
 which is why both are built with that consumer, not before.
@@ -4933,7 +4662,7 @@ prompts; and because the harness is a **function of the
 generation-runtime abstractions** (anything with declared nodes,
 scopes, grammars, and reviewers can be harnessed), building the
 runtime makes the harness portable to every app on it — the nearby
-win, confirmed.
+win.
 
 **Not greenfield: SiegeEngine already built it.** The cohort
 machinery — stratified sampling with the upstream-only-axes rule,
@@ -4945,8 +4674,8 @@ via the declared review grammar plus structural metrics (grammar
 parse rate, cardinality violations); compare against a baseline
 pinned in the registry (a registry artifact kind).
 
-**Campaigns never touch the pipeline** (harness isolation pass).
-Candidates and scores live in a **campaign workspace** —
+**Campaigns never touch the pipeline.** Candidates and scores live
+in a **campaign workspace** —
 harness-owned storage seeded from a snapshot of the target graph —
 never the production graph, never git, never Linear. No tickets, no
 gates, no review lifecycle: gates exist to protect shipped truth,
