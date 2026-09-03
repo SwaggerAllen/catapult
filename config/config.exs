@@ -87,6 +87,23 @@ config :tailwind,
     cd: Path.expand("..", __DIR__)
   ]
 
+# The `:esbuild` package's own build-shape config (ORC-220,
+# `systems/dashboard.md`): Phoenix's own generator profile, not a
+# bespoke one — `cd:` resolves `js/app.js` against `assets/`, and
+# `env: NODE_PATH` is what lets that entry's bare `phoenix`/
+# `phoenix_html`/`phoenix_live_view` imports resolve against `deps/`
+# rather than reaching for a package manager esbuild's bundler would
+# otherwise need. `--outdir=../priv/static/assets` writes beside
+# `app.css`, which `Plug.Static`'s existing `only: ~w(assets)`
+# (`CatapultWeb.Endpoint`) already serves.
+config :esbuild,
+  version: "0.25.5",
+  catapult: [
+    args: ~w(js/app.js --bundle --target=es2020 --outdir=../priv/static/assets),
+    cd: Path.expand("../assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
 config :logger, :default_formatter, metadata: [:component, :trace_id, :request_id]
 
 import_config "#{config_env()}.exs"

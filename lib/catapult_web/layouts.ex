@@ -17,6 +17,8 @@ defmodule CatapultWeb.Layouts do
         <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
         <title>Catapult</title>
         <link rel="stylesheet" href="/assets/app.css" />
+        <script defer type="text/javascript" src="/assets/app.js">
+        </script>
       </head>
       <body>
         {@inner_content}
