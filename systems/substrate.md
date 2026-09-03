@@ -73,19 +73,18 @@ seeds release task.
   would trade a good report for a uniform one.
 
   **Two of v5 §2.2's names are outside the roster on purpose, for
-  different reasons** (ORC-22). There is no `docs/0` callback and
-  never will be: `docs/` is a directory whose path derives from the
-  slug (conventions §3), so there is nothing to declare and nothing
-  that can collide, and a callback returning a path the spine already
-  fixes is a derivation written twice — the failure the spine table
-  exists to prevent. `cli/0` is out on a narrower argument, and a
-  priced one: it is `api_surface/0`'s shape with an escript composer
-  instead of a router, and the retrofit cost ORC-22 pays down is the
-  cost of components having already declared their names *somewhere
-  else*. No component can declare a CLI command anywhere today,
-  because there is no escript to declare it to, so nothing shadows it
-  and nothing is deferred except a table row. The escript's arrival
-  is what adds that row.
+  different reasons** (ORC-22). There is no `docs/0` callback and never
+  will be: `docs/` is a directory whose path derives from the slug
+  (conventions §3), so there is nothing to declare and nothing that can
+  collide, and a callback returning a path the spine already fixes is a
+  derivation written twice — the failure the spine table exists to
+  prevent. `cli/0` is out on a narrower argument, and a priced one: it
+  is `api_surface/0`'s shape with an escript composer instead of a
+  router, and the retrofit cost of a roster is the cost of components
+  having already declared their names *somewhere else*. No component can
+  declare a CLI command anywhere today, because there is no escript to
+  declare it to, so nothing shadows it and nothing is deferred except a
+  table row. The escript's arrival is what adds that row.
 - **The address is positional, the policy is opts, and an opt is not
   optional for sitting in a keyword list.** Every entry carrying more
   than a name follows `config/0`'s `{key, name, opts}` grain:
@@ -101,9 +100,7 @@ seeds release task.
   five facts as `{{fun, arity}, verb, path, opts}`, verb and path
   adjacent because that is how every router in the language spells a
   route and the composition that will consume this is a mechanical
-  transform of that pair. The ticket's rule was that anything
-  under-specified upstream is a doc edit first and code second; this
-  is the edit.
+  transform of that pair.
 - **Optional facts get sugar; mandatory ones get none.**
   `oban_queues/0` keeps its bare atom and grows `{name, opts}` for a
   cron annotation, and `processes/0` keeps `{name, placement}` and
@@ -338,14 +335,14 @@ seeds release task.
 - **Loaded values live behind one accessor, not in application env.**
   The load happens once, before the root supervisor starts, into
   `:persistent_term` under a private key; components read through the
-  accessor and nothing else. The alternative — writing the values into
-  application env — is more inspectable and that is exactly its
-  defect: it leaves the old door open, and `Application.get_env` on a
-  component's value would remain correct forever, so the ad hoc
-  reading this layer exists to end would end only by convention.
-  Write-once-at-boot is also the access pattern `persistent_term` is
-  for. The accepted cost is that values are not visible from a remote
-  console without calling the accessor.
+  accessor and nothing else. Writing the values into application env
+  would be more inspectable, and that is exactly its defect: it leaves
+  the old door open, and `Application.get_env` on a component's value
+  would remain correct forever, so the ad hoc reading this layer exists
+  to end would end only by convention. Write-once-at-boot is also the
+  access pattern `persistent_term` is for. The accepted cost is that
+  values are not visible from a remote console without calling the
+  accessor.
 
   **Load-once is the rule, not merely the current implementation**
   (ORC-4). Config is read once, before the root supervisor starts, and
@@ -363,16 +360,15 @@ seeds release task.
   report.
 
   **The store is keyed by slug, not by module** —
-  `Catapult.Config.fetch!(:foundation, :health_port)` — settled at
-  implementation (ORC-4). The slug is the spine every other claimed
-  name hangs off (conventions §3) and the composer already fails the
-  build on two components sharing one, so it is exactly as unique as
-  the module and shorter to read. It also keeps the accessor from
-  putting a component module into the caller's module graph, which is
-  what a keyed-by-module store would have cost: `Catapult.Repo`
-  reading `fetch!(Catapult.Foundation, …)` closes a cycle through the
-  component that lists the Repo among its children, and cycles are a
-  hard gate.
+  `Catapult.Config.fetch!(:foundation, :health_port)` (ORC-4). The slug
+  is the spine every other claimed name hangs off (conventions §3) and
+  the composer already fails the build on two components sharing one, so
+  it is exactly as unique as the module and shorter to read. It also
+  keeps the accessor from putting a component module into the caller's
+  module graph, which is what a keyed-by-module store would have cost:
+  `Catapult.Repo` reading `fetch!(Catapult.Foundation, …)` closes a
+  cycle through the component that lists the Repo among its children,
+  and cycles are a hard gate.
 - **The port hands the source every name at once; there is no per-key
   lookup.** The signature in full, because the whole of "adopting
   Vapor later is one module and one compile-time line" rests on this
@@ -386,32 +382,29 @@ seeds release task.
   end
   ```
 
-  Called once, before the root supervisor starts, with every name
-  every component declared; `opts` is the source's own settings, which
-  cannot themselves come from the config layer (see the compile-time
-  selection decision below). `term()` rather than the `keyword()` this
-  block was sketched with, because the same sketch says the static
-  fake's seeded *map* is exactly this `opts` — and the map carries the
-  argument (a seed keyed by name and valued with strings needs no
-  special case anywhere in the layer), where the typing was
-  incidental. Its shape is the source's business, which is the whole
-  point of the parameter. `Catapult.Config.Env` implements it as
-  one `System.get_env/0` and a `Map.take`. Nothing else is a callback:
-  no `fetch/1`, no `get/2`, and in particular no `all/0`, because a
-  source free to volunteer names nobody declared puts values into the
-  system behind the registry's back, and the registry is the product.
+  Called once, before the root supervisor starts, with every name every
+  component declared; `opts` is the source's own settings, which cannot
+  themselves come from the config layer (see the compile-time selection
+  decision below). `opts` is `term()` rather than `keyword()`, because
+  the static fake's seeded *map* is exactly this `opts`: a seed keyed by
+  name and valued with strings needs no special case anywhere in the
+  layer, and its shape is the source's business, which is the whole
+  point of the parameter. `Catapult.Config.Env` implements it as one
+  `System.get_env/0` and a `Map.take`. Nothing else is a callback: no
+  `fetch/1`, no `get/2`, and in particular no `all/0`, because a source
+  free to volunteer names nobody declared puts values into the system
+  behind the registry's back, and the registry is the product.
 
-  **Tested against a file source, which is what design review asked
-  for.** A `Catapult.Config.File` over a flat TOML or JSON document
-  implements `load/2` as one read, one parse and one `Map.take`, and
-  it fits without the port bending — because the port never asks it a
-  second question. A `fetch(name)` port would leave that same adapter
-  three bad options: re-read and re-parse per key (N reads for N
-  declarations, with no guarantee they saw one document), cache in
-  `:persistent_term` behind the layer's back (a second store, absent
-  from the report), or become a process whose lifecycle the port's
-  shape does not model. That is the port that can only ever be env,
-  and `load/2` is the shape that is not it.
+  **The shape holds against a file source.** A `Catapult.Config.File`
+  over a flat TOML or JSON document implements `load/2` as one read, one
+  parse and one `Map.take`, and it fits without the port bending —
+  because the port never asks it a second question. A `fetch(name)` port
+  would leave that same adapter three bad options: re-read and re-parse
+  per key (N reads for N declarations, with no guarantee they saw one
+  document), cache in `:persistent_term` behind the layer's back (a
+  second store, absent from the report), or become a process whose
+  lifecycle the port's shape does not model. That is the port that can
+  only ever be env, and `load/2` is the shape that is not it.
 
   **The file source is also what proves the `{:error, _}` branch is
   not ceremony.** An environment source cannot fail — `System.get_env/0`
@@ -471,17 +464,16 @@ seeds release task.
   never a merge. Until then provenance is trivial: every value came
   from the one place, and no report needs a field to say which.
 - **Refresh and watch are questions about the accessor, not about the
-  port** — the second half of what design review asked. A remote
-  source (Vault, Parameter Store, Consul) fits `load/2` today,
-  unchanged: one round trip at boot for every name at once is what a
-  remote is best at, and "unreachable" is exactly the `{:error, _}`
-  the file source proved was load-bearing. What a remote cannot do
-  through this port is push, and that limitation is not the port's to
-  fix. Load-once is the rule (above); the thing actually
+  port**. A remote source (Vault, Parameter Store, Consul) fits `load/2`
+  today, unchanged: one round trip at boot for every name at once is
+  what a remote is best at, and "unreachable" is exactly the
+  `{:error, _}` the file source proved was load-bearing. What a remote
+  cannot do through this port is push, and that limitation is not the
+  port's to fix. Load-once is the rule (above); the thing actually
   standing between us and watching is the accessor's contract —
-  `:persistent_term`, written once before the supervisor starts, read
-  by callers who may hold what they read. A source pushing into a
-  store nobody re-reads has changed nothing.
+  `:persistent_term`, written once before the supervisor starts, read by
+  callers who may hold what they read. A source pushing into a store
+  nobody re-reads has changed nothing.
 
   So the growth path, named at its real size. The *port* takes it as
   `@optional_callbacks watch: 2`, which the environment and static
@@ -563,20 +555,18 @@ seeds release task.
   distort the production signature — real enough to name, and not yet
   seen, which is why the sandbox's hardest feature is not built on
   speculation.
-- **Vapor is not a substrate dependency.** The ticket's open question,
-  answered against the placement this doc previously assumed (see
-  *Depends on*). Measured rather than asserted: `vapor 0.10.0` — the
-  current release, dated 2020-08-12 — declares `jason`, `norm`, `toml`
-  and `yaml_elixir` as ordinary runtime dependencies, so adopting it
-  here puts a TOML parser and a YAML parser (`yamerl`, in turn) into
-  the release of every project Catapult generates, in order to read
-  environment variables. Substrate has three runtime dependencies
-  today. The same argument that kept `mix_audit` out applies with the
-  numbers larger: a dependency substrate declares is a dependency
-  imposed on trees we do not own, and this one is dormant, which
-  matters concretely now that `hex.audit` is armed — an advisory
-  against `yamerl` would need a release from a project that has not
-  cut one in six years, and the acknowledgement machinery in the
+- **Vapor is not a substrate dependency.** Measured rather than
+  asserted: `vapor 0.10.0` — the current release, dated 2020-08-12 —
+  declares `jason`, `norm`, `toml` and `yaml_elixir` as ordinary runtime
+  dependencies, so adopting it here puts a TOML parser and a YAML parser
+  (`yamerl`, in turn) into the release of every project Catapult
+  generates, in order to read environment variables. Substrate has three
+  runtime dependencies today. The same argument that kept `mix_audit`
+  out applies with the numbers larger: a dependency substrate declares
+  is a dependency imposed on trees we do not own, and this one is
+  dormant, which matters concretely now that `hex.audit` is armed — an
+  advisory against `yamerl` would need a release from a project that has
+  not cut one in six years, and the acknowledgement machinery in the
   root's `mix.exs` is what that looks like when it happens.
 
   **And the residue is thin.** Once the casts are ours (they must be),
@@ -594,30 +584,28 @@ seeds release task.
   path every generated project runs as the one nobody runs.
 
   **This is a scoping of conventions §1's blessed list, not a
-  substitution, and the sketch says so out loud** (§1: don't
-  substitute without a systems-doc decision — this is that decision).
-  Vapor remains the sanctioned answer the day a project needs config
-  from a file, a remote source, or a format the environment cannot
-  carry; nothing here needs that, and the port means adopting it then
-  is one new module and one compile-time line, not a migration.
+  substitution** (§1: don't substitute without a systems-doc decision —
+  this is that decision). Vapor remains the sanctioned answer the day a
+  project needs config from a file, a remote source, or a format the
+  environment cannot carry; nothing here needs that, and the port means
+  adopting it then is one new module and one compile-time line, not a
+  migration.
 
-  **The second pass split that sentence in two, because the port
-  demonstration showed it was true of only half of it.** A flat file
+  **That is true of the transports and not of the formats.** A flat file
   or a remote parameter store *is* one module and one line: it answers
   `load/2` with named strings and every other decision in this layer
   stands. A format the environment cannot carry — a nested document,
   lists of maps — is not an adapter behind this port at all, and
-  pretending otherwise is how a port ends up with a `term()` value
-  type and casts that accept two shapes. That case is a different
-  problem which happens to share the word "config", and Vapor as an
-  ordinary library in the consumer that has it is a better answer than
-  Vapor squeezed through this seam. Saying which half is cheap
-  matters more than saying it is cheap: the reversal the author was
-  promised is real for the transports, and the case it does not cover
-  is one this platform has never had. It is
+  pretending otherwise is how a port ends up with a `term()` value type
+  and casts that accept two shapes. That case is a different problem
+  which happens to share the word "config", and Vapor as an ordinary
+  library in the consumer that has it is a better answer than Vapor
+  squeezed through this seam. Saying which half is cheap matters more
+  than saying it is cheap: the reversal is real for the transports, and
+  the case it does not cover is one this platform has never had. That is
   also what makes this whole entry cheap to reverse: the placement
-  question is decidable by the author without redesign, because the
-  port is the decision and the adapter is not.
+  question is decidable by the author without redesign, because the port
+  is the decision and the adapter is not.
 - **The gate set is a property of a mix project, not of the repo.**
   The audit's greps are `Path.wildcard("lib/**/*.ex")`, rooted at the
   working directory — deliberately, because this task ships into
@@ -777,35 +765,32 @@ seeds release task.
 
   **What neither of them is, is a path.** The gate-set decision above
   rules out teaching this task where *this* repository keeps its
-  components, and
-  ORC-16's own "for every mix project under `components/`" is that
-  reach in its purest form. Since the review it is not even a true
-  description of the tree: `components/*` will hold components that are
-  not open source at all, so the directory now answers a question
-  nobody asked it. The concrete consequence, landing with the check:
-  substrate gains `package: [licenses: ["Apache-2.0"]]`, which *is* the
-  arming, plus the `licensing: [allow: [...]]` list it is held to, and
-  `LICENSING.md` gains the classification section and loses
-  `components/*` from its ladder bullet and its path rule. One more
-  edit there after the third pass: the ladder's "Test" bullet describes
-  a check held to *the project's stated list* rather than to a
-  permissive allowlist of the tool's, and names substrate's `allow:`
-  entry as the machine-readable form of the five identifiers this
-  document already argues for. `LICENSING.md` is where Catapult's own
-  policy belongs; the list is that policy in a form the audit can read.
+  components, and "for every mix project under `components/`" is that
+  reach in its purest form. It is not even a true description of the
+  tree: `components/*` will hold components that are not open source at
+  all, so the directory answers a question nobody asked it. Concretely:
+  substrate's `package: [licenses: ["Apache-2.0"]]` *is* the arming, the
+  `licensing: [allow: [...]]` list beside it is what it is held to, and
+  `LICENSING.md` carries the classification section, names no
+  `components/*` path in its ladder bullet or its path rule, and its
+  ladder's "Test" bullet describes a check held to *the project's stated
+  list* rather than to a permissive allowlist of the tool's, naming
+  substrate's `allow:` entry as the machine-readable form of the five
+  identifiers this document argues for. `LICENSING.md` is where
+  Catapult's own policy belongs; the list is that policy in a form the
+  audit can read.
 
-  **Arming and standard are two facts, and the third pass separated
-  them.** `package:` and `licensing/0` decide *whether* a tree is
-  checked; the project's `allow:` list decides *against what*. A
-  project that arms the check and states no list is inert rather than
-  held to ours (below), so the pair is not redundant — a declaration
-  can arm a check that then has nothing to measure with, and the census
-  line exists to say exactly that.
+  **Arming and standard are two facts.** `package:` and `licensing/0`
+  decide *whether* a tree is checked; the project's `allow:` list
+  decides *against what*. A project that arms the check and states no
+  list is inert rather than held to ours (below), so the pair is not
+  redundant — a declaration can arm a check that then has nothing to
+  measure with, and the census line exists to say exactly that.
 - **`licensing/0` is one callback carrying both facts, and it sits
   outside the roster table beside `config/0`** (ORC-16). It returns a
-  keyword list — `[distribution: :distributed, license: "Apache-2.0"]`
-  — with both opts required, an overridable empty default, and no
-  `@optional_callbacks`; that rule is untouched.
+  keyword list — `[distribution: :distributed, license: "Apache-2.0"]` —
+  with both opts required, an overridable empty default, and no
+  `@optional_callbacks`.
 
   **One callback, not two,** because the facts are only meaningful as a
   pair. A license says nothing about obligation until you know who
@@ -817,26 +802,25 @@ seeds release task.
   half-declared states that mean nothing and have to be reported
   anyway.
 
-  **Outside the table** for `config/0`'s stated reason and one more.
-  The extra one: it claims no name. Two components declaring
-  `Apache-2.0` is the ordinary case rather than a collision, so the
-  `:claim` and `:identity` columns — the reason the table exists — sit
-  empty, and the fold over `rows/0` grows a row it must skip. That is
-  the `function_exported?/3` guard the no-optional-callbacks decision
+  **Outside the table** for `config/0`'s stated reason and one more. The
+  extra one: it claims no name. Two components declaring `Apache-2.0` is
+  the ordinary case rather than a collision, so the `:claim` and
+  `:identity` columns — the reason the table exists — sit empty, and the
+  fold over `rows/0` grows a row it must skip. That is the
+  `function_exported?/3` guard the no-optional-callbacks decision
   refused, wearing a hat: an aggregation that is total is one that
-  cannot silently miss a component. `config/0`'s own reason then
-  applies unchanged — a consumer, and error messages worth their
-  specificity, which "your `:distributed` component declares
-  `AGPL-3.0-only` for itself" is and no uniform table report could be.
-  One shape hazard, named so the next pass does not walk into it: a
+  cannot silently miss a component. `config/0`'s own reason then applies
+  unchanged — a consumer, and error messages worth their specificity,
+  which "your `:distributed` component declares `AGPL-3.0-only` for
+  itself" is and no uniform table report could be. One shape hazard: a
   keyword list *is* a list of two-tuples, so a table-driven aggregator
   reads one declaration as two entries, and holding it in the table
   would mean teaching `split/2` a no-positional-fields spelling.
 - **The class chooses between two dependency policies, not three, and
-  the reasons differ where the list does not** (ORC-16). The review
-  named four cases; they collapse to two policies — *checked* against
-  the project's list, or *unchecked* — and the collapse is what makes
-  "strictest wins" a total order rather than a merge.
+  the reasons differ where the list does not** (ORC-16). The cases
+  collapse to two policies — *checked* against the project's list, or
+  *unchecked* — and the collapse is what makes "strictest wins" a total
+  order rather than a merge.
 
   | The subject's own terms | How it reaches people | Dependencies | Because |
   | --- | --- | --- | --- |
@@ -847,30 +831,26 @@ seeds release task.
   | any | `:internal` | unchecked | nothing is conveyed and nobody is served |
 
   **The check reads two things off a license identifier and infers
-  nothing else, and that is what removed a row.** The second pass's
-  table carried *public copyleft, conveyed → unchecked*, on the true
-  observation that a recipient of an AGPL work has already accepted
-  every term a dependency could add. It never said how the check
-  recognises copyleft, and with a list compiled into the check the
-  omission was survivable — "a listed identifier that is not one of our
-  five" was copyleft closely enough, because we owned both sides of the
-  comparison. A project-stated list ends that. The residue of someone
-  else's list is not copyleft; it is whatever that project did not
-  write down, and reading it as copyleft leaves the tree **unchecked**
-  — an inference running in the permissive direction, which is the one
-  direction this check may not fail in, and the same inference the
-  no-normalization decision below refuses in the same words.
+  nothing else, and that is why there is no *public copyleft, conveyed →
+  unchecked* row.** The observation behind such a row is true — a
+  recipient of an AGPL work has already accepted every term a dependency
+  could add — but acting on it needs the check to recognise copyleft,
+  and a project-stated list says nothing about which identifiers are.
+  The residue of someone else's list is not copyleft; it is whatever
+  that project did not write down, and reading it as copyleft leaves the
+  tree **unchecked** — an inference running in the permissive direction,
+  which is the one direction this check may not fail in, and the same
+  inference the no-normalization decision below refuses in the same
+  words.
 
-  What replaces the row is stricter and more legible than the row was:
-  a project that conveys under copyleft says so by putting its own
-  identifier on its own list, and its dependencies are then checked
-  against a list containing it. The self-check still passes (a subject
-  is held to the standard it holds its dependencies to, unchanged), the
-  whole arrangement is readable in one file, and the case the old row
-  passed in silence — `GPL-2.0-only` inside an `AGPL-3.0-only` work, a
-  real incompatibility — now fails. Nothing in this repo sat on that
-  row either way: the plane is `:service`, substrate is `Apache-2.0`
-  conveyed.
+  Instead, a project that conveys under copyleft says so by putting its
+  own identifier on its own list, and its dependencies are then checked
+  against a list containing it. The self-check passes (a subject is held
+  to the standard it holds its dependencies to), the whole arrangement
+  is readable in one file, and the case such a row would pass in silence
+  — `GPL-2.0-only` inside an `AGPL-3.0-only` work, a real
+  incompatibility — fails. Nothing in this repo sits on that case either
+  way: the plane is `:service`, substrate is `Apache-2.0` conveyed.
 
   So an identifier is `LicenseRef-*`, or it is on the project's list,
   and there is no third bucket. **An identifier in neither is a
@@ -898,32 +878,28 @@ seeds release task.
   places to state one fact are two places that can disagree.
 
   **The list is shared; the reason is not, and the report prints the
-  reason.** Shared now means one list per project rather than one list
-  per platform, and the sharing is what the argument rests on either
-  way. This is the distinction the review asked to get into the
-  sketch, made structural rather than remembered: a proprietary
-  `:service` component failing on a GPL dependency must not read as a
-  shipped-layer failure, because nobody receives that component and the
-  allowlist protecting recipients is not what is being enforced. Its
-  line says AGPL §13 and an offer of source to our own users. Applying
-  the shipped-layer allowlist with the shipped-layer *reason* to a
-  hosted-only component is not conservative, it is wrong, and a report
-  that says which reason armed it cannot make that mistake quietly.
+  reason.** Shared means one list per project, and the sharing is what
+  the argument rests on. The distinction is structural rather than
+  remembered: a proprietary `:service` component failing on a GPL
+  dependency must not read as a shipped-layer failure, because nobody
+  receives that component and the allowlist protecting recipients is not
+  what is being enforced. Its line says AGPL §13 and an offer of source
+  to our own users. Applying the shipped-layer allowlist with the
+  shipped-layer *reason* to a hosted-only component is not conservative,
+  it is wrong, and a report that says which reason armed it cannot make
+  that mistake quietly.
 
-  **The strict row ships as drawn, and configurability is what makes it
-  cheap.** Design review took the second pass's push-back: proprietary
-  `:service` is held to the same list as the shipped layer rather than
-  to "no copyleft", so `MPL-2.0` and `EPL-2.0` are outside that row
-  until a project's list says otherwise. The argument that carried it
-  is kept where the next pass will look for it — "everything except
-  copyleft" cannot be enumerated, so a denylist would have the check
-  deciding the copyleft-ness of identifiers it has never seen, which is
-  the inference the paragraph above just removed a row to avoid. What
-  used to be the standing cost of that strictness is now an entry in a
-  list the project owns.
+  **The strict row stays strict, and configurability is what makes it
+  cheap.** Proprietary `:service` is held to the same list as the
+  shipped layer rather than to "no copyleft", so `MPL-2.0` and `EPL-2.0`
+  are outside that row until a project's list says otherwise.
+  "Everything except copyleft" cannot be enumerated, so a denylist would
+  have the check deciding the copyleft-ness of identifiers it has never
+  seen, which is the inference the paragraph above refuses. The cost of
+  that strictness is an entry in a list the project owns.
 - **A subject is held to the standard it holds its dependencies to,
   and silence is reported rather than defaulted** (ORC-16). The two
-  decisions the review left to this pass, and they resolve together.
+  resolve together.
 
   **Its own license is checked by the same rule.** A `:distributed`
   component declaring `AGPL-3.0-only` in a project whose list does not
@@ -935,13 +911,12 @@ seeds release task.
   the table's first column reads "the subject's own terms" rather than
   "the component's".
 
-  The third pass sharpened rather than softened this. With the list
-  now the project's, the self-check says something a platform-wide list
-  could not: *you are shipping under terms you would not accept from a
-  dependency in this tree*. That is a contradiction inside one file
-  rather than a disagreement with Catapult's opinion, which is both a
-  better verdict and one a generated project can act on without
-  arguing with us.
+  With the list the project's, the self-check says something a
+  platform-wide list could not: *you are shipping under terms you would
+  not accept from a dependency in this tree*. That is a contradiction
+  inside one file rather than a disagreement with Catapult's opinion,
+  which is both a better verdict and one a generated project can act on
+  without arguing with us.
 
   **An undeclared component is a reported problem, never a default
   class.** `:distributed` is the safe default for the dependency half
@@ -951,16 +926,16 @@ seeds release task.
   A pair whose halves cannot both be defaulted has no default. The
   deciding argument is the second one, though: a default makes every
   project's audit print a policy verdict nobody asserted, which is a
-  check that passed without checking anything — the exact shape this
-  ticket exists to remove from the ladder. The cost is bounded and
-  one-time (one callback, two facts, on a module that already declares
-  a slug, with every missing one reported at once) against an unbounded
-  alternative where the first component whose class was assumed wrong
-  is discovered by counsel. Note what this is *not*: it is not a
-  compile-time requirement and not a boot failure. The empty default
-  keeps `use Catapult.Component` sufficient to compile, exactly as
-  `errors/0`'s required `remedy:` does, and the absence surfaces where
-  every other structural absence does.
+  check that passed without checking anything — the exact shape the
+  licensing check exists to remove from the ladder. The cost is bounded
+  and one-time (one callback, two facts, on a module that already
+  declares a slug, with every missing one reported at once) against an
+  unbounded alternative where the first component whose class was
+  assumed wrong is discovered by counsel. Note what this is *not*: it is
+  not a compile-time requirement and not a boot failure. The empty
+  default keeps `use Catapult.Component` sufficient to compile, exactly
+  as `errors/0`'s required `remedy:` does, and the absence surfaces
+  where every other structural absence does.
 - **A licensing verdict never fails a boot** (ORC-16). The composer
   validates the declaration's *shape* — unknown opt, missing opt, a
   `distribution:` outside the vocabulary — because that is what it does
@@ -972,25 +947,24 @@ seeds release task.
   unrecognized is a catastrophic response to a question with no runtime
   consequence whatsoever. CI red is the correct severity for a legal
   fact; a node that will not boot is not.
-- **The predicate is ours; the list is the project's** (ORC-16, third
-  pass — design review's reversal, and the reason it is not the waiver
-  the entry below still refuses). The criterion is unchanged and stays
-  ours: not "permissive" but *imposes no terms on the linking
-  application*, which is what `LICENSING.md` actually requires — a
-  customer's application inherits nothing — and what makes an addition
-  decidable instead of a debate about what "permissive" means. What
-  changed is whose list the criterion produces.
+- **The predicate is ours; the list is the project's** (ORC-16), and
+  that is why it is not the waiver the entry below refuses. The
+  criterion is ours: not "permissive" but *imposes no terms on the
+  linking application*, which is what `LICENSING.md` actually requires —
+  a customer's application inherits nothing — and what makes an addition
+  decidable instead of a debate about what "permissive" means. The list
+  the criterion produces is the project's.
 
-  `Catapult.Audit.License` ships into every generated project. Five
-  SPDX identifiers compiled into it is Catapult's legal position
-  imposed on codebases we know nothing about, and a project that needs
-  `MPL-2.0`, `EPL-2.0`, `Zlib` or `Unicode-3.0` is not evading a gate —
-  it is enforcing its own. That is a **policy difference**, and the
-  line keeping it clear of the waiver is the review's: a policy is
-  stated once, applies uniformly to every dependency in the tree, and
-  is reviewable *as* a policy, where a waiver is stated per dependency
-  and is read only by whoever added it. The check acquiring a different
-  subject is not the check being switched off.
+  `Catapult.Audit.License` ships into every generated project. Five SPDX
+  identifiers compiled into it is Catapult's legal position imposed on
+  codebases we know nothing about, and a project that needs `MPL-2.0`,
+  `EPL-2.0`, `Zlib` or `Unicode-3.0` is not evading a gate — it is
+  enforcing its own. That is a **policy difference**, and the line
+  keeping it clear of the waiver: a policy is stated once, applies
+  uniformly to every dependency in the tree, and is reviewable *as* a
+  policy, where a waiver is stated per dependency and is read only by
+  whoever added it. The check acquiring a different subject is not the
+  check being switched off.
 
   **The project states it in `mix.exs` beside `package:`**, under one
   `licensing:` key carrying the policy and the overrides together:
@@ -1002,28 +976,25 @@ seeds release task.
   ]
   ```
 
-  For the three reasons the overrides landed there: it is where a
-  project already speaks to mix, it puts both facts under one review,
-  and it spares a task that ships everywhere a path convention of its
-  own. Measured rather than assumed, because an unrecognized key in
-  project config is exactly the kind of thing that turns out to warn:
-  a `mix new` project with this key added compiles clean and
-  `Mix.Project.config()[:licensing]` reads it back verbatim — the same
-  door `:docs` and `:dialyzer` come through, and the audit already
-  reads `Mix.Project.config()[:app]`.
+  For three reasons: it is where a project already speaks to mix, it
+  puts both facts under one review, and it spares a task that ships
+  everywhere a path convention of its own. Measured rather than assumed,
+  because an unrecognized key in project config is exactly the kind of
+  thing that turns out to warn: a `mix new` project with this key added
+  compiles clean and `Mix.Project.config()[:licensing]` reads it back
+  verbatim — the same door `:docs` and `:dialyzer` come through, and the
+  audit already reads `Mix.Project.config()[:app]`.
 
-  **One list per project, not one per class** — a push-back on the
-  review's wording, small and reversible. Dependencies are a mix
-  project's fact, which is the whole reason `package:` is what arms
-  this check; a list per class would leave a project composing a
-  `:distributed` component and a proprietary `:service` one resolving
-  to the *intersection* of two lists over one shared `deps/`. That
-  turns strictest-wins from a total order back into a merge whose
-  result is written in no file and citable in no report — the defect
-  the one-source config decision above refuses by name. A project that
+  **One list per project, not one per class.** Dependencies are a mix
+  project's fact, which is the whole reason `package:` is what arms this
+  check; a list per class would leave a project composing a
+  `:distributed` component and a proprietary `:service` one resolving to
+  the *intersection* of two lists over one shared `deps/`. That turns
+  strictest-wins from a total order back into a merge whose result is
+  written in no file and citable in no report — the defect the
+  one-source config decision above refuses by name. A project that
   genuinely needs two policies needs two dependency trees, which is two
-  mix projects, which is what it already had to be. Say so if you would
-  rather the list were keyed by class.
+  mix projects, which is what it already had to be.
 
   **A project stating no policy is inert, and the census line says so.**
   Not defaulted to ours: a default makes every project's audit print a
@@ -1040,28 +1011,27 @@ seeds release task.
 
   **The default value lives where projects come from, not in the
   check.** Catapult's five — `Apache-2.0`, `MIT`, `BSD-2-Clause`,
-  `BSD-3-Clause`, `ISC` — are what `bundles/default` writes
-  into a generated project's `mix.exs`, literally, so the project can
-  read what it is being held to and edit it. Never `allow:
-  Catapult.Bundle.default_licenses()`, which is the constant one level
-  in and the path rule wearing a different hat. `bundles/` does not
-  exist yet, so the obligation is recorded in
-  `systems/platform_content.md` where the layer's own ticket will find
-  it, and substrate states its five by hand today — as it must in any
-  case, not being a generated project. ISC is not decorative there:
-  cowboy, cowlib and ranch are all ISC (measured), so the first shipped
-  component that serves HTTP lands on it.
+  `BSD-3-Clause`, `ISC` — are what `bundles/default` writes into a
+  generated project's `mix.exs`, literally, so the project can read what
+  it is being held to and edit it. Never
+  `allow: Catapult.Bundle.default_licenses()`, which is the constant one
+  level in and the path rule wearing a different hat. The obligation on
+  `bundles/default` is recorded in `systems/platform_content.md`, and
+  substrate states its five by hand — as it must in any case, not being
+  a generated project. ISC is not decorative there: cowboy, cowlib and
+  ranch are all ISC (measured), so the first shipped component that
+  serves HTTP lands on it.
 
-  ORC-16 named "ERLPL where applicable", and it is applicable nowhere:
-  measured across both trees today, every dependency is Apache-2.0, MIT
-  or ISC. `ErlPL-1.1` and `MPL-2.0` do satisfy the predicate —
-  file-level copyleft binds the files it covers, not the work that
-  links them — but their residues differ from each other in patent and
-  disclosure terms, and a residue is worth reading against a package a
-  reviewer can open rather than accepted in the abstract. Design review
-  accepted the deferral, and configurability is what makes it cheap:
-  the day a real dependency asks, the answer is a line in one project's
-  `allow:` list rather than a release of this package.
+  `ErlPL-1.1` is not among the five because it is applicable nowhere:
+  measured across both trees, every dependency is Apache-2.0, MIT or
+  ISC. `ErlPL-1.1` and `MPL-2.0` do satisfy the predicate — file-level
+  copyleft binds the files it covers, not the work that links them — but
+  their residues differ from each other in patent and disclosure terms,
+  and a residue is worth reading against a package a reviewer can open
+  rather than accepted in the abstract. Configurability is what makes
+  leaving them off cheap: the day a real dependency asks, the answer is
+  a line in one project's `allow:` list rather than a release of this
+  package.
 
   **What the check honestly claims** is that no dependency in a checked
   tree *declares* terms nobody accepted. That is not verification — hex
@@ -1115,24 +1085,23 @@ seeds release task.
   nothing is at stake is the only time it is cheap.
 
   **Licenses match as exact SPDX identifiers, with no normalization
-  table and no reading of LICENSE text.** The cost is measured and, as
-  of this pass, zero: every dependency in substrate's checked closure
-  declares a clean identifier, and the near-miss in this repo —
-  `cowboy_telemetry`, which declares `["Apache 2.0"]` — sits in the
-  plane's tree, which the table above leaves unchecked. So no override
-  exists on landing; the mechanism exists because the first one will be
-  a sentence in a diff rather than a silent coercion. A normalization
-  table is the cheaper fix and the wrong one: its failures are silent
-  and biased permissive, and teaching a reader that near-misses are
-  handled invites the next one, which is a string like
-  `GPL-2.0-with-classpath-exception` whose distance from `GPL-2.0-only`
-  is the entire question. Text inference is the same defect with a
-  bigger surface — a fuzzy match over prose deciding a legal question,
-  with no line in the diff where a human agreed. Overrides live in
-  `mix.exs` rather than in the data file ORC-16 named — `licensing:
-  [overrides: [...]]`, the same keyword list the policy sits in, which
-  is the placement the third pass made general rather than an exception
-  carved for one field.
+  table and no reading of LICENSE text.** The cost is measured and zero:
+  every dependency in substrate's checked closure declares a clean
+  identifier, and the near-miss in this repo — `cowboy_telemetry`, which
+  declares `["Apache 2.0"]` — sits in the plane's tree, which the table
+  above leaves unchecked. So no override is needed; the mechanism exists
+  because the first one will be a sentence in a diff rather than a
+  silent coercion. A normalization table is the cheaper fix and the
+  wrong one: its failures are silent and biased permissive, and teaching
+  a reader that near-misses are handled invites the next one, which is a
+  string like `GPL-2.0-with-classpath-exception` whose distance from
+  `GPL-2.0-only` is the entire question. Text inference is the same
+  defect with a bigger surface — a fuzzy match over prose deciding a
+  legal question, with no line in the diff where a human agreed.
+  Overrides live in `mix.exs` — `licensing: [overrides: [...]]`, the
+  same keyword list the policy sits in — rather than in a data file of
+  their own: one placement for both facts, not an exception carved for
+  one field.
 - **A git-distributed dependency resolves through an ordered rung
   ladder, not straight to `overrides:`** (ORC-74). `unresolved/2` fires
   today for any dependency with no `hex_metadata.config`, and that file
@@ -1308,16 +1277,14 @@ seeds release task.
   greps together. What it holds no part of is the list of identifiers:
   the table is a rule about how code reaches people and stays ours, the
   list is a legal position and belongs to whoever is being held to it,
-  and a module shipping into every generated project may carry the
-  first and not the second. It does not adopt the behaviour, and the
-  next pass should not make it: that callback takes a
-  working-directory-relative glob, a dependency tree is not a path
-  scope, and forcing it through means passing a scope value meaning
+  and a module shipping into every generated project may carry the first
+  and not the second. It does not adopt the behaviour: that callback
+  takes a working-directory-relative glob, a dependency tree is not a
+  path scope, and forcing it through means passing a scope value meaning
   "ignore this argument" — a callback lying about its contract in its
-  first implementation.
-  `policies/0` is how a *component* ships a check into projects that
-  adopt it; this one is the task's own, present in every project and
-  armed or silent by declaration.
+  first implementation. `policies/0` is how a *component* ships a check
+  into projects that adopt it; this one is the task's own, present in
+  every project and armed or silent by declaration.
 
   **The inert state is never silent.** The check adds a census line
   naming the policy it reached, the subject that set it, and where the
@@ -1453,28 +1420,25 @@ build work at all.
   is a field that will be read as enforcement by every operator who
   ever greps for it.
 
-  **Guardrails are applied by the process and checked by the composer;
-  the composer does not thread `spawn_opt`.** A flag can only be set
-  from inside its own process (`process_flag/3` covers `save_calls` and
+  **Guardrails are applied by the process and checked by the audit; the
+  composer does not thread `spawn_opt`.** A flag can only be set from
+  inside its own process (`process_flag/3` covers `save_calls` and
   nothing else), so the only external route is `spawn_opt` on the start
   call — which requires the composer to know each child's option
-  conventions, for children it did not write, and fails outright for
-  the first child whose `start_link` accepts no options. That is the
-  audit's layout knowledge wearing a different hat. A one-line call in
-  `init/1` reading the component's own declaration is what the process
-  owns anyway, and declared↔applied is then the same check shape as
+  conventions, for children it did not write, and fails outright for the
+  first child whose `start_link` accepts no options. That is the audit's
+  layout knowledge wearing a different hat. A one-line call in `init/1`
+  reading the component's own declaration is what the process owns
+  anyway, and declared↔applied is then the same check shape as
   declared↔constructed and declared↔emitted — a third instance of a
   pattern the platform already has two of.
 
-  **Amended in build (ORC-21): the checker is the audit, not the
-  composer**, and the sentence above is right about everything except
-  which organ holds it. The composer sees declarations; declared↔applied
-  needs *call sites*, and a call site is a fact about a tree. So it
-  lands beside the other declaration↔tree check
-  (`Catapult.Audit.Declarations`), which is what the last clause of that
-  same sentence already says — the pattern it is a third instance of is
-  an audit check both times. The composer's half is unchanged and it is
-  the important half: it still never threads `spawn_opt`.
+  **The checker is the audit, not the composer.** The composer sees
+  declarations; declared↔applied needs *call sites*, and a call site is
+  a fact about a tree. So it lands beside the other declaration↔tree
+  check (`Catapult.Audit.Declarations`) — the pattern it is a third
+  instance of is an audit check both times. The composer's half is the
+  important half: it never threads `spawn_opt`.
 - **`errors/0`'s struct is generated from the registry, so one
   direction of declared↔constructed is a compile error rather than an
   audit finding.** §2.14 asks for the check both ways. The expensive
@@ -1789,17 +1753,16 @@ re-deriving it.
   call. If the wrapper is ever found insufficient the answer is a
   narrower unwrap surface, not a deeper analysis.
 - **No dataflow for a computed config key**, and no reading a dynamic
-  `fetch!/2` as a wildcard (ORC-48). The cheaper alternative is the
-  one worth naming, because it is what the next pass will reach for:
-  treat `fetch!(:foundation, key)` as reading *everything*
-  `:foundation` declares, so nothing false-positives. That is a whole
-  slug's worth of coverage switched off by a call that says so
-  nowhere, in a check whose entire subject is dead declarations — the
-  silence is the defect, not the strictness. Reporting the unjoinable
-  call keeps the run red and names the cause, the same trade as
-  reporting an unparseable file instead of skipping it. A legitimate
-  computed read would be an argument for a second accessor that
-  declares what it may reach, never for the check guessing.
+  `fetch!/2` as a wildcard (ORC-48). Treating `fetch!(:foundation, key)`
+  as reading *everything* `:foundation` declares, so nothing
+  false-positives, is the cheaper alternative, and it is a whole slug's
+  worth of coverage switched off by a call that says so nowhere, in a
+  check whose entire subject is dead declarations — the silence is the
+  defect, not the strictness. Reporting the unjoinable call keeps the
+  run red and names the cause, the same trade as reporting an
+  unparseable file instead of skipping it. A legitimate computed read
+  would be an argument for a second accessor that declares what it may
+  reach, never for the check guessing.
 - **No destination detection on a model call** (ORC-52): nothing reads
   a URL, a hostname or a provider name out of an HTTP call's
   arguments. At AST grade the call is `:httpc.request(:post, {url,
