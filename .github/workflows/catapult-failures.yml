@@ -1,0 +1,62 @@
+# The plane's own last-N-failures buffer, read from wherever the author
+# is — the phone-readable half `systems/foundation.md`'s ORC-218 entry
+# names and leaves to this author-owned file: a curl against the
+# deployed plane's `GET /failures` (`Catapult.Foundation.Failures`),
+# printed to this run's own log so the Actions tab is the reader.
+#
+# The buffer holds the last 50 requests that left the listener with a
+# 5xx — request path, time, status, and the stack trace when one
+# exists — and nothing past a restart. Whatever it shows is what
+# happened since the instance last booted, most recent last.
+#
+# Not a `pipeline: …` run-name on purpose: orchestration's sweep
+# correlates agent runs by that prefix, and this is not one.
+name: catapult-failures
+run-name: "catapult failures"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app # SETUP.md §2 / config/test.exs's :live_base_url
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET /failures
+        env:
+          # Same value the reference instance holds under the same
+          # name (SETUP.md §2/§3) — foundation's own operator secret,
+          # deliberately not DELIVERY_PROVISIONING_TOKEN
+          # (`systems/foundation.md`'s ORC-218 entry).
+          TOKEN: ${{ secrets.FOUNDATION_OPERATOR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TOKEN" ]; then
+            echo "FOUNDATION_OPERATOR_TOKEN is not set on this repo (SETUP.md §3)." >&2
+            exit 1
+          fi
+          url="$CATAPULT_BASE_URL/failures"
+          body=$(mktemp)
+          code=$(curl -sS -o "$body" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$url")
+          echo "GET $url -> $code"
+          case "$code" in
+            200)
+              # Pretty-printed when it parses, raw when it does not —
+              # the raw body is the evidence either way.
+              jq . "$body" 2>/dev/null || cat "$body"
+              count=$(jq '.failures | length' "$body" 2>/dev/null || echo "?")
+              echo
+              echo "$count failure(s) recorded since the instance last booted." ;;
+            401)
+              cat "$body"; echo
+              echo "401: the token here and the plane's FOUNDATION_OPERATOR_TOKEN disagree." >&2
+              exit 1 ;;
+            *)
+              cat "$body"; echo
+              exit 1 ;;
+          esac
