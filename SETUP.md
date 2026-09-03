@@ -4,7 +4,8 @@ The remaining **human** steps (build-plan Phase 2), one-time and
 attended. Everything code-shaped already lives in the repo:
 
 - `Dockerfile` + `Catapult.Release.migrate` (the deploy artifacts;
-  the migrate release task is the PRE_DEPLOY job)
+  the image's own start command runs the migrator ahead of `start`,
+  and the `CMD` comment carries why it is not a PRE_DEPLOY job)
 - `pipeline.config.json` — tracker ids, the state mapping (read live
   from the team), actors (author = controlplane, the sanctioned
   solo-workspace exception), gates, preview, agents, and the live
@@ -169,9 +170,10 @@ The facts a future session needs, recorded as facts:
 
       peak = 2 × (both pools + 2)
 
-  The PRE_DEPLOY migrator's own two land before the new instance
-  starts, overlapping only the instance being replaced, so they are
-  never the peak. Keep the peak under **19**, leaving the cluster's
+  The migrator's own two close before the new instance opens its
+  pool — it runs first in the same container's start command —
+  overlapping only the instance being replaced, so they are never
+  the peak. Keep the peak under **19**, leaving the cluster's
   maintenance reserve alone — the Overview graph is the authority on
   both the limit and live usage, and beats this arithmetic if they
   disagree.
@@ -269,7 +271,14 @@ The facts a future session needs, recorded as facts:
   provisioning surface's bearer token, so the two have to agree or
   every live run fails at the first request with a 401.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
-  is the deploy trigger; the migrate job runs PRE_DEPLOY.
+  is the deploy trigger. Migrations run inside the deploy: the
+  image's `CMD` runs `Catapult.Release.migrate` and only then
+  `start`, so a failed migration exits the container, the health
+  check never answers, and the deploy fails with the previous one
+  still serving. **The component's Run Command stays blank** — a
+  value there replaces the `CMD`, migrator included. There is no
+  job component, and none should be added: a job carries its own
+  copy of every required variable, and the copy is what goes stale.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
   scope** — deploy detection is a single GET.
 

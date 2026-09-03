@@ -57,8 +57,8 @@ itself.
 ## No second home for the reference instance's live facts
 scope: universal
 
-App name, region, public hostname, port, autodeploy, the migrate
-PRE_DEPLOY job: `SETUP.md` §2 records them and nothing else restates
+App name, region, public hostname, port, autodeploy, how the
+deploy migrates: `SETUP.md` §2 records them and nothing else restates
 them. The README says the deployment exists, that `/health` is the
 only served path, and points at §2 — nobody opens a README to find a
 database cluster name, so the one home is the file a reader is already
