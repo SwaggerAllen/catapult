@@ -665,9 +665,9 @@ reached only through their APIs per v5 §2.4).
   performs for the raising half, and neither sees a response that never
   raised at all.
 
-  **Order is not fixed, and design review's second pass is why: for one
-  path, `:stop` never fires at all, so "`:stop` is always the record"
-  would silently drop that path's trace.** `Plug.Builder`'s generated
+  **Order is not fixed, because for one path `:stop` never fires at
+  all, so "`:stop` is always the record" would silently drop that
+  path's trace.** `Plug.Builder`'s generated
   `call/2` wraps its plug chain in no `try` of its own (verified against
   `deps/plug/lib/plug/builder.ex`), so a raise inside a function plug —
   `plug :dispatch_plug`, which runs `Catapult.Foundation.DispatchPlug`'s
@@ -693,11 +693,11 @@ reached only through their APIs per v5 §2.4).
   the router's own dispatch — by then already carrying `Plug.Telemetry`'s
   callback, registered earlier in the same pipeline — so `:stop` still
   fires there once `RenderErrors` sends the rendered response;
-  first-fires-wins degrades to the order this doc originally stated
-  wherever both events are actually available.
+  wherever both events fire, `:stop` arrives first and `:error_rendered`
+  enriches it.
 
   **The predicate is "left this listener with `conn.status >= 500`,"
-  not a grep for how it got there — design review's own finding.**
+  not a grep for how it got there.**
   `Catapult.Delivery.Provisioning.provision/1` answers a `502` when
   reset or intake fails (`lib/catapult/delivery/provisioning.ex:82`,
   `error_response/3` calling `send_resp` directly, nothing raised) —
