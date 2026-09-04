@@ -2421,11 +2421,18 @@ generating as scope-runs inside one ticket.
   `{:ok, ref}` — the same point it already returns the 200 response
   from (this module's own moduledoc). `activate_test_project/1`
   matches `project_id` **and** `test_project_state == :provisioning`,
-  never `project_id` alone: a concurrent mint may already have flipped
-  this row to `:released` by the time it runs, and matching on
-  `project_id` alone would resurrect that row to `:active`, breaking
-  the "no window where two rows read `:active` at once" invariant the
-  entry above depends on. `sweepable_project?/1` answers `false` for
+  never `project_id` alone: a transition names the state it transitions
+  *from*, the same guard shape `release_test_project/1` already carries
+  for the same reason, so a retried or duplicated `provision/1` call
+  finds the row already `:released` or `:deleted` and no-ops rather
+  than reviving a terminal project. (Belt-and-braces, since the entry
+  above records that this operation is never called concurrently
+  against the same row: matching `project_id` alone would also resurrect
+  a row a concurrent mint had already flipped to `:released`, which is
+  the same hazard the "no window where two rows read `:active` at once"
+  invariant above exists to keep to one writer at a time — but not the
+  scenario this guard is here for.) `sweepable_project?/1` answers
+  `false` for
   `:provisioning` exactly as it already does for `:released` and
   `:deleted` (`systems/generation.md`'s companion entry states the
   policy); the no-row default is unchanged (`true` — an ordinary,
