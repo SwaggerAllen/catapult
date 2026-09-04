@@ -607,7 +607,17 @@ and validation logic and must not fork it.
   gets stub dispatches by the column default, exactly as it does today;
   `TodoAppProofLiveTest` sends `stub_mode: false` and its dispatches run
   the real model. `Catapult.Delivery.stub_mode?/1` reads this column,
-  not row presence.
+  not row presence — and, for a project id holding no `delivery_projects`
+  row at all, answers `false`. That is the deliberate mirror of
+  `sweepable_project?/1`'s own no-row answer (`true`, above): no row is
+  the ordinary-project case for both predicates, but the two questions
+  they answer point opposite ways on it — an unbound project is
+  trivially sweepable (nothing exempts it) and must never dispatch
+  stubbed (nothing opts it in), so the same absence reads as `true` on
+  one and `false` on the other. Worth stating rather than leaving
+  implicit, since row presence is exactly the reading the first draft
+  of this entry got wrong in the other direction (the correction
+  above).
 
   When set, the harness skips "Install Claude Code" and "Run the
   agent" entirely and reports the fixture matching the context
@@ -654,6 +664,43 @@ and validation logic and must not fork it.
   three — the same collapse that motivates keying by `root_tag` at all
   applies a second time inside `impl`, not only across the review
   tiers.
+
+  **The harness gains a checkout step it does not have today, or the
+  fixture above is unreachable** (design review finding, ORC-223).
+  `catapult-dispatch.yml`'s recorded steps — mint an OIDC token, fetch
+  the rendered context, install Claude Code, run the agent, report the
+  result — never check out the bound repo, so nothing on the runner's
+  filesystem holds the `.catapult-stub/<root_tag>.xml` content
+  `ToySeed.reset_files/0` just pushed there: a stub-mode run's own
+  report step would be reading an empty workspace. Author's decision:
+  the harness runs `actions/checkout` against the repo the workflow is
+  already executing in, as a new step positioned immediately after
+  "Fetch the rendered context" and before "Install Claude Code" — early
+  enough that the fixture is on disk before "Report the result" reads
+  it, and not conditioned on `stub_mode` at all, because a non-stub run
+  needs the identical working copy for its own eventual commit step
+  once dispatched runs write to branches (the "runner's checkout is the
+  working copy" bullet at the top of this doc already assumes one
+  exists). The step earns its place beyond stub mode for that reason,
+  not only stub mode's. No new workflow input: the default checkout ref
+  is the branch `workflow_dispatch` fired against, the same branch
+  `reset_repo/2` — the only writer to this repo while a test project is
+  active (`systems/delivery.md`'s "at most one active" invariant) — just
+  committed the fixture to, so there is no second writer for this step
+  to race.
+
+  **Considered and rejected: returning the stub body inside the context
+  response instead of pushing it to the repo**, which would have
+  removed the fixture push, this checkout step and the
+  `.catapult-stub/` namespace together. Rejected because the checkout
+  is not a cost stub mode introduces — a real run needs one regardless
+  — so a checkout-free retrieval path built for stub mode alone would
+  leave two mechanisms doing the one thing the harness needs on every
+  dispatch, stubbed or not.
+
+  This is what the poll-deadline entry below means by "a checkout plus
+  a report call": until this entry, that phrase named a step the
+  recorded workflow did not actually have.
 - **`ToySeedChainLiveTest`'s poll deadline has to fit inside ExUnit's
   own per-test timeout, and today it doesn't** (design review finding,
   ORC-223). `@poll_deadline` is `:timer.minutes(15)`; the test carries
