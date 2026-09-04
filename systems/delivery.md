@@ -2415,12 +2415,17 @@ generating as scope-runs inside one ticket.
   workflow file, a stub, or the raft.
 
   `test_project_state` gains a fourth value, `:provisioning` —
-  "minted, not yet safe to dispatch against" — ordered ahead of
-  `:active` rather than folded into it. `mint_test_project/2` sets it
-  instead of `:active`; `provision/1` promotes the row to `:active`
-  only once `reset_and_intake/2` returns `{:ok, ref}` — the same point
-  it already returns the 200 response from (this module's own
-  moduledoc). `sweepable_project?/1` answers `false` for
+  "minted, not yet safe to dispatch against." `mint_test_project/2`
+  sets it instead of `:active`; `provision/1` calls a new
+  `Store.activate_test_project/1` once `reset_and_intake/2` returns
+  `{:ok, ref}` — the same point it already returns the 200 response
+  from (this module's own moduledoc). `activate_test_project/1`
+  matches `project_id` **and** `test_project_state == :provisioning`,
+  never `project_id` alone: a concurrent mint may already have flipped
+  this row to `:released` by the time it runs, and matching on
+  `project_id` alone would resurrect that row to `:active`, breaking
+  the "no window where two rows read `:active` at once" invariant the
+  entry above depends on. `sweepable_project?/1` answers `false` for
   `:provisioning` exactly as it already does for `:released` and
   `:deleted` (`systems/generation.md`'s companion entry states the
   policy); the no-row default is unchanged (`true` — an ordinary,

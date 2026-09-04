@@ -742,14 +742,19 @@ and validation logic and must not fork it.
   actually hit: they executed the pre-#144 harness and died at the
   report step with
   `FileNotFoundError: context.json`, one to two seconds before the fix
-  reached the repo. `sweepable_project?/1`'s own entry above already
-  states the fix as a predicate change (`:provisioning` joins
-  `:released`/`:deleted` as unsweepable); this entry is the reason a
-  predicate change was enough — both sweep sites
-  (`Sweeper.sweep_project/2`, and `DispatchWorker`'s own
-  `still_sweepable/1` re-validation) already read `sweepable_project?/1`
-  rather than holding a cached readiness bit, so neither needed a
-  second fix once the predicate itself covered the new state.
+  reached the repo. `sweepable_project?/1`'s own body
+  (`Catapult.Delivery.Store.sweepable_project?/1`) is already a
+  catch-all — `%Project{test_project_state: :active} -> true`,
+  `%Project{} -> false` — so a `:provisioning` row falls to the
+  `false` clause with no edit to the function; the only code this
+  needs is `:provisioning` joining the schema's own `Ecto.Enum,
+  values:` list (`systems/delivery.md`'s entry above already covers
+  this, and without it the row fails to load regardless). That is
+  also why neither sweep site needed a second fix: both
+  `Sweeper.sweep_project/2` and `DispatchWorker`'s own
+  `still_sweepable/1` re-validation already read `sweepable_project?/1`
+  rather than holding a cached readiness bit, so widening the schema's
+  value list is the whole of it.
 
 ## Initial vs target
 
