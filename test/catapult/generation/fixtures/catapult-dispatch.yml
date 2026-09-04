@@ -6,6 +6,18 @@
 # rule (no `workflow` scope on an agent's push token) regardless of
 # what the file inside it is for (`systems/README.md`).
 #
+# **One harness, beside the rafts rather than inside one.** Both seeds
+# push this same file to the same path in the same bound repo —
+# `Catapult.ToySeed.reset_files/0` and `Catapult.TodoAppSeed
+# .reset_files/0` — so it is raft-independent and lives one level up
+# from either raft's own directory. It was briefly duplicated into
+# both (`fixtures/toy_seed/` and `fixtures/todo_app/`), which is worse
+# than it sounds: the copies write the *same* repo path, so whichever
+# seed provisioned last silently decided which harness catapult-test
+# carried, and a divergence between them would have had the toy chain
+# running under the todo app's harness with nothing to say so. One
+# copy removes the question.
+#
 # This is the target project's half of the dispatch-facing host port
 # (`systems/generation.md`, `systems/delivery.md`; v5 §7.12.1):
 # GitHub Actions triggers this on `workflow_dispatch`, it fetches the

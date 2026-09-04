@@ -934,11 +934,14 @@ loader tickets carry `system:core_dsl`.
   the same as any other input role. No tier depends on rendering a
   prototype, because no generation run can promise one: the chain's
   generation runs dispatch into the target project via
-  `catapult-dispatch.yml`, whose harness-invocation step is an
-  unpinned placeholder that exits 1 (`test/catapult/generation/
-  fixtures/toy_seed/catapult-dispatch.yml`, "harness invocation not
-  yet pinned — ORC-10") — it installs nothing because nothing is
-  pinned yet, not because some fixed toolchain excludes a renderer. A
+  `catapult-dispatch.yml` (`test/catapult/generation/fixtures
+  /catapult-dispatch.yml`), whose steps are fixed and carry no
+  project-toolchain step at all — mint an OIDC token, check out the
+  bound repo, fetch the rendered context, `npm install -g
+  @anthropic-ai/claude-code`, run the agent, report the result. The
+  one install it makes is the agent's own; it never resolves the
+  target project's dependencies and never starts a dev server, and
+  the dispatch contract offers no place to ask it to. A
   mock set needing `npm install && npm run dev` to be legible is read
   as whatever static source it contains, the same as one that's
   already static markup. This settles the ticket's first open

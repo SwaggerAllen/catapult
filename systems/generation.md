@@ -415,16 +415,6 @@ and validation logic and must not fork it.
   test that could run offline tagged to run less often instead is
   worse than an empty gate, because it reports as coverage).
 
-  `docs/chain-runbook.md`'s retirement (this same design pass) leaves
-  two references dangling in files outside `designOwnedPaths`, for
-  dev to repoint when this ticket's test work lands rather than
-  leave to be found later:
-  `test/catapult/generation/fixtures/toy_seed/catapult-dispatch.yml`'s
-  header comment, and `toy_seed_chain_live_test.exs`'s own moduledoc,
-  which names the runbook as the reason that test doesn't assert a
-  round trip — the reason still holds (above), only its citation is
-  stale.
-
 - **A test must be able to assert that a generated tier's rendered
   prompt reflects an `input.<role>` document, offline** (ORC-107,
   reversing what this entry recorded before intake existed — see the

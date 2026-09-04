@@ -4,10 +4,13 @@ defmodule Catapult.TodoAppSeed do
   criterion runs (ORC-112, `docs/build-plan.md`'s Phase 5 section): the
   per-role input documents and the bound repo's workflow file, read
   from disk on every call rather than embedded as string literals, so
-  a reviewer reads the actual fixture content in its own file under
-  `test/catapult/generation/fixtures/todo_app/` (generation's file
-  map — this module itself lives in `test/support/**`, foundation's,
-  the same split `Catapult.ToySeed`'s own moduledoc draws).
+  a reviewer reads the actual fixture content in its own file — this
+  raft's own under `test/catapult/generation/fixtures/todo_app/`, the
+  workflow file one level up at
+  `test/catapult/generation/fixtures/catapult-dispatch.yml` because it
+  is shared with `Catapult.ToySeed` (all of it generation's file map —
+  this module itself lives in `test/support/**`, foundation's, the
+  same split `Catapult.ToySeed`'s own moduledoc draws).
 
   A second fixture beside `toy_seed`, deliberately: same file-per-role
   shape (`role: Path.rootname(filename)`,
@@ -22,6 +25,13 @@ defmodule Catapult.TodoAppSeed do
   """
 
   @fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures", "todo_app"])
+
+  # The harness, shared with `Catapult.ToySeed` rather than copied
+  # beside this raft: both seeds push the identical file to the
+  # identical path in the identical bound repo, so a second copy would
+  # only create the question of which one catapult-test ends up
+  # carrying (the file's own header records that trap).
+  @shared_fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures"])
 
   @roles ~w(
     project_doc non_goals behavior_docs mocks invariants
@@ -49,5 +59,5 @@ defmodule Catapult.TodoAppSeed do
   end
 
   defp doc_path(role), do: Path.join(@fixture_dir, "#{role}.md")
-  defp workflow_path, do: Path.join(@fixture_dir, "catapult-dispatch.yml")
+  defp workflow_path, do: Path.join(@shared_fixture_dir, "catapult-dispatch.yml")
 end
