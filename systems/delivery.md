@@ -2322,6 +2322,41 @@ generating as scope-runs inside one ticket.
   entry): the first live run this mechanism ever dispatches settles it,
   and until then this is a stated assumption rather than a documented
   shape.
+- **The in-flight guard's query lives on `Store`, beside the table it
+  reads** (ORC-223 — `systems/generation.md`'s companion entry states
+  why the guard exists and how its cutoff was chosen). No new column
+  and no new table: `delivery_dispatch_runs` already carries
+  everything the check needs (`project_id`, `tier`, `scope_key`,
+  `status`, `inserted_at`). `Store.in_flight_dispatch?/4` takes
+  `project_id`, `tier`, `scope_key` and a cutoff timestamp the caller
+  computes — `DispatchWorker`'s own `Config.fetch!(:generation,
+  :clock)` — and passes in as plain data, the same shape every other
+  cross-boundary `Store` call here already takes (ids and values in,
+  never a module), and answers whether a row matching all
+  three with `status` in `:dispatched`/`:context_fetched` and
+  `inserted_at` at or after that cutoff exists.
+  `Catapult.Delivery.in_flight_dispatch?/4` is the boundary export
+  `DispatchWorker` actually calls. A new index,
+  `(project_id, tier, scope_key, status)`, is what keeps the lookup as
+  cheap as `get_node_by_scope/3`'s own on `engine_nodes` — the existing
+  `(project_id, node_id)` index on this table doesn't cover it, since
+  the guard runs before a node id is ever resolved.
+- **`HostPort.request` gains `stub_mode`, threaded straight through to
+  the dispatch input — no new operation** (ORC-223,
+  `systems/generation.md`'s companion entry states the policy).
+  `ContextAssembly.build/4` sets it from `Catapult.Delivery
+  .stub_mode?/1`, the boundary export over `Store`'s project-lifecycle
+  read (ORC-216, above); `HostPort.Actions.dispatch_run/1` sends it as
+  the `workflow_dispatch` input's third field, stringified exactly like
+  `credential_order` already is (GitHub's own inputs are strings
+  regardless of the workflow's declared `type:`). Fixture push gets the
+  same treatment `reset_repo/2`'s `files` map already gives every other
+  pushed path: `ToySeed.reset_files/0` widens to include the nine
+  root_tag-keyed stub fixtures under a repo-relative namespace this
+  entry names so dev has no path to invent —
+  `.catapult-stub/<root_tag>.xml` — chosen for being unambiguously not
+  under `docs/raft/**`, the one directory `read_directory/3` ever
+  walks.
 
 ## Initial vs target
 
