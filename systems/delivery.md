@@ -2443,16 +2443,23 @@ generating as scope-runs inside one ticket.
   failure mode on this cluster rather than a hypothetical one — leaves
   the row at `:provisioning` with no caller left to release it.
   Nothing catches that shape at the call site, so the reclaim has to
-  happen off a later `provision/1` call instead: this doc's own "at
-  most one active-or-provisioning" entry above already states
-  `mint_test_project/2`'s own pre-mint update flips a stranded
+  happen off two later `provision/1` calls rather than one: this
+  doc's own "at most one active-or-provisioning" entry above already
+  states `mint_test_project/2`'s own pre-mint update flips a stranded
   `:provisioning` row to `:released` exactly as it already flips a
-  stranded `:active` one, so the *next* `provision/1` call's own
-  reclaim step (`list_released_test_projects/0` → `delete_test_project
-  /1`, run before that call's own mint) still deletes it — self-healing
-  exactly as an ordinary missed release already does. Neither widening
-  alone covers both shapes; `delete_test_project
-  /1` needs no matching change of its own, since it already transitions
+  stranded `:active` one, but that flip is part of the *next* call's
+  own mint, which `provision/1` runs *after* that call's own reclaim
+  step — so the stranded row still reads `:provisioning`, invisible
+  to `list_released_test_projects/0`, when that reclaim step runs,
+  and only becomes `:released` once that call's mint flips it. It is
+  the call *after that* whose reclaim step
+  (`list_released_test_projects/0` → `delete_test_project/1`, run
+  before that call's own mint) deletes it — self-healing over two
+  calls rather than the one an ordinary missed release takes, since
+  an ordinary release happens out of band rather than off a mint's
+  own pre-mint sweep. Neither widening alone covers both shapes;
+  `delete_test_project/1` needs no matching change of its own, since
+  it already transitions
   `delivery_projects`'s own row to `:deleted` unconditionally on
   `project_id` alone, filtering on no current state, `:provisioning`
   included.

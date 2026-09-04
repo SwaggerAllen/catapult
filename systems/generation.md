@@ -738,9 +738,9 @@ and validation logic and must not fork it.
   Runs 866–869 dispatched at heads `d2e0f8cc` and `37733f90`, by which
   point eight or nine of the nine stub fixtures had already pushed —
   what was still missing was the workflow file and the seven raft
-  docs, not "none of `ToySeed.reset_files/0`'s content." The missing
-  workflow file is what the dispatched runs actually hit: they
-  executed the pre-#144 harness and died at the report step with
+  docs. The missing workflow file is what the dispatched runs
+  actually hit: they executed the pre-#144 harness and died at the
+  report step with
   `FileNotFoundError: context.json`, one to two seconds before the fix
   reached the repo. `sweepable_project?/1`'s own entry above already
   states the fix as a predicate change (`:provisioning` joins
