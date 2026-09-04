@@ -2175,12 +2175,13 @@ generating as scope-runs inside one ticket.
   project-scoped sweep re-deriving or missing the same rule.
   `delivery_projects` (new; `Catapult.Delivery.Store.Project`) is the
   record — `project_id` primary key, `test_project_state` nullable
-  (`:active | :released | :deleted`). A project is a test project iff
-  the field is set; nothing here adds a second `kind` column to say so
-  a second way, because the one bit the nullable field carries is the
-  whole of what "is this a test project" means today, and a project no
-  test flow ever minted gets no row here at all rather than a row
-  reading some `:ordinary` placeholder no code reads yet.
+  (`:provisioning | :active | :released | :deleted`). A project is a
+  test project iff the field is set; nothing here adds a second `kind`
+  column to say so a second way, because the one bit the nullable
+  field carries is the whole of what "is this a test project" means
+  today, and a project no test flow ever minted gets no row here at
+  all rather than a row reading some `:ordinary` placeholder no code
+  reads yet.
 
   **This record widens by one column under ORC-223: `stub_mode`
   (boolean, not null, default `true`)** — whether a test project is a
@@ -2390,6 +2391,57 @@ generating as scope-runs inside one ticket.
   path to invent — `.catapult-stub/<root_tag>.xml` — chosen for being
   unambiguously not under `docs/raft/**`, the one directory
   `read_directory/3` ever walks.
+- **A test project is unsweepable from the moment it is minted, not
+  only once released or deleted — closing the window `provision/1`
+  left open between minting a row and finishing the writes that
+  describe it** (ORC-224, design pass). Live-suite run 25 dispatched
+  four times against `SwaggerAllen/catapult-test` one to two seconds
+  before the fixed harness (ORC-223, PR #144) reached the repo:
+  `Store.mint_test_project/2` set `test_project_state: :active` before
+  a single fixture file was written, `sweepable_project?/1` reads
+  `:active` as sweepable, and `Catapult.Generation.Sweeper` ticks on a
+  fixed interval with no knowledge of `reset_and_intake/2`'s own
+  progress — so any tick landing inside that 17-commit write dispatches
+  against a repo that is only partly written, whichever piece hasn't
+  landed yet: the workflow file, a stub, or the raft.
+
+  `test_project_state` gains a fourth value, `:provisioning` —
+  "minted, not yet safe to dispatch against" — ordered ahead of
+  `:active` rather than folded into it. `mint_test_project/2` sets it
+  instead of `:active`; `provision/1` promotes the row to `:active`
+  only once `reset_and_intake/2` returns `{:ok, ref}` — the same point
+  it already returns the 200 response from (this module's own
+  moduledoc). `sweepable_project?/1` answers `false` for
+  `:provisioning` exactly as it already does for `:released` and
+  `:deleted` (`systems/generation.md`'s companion entry states the
+  policy); the no-row default is unchanged (`true` — an ordinary,
+  non-test project) — the new value is a row, not an absence, so the
+  reading it protects never sees it.
+
+  **`release_test_project/1` widens its matched state set to
+  `[:active, :provisioning]`.** `provision/1`'s existing failure branch
+  already calls it unconditionally when `reset_and_intake/2` returns
+  `{:error, reason}` (this doc's own entry above: "a project that fails
+  to reset or intake is released rather than left dangling `:active`")
+  — before this entry that call matched only an `:active` row, and
+  every such failure now happens before promotion, so the row would
+  strand at `:provisioning`: invisible to `list_released_test_projects
+  /0`, which the next `provision/1` call's own reclaim step reads, and
+  so never reclaimed. Widening the match is the whole fix — no second
+  code path, no new caller. `delete_test_project/1` needs no matching
+  change: it already transitions `delivery_projects`'s own row to
+  `:deleted` unconditionally on `project_id` alone, filtering on no
+  current state, `:provisioning` included.
+
+  **Reusing `:released` for this state is rejected**, for two reasons
+  this doc's own `list_released_test_projects/0` and
+  `release_test_project/1` already give the shape of: a `:provisioning`
+  row reading `:released` would let a concurrent `provision/1` call's
+  reclaim step (`list_released_test_projects/0` → `delete_test_project
+  /1`) delete the project out from under its own in-flight reset, and
+  `release_test_project/1`'s own no-op-outside-`:active` guard would
+  silently stop the failure path above from working the moment
+  `:active` stopped being the state a fresh mint starts in.
 
 ## Initial vs target
 
