@@ -351,18 +351,48 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.sweepable_project?("no-such-project") == true
     end
 
-    test "mint_test_project/1 mints active, and releases whichever was active before" do
-      first = Store.mint_test_project("tp1")
-      assert first.test_project_state == :active
+    test "mint_test_project/2 mints provisioning, unsweepable until activated (ORC-224)" do
+      minted = Store.mint_test_project("tp1")
+      assert minted.test_project_state == :provisioning
+      assert Store.sweepable_project?("tp1") == false
+
+      assert Store.activate_test_project("tp1") == :ok
+      assert Store.sweepable_project?("tp1") == true
+    end
+
+    test "mint_test_project/2 releases whichever was active or still provisioning before" do
+      Store.mint_test_project("tp1")
+      Store.activate_test_project("tp1")
       assert Store.sweepable_project?("tp1") == true
 
+      # tp2 minted straight to :provisioning, so not sweepable yet either.
       second = Store.mint_test_project("tp2")
-      assert second.test_project_state == :active
-      assert Store.sweepable_project?("tp2") == true
+      assert second.test_project_state == :provisioning
+      assert Store.sweepable_project?("tp2") == false
 
-      # Minting a second active project released the first.
+      # Minting tp2 released tp1, even though tp1 was active.
       assert Store.sweepable_project?("tp1") == false
       assert "tp1" in Store.list_released_test_projects()
+    end
+
+    test "mint_test_project/2 reclaims a row a crashed provisioning attempt stranded at :provisioning" do
+      Store.mint_test_project("tp-stranded")
+      # Never activated or released — the shape a raised failure inside
+      # `reset_and_intake/2` leaves behind (this doc's own moduledoc).
+
+      Store.mint_test_project("tp-fresh")
+      assert "tp-stranded" in Store.list_released_test_projects()
+    end
+
+    test "activate_test_project/1 only promotes a currently-provisioning row, never a released one" do
+      Store.mint_test_project("tp-act")
+      Store.release_test_project("tp-act")
+      assert Store.sweepable_project?("tp-act") == false
+
+      # A retried/duplicated activate call must not resurrect a
+      # terminal-for-now row a concurrent release already moved past.
+      assert Store.activate_test_project("tp-act") == :ok
+      assert Store.sweepable_project?("tp-act") == false
     end
 
     test "release_test_project/1 is idempotent and a no-op on an unminted project" do
@@ -372,6 +402,12 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.release_test_project("tp3") == :ok
       assert Store.release_test_project("tp3") == :ok
       assert Store.sweepable_project?("tp3") == false
+    end
+
+    test "release_test_project/1 releases a still-provisioning project too (ORC-224)" do
+      Store.mint_test_project("tp-release-provisioning")
+      assert Store.release_test_project("tp-release-provisioning") == :ok
+      assert "tp-release-provisioning" in Store.list_released_test_projects()
     end
 
     test "delete_test_project/1 purges delivery-owned rows and tombstones the project" do

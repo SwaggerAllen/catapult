@@ -170,12 +170,19 @@ defmodule Catapult.Delivery.Store do
   ## Test project lifecycle (ORC-216, systems/delivery.md)
 
   @doc """
-  Mints `project_id` as the one active test project, atomically
-  releasing whichever was active before — "at most one active, by
-  construction of the mint operation, not a checked constraint"
-  (`systems/delivery.md`'s ORC-216 entry): both halves land in one
-  transaction, so no window exists where two rows read `:active` at
-  once.
+  Mints `project_id` as the one active-or-provisioning test project,
+  atomically releasing whichever was active or still provisioning
+  before — "at most one active-or-provisioning, by construction of the
+  mint operation, not a checked constraint" (`systems/delivery.md`'s
+  ORC-216 entry): both halves land in one transaction, so no window
+  exists where two rows read `:active` at once, and none where a row a
+  crashed provisioning attempt stranded at `:provisioning` survives a
+  fresh mint unreleased.
+
+  The new row starts `:provisioning`, not `:active` — ORC-224,
+  `systems/delivery.md`'s companion entry: a project is not safe to
+  sweep until `activate_test_project/1` promotes it, once whatever
+  called this has finished writing it.
 
   `stub_mode` (ORC-223) is a per-project opt-in, independent of
   test-project status — defaults `true`, the toy-chain's own unchanged
@@ -186,12 +193,12 @@ defmodule Catapult.Delivery.Store do
     {:ok, project} =
       Repo.transaction(fn ->
         Repo.update_all(
-          from(p in Project, where: p.test_project_state == :active),
+          from(p in Project, where: p.test_project_state in [:active, :provisioning]),
           set: [test_project_state: :released]
         )
 
         %Project{project_id: project_id}
-        |> Ecto.Changeset.change(%{test_project_state: :active, stub_mode: stub_mode})
+        |> Ecto.Changeset.change(%{test_project_state: :provisioning, stub_mode: stub_mode})
         |> Repo.insert!()
       end)
 
@@ -199,16 +206,45 @@ defmodule Catapult.Delivery.Store do
   end
 
   @doc """
+  Promotes `project_id` from `:provisioning` to `:active` — ORC-224,
+  `systems/delivery.md`'s companion entry: `Provisioning.provision/1`
+  calls this once `reset_and_intake/2` returns `{:ok, ref}`, the point
+  a test project is finally safe to sweep. Matches `project_id` **and**
+  `test_project_state == :provisioning`, never `project_id` alone, the
+  same transition-names-its-source-state guard `release_test_project/1`
+  already carries: a retried or duplicated call finds the row already
+  `:released` or `:deleted` and no-ops rather than reviving a terminal
+  project.
+  """
+  @spec activate_test_project(binary()) :: :ok
+  def activate_test_project(project_id) do
+    Repo.update_all(
+      from(p in Project,
+        where: p.project_id == ^project_id and p.test_project_state == :provisioning
+      ),
+      set: [test_project_state: :active]
+    )
+
+    :ok
+  end
+
+  @doc """
   Releases `project_id` — held for a debugging session, never swept
   again, until the next `delete_test_project/1`. A no-op if
-  `project_id` is not currently `:active` (idempotent — a caller
-  racing its own retry, or releasing a project already released,
-  costs nothing).
+  `project_id` is not currently `:active` or `:provisioning`
+  (idempotent — a caller racing its own retry, or releasing a project
+  already released, costs nothing). `:provisioning` joins the matched
+  set under ORC-224 (`systems/delivery.md`'s companion entry): a
+  project that fails to reset or intake is released from whichever
+  state `provision/1`'s own failure branch catches it in, and every
+  such failure now happens before promotion to `:active`.
   """
   @spec release_test_project(binary()) :: :ok
   def release_test_project(project_id) do
     Repo.update_all(
-      from(p in Project, where: p.project_id == ^project_id and p.test_project_state == :active),
+      from(p in Project,
+        where: p.project_id == ^project_id and p.test_project_state in [:active, :provisioning]
+      ),
       set: [test_project_state: :released]
     )
 
@@ -256,10 +292,12 @@ defmodule Catapult.Delivery.Store do
   @doc """
   Whether `Catapult.Generation.Sweeper` may dispatch for `project_id` —
   `true` for an ordinary project (no row here at all) and for a test
-  project whose recorded state is `:active`; `false` for `:released`
-  or `:deleted` (`systems/generation.md`'s ORC-216 entry). A read, not
-  sweeper state: this store stays the one state of record for the
-  lifecycle.
+  project whose recorded state is `:active`; `false` for
+  `:provisioning`, `:released` or `:deleted` (`systems/generation.md`'s
+  ORC-216 and ORC-224 entries — `:provisioning` added by ORC-224, a
+  test project reads unsweepable from the moment it is minted, not
+  only once released or deleted). A read, not sweeper state: this
+  store stays the one state of record for the lifecycle.
   """
   @spec sweepable_project?(binary()) :: boolean()
   def sweepable_project?(project_id) do

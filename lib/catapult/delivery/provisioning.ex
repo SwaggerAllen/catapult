@@ -20,16 +20,21 @@ defmodule Catapult.Delivery.Provisioning do
 
   - `provision/1` — reclaims every released test project (`systems
     /delivery.md`'s ORC-216 entry: "reset happens before a run, never
-    after"), mints a fresh one, binds it to the one fixture repo this
-    ticket's own scope allows (`SwaggerAllen/catapult-test` — "no
-    second bound repo"), resets that repo's fixture content from the
-    caller-supplied `files` (the live-suite job's own
-    `Catapult.ToySeed.reset_files/0` — this module never reads a
-    fixture off its own disk, the same "a fixture is the caller's
-    fact, not the port's" rule `HostPort.reset_repo/2` already
-    follows), and intakes the raft at the ref reset produced. A
-    project that fails to reset or intake is released rather than left
-    dangling `:active` — the next `provision/1` call reclaims it.
+    after"), mints a fresh one — `:provisioning`, not yet sweepable
+    (ORC-224, `systems/delivery.md`'s companion entry: a test project
+    is unsweepable from the moment it is minted) — binds it to the one
+    fixture repo this ticket's own scope allows
+    (`SwaggerAllen/catapult-test` — "no second bound repo"), resets
+    that repo's fixture content from the caller-supplied `files` (the
+    live-suite job's own `Catapult.ToySeed.reset_files/0` — this
+    module never reads a fixture off its own disk, the same "a fixture
+    is the caller's fact, not the port's" rule `HostPort.reset_repo/2`
+    already follows), and intakes the raft at the ref reset produced.
+    Only once that succeeds does `Store.activate_test_project/1`
+    promote the row to `:active` — the point it finally becomes safe
+    to sweep. A project that fails to reset or intake is released
+    rather than left dangling `:provisioning` — the next `provision/1`
+    call reclaims it.
   - `release/2` — releases a test project the caller is done watching.
   - `status/3` — the terminal-status read for a project's most
     recently dispatched run on a tier (`Catapult.Delivery.Store
@@ -72,12 +77,13 @@ defmodule Catapult.Delivery.Provisioning do
 
       case reset_and_intake(project_id, files) do
         {:ok, ref} ->
+          Store.activate_test_project(project_id)
           json_response(conn, 200, Jason.encode!(%{project_id: project_id, ref: ref}))
 
         {:error, reason} ->
           # A project that fails to reset or intake is released rather
-          # than left dangling `:active` — the next `provision/1` call
-          # reclaims it (this module's own moduledoc).
+          # than left dangling `:provisioning` — the next `provision/1`
+          # call reclaims it (this module's own moduledoc).
           Store.release_test_project(project_id)
           error_response(conn, 502, reason)
       end
