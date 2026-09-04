@@ -2173,6 +2173,15 @@ generating as scope-runs inside one ticket.
   test flow ever minted gets no row here at all rather than a row
   reading some `:ordinary` placeholder no code reads yet.
 
+  **This record widens by one column under ORC-223: `stub_mode`
+  (boolean, not null, default `true`)** — whether a test project is a
+  test project and whether its dispatches skip the model are two
+  different questions, and collapsing them into one (ORC-223's own
+  first draft did, off this field's presence alone) would stub the
+  Phase-5 proof run along with the toy chain. `systems/generation.md`'s
+  ORC-223 entry states the policy this column exists to carry and who
+  sets it to what.
+
   **At most one active, by construction of the mint operation, not a
   checked constraint.** `Store.mint_test_project/1` performs both
   halves of "provisioning a new one releases whichever was active" —
@@ -2220,6 +2229,18 @@ generating as scope-runs inside one ticket.
   `SETUP.md`'s required-env manifest gains the line) and compared
   constant-time (`Plug.Crypto.secure_compare/2`, a dependency this
   tree already carries via `:plug`).
+
+  **Considered and left out of ORC-223's scope: a fourth operation
+  enumerating test projects.** All three existing operations take the
+  `project_id` an operator is trying to discover in the first place, so
+  finding the currently-active one during the incident this ticket
+  responds to meant grepping the runtime log for `sweepable_project?/1`'s
+  own query — a real operator hole, raised on this ticket's own review
+  thread. It stays open rather than folded in here: ORC-223's own scope
+  is the redispatch-loop safety property and the two mechanisms that
+  make the live suite runnable without leaking, and a list/enumerate
+  operation is orthogonal to both — nothing above depends on it existing
+  or is harder to build for its absence. Left for a ticket of its own.
 
   **Considered and rejected: reusing the dispatch-facing OIDC
   verification** (v5 §7.12.1, this doc's ORC-9 entry). `Oidc.verify/4`
@@ -2345,18 +2366,21 @@ generating as scope-runs inside one ticket.
   the dispatch input — no new operation** (ORC-223,
   `systems/generation.md`'s companion entry states the policy).
   `ContextAssembly.build/4` sets it from `Catapult.Delivery
-  .stub_mode?/1`, the boundary export over `Store`'s project-lifecycle
-  read (ORC-216, above); `HostPort.Actions.dispatch_run/1` sends it as
-  the `workflow_dispatch` input's third field, stringified exactly like
-  `credential_order` already is (GitHub's own inputs are strings
+  .stub_mode?/1`, the boundary export over the new per-project
+  `stub_mode` column above; `HostPort.Actions.dispatch_run/1` sends it
+  as the `workflow_dispatch` input's third field, stringified exactly
+  like `credential_order` already is (GitHub's own inputs are strings
   regardless of the workflow's declared `type:`). Fixture push gets the
   same treatment `reset_repo/2`'s `files` map already gives every other
-  pushed path: `ToySeed.reset_files/0` widens to include the nine
-  root_tag-keyed stub fixtures under a repo-relative namespace this
-  entry names so dev has no path to invent —
-  `.catapult-stub/<root_tag>.xml` — chosen for being unambiguously not
-  under `docs/raft/**`, the one directory `read_directory/3` ever
-  walks.
+  pushed path: `ToySeed.reset_files/0` widens to push each of the nine
+  fixtures' *content* under a repo-relative path keyed by that
+  fixture's own `root_tag` — not its checked-in filename, which matches
+  the `root_tag` for only four of the nine
+  (`systems/generation.md`'s companion entry names the mapping and
+  which five don't) — under a namespace this entry names so dev has no
+  path to invent — `.catapult-stub/<root_tag>.xml` — chosen for being
+  unambiguously not under `docs/raft/**`, the one directory
+  `read_directory/3` ever walks.
 
 ## Initial vs target
 

@@ -588,16 +588,26 @@ and validation logic and must not fork it.
   channel, and stub mode is exactly the same shape — plane-decided,
   per-dispatch, visible in the run's own log.
 
-  `stub_mode` is `true` iff `Catapult.Delivery`'s own project-lifecycle
-  record (ORC-216) holds a row for `project_id` at all — the same
-  predicate `sweepable_project?/1`'s own moduledoc already states half
-  of ("a test project whose recorded state is `:active`"), read one
-  level up: a project is a test project, active or otherwise, iff
-  `delivery_projects` names it. No second flag is added to carry the
-  same fact a different way — stub mode's whole purpose is a live suite
-  that runs repeatedly without model spend, which is precisely the
-  population `delivery_projects` already tracks, and nothing else needs
-  it.
+  **`stub_mode` is a per-project opt-in, not a fact of being a test
+  project** (design review correction — the first draft of this entry
+  read it off `delivery_projects` row existence alone, which would have
+  stubbed every test-project dispatch unconditionally, Waypoint's
+  Phase-5 proof run included, defeating the one proof
+  `docs/build-plan.md`'s Phase 5 exit criterion needs to run for real).
+  Test-project status and stub status are two different questions —
+  "is this project reclaimable by the milestone cadence" and "should
+  its dispatches skip the model" — and the lifecycle record now answers
+  both, as two independent fields rather than one collapsed into the
+  other: `delivery_projects` gains `stub_mode` (boolean, not null,
+  default `true` at the column). `POST /dispatch/test-project` (the
+  provisioning surface's mint operation, above) takes an optional
+  `stub_mode` field in its JSON body and `Store.mint_test_project/1`
+  widens to accept and persist it; omitting it keeps today's toy-chain
+  behavior unchanged. `ToySeedChainLiveTest` sends no such field and
+  gets stub dispatches by the column default, exactly as it does today;
+  `TodoAppProofLiveTest` sends `stub_mode: false` and its dispatches run
+  the real model. `Catapult.Delivery.stub_mode?/1` reads this column,
+  not row presence.
 
   When set, the harness skips "Install Claude Code" and "Run the
   agent" entirely and reports the fixture matching the context
@@ -610,14 +620,63 @@ and validation logic and must not fork it.
   `"review"` — the nine fixtures already checked into
   `test/catapult/generation/fixtures/toy_seed/` (one per generation
   tier the toy chain exercises, plus the one shared
-  `review_approve.xml`) are exactly this shape already: a tier-keyed
-  mapping would need eight redundant copies of a review fixture that a
-  root_tag-keyed one gives for free. `ToySeed.reset_files/0` pushes
-  them to the bound repo under paths named for their `root_tag`
-  (`systems/delivery.md`'s companion entry names the path), never under
-  `docs/raft/**` — the raft's own registered discovery directory
+  `review_approve.xml`) carry the right content but not, for five of
+  the nine, a filename matching the `root_tag` they need to be looked
+  up by (design review correction — the first draft of this entry
+  claimed otherwise, and a dev pass told so would have pushed them
+  under their existing names and missed the lookup on exactly the tier
+  `ToySeedChainLiveTest` dispatches first). The mapping, checked against
+  each tier's own `root_tag:` in `bundles/default/tiers/*.yaml` and
+  each fixture's own root element:
+
+  | fixture (as checked in) | its `root_tag` |
+  | --- | --- |
+  | `comparch.xml` | `comparch` |
+  | `feature_expansion.xml` | `feature-expansion` |
+  | `impl.xml` | `implementation` |
+  | `ref.xml` | `reference` |
+  | `requirements.xml` | `requirements` |
+  | `review_approve.xml` | `review` |
+  | `subcomparch.xml` | `subcomparch` |
+  | `sysarch.xml` | `sysarch` |
+  | `vocab.xml` | `vocab-entry` |
+
+  `ToySeed.reset_files/0` pushes each fixture's *content* to the bound
+  repo under a path named for its `root_tag` from this table — not
+  under the fixture's own checked-in filename —
+  `.catapult-stub/<root_tag>.xml` (`systems/delivery.md`'s companion
+  entry names the path convention), never under `docs/raft/**` — the
+  raft's own registered discovery directory
   (`Catapult.Delivery.intake_raft/2`) — so pushed stub content is never
-  mistaken for raft input.
+  mistaken for raft input. `impl_ui`, `impl_backend` and `impl_screen`
+  all declare `root_tag: implementation`, so `impl.xml`'s single push to
+  `.catapult-stub/implementation.xml` already serves every one of the
+  three — the same collapse that motivates keying by `root_tag` at all
+  applies a second time inside `impl`, not only across the review
+  tiers.
+- **`ToySeedChainLiveTest`'s poll deadline has to fit inside ExUnit's
+  own per-test timeout, and today it doesn't** (design review finding,
+  ORC-223). `@poll_deadline` is `:timer.minutes(15)`; the test carries
+  no `@tag timeout:`, so ExUnit's own default (60s) kills the test
+  process first, on every run, before the deadline it wrote for itself
+  ever has a chance to fire — the timeout observed in live-suite run
+  23. `after release!(...)` never runs on that kill, which is the
+  reason the incident's test project stayed `:active` after the suite
+  had already given up. Two figures need setting together, not one:
+  under the stub-mode default this same entry restores above, a
+  dispatched run skips the two steps ("Install Claude Code", "Run the
+  agent") that the 15-minute figure was sized for, and reaches terminal
+  in however long a GitHub-hosted runner takes to queue, start and run
+  a checkout plus a report call — order of tens of seconds, not
+  minutes. `@poll_deadline` shrinks to `:timer.minutes(2)`, generous
+  room over a cold runner start; the test itself gains an explicit
+  `@tag timeout: :timer.minutes(3)`, wider than the deadline it bounds
+  so the assertion failure path (a real `flunk/1`) is what ends the
+  test on a genuine timeout, never ExUnit's own kill — which is what
+  restores the `after` block's own guarantee, since an `after` runs on
+  a normal exit or an assertion failure and never on an ExUnit-timeout
+  kill. `TodoAppProofLiveTest` is unaffected: it dispatches with
+  `stub_mode: false` and does not poll.
 
 ## Initial vs target
 
