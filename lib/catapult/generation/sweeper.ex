@@ -20,8 +20,11 @@ defmodule Catapult.Generation.Sweeper do
   **Honours the test-project lifecycle** (ORC-216, `systems/delivery
   .md`'s ORC-216 entry): a project id `Catapult.Delivery
   .sweepable_project?/1` answers `false` for — a released or deleted
-  test project — is skipped outright, upstream of the tier walk, so a
-  debugging session never has the chain move under it.
+  test project, or one still `:provisioning` (ORC-224 — minted, not
+  yet safe to dispatch against) — is skipped outright, upstream of the
+  tier walk, so a debugging session never has the chain move under it,
+  and neither does a tick landing while `Provisioning.provision/1` is
+  still writing the project's own fixture content.
 
   Only `generator: "llm"` tiers dispatch through this executor
   (`systems/generation.md`'s own scope: agent-dispatch generation).

@@ -459,7 +459,10 @@ and validation logic and must not fork it.
   `true` for a project id naming no row in `delivery_projects` at all
   (an ordinary, non-test project — none exist yet, and the predicate
   is written to hold once one does) and for a test project whose
-  recorded state is `:active`; `false` for `:released` or `:deleted`.
+  recorded state is `:active`; `false` for `:provisioning`, `:released`
+  or `:deleted` (`:provisioning` added by ORC-224, below — a test
+  project reads unsweepable from the moment it is minted, not only
+  once released or deleted).
   This is a read, not new sweeper state — neither process holds any
   memory of what it last enqueued, and `Catapult.Delivery` stays the
   one state of record for the lifecycle.
@@ -720,6 +723,38 @@ and validation logic and must not fork it.
   a normal exit or an assertion failure and never on an ExUnit-timeout
   kill. `TodoAppProofLiveTest` is unaffected: it dispatches with
   `stub_mode: false` and does not poll.
+- **A dispatch can beat provisioning itself, not only beat a release**
+  (ORC-224 — `systems/delivery.md`'s companion entry states the
+  mechanism and the state-machine change). ORC-216's own lifecycle
+  guard closed the window after a test project stops being current;
+  live-suite run 25 found the window *before* it starts current: the
+  sweeper's tick interval runs independently of
+  `Provisioning.reset_and_intake/2`'s own write — one Contents-API
+  `PUT` per entry in the caller's `files` map
+  (`HostPort.Actions.put_all_files/2`; seventeen of them for
+  `ToySeed.reset_files/0`'s own map, the live suite's own seed) — so a
+  tick landing inside it dispatches against a repo missing whichever
+  piece hasn't landed yet: the workflow file, a stub, or the raft.
+  Runs 866–869 dispatched at heads `d2e0f8cc` and `37733f90`, by which
+  point eight or nine of the nine stub fixtures had already pushed —
+  what was still missing was the workflow file and the seven raft
+  docs. The missing workflow file is what the dispatched runs
+  actually hit: they executed the pre-#144 harness and died at the
+  report step with
+  `FileNotFoundError: context.json`, one to two seconds before the fix
+  reached the repo. `sweepable_project?/1`'s own body
+  (`Catapult.Delivery.Store.sweepable_project?/1`) is already a
+  catch-all — `%Project{test_project_state: :active} -> true`,
+  `%Project{} -> false` — so a `:provisioning` row falls to the
+  `false` clause with no edit to the function; the only code this
+  needs is `:provisioning` joining the schema's own `Ecto.Enum,
+  values:` list (`systems/delivery.md`'s entry above already covers
+  this, and without it the row fails to load regardless). That is
+  also why neither sweep site needed a second fix: both
+  `Sweeper.sweep_project/2` and `DispatchWorker`'s own
+  `still_sweepable/1` re-validation already read `sweepable_project?/1`
+  rather than holding a cached readiness bit, so widening the schema's
+  value list is the whole of it.
 
 ## Initial vs target
 
