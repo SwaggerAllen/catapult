@@ -77,14 +77,6 @@ jobs:
             core.setSecret(token)
             core.setOutput('token', token)
 
-      - name: Fetch the rendered context
-        id: context
-        run: |
-          curl -fsSL \
-            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
-            "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
-            -o context.json
-
       # Not conditioned on stub_mode (ORC-223, systems/generation.md's
       # ORC-223 entry): a real run needs the identical working copy for
       # its own eventual commit step once dispatched runs write to
@@ -93,8 +85,24 @@ jobs:
       # pushed here. Default ref is the branch workflow_dispatch fired
       # against — the same branch reset_repo/2 just committed the
       # fixture to, so there is no second writer to race.
+      #
+      # **Before the context fetch, not after it.** actions/checkout
+      # cleans the workspace before checking out (its own `clean`
+      # input, default true), so a checkout placed after the fetch
+      # deletes the context.json that fetch just wrote there — every
+      # dispatch then died with `FileNotFoundError: context.json` at
+      # the report step, before it could read anything. Anything this
+      # job writes into the workspace has to land after this step.
       - name: Check out the bound repo
         uses: actions/checkout@v4
+
+      - name: Fetch the rendered context
+        id: context
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
+            -o context.json
 
       - name: Install Claude Code
         if: inputs.stub_mode != 'true'
