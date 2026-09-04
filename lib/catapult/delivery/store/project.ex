@@ -7,6 +7,11 @@ defmodule Catapult.Delivery.Store.Project do
   swept again) or `:deleted` (terminal; the row survives as a
   tombstone so a project id is never reused). A project no test flow
   ever minted gets no row here at all.
+
+  `stub_mode` (ORC-223, `systems/generation.md`'s ORC-223 entry) is a
+  second, independent question from test-project status: whether this
+  project's dispatches skip the model. Defaults `true` at the column,
+  set per project at mint time (`Store.mint_test_project/2`).
   """
 
   use Ecto.Schema
@@ -15,6 +20,7 @@ defmodule Catapult.Delivery.Store.Project do
 
   schema "delivery_projects" do
     field :test_project_state, Ecto.Enum, values: [:active, :released, :deleted]
+    field :stub_mode, :boolean, default: true
 
     timestamps(type: :utc_datetime_usec, updated_at: :updated_at)
   end

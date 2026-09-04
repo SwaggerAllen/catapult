@@ -24,23 +24,51 @@ defmodule Catapult.ToySeed do
     capability_inventories forward_strategies
   )
 
+  # Every tier's own `root_tag` => the fixture file that carries it
+  # (ORC-223, `systems/generation.md`'s ORC-223 entry) — keyed by
+  # `root_tag`, not by the fixture's own checked-in filename, since the
+  # two differ for five of the nine (`bundles/default/tiers/*.yaml`'s
+  # own `root_tag:` values). `impl.xml` serves `implementation` for all
+  # three `impl_*` tiers, which all declare that same `root_tag`.
+  @root_tag_fixtures %{
+    "comparch" => "comparch.xml",
+    "feature-expansion" => "feature_expansion.xml",
+    "implementation" => "impl.xml",
+    "reference" => "ref.xml",
+    "requirements" => "requirements.xml",
+    "review" => "review_approve.xml",
+    "subcomparch" => "subcomparch.xml",
+    "sysarch" => "sysarch.xml",
+    "vocab-entry" => "vocab.xml"
+  }
+
   @doc "Every registered input role's fixture document, keyed by role name."
   @spec role_docs() :: %{String.t() => String.t()}
   def role_docs, do: for(role <- @roles, into: %{}, do: {role, File.read!(doc_path(role))})
 
   @doc """
   Repo-relative path => content for `Catapult.Delivery.HostPort.reset_repo/2`:
-  the workflow file at the path GitHub itself requires, plus every
-  role doc filed under `docs/raft/`, the intake raft's registered
-  discovery path (ORC-107, `systems/delivery.md`) — fixture content
-  only, per the port's own contract (`lib/catapult/delivery/host_port.ex`).
+  the workflow file at the path GitHub itself requires, every role doc
+  filed under `docs/raft/`, the intake raft's registered discovery path
+  (ORC-107, `systems/delivery.md`) — fixture content only, per the
+  port's own contract (`lib/catapult/delivery/host_port.ex`) — and, as
+  of ORC-223, every stub fixture under `.catapult-stub/<root_tag>.xml`,
+  never under `docs/raft/**` so pushed stub content is never mistaken
+  for raft input.
   """
   @spec reset_files() :: %{String.t() => String.t()}
   def reset_files do
     role_files =
       for {role, content} <- role_docs(), into: %{}, do: {"docs/raft/#{role}.md", content}
 
-    Map.put(role_files, ".github/workflows/catapult-dispatch.yml", File.read!(workflow_path()))
+    stub_files =
+      for {root_tag, filename} <- @root_tag_fixtures, into: %{} do
+        {".catapult-stub/#{root_tag}.xml", File.read!(Path.join(@fixture_dir, filename))}
+      end
+
+    role_files
+    |> Map.merge(stub_files)
+    |> Map.put(".github/workflows/catapult-dispatch.yml", File.read!(workflow_path()))
   end
 
   defp doc_path(role), do: Path.join(@fixture_dir, "#{role}.md")

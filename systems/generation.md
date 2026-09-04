@@ -494,6 +494,237 @@ and validation logic and must not fork it.
   which would reverse that dependency and close the cycle `mix xref
   graph --format cycles --fail-above 0` refuses.
 
+- **A fourth re-validation closes the loop the other three couldn't
+  see: an in-flight guard, derived rather than held** (ORC-223).
+  ORC-216's `still_sweepable/1` catches a released test project;
+  `still_ready/4` catches a scope that already committed or fell off
+  the ready set; `not_blocked/3` catches a scope that keeps
+  limit-class-failing. None of the three answers "is a dispatch for
+  this exact scope already running" — the failure mode 574 dispatch
+  runs on `SwaggerAllen/catapult-test` in twenty minutes actually was,
+  and every one of them slipped past all three because each looked
+  ready, unblocked and sweepable on its own terms every time it was
+  re-checked. `DispatchWorker.perform/1` gains a fourth check, placed
+  first — it needs nothing `still_ready/4` and `not_blocked/3` resolve
+  a node to answer, only the job's own `project_id`/`tier`/`scope_key`
+  args: skip if `delivery_dispatch_runs` already holds a
+  **non-terminal** row (`status` in `:dispatched`/`:context_fetched`)
+  for this `(project_id, tier, scope_key)`, dispatched within the last
+  `dispatch_stale_after_ms` — a new `tunable`, the same
+  accepted-for-now config-constant shape `sweep_interval_ms` above
+  already carries (`GENERATION_DISPATCH_STALE_AFTER_MS`, default
+  `10800000` — three hours). The query itself is delivery's own
+  (`systems/delivery.md`'s companion entry states the mechanism); this
+  entry states the policy.
+
+  **Age, not held state, is what frees a wedged scope** — the same
+  "derived from the log, never held" discipline the limit-class-failure
+  count above already uses, for the identical reason: a counter or a
+  status flip this worker would have to remember to clear is exactly
+  the in-plane pending-set both this system's "holds no state" bullet
+  and that log-derived-count entry already refuse. A genuinely dead run
+  (a crashed runner, a network partition that ate the final report, an
+  expired OIDC token on the last call) ages out of the guard's own
+  window on its own, without anything writing to the stale row — the
+  next sweep tick simply dispatches a fresh one for the same scope once
+  the cutoff passes, with no distinct "abandoned" state anything has to
+  invent, notice or reap.
+
+  **The cutoff, argued rather than picked.** The harness's own
+  worst-case wall clock for a *legitimate* run is bounded, not
+  open-ended, once this ticket's other two parts land. The run-agent
+  step tries up to two credentials, each bounded at the existing 1800s
+  subprocess timeout (`catapult-dispatch.yml`); a credential that
+  itself hits that timeout reports `other_failure` and does not fail
+  over (the harness's own exception handler `break`s rather than
+  `continue`s), so the only path that reaches a `:success` outcome
+  costs at most two such windows — 3600s. A `:success` outcome that
+  then fails grammar validation retries in the report step, bounded at
+  two further attempts (the entry below), each against that same 1800s
+  timeout — up to another 3600s. 7200s (two hours) is the harness's own
+  ceiling for a run that ends in `:success`; three hours is that
+  ceiling with room for GitHub's own queue/startup delay before the job
+  even begins running, not a second independent guess.
+- **The harness's own report step bounds its grammar-retry loop and
+  always reaches terminal** (ORC-223, making good on
+  `Dispatch.simulate_result/2`'s own comment that "a further
+  `report_result/2` call for the same `run_key` is expected next" — a
+  promise the harness never actually kept until now). Only a
+  `:success` report that the grammar rejects stays in flight
+  (`Catapult.Delivery.Dispatch`'s own `mark_failure/3` clauses — a
+  `:limit_class_failure`/`:other_failure` report always completes
+  today, unaffected by this entry); the four reasons `report_result/2`
+  answers 422 for are exactly the grammar-class failures named in
+  `Catapult.Delivery.Dispatch`'s `status_for/1` (`schema_invalid`,
+  `malformed_xml`, `root_tag_mismatch`, `schema_not_found`), and none
+  of the others (`missing_bearer`, `run_not_found`, a repository/run-id
+  mismatch) is fixable by asking the agent to resubmit — the harness
+  does not retry those, and a run that fails one of them still ends
+  non-terminal exactly as today, which is what the in-flight guard
+  above exists to bound regardless of cause.
+
+  On a 422 whose body decodes to one of the four grammar reasons, the
+  report step re-invokes the agent — same credential, no failover
+  (grammar rejection is not a usage signal), the same 1800s subprocess
+  timeout as the original call, prompted with the original rendered
+  prompt plus the decoded error appended as a corrective turn — and
+  reports again. Bounded at two such retries (three submission attempts
+  total): enough for a shape mistake to self-correct without turning
+  one rejected report into the open-ended loop this same ticket exists
+  to close. Exhausting the bound reports `other_failure` with
+  `reason: "grammar_retries_exhausted"`, the same shape every other
+  classified outcome already reports in — no new status on
+  `DispatchRun`, no new branch in `Dispatch.simulate_result/2`, because
+  `other_failure` was already a terminal report before this entry.
+- **Stub mode is a per-dispatch workflow input, tied to test-project
+  state — never a repository variable on the fixture repo** (ORC-223,
+  author's decision). The alternative — a `vars.STUB_MODE` set once on
+  `SwaggerAllen/catapult-test` — is out-of-band state the plane doesn't
+  control per dispatch: it would apply to every future dispatch to that
+  repo regardless of which run needs it, and reading it back to know
+  whether a given run *was* stubbed would mean a second source of truth
+  beside `delivery_dispatch_runs`. A `workflow_dispatch` input costs
+  nothing new: `run_key` and `credential_order` already ride this
+  channel, and stub mode is exactly the same shape — plane-decided,
+  per-dispatch, visible in the run's own log.
+
+  **`stub_mode` is a per-project opt-in, not a fact of being a test
+  project** (design review correction — the first draft of this entry
+  read it off `delivery_projects` row existence alone, which would have
+  stubbed every test-project dispatch unconditionally, Waypoint's
+  Phase-5 proof run included, defeating the one proof
+  `docs/build-plan.md`'s Phase 5 exit criterion needs to run for real).
+  Test-project status and stub status are two different questions —
+  "is this project reclaimable by the milestone cadence" and "should
+  its dispatches skip the model" — and the lifecycle record now answers
+  both, as two independent fields rather than one collapsed into the
+  other: `delivery_projects` gains `stub_mode` (boolean, not null,
+  default `true` at the column). `POST /dispatch/test-project` (the
+  provisioning surface's mint operation, above) takes an optional
+  `stub_mode` field in its JSON body and `Store.mint_test_project/1`
+  widens to accept and persist it; omitting it keeps today's toy-chain
+  behavior unchanged. `ToySeedChainLiveTest` sends no such field and
+  gets stub dispatches by the column default, exactly as it does today;
+  `TodoAppProofLiveTest` sends `stub_mode: false` and its dispatches run
+  the real model. `Catapult.Delivery.stub_mode?/1` reads this column,
+  not row presence — and, for a project id holding no `delivery_projects`
+  row at all, answers `false`. That is the deliberate mirror of
+  `sweepable_project?/1`'s own no-row answer (`true`, above): no row is
+  the ordinary-project case for both predicates, but the two questions
+  they answer point opposite ways on it — an unbound project is
+  trivially sweepable (nothing exempts it) and must never dispatch
+  stubbed (nothing opts it in), so the same absence reads as `true` on
+  one and `false` on the other. Worth stating rather than leaving
+  implicit, since row presence is exactly the reading the first draft
+  of this entry got wrong in the other direction (the correction
+  above).
+
+  When set, the harness skips "Install Claude Code" and "Run the
+  agent" entirely and reports the fixture matching the context
+  response's own `root_tag` field — a field `fetch_context/2` already
+  returns (`Catapult.Delivery.Dispatch`) — as a `:success` outcome,
+  `credential_used: "stub"` (a plain string column,
+  `DispatchRun.credential_used`; no enum to widen). **Keyed by
+  `root_tag`, not by tier**, because `ContextAssembly.root_tag/1`
+  already collapses every reviewed tier's root_tag to the literal
+  `"review"` — the nine fixtures already checked into
+  `test/catapult/generation/fixtures/toy_seed/` (one per generation
+  tier the toy chain exercises, plus the one shared
+  `review_approve.xml`) carry the right content but not, for five of
+  the nine, a filename matching the `root_tag` they need to be looked
+  up by (design review correction — the first draft of this entry
+  claimed otherwise, and a dev pass told so would have pushed them
+  under their existing names and missed the lookup on exactly the tier
+  `ToySeedChainLiveTest` dispatches first). The mapping, checked against
+  each tier's own `root_tag:` in `bundles/default/tiers/*.yaml` and
+  each fixture's own root element:
+
+  | fixture (as checked in) | its `root_tag` |
+  | --- | --- |
+  | `comparch.xml` | `comparch` |
+  | `feature_expansion.xml` | `feature-expansion` |
+  | `impl.xml` | `implementation` |
+  | `ref.xml` | `reference` |
+  | `requirements.xml` | `requirements` |
+  | `review_approve.xml` | `review` |
+  | `subcomparch.xml` | `subcomparch` |
+  | `sysarch.xml` | `sysarch` |
+  | `vocab.xml` | `vocab-entry` |
+
+  `ToySeed.reset_files/0` pushes each fixture's *content* to the bound
+  repo under a path named for its `root_tag` from this table — not
+  under the fixture's own checked-in filename —
+  `.catapult-stub/<root_tag>.xml` (`systems/delivery.md`'s companion
+  entry names the path convention), never under `docs/raft/**` — the
+  raft's own registered discovery directory
+  (`Catapult.Delivery.intake_raft/2`) — so pushed stub content is never
+  mistaken for raft input. `impl_ui`, `impl_backend` and `impl_screen`
+  all declare `root_tag: implementation`, so `impl.xml`'s single push to
+  `.catapult-stub/implementation.xml` already serves every one of the
+  three — the same collapse that motivates keying by `root_tag` at all
+  applies a second time inside `impl`, not only across the review
+  tiers.
+
+  **The harness gains a checkout step it does not have today, or the
+  fixture above is unreachable** (design review finding, ORC-223).
+  `catapult-dispatch.yml`'s recorded steps — mint an OIDC token, fetch
+  the rendered context, install Claude Code, run the agent, report the
+  result — never check out the bound repo, so nothing on the runner's
+  filesystem holds the `.catapult-stub/<root_tag>.xml` content
+  `ToySeed.reset_files/0` just pushed there: a stub-mode run's own
+  report step would be reading an empty workspace. Author's decision:
+  the harness runs `actions/checkout` against the repo the workflow is
+  already executing in, as a new step positioned immediately after
+  "Fetch the rendered context" and before "Install Claude Code" — early
+  enough that the fixture is on disk before "Report the result" reads
+  it, and not conditioned on `stub_mode` at all, because a non-stub run
+  needs the identical working copy for its own eventual commit step
+  once dispatched runs write to branches (the "runner's checkout is the
+  working copy" bullet at the top of this doc already assumes one
+  exists). The step earns its place beyond stub mode for that reason,
+  not only stub mode's. No new workflow input: the default checkout ref
+  is the branch `workflow_dispatch` fired against, the same branch
+  `reset_repo/2` — the only writer to this repo while a test project is
+  active (`systems/delivery.md`'s "at most one active" invariant) — just
+  committed the fixture to, so there is no second writer for this step
+  to race.
+
+  **Considered and rejected: returning the stub body inside the context
+  response instead of pushing it to the repo**, which would have
+  removed the fixture push, this checkout step and the
+  `.catapult-stub/` namespace together. Rejected because the checkout
+  is not a cost stub mode introduces — a real run needs one regardless
+  — so a checkout-free retrieval path built for stub mode alone would
+  leave two mechanisms doing the one thing the harness needs on every
+  dispatch, stubbed or not.
+
+  This is what the poll-deadline entry below means by "a checkout plus
+  a report call": until this entry, that phrase named a step the
+  recorded workflow did not actually have.
+- **`ToySeedChainLiveTest`'s poll deadline has to fit inside ExUnit's
+  own per-test timeout, and today it doesn't** (design review finding,
+  ORC-223). `@poll_deadline` is `:timer.minutes(15)`; the test carries
+  no `@tag timeout:`, so ExUnit's own default (60s) kills the test
+  process first, on every run, before the deadline it wrote for itself
+  ever has a chance to fire — the timeout observed in live-suite run
+  23. `after release!(...)` never runs on that kill, which is the
+  reason the incident's test project stayed `:active` after the suite
+  had already given up. Two figures need setting together, not one:
+  under the stub-mode default this same entry restores above, a
+  dispatched run skips the two steps ("Install Claude Code", "Run the
+  agent") that the 15-minute figure was sized for, and reaches terminal
+  in however long a GitHub-hosted runner takes to queue, start and run
+  a checkout plus a report call — order of tens of seconds, not
+  minutes. `@poll_deadline` shrinks to `:timer.minutes(2)`, generous
+  room over a cold runner start; the test itself gains an explicit
+  `@tag timeout: :timer.minutes(3)`, wider than the deadline it bounds
+  so the assertion failure path (a real `flunk/1`) is what ends the
+  test on a genuine timeout, never ExUnit's own kill — which is what
+  restores the `after` block's own guarantee, since an `after` runs on
+  a normal exit or an assertion failure and never on an ExUnit-timeout
+  kill. `TodoAppProofLiveTest` is unaffected: it dispatches with
+  `stub_mode: false` and does not poll.
+
 ## Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,

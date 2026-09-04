@@ -19,6 +19,18 @@ defmodule Catapult.Generation.DispatchWorker do
   re-renders its context walk and starts clean (v5 §7.15's third
   invariant); this worker holds nothing between attempts beyond what
   Oban itself retries with.
+
+  **A fourth re-validation, placed first** (ORC-223,
+  `systems/generation.md`'s ORC-223 entry): skip if a dispatch for this
+  exact `(project_id, tier, scope_key)` is already in flight and not
+  yet stale (`Catapult.Delivery.in_flight_dispatch?/4`). Unlike the
+  other three, it needs nothing a resolved node answers — only the
+  job's own args — which is what a real run's own wall clock could
+  otherwise slip past every one of: `still_sweepable/1`, `still_ready/4`
+  and `not_blocked/3` each re-check a *hint*, but none of them holds
+  the notion of "a run for this scope is already running," which is
+  exactly the gap a rejected report leaving a run non-terminal for its
+  whole retry window falls through.
   """
 
   use Oban.Worker,
@@ -39,7 +51,8 @@ defmodule Catapult.Generation.DispatchWorker do
   def perform(%Oban.Job{
         args: %{"project_id" => project_id, "tier" => tier, "scope_key" => scope_key}
       }) do
-    with :ok <- still_sweepable(project_id),
+    with :ok <- not_in_flight(project_id, tier, scope_key),
+         :ok <- still_sweepable(project_id),
          {:ok, loaded} <- Dsl.load(Config.fetch!(:generation, :bundles_root)),
          {:ok, node} <- still_ready(loaded.chain, project_id, tier, scope_key),
          :ok <- not_blocked(project_id, node, tier),
@@ -52,6 +65,23 @@ defmodule Catapult.Generation.DispatchWorker do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # ORC-223: the fourth re-validation, placed first — needs only the
+  # job's own args, since a resolved node answers nothing this check
+  # asks. Derived from the log, never held (this module's own
+  # moduledoc): a genuinely dead run ages out of the cutoff on its own,
+  # with nothing writing to the stale row to make that happen.
+  defp not_in_flight(project_id, tier, scope_key) do
+    cutoff =
+      Config.fetch!(:generation, :clock).utc_now()
+      |> DateTime.add(-Config.fetch!(:generation, :dispatch_stale_after_ms), :millisecond)
+
+    if Delivery.in_flight_dispatch?(project_id, tier, scope_key, cutoff) do
+      {:skip, {:in_flight, project_id, tier, scope_key}}
+    else
+      :ok
     end
   end
 

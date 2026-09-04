@@ -176,9 +176,13 @@ defmodule Catapult.Delivery.Store do
   (`systems/delivery.md`'s ORC-216 entry): both halves land in one
   transaction, so no window exists where two rows read `:active` at
   once.
+
+  `stub_mode` (ORC-223) is a per-project opt-in, independent of
+  test-project status — defaults `true`, the toy-chain's own unchanged
+  behavior; the Phase-5 proof run passes `false` explicitly.
   """
-  @spec mint_test_project(binary()) :: Project.t()
-  def mint_test_project(project_id) do
+  @spec mint_test_project(binary(), boolean()) :: Project.t()
+  def mint_test_project(project_id, stub_mode \\ true) do
     {:ok, project} =
       Repo.transaction(fn ->
         Repo.update_all(
@@ -187,7 +191,7 @@ defmodule Catapult.Delivery.Store do
         )
 
         %Project{project_id: project_id}
-        |> Ecto.Changeset.change(%{test_project_state: :active})
+        |> Ecto.Changeset.change(%{test_project_state: :active, stub_mode: stub_mode})
         |> Repo.insert!()
       end)
 
@@ -264,6 +268,44 @@ defmodule Catapult.Delivery.Store do
       %Project{test_project_state: :active} -> true
       %Project{} -> false
     end
+  end
+
+  @doc """
+  Whether `project_id`'s dispatches should skip the model (ORC-223,
+  `systems/generation.md`'s ORC-223 entry) — a per-project opt-in read
+  off the column, never off row presence. `false` for a project with
+  no `delivery_projects` row at all: the deliberate mirror of
+  `sweepable_project?/1`'s own no-row answer, `true` — the two
+  predicates read the same absence in opposite directions, since an
+  unbound project is trivially sweepable but must never dispatch
+  stubbed.
+  """
+  @spec stub_mode?(binary()) :: boolean()
+  def stub_mode?(project_id) do
+    case Repo.get(Project, project_id) do
+      nil -> false
+      %Project{stub_mode: stub_mode} -> stub_mode
+    end
+  end
+
+  @doc """
+  Whether a non-terminal dispatch already exists for this exact
+  `(project_id, tier, scope_key)`, dispatched at or after `cutoff` —
+  the in-flight guard's own query (ORC-223, `systems/generation.md`'s
+  companion entry: `DispatchWorker`'s fourth re-validation). Age, not
+  held state, is what frees a wedged scope: a matching row older than
+  `cutoff` answers `false` regardless of its status, with nothing
+  writing to it to make that happen.
+  """
+  @spec in_flight_dispatch?(binary(), String.t(), map(), DateTime.t()) :: boolean()
+  def in_flight_dispatch?(project_id, tier, scope_key, cutoff) do
+    DispatchRun
+    |> where(
+      [r],
+      r.project_id == ^project_id and r.tier == ^tier and r.scope_key == ^scope_key and
+        r.status in [:dispatched, :context_fetched] and r.inserted_at >= ^cutoff
+    )
+    |> Repo.exists?()
   end
 
   ## Draft bodies (the review-tier `draft` variable's own cache — see the owning migration)

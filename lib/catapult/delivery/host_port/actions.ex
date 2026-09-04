@@ -102,7 +102,8 @@ defmodule Catapult.Delivery.HostPort.Actions do
   def dispatch_run(request) do
     with {:ok, binding} <- fetch_binding(request.project_id),
          run_key = Ecto.UUID.generate(),
-         {:ok, _resp} <- trigger_workflow(binding, run_key, request.credential_names) do
+         {:ok, _resp} <-
+           trigger_workflow(binding, run_key, request.credential_names, request.stub_mode) do
       Store.insert_dispatch_run(%{
         id: run_key,
         project_id: request.project_id,
@@ -128,7 +129,11 @@ defmodule Catapult.Delivery.HostPort.Actions do
     end
   end
 
-  defp trigger_workflow(binding, run_key, credential_names) do
+  # `stub_mode` rides the same channel `credential_order` already does
+  # — a `workflow_dispatch` input, stringified regardless of GitHub's
+  # own declared `type:` (ORC-223, `systems/delivery.md`'s ORC-223
+  # entry: "no second source of truth beside `delivery_dispatch_runs`").
+  defp trigger_workflow(binding, run_key, credential_names, stub_mode) do
     workflow_file = Config.fetch!(:delivery, :dispatch_workflow_file)
     ref = Config.fetch!(:delivery, :dispatch_ref)
 
@@ -142,7 +147,11 @@ defmodule Catapult.Delivery.HostPort.Actions do
         headers: [{"accept", "application/vnd.github+json"}],
         json: %{
           ref: ref,
-          inputs: %{run_key: run_key, credential_order: Enum.join(credential_names, ",")}
+          inputs: %{
+            run_key: run_key,
+            credential_order: Enum.join(credential_names, ","),
+            stub_mode: to_string(stub_mode)
+          }
         }
       )
 

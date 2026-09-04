@@ -73,7 +73,7 @@ defmodule Catapult.Generation.TodoAppProofLiveTest do
     provisioned =
       Req.post!(base <> "/dispatch/test-project",
         headers: headers,
-        json: %{files: TodoAppSeed.reset_files()},
+        json: %{files: TodoAppSeed.reset_files(), stub_mode: false},
         retry: false,
         receive_timeout: @request_timeout,
         connect_options: [timeout: @request_timeout]
