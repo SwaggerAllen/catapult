@@ -242,6 +242,24 @@ defmodule Catapult.Delivery do
   @spec sweepable_project?(binary()) :: boolean()
   def sweepable_project?(project_id), do: Store.sweepable_project?(project_id)
 
+  @doc """
+  Whether `project_id`'s dispatches should skip the model — the
+  per-project stub-mode opt-in's own read (`Catapult.Delivery.Store
+  .stub_mode?/1`, ORC-223).
+  """
+  @spec stub_mode?(binary()) :: boolean()
+  def stub_mode?(project_id), do: Store.stub_mode?(project_id)
+
+  @doc """
+  Whether a dispatch is already in flight for this exact
+  `(project_id, tier, scope_key)` at or after `cutoff` —
+  `Catapult.Generation.DispatchWorker`'s fourth re-validation
+  (`Catapult.Delivery.Store.in_flight_dispatch?/4`, ORC-223).
+  """
+  @spec in_flight_dispatch?(binary(), String.t(), map(), DateTime.t()) :: boolean()
+  def in_flight_dispatch?(project_id, tier, scope_key, cutoff),
+    do: Store.in_flight_dispatch?(project_id, tier, scope_key, cutoff)
+
   @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Dispatch.fetch_context/2`."
   @spec fetch_context(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   defexport(fetch_context(conn, run_key), do: Dispatch.fetch_context(conn, run_key))

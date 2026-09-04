@@ -31,6 +31,17 @@ defmodule Catapult.Generation do
       # plane-state/bindings storage exists anywhere in this codebase
       # yet to hold a true per-instance tunable.
       {:sweep_interval_ms, "GENERATION_SWEEP_INTERVAL_MS", cast: :integer, default: "10000"},
+      # The in-flight guard's own staleness cutoff (ORC-223,
+      # `systems/generation.md`'s ORC-223 entry): a non-terminal
+      # dispatch run older than this frees its scope for a fresh
+      # dispatch, the same accepted-for-now config-constant shape
+      # `sweep_interval_ms` above already carries. Three hours is the
+      # harness's own worst-case wall clock for a legitimate run once
+      # this ticket's other two parts land (two credential attempts at
+      # 1800s each, plus up to two grammar-retry attempts at 1800s
+      # each), with room for GitHub's own queue/startup delay.
+      {:dispatch_stale_after_ms, "GENERATION_DISPATCH_STALE_AFTER_MS",
+       cast: :integer, default: "10800000"},
       # The bindings entry for the `:generation` kind (v5 §7.10,
       # generalized here — `systems/generation.md`'s ORC-215 entry):
       # which agent implementation runs every generation dispatch,

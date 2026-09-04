@@ -468,4 +468,103 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.sweepable_project?("tp5") == false
     end
   end
+
+  describe "stub_mode (ORC-223)" do
+    test "an ordinary project (no row at all) is never stub mode" do
+      assert Store.stub_mode?("no-such-project") == false
+    end
+
+    test "mint_test_project/2 defaults to stub mode true" do
+      Store.mint_test_project("tp-stub-default")
+      assert Store.stub_mode?("tp-stub-default") == true
+    end
+
+    test "mint_test_project/2 persists an explicit stub_mode" do
+      Store.mint_test_project("tp-stub-false", false)
+      assert Store.stub_mode?("tp-stub-false") == false
+    end
+  end
+
+  describe "in_flight_dispatch?/4 (ORC-223)" do
+    defp seed_dispatch_run(project_id, tier, scope_key) do
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: project_id,
+        node_id: "n1",
+        tier: tier,
+        scope_key: scope_key,
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+    end
+
+    test "false with no dispatch run at all" do
+      refute Store.in_flight_dispatch?("no-such-project", "vocab", %{}, ~U[2020-01-01 00:00:00Z])
+    end
+
+    test "true for a non-terminal run at or after the cutoff" do
+      seed_dispatch_run("p-inflight", "vocab", %{"id" => "auth"})
+
+      assert Store.in_flight_dispatch?(
+               "p-inflight",
+               "vocab",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+    end
+
+    test "false once the run completes" do
+      run_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run_key,
+        project_id: "p-done",
+        node_id: "n1",
+        tier: "vocab",
+        scope_key: %{"id" => "auth"},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      Store.complete_dispatch_run(run_key, :completed, :success, "claude_code_oauth_token")
+
+      refute Store.in_flight_dispatch?(
+               "p-done",
+               "vocab",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+    end
+
+    test "false once the row ages past the cutoff" do
+      seed_dispatch_run("p-stale", "vocab", %{"id" => "auth"})
+
+      future_cutoff = DateTime.add(DateTime.utc_now(), 3600, :second)
+      refute Store.in_flight_dispatch?("p-stale", "vocab", %{"id" => "auth"}, future_cutoff)
+    end
+
+    test "neither a different scope_key nor a different tier bleeds in" do
+      seed_dispatch_run("p-scoped", "vocab", %{"id" => "auth"})
+
+      refute Store.in_flight_dispatch?(
+               "p-scoped",
+               "vocab",
+               %{"id" => "other"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+
+      refute Store.in_flight_dispatch?(
+               "p-scoped",
+               "sysarch",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+    end
+  end
 end
