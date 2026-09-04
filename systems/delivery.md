@@ -2192,17 +2192,21 @@ generating as scope-runs inside one ticket.
   ORC-223 entry states the policy this column exists to carry and who
   sets it to what.
 
-  **At most one active, by construction of the mint operation, not a
-  checked constraint.** `Store.mint_test_project/1` performs both
-  halves of "provisioning a new one releases whichever was active" —
-  flip every currently-`:active` row to `:released`, insert the new
-  row `:active` — before either half is visible to a second reader, so
-  no window exists where two rows read `:active` at once. No unique
-  partial index enforces this: nothing but the boundary's own
-  milestone-cadence live suite calls this operation, and it never
-  calls it twice without the prior call's release/delete cycle having
-  already run, so a concurrent second mint is not a case this system
-  defends against.
+  **At most one active-or-provisioning, by construction of the mint
+  operation, not a checked constraint.** `Store.mint_test_project/2`
+  performs both halves of "provisioning a new one releases whichever
+  was active or still provisioning" — flip every row currently
+  `:active` or `:provisioning` to `:released`, insert the new row
+  `:provisioning` (promoted to `:active` only once `reset_and_intake
+  /2` succeeds — ORC-224, below) — before either half is visible to a
+  second reader, so no window exists where two rows read `:active` at
+  once, and none where a row a crashed provisioning attempt stranded
+  at `:provisioning` survives a fresh mint unreleased (ORC-224, below,
+  states the failure shape this reclaims). No unique partial index
+  enforces this: nothing but the boundary's own milestone-cadence live
+  suite calls this operation, and it never calls it twice without the
+  prior call's release/delete cycle having already run, so a
+  concurrent second mint is not a case this system defends against.
 
   **`:deleted` is terminal and the row survives it.** Deleting a test
   project purges every row keyed by this `project_id` in every
@@ -2401,9 +2405,14 @@ generating as scope-runs inside one ticket.
   a single fixture file was written, `sweepable_project?/1` reads
   `:active` as sweepable, and `Catapult.Generation.Sweeper` ticks on a
   fixed interval with no knowledge of `reset_and_intake/2`'s own
-  progress — so any tick landing inside that 17-commit write dispatches
-  against a repo that is only partly written, whichever piece hasn't
-  landed yet: the workflow file, a stub, or the raft.
+  progress — so any tick landing inside that write (one Contents-API
+  `PUT` per entry in the caller's `files` map,
+  `HostPort.Actions.put_all_files/2` — seventeen of them for
+  `ToySeed.reset_files/0`'s own map: nine `.catapult-stub/*.xml`, the
+  workflow file, seven `docs/raft/*.md`; eight for
+  `Catapult.TodoAppSeed.reset_files/0`'s) dispatches against a repo
+  that is only partly written, whichever piece hasn't landed yet: the
+  workflow file, a stub, or the raft.
 
   `test_project_state` gains a fourth value, `:provisioning` —
   "minted, not yet safe to dispatch against" — ordered ahead of
@@ -2418,20 +2427,35 @@ generating as scope-runs inside one ticket.
   non-test project) — the new value is a row, not an absence, so the
   reading it protects never sees it.
 
-  **`release_test_project/1` widens its matched state set to
-  `[:active, :provisioning]`.** `provision/1`'s existing failure branch
-  already calls it unconditionally when `reset_and_intake/2` returns
-  `{:error, reason}` (this doc's own entry above: "a project that fails
-  to reset or intake is released rather than left dangling `:active`")
-  — before this entry that call matched only an `:active` row, and
-  every such failure now happens before promotion, so the row would
-  strand at `:provisioning`: invisible to `list_released_test_projects
-  /0`, which the next `provision/1` call's own reclaim step reads, and
-  so never reclaimed. Widening the match is the whole fix — no second
-  code path, no new caller. `delete_test_project/1` needs no matching
-  change: it already transitions `delivery_projects`'s own row to
-  `:deleted` unconditionally on `project_id` alone, filtering on no
-  current state, `:provisioning` included.
+  **Two widenings, not one, because `reset_and_intake/2` fails in two
+  shapes and one caller only catches one of them.** A returned
+  `{:error, reason}` still runs `provision/1`'s existing failure
+  branch, which calls `release_test_project/1` unconditionally on the
+  row it just minted (this doc's own entry above: "a project that
+  fails to reset or intake is released rather than left dangling
+  `:active`") — before this entry that call matched only an `:active`
+  row, and every such failure now happens before promotion, so
+  `release_test_project/1` widens its matched state set to `[:active,
+  :provisioning]`. A *raised* failure — `reset_and_intake/2`'s last
+  step, `Store.pin_input_documents/3`, is `Repo.insert!/1` in a loop
+  over the raft, and a `DBConnection.ConnectionError` there propagates
+  straight out of `provision/1` past that branch entirely, a measured
+  failure mode on this cluster rather than a hypothetical one — leaves
+  the row at `:provisioning` with no caller left to release it.
+  Nothing catches that shape at the call site, so the reclaim has to
+  happen off a later `provision/1` call instead: this doc's own "at
+  most one active-or-provisioning" entry above already states
+  `mint_test_project/2`'s own pre-mint update flips a stranded
+  `:provisioning` row to `:released` exactly as it already flips a
+  stranded `:active` one, so the *next* `provision/1` call's own
+  reclaim step (`list_released_test_projects/0` → `delete_test_project
+  /1`, run before that call's own mint) still deletes it — self-healing
+  exactly as an ordinary missed release already does. Neither widening
+  alone covers both shapes; `delete_test_project
+  /1` needs no matching change of its own, since it already transitions
+  `delivery_projects`'s own row to `:deleted` unconditionally on
+  `project_id` alone, filtering on no current state, `:provisioning`
+  included.
 
   **Reusing `:released` for this state is rejected**, for two reasons
   this doc's own `list_released_test_projects/0` and
@@ -2442,6 +2466,18 @@ generating as scope-runs inside one ticket.
   `release_test_project/1`'s own no-op-outside-`:active` guard would
   silently stop the failure path above from working the moment
   `:active` stopped being the state a fresh mint starts in.
+
+  **Five more sites state today's three-value set in prose and take
+  the same amendment, named rather than left for the next pass to find
+  piecemeal**: `Catapult.Delivery.Store.Project`'s moduledoc (the
+  `:active`/`:released`/`:deleted` enumeration, stated above its own
+  `Ecto.Enum, values:` list), `Store.sweepable_project?/1`'s `@doc`
+  (the same enumeration), `Store.release_test_project/1`'s `@doc`
+  ("a no-op if `project_id` is not currently `:active`"),
+  `Store.mint_test_project/2`'s `@doc` (its own "at most one active"
+  statement, whose mechanism this entry's companion above changes),
+  and `Catapult.Generation.Sweeper`'s moduledoc ("a released or
+  deleted test project").
 
 ## Initial vs target
 

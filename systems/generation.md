@@ -729,18 +729,24 @@ and validation logic and must not fork it.
   guard closed the window after a test project stops being current;
   live-suite run 25 found the window *before* it starts current: the
   sweeper's tick interval runs independently of
-  `Provisioning.reset_and_intake/2`'s own 17-commit write, so a tick
-  landing between `mint_test_project/2` (which used to set `:active`
-  immediately) and that write's last commit dispatched against
-  `SwaggerAllen/catapult-test` while it still held the *previous*
-  `catapult-dispatch.yml` and none of `ToySeed.reset_files/0`'s
-  content — the run that executed the pre-#144 harness and died at the
-  report step with `FileNotFoundError: context.json`, one to two
-  seconds before the fix reached the repo. `sweepable_project?/1`'s own
-  entry above already states the fix as a predicate change
-  (`:provisioning` joins `:released`/`:deleted` as unsweepable); this
-  entry is the reason a predicate change was enough — both sweep
-  sites (`Sweeper.sweep_project/2`, and `DispatchWorker`'s own
+  `Provisioning.reset_and_intake/2`'s own write — one Contents-API
+  `PUT` per entry in the caller's `files` map
+  (`HostPort.Actions.put_all_files/2`; seventeen of them for
+  `ToySeed.reset_files/0`'s own map, the live suite's own seed) — so a
+  tick landing inside it dispatches against a repo missing whichever
+  piece hasn't landed yet: the workflow file, a stub, or the raft.
+  Runs 866–869 dispatched at heads `d2e0f8cc` and `37733f90`, by which
+  point eight or nine of the nine stub fixtures had already pushed —
+  what was still missing was the workflow file and the seven raft
+  docs, not "none of `ToySeed.reset_files/0`'s content." The missing
+  workflow file is what the dispatched runs actually hit: they
+  executed the pre-#144 harness and died at the report step with
+  `FileNotFoundError: context.json`, one to two seconds before the fix
+  reached the repo. `sweepable_project?/1`'s own entry above already
+  states the fix as a predicate change (`:provisioning` joins
+  `:released`/`:deleted` as unsweepable); this entry is the reason a
+  predicate change was enough — both sweep sites
+  (`Sweeper.sweep_project/2`, and `DispatchWorker`'s own
   `still_sweepable/1` re-validation) already read `sweepable_project?/1`
   rather than holding a cached readiness bit, so neither needed a
   second fix once the predicate itself covered the new state.
