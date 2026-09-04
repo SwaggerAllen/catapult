@@ -1,12 +1,16 @@
 defmodule Catapult.ToySeed do
   @moduledoc """
   Fixture-file access for the toy-seed chain tests (ORC-10): the
-  per-role input documents and the bound repo's workflow file, read
-  from disk on every call rather than embedded as string literals, so
-  a reviewer reads the actual fixture content in its own file under
-  `test/catapult/generation/fixtures/toy_seed/` (generation's file
-  map — this module itself lives in `test/support/**`, foundation's,
-  since it is shared harness code rather than fixture content).
+  per-role input documents, the stub tier bodies and the bound repo's
+  workflow file, read from disk on every call rather than embedded as
+  string literals, so a reviewer reads the actual fixture content in
+  its own file — this raft's own under
+  `test/catapult/generation/fixtures/toy_seed/`, the workflow file one
+  level up at `test/catapult/generation/fixtures/catapult-dispatch.yml`
+  because it is shared with `Catapult.TodoAppSeed` (all of it
+  generation's file map — this module itself lives in
+  `test/support/**`, foundation's, since it is shared harness code
+  rather than fixture content).
 
   These are exactly the roles named across the design corpus
   (dsl-syntax.md §7.2's examples, v5-design-decisions.md's "the intake
@@ -18,6 +22,13 @@ defmodule Catapult.ToySeed do
   """
 
   @fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures", "toy_seed"])
+
+  # The harness is raft-independent — `Catapult.TodoAppSeed` pushes the
+  # identical file to the identical path in the identical bound repo —
+  # so it lives beside the raft directories rather than inside this
+  # one, and both seeds read the single copy (the file's own header
+  # carries why duplicating it was a trap).
+  @shared_fixture_dir Path.join([__DIR__, "..", "catapult", "generation", "fixtures"])
 
   @roles ~w(
     project_doc non_goals behavior_docs mocks invariants
@@ -72,5 +83,5 @@ defmodule Catapult.ToySeed do
   end
 
   defp doc_path(role), do: Path.join(@fixture_dir, "#{role}.md")
-  defp workflow_path, do: Path.join(@fixture_dir, "catapult-dispatch.yml")
+  defp workflow_path, do: Path.join(@shared_fixture_dir, "catapult-dispatch.yml")
 end

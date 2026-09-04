@@ -415,16 +415,6 @@ and validation logic and must not fork it.
   test that could run offline tagged to run less often instead is
   worse than an empty gate, because it reports as coverage).
 
-  `docs/chain-runbook.md`'s retirement (this same design pass) leaves
-  two references dangling in files outside `designOwnedPaths`, for
-  dev to repoint when this ticket's test work lands rather than
-  leave to be found later:
-  `test/catapult/generation/fixtures/toy_seed/catapult-dispatch.yml`'s
-  header comment, and `toy_seed_chain_live_test.exs`'s own moduledoc,
-  which names the runbook as the reason that test doesn't assert a
-  round trip — the reason still holds (above), only its citation is
-  stale.
-
 - **A test must be able to assert that a generated tier's rendered
   prompt reflects an `input.<role>` document, offline** (ORC-107,
   reversing what this entry recorded before intake existed — see the
@@ -674,11 +664,17 @@ and validation logic and must not fork it.
   `ToySeed.reset_files/0` just pushed there: a stub-mode run's own
   report step would be reading an empty workspace. Author's decision:
   the harness runs `actions/checkout` against the repo the workflow is
-  already executing in, as a new step positioned immediately after
-  "Fetch the rendered context" and before "Install Claude Code" — early
-  enough that the fixture is on disk before "Report the result" reads
-  it, and not conditioned on `stub_mode` at all, because a non-stub run
-  needs the identical working copy for its own eventual commit step
+  already executing in, as a new step positioned **before** "Fetch the
+  rendered context" — early enough that the fixture is on disk before
+  "Report the result" reads it, and ahead of the fetch because
+  `actions/checkout` cleans the workspace before checking out (its own
+  `clean` input, default true): placed after the fetch it deletes the
+  `context.json` that fetch just wrote there, which is exactly how
+  every dispatch in live-suite run 24 died, with
+  `FileNotFoundError: context.json` at the report step before it could
+  read anything. Anything this job writes into the workspace lands
+  after this step. Not conditioned on `stub_mode` at all, because a
+  non-stub run needs the identical working copy for its own commit step
   once dispatched runs write to branches (the "runner's checkout is the
   working copy" bullet at the top of this doc already assumes one
   exists). The step earns its place beyond stub mode for that reason,

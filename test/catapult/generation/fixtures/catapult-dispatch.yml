@@ -1,26 +1,40 @@
-# Fixture, not a live workflow file (ORC-112, `docs/build-plan.md`'s
-# Phase 5 exit criterion): reviewed here, in the plane's own repo, and
-# pushed verbatim to the bound fixture repo (SwaggerAllen/catapult-test)
-# by `Catapult.Delivery.Provisioning`'s `provision/1` (the same
-# `reset_repo/2` call `Catapult.ToySeed`'s own copy of this file
-# already goes through) — never placed at a real
-# `.github/workflows/**` path in *this* repo, because that path is
-# author-owned by GitHub's own rule (no `workflow` scope on an agent's
-# push token) regardless of what the file inside it is for
-# (`systems/README.md`).
+# Fixture, not a live workflow file (ORC-10): reviewed here, in the
+# plane's own repo, and pushed verbatim to the bound fixture repo
+# (SwaggerAllen/catapult-test) by `Catapult.Delivery.HostPort`'s
+# `reset_repo/2` — never placed at a real `.github/workflows/**` path
+# in *this* repo, because that path is author-owned by GitHub's own
+# rule (no `workflow` scope on an agent's push token) regardless of
+# what the file inside it is for (`systems/README.md`).
 #
-# Byte-identical to `test/catapult/generation/fixtures/toy_seed
-# /catapult-dispatch.yml` on purpose: this is the bound repo's half of
-# the dispatch-facing host port (`systems/generation.md`,
-# `systems/delivery.md`; v5 §7.12.1), and nothing about it is
-# project-specific — every project bound to `catapult-test` pushes the
-# same contract. GitHub Actions triggers this on `workflow_dispatch`,
-# it fetches the rendered context from the plane over an
-# OIDC-authenticated call, runs Catapult's own runner harness with the
-# named model credential(s), and reports the result back the same way.
-# See `test/catapult/generation/todo_app_proof_live_test.exs` for the
-# provisioning call that pushes this file into the bound repo as part
-# of Waypoint's own raft.
+# **One harness, beside the rafts rather than inside one.** Both seeds
+# push this same file to the same path in the same bound repo —
+# `Catapult.ToySeed.reset_files/0` and `Catapult.TodoAppSeed
+# .reset_files/0` — so it is raft-independent and lives one level up
+# from either raft's own directory. It was briefly duplicated into
+# both (`fixtures/toy_seed/` and `fixtures/todo_app/`), which is worse
+# than it sounds: the copies write the *same* repo path, so whichever
+# seed provisioned last silently decided which harness catapult-test
+# carried, and a divergence between them would have had the toy chain
+# running under the todo app's harness with nothing to say so. One
+# copy removes the question.
+#
+# This is the target project's half of the dispatch-facing host port
+# (`systems/generation.md`, `systems/delivery.md`; v5 §7.12.1):
+# GitHub Actions triggers this on `workflow_dispatch`, it fetches the
+# rendered context from the plane over an OIDC-authenticated call,
+# runs Catapult's own runner harness — reversed from ORC-9's reading
+# that the harness was orchestration's pinned dependency
+# (`systems/generation.md`'s ORC-215 entry: orchestration delivers
+# Catapult, it participates in none of Catapult's own mechanisms) —
+# with the named model credential(s), and reports the result back the
+# same way. Claude Code is the first agent implementation; the
+# run-agent step below is the only implementation-specific piece (v5
+# §7.12.1: "a new bindings entry and zero protocol or bundle change")
+# — everything around it is the fixed contract: fetch context, run
+# agent, report. See `test/catapult/generation/toy_seed_chain_test.exs`
+# (offline) and `toy_seed_chain_live_test.exs` (`:live`) for how this
+# fits into a run — Catapult's own surface drives one for real (v5
+# §7.17); there is no hand-driven runbook anymore (ORC-36 retired it).
 name: catapult-dispatch
 run-name: "catapult dispatch: ${{ inputs.run_key }}"
 
@@ -75,14 +89,6 @@ jobs:
             core.setSecret(token)
             core.setOutput('token', token)
 
-      - name: Fetch the rendered context
-        id: context
-        run: |
-          curl -fsSL \
-            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
-            "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
-            -o context.json
-
       # Not conditioned on stub_mode (ORC-223, systems/generation.md's
       # ORC-223 entry): a real run needs the identical working copy for
       # its own eventual commit step once dispatched runs write to
@@ -91,8 +97,24 @@ jobs:
       # pushed here. Default ref is the branch workflow_dispatch fired
       # against — the same branch reset_repo/2 just committed the
       # fixture to, so there is no second writer to race.
+      #
+      # **Before the context fetch, not after it.** actions/checkout
+      # cleans the workspace before checking out (its own `clean`
+      # input, default true), so a checkout placed after the fetch
+      # deletes the context.json that fetch just wrote there — every
+      # dispatch then died with `FileNotFoundError: context.json` at
+      # the report step, before it could read anything. Anything this
+      # job writes into the workspace has to land after this step.
       - name: Check out the bound repo
         uses: actions/checkout@v4
+
+      - name: Fetch the rendered context
+        id: context
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            "$CATAPULT_BASE_URL/dispatch/context/${{ inputs.run_key }}" \
+            -o context.json
 
       - name: Install Claude Code
         if: inputs.stub_mode != 'true'

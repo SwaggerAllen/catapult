@@ -62,10 +62,19 @@ generating as scope-runs inside one ticket.
   accept a dispatch to it at all, and no role in this pipeline has a
   route to author a file inside a *different* repository — that repo
   is out of every agent's reach by construction, not by refusal. So
-  the plane writes it there instead: the toy seed's per-role input
-  documents and `.github/workflows/catapult-dispatch.yml` live as
-  fixtures in *this* repo, reviewed like any other file, and `reset`
-  overwrites the bound repo's contents from them. `HostPort` gains
+  the plane writes it there instead: a seed's per-role input
+  documents and the workflow file it pushes to
+  `.github/workflows/catapult-dispatch.yml` live as fixtures in
+  *this* repo, reviewed like any other file, and `reset` overwrites
+  the bound repo's contents from them. **The workflow file is one
+  fixture shared by every seed**, at
+  `test/catapult/generation/fixtures/catapult-dispatch.yml` rather
+  than inside either raft's own directory beside it: `Catapult
+  .ToySeed.reset_files/0` and `Catapult.TodoAppSeed.reset_files/0`
+  push the same file to the same path in the same bound repo, so a
+  per-seed copy would leave whichever seed provisioned last silently
+  deciding which harness that repo carried (the fixture's own header
+  records this). `HostPort` gains
   this as a second callback alongside `dispatch_run/1`, and the fake
   implements it too, so the offline chain test exercises the same
   reset path rather than a live-only mechanism — the same "fake is

@@ -327,7 +327,7 @@ from tracker/host as signals before resuming authority).
 - **`SwaggerAllen/catapult-test` (the bound fixture repo — a
   *different* repository, its own Actions secrets) needs its own
   model credentials, the ones `catapult-dispatch.yml`'s `run-agent`
-  step reads (`test/catapult/generation/fixtures/toy_seed
+  step reads (`test/catapult/generation/fixtures
   /catapult-dispatch.yml`).** Actions secrets do not inherit across
   repos, and this repo's own `CLAUDE_CODE_OAUTH_TOKEN`/
   `ANTHROPIC_API_KEY` above (the ones this project's own agent jobs
