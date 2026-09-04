@@ -68,12 +68,24 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
   # The no-polling rule's named exception (`systems/foundation.md`):
   # an ordinary fixed interval, a bounded overall deadline, against a
-  # run this test call itself dispatched.
+  # run this test call itself dispatched. Sized for a stub-mode
+  # dispatch (ORC-223, `systems/generation.md`'s ORC-223 entry): under
+  # the stub default this project provisions with, a dispatched run
+  # skips "Install Claude Code" and "Run the agent" and reaches
+  # terminal in however long a GitHub-hosted runner takes to queue,
+  # start and run a checkout plus a report call — tens of seconds, not
+  # minutes.
   @poll_interval :timer.seconds(5)
-  @poll_deadline :timer.minutes(15)
+  @poll_deadline :timer.minutes(2)
 
   @entry_tier "feature_expansion"
 
+  # Wider than `@poll_deadline` so a genuine timeout ends the test via
+  # `flunk/1` — a real assertion failure — rather than ExUnit's own
+  # 60s default kill, which would skip the `after` block below and
+  # leave the test project `:active` forever (ORC-223, the incident
+  # this figure was originally sized against).
+  @tag timeout: :timer.minutes(3)
   test "provisions a test project through the deployed plane and drives a dispatched run end to end" do
     base = Application.fetch_env!(:catapult, :live_base_url)
     headers = [{"authorization", "Bearer #{provisioning_token()}"}]

@@ -63,11 +63,11 @@ defmodule Catapult.Delivery.Provisioning do
   def provision(conn) do
     with {:ok, conn} <- authenticate(conn),
          {:ok, raw, conn} <- read_body(conn),
-         {:ok, files} <- decode_files(raw) do
+         {:ok, files, stub_mode} <- decode_files(raw) do
       Store.list_released_test_projects() |> Enum.each(&Store.delete_test_project/1)
 
       project_id = Ecto.UUID.generate()
-      Store.mint_test_project(project_id)
+      Store.mint_test_project(project_id, stub_mode)
       Store.put_project_binding(project_id, @repo_owner, @repo_name)
 
       case reset_and_intake(project_id, files) do
@@ -101,11 +101,20 @@ defmodule Catapult.Delivery.Provisioning do
   # module's own `@raft_path` note on why.
   defp host_port_adapter, do: Config.fetch!(:delivery, :host_port_adapter)
 
+  # `stub_mode` is optional (ORC-223, `systems/generation.md`'s ORC-223
+  # entry): omitting it keeps today's toy-chain behavior — stubbed
+  # dispatches — unchanged; `TodoAppProofLiveTest` sends `false`
+  # explicitly to run the real model.
   defp decode_files(raw) do
     case Jason.decode(raw) do
-      {:ok, %{"files" => files}} when is_map(files) -> {:ok, files}
-      {:ok, _other} -> {:error, :missing_files}
-      {:error, _reason} -> {:error, :malformed_json}
+      {:ok, %{"files" => files} = payload} when is_map(files) ->
+        {:ok, files, Map.get(payload, "stub_mode", true)}
+
+      {:ok, _other} ->
+        {:error, :missing_files}
+
+      {:error, _reason} ->
+        {:error, :malformed_json}
     end
   end
 
