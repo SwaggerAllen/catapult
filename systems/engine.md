@@ -462,9 +462,9 @@ them.
   map-valued field's keys are compared in memory rather than dumped
   whole, it joins this class and this predicate widens to say so.
 
-  **`DraftCommitted` does not fail the way it first looked like it
-  would, and the record says the corrected mechanism rather than the
-  first guess:** `Commanded.Serialization.JsonSerializer.deserialize/2`
+  **`DraftCommitted` fails as `Ecto.ChangeError` one level in, not as
+  `KeyError`, because `keys: :atoms` reifies nested keys as well as
+  top-level ones:** `Commanded.Serialization.JsonSerializer.deserialize/2`
   only turns on `keys: :atoms` when its caller supplies a `type:`, and
   it is the caller, not this function, that "always" applies to —
   `EventStore.RecordedEvent.deserialize/2` calls it with
@@ -485,11 +485,11 @@ them.
   only once a committed draft's `mints`/`edges` are non-empty, which is
   why nothing has fired yet.
 
-  **The fix is one shared helper, not four bespoke decoders — and
-  `String.to_existing_atom/1` is only safe once whatever it calls
-  against already has the legal atoms in the runtime atom table
-  before decode runs, which an event module's own compiled form does
-  not.** `ContainerLifecycle`/`FeatureLifecycle` are each
+  **The fix is one shared helper, not four bespoke decoders, and it
+  resolves each value against the legal set `Ecto.Enum.values/2`
+  returns rather than against the runtime atom table — which an event
+  module's own compiled form does not populate with its legal
+  values.** `ContainerLifecycle`/`FeatureLifecycle` are each
   safe by the argument their own moduledocs give: the legal values are
   compile-time literals *in that module*, so they are in the atom
   table before any decode runs. An event module's `@type` spec is not
@@ -565,10 +565,10 @@ them.
   `Ecto.Enum.values/2` already returned (comparing each to
   `Atom.to_string/1`) and substitutes the matching atom it already
   holds. There is no separate lookup that could run before the
-  `values/2` call and reintroduce the `ArgumentError` the round-3 entry
-  above measured: the only atoms `decode/1` can ever produce are the
-  ones `values/2` just handed back, already resolved, so there is no
-  ordering for a later change to invert. When no match exists, `decode
+  `values/2` call and reintroduce the `ArgumentError` measured above:
+  the only atoms `decode/1` can ever produce are the ones `values/2`
+  just handed back, already resolved, so there is no ordering for a
+  later change to invert. When no match exists, `decode
   /1` leaves that field's value as the wire string, unchanged, rather
   than raising — the struct then reaches the `Store` call it always
   would have, meets the same uncasted `Ecto.Changeset.change/2` every
