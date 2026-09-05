@@ -721,13 +721,9 @@ and validation logic and must not fork it.
   quiescence" (`systems/delivery.md`'s entry — a quiet-since duration
   exceeding one full `GENERATION_SWEEP_INTERVAL_MS` tick plus a
   `@poll_interval` margin for that tick's own dispatch to land as a
-  visible row, not a fixed poll count, corrected twice on design
-  review: first from a fixed poll count that let the test release
-  before the sweeper's next tick had fired, then from a bare tick
-  interval that let it release before that tick's own dispatch had
-  become an observable row), which on a toy-seed project costs up to
-  two sequential rounds today — a tick-0 draft round and the review
-  round it unblocks — each round
+  visible row, not a fixed poll count), which on a toy-seed project
+  costs up to two sequential rounds today — a tick-0 draft round and
+  the review round it unblocks — each round
   bounded by one dispatch's own tens-of-seconds runner latency plus up
   to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
   `@poll_interval` (5s) row-visibility margin, for the sweeper to notice
@@ -812,14 +808,12 @@ and validation logic and must not fork it.
   it to regardless of who produces the body.
 
   The filename convention has two cases, not one, because a `root_tag`
-  is not always owned by a single tier (design review finding, ORC-225
-  round 1 — the single-convention statement this replaces held for
-  seven of the nine checked-in fixtures and broke on exactly the two it
-  leaned on hardest; round 2 corrected this entry's own count of that
-  single-tier group from "nineteen" to **twenty** — the 21 distinct
-  generation `root_tag`s minus the one collapsed among them
-  (`implementation`) is twenty, not nineteen, which double-counted
-  `review` out of the 21 it was never part of). For the twenty
+  is not always owned by a single tier: of the 21 distinct generation
+  `root_tag`s, twenty are declared by exactly one tier and the
+  twenty-first, `implementation`, is collapsed across the three
+  `impl_*` tiers — twenty single-tier `root_tag`s and two collapsed
+  ones (`implementation`, plus the eighteen review tiers' shared
+  `review`). For the twenty
   `root_tag`s each declared by exactly one tier, the filename is that
   tier's own bundle YAML basename
   with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →

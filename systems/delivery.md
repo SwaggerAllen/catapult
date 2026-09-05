@@ -2347,17 +2347,14 @@ generating as scope-runs inside one ticket.
   already knows without asking and an enumerating caller does not:
   `tier` and `root_tag`.
 
-  A read gains no route by existing (design review finding, ORC-225
-  round 1 — the first draft of this entry named the `Provisioning`
-  function and the `Store` query and stopped, which is two of the four
-  sites the route needs). `Catapult.Delivery` gains a **sixth**
-  `defexport` overall (design review finding, ORC-225 round 2 — the
-  prior draft called this same addition "a fifth `defexport`" here and
-  "the matching sixth entry" two sentences later; `Catapult.Delivery`
-  already carries five today — `fetch_context/2`, `report_result/2`,
+  A read gains no route by existing — the route needs four sites: the
+  `Provisioning` function and the `Store` query above, plus a
+  `defexport` and an `api_surface/0` entry, named here. `Catapult
+  .Delivery` gains a **sixth** `defexport` overall: it already carries
+  five today — `fetch_context/2`, `report_result/2`,
   `provision_test_project/1`, `release_test_project/2`,
   `test_project_dispatch_status/3` — all backing `api_surface/0`
-  entries, so the new one is the sixth, not the fifth).
+  entries.
   `test_project_dispatch_runs/2` delegates to `Provisioning.runs/2` in
   the same shape its three provisioning-family siblings already take
   (`provision_test_project/1`, `release_test_project/2`,
@@ -2380,15 +2377,15 @@ generating as scope-runs inside one ticket.
 
   The live test polls this read on its existing `@poll_interval`
   alongside the terminal-status poll it already runs. Quiescence is a
-  duration, not a poll count (design review finding, ORC-225 round 1 —
-  "two consecutive polls, five seconds apart" can and did read the run
-  set as complete before the sweeper's own next tick had a chance to
-  fire: walked against this entry's own two-round model, round 1's four
-  drafts reaching terminal at T reads quiescent at T+5s, up to 5s before
-  `GENERATION_SWEEP_INTERVAL_MS`'s 10s tick dispatches the review round
-  at all — releasing the project, and unsweeping it, before the second
-  round ever starts. That is run 26's own false green, reproduced by the
-  fix meant to close it). The test tracks a *quiet-since* timestamp
+  duration, not a poll count: a fixed poll count can be shorter than
+  the sweep interval it has to dominate — two polls just
+  `@poll_interval` (5s) apart can read the run set as complete before
+  `GENERATION_SWEEP_INTERVAL_MS`'s own next tick has a chance to fire.
+  Walked against this entry's own two-round model: round 1's four
+  drafts reaching terminal at T would read quiescent at T+5s under such
+  a rule, up to 5s before the 10s tick dispatches the review round at
+  all — releasing the project, and unsweeping it, before the second
+  round ever starts. The test tracks a *quiet-since* timestamp
   instead: the first poll whose run-id set matches the previous poll's,
   and where every run in that set has reached a terminal `status`
   (`completed` or `failed`), records `quiet_since`; every later poll
@@ -2396,20 +2393,18 @@ generating as scope-runs inside one ticket.
   terminality changes, clears `quiet_since` and starts over. The set is
   quiescent, and the test releases, once `quiet_since` is more than
   `GENERATION_SWEEP_INTERVAL_MS` **plus** `@poll_interval` (15s total)
-  in the past (design review finding, ORC-225 round 2 — a bare
-  `GENERATION_SWEEP_INTERVAL_MS` guarantees a tick has *fired*, not
-  that whatever it dispatched has become a *visible row*, and the test
-  only ever observes rows. `Sweeper` does nothing but enqueue an Oban
+  in the past. A bare `GENERATION_SWEEP_INTERVAL_MS` threshold would
+  guarantee only that a tick has *fired*, not that whatever it
+  dispatched has become a *visible row* — and the test only ever
+  observes rows. `Sweeper` does nothing but enqueue an Oban
   job; `DispatchWorker.perform/1` still has to run its four
   re-validations, a `Dsl.load` off disk and a full
   `ContextAssembly.build` before a `DispatchRun` row exists at all —
   plausibly one to three seconds after the tick that caused it. A tick
-  landing at `quiet_since + 9.9s`, just inside the old 10s window,
-  could write its row at `quiet_since + 11s`–`13s` — after a poll at
-  `+10s` had already declared the old, narrower set quiescent and
-  released the project, unsweeping it before that row ever lands. That
-  is run 26's own false green, reproduced one layer further in than
-  round 1's fix reached). The added `@poll_interval` (5s) is margin
+  landing just inside a bare `GENERATION_SWEEP_INTERVAL_MS` window
+  could write its row after a poll had already declared that narrower
+  set quiescent and released the project, unsweeping it before the row
+  ever lands. The added `@poll_interval` (5s) is margin
   against that one-to-three-second enqueue-to-row path — tied to a
   duration this test already names rather than a fresh constant, and
   comfortably above the estimate — so the guarantee now covers a tick
