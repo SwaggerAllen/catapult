@@ -406,6 +406,113 @@ them.
   registered beside the reducer; the log is never rewritten; replay
   fixtures retain every historical shape. Built into the ES family
   from the first event, because retrofit means a broken replay.
+- **Every atom an engine event carries needs a `JsonDecoder` on read,
+  and the class is exactly four events today, not one** (ORC-226,
+  design pass; the crash that found it: `Catapult.Engine.Projector`
+  raising `Ecto.ChangeError` on `ReviewWritten.kind` and taking the
+  reference instance down with it — a `Commanded.Event.Handler` with
+  no `error/3` stops on the first bad event, permanently, since it
+  re-reads the same event on every boot). `Catapult.Engine.EventStore`
+  sets `Commanded.Serialization.JsonSerializer` deliberately (its own
+  moduledoc: it round-trips atom-keyed struct fields, which the
+  library's default serializer does not attempt); `deserialize/2`
+  rebuilds the event via `struct/2` and then always runs
+  `Commanded.Serialization.JsonDecoder.decode/1` on the result — the
+  same mandatory second step `Catapult.Delivery.ContainerLifecycle`
+  and `Catapult.Delivery.FeatureLifecycle` already implement for their
+  own persisted state (ORC-120), and one this log had zero
+  implementations of, for any event, before this pass. `struct/2`
+  restores atom *keys*; it does nothing for a value that started life
+  as an atom and travelled the wire as a JSON string, and no consumer
+  downstream ever casts on read — every `Store` insert/upsert this
+  system makes goes through `Ecto.Changeset.change/2`, which performs
+  no casting, which is exactly why the defect surfaces as
+  `Ecto.ChangeError` against an `Ecto.Enum` column rather than a
+  silent coercion.
+
+  **The class, checked against every event this doc's file map owns,
+  not assumed from the one that fired:** four events carry a value the
+  reducer passes unchanged into a `Store` call backed by an
+  `Ecto.Enum` column — `ReviewWritten.kind` (`Store.Review.kind`),
+  `ActiveBundleFlipped.axis` (`Store.ActiveBundleVersion.axis`),
+  `FindingAdjudicated.disposition`
+  (`Store.ContainerFinding.disposition`), and `DraftCommitted
+  .mints[].status`/`.edge_type` and `.edges[].type` (`Store.Node
+  .status`, `Store.Edge.type`), the last landing through `Reducer
+  .apply_mint/2`'s and `.apply_declared_edge/2`'s own pass-through
+  `status:`/`type:` assignments. Every other atom- or `DateTime`-typed
+  field on an engine event either never reaches a `Store` call at all
+  (`DraftCommitted.committed_at` is read off the event but never
+  forwarded to `insert_draft/1`; `CommentPosted.posted_at` and
+  `RunFailed.occurred_at` fold through `apply/2` clauses that write no
+  projection row, by design, above) or is a plain string end to end
+  (every `reason`, every `gate`, every `type_name`) — this is the
+  whole set this pass found, not a sample of it.
+
+  **`DraftCommitted` does not fail the way it first looked like it
+  would, and the record says the corrected mechanism rather than the
+  first guess:** `Commanded.Serialization.JsonSerializer.deserialize/2`
+  always passes `type:`, which makes `Jason.decode!/2` run with
+  `keys: :atoms` — and that option threads through every nested object
+  Jason's own decoder parses, not only the struct's top level
+  (confirmed by reproducing the exact round trip against
+  `Catapult.Engine.Events.DraftCommitted`, not inferred from reading
+  the library). A `mint`'s `node_id`/`tier`/`edge_name` keys arrive as
+  atoms already; dot access on them does not raise `KeyError`. What
+  survives the wire wrong is the same failure the other three events
+  have, one level in: `mint.status`/`mint.edge_type` and `edge.type`
+  are JSON strings, `Reducer.apply_mint/2`/`.apply_declared_edge/2`
+  copy them unchanged into `Store.mint_node/1`/`.insert_edge/1`, and
+  both land on an `Ecto.Enum` column through the same uncasted
+  `Ecto.Changeset.change/2` — `Ecto.ChangeError`, not `KeyError`, and
+  only once a committed draft's `mints`/`edges` are non-empty, which is
+  why nothing has fired yet.
+
+  **The fix is one shared helper, not four bespoke decoders.**
+  `ContainerLifecycle`/`FeatureLifecycle` each hand-wrote their own
+  `JsonDecoder` because each has exactly one shape to repair
+  (`ContainerLifecycle`: one scalar atom field; `FeatureLifecycle`: one
+  nested struct field with its own `from_wire/1`). This class needs
+  the identical repair — `String.to_existing_atom/1` on a value the
+  module already knows the full legal set of, at compile time —
+  applied at four call sites, one of them a list of maps rather than a
+  scalar. `Catapult.Engine.Events.WireDecoding` (new,
+  `lib/catapult/engine/events/wire_decoding.ex`) carries that one
+  repair once, and a single `defimpl Commanded.Serialization
+  .JsonDecoder, for: [ReviewWritten, ActiveBundleFlipped,
+  FindingAdjudicated, DraftCommitted]` block in the same file gives
+  each struct its own `decode/1` clause built on it, rather than four
+  `defimpl` blocks scattered across the four event files repeating the
+  same three-line shape. This is a deliberate departure from where
+  `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
+  own file) — each of those is the only consumer of its own repair,
+  and this one repair has four.
+
+  **`Projector` keeps Commanded's default `error/3` (`:stop`),
+  unchanged — a decision, not an oversight.** A handler that skipped a
+  bad event instead would leave this doc's own "rebuild-from-zero...
+  must equal incremental state, always" quietly false for whatever
+  that event should have folded — worse than the crash-loop this pass
+  fixes, and this pass builds no mechanism yet (no alert, no
+  parked-event queue, no replay-from-here tool) to make a skip visible
+  rather than silent. The four decoders above remove the only known
+  way to reach a poison event today; a *different* future defect
+  reaching the same `:stop` is a real gap, but designing what a human
+  does about a skipped event is its own ticket, not a side effect of
+  this one.
+
+  **The round-trip gap stays closed the way `event_store_test.exs`'s
+  own moduledoc already says it opened**: `config/test.exs`'s
+  `Commanded.EventStore.Adapters.InMemory` performs no serialization at
+  all, so the default suite is structurally incapable of exercising
+  any `JsonDecoder`, this class or the next one.
+  `test/catapult/engine/event_store_test.exs` — the one test already
+  reaching the real, Postgres-backed adapter — gains one case per event
+  in the class above, each asserting the decoded struct's atom-typed
+  field is an atom, not the string `Jason` would otherwise leave it as;
+  `FlowCompleted`'s existing two-binary case stays, named in that
+  file's own moduledoc as "the single shape that could not have found
+  this," which stops being true only once these join it.
 - **The reducer resolves bundle semantics per event, from the log —
   never from whatever `core_dsl` currently has loaded.** The active
   bundle can flip mid-log, on either axis (v5 §6/§7.19;
