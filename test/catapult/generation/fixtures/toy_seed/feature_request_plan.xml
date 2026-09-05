@@ -1,0 +1,8 @@
+<feature-request-plan>
+  <argument>Link owners want to see how many clicks a short code has received without querying the database directly.</argument>
+  <feature>
+    <name>Click count lookup</name>
+    <intent>Let an owner read the current click count for a short code they created.</intent>
+  </feature>
+  <resolved>false</resolved>
+</feature-request-plan>

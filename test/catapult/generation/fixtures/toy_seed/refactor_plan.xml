@@ -1,0 +1,6 @@
+<refactor-plan>
+  <argument>cache_layer and lookup_engine currently share one process; splitting them lets the cache be swapped out without touching the authoritative lookup.</argument>
+  <scope>subcomparch's own process boundary only; no change to either subcomponent's public surface.</scope>
+  <rationale>cache_layer's own stubbed-grade declaration already commits to it being removable, and today it isn't, cleanly, because they share a process.</rationale>
+  <resolved>false</resolved>
+</refactor-plan>

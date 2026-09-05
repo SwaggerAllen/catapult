@@ -39,13 +39,23 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   `feature_expansion` — the toy chain's one entry tier — onto a real
   GitHub Actions run, that run installing Claude Code and running the
   pinned runner harness for real, and the result-report landing back
-  on the same database that issued the dispatch. The rest of the toy
-  chain (every tier past `feature_expansion`) is not driven here — how
-  far the sweeper is allowed to carry it before release is a cost
-  question this ticket's design pass named rather than answered
-  (`systems/delivery.md`'s ORC-216 entry), so this test releases its
-  project the moment it observes `feature_expansion`'s own dispatched
-  run reach a terminal status.
+  on the same database that issued the dispatch.
+
+  **How far the toy chain runs before release, and why every run gets
+  asserted rather than one** (ORC-216 named this cost question and
+  left it open; ORC-225 answers it — `systems/delivery.md`'s own
+  entry). This test no longer stops at `feature_expansion`'s own
+  terminal status: it polls `Provisioning.runs/2`
+  (`/dispatch/test-project/:project_id/runs`) until the whole run set
+  reaches *quiescence* — every run terminal, and the same run-id set
+  observed across two polls separated by more than one full
+  `GENERATION_SWEEP_INTERVAL_MS` tick plus this test's own
+  `@poll_interval` margin — then asserts every run individually,
+  rather than the one tier `@entry_tier` alone named before. Live-suite
+  run 26 is why: it read green with four of its five dispatched runs
+  red, because nothing polled the other four. No new dispatch
+  mechanism is added for this — `Catapult.Generation.Sweeper` runs
+  exactly as it does today; this test only widens what it *asserts on*.
 
   **Needs setup this environment cannot supply.** `DELIVERY_PROVISIONING_TOKEN`
   defaults to a fake string (`config/test.exs`) unless the live-suite
@@ -74,18 +84,36 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   # skips "Install Claude Code" and "Run the agent" and reaches
   # terminal in however long a GitHub-hosted runner takes to queue,
   # start and run a checkout plus a report call — tens of seconds, not
-  # minutes.
+  # minutes, for one dispatch.
   @poll_interval :timer.seconds(5)
-  @poll_deadline :timer.minutes(2)
+
+  # ORC-225 widens what this deadline has to cover, from one dispatch
+  # reaching terminal to the whole run set reaching quiescence
+  # (`systems/generation.md`'s own entry) — up to two sequential
+  # rounds on a toy-seed project today (a tick-0 draft round and the
+  # review round it unblocks), each bounded by one dispatch's own
+  # runner latency plus up to one sweep tick, plus this test's own
+  # `@quiescence_window` tail charged once per round.
+  @poll_deadline :timer.minutes(6)
 
   @entry_tier "feature_expansion"
+
+  # `GENERATION_SWEEP_INTERVAL_MS`'s own default
+  # (`lib/catapult/generation.ex`) plus `@poll_interval`'s own
+  # row-visibility margin (`systems/delivery.md`'s ORC-225 entry): a
+  # bare sweep-interval threshold would only guarantee a tick *fired*,
+  # not that whatever it dispatched had time to land as a visible row
+  # this test can observe — `DispatchWorker.perform/1` still has to
+  # run its re-validations, a `Dsl.load` and a full
+  # `ContextAssembly.build` before a row exists at all.
+  @quiescence_window :timer.seconds(10) + @poll_interval
 
   # Wider than `@poll_deadline` so a genuine timeout ends the test via
   # `flunk/1` — a real assertion failure — rather than ExUnit's own
   # 60s default kill, which would skip the `after` block below and
   # leave the test project `:active` forever (ORC-223, the incident
   # this figure was originally sized against).
-  @tag timeout: :timer.minutes(3)
+  @tag timeout: :timer.minutes(7)
   test "provisions a test project through the deployed plane and drives a dispatched run end to end" do
     base = Application.fetch_env!(:catapult, :live_base_url)
     headers = [{"authorization", "Bearer #{provisioning_token()}"}]
@@ -109,47 +137,92 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     assert %{"project_id" => project_id} = provisioned.body
 
     try do
-      terminal = poll_terminal_status!(base, headers, project_id, @entry_tier)
+      runs = poll_until_quiescent!(base, headers, project_id)
 
-      assert terminal["status"] == "completed",
-             "expected feature_expansion's dispatched run to complete, got: #{inspect(terminal)}"
+      assert Enum.any?(runs, &(&1["tier"] == @entry_tier)),
+             "expected #{@entry_tier}'s own dispatched run among the quiescent set, " <>
+               "got: #{inspect(runs)}"
 
-      assert terminal["outcome"] == "success",
-             "expected a successful outcome, got: #{inspect(terminal)}"
+      for run <- runs do
+        assert run["outcome"] == "success",
+               "expected every dispatched run to succeed, got: #{inspect(run)}"
 
-      assert is_binary(terminal["credential_used"]) and terminal["credential_used"] != "",
-             "expected a credential_used name, got: #{inspect(terminal)}"
+        assert is_binary(run["credential_used"]) and run["credential_used"] != "",
+               "expected a credential_used name, got: #{inspect(run)}"
 
-      assert is_binary(terminal["body_sha"]) and terminal["body_sha"] != "",
-             "expected the committed draft's body_sha, got: #{inspect(terminal)}"
+        assert is_binary(run["body_sha"]) and run["body_sha"] != "",
+               "expected the committed draft's body_sha, got: #{inspect(run)}"
+      end
     after
       release!(base, headers, project_id)
     end
   end
 
-  defp poll_terminal_status!(base, headers, project_id, tier) do
+  # Quiescence (`systems/delivery.md`'s ORC-225 entry): the first poll
+  # whose run-id set matches the previous poll's, with every run in
+  # that set terminal, opens the quiet window; any later poll that
+  # breaks either condition — a new run appears, or one drops out of
+  # the terminal set — closes it and starts over. The set is
+  # quiescent, and this returns it, once the window has stood open for
+  # more than `@quiescence_window`. An empty run set is never
+  # quiescent, however long it holds steady: a bare "the observed set
+  # is stable" check is vacuously true on a project the sweeper hasn't
+  # reached yet, which is exactly the shape of the bug this entry
+  # closes (a suite reading green because it polled nothing).
+  defp poll_until_quiescent!(base, headers, project_id) do
     deadline = System.monotonic_time(:millisecond) + @poll_deadline
-    poll_terminal_status!(base, headers, project_id, tier, deadline)
+    poll_until_quiescent!(base, headers, project_id, deadline, nil, nil)
   end
 
-  defp poll_terminal_status!(base, headers, project_id, tier, deadline) do
-    case Req.get(base <> "/dispatch/test-project/#{project_id}/status/#{tier}",
+  defp poll_until_quiescent!(base, headers, project_id, deadline, prev_ids, quiet_since) do
+    runs = fetch_runs!(base, headers, project_id)
+    ids = runs |> Enum.map(& &1["run_key"]) |> MapSet.new()
+    now = System.monotonic_time(:millisecond)
+    quiet_since = next_quiet_since(runs, ids, prev_ids, quiet_since, now)
+
+    decide_quiescence!(base, headers, project_id, deadline, runs, ids, quiet_since, now)
+  end
+
+  defp next_quiet_since(runs, ids, prev_ids, quiet_since, now) do
+    terminal? = runs != [] and Enum.all?(runs, &(&1["status"] in ["completed", "failed"]))
+    stable? = runs != [] and ids == prev_ids and terminal?
+
+    cond do
+      stable? and quiet_since -> quiet_since
+      stable? -> now
+      true -> nil
+    end
+  end
+
+  defp decide_quiescence!(base, headers, project_id, deadline, runs, ids, quiet_since, now) do
+    cond do
+      quiet_since && now - quiet_since >= @quiescence_window ->
+        runs
+
+      now >= deadline ->
+        flunk(
+          "timed out waiting for the dispatched run set to reach quiescence, " <>
+            "last observed: #{inspect(runs)}"
+        )
+
+      true ->
+        Process.sleep(@poll_interval)
+        poll_until_quiescent!(base, headers, project_id, deadline, ids, quiet_since)
+    end
+  end
+
+  defp fetch_runs!(base, headers, project_id) do
+    case Req.get(base <> "/dispatch/test-project/#{project_id}/runs",
            headers: headers,
            retry: false,
            receive_timeout: @request_timeout,
            connect_options: [timeout: @request_timeout]
          ) do
-      {:ok, %{status: 200, body: %{"status" => status} = body}}
-      when status in ["completed", "failed"] ->
-        body
+      {:ok, %{status: 200, body: runs}} when is_list(runs) ->
+        runs
 
-      _not_yet_terminal ->
-        if System.monotonic_time(:millisecond) >= deadline do
-          flunk("timed out waiting for #{tier}'s dispatched run to reach a terminal status")
-        else
-          Process.sleep(@poll_interval)
-          poll_terminal_status!(base, headers, project_id, tier, deadline)
-        end
+      other ->
+        flunk("failed to read the dispatch-run set for #{project_id}: #{inspect(other)}")
     end
   end
 

@@ -1,0 +1,51 @@
+<screen_collarch>
+  <technical-specification>A LiveView screen collection fronting link administration: one list view, one creation form, both reading and writing through link_admin's public surface only.</technical-specification>
+  <public-surface>Rendered routes /links and /links/new; no public API beyond the rendered pages themselves.</public-surface>
+  <private-surface>Internal form-state assigns; nothing another collection reads.</private-surface>
+  <failure-surface>A failed validation re-renders the form with the error inline; a failed retire redirects back to the list unchanged.</failure-surface>
+  <policies>Every mutating action confirms before it retires a link, since retirement is immediate and not soft-deleted.</policies>
+  <renders>
+    <dep to="link_admin_ui"/>
+  </renders>
+  <dependencies>
+    <dep to="link_admin"/>
+  </dependencies>
+  <journeys>
+    <journey ref="Create and monitor a link"/>
+  </journeys>
+  <subcomponents>
+    <subcomponent alias="link_list_live">
+      <name>LinkListLive</name>
+      <purpose>Lists every live link an owner has created.</purpose>
+      <owned-invariants>
+        <invariant>A retired link never appears in the list.</invariant>
+        <invariant>The list reflects a create or retire within one page load.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Render the current owner's live links.</operation>
+        <operation>Retire a link from the list.</operation>
+        <operation>Navigate to the creation form.</operation>
+      </primary-operations>
+      <responsibilities>Presents link_admin's own link inventory; owns no backend state itself.</responsibilities>
+      <implementation grade="real"/>
+    </subcomponent>
+    <subcomponent alias="link_create_live">
+      <name>LinkCreateLive</name>
+      <purpose>Takes a target URL and mints a short code for it.</purpose>
+      <owned-invariants>
+        <invariant>A submission with an invalid target URL never reaches link_admin.</invariant>
+        <invariant>A successful submission always redirects to the list.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Validate a target URL client-side before submit.</operation>
+        <operation>Submit a validated URL to link_admin.</operation>
+        <operation>Redirect to the list on success.</operation>
+      </primary-operations>
+      <responsibilities>Owns the creation form's own client-side validation only.</responsibilities>
+      <implementation grade="real"/>
+    </subcomponent>
+  </subcomponents>
+  <sub-dependencies>
+    <dep from="link_create_live" to="link_list_live"/>
+  </sub-dependencies>
+</screen_collarch>

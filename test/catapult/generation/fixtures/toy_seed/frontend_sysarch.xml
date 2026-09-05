@@ -1,0 +1,22 @@
+<frontend_sysarch>
+  <introduction>One UI collection fronting link administration; one screen collection hosting its two screens.</introduction>
+  <ui-collections>
+    <collection alias="link_admin_ui">
+      <name>LinkAdminUI</name>
+      <purpose>Create, list and retire short links.</purpose>
+    </collection>
+  </ui-collections>
+  <ui-dependencies/>
+  <screen-collections>
+    <collection alias="link_admin_screens">
+      <name>LinkAdminScreens</name>
+      <purpose>The owner-facing surface for managing short links.</purpose>
+      <ia-region>admin</ia-region>
+      <screens>
+        <screen ref="link_list"/>
+        <screen ref="link_create"/>
+      </screens>
+    </collection>
+  </screen-collections>
+  <screen-dependencies/>
+</frontend_sysarch>

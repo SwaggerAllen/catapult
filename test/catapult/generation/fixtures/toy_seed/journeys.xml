@@ -1,0 +1,21 @@
+<journeys>
+  <introduction>One journey: an owner creates a link and later checks on it.</introduction>
+  <journey>
+    <name>Create and monitor a link</name>
+    <argument>An owner needs to go from a target URL to a shareable short code, and back to its click count later.</argument>
+    <feats>
+      <feat id="target-validation"/>
+      <feat id="code-minting"/>
+    </feats>
+    <screens>
+      <screen slug="link_create"/>
+      <screen slug="link_list"/>
+    </screens>
+    <state>
+      <carries>The target URL the owner is creating a link for.</carries>
+      <creates>A new link row and its minted short code.</creates>
+      <completes>The owner has a shareable short code.</completes>
+      <abandonment>Closing the form before submitting mints nothing.</abandonment>
+    </state>
+  </journey>
+</journeys>
