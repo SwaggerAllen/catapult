@@ -717,16 +717,19 @@ and validation logic and must not fork it.
   reaches terminal in however long a GitHub-hosted runner takes to
   queue, start and run a checkout plus a report call — order of tens of
   seconds, not minutes, for one dispatch. ORC-225 widens what the test
-  waits for from "one dispatch reaches terminal" to "the run set
-  observes two consecutive quiet polls" (`systems/delivery.md`'s entry),
-  which on a toy-seed project costs up to two sequential rounds today —
-  a tick-0 draft round and the review round it unblocks — each round
+  waits for from "one dispatch reaches terminal" to "the run set reaches
+  quiescence" (`systems/delivery.md`'s entry — a quiet-since duration
+  exceeding one full `GENERATION_SWEEP_INTERVAL_MS` tick, not a fixed
+  poll count, corrected on design review after the fixed-count version
+  let the test release before the sweeper's next tick had fired), which
+  on a toy-seed project costs up to two sequential rounds today — a
+  tick-0 draft round and the review round it unblocks — each round
   bounded by one dispatch's own tens-of-seconds runner latency plus up
   to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick for the
   sweeper to notice the round before it. `@poll_deadline` widens to
   `:timer.minutes(6)` — two rounds at a generous per-round ceiling, plus
-  the quiescence check's own two-poll tail — and the test itself carries
-  `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
+  the quiescence check's own sweep-tick-plus tail — and the test itself
+  carries `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
   so the assertion failure path (a real `flunk/1`) is what ends the
   test on a genuine timeout, never ExUnit's own kill — which is what
   restores the `after` block's own guarantee, since an `after` runs on
@@ -798,16 +801,28 @@ and validation logic and must not fork it.
   *.xsd` — not an empty placeholder, since the plane validates a
   reported body against the tier's grammar exactly as it would a real
   model response, the schema a tier's own `draft:` block already commits
-  it to regardless of who produces the body. Its filename follows the
-  same convention the nine checked-in ones already show: the tier's own
-  bundle YAML basename with `.xml` in place of `.yaml`
-  (`bug_fix_plan.yaml` → `bug_fix_plan.xml`, `downward_propagation_plan
-  .yaml` → `downward_propagation_plan.xml`, and so on for the rest) — a
-  filename namespace that tracks the bundle's own tier names, which is
-  why it was never made to equal the differently-punctuated `root_tag`
-  namespace in the first place; `@root_tag_fixtures`'s value side is
-  exactly what translates between the two, for every entry, not only
-  the five original ones the correction above named.
+  it to regardless of who produces the body.
+
+  The filename convention has two cases, not one, because a `root_tag`
+  is not always owned by a single tier (design review finding, ORC-225
+  round 1 — the single-convention statement this replaces held for
+  seven of the nine checked-in fixtures and broke on exactly the two it
+  leaned on hardest). For the nineteen `root_tag`s each declared by
+  exactly one tier, the filename is that tier's own bundle YAML basename
+  with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →
+  `bug_fix_plan.xml`, `downward_propagation_plan.yaml` →
+  `downward_propagation_plan.xml`, and so on for the rest) — a filename
+  namespace that tracks the bundle's own tier names, which is why it was
+  never made to equal the differently-punctuated `root_tag` namespace in
+  the first place; `@root_tag_fixtures`'s value side is exactly what
+  translates between the two. For the two collapsed `root_tag`s —
+  `implementation` (`impl_backend.yaml`, `impl_screen.yaml`,
+  `impl_ui.yaml` all declare it) and `review` (all eighteen `*_review
+  .yaml` tiers declare it) — no single tier basename applies, so the
+  filename names the `root_tag` rather than any one owning tier:
+  `impl.xml` and `review_approve.xml`, the two names already checked in,
+  are read as exactly that rather than as derived from a tier that does
+  not exist.
 - **The "Read the stub fixture" step must itself produce a typed
   `outcome.json` when the fixture is missing, not fall through to
   "Report the result"'s own generic fallback** (ORC-225, the same run

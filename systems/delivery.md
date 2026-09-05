@@ -2347,12 +2347,52 @@ generating as scope-runs inside one ticket.
   already knows without asking and an enumerating caller does not:
   `tier` and `root_tag`.
 
+  A read gains no route by existing (design review finding, ORC-225
+  round 1 — the first draft of this entry named the `Provisioning`
+  function and the `Store` query and stopped, which is two of the four
+  sites the route needs). `Catapult.Delivery` gains a fifth `defexport`,
+  `test_project_dispatch_runs/2`, delegating to `Provisioning.runs/2` —
+  the same shape its four siblings already take
+  (`provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3`, each a `defexport` with a `@doc`
+  pointing at the `api_surface/0` declaration it backs), because
+  `Catapult.Foundation.DispatchPlug` dispatches by `apply(entry.component,
+  name, [conn | params])` and only reaches a boundary export, never a
+  plain function. `Catapult.Delivery.api_surface/0` gains the matching
+  sixth entry, `{{:test_project_dispatch_runs, 2}, :get,
+  "/dispatch/test-project/:project_id/runs", version: "v1", audience:
+  :internal}` — the same `:internal` audience its three provisioning
+  siblings carry, reached only by the milestone boundary's own
+  live-suite job — and that function's own comment ("a third, fourth and
+  fifth path on this one listener") widens to "a third through sixth
+  path" in the same change, since it names a count that drifts the
+  moment a route lands without it. `DispatchPlug` itself takes no edit:
+  it matches every declared route generically off `api_surface/0`'s own
+  list, so a new path costs a declaration and an export and nothing in
+  the plug.
+
   The live test polls this read on its existing `@poll_interval`
-  alongside the terminal-status poll it already runs, and calls the run
-  set quiescent once two consecutive polls return the identical set of
-  run ids and every run in that set has reached a terminal `status`
-  (`completed` or `failed`) — not once any single tier does. Reaching
-  quiescence is what the test releases on; it then asserts every run in
+  alongside the terminal-status poll it already runs. Quiescence is a
+  duration, not a poll count (design review finding, ORC-225 round 1 —
+  "two consecutive polls, five seconds apart" can and did read the run
+  set as complete before the sweeper's own next tick had a chance to
+  fire: walked against this entry's own two-round model, round 1's four
+  drafts reaching terminal at T reads quiescent at T+5s, up to 5s before
+  `GENERATION_SWEEP_INTERVAL_MS`'s 10s tick dispatches the review round
+  at all — releasing the project, and unsweeping it, before the second
+  round ever starts. That is run 26's own false green, reproduced by the
+  fix meant to close it). The test tracks a *quiet-since* timestamp
+  instead: the first poll whose run-id set matches the previous poll's,
+  and where every run in that set has reached a terminal `status`
+  (`completed` or `failed`), records `quiet_since`; every later poll
+  re-checks both conditions and, the moment either the set or any run's
+  terminality changes, clears `quiet_since` and starts over. The set is
+  quiescent, and the test releases, once `quiet_since` is more than
+  `GENERATION_SWEEP_INTERVAL_MS` (10s) in the past — guaranteeing at
+  least one full sweep tick has run against the unchanged, all-terminal
+  set and found nothing new to dispatch, rather than merely two polls'
+  worth of the fixed `@poll_interval` (5s) that motivated the wrong
+  number the first time. Once quiescent, the test asserts every run in
   the set individually (`outcome == success`, a non-empty
   `credential_used`, a non-nil `body_sha`) — the same three assertions
   `@entry_tier` alone carried before, now closing exactly the gap run 26
@@ -2367,9 +2407,11 @@ generating as scope-runs inside one ticket.
 
   Quiescence terminates quickly on a toy-seed project today, for a
   reason worth recording rather than assuming: no production code path
-  ever dispatches `Catapult.Engine.Commands.ApproveDraft` — its only
-  callers, anywhere in `lib/**`, are test helpers — so every tier whose
-  readiness runs through a `self.parent`-style walk requiring
+  ever dispatches `Catapult.Engine.Commands.ApproveDraft` — `lib/**`
+  only declares and handles it (`engine/router.ex`'s routing table,
+  `engine/aggregate.ex`'s handler), and every site that actually
+  dispatches it is under `test/` — so every tier whose readiness runs
+  through a `self.parent`-style walk requiring
   `:approved`, which is most of `bundles/default/tiers/*.yaml`, stays
   permanently unready once swept with no external actor approving
   anything. What the sweeper alone ever reaches from a toy-seed project
