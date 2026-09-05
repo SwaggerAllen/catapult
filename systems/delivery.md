@@ -2350,9 +2350,16 @@ generating as scope-runs inside one ticket.
   A read gains no route by existing (design review finding, ORC-225
   round 1 — the first draft of this entry named the `Provisioning`
   function and the `Store` query and stopped, which is two of the four
-  sites the route needs). `Catapult.Delivery` gains a fifth `defexport`,
-  `test_project_dispatch_runs/2`, delegating to `Provisioning.runs/2` —
-  the same shape its four siblings already take
+  sites the route needs). `Catapult.Delivery` gains a **sixth**
+  `defexport` overall (design review finding, ORC-225 round 2 — the
+  prior draft called this same addition "a fifth `defexport`" here and
+  "the matching sixth entry" two sentences later; `Catapult.Delivery`
+  already carries five today — `fetch_context/2`, `report_result/2`,
+  `provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3` — all backing `api_surface/0`
+  entries, so the new one is the sixth, not the fifth).
+  `test_project_dispatch_runs/2` delegates to `Provisioning.runs/2` in
+  the same shape its three provisioning-family siblings already take
   (`provision_test_project/1`, `release_test_project/2`,
   `test_project_dispatch_status/3`, each a `defexport` with a `@doc`
   pointing at the `api_surface/0` declaration it backs), because
@@ -2388,12 +2395,27 @@ generating as scope-runs inside one ticket.
   re-checks both conditions and, the moment either the set or any run's
   terminality changes, clears `quiet_since` and starts over. The set is
   quiescent, and the test releases, once `quiet_since` is more than
-  `GENERATION_SWEEP_INTERVAL_MS` (10s) in the past — guaranteeing at
-  least one full sweep tick has run against the unchanged, all-terminal
-  set and found nothing new to dispatch, rather than merely two polls'
-  worth of the fixed `@poll_interval` (5s) that motivated the wrong
-  number the first time. Once quiescent, the test asserts every run in
-  the set individually (`outcome == success`, a non-empty
+  `GENERATION_SWEEP_INTERVAL_MS` **plus** `@poll_interval` (15s total)
+  in the past (design review finding, ORC-225 round 2 — a bare
+  `GENERATION_SWEEP_INTERVAL_MS` guarantees a tick has *fired*, not
+  that whatever it dispatched has become a *visible row*, and the test
+  only ever observes rows. `Sweeper` does nothing but enqueue an Oban
+  job; `DispatchWorker.perform/1` still has to run its four
+  re-validations, a `Dsl.load` off disk and a full
+  `ContextAssembly.build` before a `DispatchRun` row exists at all —
+  plausibly one to three seconds after the tick that caused it. A tick
+  landing at `quiet_since + 9.9s`, just inside the old 10s window,
+  could write its row at `quiet_since + 11s`–`13s` — after a poll at
+  `+10s` had already declared the old, narrower set quiescent and
+  released the project, unsweeping it before that row ever lands. That
+  is run 26's own false green, reproduced one layer further in than
+  round 1's fix reached). The added `@poll_interval` (5s) is margin
+  against that one-to-three-second enqueue-to-row path — tied to a
+  duration this test already names rather than a fresh constant, and
+  comfortably above the estimate — so the guarantee now covers a tick
+  that both fired *and* had time for whatever it dispatched to surface
+  as a row the poll can see, not merely "a tick ran" in the abstract.
+  Once quiescent, the test asserts every run in the set individually (`outcome == success`, a non-empty
   `credential_used`, a non-nil `body_sha`) — the same three assertions
   `@entry_tier` alone carried before, now closing exactly the gap run 26
   exposed, where four red runs and one green one read as a green suite
