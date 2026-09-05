@@ -278,6 +278,95 @@ defmodule Catapult.Delivery.StoreTest do
     end
   end
 
+  describe "dispatch_runs_for_project/1" do
+    test "every run for a project, any tier, oldest first, run_key/tier/root_tag and body_sha" do
+      EngineStore.upsert_node(%{
+        id: "n1",
+        project_id: "p1",
+        tier: "comp",
+        scope_key: %{},
+        status: :drafted,
+        fields: %{},
+        body_sha: "sha-of-comp"
+      })
+
+      run1_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run1_key,
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comparch",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      run2_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run2_key,
+        project_id: "p1",
+        node_id: "n2",
+        tier: "review",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "review",
+        rendered_prompt: "hello again",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      # Completed after the first run — still surfaced as this project's
+      # own second (oldest-first) row, with the terminal shape
+      # `terminal_dispatch_status/2` already reads for a single tier.
+      Store.complete_dispatch_run(run2_key, :completed, :success, "claude_code_oauth_token")
+
+      # A different project's own run never bleeds in.
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: "p2",
+        node_id: "n3",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comparch",
+        rendered_prompt: "unrelated",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      assert [
+               %{
+                 run_key: ^run1_key,
+                 tier: "comp",
+                 root_tag: "comparch",
+                 status: :dispatched,
+                 outcome: nil,
+                 credential_used: nil,
+                 node_id: "n1",
+                 body_sha: "sha-of-comp"
+               },
+               %{
+                 run_key: ^run2_key,
+                 tier: "review",
+                 root_tag: "review",
+                 status: :completed,
+                 outcome: :success,
+                 credential_used: "claude_code_oauth_token",
+                 node_id: "n2",
+                 # n2 was never drafted — no engine node, so no body_sha,
+                 # the same no-node-yet answer `terminal_dispatch_status/2`
+                 # already gives via the shared `node_body_sha/2` helper.
+                 body_sha: nil
+               }
+             ] = Store.dispatch_runs_for_project("p1")
+    end
+  end
+
   describe "list_bound_project_ids/0" do
     test "every project id ever bound to a repo" do
       Store.put_project_binding("bound-1", "acme", "widgets")

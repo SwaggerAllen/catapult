@@ -68,6 +68,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
   alias Catapult.Config.Secret
   alias Catapult.Delivery
+  alias Catapult.Generation.Quiescence
   alias Catapult.ToySeed
 
   @moduletag :live
@@ -168,7 +169,12 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   # quiescent, however long it holds steady: a bare "the observed set
   # is stable" check is vacuously true on a project the sweeper hasn't
   # reached yet, which is exactly the shape of the bug this entry
-  # closes (a suite reading green because it polled nothing).
+  # closes (a suite reading green because it polled nothing). The
+  # decision arithmetic itself lives in `Catapult.Generation
+  # .Quiescence` (`test/support/quiescence.ex`) — this loop owns only
+  # the network fetch, the sleep, and the deadline flunk, so the
+  # arithmetic can be exercised directly, with synthetic run-list
+  # inputs, in `test/catapult/generation/quiescence_test.exs`.
   defp poll_until_quiescent!(base, headers, project_id) do
     deadline = System.monotonic_time(:millisecond) + @poll_deadline
     poll_until_quiescent!(base, headers, project_id, deadline, nil, nil)
@@ -178,34 +184,19 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     runs = fetch_runs!(base, headers, project_id)
     ids = runs |> Enum.map(& &1["run_key"]) |> MapSet.new()
     now = System.monotonic_time(:millisecond)
-    quiet_since = next_quiet_since(runs, ids, prev_ids, quiet_since, now)
+    quiet_since = Quiescence.next_quiet_since(runs, ids, prev_ids, quiet_since, now)
 
-    decide_quiescence!(base, headers, project_id, deadline, runs, ids, quiet_since, now)
-  end
-
-  defp next_quiet_since(runs, ids, prev_ids, quiet_since, now) do
-    terminal? = runs != [] and Enum.all?(runs, &(&1["status"] in ["completed", "failed"]))
-    stable? = runs != [] and ids == prev_ids and terminal?
-
-    cond do
-      stable? and quiet_since -> quiet_since
-      stable? -> now
-      true -> nil
-    end
-  end
-
-  defp decide_quiescence!(base, headers, project_id, deadline, runs, ids, quiet_since, now) do
-    cond do
-      quiet_since && now - quiet_since >= @quiescence_window ->
+    case Quiescence.outcome(quiet_since, now, deadline, @quiescence_window) do
+      :quiescent ->
         runs
 
-      now >= deadline ->
+      :timeout ->
         flunk(
           "timed out waiting for the dispatched run set to reach quiescence, " <>
             "last observed: #{inspect(runs)}"
         )
 
-      true ->
+      :continue ->
         Process.sleep(@poll_interval)
         poll_until_quiescent!(base, headers, project_id, deadline, ids, quiet_since)
     end
