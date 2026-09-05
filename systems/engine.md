@@ -447,17 +447,34 @@ them.
   `RunFailed.occurred_at` fold through `apply/2` clauses that write no
   projection row, by design, above) or is a plain string end to end
   (every `reason`, every `gate`, every `type_name`) — this is the
-  whole set this pass found, not a sample of it.
+  whole set this pass found for atom- and `DateTime`-typed fields, not
+  a sample of it. `keys: :atoms` also turns a map-valued field's own
+  keys into atoms on the way back — `DraftCommitted.scope_key` and
+  `.fields` both go in string-keyed and come back atom-keyed — but
+  neither is atom- or `DateTime`-typed, so both sit outside the
+  predicate above rather than inside a gap it missed. They are safe
+  today for a reason worth keeping rather than assuming: every
+  consumer re-encodes them straight to jsonb without ever comparing a
+  key in memory — `Store.Node.scope_key` is a `:map` column, and both
+  `mint_node/1`'s `conflict_target: [:project_id, :tier, :scope_key]`
+  and `get_node_by_scope!/3`'s `Repo.get_by` compare the dumped jsonb,
+  where the Elixir key type has already stopped existing. The day a
+  map-valued field's keys are compared in memory rather than dumped
+  whole, it joins this class and this predicate widens to say so.
 
   **`DraftCommitted` does not fail the way it first looked like it
   would, and the record says the corrected mechanism rather than the
   first guess:** `Commanded.Serialization.JsonSerializer.deserialize/2`
-  always passes `type:`, which makes `Jason.decode!/2` run with
-  `keys: :atoms` — and that option threads through every nested object
-  Jason's own decoder parses, not only the struct's top level
-  (confirmed by reproducing the exact round trip against
-  `Catapult.Engine.Events.DraftCommitted`, not inferred from reading
-  the library). A `mint`'s `node_id`/`tier`/`edge_name` keys arrive as
+  only turns on `keys: :atoms` when its caller supplies a `type:`, and
+  it is the caller, not this function, that "always" applies to —
+  `EventStore.RecordedEvent.deserialize/2` calls it with
+  `type: event_type` for event data and with no `type:` at all for
+  metadata, which is also why metadata stays string-keyed on arrival
+  while event data does not. Once `keys: :atoms` is on, it threads
+  through every nested object Jason's own decoder parses, not only the
+  struct's top level (confirmed by reproducing the exact round trip
+  against `Catapult.Engine.Events.DraftCommitted`, not inferred from
+  reading the library). A `mint`'s `node_id`/`tier`/`edge_name` keys arrive as
   atoms already; dot access on them does not raise `KeyError`. What
   survives the wire wrong is the same failure the other three events
   have, one level in: `mint.status`/`mint.edge_type` and `edge.type`
@@ -501,18 +518,18 @@ them.
   does about a skipped event is its own ticket, not a side effect of
   this one.
 
-  **The round-trip gap stays closed the way `event_store_test.exs`'s
-  own moduledoc already says it opened**: `config/test.exs`'s
+  **The round-trip gap closes in the one test that reaches the real
+  serializer.** `config/test.exs`'s
   `Commanded.EventStore.Adapters.InMemory` performs no serialization at
   all, so the default suite is structurally incapable of exercising
   any `JsonDecoder`, this class or the next one.
   `test/catapult/engine/event_store_test.exs` — the one test already
   reaching the real, Postgres-backed adapter — gains one case per event
   in the class above, each asserting the decoded struct's atom-typed
-  field is an atom, not the string `Jason` would otherwise leave it as;
-  `FlowCompleted`'s existing two-binary case stays, named in that
-  file's own moduledoc as "the single shape that could not have found
-  this," which stops being true only once these join it.
+  field is an atom, not the string `Jason` would otherwise leave it as.
+  `FlowCompleted`'s existing two-binary case stays: it proves the
+  migration and the adapter wiring, which is a different and still-
+  needed fact from the one the new cases prove.
 - **The reducer resolves bundle semantics per event, from the log —
   never from whatever `core_dsl` currently has loaded.** The active
   bundle can flip mid-log, on either axis (v5 §6/§7.19;
