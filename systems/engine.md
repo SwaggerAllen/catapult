@@ -486,9 +486,10 @@ them.
   why nothing has fired yet.
 
   **The fix is one shared helper, not four bespoke decoders — and
-  `String.to_existing_atom/1` is only safe once the module making the
-  call holds the legal atoms as its own literals, which the event
-  modules do not.** `ContainerLifecycle`/`FeatureLifecycle` are each
+  `String.to_existing_atom/1` is only safe once whatever it calls
+  against already has the legal atoms in the runtime atom table
+  before decode runs, which an event module's own compiled form does
+  not.** `ContainerLifecycle`/`FeatureLifecycle` are each
   safe by the argument their own moduledocs give: the legal values are
   compile-time literals *in that module*, so they are in the atom
   table before any decode runs. An event module's `@type` spec is not
@@ -496,32 +497,48 @@ them.
   loading only `Catapult.Engine.Events.ReviewWritten` and decoding
   confirms it: `"ai"` resolves, because it is also the struct's default
   value and so a real literal, while `"human"`, named only in the
-  `@type`, raises `ArgumentError`; the other three events' legal values
-  are missing outright until something else happens to have already
-  loaded their `Store.*` schema, whose `Ecto.Enum, values: [...]` list
-  is the actual literal. A decode that succeeds or crashes depending on
-  incidental module-load order is not a fix, and the failure mode is
-  worse than the one this ticket opened against: decode runs before
+  `@type`, raises `ArgumentError`. For `ActiveBundleFlipped` and
+  `FindingAdjudicated`, measured the same way, every legal value is
+  missing outright until something else happens to have already loaded
+  their `Store.*` schema, whose `Ecto.Enum, values: [...]` list is the
+  actual literal. For `DraftCommitted`, measured with only its own
+  module loaded, three of its six legal values (`:absent`, `:approved`,
+  `:reference`) resolved anyway, from atoms other already-loaded
+  modules happened to carry, while the other three (`:fanout`,
+  `:dependency`, `:policy_application`) still raised `ArgumentError` —
+  and that partial result is the sharper evidence, not a softer one: a
+  decode that fails every time is a loud bug any smoke test catches,
+  while one that succeeds on some values and crashes on others
+  depending on incidental load order is exactly the shape that passes
+  every offline check and only fires in production on the first
+  unlucky value. The failure mode either way is worse than the one
+  this ticket opened against: decode runs before
   the reducer ever touches `Store`, so a poison value here raises
   inside `JsonDecoder.decode/1` itself — before `Projector`'s handler,
   and its `error/3`, are ever reached. `Catapult.Engine.Events
   .WireDecoding` (new, `lib/catapult/engine/events/wire_decoding.ex`)
-  is what restores the property that makes the idiom safe: it declares
-  each repaired field's legal atom set as its own literals, one place,
-  mirroring the `Ecto.Enum, values: [...]` list each field's `Store`
-  column already declares, so `String.to_existing_atom/1` is trivially
-  safe by the identical argument `ContainerLifecycle` makes. A single
-  `defimpl Commanded.Serialization.JsonDecoder, for: [ReviewWritten,
-  ActiveBundleFlipped, FindingAdjudicated, DraftCommitted]` block in
-  the same file gives each struct its own `decode/1` clause built on
-  it, rather than four `defimpl` blocks scattered across the four
-  event files repeating the same three-line shape and four separate
-  copies of the legal-value lists to keep in step with `Store`. This is
-  a deliberate departure from where `ContainerLifecycle`/
-  `FeatureLifecycle` keep theirs (in the struct's own file) — each of
-  those is the only consumer of its own repair, and this one repair has
-  four call sites plus four value sets to keep in sync with `Store`'s
-  own enums.
+  is what restores the property that makes the idiom safe, and it does
+  so without keeping a second copy of any value set: each repaired
+  field's legal atoms come from `Ecto.Enum.values/2` read against that
+  field's own `Store` schema and column at decode time
+  (`Ecto.Enum.values(Store.Review, :kind)`, and the same call shape for
+  the other three), never from a list `WireDecoding` writes out itself.
+  That call forces the same `Store.*` module load that puts the real
+  literals in the atom table — the exact property `ContainerLifecycle`'s
+  argument rests on — and it leaves no duplicate list for `Store`'s own
+  enum to drift out of step with: the day a value is added to
+  `Store.Review.kind`'s `Ecto.Enum, values: [...]`, `WireDecoding` sees
+  it on the very next call, with nothing to edit and nothing that can
+  fall out of sync. A single `defimpl Commanded.Serialization.JsonDecoder,
+  for: [ReviewWritten, ActiveBundleFlipped, FindingAdjudicated,
+  DraftCommitted]` block in the same file gives each struct its own
+  `decode/1` clause built on this lookup, rather than four `defimpl`
+  blocks scattered across the four event files each repeating the same
+  three-line shape. This is a deliberate departure from where
+  `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
+  own file) — each of those is the only consumer of its own repair, and
+  this one repair has four call sites reading four different `Store`
+  schemas, which is worth one shared file rather than four.
 
   **The comment that documented the serializer choice is the site that
   hid this defect, and dev amends it in the same change.**
@@ -561,7 +578,11 @@ them.
   field is an atom, not the string `Jason` would otherwise leave it as.
   `FlowCompleted`'s existing two-binary case stays: it proves the
   migration and the adapter wiring, which is a different and still-
-  needed fact from the one the new cases prove.
+  needed fact from the one the new cases prove. No case asserts that
+  `WireDecoding`'s value sets agree with `Store`'s `Ecto.Enum`
+  declarations, because there are no separate sets to agree — the
+  `Ecto.Enum.values/2` lookup above reads `Store`'s own list directly,
+  so there is nothing a test would be checking for drift.
 - **The reducer resolves bundle semantics per event, from the log —
   never from whatever `core_dsl` currently has loaded.** The active
   bundle can flip mid-log, on either axis (v5 §6/§7.19;
