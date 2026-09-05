@@ -1,0 +1,7 @@
+<bug-fix-plan>
+  <argument>Redirects for a retired short code kept returning the old target instead of 404, because cache_layer never invalidated on retirement.</argument>
+  <observed>Resolving a short code shortly after its link was retired still returned the stale target URL.</observed>
+  <expected>Resolving a retired short code returns :not_found immediately, matching lookup_engine's own invariant.</expected>
+  <scope>cache_layer's own invalidation path only; lookup_engine's Postgres-backed lookup already behaves correctly.</scope>
+  <resolved>true</resolved>
+</bug-fix-plan>

@@ -1,0 +1,52 @@
+<screens>
+  <introduction>Two screens covering link creation and the owner's own link list.</introduction>
+  <screen>
+    <slug>link_list</slug>
+    <purpose>Shows every live link an owner has created.</purpose>
+    <feats>
+      <feat id="fast-lookup"/>
+    </feats>
+    <states>
+      <state name="empty"/>
+      <state name="populated"/>
+    </states>
+    <affordances>
+      <affordance>
+        <action>Retire a link</action>
+        <intent>Stop a link from resolving.</intent>
+        <data-in>short_code</data-in>
+      </affordance>
+    </affordances>
+    <displayed-data>Each live link's short code, target URL and click count.</displayed-data>
+    <journeys>
+      <journey ref="Create and monitor a link"/>
+    </journeys>
+    <navigation>
+      <edge to="link_create"/>
+    </navigation>
+  </screen>
+  <screen>
+    <slug>link_create</slug>
+    <purpose>Takes a target URL and mints a short code for it.</purpose>
+    <feats>
+      <feat id="target-validation"/>
+      <feat id="code-minting"/>
+    </feats>
+    <states>
+      <state name="editing"/>
+      <state name="invalid"/>
+    </states>
+    <affordances>
+      <affordance>
+        <action>Submit a target URL</action>
+        <intent>Mint a short code for it.</intent>
+        <data-in>target_url</data-in>
+        <data-out>short_code</data-out>
+      </affordance>
+    </affordances>
+    <displayed-data>The target URL field and any validation error.</displayed-data>
+    <navigation>
+      <edge to="link_list"/>
+    </navigation>
+  </screen>
+</screens>

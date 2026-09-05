@@ -35,21 +35,50 @@ defmodule Catapult.ToySeed do
     capability_inventories forward_strategies
   )
 
-  # Every tier's own `root_tag` => the fixture file that carries it
-  # (ORC-223, `systems/generation.md`'s ORC-223 entry) — keyed by
-  # `root_tag`, not by the fixture's own checked-in filename, since the
-  # two differ for five of the nine (`bundles/default/tiers/*.yaml`'s
-  # own `root_tag:` values). `impl.xml` serves `implementation` for all
-  # three `impl_*` tiers, which all declare that same `root_tag`.
+  # Every dispatchable tier's own `root_tag` => the fixture file that
+  # carries it (ORC-223, widened to total coverage by ORC-225 —
+  # `systems/generation.md`'s ORC-225 entry): the 21 distinct
+  # `draft.root_tag`s the 23 generation tiers declare
+  # (`bundles/default/tiers/*.yaml`), plus the single literal
+  # `"review"` every review tier collapses to
+  # (`ContextAssembly.root_tag/1`) — 22 keys, not the nine ORC-223
+  # first landed.
+  #
+  # Keyed by `root_tag`, not by the fixture's own checked-in filename,
+  # because the two namespaces were never made to agree. For the
+  # twenty `root_tag`s each declared by exactly one tier, the filename
+  # is that tier's own bundle YAML basename with `.xml` in place of
+  # `.yaml` (`bug_fix_plan.yaml` => `bug_fix_plan.xml`), which is why
+  # it differs from `root_tag` wherever a tier's own name uses
+  # underscores against a hyphenated `root_tag`, or a different word
+  # entirely (`ref.yaml`'s `root_tag: reference`). The two collapsed
+  # `root_tag`s — `implementation` (`impl_backend.yaml`,
+  # `impl_screen.yaml`, `impl_ui.yaml` all declare it) and `review`
+  # (all eighteen `*_review.yaml` tiers declare it) — have no single
+  # owning tier to name a basename from, so the filename names the
+  # `root_tag` instead: `impl.xml` and `review_approve.xml`.
   @root_tag_fixtures %{
+    "bug-fix-plan" => "bug_fix_plan.xml",
     "comparch" => "comparch.xml",
     "feature-expansion" => "feature_expansion.xml",
+    "feature-request-plan" => "feature_request_plan.xml",
+    "frontend_sysarch" => "frontend_sysarch.xml",
     "implementation" => "impl.xml",
+    "journeys" => "journeys.xml",
+    "non-goals" => "non_goals.xml",
+    "propagation-plan" => "downward_propagation_plan.xml",
     "reference" => "ref.xml",
+    "refactor-plan" => "refactor_plan.xml",
     "requirements" => "requirements.xml",
     "review" => "review_approve.xml",
+    "screen_collarch" => "screen_collarch.xml",
+    "screen_subcomparch" => "screen_subcomparch.xml",
+    "screens" => "screens.xml",
     "subcomparch" => "subcomparch.xml",
     "sysarch" => "sysarch.xml",
+    "ui_collarch" => "ui_collarch.xml",
+    "ui_subcomparch" => "ui_subcomparch.xml",
+    "upward-propagation-plan" => "upward_propagation_plan.xml",
     "vocab-entry" => "vocab.xml"
   }
 

@@ -167,6 +167,43 @@ defmodule Catapult.Delivery.Store do
     )
   end
 
+  @doc """
+  Every dispatch run for `project_id`, any tier, oldest first — the
+  provisioning surface's own enumerating read (ORC-225,
+  `systems/delivery.md`'s ORC-225 entry: the live suite's quiescence
+  check needs every run a dispatch window produced, not one tier's).
+  `terminal_dispatch_status/2`'s own five keys (`status`, `outcome`,
+  `credential_used`, `node_id`, `body_sha`) plus the two facts a
+  single-tier caller already knows without asking and an enumerating
+  caller does not (`tier`, `root_tag`), and `run_key` — the row's own
+  primary key (`insert_dispatch_run/1`'s own doc: "`attrs.id` is the
+  plane-minted run_key"), absent from `terminal_dispatch_status/2`'s
+  shape because that read is already scoped to one run and never has
+  to distinguish it from a sibling; an enumerating caller needs it to
+  tell whether the run set it observed has changed between two polls.
+  The same rows `dispatch_runs_for_flow/2` already gives one `flow_id`
+  at a time, minus the `flow_id` filter.
+  """
+  @spec dispatch_runs_for_project(binary()) :: [map()]
+  def dispatch_runs_for_project(project_id) do
+    DispatchRun
+    |> where([r], r.project_id == ^project_id)
+    |> order_by([r], asc: r.inserted_at)
+    |> Repo.all()
+    |> Enum.map(fn run ->
+      %{
+        run_key: run.id,
+        tier: run.tier,
+        root_tag: run.root_tag,
+        status: run.status,
+        outcome: run.outcome,
+        credential_used: run.credential_used,
+        node_id: run.node_id,
+        body_sha: node_body_sha(project_id, run.node_id)
+      }
+    end)
+  end
+
   ## Test project lifecycle (ORC-216, systems/delivery.md)
 
   @doc """

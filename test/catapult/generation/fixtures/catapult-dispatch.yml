@@ -283,6 +283,14 @@ jobs:
       # success — keyed by root_tag because ContextAssembly.root_tag/1
       # already collapses every reviewed tier's root_tag to the
       # literal "review".
+      #
+      # A missing fixture (ORC-225, systems/generation.md's ORC-225
+      # entry — live-suite run 26) writes the same other_failure shape
+      # "Report the result" already knows, naming the root_tag and the
+      # exact path looked for, rather than letting open() raise and
+      # kill this step before it writes anything — which is what left
+      # "Report the result"'s own fallback pointing a reader at "Run
+      # the agent", a step stub mode never runs.
       - name: Read the stub fixture
         if: inputs.stub_mode == 'true'
         run: |
@@ -292,10 +300,19 @@ jobs:
           with open("context.json") as f:
               root_tag = json.load(f)["root_tag"]
 
-          with open(f".catapult-stub/{root_tag}.xml") as f:
-              body = f.read()
+          stub_path = f".catapult-stub/{root_tag}.xml"
 
-          outcome = {"status": "success", "body": body, "credential_used": "stub"}
+          try:
+              with open(stub_path) as f:
+                  body = f.read()
+          except FileNotFoundError:
+              outcome = {
+                  "status": "other_failure",
+                  "reason": f"no stub fixture for root_tag '{root_tag}' at {stub_path}",
+                  "credential_used": "stub",
+              }
+          else:
+              outcome = {"status": "success", "body": body, "credential_used": "stub"}
 
           with open("outcome.json", "w") as f:
               json.dump(outcome, f)

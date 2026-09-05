@@ -14,8 +14,8 @@ defmodule Catapult.Delivery.Provisioning do
   (`Plug.Crypto.secure_compare/2`).
 
   Called from `Catapult.Foundation.DispatchPlug`'s hand-wired path
-  dispatch, exactly like `Catapult.Delivery.Dispatch` — a third,
-  fourth and fifth path on the one listener (`Catapult.Delivery`'s own
+  dispatch, exactly like `Catapult.Delivery.Dispatch` — a third
+  through sixth path on the one listener (`Catapult.Delivery`'s own
   `api_surface/0`).
 
   - `provision/1` — reclaims every released test project (`systems
@@ -39,6 +39,11 @@ defmodule Catapult.Delivery.Provisioning do
   - `status/3` — the terminal-status read for a project's most
     recently dispatched run on a tier (`Catapult.Delivery.Store
     .terminal_dispatch_status/2`).
+  - `runs/2` — every dispatch run for a project, any tier, oldest
+    first (ORC-225, `Catapult.Delivery.Store
+    .dispatch_runs_for_project/1`) — the enumerating read the live
+    suite polls to assert every run its dispatch window produced, not
+    only the one tier `status/3` alone can see.
   """
 
   import Plug.Conn
@@ -159,6 +164,32 @@ defmodule Catapult.Delivery.Provisioning do
       credential_used: status.credential_used,
       node_id: status.node_id,
       body_sha: status.body_sha
+    }
+  end
+
+  @doc "Every dispatch run for `project_id`, any tier, oldest first — see this module's own moduledoc."
+  @spec runs(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  def runs(conn, project_id) do
+    case authenticate(conn) do
+      {:ok, conn} ->
+        body = project_id |> Store.dispatch_runs_for_project() |> Enum.map(&normalize_run/1)
+        json_response(conn, 200, Jason.encode!(body))
+
+      {:error, reason} ->
+        error_response(conn, status_for(reason), reason)
+    end
+  end
+
+  defp normalize_run(run) do
+    %{
+      run_key: run.run_key,
+      tier: run.tier,
+      root_tag: run.root_tag,
+      status: to_string(run.status),
+      outcome: run.outcome && to_string(run.outcome),
+      credential_used: run.credential_used,
+      node_id: run.node_id,
+      body_sha: run.body_sha
     }
   end
 

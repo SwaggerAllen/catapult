@@ -1,0 +1,10 @@
+<non-goals>
+  <introduction>Distilled from the raft's own non_goals.md.</introduction>
+  <candidates>
+    <candidate>
+      <name>Custom vanity short codes</name>
+      <trigger>An owner wants to choose their own short code instead of a minted one.</trigger>
+      <rationale>Every short code is minted, never chosen - argued in this project's non_goals.md.</rationale>
+    </candidate>
+  </candidates>
+</non-goals>

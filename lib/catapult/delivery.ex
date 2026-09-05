@@ -90,7 +90,7 @@ defmodule Catapult.Delivery do
        version: "v1", audience: :partner},
       {{:report_result, 2}, :post, "/dispatch/report/:run_key",
        version: "v1", audience: :partner},
-      # ORC-216: the provisioning surface — a third, fourth and fifth
+      # ORC-216: the provisioning surface — a third through sixth
       # path on this one listener, `:internal` audience since these
       # are reached only by the milestone boundary's own live-suite
       # job, bearer-authenticated rather than OIDC
@@ -100,7 +100,11 @@ defmodule Catapult.Delivery do
       {{:release_test_project, 2}, :post, "/dispatch/test-project/:project_id/release",
        version: "v1", audience: :internal},
       {{:test_project_dispatch_status, 3}, :get,
-       "/dispatch/test-project/:project_id/status/:tier", version: "v1", audience: :internal}
+       "/dispatch/test-project/:project_id/status/:tier", version: "v1", audience: :internal},
+      # ORC-225: the enumerating sibling of the status route above —
+      # every dispatch run for a project rather than one tier's.
+      {{:test_project_dispatch_runs, 2}, :get, "/dispatch/test-project/:project_id/runs",
+       version: "v1", audience: :internal}
     ]
   end
 
@@ -280,5 +284,11 @@ defmodule Catapult.Delivery do
   @spec test_project_dispatch_status(Plug.Conn.t(), binary(), String.t()) :: Plug.Conn.t()
   defexport(test_project_dispatch_status(conn, project_id, tier),
     do: Provisioning.status(conn, project_id, tier)
+  )
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.runs/2`."
+  @spec test_project_dispatch_runs(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  defexport(test_project_dispatch_runs(conn, project_id),
+    do: Provisioning.runs(conn, project_id)
   )
 end

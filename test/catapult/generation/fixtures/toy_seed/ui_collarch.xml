@@ -1,0 +1,42 @@
+<ui_collarch>
+  <technical-specification>A shared UI collection of link-admin-facing components: a link row, and a URL input with inline validation.</technical-specification>
+  <public-surface>link_row/1 and url_input/1 function components, rendered by screen_collarch's own LiveViews.</public-surface>
+  <private-surface>Internal formatting helpers for a click count and a truncated target URL.</private-surface>
+  <failure-surface>An invalid target URL renders inline under the input; nothing here ever raises to its caller.</failure-surface>
+  <policies>Every rendered target URL is truncated and escaped before display, never interpolated raw.</policies>
+  <dependencies/>
+  <primitives/>
+  <subcomponents>
+    <subcomponent alias="link_row">
+      <name>LinkRow</name>
+      <purpose>Renders one link's short code, target and click count.</purpose>
+      <owned-invariants>
+        <invariant>A retired link's row never renders a working link.</invariant>
+        <invariant>The click count shown always matches the value passed in, never a stale cache.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Render a link's short code and target.</operation>
+        <operation>Render its current click count.</operation>
+        <operation>Render a retire affordance.</operation>
+      </primary-operations>
+      <responsibilities>Free prose - a leaf presentational component with no further decomposition.</responsibilities>
+      <implementation grade="real"/>
+    </subcomponent>
+    <subcomponent alias="url_input">
+      <name>UrlInput</name>
+      <purpose>A text input with inline target-URL validation.</purpose>
+      <owned-invariants>
+        <invariant>An invalid URL is flagged before submit is enabled.</invariant>
+        <invariant>A valid URL never shows a stale error from a prior value.</invariant>
+      </owned-invariants>
+      <primary-operations>
+        <operation>Validate a URL as the owner types.</operation>
+        <operation>Render an inline error for an invalid value.</operation>
+        <operation>Enable submit only once valid.</operation>
+      </primary-operations>
+      <responsibilities>Free prose - a leaf presentational component with no further decomposition.</responsibilities>
+      <implementation grade="real"/>
+    </subcomponent>
+  </subcomponents>
+  <sub-dependencies/>
+</ui_collarch>

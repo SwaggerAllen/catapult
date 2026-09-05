@@ -1,0 +1,6 @@
+<upward-propagation-plan>
+  <argument>link_admin's own minting invariant turned out to depend on a uniqueness guarantee redirector's lookup table doesn't actually enforce at the database level.</argument>
+  <upstream_scope>Add a unique index on the links table's short_code column, closing the gap between the invariant and what Postgres enforces.</upstream_scope>
+  <downstream_scope>link_admin's own minting retries on a uniqueness violation instead of assuming a clash can't happen.</downstream_scope>
+  <resolved>true</resolved>
+</upward-propagation-plan>

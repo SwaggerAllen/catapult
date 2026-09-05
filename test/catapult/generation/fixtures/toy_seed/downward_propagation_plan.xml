@@ -1,0 +1,6 @@
+<propagation-plan>
+  <argument>Widening the short-code alphabet to add two characters propagates into every component that validates or generates a code.</argument>
+  <change_summary>The reference doc's alphabet grows from 58 to 60 characters.</change_summary>
+  <scope>link_admin's minting path and its own validation; redirector's own lookup is alphabet-agnostic and unaffected.</scope>
+  <resolved>true</resolved>
+</propagation-plan>
