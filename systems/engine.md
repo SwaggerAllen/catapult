@@ -485,25 +485,57 @@ them.
   only once a committed draft's `mints`/`edges` are non-empty, which is
   why nothing has fired yet.
 
-  **The fix is one shared helper, not four bespoke decoders.**
-  `ContainerLifecycle`/`FeatureLifecycle` each hand-wrote their own
-  `JsonDecoder` because each has exactly one shape to repair
-  (`ContainerLifecycle`: one scalar atom field; `FeatureLifecycle`: one
-  nested struct field with its own `from_wire/1`). This class needs
-  the identical repair — `String.to_existing_atom/1` on a value the
-  module already knows the full legal set of, at compile time —
-  applied at four call sites, one of them a list of maps rather than a
-  scalar. `Catapult.Engine.Events.WireDecoding` (new,
-  `lib/catapult/engine/events/wire_decoding.ex`) carries that one
-  repair once, and a single `defimpl Commanded.Serialization
-  .JsonDecoder, for: [ReviewWritten, ActiveBundleFlipped,
-  FindingAdjudicated, DraftCommitted]` block in the same file gives
-  each struct its own `decode/1` clause built on it, rather than four
-  `defimpl` blocks scattered across the four event files repeating the
-  same three-line shape. This is a deliberate departure from where
-  `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
-  own file) — each of those is the only consumer of its own repair,
-  and this one repair has four.
+  **The fix is one shared helper, not four bespoke decoders — and
+  `String.to_existing_atom/1` is only safe once the module making the
+  call holds the legal atoms as its own literals, which the event
+  modules do not.** `ContainerLifecycle`/`FeatureLifecycle` are each
+  safe by the argument their own moduledocs give: the legal values are
+  compile-time literals *in that module*, so they are in the atom
+  table before any decode runs. An event module's `@type` spec is not
+  that — typespec atoms never reach the runtime atom table — and
+  loading only `Catapult.Engine.Events.ReviewWritten` and decoding
+  confirms it: `"ai"` resolves, because it is also the struct's default
+  value and so a real literal, while `"human"`, named only in the
+  `@type`, raises `ArgumentError`; the other three events' legal values
+  are missing outright until something else happens to have already
+  loaded their `Store.*` schema, whose `Ecto.Enum, values: [...]` list
+  is the actual literal. A decode that succeeds or crashes depending on
+  incidental module-load order is not a fix, and the failure mode is
+  worse than the one this ticket opened against: decode runs before
+  the reducer ever touches `Store`, so a poison value here raises
+  inside `JsonDecoder.decode/1` itself — before `Projector`'s handler,
+  and its `error/3`, are ever reached. `Catapult.Engine.Events
+  .WireDecoding` (new, `lib/catapult/engine/events/wire_decoding.ex`)
+  is what restores the property that makes the idiom safe: it declares
+  each repaired field's legal atom set as its own literals, one place,
+  mirroring the `Ecto.Enum, values: [...]` list each field's `Store`
+  column already declares, so `String.to_existing_atom/1` is trivially
+  safe by the identical argument `ContainerLifecycle` makes. A single
+  `defimpl Commanded.Serialization.JsonDecoder, for: [ReviewWritten,
+  ActiveBundleFlipped, FindingAdjudicated, DraftCommitted]` block in
+  the same file gives each struct its own `decode/1` clause built on
+  it, rather than four `defimpl` blocks scattered across the four
+  event files repeating the same three-line shape and four separate
+  copies of the legal-value lists to keep in step with `Store`. This is
+  a deliberate departure from where `ContainerLifecycle`/
+  `FeatureLifecycle` keep theirs (in the struct's own file) — each of
+  those is the only consumer of its own repair, and this one repair has
+  four call sites plus four value sets to keep in sync with `Store`'s
+  own enums.
+
+  **The comment that documented the serializer choice is the site that
+  hid this defect, and dev amends it in the same change.**
+  `lib/catapult/engine/event_store.ex`'s `init/1` carries: "it
+  round-trips the versioned event structs this component emits,
+  including their atom-keyed fields, which the library's own default
+  `EventStore.JsonSerializer` does not attempt." That sentence is true
+  and reads as covering atom-*valued* fields too, which it does not and
+  never did — atom-keyed is exactly what `struct/2` restores, and
+  atom-valued is exactly the gap the four decoders above close. Left
+  as written, the next reader reaches this comment and draws the same
+  conclusion the milestone's worth of code that shipped around it did.
+  Dev states the distinction in that comment as part of this change,
+  rather than leaving true words to keep implying the wrong thing.
 
   **`Projector` keeps Commanded's default `error/3` (`:stop`),
   unchanged — a decision, not an oversight.** A handler that skipped a
