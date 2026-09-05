@@ -517,8 +517,10 @@ them.
   inside `JsonDecoder.decode/1` itself — before `Projector`'s handler,
   and its `error/3`, are ever reached. `Catapult.Engine.Events
   .WireDecoding` (new, `lib/catapult/engine/events/wire_decoding.ex`)
-  is what restores the property that makes the idiom safe, and it does
-  so without keeping a second copy of any value set: each repaired
+  is what recovers the same safety property `ContainerLifecycle`'s
+  idiom rests on, without keeping a second copy of any value set and,
+  as the entry below states, without calling
+  `String.to_existing_atom/1` on the wire value at all: each repaired
   field's legal atoms come from `Ecto.Enum.values/2` read against that
   field's own `Store` schema and column at decode time
   (`Ecto.Enum.values(Store.Review, :kind)`, and the same call shape for
@@ -537,8 +539,47 @@ them.
   three-line shape. This is a deliberate departure from where
   `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
   own file) — each of those is the only consumer of its own repair, and
-  this one repair has four call sites reading four different `Store`
-  schemas, which is worth one shared file rather than four.
+  this one repair is six fields across five `Store` schemas, not four
+  call sites: `ReviewWritten.kind` → `Store.Review`,
+  `ActiveBundleFlipped.axis` → `Store.ActiveBundleVersion`,
+  `FindingAdjudicated.disposition` → `Store.ContainerFinding`,
+  `DraftCommitted.mints[].status` → `Store.Node`, and
+  `DraftCommitted.mints[].edge_type` alongside `.edges[].type` — both
+  → `Store.Edge`, because `Reducer.apply_mint/2` writes both `status:`
+  and `type:` from a single mint and `.apply_declared_edge/2` writes
+  `type:` again from a declared edge, so `Store.Edge` is read twice.
+  Six is the count a shared file is sized against, and reading the
+  column's own set rather than the event's `@type` is strictly
+  stronger, not merely equivalent: `Store.Edge.type` declares five
+  values (`:fanout`, `:reference`, `:dependency`,
+  `:policy_application`, `:synthesis`) where `DraftCommitted`'s own
+  `@type` names four, so sourcing from `Ecto.Enum.values/2` lets the
+  decoder accept a value the column already considers legal even where
+  the event's own typespec has not caught up with it.
+
+  **An unrecognised value never raises inside `decode/1`, and the
+  mechanism that guarantees it leaves no ordering hazard for a dev to
+  get backwards.** `WireDecoding` does not call
+  `String.to_existing_atom/1` on the wire string as an independent
+  second step — it matches the wire string against the atoms
+  `Ecto.Enum.values/2` already returned (comparing each to
+  `Atom.to_string/1`) and substitutes the matching atom it already
+  holds. There is no separate lookup that could run before the
+  `values/2` call and reintroduce the `ArgumentError` the round-3 entry
+  above measured: the only atoms `decode/1` can ever produce are the
+  ones `values/2` just handed back, already resolved, so there is no
+  ordering for a later change to invert. When no match exists, `decode
+  /1` leaves that field's value as the wire string, unchanged, rather
+  than raising — the struct then reaches the `Store` call it always
+  would have, meets the same uncasted `Ecto.Changeset.change/2` every
+  field in this class already goes through, and fails as
+  `Ecto.ChangeError` at the one site `Projector`'s `error/3` (`:stop`,
+  below) already governs. That is deliberate, not a default left
+  unchosen: this entry has already established that raising inside
+  `decode/1` is the worse placement, landing before `Projector`'s
+  handler and its `error/3` exist to see it, and an unrecognised value
+  — a schema migrated ahead of this decoder, say — is exactly the case
+  that placement would be worst for.
 
   **The comment that documented the serializer choice is the site that
   hid this defect, and dev amends it in the same change.**
@@ -575,8 +616,12 @@ them.
   `test/catapult/engine/event_store_test.exs` — the one test already
   reaching the real, Postgres-backed adapter — gains one case per event
   in the class above, each asserting the decoded struct's atom-typed
-  field is an atom, not the string `Jason` would otherwise leave it as.
-  `FlowCompleted`'s existing two-binary case stays: it proves the
+  field is an atom, not the string `Jason` would otherwise leave it as,
+  plus one case, on any single field in the class, asserting that an
+  unrecognised value comes back as the wire string unchanged rather
+  than raising inside `decode/1` — the fallback stated above, exercised
+  rather than only asserted in prose. `FlowCompleted`'s existing
+  two-binary case stays: it proves the
   migration and the adapter wiring, which is a different and still-
   needed fact from the one the new cases prove. No case asserts that
   `WireDecoding`'s value sets agree with `Store`'s `Ecto.Enum`
