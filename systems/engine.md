@@ -406,6 +406,228 @@ them.
   registered beside the reducer; the log is never rewritten; replay
   fixtures retain every historical shape. Built into the ES family
   from the first event, because retrofit means a broken replay.
+- **Every atom an engine event carries needs a `JsonDecoder` on read,
+  and the class is exactly four events today, not one** (ORC-226,
+  design pass; the crash that found it: `Catapult.Engine.Projector`
+  raising `Ecto.ChangeError` on `ReviewWritten.kind` and taking the
+  reference instance down with it — a `Commanded.Event.Handler` with
+  no `error/3` stops on the first bad event, permanently, since it
+  re-reads the same event on every boot). `Catapult.Engine.EventStore`
+  sets `Commanded.Serialization.JsonSerializer` deliberately (its own
+  moduledoc: it round-trips atom-keyed struct fields, which the
+  library's default serializer does not attempt); `deserialize/2`
+  rebuilds the event via `struct/2` and then always runs
+  `Commanded.Serialization.JsonDecoder.decode/1` on the result — the
+  same mandatory second step `Catapult.Delivery.ContainerLifecycle`
+  and `Catapult.Delivery.FeatureLifecycle` already implement for their
+  own persisted state (ORC-120), and one this log had zero
+  implementations of, for any event, before this pass. `struct/2`
+  restores atom *keys*; it does nothing for a value that started life
+  as an atom and travelled the wire as a JSON string, and no consumer
+  downstream ever casts on read — every `Store` insert/upsert this
+  system makes goes through `Ecto.Changeset.change/2`, which performs
+  no casting, which is exactly why the defect surfaces as
+  `Ecto.ChangeError` against an `Ecto.Enum` column rather than a
+  silent coercion.
+
+  **The class, checked against every event this doc's file map owns,
+  not assumed from the one that fired:** four events carry a value the
+  reducer passes unchanged into a `Store` call backed by an
+  `Ecto.Enum` column — `ReviewWritten.kind` (`Store.Review.kind`),
+  `ActiveBundleFlipped.axis` (`Store.ActiveBundleVersion.axis`),
+  `FindingAdjudicated.disposition`
+  (`Store.ContainerFinding.disposition`), and `DraftCommitted
+  .mints[].status`/`.edge_type` and `.edges[].type` (`Store.Node
+  .status`, `Store.Edge.type`), the last landing through `Reducer
+  .apply_mint/2`'s and `.apply_declared_edge/2`'s own pass-through
+  `status:`/`type:` assignments. Every other atom- or `DateTime`-typed
+  field on an engine event either never reaches a `Store` call at all
+  (`DraftCommitted.committed_at` is read off the event but never
+  forwarded to `insert_draft/1`; `CommentPosted.posted_at` and
+  `RunFailed.occurred_at` fold through `apply/2` clauses that write no
+  projection row, by design, above) or is a plain string end to end
+  (every `reason`, every `gate`, every `type_name`) — this is the
+  whole set this pass found for atom- and `DateTime`-typed fields, not
+  a sample of it. `keys: :atoms` also turns a map-valued field's own
+  keys into atoms on the way back — `DraftCommitted.scope_key` and
+  `.fields` both go in string-keyed and come back atom-keyed — but
+  neither is atom- or `DateTime`-typed, so both sit outside the
+  predicate above rather than inside a gap it missed. They are safe
+  today for a reason worth keeping rather than assuming: every
+  consumer re-encodes them straight to jsonb without ever comparing a
+  key in memory — `Store.Node.scope_key` is a `:map` column, and both
+  `mint_node/1`'s `conflict_target: [:project_id, :tier, :scope_key]`
+  and `get_node_by_scope!/3`'s `Repo.get_by` compare the dumped jsonb,
+  where the Elixir key type has already stopped existing. The day a
+  map-valued field's keys are compared in memory rather than dumped
+  whole, it joins this class and this predicate widens to say so.
+
+  **`DraftCommitted` fails as `Ecto.ChangeError` one level in, not as
+  `KeyError`, because `keys: :atoms` reifies nested keys as well as
+  top-level ones:** `Commanded.Serialization.JsonSerializer.deserialize/2`
+  only turns on `keys: :atoms` when its caller supplies a `type:`, and
+  it is the caller, not this function, that "always" applies to —
+  `EventStore.RecordedEvent.deserialize/2` calls it with
+  `type: event_type` for event data and with no `type:` at all for
+  metadata, which is also why metadata stays string-keyed on arrival
+  while event data does not. Once `keys: :atoms` is on, it threads
+  through every nested object Jason's own decoder parses, not only the
+  struct's top level (confirmed by reproducing the exact round trip
+  against `Catapult.Engine.Events.DraftCommitted`, not inferred from
+  reading the library). A `mint`'s `node_id`/`tier`/`edge_name` keys arrive as
+  atoms already; dot access on them does not raise `KeyError`. What
+  survives the wire wrong is the same failure the other three events
+  have, one level in: `mint.status`/`mint.edge_type` and `edge.type`
+  are JSON strings, `Reducer.apply_mint/2`/`.apply_declared_edge/2`
+  copy them unchanged into `Store.mint_node/1`/`.insert_edge/1`, and
+  both land on an `Ecto.Enum` column through the same uncasted
+  `Ecto.Changeset.change/2` — `Ecto.ChangeError`, not `KeyError`, and
+  only once a committed draft's `mints`/`edges` are non-empty, which is
+  why nothing has fired yet.
+
+  **The fix is one shared helper, not four bespoke decoders, and it
+  resolves each value against the legal set `Ecto.Enum.values/2`
+  returns rather than against the runtime atom table — which an event
+  module's own compiled form does not populate with its legal
+  values.** `ContainerLifecycle`/`FeatureLifecycle` are each
+  safe by the argument their own moduledocs give: the legal values are
+  compile-time literals *in that module*, so they are in the atom
+  table before any decode runs. An event module's `@type` spec is not
+  that — typespec atoms never reach the runtime atom table — and
+  loading only `Catapult.Engine.Events.ReviewWritten` and decoding
+  confirms it: `"ai"` resolves, because it is also the struct's default
+  value and so a real literal, while `"human"`, named only in the
+  `@type`, raises `ArgumentError`. For `ActiveBundleFlipped` and
+  `FindingAdjudicated`, measured the same way, every legal value is
+  missing outright until something else happens to have already loaded
+  their `Store.*` schema, whose `Ecto.Enum, values: [...]` list is the
+  actual literal. For `DraftCommitted`, measured with only its own
+  module loaded, three of its six legal values (`:absent`, `:approved`,
+  `:reference`) resolved anyway, from atoms other already-loaded
+  modules happened to carry, while the other three (`:fanout`,
+  `:dependency`, `:policy_application`) still raised `ArgumentError` —
+  and that partial result is the sharper evidence, not a softer one: a
+  decode that fails every time is a loud bug any smoke test catches,
+  while one that succeeds on some values and crashes on others
+  depending on incidental load order is exactly the shape that passes
+  every offline check and only fires in production on the first
+  unlucky value. The failure mode either way is worse than the one
+  this ticket opened against: decode runs before
+  the reducer ever touches `Store`, so a poison value here raises
+  inside `JsonDecoder.decode/1` itself — before `Projector`'s handler,
+  and its `error/3`, are ever reached. `Catapult.Engine.Events
+  .WireDecoding` (new, `lib/catapult/engine/events/wire_decoding.ex`)
+  is what recovers the same safety property `ContainerLifecycle`'s
+  idiom rests on, without keeping a second copy of any value set and,
+  as the entry below states, without calling
+  `String.to_existing_atom/1` on the wire value at all: each repaired
+  field's legal atoms come from `Ecto.Enum.values/2` read against that
+  field's own `Store` schema and column at decode time
+  (`Ecto.Enum.values(Store.Review, :kind)`, and the same call shape for
+  the other three), never from a list `WireDecoding` writes out itself.
+  That call forces the same `Store.*` module load that puts the real
+  literals in the atom table — the exact property `ContainerLifecycle`'s
+  argument rests on — and it leaves no duplicate list for `Store`'s own
+  enum to drift out of step with: the day a value is added to
+  `Store.Review.kind`'s `Ecto.Enum, values: [...]`, `WireDecoding` sees
+  it on the very next call, with nothing to edit and nothing that can
+  fall out of sync. A single `defimpl Commanded.Serialization.JsonDecoder,
+  for: [ReviewWritten, ActiveBundleFlipped, FindingAdjudicated,
+  DraftCommitted]` block in the same file gives each struct its own
+  `decode/1` clause built on this lookup, rather than four `defimpl`
+  blocks scattered across the four event files each repeating the same
+  three-line shape. This is a deliberate departure from where
+  `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
+  own file) — each of those is the only consumer of its own repair, and
+  this one repair is six fields across five `Store` schemas, not four
+  call sites: `ReviewWritten.kind` → `Store.Review`,
+  `ActiveBundleFlipped.axis` → `Store.ActiveBundleVersion`,
+  `FindingAdjudicated.disposition` → `Store.ContainerFinding`,
+  `DraftCommitted.mints[].status` → `Store.Node`, and
+  `DraftCommitted.mints[].edge_type` alongside `.edges[].type` — both
+  → `Store.Edge`, because `Reducer.apply_mint/2` writes both `status:`
+  and `type:` from a single mint and `.apply_declared_edge/2` writes
+  `type:` again from a declared edge, so `Store.Edge` is read twice.
+  Six is the count a shared file is sized against, and reading the
+  column's own set rather than the event's `@type` is strictly
+  stronger, not merely equivalent: `Store.Edge.type` declares five
+  values (`:fanout`, `:reference`, `:dependency`,
+  `:policy_application`, `:synthesis`) where `DraftCommitted`'s own
+  `@type` names four, so sourcing from `Ecto.Enum.values/2` lets the
+  decoder accept a value the column already considers legal even where
+  the event's own typespec has not caught up with it.
+
+  **An unrecognised value never raises inside `decode/1`, and the
+  mechanism that guarantees it leaves no ordering hazard for a dev to
+  get backwards.** `WireDecoding` does not call
+  `String.to_existing_atom/1` on the wire string as an independent
+  second step — it matches the wire string against the atoms
+  `Ecto.Enum.values/2` already returned (comparing each to
+  `Atom.to_string/1`) and substitutes the matching atom it already
+  holds. There is no separate lookup that could run before the
+  `values/2` call and reintroduce the `ArgumentError` measured above:
+  the only atoms `decode/1` can ever produce are the ones `values/2`
+  just handed back, already resolved, so there is no ordering for a
+  later change to invert. When no match exists, `decode
+  /1` leaves that field's value as the wire string, unchanged, rather
+  than raising — the struct then reaches the `Store` call it always
+  would have, meets the same uncasted `Ecto.Changeset.change/2` every
+  field in this class already goes through, and fails as
+  `Ecto.ChangeError` at the one site `Projector`'s `error/3` (`:stop`,
+  below) already governs. That is deliberate, not a default left
+  unchosen: this entry has already established that raising inside
+  `decode/1` is the worse placement, landing before `Projector`'s
+  handler and its `error/3` exist to see it, and an unrecognised value
+  — a schema migrated ahead of this decoder, say — is exactly the case
+  that placement would be worst for.
+
+  **The comment that documented the serializer choice is the site that
+  hid this defect, and dev amends it in the same change.**
+  `lib/catapult/engine/event_store.ex`'s `init/1` carries: "it
+  round-trips the versioned event structs this component emits,
+  including their atom-keyed fields, which the library's own default
+  `EventStore.JsonSerializer` does not attempt." That sentence is true
+  and reads as covering atom-*valued* fields too, which it does not and
+  never did — atom-keyed is exactly what `struct/2` restores, and
+  atom-valued is exactly the gap the four decoders above close. Left
+  as written, the next reader reaches this comment and draws the same
+  conclusion the milestone's worth of code that shipped around it did.
+  Dev states the distinction in that comment as part of this change,
+  rather than leaving true words to keep implying the wrong thing.
+
+  **`Projector` keeps Commanded's default `error/3` (`:stop`),
+  unchanged — a decision, not an oversight.** A handler that skipped a
+  bad event instead would leave this doc's own "rebuild-from-zero...
+  must equal incremental state, always" quietly false for whatever
+  that event should have folded — worse than the crash-loop this pass
+  fixes, and this pass builds no mechanism yet (no alert, no
+  parked-event queue, no replay-from-here tool) to make a skip visible
+  rather than silent. The four decoders above remove the only known
+  way to reach a poison event today; a *different* future defect
+  reaching the same `:stop` is a real gap, but designing what a human
+  does about a skipped event is its own ticket, not a side effect of
+  this one.
+
+  **The round-trip gap closes in the one test that reaches the real
+  serializer.** `config/test.exs`'s
+  `Commanded.EventStore.Adapters.InMemory` performs no serialization at
+  all, so the default suite is structurally incapable of exercising
+  any `JsonDecoder`, this class or the next one.
+  `test/catapult/engine/event_store_test.exs` — the one test already
+  reaching the real, Postgres-backed adapter — gains one case per event
+  in the class above, each asserting the decoded struct's atom-typed
+  field is an atom, not the string `Jason` would otherwise leave it as,
+  plus one case, on any single field in the class, asserting that an
+  unrecognised value comes back as the wire string unchanged rather
+  than raising inside `decode/1` — the fallback stated above, exercised
+  rather than only asserted in prose. `FlowCompleted`'s existing
+  two-binary case stays: it proves the
+  migration and the adapter wiring, which is a different and still-
+  needed fact from the one the new cases prove. No case asserts that
+  `WireDecoding`'s value sets agree with `Store`'s `Ecto.Enum`
+  declarations, because there are no separate sets to agree — the
+  `Ecto.Enum.values/2` lookup above reads `Store`'s own list directly,
+  so there is nothing a test would be checking for drift.
 - **The reducer resolves bundle semantics per event, from the log —
   never from whatever `core_dsl` currently has loaded.** The active
   bundle can flip mid-log, on either axis (v5 §6/§7.19;

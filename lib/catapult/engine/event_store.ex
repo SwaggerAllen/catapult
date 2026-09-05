@@ -40,6 +40,14 @@ defmodule Catapult.Engine.EventStore do
      # it round-trips the versioned event structs this component
      # emits, including their atom-keyed fields, which the library's
      # own default `EventStore.JsonSerializer` does not attempt.
+     # Atom-keyed is all `struct/2` restores on its own, though — a
+     # field whose *value* is an atom still arrives as the JSON string
+     # `Jason` encoded it to, and only decodes back to that atom
+     # because `deserialize/2` always runs
+     # `Commanded.Serialization.JsonDecoder.decode/1` afterward, which
+     # `Catapult.Engine.Events.WireDecoding` implements for every
+     # engine event carrying such a value (`systems/engine.md`'s
+     # ORC-226 design pass).
      |> Keyword.put(:serializer, Commanded.Serialization.JsonSerializer)}
   end
 end
