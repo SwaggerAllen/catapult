@@ -3,15 +3,27 @@
 # run-name is load-bearing: "pipeline: live-suite <ticket>" is how the
 # control plane correlates this run to its ticket (stale claims, busy
 # checks). Set it exactly.
+#
+# And deliberately NOT that shape when no ticket was given. The plane
+# reads runs by name, so a detached run named "pipeline: live-suite "
+# would be a half-formed member of the convention rather than a
+# non-member. The name below cannot match it at all, which is the honest
+# statement: this run is not part of the protocol.
 name: pipeline-live-suite
-run-name: "pipeline: live-suite ${{ inputs.ticket }}"
+run-name: >-
+  ${{ inputs.ticket
+      && format('pipeline: live-suite {0}', inputs.ticket)
+      || 'live suite (detached, no ticket)' }}
 
 on:
   workflow_dispatch:
     inputs:
       ticket:
-        description: Boundary ticket key
-        required: true
+        description: >-
+          Boundary ticket key. Leave empty to run detached: the suite
+          runs and reports nowhere, for when no boundary is open or when
+          another marker comment on the same verdict would be noise.
+        required: false
         type: string
       command:
         # The boundary suite by default. The Phase 5 proof selects
@@ -114,6 +126,14 @@ jobs:
       # the pipeline itself is under construction (DESIGN §5).
       - uses: SwaggerAllen/orchestration/.github/actions/live-suite@main
         with:
+          # Empty means detached, and that is a claim about the ref
+          # above as much as about this line: the action has to declare
+          # `ticket` optional and skip its own report step when it is
+          # empty. Against a pipeline ref that predates that, an empty
+          # value still reaches `pipeline agent live-suite-report`,
+          # which rejects it — the run then fails at the report step
+          # having already run the whole suite, which reads like a
+          # suite failure and is not one.
           ticket: ${{ inputs.ticket }}
           # The project's :live-tagged tests: real network, real
           # providers, budget-capped. Once per milestone — or the Phase
