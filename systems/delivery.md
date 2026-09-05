@@ -2329,34 +2329,58 @@ generating as scope-runs inside one ticket.
   variable, whose previous-body pair serves `document-review`'s
   per-sentence diff (ORC-114) — a different column entirely from the
   one the terminal-status read above surfaces.
-- **How far the toy chain runs before release is a cost question this
-  pass names rather than answers** (ORC-216, design pass — one of this
-  ticket's own open questions, deliberately left open rather than
-  forced). The live suite's own test releases its project the moment
-  it observes the dispatched run's terminal status — synchronously, in
-  the same request cycle that ends the bounded wait
-  (`systems/foundation.md`'s polling exception) — which bounds the
-  race against the sweeper's own next tick
-  (`GENERATION_SWEEP_INTERVAL_MS`, default `10000`,
-  `lib/catapult/generation.ex`) to whatever a real dispatched run's
-  own wall-clock time leaves before that tick fires, not to anything
-  this ticket engineers. No cap is added to the sweeper for this: a
-  released project stops being swept the instant its state flips, at
-  both sites that can dispatch one (`systems/generation.md`'s ORC-216
-  entry — `Sweeper.sweep_project/2` upstream of the tier walk, and
-  `DispatchWorker.perform/1`'s own re-validation, since a job already
-  enqueued on the tick before release would otherwise dispatch after
-  it), and building a narrower "dispatch exactly one scope" mode would
-  be new dispatch mechanism this ticket's own scope refuses — "let the
-  sweeper dispatch the ready scope" reuses `Catapult.Generation
-  .Sweeper` unmodified. What this does cost — whether a live run's own
-  latency reliably beats one sweep interval, and what a
-  second scope becoming ready and dispatching before release would
-  actually spend — is unmeasured, the same way the subscription
-  credential's own ceiling behavior is (`systems/generation.md`'s own
-  entry): the first live run this mechanism ever dispatches settles it,
-  and until then this is a stated assumption rather than a documented
-  shape.
+- **How far the toy chain runs before release is settled: quiescence on
+  a project-wide run enumeration, not a depth cap** (ORC-216 named this
+  cost question and left it open; ORC-225 answers it, off the same
+  run-26 incident `systems/generation.md`'s fixture-coverage and
+  typed-failure entries close — run 26 was green with four of its five
+  dispatched runs red, because nothing asserted on the other four).
+  `Provisioning` gains a fourth read beside `provision/1`, `release/2`
+  and `status/3`: `Provisioning.runs(conn, project_id)`, reachable at
+  `GET /dispatch/test-project/:project_id/runs`, backed by a new
+  `Store.dispatch_runs_for_project/1` — every `DispatchRun` row for
+  `project_id`, any tier, oldest first, the same shape
+  `dispatch_runs_for_flow/2` already gives one `flow_id`'s rows, minus
+  the `flow_id` filter. Each row normalizes exactly like `status/3`'s
+  own single-tier read (`status`, `outcome`, `credential_used`,
+  `node_id`, `body_sha`) plus the two fields a single-tier caller
+  already knows without asking and an enumerating caller does not:
+  `tier` and `root_tag`.
+
+  The live test polls this read on its existing `@poll_interval`
+  alongside the terminal-status poll it already runs, and calls the run
+  set quiescent once two consecutive polls return the identical set of
+  run ids and every run in that set has reached a terminal `status`
+  (`completed` or `failed`) — not once any single tier does. Reaching
+  quiescence is what the test releases on; it then asserts every run in
+  the set individually (`outcome == success`, a non-empty
+  `credential_used`, a non-nil `body_sha`) — the same three assertions
+  `@entry_tier` alone carried before, now closing exactly the gap run 26
+  exposed, where four red runs and one green one read as a green suite
+  because nothing polled the other four.
+
+  No new dispatch mechanism, unchanged from ORC-216's own refusal: this
+  reuses `Catapult.Generation.Sweeper` exactly as it runs today — "let
+  the sweeper dispatch whatever is ready" is still the whole mechanism,
+  and a narrower "dispatch exactly one scope" mode is still not built,
+  for this or any other caller.
+
+  Quiescence terminates quickly on a toy-seed project today, for a
+  reason worth recording rather than assuming: no production code path
+  ever dispatches `Catapult.Engine.Commands.ApproveDraft` — its only
+  callers, anywhere in `lib/**`, are test helpers — so every tier whose
+  readiness runs through a `self.parent`-style walk requiring
+  `:approved`, which is most of `bundles/default/tiers/*.yaml`, stays
+  permanently unready once swept with no external actor approving
+  anything. What the sweeper alone ever reaches from a toy-seed project
+  is the tiers whose full `context:` resolves vacuously regardless of
+  any node's approval status — today the four `scope: singleton` tiers
+  `feature_expansion`, `non_goals`, `ref` and `frontend_sysarch` — plus
+  each one's own review: eight dispatch events total, each firing once,
+  ever. That boundedness is what makes "wait for quiescence" cheap
+  rather than open-ended; it is a property of the current engine wiring
+  the sweeper walks, not a limit this test imposes, and the identical
+  poll loop widens or narrows with it unmodified if that wiring changes.
 - **The in-flight guard's query lives on `Store`, beside the table it
   reads** (ORC-223 — `systems/generation.md`'s companion entry states
   why the guard exists and how its cutoff was chosen). No new column
@@ -2386,15 +2410,14 @@ generating as scope-runs inside one ticket.
   like `credential_order` already is (GitHub's own inputs are strings
   regardless of the workflow's declared `type:`). Fixture push gets the
   same treatment `reset_repo/2`'s `files` map already gives every other
-  pushed path: `ToySeed.reset_files/0` widens to push each of the nine
-  fixtures' *content* under a repo-relative path keyed by that
-  fixture's own `root_tag` — not its checked-in filename, which matches
-  the `root_tag` for only four of the nine
-  (`systems/generation.md`'s companion entry names the mapping and
-  which five don't) — under a namespace this entry names so dev has no
-  path to invent — `.catapult-stub/<root_tag>.xml` — chosen for being
-  unambiguously not under `docs/raft/**`, the one directory
-  `read_directory/3` ever walks.
+  pushed path: `ToySeed.reset_files/0` pushes each fixture's *content*
+  under a repo-relative path keyed by that fixture's own `root_tag` —
+  not its checked-in filename, which `systems/generation.md`'s companion
+  entry gives the full mapping and naming rule for, rather than a count
+  repeated here to drift out of sync with it — under a namespace this
+  entry names so dev has no path to invent —
+  `.catapult-stub/<root_tag>.xml` — chosen for being unambiguously not
+  under `docs/raft/**`, the one directory `read_directory/3` ever walks.
 - **A test project is unsweepable from the moment it is minted, not
   only once released or deleted — closing the window `provision/1`
   left open between minting a row and finishing the writes that

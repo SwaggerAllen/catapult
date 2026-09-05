@@ -701,22 +701,32 @@ and validation logic and must not fork it.
   a report call": until this entry, that phrase named a step the
   recorded workflow did not actually have.
 - **`ToySeedChainLiveTest`'s poll deadline has to fit inside ExUnit's
-  own per-test timeout, and today it doesn't** (design review finding,
-  ORC-223). `@poll_deadline` is `:timer.minutes(15)`; the test carries
-  no `@tag timeout:`, so ExUnit's own default (60s) kills the test
-  process first, on every run, before the deadline it wrote for itself
-  ever has a chance to fire — the timeout observed in live-suite run
-  23. `after release!(...)` never runs on that kill, which is the
-  reason the incident's test project stayed `:active` after the suite
-  had already given up. Two figures need setting together, not one:
-  under the stub-mode default this same entry restores above, a
-  dispatched run skips the two steps ("Install Claude Code", "Run the
-  agent") that the 15-minute figure was sized for, and reaches terminal
-  in however long a GitHub-hosted runner takes to queue, start and run
-  a checkout plus a report call — order of tens of seconds, not
-  minutes. `@poll_deadline` shrinks to `:timer.minutes(2)`, generous
-  room over a cold runner start; the test itself gains an explicit
-  `@tag timeout: :timer.minutes(3)`, wider than the deadline it bounds
+  own per-test timeout, and today it doesn't** (ORC-223, widened by
+  ORC-225 — `systems/delivery.md`'s quiescence entry states what the
+  test now waits for). `@poll_deadline` was `:timer.minutes(15)`; the
+  test carried no `@tag timeout:`, so ExUnit's own default (60s) killed
+  the test process first, on every run, before the deadline it wrote
+  for itself ever had a chance to fire — the timeout observed in
+  live-suite run 23. `after release!(...)` never ran on that kill,
+  which is the reason the incident's test project stayed `:active`
+  after the suite had already given up. Two figures need setting
+  together, not one, and ORC-225 resets both again for a wider reason
+  than ORC-223's own: under the stub-mode default this same entry
+  restores above, a dispatched run skips the two steps ("Install Claude
+  Code", "Run the agent") that the 15-minute figure was sized for, and
+  reaches terminal in however long a GitHub-hosted runner takes to
+  queue, start and run a checkout plus a report call — order of tens of
+  seconds, not minutes, for one dispatch. ORC-225 widens what the test
+  waits for from "one dispatch reaches terminal" to "the run set
+  observes two consecutive quiet polls" (`systems/delivery.md`'s entry),
+  which on a toy-seed project costs up to two sequential rounds today —
+  a tick-0 draft round and the review round it unblocks — each round
+  bounded by one dispatch's own tens-of-seconds runner latency plus up
+  to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick for the
+  sweeper to notice the round before it. `@poll_deadline` widens to
+  `:timer.minutes(6)` — two rounds at a generous per-round ceiling, plus
+  the quiescence check's own two-poll tail — and the test itself carries
+  `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
   so the assertion failure path (a real `flunk/1`) is what ends the
   test on a genuine timeout, never ExUnit's own kill — which is what
   restores the `after` block's own guarantee, since an `after` runs on
@@ -755,6 +765,78 @@ and validation logic and must not fork it.
   `still_sweepable/1` re-validation already read `sweepable_project?/1`
   rather than holding a cached readiness bit, so widening the schema's
   value list is the whole of it.
+- **Fixture coverage is total across `@root_tag_fixtures`'s key set:
+  every root_tag a dispatchable tier can produce, not only the
+  root_tags one toy-chain run happens to exercise** (ORC-225 — live-suite
+  run 26,
+  [33930186206](https://github.com/SwaggerAllen/catapult/actions/runs/33930186206),
+  the first run to clear the `:provisioning` gate above and immediately
+  expose this one: four of its five dispatched runs died on a bare
+  `FileNotFoundError: .catapult-stub/<root_tag>.xml`, one per root_tag
+  `Catapult.ToySeed.@root_tag_fixtures` had never been given). The map's
+  key set is exactly the 22 values `ContextAssembly.root_tag/1` can
+  return across every dispatchable tier in `bundles/default/tiers/*.yaml`
+  — the 21 distinct `draft.root_tag`s the 23 generation tiers declare
+  (the three `impl_*` tiers collapsing to the one `implementation`),
+  plus the single literal `"review"` every review tier collapses to:
+  `bug-fix-plan`, `comparch`, `feature-expansion`, `feature-request-plan`,
+  `frontend_sysarch`, `implementation`, `journeys`, `non-goals`,
+  `propagation-plan`, `reference`, `refactor-plan`, `requirements`,
+  `review`, `screen_collarch`, `screen_subcomparch`, `screens`,
+  `subcomparch`, `sysarch`, `ui_collarch`, `ui_subcomparch`,
+  `upward-propagation-plan`, `vocab-entry`.
+
+  A missing key is not a gap the live suite tolerates by exercising a
+  narrower chain — the entry above already keys the lookup by `root_tag`
+  rather than by tier precisely so one fixture serves every tier sharing
+  a root_tag, and that same collapse means a single missing key fails
+  every tier that shares it, not just one.
+
+  Each fixture this map is still missing is a hand-authored XML document
+  whose root element is its `root_tag` and which validates against the
+  schema its own tier's `grammar:` names in `bundles/default/schemas/
+  *.xsd` — not an empty placeholder, since the plane validates a
+  reported body against the tier's grammar exactly as it would a real
+  model response, the schema a tier's own `draft:` block already commits
+  it to regardless of who produces the body. Its filename follows the
+  same convention the nine checked-in ones already show: the tier's own
+  bundle YAML basename with `.xml` in place of `.yaml`
+  (`bug_fix_plan.yaml` → `bug_fix_plan.xml`, `downward_propagation_plan
+  .yaml` → `downward_propagation_plan.xml`, and so on for the rest) — a
+  filename namespace that tracks the bundle's own tier names, which is
+  why it was never made to equal the differently-punctuated `root_tag`
+  namespace in the first place; `@root_tag_fixtures`'s value side is
+  exactly what translates between the two, for every entry, not only
+  the five original ones the correction above named.
+- **The "Read the stub fixture" step must itself produce a typed
+  `outcome.json` when the fixture is missing, not fall through to
+  "Report the result"'s own generic fallback** (ORC-225, the same run
+  26 incident above). Today the step's `open()` call has no guard: a
+  missing `.catapult-stub/<root_tag>.xml` raises, the step's `python3`
+  process dies before writing anything, and "Report the result" (`if:
+  always()`) runs anyway, finds no `outcome.json`, and reports
+  `{"status": "other_failure", "reason": "run-agent step produced no
+  outcome.json"}` — a reason naming a step ("Run the agent") that stub
+  mode's own `if:` condition skips entirely, so the plane's one record
+  of *why* the dispatch failed points a reader at code that never ran.
+  The step catches the missing-file case itself and writes the same
+  `other_failure` shape directly: `{"status": "other_failure", "reason":
+  "no stub fixture for root_tag '<root_tag>' at
+  .catapult-stub/<root_tag>.xml", "credential_used": "stub"}` — naming
+  the root_tag and the exact path it looked for, the two facts a reader
+  needs to find the gap the entry above closes, and the two facts the
+  generic fallback has no way to know. This is `other_failure`, not a
+  new `DispatchRun.outcome` value: a missing fixture is exactly as
+  terminal and exactly as non-retryable as any other `other_failure` —
+  nothing in the credential-failover path branches on outcome kind
+  beyond `limit_class_failure` versus everything else — so the
+  distinction lives in the `reason` string, which is free text already,
+  rather than in a fourth enum value with a migration behind it.
+  "Report the result"'s own fallback keeps its present meaning after
+  this change rather than gaining a new one: once the read step cannot
+  fail past this point without writing something, "no outcome.json"
+  means what it always claimed to — the body-producing step (real or
+  stubbed) crashed somewhere the harness gave it no chance to report.
 
 ## Initial vs target
 
