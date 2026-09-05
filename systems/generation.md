@@ -727,10 +727,9 @@ and validation logic and must not fork it.
   bounded by one dispatch's own tens-of-seconds runner latency plus up
   to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
   `@poll_interval` (5s) row-visibility margin, for the sweeper to notice
-  the round before it. The widened, 15-second-total quiescence window
-  costs at most one extra `@poll_interval` per round against the prior
-  figure — negligible next to the minutes-wide deadline below, so
-  `@poll_deadline` widens to
+  the round before it. The 15-second quiescence window is charged once
+  per round and is negligible next to the minutes-wide deadline below,
+  so `@poll_deadline` widens to
   `:timer.minutes(6)` — two rounds at a generous per-round ceiling, plus
   the quiescence check's own sweep-tick-plus tail — and the test itself
   carries `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
