@@ -2589,8 +2589,8 @@ generating as scope-runs inside one ticket.
   and `Catapult.Generation.Sweeper`'s moduledoc ("a released or
   deleted test project").
 - **`reset_repo/2`'s fixture write moves off one commit per file onto
-  GitHub's Git Data API — one tree, one commit, one ref update,
-  independent of the file count** (ORC-228, design pass).
+  GitHub's Git Data API — two commits per reset and a fixed call
+  count, whatever the file count** (ORC-228, design pass).
   `HostPort.Actions.put_all_files/2`'s `Enum.reduce_while` PUT loop — a
   blob-sha read plus a `PUT …/contents/{path}` per entry in `files`,
   one commit each — is 60 round trips at ORC-225's own 30-file fixture
@@ -2652,11 +2652,11 @@ generating as scope-runs inside one ticket.
   unmeasured GitHub behavior: every file **except** the workflow file
   rides the tree commit; the workflow file always rides its existing
   Contents PUT, issued *before* the tree write rather than after, so
-  the tree commit — the last of the seven calls — is the branch's
-  actual head and the sha `reset_repo/2` returns, rather than the
-  workflow commit trailing behind it. No probe against `catapult-test`
-  is needed before shipping this, and none is deferred to the
-  implementing pass.
+  the tree commit — which the ref update, last of the seven calls,
+  moves the branch to — is the branch's actual head and the sha
+  `reset_repo/2` returns, rather than the workflow commit trailing
+  behind it. No probe against `catapult-test` is needed before
+  shipping this, and none is deferred to the implementing pass.
 
   **`@request_timeout` stays at 30s in both live tests**
   (`toy_seed_chain_live_test.exs`, `todo_app_proof_live_test.exs`). The
