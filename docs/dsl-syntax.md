@@ -1173,6 +1173,30 @@ Added with named positions (§15.12, ORC-155):
   error naming both declarations and, when the status name is
   namespace-qualified, the namespace it collided from (§15.12).
 
+Added with `declared_in`/schema cross-validation (ORC-232,
+`systems/core_dsl.md`'s ORC-232 entry):
+
+- every `declared_in` path's element and attribute segments are
+  checked against the schema of the tier its own **leading segment**
+  names, not necessarily the citing edge instance's `source` — a
+  join-target tier with no `draft:` of its own (§3) has its
+  relationships declared inside whichever tier's draft mints or names
+  it, and the path's leading segment names that tier instead. A
+  segment naming no element or attribute the schema declares, under
+  that exact spelling, is a load error naming the edge, the instance
+  and the offending segment;
+- a segment the check cannot resolve at all — because the schema
+  reaches it through a construct the check does not model (`xs:group`,
+  `xs:extension`, a named type defined elsewhere rather than inlined)
+  — is not a load error: an unresolvable segment and a wrong one are
+  different failure modes, and refusing to load over the first would
+  make the check's own coverage gap the bundle author's problem. Only
+  a segment the check positively resolves and finds wrong is this
+  check's to catch;
+- attribute segments (a trailing `.@attr`) are checked the same way as
+  element segments, off the same schema walk — never modeled as
+  elements-only with attributes left unchecked.
+
 ## 14. Deliberately absent
 
 Recorded so nobody re-adds them: **phases** (v5 §6 — dropped

@@ -948,6 +948,44 @@ profiles.
   depends on it: a `design_system` node mints and holds content
   whether or not anything declares a dependency on it.
 
+- **A `declared_in` path's element and attribute segments join the
+  cross-references the loader already checks at load time**
+  (ORC-232, `dsl-syntax.md` §13, sharpening this system's own
+  "cross-references" bullet above). §13's own enumeration of what
+  "every cross-reference resolves" already covers — edge endpoints,
+  fragment kinds, prompt/schema paths, predicate names — named no
+  check of a `declared_in` path's own segments against the schema of
+  the tier it reads, and six wrong segments sat undetected across nine
+  occurrences in the shipped bundle as a result
+  (`systems/platform_content.md`'s ORC-232 entry: every one matched
+  nothing in a committed body, silently, because
+  `Extraction.descend/2` resolves a segment by exact string equality
+  with no normalization). The loader now resolves a `declared_in`
+  path's leading segment to the tier it names, reads that tier's own
+  `draft.grammar` schema, and walks the remaining segments against it
+  the same way `Extraction.descend/2` walks them against a committed
+  body — refusing to load when a segment names no element or
+  attribute the schema declares under that exact spelling, naming the
+  edge, the instance and the offending segment.
+
+  **Two failure modes, kept apart.** A segment the check can resolve
+  and finds wrong is the class above — a load error. A segment the
+  check cannot resolve at all, because the schema reaches it through
+  a construct the check does not model (`xs:group`, `xs:extension`, a
+  named type defined elsewhere rather than inlined), is not an error:
+  the check's own coverage gap is not the bundle author's defect, so
+  an unresolvable segment passes through unverified rather than
+  blocking the load. Only a segment the check positively knows is
+  wrong is this defect's class.
+
+  **Attribute segments are checked identically to element segments,
+  not carved out.** `Extraction.attribute/2` resolves a trailing
+  `.@attr` segment by the same exact-string comparison
+  `Extraction.descend/2` uses for an element segment, so a typo in
+  either position fails identically at runtime; the check reads both
+  off the same schema walk rather than modeling elements and leaving
+  attributes unchecked.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
