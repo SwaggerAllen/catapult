@@ -971,15 +971,18 @@ profiles.
   **The walk follows a `type="Name"` reference into a complexType
   declared in the same schema file exactly as it follows an inline
   content model — this bundle's ordinary shape, not an edge case.**
-  Every schema under `bundles/default/schemas/**` factors its element
-  content into named complexTypes rather than inlining them
-  (`ui_collarch.xsd`'s `Primitives`, `frontend_sysarch.xsd`'s
-  `Dependencies`, and so on), so a segment one level past a tier's
-  root routinely sits behind exactly this reference. Treating a
-  same-file `type=` reference as unresolvable — this entry's first
-  draft did — would leave the check unable to validate almost anything
-  past the segment immediately under a tier's root, since that is how
-  nearly every multi-segment path in this bundle is actually shaped.
+  A tier's root element declares its own sequence inline
+  (`frontend_sysarch.xsd:78`, `comparch.xsd:182`, `ui_collarch.xsd:120`,
+  `screen_collarch.xsd:115`), but the children in that sequence carry
+  their content as named complexTypes rather than inlining it
+  (`frontend_sysarch.xsd`'s `<ui-dependencies type="Dependencies">`,
+  `ui_collarch.xsd`'s `<primitives type="Primitives">`, and so on). So
+  a path's first element segment — the one directly under `draft` —
+  resolves against the root's own inline sequence, and every segment
+  past it sits behind a `type=` reference. Treating a same-file
+  reference as unresolvable would leave the check able to validate
+  that first segment and nothing deeper, since that is how nearly
+  every multi-segment path in this bundle is shaped.
 
   **Two failure modes, kept apart.** A segment the check can resolve —
   whether inline or by following a same-file `type=` reference — and
