@@ -1055,6 +1055,17 @@ generating as scope-runs inside one ticket.
   than Phase 4's single pre-gate `generation` status would validate
   against. ORC-34 needed neither to close the mechanism it built.
 
+  **Amended further at ORC-229: what advancing past a gate dispatches
+  to now includes an engine-side consequence, sized to exactly Phase
+  4's own scope.** `ApproveDraft`/`DiscardDraft` (`systems/engine.md`'s
+  own new entry, `Catapult.Delivery.DraftResolution` below) is the
+  "later increment, and a sizeable one" v5 §7.16 named for turning a
+  passed gate into an engine-recognized approval. It does not touch
+  what stays open above: what a passed gate pins is exactly as
+  unresolved as ORC-34 left it, and which node(s) a gate spanning more
+  than one pre-gate `generation` status would validate against is
+  still exactly Phase 4's own single-node mapping, unchanged.
+
 - **The storage question the three entries above leave open is
   engine's, not this system's — corrected here rather than left to
   read as a contradiction** (ORC-104, design pass;
@@ -1601,6 +1612,57 @@ generating as scope-runs inside one ticket.
   dispatches to stays open" bullet named and deferred, closed here on
   the aggregate side `systems/engine.md` settles and amended into that
   bullet above.
+
+- **Draft approval/discard is a second write-side process manager, not
+  a third `FeatureLifecycle` clause** (ORC-229, design pass, closing
+  `systems/engine.md`'s own "nothing dispatches `ApproveDraft`/
+  `DiscardDraft`" gap from this side). `FeatureLifecycle` dispatches no
+  commands, ever — projection only, behaviorally, precisely so a fault
+  in a *write* triggered off engine's events never risks the read model
+  every status column and every gate already depends on — and
+  dispatching `ApproveDraft`/`DiscardDraft` back into the engine on
+  `GateApproved`/`GateDeclined` is exactly such a write, with the
+  identical replay hazard `FeaturePublisher`'s own split already exists
+  to avoid: a process manager's `handle/2` re-runs on every rebuild,
+  and a second write-triggering handler on the instance that already
+  owns the read model is the wrong instinct to build on even though
+  `systems/engine.md`'s own new compare-and-swap makes a replayed
+  dispatch a rejection rather than a duplicate event.
+  `Catapult.Delivery.DraftResolution` is the new process manager:
+  identical subscription and identification shape to
+  `FeatureLifecycle`/`FeaturePublisher` (`application: Catapult.Engine
+  .Application`, `project_id <> ":" <> flow_id`, ORC-87) — and,
+  because neither `GateApproved` nor `GateDeclined` carries a node id,
+  and `Catapult.Engine.Store.Flow` has no node column to look one up
+  from, a third `interested?` clause on `FlowOpened`, identical in
+  shape to `FeatureLifecycle`'s own, starts each instance holding
+  `entry_node_id` in its own state rather than deriving a node from the
+  resolving event. `handle/2` for `GateApproved`/`GateDeclined` then
+  calls `Catapult.Engine.Store.get_node(pm.project_id,
+  pm.entry_node_id)` — not to find the node, which the held state
+  already names, but to read `Node.current_draft_id`, the value that
+  becomes the resulting `ApproveDraft`/`DiscardDraft`'s own `draft_id`;
+  `systems/engine.md`'s own new compare-and-swap is what makes
+  populating a command from a projection read safe rather than a race.
+  Nothing this process manager decides is read off `FeatureLifecycle`'s
+  own projection, for the identical resilience reason `FeaturePublisher`
+  doesn't read it either: a stalled sibling must not stall this one.
+
+  **Whether a `GateApproved` approves the draft is computed
+  independently of `FeatureLifecycle`'s own status advance, from the
+  same loaded `Catapult.Dsl.Workflow.t()`, not read off it.**
+  `FeatureLifecycle`'s "advances the ticket to the next entry in its
+  type's own `statuses:` array after the gate's position" (above) and
+  `DraftResolution`'s "does that next entry leave this gate's own
+  citing sub-array" are the same lookup read twice by two independent
+  handlers of the same event, deliberately — the two-computations-of-
+  one-fact shape this doc otherwise avoids is the price of the
+  identical decoupling `FeatureLifecycle`/`FeaturePublisher` already
+  pay for `flow_name`/entry-tier resolution, not a new exception.
+  `systems/engine.md`'s own new entry has the group-exit rule and the
+  discard-resets-to-absent fix; this system's only job is deciding
+  *when* to fire, off vocabulary this system already threads through
+  for the gate-advance mechanism beside it.
 
 - **A decline with no comments is refused before it becomes an event,
   by the aggregate, not by a screen** (ORC-34, design pass,
@@ -2432,11 +2494,12 @@ generating as scope-runs inside one ticket.
   for this or any other caller.
 
   Quiescence terminates quickly on a toy-seed project today, for a
-  reason worth recording rather than assuming: no production code path
-  ever dispatches `Catapult.Engine.Commands.ApproveDraft` — `lib/**`
-  only declares and handles it (`engine/router.ex`'s routing table,
-  `engine/aggregate.ex`'s handler), and every site that actually
-  dispatches it is under `test/` — so every tier whose readiness runs
+  reason worth recording rather than assuming: no external actor ever
+  resolves a gate in this unattended run, so `ApproveDraft` — dispatched
+  only by `Catapult.Delivery.DraftResolution` in reaction to a human's
+  `GateApproved` (`systems/engine.md`'s ORC-229 entry) — never fires
+  here either, the identical outcome this bullet already named before
+  that dispatcher existed to fire it. So every tier whose readiness runs
   through a `self.parent`-style walk requiring
   `:approved`, which is most of `bundles/default/tiers/*.yaml`, stays
   permanently unready once swept with no external actor approving

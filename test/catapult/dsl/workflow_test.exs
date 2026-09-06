@@ -143,6 +143,25 @@ defmodule Catapult.Dsl.WorkflowTest do
       assert Workflow.throwback_default(workflow, "milestone", "no-such-gate") == nil
       refute Workflow.throwback_legal?(workflow, "milestone", "no-such-gate", "setup")
     end
+
+    # `approve_leaves_group?/3` (ORC-229): the same group's two gates,
+    # `milestone-signoff` (index 3) and `proposals-read` (index 5), read
+    # forward instead of backward.
+    test "approving the group's own earlier gate does not leave it — the next entry is still inside",
+         %{workflow: workflow} do
+      refute Workflow.approve_leaves_group?(workflow, "milestone", "milestone-signoff")
+    end
+
+    test "approving the group's own last gate leaves it — the next entry is outside", %{
+      workflow: workflow
+    } do
+      assert Workflow.approve_leaves_group?(workflow, "milestone", "proposals-read")
+    end
+
+    test "a type or gate that does not resolve reads false, never true", %{workflow: workflow} do
+      refute Workflow.approve_leaves_group?(workflow, "no-such-type", "proposals-read")
+      refute Workflow.approve_leaves_group?(workflow, "milestone", "no-such-gate")
+    end
   end
 
   describe "throwback_default/3 outside any sub-array" do
@@ -182,6 +201,11 @@ defmodule Catapult.Dsl.WorkflowTest do
                %{target: "pending", leaves_group: false},
                %{target: "generation", leaves_group: false}
              ]
+
+      # The forward reading takes the opposite default for the
+      # identical "no group" case: there is no group left to still be
+      # inside, so this gate is always the group's own last one.
+      assert Workflow.approve_leaves_group?(workflow, "feature", "product-review")
     end
   end
 

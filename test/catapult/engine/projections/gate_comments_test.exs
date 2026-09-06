@@ -1,7 +1,6 @@
 defmodule Catapult.Engine.Projections.GateCommentsTest do
   use Catapult.DataCase, async: false
 
-  alias Catapult.Engine.Commands.ApproveDraft
   alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.DeclineGate
@@ -9,7 +8,6 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
   alias Catapult.Engine.Commands.PostComment
   alias Catapult.Engine.Projections.GateComments
   alias Catapult.Engine.Router
-  alias Catapult.Engine.Store
   alias Ecto.Adapters.SQL.Sandbox
 
   # `:strong` consistency touches the projector's own DB write
@@ -32,18 +30,6 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
         body_sha: body_sha,
         committed_at: ~U[2026-01-01 00:00:00Z]
       },
-      consistency: :strong
-    )
-  end
-
-  # Only one pending draft per node: a regeneration
-  # commits a fresh body for the same node, but must approve the prior
-  # draft first — the same scaffolding step every real dispatch takes.
-  defp approve!(project_id, node_id) do
-    %{current_draft_id: draft_id} = Store.get_node(project_id, node_id)
-
-    Router.dispatch(
-      %ApproveDraft{project_id: project_id, node_id: node_id, draft_id: draft_id},
       consistency: :strong
     )
   end
@@ -146,7 +132,10 @@ defmodule Catapult.Engine.Projections.GateCommentsTest do
     assert :ok = Router.dispatch(decline, consistency: :strong)
     first = GateComments.last_resolution_sequence(project_id, "ux-review")
 
-    assert :ok = approve!(project_id, "n1")
+    # No scaffolding approval needed: `DeclineGate` now discards the
+    # node's own pending draft unconditionally
+    # (`Catapult.Delivery.DraftResolution`, ORC-229), which is what
+    # clears the way for a fresh commit.
     assert :ok = commit!(project_id, "n1", "sha2")
     assert :ok = comment!(project_id, "n1", "sha2")
 

@@ -235,21 +235,21 @@ defmodule Catapult.Generation.IntegrationTest do
 
     assert :ok = Router.dispatch(decline, consistency: :strong)
 
-    # -- clears each node's pending-draft slot for a second commit
-    #    (`Catapult.Engine.Aggregate`'s `:engine_draft_conflict` guard)
-    #    — orthogonal to the gate decision above: `vocab:billing` was
-    #    never declined and still needs this before it can redraft. --
-    for n <- [auth, billing] do
-      assert :ok =
-               Router.dispatch(
-                 %ApproveDraft{
-                   project_id: project_id,
-                   node_id: n.id,
-                   draft_id: n.current_draft_id
-                 },
-                 consistency: :strong
-               )
-    end
+    # -- `vocab:auth`'s own pending draft is already discarded by the
+    #    decline above (`Catapult.Delivery.DraftResolution`, ORC-229),
+    #    which is what clears its pending-draft slot for a second
+    #    commit (`Catapult.Engine.Aggregate`'s `:engine_draft_conflict`
+    #    guard). `vocab:billing` was never declined and still needs the
+    #    scaffolding approval before it can redraft. --
+    assert :ok =
+             Router.dispatch(
+               %ApproveDraft{
+                 project_id: project_id,
+                 node_id: billing.id,
+                 draft_id: billing.current_draft_id
+               },
+               consistency: :strong
+             )
 
     auth_regen_candidate = Store.get_node(project_id, "vocab:auth")
     billing_regen_candidate = Store.get_node(project_id, "vocab:billing")

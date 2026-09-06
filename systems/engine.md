@@ -1129,13 +1129,18 @@ them.
   exactly where §7.16 already leaves grant evaluation — identity's, a
   Phase 7 component — recorded the same way `actor_id` rides
   unvalidated on `DraftApproved` today. **How a decline reopens a node
-  for regeneration is still not built here.** `GateDeclined` moves the
-  ticket's own projected status (`systems/delivery.md`, below); which
-  chain-axis node(s) that throwback makes eligible for `ready_scopes`
-  again is the same still-open §7.19 mechanism this ticket inherited
-  rather than closed — this entry only guarantees that whenever ORC-9's
-  executor does re-dispatch, `feedback` cannot render blank where a
-  real comment justified the decline: `since_sequence` on
+  for regeneration is closed at ORC-229 (below), off this same event.**
+  `GateDeclined` moves the ticket's own projected status
+  (`systems/delivery.md`, below) and, independently,
+  `Catapult.Delivery.DraftResolution` dispatches `DiscardDraft` against
+  the node this gate reviews; `Reducer.apply(%DraftDiscarded{}, _)`
+  resets that node's projection to `status: :absent` with
+  `current_draft_id`/`body_sha` cleared, so `ReadyScopes.ready/3`'s own
+  `node.status == :absent` filter — unchanged — is what makes it
+  eligible for `ready_scopes` again. This entry still only guarantees
+  that whenever ORC-9's executor does re-dispatch, `feedback` cannot
+  render blank where a real comment justified the decline:
+  `since_sequence` on
   `GateDeclined` is read from `GateComments.last_resolution_sequence/2`
   at the same command-construction boundary that populates the decline
   (the fourth design-review correction above has the mechanism, and why
@@ -1379,6 +1384,117 @@ them.
   part of this ticket's edge. Role authorization (does this `actor_id`
   own the blocked ticket's origin status) is left exactly where every
   other gate-adjacent command already leaves it — identity's, Phase 7.
+
+- **`ApproveDraft`/`DiscardDraft` gain a dispatcher and the identical
+  compare-and-swap `ApproveGate`/`DeclineGate` needed** (ORC-229,
+  design pass). Both commands were registered and validated but had no
+  production caller anywhere in `lib/**`: `Catapult.Delivery
+  .FeatureLifecycle`'s `GateApproved`/`GateDeclined` handling
+  (`systems/delivery.md`) already advances a ticket's projected status,
+  but neither event ever touched `Node.status`, so a node reached
+  `:drafted` and stayed there and `ReadyScopes.ready/3`'s
+  `Enum.all?(targets, &(&1.status == :approved))` never turned true for
+  anything downstream of it (dsl-syntax.md §7). Fixed at the dispatch
+  side, not the read side — the identical shape ORC-117's join-target
+  fix above already took. A new process manager,
+  `Catapult.Delivery.DraftResolution` (`systems/delivery.md`, below),
+  reacts to `GateApproved`/`GateDeclined` and dispatches
+  `ApproveDraft`/`DiscardDraft` against the flow's own reviewed node —
+  Phase 4's already-standing "one node per flow" simplification
+  (above, and `systems/delivery.md`'s ORC-34 entry), unchanged by this
+  ticket. Both events' own `actor_id` threads onto the resulting
+  command unchanged, so `DraftApproved`/`DraftDiscarded` carry who
+  acted the same way `ApproveGate` already does — v5 §7.19's "who
+  approved is answerable from the object" holds for a draft the
+  identical way it already holds for a gate.
+
+  **Approve only when the resolving gate is the review group's own
+  last one; decline discards unconditionally.** A gate's own citing
+  sub-array (dsl-syntax.md §15.10) may hold more than one `review:`
+  entry ahead of `checks` — `feature.yaml` ships two, `ux-review` then
+  `engineering-review`, both reviewing the same single node (Phase 4's
+  own mapping, above) — and marking the node `:approved` the moment
+  the first of them passes would let a downstream context walk
+  dispatch before the ticket's own required second sign-off ever ran,
+  which is not what "readiness requires all targets ready" is supposed
+  to mean. So `ApproveDraft` dispatches only when `GateApproved`'s own
+  forward advance leaves the citing sub-array — the identical
+  `leaves_group` computation `Catapult.Dsl.Workflow
+  .throwback_target_details/3` already derives for a throwback target
+  (`lib/catapult/dsl/workflow.ex`), read here in the forward direction
+  instead; an earlier gate's approval only advances the ticket's own
+  projected status, exactly as before this ticket. A decline is not
+  the same shape: every `review:` entry in a `generation`/`critique`/
+  review group falls back to the same leading `pending` (§15.10's
+  fourth-pass correction, already the rule `screens/document-review.md`
+  cites), so any `GateDeclined` against the node dispatches
+  `DiscardDraft` unconditionally — there is no partial-decline case
+  where the draft should survive.
+
+  **`DraftDiscarded` resets the node to `:absent`, not a fourth
+  status.** `Node.status` keeps the same three values ORC-117 already
+  fixed it at — `Reducer.apply(%DraftDiscarded{}, _)` now clears the
+  projection's `current_draft_id`/`body_sha` alongside the existing
+  `set_draft_status(:discarded)`, and writes `status: :absent`, the
+  identical value a never-drafted node already carries. This is the
+  whole fix for "how a decline reopens a node for regeneration"
+  (above, amending the still-open claim this doc made before this
+  ticket): `ReadyScopes.ready/3`'s own candidate filter already reads
+  `node.status == :absent` and needed no change, the same "write the
+  correct value at the transition, not a new branch at the read"
+  precedent ORC-117 set. The aggregate's own in-memory
+  `pending_draft_id` was already cleared on `DraftDiscarded` before
+  this ticket; only the projection was missing the equivalent reset.
+
+  **`ApproveDraft`/`DiscardDraft` had no compare-and-swap either,
+  found reading the code against §7.16's own rule the identical way
+  ORC-114 found it missing on `ApproveGate`/`DeclineGate`.**
+  `execute/2` for both commands read no aggregate state at all and
+  would emit unconditionally on a replay or a duplicate dispatch —
+  moot while nothing dispatched them, live the moment a process
+  manager does, since a process manager's own event handler can itself
+  be replayed. Both gain `PostComment`'s own shape:
+  `execute(%__MODULE__{nodes: nodes}, %ApproveDraft{} = cmd)` rejects
+  unless `nodes[cmd.node_id].pending_draft_id == cmd.draft_id` —
+  `{:error, {:engine_stale_draft_resolution, node_id:, current:, got:}}`
+  otherwise, `:engine_stale_gate_resolution`'s own shape reused rather
+  than invented — and `DiscardDraft` takes the identical guard. A
+  duplicate dispatch of either command against a node already moved
+  past that draft (approved, discarded, or superseded by a fresh
+  commit) is now a rejection, not a second event.
+
+  **The review score stays exactly as parked as it already was.**
+  Nothing here reads `ReviewWritten.score` — `docs/dsl-syntax.md`
+  §15.10's "a parked scheduler item, §7.19, not bundle content" stands,
+  and `ApproveDraft` dispatches only off a human's `GateApproved`,
+  never off a review tier's own automated pass.
+
+  **Closing this loop makes regeneration reachable, and regeneration
+  leaves stale content downstream with no path back.** A fresh
+  `DraftCommitted` against a node that was already `:approved` needs no
+  new mechanism — `Reducer.apply/2` already sets `status: :drafted`
+  unconditionally (above `Node.status`'s own three values), so
+  `ReadyScopes.ready/3` correctly re-blocks every downstream context
+  walk until the new draft is itself approved. What has no mechanism is
+  content *already* committed downstream, against the superseded
+  approval: nothing moves it back to `:absent`, so it stays put, stale,
+  permanently.
+
+  `Catapult.Engine.Projections.Staleness` computes exactly this fact —
+  `stale?/2`, `target_newer?/2` comparing `committed_sequence` against
+  each resolved context target's — and has no production caller: every
+  `lib/**` reference to it outside its own module is a doc comment
+  (`context_resolver.ex:8`, `:25`; `store/draft.ex:8`), not a call.
+  Before this ticket no node ever reached `:approved`, so nothing ever
+  drafted against one and the case could not occur; this ticket is what
+  makes it live.
+
+  How staleness is consumed is settled above — "consumed by flow walks
+  and the plane's out-of-band ticket filing" — and
+  `docs/v5-design-decisions.md`'s "staleness hints, never cascades"
+  rules out an auto-reopening `ready/3`. What is missing is the
+  connection: neither named consumer calls `stale?/2`. ORC-231 carries
+  wiring it.
 
 ## Initial vs target
 
