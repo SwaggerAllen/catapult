@@ -2458,18 +2458,39 @@ generating as scope-runs inside one ticket.
   check to see, so it reads identically to "nothing left." `runs/2`'s
   response widens from a bare array to `%{runs: [...], remaining:
   integer}`, where `remaining` is the plane's own current answer, read
-  at the moment of the call: `Catapult.Engine.Projections.ReadyScopes`'s
-  readiness read, joined against `Store.list_nodes/2`, counts every
-  node that is dispatchable right now and has no terminal `DispatchRun`
-  yet, plus any run already in flight. Zero means nothing is
-  dispatchable and nothing is running — a fact read directly off plane
-  state, the thing a green run of this test now depends on.
-  `Catapult.Generation.Quiescence`'s own quiet-since arithmetic
-  (`test/support/quiescence.ex`) stays exactly as ORC-225 built and
-  tested it, but this test no longer needs it: `remaining == 0` already
-  covers the race that arithmetic was hedging — a sweep tick that fired
-  but had not yet produced a visible row — by seeing the ready node
-  directly instead of waiting out a margin for its row to appear.
+  at the moment of the call, off **both** readiness reads
+  `Catapult.Generation.Sweeper` itself dispatches from
+  (`sweep_tiers/2`, `lib/catapult/generation/sweeper.ex`) rather than
+  one of the two: `Catapult.Engine.Projections.ReadyScopes.ready/3`
+  (generation-tier readiness — the context-walk rule) **and**
+  `ReadyScopes.ready_review/3` (review-tier readiness — "the reviewed
+  tier's current draft has no review yet," a separate rule no
+  generation-side filter covers), each joined against
+  `Store.list_nodes/2` for nodes with no terminal `DispatchRun` yet,
+  plus any run already in flight, summed. Naming only `ready/3` would
+  read `remaining` as zero while a review round the sweeper is about to
+  fire sits invisible to it — the identical race quiescence existed to
+  hedge, reintroduced through the read meant to remove it. Zero across
+  both means nothing is dispatchable on either axis and nothing is
+  running — a fact read directly off plane state, the thing a green run
+  of this test now depends on.
+
+  **`Catapult.Generation.Quiescence` loses its only caller and retires
+  in the same change.** Its quiet-since arithmetic
+  (`test/support/quiescence.ex`) hedged exactly the race `remaining ==
+  0` now reads directly — a sweep tick that fired but had not yet
+  produced a visible row — by waiting out a margin instead of seeing
+  the ready node itself. `ToySeedChainLiveTest` (the loop this test's
+  own entry rewrites, `systems/generation.md`) was its only caller;
+  once that loop polls `remaining` instead, nothing calls
+  `next_quiet_since/5` or `outcome/4` anywhere in the tree. A module
+  kept alive with no caller is exactly the shape ORC-229 and ORC-231
+  each independently found and named as a defect elsewhere in this
+  milestone, not a precedent to repeat by leaving this one standing:
+  dev deletes `test/support/quiescence.ex` and
+  `test/catapult/generation/quiescence_test.exs` in the same change
+  that wires `remaining` in, rather than carrying tested arithmetic
+  nothing calls.
 
   **Per-run duration comes free of the same widening.**
   `Store.DispatchRun` already carries `timestamps(type:
@@ -2490,7 +2511,7 @@ generating as scope-runs inside one ticket.
   exposed, where four red runs and one green one read as a green suite
   because nothing polled the other four. `systems/generation.md`'s
   ORC-230 entry states what the test does once `remaining` first
-  reaches zero: call `approve_gates/2` and keep going, rather than
+  reaches zero: call `approve_drafts/2` and keep going, rather than
   stop.
 
   No new dispatch mechanism, unchanged from ORC-216's own refusal: this
@@ -2509,91 +2530,103 @@ generating as scope-runs inside one ticket.
   `bundles/default/tiers/*.yaml`) stayed permanently unready — the
   sweeper alone ever reached the tiers whose full `context:` resolves
   vacuously regardless of any node's approval status, a fixed and small
-  set. That is no longer the rule: `Provisioning.approve_gates/2`,
-  below, plays the external actor's part, so a toy-seed project's
-  quiescence is now bounded only by however deep the raft's own
-  downward-cascade graph goes, not by an approval that never comes.
-  `systems/generation.md`'s own entry states what the live suite's poll
-  loop does with that reach: the boundary suite (tag `:live`) walks all
-  of it, every run — there is no shallower suite and no round cap, the
-  position design review settled on over a round-capped alternative an
-  earlier draft of this ticket proposed.
-- **`Provisioning.approve_gates/2` is the external actor an unattended
-  run needs, driven by the caller rather than synthesized from a
-  score** (ORC-230, design pass — the other half of ORC-229's
-  mechanism). Reachable at `POST
-  /dispatch/test-project/:project_id/approve-gates`, it reads
-  `Store.tickets_for_project/1` for the project — the identical
-  project-scoped read `board` and `my-queue` already fan out over
-  (this doc's own ORC-114 entry above) — and, for every row whose
-  `status_gate` is non-nil (a ticket `FeatureLifecycle.status/1` reads
-  back as `{:gate, gate_name}`), takes a fresh `EngineStore.get_node/2`
-  read of that flow's `entry_node_id` for its current `body_sha`, and
-  dispatches `Catapult.Engine.Commands.ApproveGate{project_id, flow_id,
-  gate: status_gate, node_id:, body_sha:, actor_id: "live-suite"}` —
-  the identical command `document_review_live.ex`'s own "approve"
-  handler already builds, constructed here instead of from a human's
-  click. It returns the number of gates it approved, so a caller can
-  tell "something moved" from "nothing left to unblock."
+  set. That is no longer the rule: `Provisioning.approve_drafts/2`,
+  below, dispatches `ApproveDraft` directly, bypassing
+  `DraftResolution`'s own `GateApproved` reaction entirely rather than
+  triggering it, so a toy-seed project's quiescence is now bounded only
+  by however deep the raft's own downward-cascade graph goes, not by an
+  approval that never comes. `systems/generation.md`'s own entry states
+  what the live suite's poll loop does with that reach: the boundary
+  suite (tag `:live`) walks all of it, every run — there is no
+  shallower suite and no round cap, the position design review settled
+  on over a round-capped alternative an earlier draft of this ticket
+  proposed.
+- **`Provisioning.approve_drafts/2` is the external actor an unattended
+  run needs, dispatching `ApproveDraft` directly rather than through a
+  ticket's own gate** (ORC-230, design pass — the other half of
+  ORC-229's mechanism; corrected on this same pass's own resumption,
+  replacing a ticket-gate design that cannot run against a toy-seed
+  project, named below). Reachable at `POST
+  /dispatch/test-project/:project_id/approve-drafts`, it loads the
+  chain the same way `Catapult.Generation.Sweeper` already does
+  (`Dsl.load(".")`), and for every tier in it calls `Store.list_nodes/2`
+  — the identical per-tier read `Sweeper` and this doc's own widened
+  `remaining` (above) already make — collecting every node whose
+  `status` is `:drafted`. For each, it dispatches
+  `Catapult.Engine.Commands.ApproveDraft{project_id, node_id: node.id,
+  draft_id: node.current_draft_id, actor_id: "live-suite"}` and returns
+  the count it approved, so a caller can tell "something moved" from
+  "nothing left to approve."
 
-  **The read is its own, not the handler's.** `document_review_live
-  .ex`'s handler dispatches off `body_sha`/`node_id` assigned once at
-  page load (`load/1`'s own `EngineStore.get_node/2` call) — it takes
-  no fresh read at approve time because a LiveView mount already gave
-  it one. `approve_gates/2` has no equivalent load step: it walks every
-  gated ticket in one pass, so each one needs its own read, taken now.
-  Phase 4's own "exactly one generation status ahead of each gate"
-  invariant (`systems/dashboard.md`'s ORC-75 entry) is what makes the
-  entry node the right node to read without walking the flow's other
-  positions; it says nothing about skipping the read itself.
+  **Why not the ticket path this decision first reached for.** This
+  entry originally had `approve_gates/2` read
+  `Store.tickets_for_project/1` and dispatch
+  `Catapult.Engine.Commands.ApproveGate` against each open ticket's
+  gate — mirroring `document_review_live.ex`'s own "approve" handler as
+  closely as an unattended caller could. That mirrors the wrong half.
+  `tickets_for_project/1` reads `EngineFlow` rows, and the only place
+  shipped code ever dispatches `Catapult.Engine.Commands.OpenFlow` is
+  `Catapult.Delivery.ContainerLifecycle.open_inline/3` — reachable only
+  from a *workflow-bundle* container reaching a non-queue-shaped,
+  non-review-shaped array entry (`docs/dsl-syntax.md` §15.7). Nothing
+  in `lib/catapult/generation/**` ever dispatches `OpenFlow` or
+  `MintContainer` for a chain-axis node, and a toy-seed project intakes
+  no workflow-bundle content at all, so `tickets_for_project/1` returns
+  nothing for it, on every poll, forever — `ApproveGate` itself
+  requires a `flow_id` valid against the loaded `Catapult.Dsl.Workflow
+  .t()` (its own moduledoc), so there is no ticket to open one against,
+  even by construction. Wiring a flow to open per chain-axis node
+  needing review is real work of its own — `ApproveGate`'s own
+  moduledoc already names "the general node(s)-per-gate mapping" as
+  "Phase 7's" — and building it as a side effect of an
+  unattended-approval actor would be a second, larger ticket wearing
+  this one's name. `ApproveDraft` needs no flow at all: its own
+  aggregate clause (`Catapult.Engine.Aggregate`) is a bare
+  compare-and-swap on `current_draft_id`, the identical command
+  `test/catapult/generation/toy_seed_chain_test.exs` already dispatches
+  directly, offline, to drive its own non-live walk today. Reaching for
+  it here keeps the "test scaffolding, not product semantics" framing
+  this ticket's own description already draws around the actor — an
+  unattended caller resolving a real ticket's real gate was never the
+  claim, only that something has to approve nodes for the walk to
+  proceed.
 
-  **One call resolves one gate per ticket, and a ticket can hold two.**
-  `bundles/default-flow/types/feature.yaml`'s sub-array is `pending →
-  generation → critique → ux-review → engineering-review`; `ApproveDraft`
-  fires only on the advance that *leaves* that sub-array
-  (`systems/engine.md`'s ORC-229 entry) — the second gate, not the
-  first. Resolving `ux-review` moves a ticket's `status_gate` to
-  `engineering-review` and approves no draft; `approve_gates/2` has to
-  be called again, on a later sweep of `tickets_for_project/1`, to reach
-  the gate that actually unblocks anything downstream. The suite's own
-  poll loop (`systems/generation.md`'s entry) already calls this
-  operation once per round rather than once total, so a ticket needing
-  two calls falls out of that shape rather than requiring a new one —
-  what it rules out is treating "`approve_gates/2` reported an
-  approval" as proof that a draft advanced. `systems/generation.md`'s
-  entry states the assertion that is.
+  **The two-approve-calls-per-ticket nuance the ticket-gate design
+  carried, and the assertion built on it, do not survive this
+  correction** — `systems/generation.md`'s entry states what replaces
+  both: with no ticket and no gate, one call against a drafted node is
+  itself the approval, not a step toward one.
 
-  **`actor_id` is a second literal, not a call to `CatapultWeb.Live
+  **`actor_id` is a literal, not a call to `CatapultWeb.Live
   .Actor.id/0`.** That module's own moduledoc scopes it to "every write
   dispatched from this system's screens" — a stand-in for Phase 4's one
-  human author until identity exists. `approve_gates/2` dispatches from
-  a boundary surface no screen renders, and reusing `"author"` here
-  would erase the one distinction this ticket exists to keep visible:
-  that an unattended run approved its own gates. `"live-suite"` is
-  declared in `Catapult.Delivery.Provisioning` itself — the one call
+  human author until identity exists. `approve_drafts/2` dispatches
+  from a boundary surface no screen renders, and reusing `"author"`
+  here would erase the one distinction this ticket exists to keep
+  visible: that an unattended run approved its own drafts. `"live-suite"`
+  is declared in `Catapult.Delivery.Provisioning` itself — the one call
   site a later automated caller extends rather than duplicates.
 
-  **Approves; never declines.** An unattended walk only ever needs to
-  advance, and there is no comment thread to decline against —
-  `Commands.DeclineGate` needs one (`systems/engine.md`'s own entry)
-  that nothing here would ever supply. A ticket teaching the live suite
-  to exercise a decline path is free to add one; this operation doesn't
-  build the half it doesn't use.
+  **Approves; never discards.** An unattended walk only ever needs to
+  advance — this actor's job is keeping the walk moving, not judging
+  output, so it never dispatches `DiscardDraft`. A ticket teaching the
+  live suite to exercise a discard path is free to add one; this
+  operation doesn't build the half it doesn't use.
 
-  **Reaching for a stubbed review score instead of a caller-driven
+  **Reaching for a stubbed review score instead of unconditional
   approval was considered and rejected.** `docs/dsl-syntax.md` §15.10
   parks threshold-based gating as "not bundle content"
-  (`docs/v5-design-decisions.md` §7.19); driving `ApproveGate` off `WriteReview`'s
-  own `score` would unpark that decision as a side effect of making a
-  test run, rather than through a design of its own. `approve_gates/2`
-  reads no review body and no score — it approves whatever gate
-  `FeatureLifecycle`'s own projection already says is open, exactly as
-  a human clicking Approve would, so the parked decision stays parked.
+  (`docs/v5-design-decisions.md` §7.19); driving `ApproveDraft` off
+  `WriteReview`'s own `score` would unpark that decision as a side
+  effect of making a test run, rather than through a design of its
+  own. `approve_drafts/2` reads no review body and no score — it
+  approves every node it finds `:drafted`, unconditionally, so the
+  parked decision stays parked.
 
   **Not gated on `stub_mode`.** `stub_mode` (the entry above) is a
   per-*dispatch* input deciding whether a runner calls a model; whether
-  a gate gets approved is a plane-side write this operation performs on
-  its caller's own schedule, regardless of any individual dispatch's
+  a draft gets approved is a plane-side write this operation performs
+  on its caller's own schedule, regardless of any individual dispatch's
   `stub_mode` — so no flag threads the two together, and a live suite
   one day driving a real, non-stub dispatch through this same operation
   costs nothing extra to support.
@@ -2603,10 +2636,10 @@ generating as scope-runs inside one ticket.
   `provision_test_project/1`, `release_test_project/2`,
   `test_project_dispatch_status/3`, `test_project_dispatch_runs/2` —
   each backing an `api_surface/0` entry the identical way.
-  `test_project_approve_gates/2` delegates to `Provisioning
-  .approve_gates/2`, and `api_surface/0` gains the matching
-  `{{:test_project_approve_gates, 2}, :post,
-  "/dispatch/test-project/:project_id/approve-gates", version: "v1",
+  `test_project_approve_drafts/2` delegates to `Provisioning
+  .approve_drafts/2`, and `api_surface/0` gains the matching
+  `{{:test_project_approve_drafts, 2}, :post,
+  "/dispatch/test-project/:project_id/approve-drafts", version: "v1",
   audience: :internal}` entry — the same `:internal` audience its four
   provisioning siblings carry, and the fifth operation behind
   `DELIVERY_PROVISIONING_TOKEN` (ORC-216's own entry above). That

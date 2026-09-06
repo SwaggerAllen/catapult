@@ -729,78 +729,153 @@ and validation logic and must not fork it.
   per round. Under ORC-225 alone this cost up to two sequential rounds
   — a tick-0 draft round and the review round it unblocks — because
   nothing resolved the gate the second round left open. ORC-230 (below)
-  removes the round count from this arithmetic altogether: once an
-  actor exists to resolve gates, the suite has no reason to stop at two
-  rounds rather than however many the raft's downward cascade actually
-  takes, and the deadline this entry sizes is no longer a round-count
-  multiple. `TodoAppProofLiveTest` is unaffected: it dispatches with
-  `stub_mode: false` and does not poll.
+  widens the round count past two and drops the 15-second quiescence
+  tail from the arithmetic entirely: once an actor exists to approve
+  drafts, the suite has no reason to stop at two rounds rather than
+  however many the raft's downward cascade actually takes, and once
+  `remaining` (`systems/delivery.md`'s entry) reads readiness directly,
+  `Catapult.Generation.Quiescence`'s own quiet-since margin has nothing
+  left to hedge and retires with it. `TodoAppProofLiveTest` is
+  unaffected: it dispatches with `stub_mode: false` and does not poll.
 - **ORC-230 gives the boundary suite an actor, and the whole walk runs
   on every boundary — there is no shallower suite.** `ToySeedChainLiveTest`
   (tag `:live`) is the only toy-seed live test, and it does not stop at
   the round that first reaches quiescence. Its poll loop alternates:
   poll `runs/2` (`systems/delivery.md`'s widened entry) until it
-  reports `remaining: 0`, call `Provisioning.approve_gates/2` once, and
+  reports `remaining: 0`, call `Provisioning.approve_drafts/2` once, and
   poll again — stopping only when a full cycle leaves `remaining` at
-  zero **and** `approve_gates/2` reports zero approvals, which together
+  zero **and** `approve_drafts/2` reports zero approvals, which together
   mean nothing is dispatchable, nothing is running, and nothing is
-  waiting on a gate. This is deliberate, not a missed opportunity to
-  cap it: the boundary pass exists to be as close to production as the
-  toy chain gets without a model in the loop, so it runs the whole
-  chain agentless, and a real-model run confirms the production case
-  separately and strictly afterward — sequencing the two within one
-  boundary run is its own design, not this ticket's
+  sitting `:drafted` waiting to be approved. This is deliberate, not a
+  missed opportunity to cap it: the boundary pass exists to be as close
+  to production as the toy chain gets without a model in the loop, so it
+  runs the whole chain agentless, and a real-model run confirms the
+  production case separately and strictly afterward — sequencing the
+  two within one boundary run is its own design, not this ticket's
   (`systems/delivery.md`'s ORC-216 entry is why they cannot run
   concurrently regardless: at most one `:active` test project). A round
   cap, or a second, shallower test beside a full-walk one, would be
   sizing the every-milestone suite to a depth nobody has measured —
   the position design review rejected in favor of this one.
 
-- **The assertion is downstream of a gate resolving, because resolving
-  one doesn't mean a draft advanced.** `systems/delivery.md`'s entry
-  states why: `ux-review` and `engineering-review` share a sub-array,
-  and only the second `approve_gates/2` call against a given ticket
-  fires `ApproveDraft`. So "at least one approval was reported" is true
-  the moment the suite resolves any `ux-review` gate, and proves
-  nothing about the mechanism this ticket exists to exercise. What the
-  suite tracks instead is `run_key`s: every `runs/2` poll is diffed
-  against the previous one, and the assertion is that at least one
-  `approve_gates/2` call reporting an approval is followed, on a later
-  poll, by a `run_key` that was not present before — a new dispatch,
-  which only a node crossing into `:approved` (and so becoming ready
-  for whatever tier reads it) can produce. `Provisioning` exposes no
-  node-status read, so a new run is the fact the suite can actually
-  observe; asserting on it rather than on the approval count is what
-  makes the assertion prove the mechanism rather than a gate's own
-  bookkeeping.
+- **The assertion is that an approval produced a new dispatch, which a
+  bare approval count cannot tell you.** `approve_drafts/2` dispatches
+  `ApproveDraft` directly (`systems/delivery.md`'s corrected entry — it
+  no longer goes through a ticket's gate at all), so unlike the
+  ticket-gate design this replaces, one reported approval already means
+  one node crossed into `:approved`; there is no second call needed
+  per node. What still isn't proof on its own is that the approval
+  *did* anything: a leaf tier's own approval unblocks nothing further
+  downstream. So the suite tracks `run_key`s rather than the approval
+  count alone: every `runs/2` poll is diffed against the previous one,
+  and the assertion is that at least one `approve_drafts/2` call
+  reporting an approval is followed, on a later poll, by a `run_key`
+  that was not present before — a new dispatch, which only a node
+  crossing into `:approved` (and so becoming ready for whatever tier
+  reads it) can produce. `Provisioning` exposes no node-status read, so
+  a new run is the fact the suite can actually observe; asserting on it
+  rather than on the approval count is what makes the assertion prove
+  the mechanism advanced the walk rather than merely that a compare-
+  and-swap succeeded.
 
-- **The deadline is sized to what the suite can observe, not to a round
-  count.** `bundles/default/tiers/*.yaml`'s downward-cascade graph
-  fixes the walk's *depth* — how many sequential gate-then-dispatch
-  rounds a complete walk takes — but not its *breadth*: `per(comp)`/
-  `child_of` fan-out depends on what a draft itself mints, which the
-  tier bundle alone cannot predict. A deadline computed from the bundle
-  is a floor, not a bound, so `@poll_deadline` stays a generous
-  constant sized for headroom rather than a round-count product — the
-  same reasoning that rules out a round cap above rules out a precise
-  formula here. What changes instead is the failure path: a `flunk/1`
-  on timeout reports the tier set that ran, every ticket
-  `tickets_for_project/1` still shows with a non-nil `status_gate`, how
-  many `approve_gates/2` calls fired and how many approvals each
-  reported, and the per-run `duration_ms` `systems/delivery.md`'s
-  widened `runs/2` now carries — enough to tell a genuinely stuck graph
-  from a slow one without re-running it by hand, and the thing that
-  stands against the pressure a tight, unexplained timeout creates to
-  shorten the suite back down.
+- **The deadline is sized from the walk's own measured depth, not left
+  a bare "generous" constant.** `bundles/default/tiers/*.yaml`'s
+  downward-cascade graph fixes the walk's *depth* — how many sequential
+  approve-then-dispatch rounds a complete walk takes — because every
+  join-target tier (`comp`, `subcomp`, `screen_coll`, `ui_coll` and the
+  rest) mints straight to `:approved` at mint time (`Extraction.mints/4`)
+  rather than needing its own approval, so only a tier reached through a
+  `self.parent`/`all.<tier>`-style walk requiring `:approved` costs a
+  round. Tracing the toy raft's longest such chain from `feature_expansion`
+  gives exactly **three** gate-bearing tiers: `feature_expansion` →
+  `requirements` → `sysarch` — every tier past `sysarch` (`comp`,
+  `comparch`, `subcomp`, `subcomparch`/`impl_backend` on the backend
+  side; `frontend_sysarch` and whatever it mints on the front-end side)
+  reads either a join-target's mint-time `:approved` or `sysarch`'s own
+  approval, never a fourth tier's. This is depth, not breadth: `per(comp)`/
+  `child_of` fan-out still depends on what a draft itself mints, which
+  the tier bundle alone cannot predict, so the number of *nodes*
+  dispatched within a round stays unmeasured and the deadline still
+  needs headroom for it — depth fixes how many times the suite must
+  wait for an approval, not how much work each wait costs.
 
-- **This is what finally exercises `@root_tag_fixtures`'s twenty
-  unreached stubs.** Nothing before ORC-230 dispatched past two rounds,
-  so twenty of the twenty-two fixtures ORC-225 built existed for tiers
-  no run had ever reached. A `ToySeedChainLiveTest` run that reaches
+  Each round costs two dispatch waves (a tier's own draft, then its
+  review) at the ORC-225 entry's own per-wave ceiling — one dispatch's
+  tens-of-seconds runner latency under `stub_mode`, plus one
+  `GENERATION_SWEEP_INTERVAL_MS` (10s) tick, plus the `@poll_interval`
+  (5s) margin, call it 90 seconds generously — plus the
+  `approve_drafts/2` call and the next poll that observes its effect.
+  Three rounds at roughly three minutes apiece is a 9-minute floor; the
+  unmeasured breadth above (several tiers' worth of siblings queueing
+  behind Oban's `generation_dispatch` concurrency of 5, and whatever
+  GitHub Actions' own runner queue adds under load) is the headroom a
+  bare depth-based figure would not cover. `@poll_deadline` widens to
+  `:timer.minutes(15)` — the 9-minute floor plus that headroom — and
+  `@tag timeout: :timer.minutes(17)`, wider still so the assertion
+  failure path (a real `flunk/1`) is what ends the test on a genuine
+  timeout, never ExUnit's own kill, for the identical `after`-block
+  reason ORC-225's own entry above already gives.
+
+  What changes on top of the number is the failure path: a `flunk/1`
+  on timeout reports the tier set that ran, every node
+  `Store.list_nodes/2` still shows `:drafted` project-wide, how many
+  `approve_drafts/2` calls fired and how many approvals each reported,
+  and the per-run `duration_ms` `systems/delivery.md`'s widened `runs/2`
+  now carries — enough to tell a genuinely stuck graph from a slow one
+  without re-running it by hand, and the thing that stands against the
+  pressure a tight, unexplained timeout creates to shorten the suite
+  back down.
+
+- **This is what finally exercises most of `@root_tag_fixtures`'s
+  twenty previously-unreached stubs — sixteen of the twenty, not all
+  of them.** Nothing before ORC-230 dispatched past two rounds, so
+  twenty of the twenty-two fixtures ORC-225 built existed for tiers no
+  run had ever reached. A `ToySeedChainLiveTest` run that reaches
   `remaining == 0` with zero approvals pending is the first observed
-  evidence that every dispatchable `root_tag` in the toy raft's
-  downward cascade actually resolves against its stub, rather than an
-  assumed one.
+  evidence that every dispatchable `root_tag` the toy raft's downward
+  cascade can actually reach resolves against its stub, rather than an
+  assumed one. **Four stay unreached regardless**, for a reason outside
+  this ticket: `bundles/default/edges/decomposition.yaml`'s
+  `frontend_sysarch → ui_coll`/`→ screen_coll` `declared_in` paths name
+  underscored element segments (`ui_collections`, `screen_collections`)
+  that `bundles/default/schemas/frontend_sysarch.xsd` itself requires
+  to be hyphenated (`ui-collections`, `screen-collections`) — every
+  grammar-valid draft uses the hyphenated form, `Extraction.descend/2`
+  matches child element names by exact string equality with no
+  hyphen/underscore normalization, and the two never meet. `ui_coll`
+  and `screen_coll` never mint for any project on the shipped bundle,
+  so `ui_collarch`, `screen_collarch`, `ui_subcomparch` and
+  `screen_subcomparch` — four of the `@root_tag_fixtures` keys — never
+  get a node to dispatch against. This is bundle content
+  (`bundles/**`), not a doc this pass may amend or a file this pass may
+  fix, and it costs the walk no *round*: nothing downstream of
+  `sysarch` needs a fourth approval either way (this entry's own
+  deadline derivation above), so the four unreached fixtures change
+  what the walk covers, not how long it takes to finish covering it.
+
+- **Two stale moduledocs are corrected in the same change**, both
+  design-owned prose sitting in dev-owned test files, so design records
+  the finished shape here and dev writes it.
+  `test/catapult/generation/todo_app_proof_live_test.exs`'s own
+  comparison sentence — "unlike `ToySeedChainLiveTest`, which dispatches
+  exactly one tier and can afford to poll a single run to a terminal
+  status inside one test's deadline" — was already false under ORC-225
+  and is doubly so now: there is no round count left to compare against,
+  since `ToySeedChainLiveTest` walks the raft's full downward cascade
+  with no cap. The sentence drops the comparison rather than restating
+  it with a new number — `TodoAppProofLiveTest` stops at provisioning
+  because its own middle spans hours or days of human review, which is
+  reason enough on its own and needs no contrast to the other test's
+  poll shape. `test/catapult/generation/toy_seed_chain_live_test.exs`'s
+  own "What this proves for real" paragraph names `feature_expansion`
+  alone as the dispatch this test proves, a claim its very next
+  paragraph already supersedes even before this ticket. It states
+  instead that this test proves a full downward-cascade walk of the toy
+  raft against real GitHub Actions runs — `feature_expansion` as the
+  walk's first dispatch, `Provisioning.approve_drafts/2` approving every
+  drafted node the walk produces, and the tier set the run actually
+  reached, not a fixed one, as what a passing run demonstrates.
+
 - **A dispatch can beat provisioning itself, not only beat a release**
   (ORC-224 — `systems/delivery.md`'s companion entry states the
   mechanism and the state-machine change). ORC-216's own lifecycle
