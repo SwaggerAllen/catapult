@@ -1470,15 +1470,15 @@ them.
   never off a review tier's own automated pass.
 
   **Closing this loop makes regeneration reachable, and regeneration
-  leaves stale content downstream with no path back, named rather than
-  left for the next pass to trip on.** A fresh `DraftCommitted` against
-  a node that was already `:approved` needs no new mechanism —
-  `Reducer.apply/2` already sets `status: :drafted` unconditionally
-  (above `Node.status`'s own three values), so `ReadyScopes.ready/3`
-  correctly re-blocks every downstream context walk until the new draft
-  is itself approved. What has no mechanism is content *already*
-  committed downstream, against the superseded approval: nothing moves
-  it back to `:absent`, so it stays put, stale, permanently.
+  leaves stale content downstream with no path back.** A fresh
+  `DraftCommitted` against a node that was already `:approved` needs no
+  new mechanism — `Reducer.apply/2` already sets `status: :drafted`
+  unconditionally (above `Node.status`'s own three values), so
+  `ReadyScopes.ready/3` correctly re-blocks every downstream context
+  walk until the new draft is itself approved. What has no mechanism is
+  content *already* committed downstream, against the superseded
+  approval: nothing moves it back to `:absent`, so it stays put, stale,
+  permanently.
 
   `Catapult.Engine.Projections.Staleness` computes exactly this fact —
   `stale?/2`, `target_newer?/2` comparing `committed_sequence` against
@@ -1489,14 +1489,12 @@ them.
   drafted against one and the case could not occur; this ticket is what
   makes it live.
 
-  This does not reopen how staleness gets consumed — that question is
-  already answered, above: "consumed by flow walks and the plane's
-  out-of-band ticket filing," and `docs/v5-design-decisions.md`'s own
-  "staleness hints, never cascades" forecloses an auto-reopening
-  `ready/3` outright, so that is not a live option here. What's missing
-  is that neither named consumer actually calls `stale?/2` yet — the
-  projection exists, its consumers are named, and nothing connects
-  them. ORC-231 carries wiring it.
+  How staleness is consumed is settled above — "consumed by flow walks
+  and the plane's out-of-band ticket filing" — and
+  `docs/v5-design-decisions.md`'s "staleness hints, never cascades"
+  rules out an auto-reopening `ready/3`. What is missing is the
+  connection: neither named consumer calls `stale?/2`. ORC-231 carries
+  wiring it.
 
 ## Initial vs target
 
