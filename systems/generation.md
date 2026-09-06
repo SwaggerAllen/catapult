@@ -721,24 +721,71 @@ and validation logic and must not fork it.
   quiescence" (`systems/delivery.md`'s entry — a quiet-since duration
   exceeding one full `GENERATION_SWEEP_INTERVAL_MS` tick plus a
   `@poll_interval` margin for that tick's own dispatch to land as a
-  visible row, not a fixed poll count), which on a toy-seed project
-  costs up to two sequential rounds today — a tick-0 draft round and
-  the review round it unblocks — each round
+  visible row, not a fixed poll count), each round
   bounded by one dispatch's own tens-of-seconds runner latency plus up
   to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
   `@poll_interval` (5s) row-visibility margin, for the sweeper to notice
-  the round before it. The 15-second quiescence window is charged once
-  per round and is negligible next to the minutes-wide deadline below,
-  so `@poll_deadline` widens to
-  `:timer.minutes(6)` — two rounds at a generous per-round ceiling, plus
-  the quiescence check's own sweep-tick-plus tail — and the test itself
-  carries `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
-  so the assertion failure path (a real `flunk/1`) is what ends the
-  test on a genuine timeout, never ExUnit's own kill — which is what
-  restores the `after` block's own guarantee, since an `after` runs on
-  a normal exit or an assertion failure and never on an ExUnit-timeout
-  kill. `TodoAppProofLiveTest` is unaffected: it dispatches with
+  the round before it, with the 15-second quiescence window charged once
+  per round. Under ORC-225 alone this cost up to two sequential rounds
+  — a tick-0 draft round and the review round it unblocks — because
+  nothing resolved the gate the second round left open; ORC-230 (below)
+  changes that count, and `@poll_deadline`/`@tag timeout:` move with it.
+  `TodoAppProofLiveTest` is unaffected: it dispatches with
   `stub_mode: false` and does not poll.
+- **ORC-230 gives the boundary suite an actor, and gives it a second
+  test rather than one deeper deadline.** `ToySeedChainLiveTest`'s own
+  poll loop now alternates: poll `runs/2` to quiescence exactly as
+  above, then call `Provisioning.approve_gates/2`
+  (`systems/delivery.md`'s own entry) once before polling again. A
+  round that closes with zero gates approved and the run set still
+  quiescent is the graph's end — nothing is left blocked and nothing
+  new is dispatching — and a round that approves at least one gate
+  reopens polling, because approving a gate is exactly what makes the
+  next round's dispatch possible. This is the same "quiet-since"
+  arithmetic `Catapult.Generation.Quiescence` already owns, run once
+  more per approve call rather than a second mechanism.
+
+  **The always-run boundary suite proves the mechanism, not the whole
+  graph.** `ToySeedChainLiveTest` (tag `:live`) widens from two rounds
+  to three — the tick-0 draft round, the review round ORC-225 already
+  reached, and the round `DraftResolution`'s `ApproveDraft` newly
+  unblocks once `approve_gates/2` resolves the gate between them — at
+  the identical per-round ceiling ORC-225 already computed
+  (`:timer.minutes(9)` for three rounds' worth, `@tag timeout:
+  :timer.minutes(10)` wider again for the same `flunk/1`-not-ExUnit-kill
+  reason as before). Its assertions gain one more: that `approve_gates/2`
+  reported at least one approval during the run, the boolean fact that
+  distinguishes "the mechanism fired" from "quiescence held because
+  nothing needed approving" — the exact confusion this ticket's own
+  argument opens with. It does not drive the walk to completion: how
+  deep a full downward-cascade walk for this raft actually goes,
+  through how many tiers and how much wall time, is not measured by
+  anything in this system today (`bundles/default/tiers/*.yaml`'s own
+  downward-cascade graph is the only source of truth for it), and
+  sizing the suite that runs on every milestone boundary to an unmeasured
+  depth is how that suite becomes the flaky one.
+
+  **A second test drives the full walk, on its own tag.** A new
+  `ToySeedChainFullWalkLiveTest`, tag `:live_toy_seed_full_walk`
+  (excluded by default in `test/test_helper.exs`, re-included by name —
+  the identical shape `TodoAppProofLiveTest`'s own `:live_todo_app_proof`
+  already establishes, including which dispatch input on
+  `pipeline-live-suite.yml` selects it being author-owned and still to
+  be wired, per that test's own moduledoc), runs the identical
+  provision → poll-and-approve loop with no round cap: it stops only
+  once a round approves zero gates with the run set quiescent, and
+  asserts the same per-run success triple `ToySeedChainLiveTest` already
+  does, over the whole reached set, plus that no ticket the project's
+  `tickets_for_project/1`-shaped read returns is left with a non-nil
+  `status_gate` — the "no node left `:drafted` with nothing ready
+  behind it" property this ticket's own argument names, generalized to
+  every open ticket rather than one node. This is what actually
+  exercises the twenty stub fixtures `@root_tag_fixtures` carries for
+  tiers no run has ever reached; a passing run gives `@root_tag_fixtures`
+  its first observed evidence of total coverage rather than an assumed
+  one. Its own deadline is sized generously rather than computed from a
+  round count, because the round count is exactly the unmeasured
+  quantity above.
 - **A dispatch can beat provisioning itself, not only beat a release**
   (ORC-224 — `systems/delivery.md`'s companion entry states the
   mechanism and the state-machine change). ORC-216's own lifecycle

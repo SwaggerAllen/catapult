@@ -2493,25 +2493,95 @@ generating as scope-runs inside one ticket.
   and a narrower "dispatch exactly one scope" mode is still not built,
   for this or any other caller.
 
-  Quiescence terminates quickly on a toy-seed project today, for a
-  reason worth recording rather than assuming: no external actor ever
-  resolves a gate in this unattended run, so `ApproveDraft` — dispatched
+  **Amended at ORC-230: an external actor exists now, so this no longer
+  terminates on its own.** Before this ticket, no external actor ever
+  resolved a gate in an unattended run, so `ApproveDraft` — dispatched
   only by `Catapult.Delivery.DraftResolution` in reaction to a human's
-  `GateApproved` (`systems/engine.md`'s ORC-229 entry) — never fires
-  here either, the identical outcome this bullet already named before
-  that dispatcher existed to fire it. So every tier whose readiness runs
-  through a `self.parent`-style walk requiring
-  `:approved`, which is most of `bundles/default/tiers/*.yaml`, stays
-  permanently unready once swept with no external actor approving
-  anything. What the sweeper alone ever reaches from a toy-seed project
-  is the tiers whose full `context:` resolves vacuously regardless of
-  any node's approval status — today the four `scope: singleton` tiers
-  `feature_expansion`, `non_goals`, `ref` and `frontend_sysarch` — plus
-  each one's own review: eight dispatch events total, each firing once,
-  ever. That boundedness is what makes "wait for quiescence" cheap
-  rather than open-ended; it is a property of the current engine wiring
-  the sweeper walks, not a limit this test imposes, and the identical
-  poll loop widens or narrows with it unmodified if that wiring changes.
+  `GateApproved` (`systems/engine.md`'s ORC-229 entry) — never fired
+  either, and every tier whose readiness runs through a
+  `self.parent`-style walk requiring `:approved` (most of
+  `bundles/default/tiers/*.yaml`) stayed permanently unready — the
+  sweeper alone ever reached the tiers whose full `context:` resolves
+  vacuously regardless of any node's approval status, a fixed and small
+  set. That is no longer the rule: `Provisioning.approve_gates/2`,
+  below, plays the external actor's part, so a toy-seed project's
+  quiescence is now bounded only by however deep the raft's own
+  downward-cascade graph goes, not by an approval that never comes.
+  `systems/generation.md`'s own entry states what the live suite's poll
+  loop does with that reach, and why the always-run boundary suite
+  still doesn't walk all of it every run.
+- **`Provisioning.approve_gates/2` is the external actor an unattended
+  run needs, driven by the caller rather than synthesized from a
+  score** (ORC-230, design pass — the other half of ORC-229's
+  mechanism). Reachable at `POST
+  /dispatch/test-project/:project_id/approve-gates`, it reads
+  `Store.tickets_for_project/1` for the project — the identical
+  project-scoped read `board` and `my-queue` already fan out over
+  (this doc's own ORC-114 entry above) — and, for every row whose
+  `status_gate` is non-nil (a ticket `FeatureLifecycle.status/1` reads
+  back as `{:gate, gate_name}`), resolves that flow's `entry_node_id`
+  for its current `body_sha` (the same follow-up `EngineStore
+  .get_node/2` read `document_review_live.ex`'s own "approve" handler
+  already performs; Phase 4's own "exactly one generation status ahead
+  of each gate" invariant, `systems/dashboard.md`'s ORC-75 entry, is
+  what makes the entry node the right one to cite without a second
+  lookup) and dispatches `Catapult.Engine.Commands.ApproveGate
+  {project_id, flow_id, gate: status_gate, node_id:, body_sha:,
+  actor_id: "live-suite"}` — the identical command that handler already
+  builds, constructed here instead of from a human's click. It returns
+  the number of gates it approved, so a caller can tell "something
+  moved" from "nothing left to unblock."
+
+  **`actor_id` is a second literal, not a call to `CatapultWeb.Live
+  .Actor.id/0`.** That module's own moduledoc scopes it to "every write
+  dispatched from this system's screens" — a stand-in for Phase 4's one
+  human author until identity exists. `approve_gates/2` dispatches from
+  a boundary surface no screen renders, and reusing `"author"` here
+  would erase the one distinction this ticket exists to keep visible:
+  that an unattended run approved its own gates. `"live-suite"` is
+  declared in `Catapult.Delivery.Provisioning` itself — the one call
+  site a later automated caller extends rather than duplicates.
+
+  **Approves; never declines.** An unattended walk only ever needs to
+  advance, and there is no comment thread to decline against —
+  `Commands.DeclineGate` needs one (`systems/engine.md`'s own entry)
+  that nothing here would ever supply. A ticket teaching the live suite
+  to exercise a decline path is free to add one; this operation doesn't
+  build the half it doesn't use.
+
+  **Reaching for a stubbed review score instead of a caller-driven
+  approval was considered and rejected.** `docs/dsl-syntax.md` §15.10
+  parks threshold-based gating as "not bundle content"
+  (`docs/v5-design-decisions.md` §7.19); driving `ApproveGate` off `WriteReview`'s
+  own `score` would unpark that decision as a side effect of making a
+  test run, rather than through a design of its own. `approve_gates/2`
+  reads no review body and no score — it approves whatever gate
+  `FeatureLifecycle`'s own projection already says is open, exactly as
+  a human clicking Approve would, so the parked decision stays parked.
+
+  **Not gated on `stub_mode`.** `stub_mode` (the entry above) is a
+  per-*dispatch* input deciding whether a runner calls a model; whether
+  a gate gets approved is a plane-side write this operation performs on
+  its caller's own schedule, regardless of any individual dispatch's
+  `stub_mode` — so no flag threads the two together, and a live suite
+  one day driving a real, non-stub dispatch through this same operation
+  costs nothing extra to support.
+
+  `Catapult.Delivery` gains a **seventh** `defexport`: it already
+  carries six today — `fetch_context/2`, `report_result/2`,
+  `provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3`, `test_project_dispatch_runs/2` —
+  each backing an `api_surface/0` entry the identical way.
+  `test_project_approve_gates/2` delegates to `Provisioning
+  .approve_gates/2`, and `api_surface/0` gains the matching
+  `{{:test_project_approve_gates, 2}, :post,
+  "/dispatch/test-project/:project_id/approve-gates", version: "v1",
+  audience: :internal}` entry — the same `:internal` audience its four
+  provisioning siblings carry, and the fifth operation behind
+  `DELIVERY_PROVISIONING_TOKEN` (ORC-216's own entry above). That
+  entry's own comment ("a third through sixth path") widens to "a third
+  through seventh path" in the same change, for the identical reason
+  the ORC-225 entry above already gives for keeping it in sync.
 - **The in-flight guard's query lives on `Store`, beside the table it
   reads** (ORC-223 — `systems/generation.md`'s companion entry states
   why the guard exists and how its cutoff was chosen). No new column
