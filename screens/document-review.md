@@ -51,7 +51,14 @@ downstream would ever have prose left to show it beside.
 - **Approve** — `Catapult.Engine.Commands.ApproveGate{project_id, flow_id, gate, node_id, body_sha,
   actor_id}` → `GateApproved`. The gate passes; `Catapult.Delivery.FeatureLifecycle` advances the
   ticket's projected status to the next entry past this gate (`systems/delivery.md`'s ORC-34
-  entry).
+  entry). Independently, off the same event, `Catapult.Delivery.DraftResolution` dispatches
+  `ApproveDraft` against the node this screen is reviewing once this gate is the last review
+  position standing between it and the group's own exit (`systems/engine.md`'s ORC-229 entry):
+  approving `ux-review` alone advances the ticket only, and approving `engineering-review` after
+  it is what marks the node `:approved`, which is what lets a downstream context walk depend on
+  it. This screen issues one command and knows nothing of the other two — a second, engine-facing
+  consequence of a human's approval is `DraftResolution`'s job, never this screen's own
+  (`docs/ui-spec.md` §2 rule 1).
 - **Throw back** — `Commands.DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
   node_id, body_sha, actor_id}` → `GateDeclined`. `throwback_to` is never a free-text target and
   never carries a reason field, but it is no longer chosen from a per-gate declared list either —
@@ -88,6 +95,13 @@ is not a new read, only the same two values sent on a second pair of commands. A
 writers resolving the same still-open gate is rejected separately
 (`{:engine_gate_already_resolved, gate:, disposition:}`) — the identical compare-and-swap conflict
 `screens/ticket.md` specs, reused rather than redefined here.
+
+**Throw back's own engine-facing consequence is unconditional, unlike Approve's.** Off the same
+`GateDeclined`, `Catapult.Delivery.DraftResolution` dispatches `DiscardDraft` against the node
+under review every time, regardless of which gate declined — a decline always throws the citing
+sub-array back to its own leading `pending`, so the draft this gate was reviewing is never still
+current afterward (`systems/engine.md`'s ORC-229 entry). This screen's own job is unchanged: it
+dispatches `DeclineGate` and nothing else.
 
 A posted comment is its own command, independent of the gate action: `Commands
 .PostComment{project_id, node_id, body_sha, locator: nil, author_id, body, posted_at}` →
