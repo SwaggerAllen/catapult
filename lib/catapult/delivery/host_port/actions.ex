@@ -41,25 +41,94 @@ defmodule Catapult.Delivery.HostPort.Actions do
 
   @doc """
   Overwrites `files` (repo-relative path => content) on `project_id`'s
-  bound repo via GitHub's Contents API — fixture content only, never a
-  generated artifact (`Catapult.Delivery.HostPort`'s own moduledoc).
-  Each file is its own request: read the current blob sha if the file
-  already exists (a create and an update are different calls under
-  this API), then write. One file's failure does not roll back an
-  earlier one — a re-run of `reset_repo/2` is the recovery, the same
+  bound repo — fixture content only, never a generated artifact
+  (`Catapult.Delivery.HostPort`'s own moduledoc). Every entry except
+  the workflow file lands in a single Git Data API commit rather than
+  one Contents-API PUT each (ORC-228, `systems/delivery.md`'s ORC-228
+  entry): a fixed seven calls regardless of `files`' size, where the
+  old per-file loop cost two round trips per entry and crossed a live
+  test's request budget once ORC-225 widened the fixture set. The
+  workflow file (`.github/workflows/{dispatch_workflow_file}`,
+  `workflow_content_path/0` below) keeps today's Contents-API PUT,
+  unconditionally, and lands first — GitHub requires it in place
+  before any dispatch, and its commit becomes the parent the tree
+  commit builds on. `base_tree` overwrites the named paths and deletes
+  nothing else, the same semantics the per-file PUT loop already had.
+  One file's failure does not roll back an earlier one for the
+  workflow write; the tree commit lands wholly or not at all. Either
+  way, a re-run of `reset_repo/2` is the recovery, the same
   idempotent-retry shape `systems/delivery.md`'s "intent → idempotent
   effect" bullet already asks of every outbound act in this system.
 
   Reports the ref it produced (ORC-216, `Catapult.Delivery.HostPort`'s
-  own moduledoc): the default branch's head commit SHA after the last
-  file lands, read back the same way `create_branch/3` already reads
-  any ref's head — `fetch_ref_sha/2` below.
+  own moduledoc): `{:ok, ref}`, now the ref-update call's own resulting
+  commit sha rather than a second head re-read after the last PUT.
   """
   @impl Catapult.Delivery.HostPort
   def reset_repo(project_id, files) do
-    with {:ok, binding} <- fetch_binding(project_id),
-         :ok <- put_all_files(binding, files) do
-      fetch_ref_sha(binding, Config.fetch!(:delivery, :dispatch_ref))
+    with {:ok, binding} <- fetch_binding(project_id) do
+      branch = Config.fetch!(:delivery, :dispatch_ref)
+      {workflow_files, tree_files} = Map.split(files, [workflow_content_path()])
+
+      with :ok <- put_all_files(binding, workflow_files),
+           {:ok, head_sha} <- fetch_ref_sha(binding, branch),
+           {:ok, base_tree_sha} <- fetch_commit_tree_sha(binding, head_sha),
+           {:ok, tree_sha} <- create_tree(binding, base_tree_sha, tree_files),
+           {:ok, commit_sha} <- create_commit(binding, tree_sha, head_sha) do
+        update_branch_ref(binding, branch, commit_sha)
+      end
+    end
+  end
+
+  defp workflow_content_path do
+    ".github/workflows/#{Config.fetch!(:delivery, :dispatch_workflow_file)}"
+  end
+
+  defp fetch_commit_tree_sha(binding, commit_sha) do
+    url = "#{repo_url(binding)}/git/commits/#{commit_sha}"
+
+    case Req.get(url, auth: auth(), headers: json_headers()) do
+      {:ok, %{status: 200, body: %{"tree" => %{"sha" => sha}}}} -> {:ok, sha}
+      {:ok, resp} -> {:error, {:reset_failed, :fetch_commit, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:reset_failed, :fetch_commit, reason}}
+    end
+  end
+
+  defp create_tree(binding, base_tree_sha, files) do
+    url = "#{repo_url(binding)}/git/trees"
+
+    tree =
+      for {path, content} <- files do
+        %{path: path, mode: "100644", type: "blob", content: content}
+      end
+
+    body = %{base_tree: base_tree_sha, tree: tree}
+
+    case Req.post(url, auth: auth(), headers: json_headers(), json: body) do
+      {:ok, %{status: 201, body: %{"sha" => sha}}} -> {:ok, sha}
+      {:ok, resp} -> {:error, {:reset_failed, :create_tree, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:reset_failed, :create_tree, reason}}
+    end
+  end
+
+  defp create_commit(binding, tree_sha, parent_sha) do
+    url = "#{repo_url(binding)}/git/commits"
+    body = %{message: "catapult: reset fixture", tree: tree_sha, parents: [parent_sha]}
+
+    case Req.post(url, auth: auth(), headers: json_headers(), json: body) do
+      {:ok, %{status: 201, body: %{"sha" => sha}}} -> {:ok, sha}
+      {:ok, resp} -> {:error, {:reset_failed, :create_commit, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:reset_failed, :create_commit, reason}}
+    end
+  end
+
+  defp update_branch_ref(binding, branch, commit_sha) do
+    url = "#{repo_url(binding)}/git/refs/heads/#{branch}"
+
+    case Req.patch(url, auth: auth(), headers: json_headers(), json: %{sha: commit_sha}) do
+      {:ok, %{status: 200, body: %{"object" => %{"sha" => sha}}}} -> {:ok, sha}
+      {:ok, resp} -> {:error, {:reset_failed, :update_ref, resp.status, resp.body}}
+      {:error, reason} -> {:error, {:reset_failed, :update_ref, reason}}
     end
   end
 
@@ -367,14 +436,18 @@ defmodule Catapult.Delivery.HostPort.Actions do
 
   @doc """
   Writes `files` (repo-relative path => content) onto `branch` via
-  GitHub's Contents API, each under `message` — the same per-file
-  shape `reset_repo/2` uses (read the blob sha if the file exists, PUT
-  with it if so), generalized with an explicit branch ref instead of
-  the implicit default branch `reset_repo/2` always targets, and a
-  caller-supplied message instead of `reset_repo/2`'s own fixed one
-  (`Catapult.Delivery.HostPort`'s own moduledoc, ORC-33). One file's
-  failure does not roll back an earlier one, the same idempotent-retry
-  shape `reset_repo/2` already follows.
+  GitHub's Contents API, each under `message` — a per-file shape (read
+  the blob sha if the file exists, PUT with it if so): `reset_repo/2`'s
+  own shape too, until ORC-228 moved that operation onto a single Git
+  Data commit (`systems/delivery.md`'s ORC-228 entry). `commit_files/4`
+  keeps the per-file shape — every call today pushes exactly one file,
+  so its round-trip count never grows with a fixture set the way
+  `reset_repo/2`'s did — generalized with an explicit branch ref
+  instead of the implicit default branch `reset_repo/2` always
+  targets, and a caller-supplied message instead of `reset_repo/2`'s
+  own fixed one (`Catapult.Delivery.HostPort`'s own moduledoc,
+  ORC-33). One file's failure does not roll back an earlier one, its
+  own idempotent-retry shape.
   """
   @impl Catapult.Delivery.HostPort
   def commit_files(project_id, branch, files, message) do

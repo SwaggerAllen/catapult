@@ -220,10 +220,16 @@ The facts a future session needs, recorded as facts:
   - **Actions: Read and write** —
     `POST …/actions/workflows/{file}/dispatches` (`dispatch_run/1`).
   - **Contents: Read and write** — `GET`/`PUT …/contents/{path}`
-    (`reset_repo/2`, `commit_files/4`, `read_directory/3`),
-    `GET …/git/ref/heads/{ref}` and `POST …/git/refs`
-    (`create_branch/3`), `POST …/merges` (`merge_forward/3`),
-    `PUT …/pulls/{n}/merge` (`merge_pr/3`).
+    (`reset_repo/2`'s workflow-file write, `commit_files/4`,
+    `read_directory/3`), `GET …/git/ref/heads/{ref}` and
+    `POST …/git/refs` (`create_branch/3`), `POST …/merges`
+    (`merge_forward/3`), `PUT …/pulls/{n}/merge` (`merge_pr/3`) —
+    joined by `reset_repo/2`'s own Git Data calls (ORC-228): the same
+    `GET …/git/ref/heads/{ref}` `create_branch/3` already uses,
+    `GET …/git/commits/{sha}`, `POST …/git/trees`, `POST …/git/commits`
+    and `PATCH …/git/refs/heads/{branch}`. GitHub lists all four Git
+    Data write endpoints under Contents alone — the workflow file never
+    touches this path, so nothing here needs the Workflows scope below.
   - **Workflows: Read and write** — the same `PUT …/contents/{path}`
     when the path is under `.github/workflows/`, which
     `reset_repo/2`'s fixture write always includes (it pushes the

@@ -1327,16 +1327,19 @@ generating as scope-runs inside one ticket.
   body onto a feature branch that is very much not the default branch
   needs a real branch parameter, so this ticket adds two callbacks to
   `HostPort` rather than reusing that one: `commit_files(project_id,
-  branch, files, message)` — the same per-file Contents-API shape
-  `reset_repo/2` already established (read the blob sha if the file
-  exists, PUT with it if so), generalized with an explicit `branch:`
-  ref and a caller-supplied commit message, since `"catapult: reset
-  fixture"` is `reset_repo/2`'s own message and wrong for everything
-  else — and `update_pr_body(project_id, pr_number, body)`, a PATCH
-  `HostPort` has never needed before now because nothing before this
-  ticket edits a PR after opening it. Both land in `HostPort.Actions`
-  and `HostPort.Fake` together, the same rule every earlier operation
-  on this port already follows.
+  branch, files, message)` — a per-file Contents-API shape (read the
+  blob sha if the file exists, PUT with it if so): `reset_repo/2`'s own
+  shape too, until ORC-228's design pass moved it onto a single Git
+  Data commit (this doc's ORC-228 entry below); `commit_files/4` keeps
+  the per-file shape, since every call today pushes exactly one file
+  and its round-trip count never grows — generalized with an explicit
+  `branch:` ref and a caller-supplied commit message, since `"catapult:
+  reset fixture"` is `reset_repo/2`'s own message and wrong for
+  everything else — and `update_pr_body(project_id, pr_number,
+  body)`, a PATCH `HostPort` has never needed before now because
+  nothing before this ticket edits a PR after opening it. Both land in
+  `HostPort.Actions` and `HostPort.Fake` together, the same rule every
+  earlier operation on this port already follows.
 
 - **The write side is a new process manager, `Catapult.Delivery
   .FeaturePublisher`, not a wing bolted onto `FeatureLifecycle`.** Both
@@ -1413,8 +1416,10 @@ generating as scope-runs inside one ticket.
   (`delivery_artifact_pushes`, keyed `(project_id, node_id)`) records
   `tier`, `scope_key`, `path`, `body_sha` and `pushed_at` once
   `commit_files/4` returns `:ok`. The Contents API is idempotent per
-  path regardless (the same blob-sha-then-PUT shape `reset_repo/2`
-  already relies on), so a lost row costs a redundant PUT, never a
+  path regardless (the same blob-sha-then-PUT shape `commit_files/4`
+  still uses — ORC-228 moves `reset_repo/2` off this shape onto a
+  single Git Data commit, `commit_files/4`'s own single-file calls
+  left as they were), so a lost row costs a redundant PUT, never a
   wrong one — the row exists to skip the call, not to guarantee the
   correctness of one that runs twice.
 
@@ -2290,11 +2295,15 @@ generating as scope-runs inside one ticket.
   design pass; `HostPort`, `HostPort.Actions` and `HostPort.Fake` in
   the same change, per this doc's own standing rule on this port). It
   returns `{:ok, ref}` rather than bare `:ok` — the default branch's
-  head commit SHA after the last file in `files` lands, in `HostPort
+  head commit SHA once `files` lands, in `HostPort
   .Actions`, and a synthesized one in `HostPort.Fake`, the identical
   `"fake-sha-..."` shape `Forge`'s own `head_sha/1` already generates
   for a branch head — `reset_repo/2`'s own Fake implementation is a
-  no-op today (it only logs) and gains this much and no more.
+  no-op today (it only logs) and gains this much and no more. ORC-228
+  (below) changes what produces the real adapter's sha — a single Git
+  Data commit rather than a head re-read after the last per-file PUT —
+  without touching this contract: `{:ok, ref}` in, `{:ok, ref}` out,
+  either way.
   Provisioning is the first caller with anywhere to put a ref:
   `intake_raft/2` takes one explicitly rather than defaulting to
   "whatever the default branch happens to be" (`HostPort`'s own
@@ -2579,6 +2588,169 @@ generating as scope-runs inside one ticket.
   statement, whose mechanism this entry's companion above changes),
   and `Catapult.Generation.Sweeper`'s moduledoc ("a released or
   deleted test project").
+- **`reset_repo/2`'s fixture write moves off one commit per file onto
+  GitHub's Git Data API — two commits per reset and a fixed call
+  count, whatever the file count** (ORC-228, design pass).
+  `HostPort.Actions.put_all_files/2`'s `Enum.reduce_while` PUT loop — a
+  blob-sha read plus a `PUT …/contents/{path}` per entry in `files`,
+  one commit each — is 60 round trips at ORC-225's own 30-file fixture
+  set, and `ToySeedChainLiveTest`'s provisioning POST timed out inside
+  it (run 27, `33994472868`, on `ee1843d`): per-file cost measured flat
+  at ~0.9s across two live-suite runs (0.88s/file at 17 files, run 26;
+  0.93s/file at 30, run 27), so the write alone crossed
+  `@request_timeout`'s 30s once the file count did what ORC-225 sized
+  it to. `put_all_files/2` now issues seven calls total, independent of
+  the file count, in this order: the workflow file's existing blob-sha
+  `GET …/contents/{path}` and its `PUT …/contents/{path}` land first,
+  exactly as today, so `.github/workflows/catapult-dispatch.yml`'s
+  commit becomes the branch's head before anything below reads it;
+  `fetch_ref_sha/2` (already there, reused rather than duplicated)
+  then reads that head **commit** sha; `GET …/git/commits/{sha}`
+  dereferences it to its **tree** sha, since `POST …/git/trees`'s own
+  `base_tree` parameter is documented to take a tree object's sha, not
+  a commit's. GitHub's create-tree reference states what happens when
+  `base_tree` is *omitted* (a new tree built from only the entries
+  given, every other path read as deleted) but says nothing about what
+  it does with a commit sha handed to that parameter instead, and that
+  case hasn't been measured here. The dereference is one cheap call
+  against either unmeasured outcome — a rejected 422, or a tree
+  silently missing every file this reset doesn't name — so it is taken
+  rather than gambled on; `POST …/git/trees` with that tree sha as
+  `base_tree` and every non-workflow entry in `files` inline (`path`,
+  `mode: "100644"`, `type: "blob"`, `content`) — `base_tree` overwrites
+  the named paths and deletes nothing else, the identical semantics
+  the per-file loop already had; `POST …/git/commits` against the new
+  tree with the workflow file's commit as parent; `PATCH
+  …/git/refs/heads/{branch}` moves the branch to this new commit — the
+  actual last write of the seven, and the one `reset_repo/2` reports.
+  Its contract is unchanged: `{:ok, ref}`, now this ref-update call's
+  own resulting commit sha rather than a second `fetch_ref_sha/2` read
+  after the last PUT lands (this doc's own ORC-216 entry above,
+  amended in this same change: the sha's *source* changes, the
+  contract it reports does not) — and because that commit's parent is
+  the workflow file's own commit, this sha is the branch's actual head
+  once all seven calls land, matching the ORC-216 contract rather than
+  trailing it by one commit.
+
+  **The workflow file stays on today's Contents PUT, unconditionally —
+  this needs no measurement, because run 27 already is one.**
+  `ToySeed.reset_files/0` writes
+  `.github/workflows/catapult-dispatch.yml` into the same map as
+  everything else, and `SETUP.md` §2 already records that GitHub
+  refuses a `PUT …/contents/{path}` under `.github/workflows/` to a
+  token holding Contents without Workflows — `DELIVERY_GITHUB_TOKEN`
+  holds both, so that specific refusal never reaches this token, and
+  its Contents PUT against that path succeeds today: run 27's own
+  commit history (`SwaggerAllen/catapult-test`) has it landing at
+  2026-09-05 21:59:08, on this token, on this repo. Whether GitHub's
+  Git Data `PATCH …/git/refs` applies the same workflow-scope check a
+  Contents PUT does is therefore beside the point: nothing here needs
+  that fact, because the Contents PUT that already runs today is
+  proven to work and costs two of the seven calls above (a blob-sha
+  `GET …/contents/{path}` plus the `PUT`) regardless of what the tree
+  write does. The rule is unconditional rather than branching on an
+  unmeasured GitHub behavior: every file **except** the workflow file
+  rides the tree commit; the workflow file always rides its existing
+  Contents PUT, issued *before* the tree write rather than after, so
+  the tree commit — which the ref update, last of the seven calls,
+  moves the branch to — is the branch's actual head and the sha
+  `reset_repo/2` returns, rather than the workflow commit trailing
+  behind it. No probe against `catapult-test` is needed before
+  shipping this, and none is deferred to the implementing pass.
+
+  **`@request_timeout` stays at 30s in both live tests**
+  (`toy_seed_chain_live_test.exs`, `todo_app_proof_live_test.exs`). The
+  write cost that grew with the fixture list is gone — seven calls,
+  fixed, replace what was 60 at 30 files — and the remaining sequential
+  cost in `provision/1` is one of those seven (`fetch_ref_sha/2`, reused
+  rather than duplicated) plus `read_directory/3` against `docs/raft`
+  (1 + one per role doc, 7 today), bounded by the role list ORC-225
+  didn't touch, not the fixture list it did.
+
+  **`commit_files/4` does not move to the Git Data shape.** Its one
+  caller, `FeaturePublishWorker`, pushes a single `%{path => body}` map
+  per call (`feature_publish_worker.ex:193`) — the per-file loop it
+  runs today already costs one round trip per call, not one per
+  fixture set, so nothing here times out and nothing here grows with
+  `@root_tag_fixtures`. Moving it anyway buys no live-suite headroom
+  and widens this ticket's diff past its own argument, which is a
+  write-count problem `reset_repo/2` alone has. It keeps its per-file
+  Contents-API shape (read the blob sha, PUT with it) — its own shape
+  now, not `reset_repo/2`'s to share, since the two diverge here for
+  the first time.
+
+  Two different sentences go stale here, not one, and they take
+  different corrections. **Five sites state the shared per-file write
+  shape** — "blob-sha-then-PUT", or "the same per-file Contents-API
+  shape `reset_repo/2` already established" — **and take the same
+  correction, named rather than left for the next pass to find
+  piecemeal**: `HostPort.Actions.reset_repo/2`'s own `@doc`;
+  `HostPort.Actions.commit_files/4`'s own `@doc` (both sentences —
+  "the same per-file shape `reset_repo/2` uses" and "the same
+  idempotent-retry shape `reset_repo/2` already follows"); this doc's
+  ORC-33 entry above ("the same per-file Contents-API shape
+  `reset_repo/2` already established"), amended in this same change;
+  this doc's `ArtifactPush` entry above ("the same blob-sha-then-PUT
+  shape `reset_repo/2` already relies on"), amended in this same
+  change; and `lib/catapult/delivery/host_port.ex`'s own ORC-33
+  paragraph, which restates the identical "same per-file Contents-API
+  shape `reset_repo/2` already established" sentence a third time —
+  this ticket's own citation list named six sites in total and missed
+  this one.
+
+  **Two more sites state a different sentence — the ref's *source*,
+  not the write shape — and take a narrower correction of their own:**
+  this doc's own ORC-216 entry above and
+  `lib/catapult/delivery/host_port.ex:31-35`'s own ORC-216 paragraph,
+  which restates the identical sentence a second time, both read "the
+  default branch's head commit SHA once `files` lands" — under one
+  tree commit, with the workflow file's own commit ahead of it, there
+  is no longer a last file landing, only a final ref update. These two
+  are the pair the ticket's own six-site list actually drew from to
+  reach "seven" for the *shape* correction above — a different fact,
+  named here on its own rather than folded silently into that count.
+
+  **Concurrent per-file writes are ruled out, not just left
+  unchosen — on an inferred rather than a measured GitHub behavior,
+  named as such rather than dressed as settled fact.** `Task
+  .async_stream` over the existing PUT loop was the smaller diff and
+  would have left `reset_repo/2`'s contract untouched, but every
+  Contents-API PUT against a branch computes its parent from that
+  branch's current head at request time — concurrent writes to the
+  same branch race on that parent rather than serializing, so the
+  loop's own "one file's failure does not roll back an earlier one"
+  guarantee becomes "some subset of files lands, order unspecified,"
+  which is worse than the timeout it would fix. No probe against
+  `catapult-test` was run to confirm GitHub actually behaves this way
+  under concurrent PUTs to one branch rather than serializing them
+  server-side — the same caliber of unmeasured claim the workflow-file
+  question above was. It gets no probe because none would change the
+  conclusion: even if GitHub does serialize concurrent PUTs safely,
+  that safety isn't documented, and a mechanism this system depends on
+  needing GitHub to hold an undocumented guarantee is itself the
+  defect concurrency would introduce. A single tree-and-commit write
+  needs no such guarantee: every file's blob is independent,
+  content-addressed into one tree, built and committed as one object
+  graph before the ref ever moves.
+
+  **`HostPort` and `HostPort.Fake` are confirmed unaffected, not
+  assumed to be.** This port's standing rule is that every *operation*
+  lands in `HostPort`, `HostPort.Actions` and `HostPort.Fake` together
+  (this doc's Reading-it and ORC-31 entries) — it binds when an
+  operation is added, and this change adds none: `reset_repo/2`'s
+  callback signature and its `{:ok, ref}` contract are exactly what
+  they were. `HostPort.Fake.reset_repo/2` already synthesizes its ref
+  through `Forge.head_sha/1` and reaches no network (ORC-216's own
+  entry above), so it has nothing to change either way.
+
+  **`SETUP.md` §2's derived-scope bullets for `DELIVERY_GITHUB_TOKEN`
+  name endpoints, not intent.** Its Contents-permission bullet lists
+  `GET …/git/commits/{sha}`, `POST …/git/trees` and `POST …/git/commits`
+  beside the `GET …/git/ref/heads/{ref}` and `POST …/git/refs` entries
+  already there, and `PATCH …/git/refs/heads/{branch}` joins the same
+  bullet — Contents alone, since the workflow file never touches the
+  Git Data path and so needs nothing beyond the Contents scope this
+  token already holds.
 
 ## Initial vs target
 
