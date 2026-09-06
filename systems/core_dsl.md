@@ -968,15 +968,40 @@ profiles.
   attribute the schema declares under that exact spelling, naming the
   edge, the instance and the offending segment.
 
-  **Two failure modes, kept apart.** A segment the check can resolve
-  and finds wrong is the class above — a load error. A segment the
-  check cannot resolve at all, because the schema reaches it through
-  a construct the check does not model (`xs:group`, `xs:extension`, a
-  named type defined elsewhere rather than inlined), is not an error:
-  the check's own coverage gap is not the bundle author's defect, so
-  an unresolvable segment passes through unverified rather than
-  blocking the load. Only a segment the check positively knows is
-  wrong is this defect's class.
+  **The walk follows a `type="Name"` reference into a complexType
+  declared in the same schema file exactly as it follows an inline
+  content model — this bundle's ordinary shape, not an edge case.**
+  Every schema under `bundles/default/schemas/**` factors its element
+  content into named complexTypes rather than inlining them
+  (`ui_collarch.xsd`'s `Primitives`, `frontend_sysarch.xsd`'s
+  `Dependencies`, and so on), so a segment one level past a tier's
+  root routinely sits behind exactly this reference. Treating a
+  same-file `type=` reference as unresolvable — this entry's first
+  draft did — would leave the check unable to validate almost anything
+  past the segment immediately under a tier's root, since that is how
+  nearly every multi-segment path in this bundle is actually shaped.
+
+  **Two failure modes, kept apart.** A segment the check can resolve —
+  whether inline or by following a same-file `type=` reference — and
+  finds wrong is the class above — a load error. A segment the check
+  cannot resolve at all, because the schema reaches it through a
+  construct the check does not model (`xs:group`, `xs:extension`, a
+  type defined in a schema the tier's own file imports rather than
+  declares), is not an error: the check's own coverage gap is not the
+  bundle author's defect, so an unresolvable segment passes through
+  unverified rather than blocking the load. Only a segment the check
+  positively resolves and finds wrong is this defect's class.
+
+  **Coverage, as a checkable claim: the check as specified here catches
+  all nine of this ticket's own `declared_in` defects, not eight.**
+  Eight sit one segment under their tier's root element, inside that
+  element's own inline content model, and need no `type=` resolution
+  to validate. The ninth — `ui_coll → design_system`'s `design-system`
+  segment, reached only by following `primitives`'s `type="Primitives"`
+  reference — is the one instance that does, which is exactly why the
+  same-file `type=` walk above belongs in this check rather than
+  waiting for a later ticket: without it, this entry's own mechanism
+  would not have caught the defect this ticket exists to fix.
 
   **Attribute segments are checked identically to element segments,
   not carved out.** `Extraction.attribute/2` resolves a trailing

@@ -1263,14 +1263,22 @@ loader tickets carry `system:core_dsl`.
     own draft), corrected to `ui-dependencies` and
     `screen-dependencies`.
   - `edges/dependency.yaml`'s `ui_coll → design_system` instance — the
-    `<design_system>` child element inside `Primitives`, corrected to
-    `<design-system>` (`ui_collarch.xsd`'s `Primitives` element is
-    itself unhyphenated and already matched). The same line's `target:
-    design_system` names the tier, not the element, and keeps its
-    underscore — the identical tier-name/root_tag split the entry below
-    states for the five renamed tiers, here landing on one line instead
-    of three sites, which is exactly why it reads as a typo rather than
-    a distinction without this sentence.
+    `<design-system>` element declared inside the `Primitives`
+    complexType, corrected from `design_system`. The path's own second
+    segment, `primitives`, is a single word and needed no correction;
+    it names `ui_collarch.xsd`'s `<xs:element name="primitives"
+    type="Primitives">`, not the `Primitives` complexType itself, which
+    a reader only reaches by following that element's `type=`
+    reference. That makes this the one instance of the nine whose wrong
+    segment sits behind a named-type reference rather than as a direct
+    child of its tier's root element — load-bearing for the load-time
+    check's own coverage (`systems/core_dsl.md`'s ORC-232 entry). The
+    same line's `target: design_system` names the tier, not the
+    element, and keeps its underscore — the identical tier-name/
+    root_tag split the entry below states for the five renamed tiers,
+    here landing on one line instead of three sites, which is exactly
+    why it reads as a typo rather than a distinction without this
+    sentence.
 
   **A `declared_in` path's leading segment names a tier, and the
   schema to check the rest of the path against is that tier's own
