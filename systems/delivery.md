@@ -1338,9 +1338,8 @@ generating as scope-runs inside one ticket.
   everything else — and `update_pr_body(project_id, pr_number,
   body)`, a PATCH `HostPort` has never needed before now because
   nothing before this ticket edits a PR after opening it. Both land in
-  `HostPort.Actions`
-  and `HostPort.Fake` together, the same rule every earlier operation
-  on this port already follows.
+  `HostPort.Actions` and `HostPort.Fake` together, the same rule every
+  earlier operation on this port already follows.
 
 - **The write side is a new process manager, `Catapult.Delivery
   .FeaturePublisher`, not a wing bolted onto `FeatureLifecycle`.** Both
@@ -2601,29 +2600,37 @@ generating as scope-runs inside one ticket.
   0.93s/file at 30, run 27), so the write alone crossed
   `@request_timeout`'s 30s once the file count did what ORC-225 sized
   it to. `put_all_files/2` now issues seven calls total, independent of
-  the file count: `fetch_ref_sha/2` (already there, reused rather than
-  duplicated) reads the current head **commit** sha; `GET
-  …/git/commits/{sha}` dereferences that commit to its **tree** sha —
-  `POST …/git/trees`'s own `base_tree` parameter takes a tree object's
-  sha, not a commit's, and GitHub's create-tree reference is explicit
-  that handing it the wrong object doesn't error, it silently builds
-  the new tree from only the entries given, so every path not named in
-  `files` reads as deleted in the new commit; skipping this
-  dereference doesn't fail loudly, it deletes the rest of
-  `catapult-test` on the first run; `POST …/git/trees` with that tree
-  sha as `base_tree` and every non-workflow entry in `files` inline
-  (`path`, `mode: "100644"`, `type: "blob"`, `content`) — `base_tree`
-  overwrites the named paths and deletes nothing else, the identical
-  semantics the per-file loop already had, now conditional on the
-  dereference above landing first; `POST …/git/commits` against the
-  new tree with the head commit as parent; `PATCH
-  …/git/refs/heads/{branch}` moves the branch to the new commit — five
-  calls carrying every file except the workflow file (below), whose
-  own two calls bring the total to seven. `reset_repo/2`'s contract is
-  unchanged either way: `{:ok, ref}`, now the commit call's own sha
-  rather than a second `fetch_ref_sha/2` read after the last PUT lands
-  (this doc's own ORC-216 entry above, amended in this same change:
-  the sha's *source* changes, the contract it reports does not).
+  the file count, in this order: the workflow file's existing blob-sha
+  `GET …/contents/{path}` and its `PUT …/contents/{path}` land first,
+  exactly as today, so `.github/workflows/catapult-dispatch.yml`'s
+  commit becomes the branch's head before anything below reads it;
+  `fetch_ref_sha/2` (already there, reused rather than duplicated)
+  then reads that head **commit** sha; `GET …/git/commits/{sha}`
+  dereferences it to its **tree** sha, since `POST …/git/trees`'s own
+  `base_tree` parameter is documented to take a tree object's sha, not
+  a commit's. GitHub's create-tree reference states what happens when
+  `base_tree` is *omitted* (a new tree built from only the entries
+  given, every other path read as deleted) but says nothing about what
+  it does with a commit sha handed to that parameter instead, and that
+  case hasn't been measured here. The dereference is one cheap call
+  against either unmeasured outcome — a rejected 422, or a tree
+  silently missing every file this reset doesn't name — so it is taken
+  rather than gambled on; `POST …/git/trees` with that tree sha as
+  `base_tree` and every non-workflow entry in `files` inline (`path`,
+  `mode: "100644"`, `type: "blob"`, `content`) — `base_tree` overwrites
+  the named paths and deletes nothing else, the identical semantics
+  the per-file loop already had; `POST …/git/commits` against the new
+  tree with the workflow file's commit as parent; `PATCH
+  …/git/refs/heads/{branch}` moves the branch to this new commit — the
+  actual last write of the seven, and the one `reset_repo/2` reports.
+  Its contract is unchanged: `{:ok, ref}`, now this ref-update call's
+  own resulting commit sha rather than a second `fetch_ref_sha/2` read
+  after the last PUT lands (this doc's own ORC-216 entry above,
+  amended in this same change: the sha's *source* changes, the
+  contract it reports does not) — and because that commit's parent is
+  the workflow file's own commit, this sha is the branch's actual head
+  once all seven calls land, matching the ORC-216 contract rather than
+  trailing it by one commit.
 
   **The workflow file stays on today's Contents PUT, unconditionally —
   this needs no measurement, because run 27 already is one.**
@@ -2644,10 +2651,12 @@ generating as scope-runs inside one ticket.
   write does. The rule is unconditional rather than branching on an
   unmeasured GitHub behavior: every file **except** the workflow file
   rides the tree commit; the workflow file always rides its existing
-  Contents PUT, issued after the tree commit's ref update succeeds so
-  both writes land against the same resulting head. No probe against
-  `catapult-test` is needed before shipping this, and none is deferred
-  to the implementing pass.
+  Contents PUT, issued *before* the tree write rather than after, so
+  the tree commit — the last of the seven calls — is the branch's
+  actual head and the sha `reset_repo/2` returns, rather than the
+  workflow commit trailing behind it. No probe against `catapult-test`
+  is needed before shipping this, and none is deferred to the
+  implementing pass.
 
   **`@request_timeout` stays at 30s in both live tests**
   (`toy_seed_chain_live_test.exs`, `todo_app_proof_live_test.exs`). The
@@ -2691,18 +2700,15 @@ generating as scope-runs inside one ticket.
 
   **Two more sites state a different sentence — the ref's *source*,
   not the write shape — and take a narrower correction of their own:**
-  this doc's own ORC-216 entry above ("the default branch's head
-  commit SHA … after the last file in `files` lands"), already amended
-  in this same change to "once `files` lands", since under one tree
-  commit there is no longer a last file landing; and
+  this doc's own ORC-216 entry above and
   `lib/catapult/delivery/host_port.ex:31-35`'s own ORC-216 paragraph,
-  which restates the identical pre-amendment sentence and is not fixed
-  here — that file is outside this pass's file map — but is named so
-  the implementing pass carries the identical amendment there rather
-  than leaving one of the two copies stale. These two are the pair the
-  ticket's own six-site list actually drew from to reach "seven" for
-  the *shape* correction above — a different fact, named here on its
-  own rather than folded silently into that count.
+  which restates the identical sentence a second time, both read "the
+  default branch's head commit SHA once `files` lands" — under one
+  tree commit, with the workflow file's own commit ahead of it, there
+  is no longer a last file landing, only a final ref update. These two
+  are the pair the ticket's own six-site list actually drew from to
+  reach "seven" for the *shape* correction above — a different fact,
+  named here on its own rather than folded silently into that count.
 
   **Concurrent per-file writes are ruled out, not just left
   unchosen — on an inferred rather than a measured GitHub behavior,
@@ -2738,15 +2744,13 @@ generating as scope-runs inside one ticket.
   entry above), so it has nothing to change either way.
 
   **`SETUP.md` §2's derived-scope bullets for `DELIVERY_GITHUB_TOKEN`
-  name endpoints, not intent, and take the matching amendment when this
-  lands** (not this pass's to make — `SETUP.md` sits outside `docs/**`
-  and this pass's own file map): `GET …/git/commits/{sha}`, `POST
-  …/git/trees` and `POST …/git/commits` join the Contents-permission
-  bullet beside the `GET …/git/ref/heads/{ref}` and `POST …/git/refs`
-  entries already there, and `PATCH …/git/refs/heads/{branch}` joins
-  the same bullet — Contents alone, since the workflow file never
-  touches the Git Data path and so needs nothing beyond the Contents
-  scope this token already holds.
+  name endpoints, not intent.** Its Contents-permission bullet lists
+  `GET …/git/commits/{sha}`, `POST …/git/trees` and `POST …/git/commits`
+  beside the `GET …/git/ref/heads/{ref}` and `POST …/git/refs` entries
+  already there, and `PATCH …/git/refs/heads/{branch}` joins the same
+  bullet — Contents alone, since the workflow file never touches the
+  Git Data path and so needs nothing beyond the Contents scope this
+  token already holds.
 
 ## Initial vs target
 
