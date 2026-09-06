@@ -2446,46 +2446,52 @@ generating as scope-runs inside one ticket.
   list, so a new path costs a declaration and an export and nothing in
   the plug.
 
-  The live test polls this read on its existing `@poll_interval`
-  alongside the terminal-status poll it already runs. Quiescence is a
-  duration, not a poll count: a fixed poll count can be shorter than
-  the sweep interval it has to dominate — two polls just
-  `@poll_interval` (5s) apart can read the run set as complete before
-  `GENERATION_SWEEP_INTERVAL_MS`'s own next tick has a chance to fire.
-  Walked against this entry's own two-round model: round 1's four
-  drafts reaching terminal at T would read quiescent at T+5s under such
-  a rule, up to 5s before the 10s tick dispatches the review round at
-  all — releasing the project, and unsweeping it, before the second
-  round ever starts. The test tracks a *quiet-since* timestamp
-  instead: the first poll whose run-id set matches the previous poll's,
-  and where every run in that set has reached a terminal `status`
-  (`completed` or `failed`), records `quiet_since`; every later poll
-  re-checks both conditions and, the moment either the set or any run's
-  terminality changes, clears `quiet_since` and starts over. The set is
-  quiescent, and the test releases, once `quiet_since` is more than
-  `GENERATION_SWEEP_INTERVAL_MS` **plus** `@poll_interval` (15s total)
-  in the past. A bare `GENERATION_SWEEP_INTERVAL_MS` threshold would
-  guarantee only that a tick has *fired*, not that whatever it
-  dispatched has become a *visible row* — and the test only ever
-  observes rows. `Sweeper` does nothing but enqueue an Oban
-  job; `DispatchWorker.perform/1` still has to run its four
-  re-validations, a `Dsl.load` off disk and a full
-  `ContextAssembly.build` before a `DispatchRun` row exists at all —
-  plausibly one to three seconds after the tick that caused it. A tick
-  landing just inside a bare `GENERATION_SWEEP_INTERVAL_MS` window
-  could write its row after a poll had already declared that narrower
-  set quiescent and released the project, unsweeping it before the row
-  ever lands. The added `@poll_interval` (5s) is margin
-  against that one-to-three-second enqueue-to-row path — tied to a
-  duration this test already names rather than a fresh constant, and
-  comfortably above the estimate — so the guarantee now covers a tick
-  that both fired *and* had time for whatever it dispatched to surface
-  as a row the poll can see, not merely "a tick ran" in the abstract.
-  Once quiescent, the test asserts every run in the set individually (`outcome == success`, a non-empty
+  The live test polls this read on its existing `@poll_interval`,
+  alongside the terminal-status poll it already runs, until it reports
+  no outstanding work.
+
+  **`remaining` widens the read at ORC-230, from "have these runs
+  finished" to "is there anything left to do".** A fixed poll count, or
+  a bare check that the run-id set has stopped changing, both answer
+  that question wrong the same way: a node that has become ready but
+  has not yet been dispatched carries no `DispatchRun` row for either
+  check to see, so it reads identically to "nothing left." `runs/2`'s
+  response widens from a bare array to `%{runs: [...], remaining:
+  integer}`, where `remaining` is the plane's own current answer, read
+  at the moment of the call: `Catapult.Engine.Projections.ReadyScopes`'s
+  readiness read, joined against `Store.list_nodes/2`, counts every
+  node that is dispatchable right now and has no terminal `DispatchRun`
+  yet, plus any run already in flight. Zero means nothing is
+  dispatchable and nothing is running — a fact read directly off plane
+  state, the thing a green run of this test now depends on.
+  `Catapult.Generation.Quiescence`'s own quiet-since arithmetic
+  (`test/support/quiescence.ex`) stays exactly as ORC-225 built and
+  tested it, but this test no longer needs it: `remaining == 0` already
+  covers the race that arithmetic was hedging — a sweep tick that fired
+  but had not yet produced a visible row — by seeing the ready node
+  directly instead of waiting out a margin for its row to appear.
+
+  **Per-run duration comes free of the same widening.**
+  `Store.DispatchRun` already carries `timestamps(type:
+  :utc_datetime_usec, updated_at: :updated_at)`; `normalize_run/1`
+  reads neither field today. Each run in the widened response gains
+  `duration_ms` — `DateTime.diff/3` between `updated_at` and
+  `inserted_at`, in milliseconds. That is dispatch-to-terminal, not
+  per-phase, since `updated_at` bumps on every status transition and a
+  per-phase figure would need columns this ticket does not add; it is
+  what turns a flaky boundary run into something measurable rather than
+  something re-run by hand — `systems/generation.md`'s entry is where
+  that measurement gets used.
+
+  Once `remaining` reaches zero, the test asserts every run observed so
+  far individually (`outcome == success`, a non-empty
   `credential_used`, a non-nil `body_sha`) — the same three assertions
-  `@entry_tier` alone carried before, now closing exactly the gap run 26
+  `@entry_tier` alone carried before, closing exactly the gap run 26
   exposed, where four red runs and one green one read as a green suite
-  because nothing polled the other four.
+  because nothing polled the other four. `systems/generation.md`'s
+  ORC-230 entry states what the test does once `remaining` first
+  reaches zero: call `approve_gates/2` and keep going, rather than
+  stop.
 
   No new dispatch mechanism, unchanged from ORC-216's own refusal: this
   reuses `Catapult.Generation.Sweeper` exactly as it runs today — "let
@@ -2508,8 +2514,10 @@ generating as scope-runs inside one ticket.
   quiescence is now bounded only by however deep the raft's own
   downward-cascade graph goes, not by an approval that never comes.
   `systems/generation.md`'s own entry states what the live suite's poll
-  loop does with that reach, and why the always-run boundary suite
-  still doesn't walk all of it every run.
+  loop does with that reach: the boundary suite (tag `:live`) walks all
+  of it, every run — there is no shallower suite and no round cap, the
+  position design review settled on over a round-capped alternative an
+  earlier draft of this ticket proposed.
 - **`Provisioning.approve_gates/2` is the external actor an unattended
   run needs, driven by the caller rather than synthesized from a
   score** (ORC-230, design pass — the other half of ORC-229's
@@ -2519,18 +2527,41 @@ generating as scope-runs inside one ticket.
   project-scoped read `board` and `my-queue` already fan out over
   (this doc's own ORC-114 entry above) — and, for every row whose
   `status_gate` is non-nil (a ticket `FeatureLifecycle.status/1` reads
-  back as `{:gate, gate_name}`), resolves that flow's `entry_node_id`
-  for its current `body_sha` (the same follow-up `EngineStore
-  .get_node/2` read `document_review_live.ex`'s own "approve" handler
-  already performs; Phase 4's own "exactly one generation status ahead
-  of each gate" invariant, `systems/dashboard.md`'s ORC-75 entry, is
-  what makes the entry node the right one to cite without a second
-  lookup) and dispatches `Catapult.Engine.Commands.ApproveGate
-  {project_id, flow_id, gate: status_gate, node_id:, body_sha:,
-  actor_id: "live-suite"}` — the identical command that handler already
-  builds, constructed here instead of from a human's click. It returns
-  the number of gates it approved, so a caller can tell "something
-  moved" from "nothing left to unblock."
+  back as `{:gate, gate_name}`), takes a fresh `EngineStore.get_node/2`
+  read of that flow's `entry_node_id` for its current `body_sha`, and
+  dispatches `Catapult.Engine.Commands.ApproveGate{project_id, flow_id,
+  gate: status_gate, node_id:, body_sha:, actor_id: "live-suite"}` —
+  the identical command `document_review_live.ex`'s own "approve"
+  handler already builds, constructed here instead of from a human's
+  click. It returns the number of gates it approved, so a caller can
+  tell "something moved" from "nothing left to unblock."
+
+  **The read is its own, not the handler's.** `document_review_live
+  .ex`'s handler dispatches off `body_sha`/`node_id` assigned once at
+  page load (`load/1`'s own `EngineStore.get_node/2` call) — it takes
+  no fresh read at approve time because a LiveView mount already gave
+  it one. `approve_gates/2` has no equivalent load step: it walks every
+  gated ticket in one pass, so each one needs its own read, taken now.
+  Phase 4's own "exactly one generation status ahead of each gate"
+  invariant (`systems/dashboard.md`'s ORC-75 entry) is what makes the
+  entry node the right node to read without walking the flow's other
+  positions; it says nothing about skipping the read itself.
+
+  **One call resolves one gate per ticket, and a ticket can hold two.**
+  `bundles/default-flow/types/feature.yaml`'s sub-array is `pending →
+  generation → critique → ux-review → engineering-review`; `ApproveDraft`
+  fires only on the advance that *leaves* that sub-array
+  (`systems/engine.md`'s ORC-229 entry) — the second gate, not the
+  first. Resolving `ux-review` moves a ticket's `status_gate` to
+  `engineering-review` and approves no draft; `approve_gates/2` has to
+  be called again, on a later sweep of `tickets_for_project/1`, to reach
+  the gate that actually unblocks anything downstream. The suite's own
+  poll loop (`systems/generation.md`'s entry) already calls this
+  operation once per round rather than once total, so a ticket needing
+  two calls falls out of that shape rather than requiring a new one —
+  what it rules out is treating "`approve_gates/2` reported an
+  approval" as proof that a draft advanced. `systems/generation.md`'s
+  entry states the assertion that is.
 
   **`actor_id` is a second literal, not a call to `CatapultWeb.Live
   .Actor.id/0`.** That module's own moduledoc scopes it to "every write
@@ -2581,7 +2612,26 @@ generating as scope-runs inside one ticket.
   `DELIVERY_PROVISIONING_TOKEN` (ORC-216's own entry above). That
   entry's own comment ("a third through sixth path") widens to "a third
   through seventh path" in the same change, for the identical reason
-  the ORC-225 entry above already gives for keeping it in sync.
+  the ORC-225 entry above already gives for keeping it in sync — and
+  the identical phrase sits a second, uncited place: `Provisioning`'s
+  own moduledoc states "a third through sixth path on the one listener"
+  too. Both widen together; naming only `Catapult.Delivery`'s comment
+  is how the moduledoc's copy goes stale while the named one gets
+  fixed.
+
+  **The suite polls this surface; a push transport is a named
+  follow-up, not this ticket's.** The machinery is half-built already:
+  `Catapult.Engine.Topics` rides `Commanded.PubSub` with a per-project
+  `engine:ready_scopes:<id>` topic, and `Phoenix.PubSub` is already
+  started (`application.ex`). Three grades, smallest first: a long-poll
+  (`?since=<cursor>&wait=`, the request process subscribes and blocks
+  in `receive` — same route, same bearer auth, degrading to today's
+  behavior when the wait budget expires); SSE over a chunked response;
+  or a second websocket, since the endpoint declares only `socket
+  "/live", Phoenix.LiveView.Socket` today. Which grade fits turns on
+  how long App Platform's edge holds an idle HTTP response open, which
+  is unmeasured — answering it is a design of its own, not a side
+  effect of widening `remaining`.
 - **The in-flight guard's query lives on `Store`, beside the table it
   reads** (ORC-223 — `systems/generation.md`'s companion entry states
   why the guard exists and how its cutoff was chosen). No new column
