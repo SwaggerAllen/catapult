@@ -109,6 +109,7 @@ defmodule Catapult.Engine.Reducer do
 
   def apply(%DraftDiscarded{} = event, _metadata) do
     Store.set_draft_status(event.draft_id, :discarded)
+    Store.discard_node(event.project_id, event.node_id)
     :ok
   end
 

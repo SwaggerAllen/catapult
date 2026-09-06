@@ -106,6 +106,24 @@ defmodule Catapult.Engine.Store do
     :ok
   end
 
+  @doc """
+  Resets a node whose pending draft was discarded (`DraftDiscarded`,
+  ORC-229) back to `:absent` with `current_draft_id`/`body_sha`
+  cleared — the identical row shape a never-drafted node already
+  carries, which is what makes `ReadyScopes.ready/3`'s own
+  `node.status == :absent` filter admit it again with no filter change
+  of its own.
+  """
+  @spec discard_node(binary(), binary()) :: :ok
+  def discard_node(project_id, id) do
+    Repo.update_all(
+      from(n in Node, where: n.project_id == ^project_id and n.id == ^id),
+      set: [status: :absent, current_draft_id: nil, body_sha: nil]
+    )
+
+    :ok
+  end
+
   @spec get_node_by_scope!(binary(), String.t(), map()) :: Node.t()
   def get_node_by_scope!(project_id, tier, scope_key) do
     Repo.get_by!(Node, project_id: project_id, tier: tier, scope_key: scope_key)

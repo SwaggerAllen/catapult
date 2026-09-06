@@ -125,7 +125,12 @@ defmodule Catapult.Delivery do
       # Same placement and the same reason as its siblings above: a
       # Commanded subscription is consumed once, in order, cluster-wide
       # (`Catapult.Delivery.FeaturePublisher`'s own moduledoc, ORC-33).
-      {:delivery_feature_publisher, :singleton}
+      {:delivery_feature_publisher, :singleton},
+      # `:singleton` for the same stronger reason `delivery_container_
+      # lifecycle` above carries: this one writes too, back into
+      # `Catapult.Engine.Aggregate` (`Catapult.Delivery.DraftResolution`'s
+      # own moduledoc, ORC-229).
+      {:delivery_draft_resolution, :singleton}
     ]
   end
 
@@ -149,7 +154,8 @@ defmodule Catapult.Delivery do
       {Catapult.Delivery.Oidc.Strategy, []},
       Catapult.Delivery.FeatureLifecycle,
       Catapult.Delivery.ContainerLifecycle,
-      Catapult.Delivery.FeaturePublisher
+      Catapult.Delivery.FeaturePublisher,
+      Catapult.Delivery.DraftResolution
     ]
   end
 
