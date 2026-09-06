@@ -1469,6 +1469,33 @@ them.
   and `ApproveDraft` dispatches only off a human's `GateApproved`,
   never off a review tier's own automated pass.
 
+  **Closing this loop makes regeneration reachable, and regeneration
+  leaves stale content downstream with no path back, named rather than
+  left for the next pass to trip on.** A fresh `DraftCommitted` against
+  a node that was already `:approved` needs no new mechanism —
+  `Reducer.apply/2` already sets `status: :drafted` unconditionally
+  (above `Node.status`'s own three values), so `ReadyScopes.ready/3`
+  correctly re-blocks every downstream context walk until the new draft
+  is itself approved. What has no mechanism is content *already*
+  committed downstream, against the superseded approval: nothing moves
+  it back to `:absent`, so it stays put, stale, permanently.
+  `Catapult.Engine.Projections.Staleness` computes exactly this fact —
+  `stale?/2`, `target_newer?/2` comparing `committed_sequence` against
+  each resolved context target's — and nothing in `lib/**` ever calls
+  it; every reference outside its own module is `staleness_test.exs`.
+  Before this ticket no node ever reached `:approved`, so nothing ever
+  drafted against one and the case could not occur; this ticket is what
+  makes it live. A stale node has no production path back to `:absent`
+  until some caller acts on `stale?/2`, and three candidate callers are
+  equally consistent with what this ticket wires: `ready/3` reopening a
+  stale node itself and cascading regeneration automatically,
+  `explain/2` gaining a stale reading, or the dashboard surfacing it and
+  leaving the author to act. Each has a different blast radius and
+  choosing between them is a decision this dispatcher does not make on
+  its own behalf, so none is chosen here — recorded so the choice is
+  made deliberately, by whichever pass makes it, rather than the gap
+  being found by surprise.
+
 ## Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event

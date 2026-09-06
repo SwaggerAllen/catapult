@@ -1616,27 +1616,37 @@ generating as scope-runs inside one ticket.
 - **Draft approval/discard is a second write-side process manager, not
   a third `FeatureLifecycle` clause** (ORC-229, design pass, closing
   `systems/engine.md`'s own "nothing dispatches `ApproveDraft`/
-  `DiscardDraft`" gap from this side). `FeatureLifecycle` is pure
-  projection (below, `Catapult.Delivery.FeaturePublisher`'s own entry)
-  precisely so a fault in a *write* it triggers never risks the read
-  model every status column and every gate already depends on —
+  `DiscardDraft`" gap from this side). `FeatureLifecycle` dispatches no
+  commands, ever — projection only, behaviorally, precisely so a fault
+  in a *write* triggered off engine's events never risks the read model
+  every status column and every gate already depends on — and
   dispatching `ApproveDraft`/`DiscardDraft` back into the engine on
   `GateApproved`/`GateDeclined` is exactly such a write, with the
   identical replay hazard `FeaturePublisher`'s own split already exists
-  to avoid: a projection's `handle/2` re-runs on every rebuild, and one
-  that dispatches commands as a side effect is the wrong instinct to
-  build on even though `systems/engine.md`'s own new compare-and-swap
-  makes a replayed dispatch a rejection rather than a duplicate event.
+  to avoid: a process manager's `handle/2` re-runs on every rebuild,
+  and a second write-triggering handler on the instance that already
+  owns the read model is the wrong instinct to build on even though
+  `systems/engine.md`'s own new compare-and-swap makes a replayed
+  dispatch a rejection rather than a duplicate event.
   `Catapult.Delivery.DraftResolution` is the new process manager:
   identical subscription and identification shape to
   `FeatureLifecycle`/`FeaturePublisher` (`application: Catapult.Engine
-  .Application`, `project_id <> ":" <> flow_id`, ORC-87), `interested?`
-  matching `GateApproved`/`GateDeclined`, `handle/2` reading the flow's
-  own node (`Catapult.Engine.Store.get_node/2`) and dispatching
-  `ApproveDraft`/`DiscardDraft` against it — nothing this process
-  manager decides is read off `FeatureLifecycle`'s own projection, for
-  the identical resilience reason `FeaturePublisher` doesn't read it
-  either: a stalled sibling must not stall this one.
+  .Application`, `project_id <> ":" <> flow_id`, ORC-87) — and,
+  because neither `GateApproved` nor `GateDeclined` carries a node id,
+  and `Catapult.Engine.Store.Flow` has no node column to look one up
+  from, a third `interested?` clause on `FlowOpened`, identical in
+  shape to `FeatureLifecycle`'s own, starts each instance holding
+  `entry_node_id` in its own state rather than deriving a node from the
+  resolving event. `handle/2` for `GateApproved`/`GateDeclined` then
+  calls `Catapult.Engine.Store.get_node(pm.project_id,
+  pm.entry_node_id)` — not to find the node, which the held state
+  already names, but to read `Node.current_draft_id`, the value that
+  becomes the resulting `ApproveDraft`/`DiscardDraft`'s own `draft_id`;
+  `systems/engine.md`'s own new compare-and-swap is what makes
+  populating a command from a projection read safe rather than a race.
+  Nothing this process manager decides is read off `FeatureLifecycle`'s
+  own projection, for the identical resilience reason `FeaturePublisher`
+  doesn't read it either: a stalled sibling must not stall this one.
 
   **Whether a `GateApproved` approves the draft is computed
   independently of `FeatureLifecycle`'s own status advance, from the
