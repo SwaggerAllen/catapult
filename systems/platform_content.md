@@ -1059,11 +1059,11 @@ loader tickets carry `system:core_dsl`.
   words, describing exactly this shape and already load-bearing.
   `frontend_sysarch` gains two more `decomposition` instances the
   identical way: `source: frontend_sysarch, target: ui_coll,
-  declared_in: frontend_sysarch.draft.ui_collections.collection[]`
+  declared_in: frontend_sysarch.draft.ui-collections.collection[]`
   (`cardinality: source: {min: 0}` — a project may recurrence-seed no
   shared widgets — `target: {min: 1, max: 1}`) and `source:
   frontend_sysarch, target: screen_coll, declared_in: frontend_sysarch
-  .draft.screen_collections.collection[]` (`source: {min: 1}` — every
+  .draft.screen-collections.collection[]` (`source: {min: 1}` — every
   project's screens need at least one hosting collection, mirroring
   `screens`' own `{min: 1}` — `target: {min: 1, max: 1}`).
   `ui_collarch → ui_subcomp` and `screen_collarch → screen_subcomp` are
@@ -1141,7 +1141,7 @@ loader tickets carry `system:core_dsl`.
   (`source: {min: 1}` — a collection must group ≥1 screen to justify
   existing, `target: {min: 1, max: 1}` — a screen is hosted by exactly
   one collection). `fulfills` moves to `instances:` form to carry both.
-  Declared inside `frontend_sysarch`'s own `screen_collections
+  Declared inside `frontend_sysarch`'s own `screen-collections
   .collection[].screens.screen[].@ref` rows — the same pass that groups
   screens into collections is the one naming which screens land in
   which collection, so this is an ordinary reference to already-minted
@@ -1218,6 +1218,142 @@ loader tickets carry `system:core_dsl`.
   *generated project's* own future label scheme touches that file at
   all. The ticket's own caveat about a possible push-back here doesn't
   apply.
+
+- **A `declared_in` path spells an element or attribute segment the
+  way the schema that owns it spells it — the schema is the
+  authority, not the edge file** (ORC-232). Every multi-word element
+  name in every schema under `bundles/default/schemas/**` is
+  hyphenated and none is underscored; `frontend_sysarch.xsd`'s own
+  documentation prose refers to `<ui-collections>` and
+  `<screen-collections>` throughout; the checked-in stub
+  (`test/catapult/generation/fixtures/toy_seed/frontend_sysarch.xml`)
+  carries the hyphenated form. Six distinct segments named below match
+  no element the schema declares under that spelling, across nine
+  `declared_in` instances across three edge files —
+  `Extraction.descend/2` (`lib/catapult/generation/extraction.ex`)
+  resolves a segment by exact string equality, with no hyphen/
+  underscore normalization, so every one of the nine matched nothing
+  in a committed body and the edge instance it named minted or
+  resolved nothing, for every project on this bundle. A tenth instance,
+  in a fourth file, carries the same consequence from a different
+  defect shape — a spelled-right segment that names no element at all
+  rather than one the schema spells differently — found only once the
+  load-time check below actually ran against the whole bundle rather
+  than by inspection:
+
+  - `edges/decomposition.yaml`'s `frontend_sysarch → ui_coll` and
+    `frontend_sysarch → screen_coll` instances — `ui_collections` and
+    `screen_collections`, corrected to `ui-collections` and
+    `screen-collections`.
+  - `edges/fulfills.yaml`'s `screen_coll → screen` instance —
+    `screen_collections`, corrected to `screen-collections` (the
+    `screens.screen[].@ref` tail already matched the schema).
+  - `edges/dependency.yaml`'s `subcomp → subcomp`, `ui_subcomp →
+    ui_subcomp` and `screen_subcomp → screen_subcomp` sibling-scope
+    reads — `sub_dependencies` at three sites (`comparch`'s,
+    `ui_collarch`'s and `screen_collarch`'s own drafts), corrected to
+    `sub-dependencies`. (The sibling `comp → comp` instance, declared
+    in `sysarch`'s own draft as single-word `dependencies`, already
+    matched the schema and needed no change.) The `comparch`-sited
+    `subcomp → subcomp` instance is the live, backend-only one:
+    `subcomparch`'s own `context:` (`self.parent.dependency ->
+    subcomp.handle.fragments[pubapi]`) has been reading nothing back
+    since the tier landed, generating every `subcomparch` document
+    without the dependency context it was written to carry — a defect
+    with no connection to the frontend-collection branch this ticket
+    was filed against.
+  - `edges/dependency.yaml`'s `ui_coll → ui_coll` and
+    `screen_coll → screen_coll` project-wide reads — `ui_dependencies`
+    and `screen_dependencies` (both declared in `frontend_sysarch`'s
+    own draft), corrected to `ui-dependencies` and
+    `screen-dependencies`.
+  - `edges/dependency.yaml`'s `ui_coll → design_system` instance — the
+    `<design-system>` element declared inside the `Primitives`
+    complexType, corrected from `design_system`. The path's own second
+    segment, `primitives`, is a single word and needed no correction;
+    it names `ui_collarch.xsd`'s `<xs:element name="primitives"
+    type="Primitives">`, not the `Primitives` complexType itself, which
+    a reader only reaches by following that element's `type=`
+    reference. That makes this the one instance of the nine whose wrong
+    segment sits behind a named-type reference rather than as a direct
+    child of its tier's root element — load-bearing for the load-time
+    check's own coverage (`systems/core_dsl.md`'s ORC-232 entry). The
+    same line's `target: design_system` names the tier, not the
+    element, and keeps its underscore — the identical tier-name/
+    root_tag split the entry below states for the five renamed tiers,
+    here landing on one line instead of three sites, which is exactly
+    why it reads as a typo rather than a distinction without this
+    sentence.
+  - `edges/reference.yaml`'s `impl_backend → ref`, `impl_ui → ref` and
+    `impl_screen → ref` instances — the tenth, differently-shaped
+    instance. Each `declared_in` repeated `implementation` as its own
+    second segment
+    (`impl_backend.draft.implementation.references.reference[].@target`),
+    but `schemas/impl.xsd`'s root element (root_tag `implementation`)
+    puts `<references>` directly under its own root — there is no
+    nested `<implementation>` wrapper for a second `implementation`
+    segment to descend into. The sibling `comparch`, `subcomparch`,
+    `ui_collarch`, `screen_collarch` and `screen_subcomparch` instances
+    in the same file go straight from their own tier to `references`,
+    with no such extra hop; the three `impl_*` instances were the only
+    ones that ever had it, present since `impl.xsd`'s first port
+    (ORC-84) and carried unchanged through every `impl` →
+    `impl_backend`/`impl_ui`/`impl_screen` rename since. Corrected by
+    dropping the stray segment: `impl_backend.draft.references
+    .reference[].@target` and its two siblings.
+
+  **A `declared_in` path's leading segment names a tier, and the
+  schema to check the rest of the path against is that tier's own
+  `draft.grammar` — not necessarily the citing instance's `source`.**
+  `fulfills.yaml`'s `screen_coll → screen` instance is the case that
+  makes the distinction load-bearing: `screen_coll` is a join-target
+  tier with no `draft:` of its own (v5 §5.3), so the "hosts"
+  relationship it names is declared inside `frontend_sysarch`'s draft
+  instead, the tier that mints `screen_coll` in the first place — the
+  path's leading segment is `frontend_sysarch`, and that is the schema
+  a correctness check has to read, not one `screen_coll` will never
+  have.
+
+- **Five `root_tag`s hyphenate, as a public-API spelling correction
+  independent of the `declared_in` fix above** (ORC-232, author
+  decision). `frontend_sysarch`, `screen_collarch`,
+  `screen_subcomparch`, `ui_collarch` and `ui_subcomparch` were the
+  bundle's only underscored `root_tag`s — every other multi-word
+  `root_tag` already hyphenates (`bug-fix-plan`, `feature-expansion`,
+  `feature-request-plan`, `non-goals`, `propagation-plan`,
+  `refactor-plan`, `upward-propagation-plan`, `vocab-entry`) — and a
+  generated document's root element is public surface, spelled
+  consistently whether or not anything is functionally broken by the
+  inconsistency. They become `frontend-sysarch`, `screen-collarch`,
+  `screen-subcomparch`, `ui-collarch` and `ui-subcomparch`.
+
+  **The tier name is not the `root_tag`, and only the second one
+  moves.** `frontend_sysarch` (the tier, the YAML basename, the XSD
+  filename, and every `context:`/`declared_in` reference to the tier)
+  stays underscored — bundle identifiers are underscored by
+  convention here, unrelated to this correction — while the same tier
+  file's own `draft.root_tag: frontend_sysarch` line becomes
+  `draft.root_tag: frontend-sysarch`, and the schema's own root
+  `<xs:element name="frontend_sysarch">` becomes
+  `<xs:element name="frontend-sysarch">` to match (`Dsl.validate_draft`
+  rejects a body whose root element doesn't match the declared
+  `root_tag` — `root_tag_mismatch`, one of ORC-223's four 422 reasons).
+  The same split applies to the other four. After this lands all five
+  join the set `systems/generation.md`'s `@root_tag_fixtures` entry
+  already documents: a checked-in fixture filename that tracks the
+  bundle's own tier name rather than the (now hyphenated) `root_tag`
+  it maps to.
+
+  **Five stale paths in the `catapult-test` fixture repo, harmless but
+  worth naming.** `ToySeed.reset_files/0` pushes each stub to
+  `.catapult-stub/<root_tag>.xml`, so the rename moves where the five
+  affected stubs land (`.catapult-stub/frontend-sysarch.xml` and so
+  on); `reset_repo/2` overwrites the paths it names and deletes
+  nothing (`systems/delivery.md`'s ORC-228 entry), so the five old
+  underscored paths stay in the fixture repo indefinitely. Harmless —
+  the dispatch harness reads the path the context response names, not
+  a directory listing — but a reader of that repo should know the five
+  underscored `.catapult-stub` entries are dead once this lands.
 
 ## Initial vs target
 

@@ -112,7 +112,7 @@
     </xs:sequence>
   </xs:complexType>
 
-  <xs:element name="screen_collarch">
+  <xs:element name="screen-collarch">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>

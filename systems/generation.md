@@ -923,11 +923,17 @@ and validation logic and must not fork it.
   (the three `impl_*` tiers collapsing to the one `implementation`),
   plus the single literal `"review"` every review tier collapses to:
   `bug-fix-plan`, `comparch`, `feature-expansion`, `feature-request-plan`,
-  `frontend_sysarch`, `implementation`, `journeys`, `non-goals`,
+  `frontend-sysarch`, `implementation`, `journeys`, `non-goals`,
   `propagation-plan`, `reference`, `refactor-plan`, `requirements`,
-  `review`, `screen_collarch`, `screen_subcomparch`, `screens`,
-  `subcomparch`, `sysarch`, `ui_collarch`, `ui_subcomparch`,
-  `upward-propagation-plan`, `vocab-entry`.
+  `review`, `screen-collarch`, `screen-subcomparch`, `screens`,
+  `subcomparch`, `sysarch`, `ui-collarch`, `ui-subcomparch`,
+  `upward-propagation-plan`, `vocab-entry` — every multi-word entry
+  hyphenated, the same spelling every schema under
+  `bundles/default/schemas/**` uses for a multi-word element name
+  (`systems/platform_content.md`'s ORC-232 entry: `frontend-sysarch`,
+  `screen-collarch`, `screen-subcomparch`, `ui-collarch` and
+  `ui-subcomparch` were the bundle's only underscored root_tags,
+  standardized to match the rest).
 
   A missing key is not a gap the live suite tolerates by exercising a
   narrower chain — the entry above already keys the lookup by `root_tag`

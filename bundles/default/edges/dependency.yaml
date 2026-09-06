@@ -20,7 +20,7 @@ instances:
 
   - source: subcomp
     target: subcomp
-    declared_in: comparch.draft.sub_dependencies.dep[]
+    declared_in: comparch.draft.sub-dependencies.dep[]
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -35,28 +35,28 @@ instances:
   # ORC-111 entry).
   - source: ui_coll
     target: ui_coll
-    declared_in: frontend_sysarch.draft.ui_dependencies.dep[]
+    declared_in: frontend_sysarch.draft.ui-dependencies.dep[]
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
 
   - source: ui_subcomp
     target: ui_subcomp
-    declared_in: ui_collarch.draft.sub_dependencies.dep[]
+    declared_in: ui_collarch.draft.sub-dependencies.dep[]
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
 
   - source: screen_coll
     target: screen_coll
-    declared_in: frontend_sysarch.draft.screen_dependencies.dep[]
+    declared_in: frontend_sysarch.draft.screen-dependencies.dep[]
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
 
   - source: screen_subcomp
     target: screen_subcomp
-    declared_in: screen_collarch.draft.sub_dependencies.dep[]
+    declared_in: screen_collarch.draft.sub-dependencies.dep[]
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -72,7 +72,7 @@ instances:
   # tiers/design_system.yaml).
   - source: ui_coll
     target: design_system
-    declared_in: ui_collarch.draft.primitives.design_system[]
+    declared_in: ui_collarch.draft.primitives.design-system[]
     cardinality:
       source: { min: 0, max: 1 } # a ui_coll depends on at most one design_system
       target: { min: 0 } # a design_system may be depended on by any number of ui_colls

@@ -1,4 +1,4 @@
-<ui_collarch>
+<ui-collarch>
   <technical-specification>A shared UI collection of link-admin-facing components: a link row, and a URL input with inline validation.</technical-specification>
   <public-surface>link_row/1 and url_input/1 function components, rendered by screen_collarch's own LiveViews.</public-surface>
   <private-surface>Internal formatting helpers for a click count and a truncated target URL.</private-surface>
@@ -39,4 +39,4 @@
     </subcomponent>
   </subcomponents>
   <sub-dependencies/>
-</ui_collarch>
+</ui-collarch>

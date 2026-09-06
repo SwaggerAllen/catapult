@@ -21,7 +21,7 @@ handle:
   fields: [id, intro]
   fragments: []
 draft:
-  root_tag: frontend_sysarch
+  root_tag: frontend-sysarch
   grammar: schemas/frontend_sysarch.xsd
 generator: llm
 executor:
