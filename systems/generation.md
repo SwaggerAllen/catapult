@@ -799,22 +799,52 @@ and validation logic and must not fork it.
   needs headroom for it — depth fixes how many times the suite must
   wait for an approval, not how much work each wait costs.
 
-  Each round costs two dispatch waves (a tier's own draft, then its
-  review) at the ORC-225 entry's own per-wave ceiling — one dispatch's
-  tens-of-seconds runner latency under `stub_mode`, plus one
+  A single dispatch wave (a tier's own draft, or its review) costs the
+  ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
+  runner latency under `stub_mode`, plus one
   `GENERATION_SWEEP_INTERVAL_MS` (10s) tick, plus the `@poll_interval`
-  (5s) margin, call it 90 seconds generously — plus the
-  `approve_drafts/2` call and the next poll that observes its effect.
-  Three rounds at roughly three minutes apiece is a 9-minute floor; the
-  unmeasured breadth above (several tiers' worth of siblings queueing
+  (5s) margin, call it 90 seconds generously. Not every one of the
+  three approval-gated rounds costs the same number of waves, because
+  the middle one is not one tier but three run in sequence.
+  `feature_expansion`'s approval unlocks `journeys`, `screens` and
+  `requirements` together, but `screens`'s context reads
+  `all.journey.handle` and `requirements`'s reads `all.screen.handle`
+  (`bundles/default/tiers/screens.yaml`, `requirements.yaml`), and both
+  are populated by `journey`/`screen` child nodes minted from the
+  upstream tier's own **draft**
+  (`bundles/default/edges/decomposition.yaml:70,78`) — so `screens`
+  cannot dispatch until `journeys` has drafted, and `requirements`
+  cannot dispatch until `screens` has, whatever a reviewer's own
+  wall-clock happens to overlap with the next tier's draft. Costed
+  conservatively — draft and review both waited on for each of the
+  three, rather than assumed to overlap with the next tier's draft —
+  that round is six waves, not two:
+
+  - `feature_expansion`'s own draft and review, before the first
+    approval: 2 waves, ~3 minutes.
+  - `journeys` → `screens` → `requirements`, each tier's draft and
+    review before the next tier's draft is even ready: 6 waves,
+    ~9 minutes.
+  - `sysarch` alone, after `requirements`'s approval — its other
+    context source, `self.parent.decomposition -> resp.handle`, mints
+    at `requirements`'s own draft time and costs no separate wave: 2
+    waves, ~3 minutes.
+
+  15 minutes is the floor for the three approval-gated rounds alone,
+  plus the `approve_drafts/2` call and the next poll that observes its
+  effect at each of the three approvals. The unmeasured breadth this
+  entry already names (several tiers' worth of siblings queueing
   behind Oban's `generation_dispatch` concurrency of 5, and whatever
-  GitHub Actions' own runner queue adds under load) is the headroom a
-  bare depth-based figure would not cover. `@poll_deadline` widens to
-  `:timer.minutes(15)` — the 9-minute floor plus that headroom — and
-  `@tag timeout: :timer.minutes(17)`, wider still so the assertion
-  failure path (a real `flunk/1`) is what ends the test on a genuine
-  timeout, never ExUnit's own kill, for the identical `after`-block
-  reason ORC-225's own entry above already gives.
+  GitHub Actions' own runner queue adds under load) is still the
+  headroom a depth-based floor alone would not cover, and nothing about
+  the corrected floor changes that headroom's own size — it stays the
+  6 minutes the prior figure carried. `@poll_deadline` widens to
+  `:timer.minutes(21)` — the corrected 15-minute floor plus that
+  6-minute headroom — and `@tag timeout: :timer.minutes(23)`, wider
+  still so the assertion failure path (a real `flunk/1`) is what ends
+  the test on a genuine timeout, never ExUnit's own kill, for the
+  identical `after`-block reason ORC-225's own entry above already
+  gives.
 
   What changes on top of the number is the failure path: a `flunk/1`
   on timeout reports the tier set that ran, every node
@@ -826,32 +856,14 @@ and validation logic and must not fork it.
   pressure a tight, unexplained timeout creates to shorten the suite
   back down.
 
-- **This is what finally exercises most of `@root_tag_fixtures`'s
-  twenty previously-unreached stubs — sixteen of the twenty, not all
-  of them.** Nothing before ORC-230 dispatched past two rounds, so
-  twenty of the twenty-two fixtures ORC-225 built existed for tiers no
-  run had ever reached. A `ToySeedChainLiveTest` run that reaches
+- **A full walk is the first exercise of `@root_tag_fixtures`'s
+  previously-unreached stubs.** Nothing before ORC-230 dispatched past
+  two rounds, so most of the fixtures ORC-225 built existed for tiers
+  no run had ever reached. A `ToySeedChainLiveTest` run that reaches
   `remaining == 0` with zero approvals pending is the first observed
-  evidence that every dispatchable `root_tag` the toy raft's downward
-  cascade can actually reach resolves against its stub, rather than an
-  assumed one. **Four stay unreached regardless**, for a reason outside
-  this ticket: `bundles/default/edges/decomposition.yaml`'s
-  `frontend_sysarch → ui_coll`/`→ screen_coll` `declared_in` paths name
-  underscored element segments (`ui_collections`, `screen_collections`)
-  that `bundles/default/schemas/frontend_sysarch.xsd` itself requires
-  to be hyphenated (`ui-collections`, `screen-collections`) — every
-  grammar-valid draft uses the hyphenated form, `Extraction.descend/2`
-  matches child element names by exact string equality with no
-  hyphen/underscore normalization, and the two never meet. `ui_coll`
-  and `screen_coll` never mint for any project on the shipped bundle,
-  so `ui_collarch`, `screen_collarch`, `ui_subcomparch` and
-  `screen_subcomparch` — four of the `@root_tag_fixtures` keys — never
-  get a node to dispatch against. This is bundle content
-  (`bundles/**`), not a doc this pass may amend or a file this pass may
-  fix, and it costs the walk no *round*: nothing downstream of
-  `sysarch` needs a fourth approval either way (this entry's own
-  deadline derivation above), so the four unreached fixtures change
-  what the walk covers, not how long it takes to finish covering it.
+  evidence that the `root_tag`s the toy raft's downward cascade
+  actually reaches resolve against their stubs, rather than an
+  assumed one.
 
 - **Two stale moduledocs are corrected in the same change**, both
   design-owned prose sitting in dev-owned test files, so design records

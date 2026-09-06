@@ -2548,8 +2548,13 @@ generating as scope-runs inside one ticket.
   replacing a ticket-gate design that cannot run against a toy-seed
   project, named below). Reachable at `POST
   /dispatch/test-project/:project_id/approve-drafts`, it loads the
-  chain the same way `Catapult.Generation.Sweeper` already does
-  (`Dsl.load(".")`), and for every tier in it calls `Store.list_nodes/2`
+  chain the same way `Catapult.Generation.Sweeper`,
+  `Catapult.Generation.DispatchWorker` and `Catapult.Generation
+  .CommitPath` already do — `Dsl.load(Config.fetch!(:generation,
+  :bundles_root))` (`sweeper.ex:79`, `dispatch_worker.ex:56`,
+  `commit_path.ex:158`), reading the configured bundles root rather
+  than a literal path this operation would otherwise have to invent
+  — and for every tier in it calls `Store.list_nodes/2`
   — the identical per-tier read `Sweeper` and this doc's own widened
   `remaining` (above) already make — collecting every node whose
   `status` is `:drafted`. For each, it dispatches
@@ -2596,6 +2601,21 @@ generating as scope-runs inside one ticket.
   correction** — `systems/generation.md`'s entry states what replaces
   both: with no ticket and no gate, one call against a drafted node is
   itself the approval, not a step toward one.
+
+  **What this leaves unexercised.** ORC-229's own mechanism —
+  `GateApproved` reacting through `Catapult.Delivery.DraftResolution`
+  into `ApproveDraft` (`systems/engine.md`'s ORC-229 entry) — is the
+  path a real human approval takes, and `approve_drafts/2` does not
+  go through it: it dispatches `ApproveDraft` straight from the
+  boundary surface, the same bare compare-and-swap
+  `toy_seed_chain_test.exs` already drives offline. So the boundary
+  suite proves the chain cascades correctly once nodes reach
+  `:approved`, and proves nothing about `DraftResolution` itself —
+  that reaction stays covered only by whatever exercises a real
+  ticket's gate, which a toy-seed project, carrying no workflow-bundle
+  content, cannot be the subject of. Closing that gap needs a
+  chain-axis node that can carry a flow, which is Phase 7's mapping
+  (`ApproveGate`'s own moduledoc), not this ticket's.
 
   **`actor_id` is a literal, not a call to `CatapultWeb.Live
   .Actor.id/0`.** That module's own moduledoc scopes it to "every write
