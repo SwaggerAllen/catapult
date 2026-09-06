@@ -1227,9 +1227,9 @@ loader tickets carry `system:core_dsl`.
   documentation prose refers to `<ui-collections>` and
   `<screen-collections>` throughout; the checked-in stub
   (`test/catapult/generation/fixtures/toy_seed/frontend_sysarch.xml`)
-  carries the hyphenated form. Six of this entry's own instances above
-  named a segment the schema never declares under that spelling, in
-  nine `declared_in` occurrences across three edge files —
+  carries the hyphenated form. Six distinct segments named below match
+  no element the schema declares under that spelling, across nine
+  `declared_in` instances across three edge files —
   `Extraction.descend/2` (`lib/catapult/generation/extraction.ex`)
   resolves a segment by exact string equality, with no hyphen/
   underscore normalization, so every one of the nine matched nothing
@@ -1243,11 +1243,14 @@ loader tickets carry `system:core_dsl`.
   - `edges/fulfills.yaml`'s `screen_coll → screen` instance —
     `screen_collections`, corrected to `screen-collections` (the
     `screens.screen[].@ref` tail already matched the schema).
-  - `edges/dependency.yaml`'s `comp → comp`, `ui_coll → ui_coll` and
-    `screen_coll → screen_coll` sibling-scope reads — `sub_dependencies`
-    at three sites (`comparch`'s, `ui_collarch`'s and
-    `screen_collarch`'s own drafts), corrected to `sub-dependencies`.
-    The `comparch`-sited one is the live, backend-only instance:
+  - `edges/dependency.yaml`'s `subcomp → subcomp`, `ui_subcomp →
+    ui_subcomp` and `screen_subcomp → screen_subcomp` sibling-scope
+    reads — `sub_dependencies` at three sites (`comparch`'s,
+    `ui_collarch`'s and `screen_collarch`'s own drafts), corrected to
+    `sub-dependencies`. (The sibling `comp → comp` instance, declared
+    in `sysarch`'s own draft as single-word `dependencies`, already
+    matched the schema and needed no change.) The `comparch`-sited
+    `subcomp → subcomp` instance is the live, backend-only one:
     `subcomparch`'s own `context:` (`self.parent.dependency ->
     subcomp.handle.fragments[pubapi]`) has been reading nothing back
     since the tier landed, generating every `subcomparch` document
@@ -1259,10 +1262,15 @@ loader tickets carry `system:core_dsl`.
     and `screen_dependencies` (both declared in `frontend_sysarch`'s
     own draft), corrected to `ui-dependencies` and
     `screen-dependencies`.
-  - `edges/dependency.yaml`'s `ui_coll → design_system` instance —
-    `design_system`, corrected to `design-system` (`ui_collarch.xsd`'s
-    `Primitives` element is itself unhyphenated and already matched;
-    only the child element inside it was wrong).
+  - `edges/dependency.yaml`'s `ui_coll → design_system` instance — the
+    `<design_system>` child element inside `Primitives`, corrected to
+    `<design-system>` (`ui_collarch.xsd`'s `Primitives` element is
+    itself unhyphenated and already matched). The same line's `target:
+    design_system` names the tier, not the element, and keeps its
+    underscore — the identical tier-name/root_tag split the entry below
+    states for the five renamed tiers, here landing on one line instead
+    of three sites, which is exactly why it reads as a typo rather than
+    a distinction without this sentence.
 
   **A `declared_in` path's leading segment names a tier, and the
   schema to check the rest of the path against is that tier's own
@@ -1305,6 +1313,17 @@ loader tickets carry `system:core_dsl`.
   already documents: a checked-in fixture filename that tracks the
   bundle's own tier name rather than the (now hyphenated) `root_tag`
   it maps to.
+
+  **Five stale paths in the `catapult-test` fixture repo, harmless but
+  worth naming.** `ToySeed.reset_files/0` pushes each stub to
+  `.catapult-stub/<root_tag>.xml`, so the rename moves where the five
+  affected stubs land (`.catapult-stub/frontend-sysarch.xml` and so
+  on); `reset_repo/2` overwrites the paths it names and deletes
+  nothing (`systems/delivery.md`'s ORC-228 entry), so the five old
+  underscored paths stay in the fixture repo indefinitely. Harmless —
+  the dispatch harness reads the path the context response names, not
+  a directory listing — but a reader of that repo should know the five
+  underscored `.catapult-stub` entries are dead once this lands.
 
 ## Initial vs target
 
