@@ -1,4 +1,4 @@
-<frontend_sysarch>
+<frontend-sysarch>
   <introduction>One UI collection fronting link administration; one screen collection hosting its two screens.</introduction>
   <ui-collections>
     <collection alias="link_admin_ui">
@@ -19,4 +19,4 @@
     </collection>
   </screen-collections>
   <screen-dependencies/>
-</frontend_sysarch>
+</frontend-sysarch>

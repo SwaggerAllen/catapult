@@ -117,7 +117,7 @@
     </xs:sequence>
   </xs:complexType>
 
-  <xs:element name="ui_collarch">
+  <xs:element name="ui-collarch">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>

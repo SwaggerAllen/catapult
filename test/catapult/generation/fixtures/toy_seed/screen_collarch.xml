@@ -1,4 +1,4 @@
-<screen_collarch>
+<screen-collarch>
   <technical-specification>A LiveView screen collection fronting link administration: one list view, one creation form, both reading and writing through link_admin's public surface only.</technical-specification>
   <public-surface>Rendered routes /links and /links/new; no public API beyond the rendered pages themselves.</public-surface>
   <private-surface>Internal form-state assigns; nothing another collection reads.</private-surface>
@@ -48,4 +48,4 @@
   <sub-dependencies>
     <dep from="link_create_live" to="link_list_live"/>
   </sub-dependencies>
-</screen_collarch>
+</screen-collarch>

@@ -1234,7 +1234,12 @@ loader tickets carry `system:core_dsl`.
   resolves a segment by exact string equality, with no hyphen/
   underscore normalization, so every one of the nine matched nothing
   in a committed body and the edge instance it named minted or
-  resolved nothing, for every project on this bundle:
+  resolved nothing, for every project on this bundle. A tenth instance,
+  in a fourth file, carries the same consequence from a different
+  defect shape — a spelled-right segment that names no element at all
+  rather than one the schema spells differently — found only once the
+  load-time check below actually ran against the whole bundle rather
+  than by inspection:
 
   - `edges/decomposition.yaml`'s `frontend_sysarch → ui_coll` and
     `frontend_sysarch → screen_coll` instances — `ui_collections` and
@@ -1279,6 +1284,23 @@ loader tickets carry `system:core_dsl`.
     here landing on one line instead of three sites, which is exactly
     why it reads as a typo rather than a distinction without this
     sentence.
+  - `edges/reference.yaml`'s `impl_backend → ref`, `impl_ui → ref` and
+    `impl_screen → ref` instances — the tenth, differently-shaped
+    instance. Each `declared_in` repeated `implementation` as its own
+    second segment
+    (`impl_backend.draft.implementation.references.reference[].@target`),
+    but `schemas/impl.xsd`'s root element (root_tag `implementation`)
+    puts `<references>` directly under its own root — there is no
+    nested `<implementation>` wrapper for a second `implementation`
+    segment to descend into. The sibling `comparch`, `subcomparch`,
+    `ui_collarch`, `screen_collarch` and `screen_subcomparch` instances
+    in the same file go straight from their own tier to `references`,
+    with no such extra hop; the three `impl_*` instances were the only
+    ones that ever had it, present since `impl.xsd`'s first port
+    (ORC-84) and carried unchanged through every `impl` →
+    `impl_backend`/`impl_ui`/`impl_screen` rename since. Corrected by
+    dropping the stray segment: `impl_backend.draft.references
+    .reference[].@target` and its two siblings.
 
   **A `declared_in` path's leading segment names a tier, and the
   schema to check the rest of the path against is that tier's own

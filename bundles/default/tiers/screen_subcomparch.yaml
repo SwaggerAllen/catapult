@@ -12,7 +12,7 @@ handle:
   fields: [id, role_summary]
   fragments: []
 draft:
-  root_tag: screen_subcomparch
+  root_tag: screen-subcomparch
   grammar: schemas/screen_subcomparch.xsd
 generator: llm
 prompt: prompts/screen_subcomparch.md.liquid

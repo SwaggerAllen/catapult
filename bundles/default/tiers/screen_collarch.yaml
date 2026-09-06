@@ -30,7 +30,7 @@ handle:
   fields: [id, decomposition_summary]
   fragments: []
 draft:
-  root_tag: screen_collarch
+  root_tag: screen-collarch
   grammar: schemas/screen_collarch.xsd
 generator: llm
 executor:

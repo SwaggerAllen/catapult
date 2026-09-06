@@ -1,7 +1,7 @@
-<ui_subcomparch>
+<ui-subcomparch>
   <technical-specification>Two stateless function components with no process of their own; both render synchronously inside their caller's own LiveView process.</technical-specification>
   <public-surface>link_row/1 and url_input/1, both pure function components.</public-surface>
   <private-surface>No private surface - each component is a single public function.</private-surface>
   <processes/>
   <dependencies/>
-</ui_subcomparch>
+</ui-subcomparch>

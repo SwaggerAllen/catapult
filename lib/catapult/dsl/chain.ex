@@ -9,6 +9,7 @@ defmodule Catapult.Dsl.Chain do
   """
 
   alias Catapult.Dsl.ContextWalk
+  alias Catapult.Dsl.DeclaredInSchema
   alias Catapult.Dsl.Edge
   alias Catapult.Dsl.Flow
   alias Catapult.Dsl.Graph, as: DslGraph
@@ -99,6 +100,7 @@ defmodule Catapult.Dsl.Chain do
           duplicate_names(edges, "edge") ++
           duplicate_names(flows, "flow") ++
           cross_reference_problems(
+            dir,
             tier_map,
             edge_map,
             flow_map,
@@ -157,17 +159,21 @@ defmodule Catapult.Dsl.Chain do
 
   ## Cross-reference validation (dsl-syntax.md §13)
 
-  defp cross_reference_problems(tiers, edges, flows, fragments, named_predicates, registry) do
+  defp cross_reference_problems(dir, tiers, edges, flows, fragments, named_predicates, registry) do
     scope_problems(tiers) ++
       predicate_slot_problems(tiers, edges, flows, named_predicates) ++
       edge_endpoint_problems(edges, tiers) ++
       edge_acyclicity_problems(edges) ++
+      declared_in_schema_problems(dir, tiers, edges) ++
       review_tier_problems(tiers) ++
       Enum.flat_map(tiers, fn {_name, tier} ->
         tier_reference_problems(tier, tiers, edges, fragments, registry)
       end) ++
       flow_reference_problems(flows, tiers)
   end
+
+  defp declared_in_schema_problems(dir, tiers, edges),
+    do: DeclaredInSchema.problems(dir, tiers, edges)
 
   defp scope_problems(tiers) do
     for {name, %{scope: {kind, ref}}} <- tiers,
