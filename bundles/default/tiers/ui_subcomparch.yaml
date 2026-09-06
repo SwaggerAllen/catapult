@@ -13,7 +13,7 @@ handle:
   fields: [id, role_summary]
   fragments: []
 draft:
-  root_tag: ui_subcomparch
+  root_tag: ui-subcomparch
   grammar: schemas/ui_subcomparch.xsd
 generator: llm
 prompt: prompts/ui_subcomparch.md.liquid

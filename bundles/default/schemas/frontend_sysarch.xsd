@@ -75,7 +75,7 @@
     </xs:sequence>
   </xs:complexType>
 
-  <xs:element name="frontend_sysarch">
+  <xs:element name="frontend-sysarch">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="introduction" type="xs:string" minOccurs="0"/>
