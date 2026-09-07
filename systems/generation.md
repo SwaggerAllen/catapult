@@ -779,25 +779,63 @@ and validation logic and must not fork it.
   and-swap succeeded.
 
 - **The deadline is sized from the walk's own measured depth, not left
-  a bare "generous" constant.** `bundles/default/tiers/*.yaml`'s
-  downward-cascade graph fixes the walk's *depth* — how many sequential
-  approve-then-dispatch rounds a complete walk takes — because every
-  join-target tier (`comp`, `subcomp`, `screen_coll`, `ui_coll` and the
-  rest) mints straight to `:approved` at mint time (`Extraction.mints/4`)
-  rather than needing its own approval, so only a tier reached through a
-  `self.parent`/`all.<tier>`-style walk requiring `:approved` costs a
-  round. Tracing the toy raft's longest such chain from `feature_expansion`
-  gives exactly **three** gate-bearing tiers: `feature_expansion` →
-  `requirements` → `sysarch` — every tier past `sysarch` (`comp`,
-  `comparch`, `subcomp`, `subcomparch`/`impl_backend` on the backend
-  side; `frontend_sysarch` and whatever it mints on the front-end side)
-  reads either a join-target's mint-time `:approved` or `sysarch`'s own
-  approval, never a fourth tier's. This is depth, not breadth: `per(comp)`/
-  `child_of` fan-out still depends on what a draft itself mints, which
-  the tier bundle alone cannot predict, so the number of *nodes*
-  dispatched within a round stays unmeasured and the deadline still
-  needs headroom for it — depth fixes how many times the suite must
-  wait for an approval, not how much work each wait costs.
+  a bare "generous" constant — but depth only counts *approvals*, and
+  the suite's own stop condition (`remaining == 0` and zero approvals
+  pending) is priced on waves, not approvals, so the tiers past the
+  last approval still have to be counted rather than assumed free.**
+  `bundles/default/tiers/*.yaml`'s downward-cascade graph fixes the
+  walk's *approval depth* — how many sequential approve-then-dispatch
+  rounds a complete walk takes — because every join-target tier
+  (`comp`, `subcomp`, `screen_coll`, `ui_coll`, `ui_subcomp`,
+  `screen_subcomp` and the rest) has no `draft:` block at all, so
+  `Extraction.mint_status/2` returns `:approved` for it at mint time
+  rather than `:absent`, and it never dispatches or needs a human (or
+  `approve_drafts/2`) to move it. Every context walk this bundle writes
+  — `self.parent`, `self.reference`, `all.<tier>` alike — folds the
+  identical `status == :approved` requirement over whatever it
+  resolves to (`walk_ready?/2`); the two kinds of tier differ only in
+  *how* a target reaches `:approved` — instantly at mint for a
+  join target, or through its own generate-then-review-then-approve
+  cycle for one that carries a `draft:` block — not in whether the
+  requirement applies. So a tier costs an **approval round** only when
+  it carries a `draft:` block *and* something has to wait on that
+  approval to become ready; it still costs **dispatch waves** — a
+  draft and a review, each a real run the sweeper has to find and the
+  suite has to poll for — whenever it carries a `draft:` block at all,
+  approval-gated or not. Tracing the toy raft's longest approval-gated
+  chain from `feature_expansion` gives exactly **three** gate-bearing
+  tiers: `feature_expansion` → `requirements` → `sysarch` — every tier
+  past `sysarch` reads either a join-target's mint-time `:approved` or
+  `sysarch`'s own approval, never a fourth tier's *approval*. But most
+  of those tiers still carry their own `draft:` block, and the suite's
+  loop does not stop at the last approval: it stops at `remaining == 0`
+  with nothing left `:drafted`, which means every one of those tiers'
+  drafts and reviews still has to dispatch and settle. This is depth,
+  not breadth: `per(comp)`/`child_of` fan-out still depends on what a
+  draft itself mints, which the tier bundle alone cannot predict, so
+  the number of *nodes* dispatched within a wave stays unmeasured and
+  the deadline still needs headroom for it — depth fixes how many
+  waves the suite must wait through, not how much work each wait
+  costs.
+
+  **This derivation assumes the graph's intended sequencing, not the
+  early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
+  `DraftCommitted` (`CommitPath.commit_draft/2` calls
+  `Extraction.mints/4` at commit time, before `sysarch`'s own review or
+  approval), and `comparch`'s only walk onto it is `self.parent.handle`
+  — already `:approved` the instant `comp` exists. Nothing named here
+  requires `comparch` to wait for `sysarch`'s own approval rather than
+  just its draft, and ORC-235 is the open question of whether readiness
+  should. The rounds and waves below assume the sequential reading this
+  entry has used throughout — a tier reached through a
+  `draft:`-carrying ancestor waits for that ancestor's own approval,
+  not merely its draft — which is the conservative assumption for a
+  deadline: if ORC-235 leaves the early-readiness behavior as it is,
+  real runs dispatch earlier than this floor assumes and finish inside
+  it with room to spare; if ORC-235 tightens readiness to match the
+  intended order, this floor already costs that order. Either way this
+  number does not need to shrink; whether it needs to grow is
+  ORC-235's question to answer, not this entry's to guess at.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -832,19 +870,50 @@ and validation logic and must not fork it.
 
   15 minutes is the floor for the three approval-gated rounds alone,
   plus the `approve_drafts/2` call and the next poll that observes its
-  effect at each of the three approvals. The unmeasured breadth this
-  entry already names (several tiers' worth of siblings queueing
-  behind Oban's `generation_dispatch` concurrency of 5, and whatever
-  GitHub Actions' own runner queue adds under load) is still the
-  headroom a depth-based floor alone would not cover, and nothing about
-  the corrected floor changes that headroom's own size — it stays the
-  6 minutes the prior figure carried. `@poll_deadline` widens to
-  `:timer.minutes(21)` — the corrected 15-minute floor plus that
-  6-minute headroom — and `@tag timeout: :timer.minutes(23)`, wider
-  still so the assertion failure path (a real `flunk/1`) is what ends
-  the test on a genuine timeout, never ExUnit's own kill, for the
-  identical `after`-block reason ORC-225's own entry above already
-  gives.
+  effect at each of the three approvals. It is not the floor to
+  `remaining == 0` — the suite's actual stop condition — because most
+  of the tiers past `sysarch` still carry a `draft:` block and still
+  cost waves, even though none of them costs another approval. Named
+  by branch, costed the same conservative way as the three rounds
+  above (draft and review both waited on, no overlap with the next
+  tier's draft assumed):
+
+  - Backend: `comparch` (`per(comp)`, `comp` already `:approved` at
+    `sysarch`'s draft) drafts and reviews — 2 waves — then
+    `subcomparch` and `impl_backend` (both `per(subcomp)`, `subcomp`
+    already `:approved` at `comparch`'s draft) draft and review
+    together — 2 waves. 4 waves, ~6 minutes.
+  - Front end: `frontend_sysarch` (`scope: singleton`, its three
+    `all.<tier>` walks all already `:approved`) drafts and reviews — 2
+    waves — then `ui_collarch`/`screen_collarch` (`ui_coll`/
+    `screen_coll` already `:approved` at `frontend_sysarch`'s draft)
+    together — 2 waves — then `ui_subcomparch`/`impl_ui`/
+    `screen_subcomparch`/`impl_screen` (their own subcomps already
+    `:approved` at the collarch tiers' drafts) together — 2 waves. 6
+    waves, ~9 minutes.
+
+  The two branches run alongside each other, not in sequence — nothing
+  in either reads the other — so they do not add; the front end's 6
+  waves is the longer of the two and is what the walk actually waits
+  on after `sysarch`'s approval. The floor to `remaining == 0` is 15
+  (the three approval-gated rounds) plus 9 (the front-end branch) — 24
+  minutes, not 15 — before the breadth headroom below is added on top.
+
+  The unmeasured breadth this entry already names (several tiers'
+  worth of siblings queueing behind Oban's `generation_dispatch`
+  concurrency of 5, and whatever GitHub Actions' own runner queue adds
+  under load) is still the headroom a depth-based floor alone would not
+  cover, and nothing about the corrected floor changes that headroom's
+  own size — it stays the 6 minutes the prior figure carried, and it
+  belongs on top of the 24-minute floor rather than folded into it: a
+  floor that spends the headroom on waves instead leaves nothing for
+  the breadth it exists to cover, and a passing walk plausibly
+  `flunk`s on a tight, unexplained timeout. `@poll_deadline` widens to
+  `:timer.minutes(30)` — the 24-minute floor plus the 6-minute headroom
+  — and `@tag timeout: :timer.minutes(32)`, wider still so the
+  assertion failure path (a real `flunk/1`) is what ends the test on a
+  genuine timeout, never ExUnit's own kill, for the identical
+  `after`-block reason ORC-225's own entry above already gives.
 
   What changes on top of the number is the failure path: a `flunk/1`
   on timeout reports the tier set that ran, every node
