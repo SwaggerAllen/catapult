@@ -216,51 +216,56 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
   # Alternates polling `runs/2` to `remaining == 0` with a single
   # `approve_drafts!/3` call, stopping only once a full cycle leaves
-  # both zero (this module's own moduledoc). `seen_ids` is the
-  # previous poll's own `run_key` set; `awaiting_effect?` is true from
-  # the moment an `approve_drafts!/3` call reports at least one
-  # approval until a later poll's run set actually grows, at which
-  # point `advanced?` latches — the assertion that an approval produced
-  # a new dispatch, not merely that a node compare-and-swapped.
-  # `approvals_log` is diagnostic only, folded into a timeout's own
-  # `flunk/1` message, alongside `last_runs` — the most recently
-  # fetched `runs/2` body, threaded through so a timeout can report the
-  # tier set observed so far and each run's `duration_ms`
-  # (`systems/generation.md`'s ORC-230 entry) without a doomed extra
-  # fetch against a plane that has already stopped answering in time.
+  # both zero (this module's own moduledoc). The walk's own progress
+  # is threaded as a single accumulator map rather than five separate
+  # arguments (credo's own arity-8 ceiling): `seen_ids` is the previous
+  # poll's own `run_key` set; `awaiting_effect?` is true from the
+  # moment an `approve_drafts!/3` call reports at least one approval
+  # until a later poll's run set actually grows, at which point
+  # `advanced?` latches — the assertion that an approval produced a new
+  # dispatch, not merely that a node compare-and-swapped. `log` is
+  # diagnostic only, folded into a timeout's own `flunk/1` message,
+  # alongside `last_runs` — the most recently fetched `runs/2` body,
+  # carried so a timeout can report the tier set observed so far and
+  # each run's `duration_ms` (`systems/generation.md`'s ORC-230 entry)
+  # without a doomed extra fetch against a plane that has already
+  # stopped answering in time.
   defp poll_walk!(base, headers, project_id) do
     deadline = System.monotonic_time(:millisecond) + @poll_deadline
-    poll_walk!(base, headers, project_id, deadline, MapSet.new(), false, false, [], [])
+
+    state = %{
+      seen_ids: MapSet.new(),
+      awaiting_effect?: false,
+      advanced?: false,
+      log: [],
+      last_runs: []
+    }
+
+    poll_walk!(base, headers, project_id, deadline, state)
   end
 
-  defp poll_walk!(
-         base,
-         headers,
-         project_id,
-         deadline,
-         seen_ids,
-         awaiting_effect?,
-         advanced?,
-         log,
-         last_runs
-       ) do
+  defp poll_walk!(base, headers, project_id, deadline, state) do
     if System.monotonic_time(:millisecond) >= deadline do
-      tiers_and_durations = Enum.map(last_runs, &{&1["tier"], &1["duration_ms"]})
+      tiers_and_durations = Enum.map(state.last_runs, &{&1["tier"], &1["duration_ms"]})
 
       flunk(
         "timed out waiting for the toy raft's downward-cascade walk to finish — " <>
           "tier set observed so far (tier, duration_ms): #{inspect(tiers_and_durations)}; " <>
-          "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(log))}"
+          "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(state.log))}"
       )
     end
 
     %{"runs" => runs, "remaining" => remaining} = fetch_runs!(base, headers, project_id)
     ids = runs |> Enum.map(& &1["run_key"]) |> MapSet.new()
-    advanced? = advanced? or (awaiting_effect? and not MapSet.subset?(ids, seen_ids))
+
+    advanced? =
+      state.advanced? or (state.awaiting_effect? and not MapSet.subset?(ids, state.seen_ids))
 
     if remaining > 0 do
       Process.sleep(@poll_interval)
-      poll_walk!(base, headers, project_id, deadline, ids, awaiting_effect?, advanced?, log, runs)
+
+      next_state = %{state | seen_ids: ids, advanced?: advanced?, last_runs: runs}
+      poll_walk!(base, headers, project_id, deadline, next_state)
     else
       approved = approve_drafts!(base, headers, project_id)
 
@@ -269,23 +274,22 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
                "expected at least one approve_drafts/2 call reporting an approval to be " <>
                  "followed by a later poll showing a new dispatched run, proving the " <>
                  "mechanism actually advanced the walk — approve_drafts/2 calls (oldest " <>
-                 "first): #{inspect(Enum.reverse(log))}"
+                 "first): #{inspect(Enum.reverse(state.log))}"
 
         runs
       else
         Process.sleep(@poll_interval)
 
-        poll_walk!(
-          base,
-          headers,
-          project_id,
-          deadline,
-          ids,
-          true,
-          advanced?,
-          [approved | log],
-          runs
-        )
+        next_state = %{
+          state
+          | seen_ids: ids,
+            awaiting_effect?: true,
+            advanced?: advanced?,
+            log: [approved | state.log],
+            last_runs: runs
+        }
+
+        poll_walk!(base, headers, project_id, deadline, next_state)
       end
     end
   end
