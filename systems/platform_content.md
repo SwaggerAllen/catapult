@@ -1240,19 +1240,18 @@ loader tickets carry `system:core_dsl`.
   where it is declared: `ui_coll`'s `source` on this `dependency`
   instance never itself commits a `DraftCommitted`, the same
   source-identity gate `systems/generation.md`'s own ORC-235 entry
-  finds excludes every `dependency`/`policy_application` instance in
-  this bundle (not an edge-type exclusion specifically — that entry's
-  own correction, design review round 1), so the walk resolves to `[]`
-  and stays vacuously satisfied whether declared here or anywhere else.
+  finds excludes every `dependency` instance in this bundle (not an
+  edge-type exclusion specifically), so the walk resolves to `[]` and
+  stays vacuously satisfied whether declared here or anywhere else.
   Left as-is rather than patched for a problem that costs nothing
   today; a future pass closing that extraction gap should apply the
   same fix `screen_coll → journey` gets above — read the pool
   (`all.design_system.handle`, at most one node, the same shape
   `all.vocab.handle` already reads a flat pool by, and — since
   `design_system` is `generator: supplied` — already `drained?`
-  unconditionally under `systems/engine.md`'s own corrected rule,
-  design review round 1) instead of the collection's own
-  not-yet-declared edge — rather than treat this as a fresh problem.
+  unconditionally under `systems/engine.md`'s own rule) instead of the
+  collection's own not-yet-declared edge — rather than treat this as a
+  fresh problem.
 
   **No `policy_application` instances for either family.** A UI or
   screen collection fulfills no `resp`, so the through-responsibility

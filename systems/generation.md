@@ -57,8 +57,7 @@ and validation logic and must not fork it.
   a join target is itself settled, recursively.)
 - **The gate `Extraction` applies is source-identity, not `edge.type`
   — and it cuts out more than the `dependency`/`policy_application`
-  family** (ORC-235, design pass; corrected on design review round 1,
-  which found the entry below understated its own mechanism).
+  family** (ORC-235, design pass).
   `Catapult.Generation.CommitPath.commit_draft/3` feeds `mints:` from
   `Extraction.mints/4` (`edge.type == "fanout"`) and `edges:` from
   `Extraction.references/5` (`edge.type == "reference"`, which also
@@ -95,44 +94,65 @@ and validation logic and must not fork it.
   `ui_subcomparch`, `impl_ui`, `screen_collarch`, `screen_subcomparch`,
   `impl_screen`) satisfy both conditions and are extracted.
 
-  Every `type: dependency`/`type: policy_application` instance
-  `bundles/default` declares — `comp↔comp`, `subcomp↔subcomp`,
-  `ui_coll↔ui_coll`, `screen_coll↔screen_coll`, `ui_coll →
-  design_system`, and both `policy_application` instances — fails the
-  identical `source`-identity gate, for the identical reason: none of
-  `comp`, `subcomp`, `ui_coll`, `screen_coll` or `policy` ever commits
-  a `DraftCommitted` of its own. So every context walk reading one of
-  these (`comparch`'s, `subcomparch`'s, `ui_collarch`'s and
-  `screen_collarch`'s own `dependency`/`policy_application` entries,
-  and now `comparch`'s and `screen_collarch`'s own `fulfills` walks
-  too) resolves to `[]` and stays vacuously satisfied regardless of
-  tier ordering. `systems/platform_content.md`'s ORC-232 entry already
-  found and recorded the `subcomp↔subcomp` instance of this as live
-  and broken; this entry generalizes it to every instance the same
-  `source`-identity gate excludes, not only the ones typed `dependency`
-  or `policy_application` — the type-scoped framing this entry
-  originally gave understated the gap design review caught.
+  Every `type: dependency` instance `bundles/default` declares — seven
+  in total: `comp↔comp`, `subcomp↔subcomp`, `ui_coll↔ui_coll`,
+  `ui_subcomp↔ui_subcomp`, `screen_coll↔screen_coll`,
+  `screen_subcomp↔screen_subcomp` and `ui_coll → design_system` — fails
+  the identical `source`-identity gate, for the identical reason: none
+  of `comp`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll` or
+  `screen_subcomp` ever commits a `DraftCommitted` of its own. So every
+  context walk reading one of these (`comparch`'s, `subcomparch`'s,
+  `ui_collarch`'s, `ui_subcomparch`'s, `screen_collarch`'s and
+  `screen_subcomparch`'s own `dependency` entries, and now `comparch`'s
+  and `screen_collarch`'s own `fulfills` walks too) resolves to `[]`
+  and stays vacuously satisfied regardless of tier ordering.
+  `systems/platform_content.md`'s ORC-232 entry already found and
+  recorded the `subcomp↔subcomp` instance of this as live and broken;
+  this entry generalizes it to every instance the same
+  `source`-identity gate excludes, not only the ones typed
+  `dependency`.
+
+  The two `type: policy_application` instances
+  (`bundles/default/edges/policy_application.yaml:24,35`) are a third
+  shape, not a second instance of the class above. Their `declared_in`
+  values are `policy.structural` and `policy.required` — not a
+  `<tier>.draft....` path at all, so `self_sourced_path/2` has nothing
+  to navigate: it returns `:skip` on the shape mismatch before
+  `instance.source == tier_name` is even asked. Both are set at mint
+  time off a marker the minting draft itself carries (a `<policy>`
+  element's `<structural/>` vs. `<required>` child — that edge file's
+  own comments), never extracted from any committing tier's draft body
+  at all.
 
   Out of ORC-235's own scope (that ticket is tier ordering, this is
   extraction coverage) and not fixed here. **What the follow-on ticket
-  actually has to build, corrected:** relocating `uses_shapes`/`calls`/
-  `renders` to `frontend_sysarch`'s own draft (`systems
-  /platform_content.md`'s ORC-235 entry, below) does not change which
-  gate they fail — their `source` is `ui_coll`/`screen_coll` whether
-  declared in `ui_collarch`/`screen_collarch` (before this ticket) or
-  in `frontend_sysarch` (after it), and neither tier name is the
-  edge's `source` either way, so `instance.source == tier_name` fails
-  identically before and after the relocation. These three are not
-  "correctly declared and inert until extraction adds a type" — no
-  relocation makes them extractable, because the gate they fail is
-  never edge-type. The follow-on ticket this gap actually waits on is
-  the harder case `Extraction`'s own moduledoc already names: teaching
-  extraction to read an edge instance declared by a tier that is not
-  its own `source`, which needs per-edge-type knowledge of which child
-  element names source vs. target that the generic self-sourced
-  navigator cannot infer — materially more than adding `dependency`/
-  `policy_application` to an existing type filter. Recorded here so
-  that ticket is filed against the gate it actually has to cross.
+  actually has to build is two separate mechanisms, not one:**
+
+  - Reading an edge instance declared by a tier that is not its own
+    `source` — the harder case `Extraction`'s own moduledoc already
+    names, needing per-edge-type knowledge of which child element
+    names source vs. target that the generic self-sourced navigator
+    cannot infer. This is what the seven `dependency` instances and the
+    six `reference`/`fulfills` instances above both need, and it is
+    also what relocating `uses_shapes`/`calls`/`renders` to
+    `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
+    ORC-235 entry, below) still needs afterward: their `source` is
+    `ui_coll`/`screen_coll` whether declared in `ui_collarch`/
+    `screen_collarch` (before this ticket) or in `frontend_sysarch`
+    (after it), and neither tier name is the edge's `source` either
+    way, so `instance.source == tier_name` fails identically before
+    and after the relocation. These three are not "correctly declared
+    and inert until extraction adds a type" — no relocation makes them
+    extractable, because the gate they fail is never edge-type.
+  - Synthesizing an edge instance at fanout-mint time from a marker the
+    minting draft itself carries, with no `declared_in` path to
+    navigate at all — what both `policy_application` instances need
+    instead, since their `declared_in` names no tier's draft body for
+    any navigator to read.
+
+  Recorded here so that ticket is filed against the two gates it
+  actually has to cross, not one.
+
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
   cluster canonically, managed opt-in) are two adapters over one
