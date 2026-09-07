@@ -891,43 +891,77 @@ and validation logic and must not fork it.
 
   - Backend: `comparch` (`per(comp)`, `comp` already `:approved` at
     `sysarch`'s draft) drafts and reviews — 2 waves — then
-    `subcomparch` and `impl_backend` (both `per(subcomp)`, `subcomp`
-    already `:approved` at `comparch`'s draft) draft and review
-    together — 2 waves. 4 waves, ~6 minutes.
+    `subcomparch` (`per(subcomp)`, `subcomp` already `:approved` at
+    `comparch`'s draft) drafts and reviews — 2 waves — then
+    `impl_backend` drafts and reviews — 2 waves, not alongside
+    `subcomparch`: `impl_backend`'s only content read is
+    `self.parent.dependency -> subcomp.handle.fragments[pubapi]`
+    (`impl_backend.yaml:27`), and `subcomp`'s `pubapi` fragment is
+    authored by `subcomparch`'s own `produces:` (`subcomparch.yaml:33`)
+    — `subcomp` itself carries only `mint.*` copies, no fragment
+    content of its own. 6 waves, ~9 minutes.
   - Front end: `frontend_sysarch` (`scope: singleton`, its three
     `all.<tier>` walks all already `:approved`) drafts and reviews — 2
     waves — then `ui_collarch`/`screen_collarch` (`ui_coll`/
     `screen_coll` already `:approved` at `frontend_sysarch`'s draft)
-    together — 2 waves — then `ui_subcomparch`/`impl_ui`/
-    `screen_subcomparch`/`impl_screen` (their own subcomps already
-    `:approved` at the collarch tiers' drafts) together — 2 waves. 6
-    waves, ~9 minutes.
+    together — 2 waves — then `ui_subcomparch`/`screen_subcomparch`
+    (their own subcomps already `:approved` at the collarch tiers'
+    drafts) together — 2 waves — then `impl_ui`/`impl_screen` together
+    — 2 waves, not alongside the `*subcomparch` pair, for the same
+    reason `impl_backend` isn't alongside `subcomparch`: `impl_ui`
+    reads `ui_subcomp.handle.fragments[pubapi]` (`impl_ui.yaml:24`),
+    authored by `ui_subcomparch`'s own `produces:`
+    (`ui_subcomparch.yaml:27`), and `impl_screen` reads
+    `screen_subcomp.handle.fragments[pubapi]` (`impl_screen.yaml:22`),
+    authored by `screen_subcomparch`'s own `produces:`
+    (`screen_subcomparch.yaml:26`). 8 waves, ~12 minutes.
 
   The two branches run alongside each other, not in sequence, so they
-  do not add — but not because neither reads the other. They do:
-  `ui_collarch` walks `self.parent.uses_shapes -> comp.handle
-  .fragments[pubapi]` and `screen_collarch` walks `self.parent.calls ->
-  comp.handle.fragments[pubapi]` (`bundles/default/tiers
-  /ui_collarch.yaml:38`, `screen_collarch.yaml:45`), and `comp`'s
-  `pubapi` fragment is authored by `comparch`'s own `produces:`
-  (`comparch.yaml:58`), not by `sysarch`. Three relationships are in
-  play here, and only two are counted above: `comp` reaches `:approved`
-  at `sysarch`'s mint (mint-ancestry) and needs no wait on `comparch`'s
-  own approval (approval-ancestry) — but the *content* the front end
-  actually reads is written by `comparch`'s draft, a third relationship
-  neither name covers. It does not move the count in this entry: both
-  branches finish their first tier two waves after `sysarch`'s
-  approval regardless of which of the two relationships governs
-  `ui_collarch`'s wait, so it lands in the same wave either way. But
-  it is exactly the gap ORC-235's own second defect is about — a
-  context walk's readiness check passes at `comp`'s mint-time
+  do not add on top of each other — but fragment-authorship, a third
+  relationship distinct from mint-ancestry and approval-ancestry, does
+  not move the count everywhere it applies the same way, and it applies
+  twice more above, past the one place this entry already checked it.
+
+  At the `ui_collarch`/`screen_collarch` step, it happens not to move
+  the count. `ui_collarch` walks `self.parent.uses_shapes -> comp
+  .handle.fragments[pubapi]` and `screen_collarch` walks
+  `self.parent.calls -> comp.handle.fragments[pubapi]`
+  (`bundles/default/tiers/ui_collarch.yaml:38`,
+  `screen_collarch.yaml:45`), and `comp`'s `pubapi` fragment is
+  authored by `comparch`'s own `produces:` (`comparch.yaml:58`), not by
+  `sysarch` — so `comp` reaches `:approved` at `sysarch`'s mint
+  (mint-ancestry) and needs no wait on `comparch`'s own approval
+  (approval-ancestry), but the *content* the front end actually reads
+  is written by `comparch`'s draft (fragment-authorship). It does not
+  move the count *at this one step* because both branches finish their
+  first tier two waves after `sysarch`'s approval regardless of which
+  relationship governs `ui_collarch`'s wait — they land in the same
+  wave either way. It is exactly the gap ORC-235's own second defect is
+  about — a context walk's readiness check passes at `comp`'s mint-time
   `:approved` while the fragment content it reads is still being
   written by `comparch` — and this entry does not depend on that gap
-  being closed. The front end's 6 waves is the longer of the two
-  branches and is what the walk actually waits on after `sysarch`'s
-  approval. The floor to `remaining == 0` is 15
-  (the three approval-gated rounds) plus 9 (the front-end branch) — 24
-  minutes, not 15 — before the breadth headroom below is added on top.
+  being closed.
+
+  It does move the count at the `impl_*` step, in both branches, which
+  is why the waves above cost `impl_backend` after `subcomparch` and
+  `impl_ui`/`impl_screen` after `ui_subcomparch`/`screen_subcomparch`
+  rather than alongside them. `subcomp`/`ui_subcomp`/`screen_subcomp`
+  are join targets with no fragment content of their own — every field
+  they carry is a mint-time copy — so unlike the `comp`/`comparch`
+  step above, there is no mint-ancestry route into an `impl_*` tier
+  that bypasses the tier that writes the content it reads: fragment-
+  authorship is the *only* relationship in play, not one of two that
+  happen to agree. Costing `impl_backend`/`impl_ui`/`impl_screen` as
+  concurrent with their `*subcomparch` sibling would let the suite call
+  the walk complete while an `impl_*` draft was rendered against an
+  empty `pubapi` fragment — precisely the class of failure a full walk
+  exists to surface, so the wave count above prices it as sequential.
+
+  The front end's 8 waves is the longer of the two branches and is
+  what the walk actually waits on after `sysarch`'s approval. The
+  floor to `remaining == 0` is 15 (the three approval-gated rounds)
+  plus 12 (the front-end branch) — 27 minutes, not 24 — before the
+  breadth headroom below is added on top.
 
   The unmeasured breadth this entry already names (several tiers'
   worth of siblings queueing behind Oban's `generation_dispatch`
@@ -935,12 +969,12 @@ and validation logic and must not fork it.
   under load) is still the headroom a depth-based floor alone would not
   cover, and nothing about the corrected floor changes that headroom's
   own size — it stays the 6 minutes the prior figure carried, and it
-  belongs on top of the 24-minute floor rather than folded into it: a
+  belongs on top of the 27-minute floor rather than folded into it: a
   floor that spends the headroom on waves instead leaves nothing for
   the breadth it exists to cover, and a passing walk plausibly
   `flunk`s on a tight, unexplained timeout. `@poll_deadline` widens to
-  `:timer.minutes(30)` — the 24-minute floor plus the 6-minute headroom
-  — and `@tag timeout: :timer.minutes(32)`, wider still so the
+  `:timer.minutes(33)` — the 27-minute floor plus the 6-minute headroom
+  — and `@tag timeout: :timer.minutes(35)`, wider still so the
   assertion failure path (a real `flunk/1`) is what ends the test on a
   genuine timeout, never ExUnit's own kill, for the identical
   `after`-block reason ORC-225's own entry above already gives.
