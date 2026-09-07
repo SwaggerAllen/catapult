@@ -223,16 +223,33 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   # point `advanced?` latches — the assertion that an approval produced
   # a new dispatch, not merely that a node compare-and-swapped.
   # `approvals_log` is diagnostic only, folded into a timeout's own
-  # `flunk/1` message.
+  # `flunk/1` message, alongside `last_runs` — the most recently
+  # fetched `runs/2` body, threaded through so a timeout can report the
+  # tier set observed so far and each run's `duration_ms`
+  # (`systems/generation.md`'s ORC-230 entry) without a doomed extra
+  # fetch against a plane that has already stopped answering in time.
   defp poll_walk!(base, headers, project_id) do
     deadline = System.monotonic_time(:millisecond) + @poll_deadline
-    poll_walk!(base, headers, project_id, deadline, MapSet.new(), false, false, [])
+    poll_walk!(base, headers, project_id, deadline, MapSet.new(), false, false, [], [])
   end
 
-  defp poll_walk!(base, headers, project_id, deadline, seen_ids, awaiting_effect?, advanced?, log) do
+  defp poll_walk!(
+         base,
+         headers,
+         project_id,
+         deadline,
+         seen_ids,
+         awaiting_effect?,
+         advanced?,
+         log,
+         last_runs
+       ) do
     if System.monotonic_time(:millisecond) >= deadline do
+      tiers_and_durations = Enum.map(last_runs, &{&1["tier"], &1["duration_ms"]})
+
       flunk(
         "timed out waiting for the toy raft's downward-cascade walk to finish — " <>
+          "tier set observed so far (tier, duration_ms): #{inspect(tiers_and_durations)}; " <>
           "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(log))}"
       )
     end
@@ -243,7 +260,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
     if remaining > 0 do
       Process.sleep(@poll_interval)
-      poll_walk!(base, headers, project_id, deadline, ids, awaiting_effect?, advanced?, log)
+      poll_walk!(base, headers, project_id, deadline, ids, awaiting_effect?, advanced?, log, runs)
     else
       approved = approve_drafts!(base, headers, project_id)
 
@@ -257,7 +274,18 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
         runs
       else
         Process.sleep(@poll_interval)
-        poll_walk!(base, headers, project_id, deadline, ids, true, advanced?, [approved | log])
+
+        poll_walk!(
+          base,
+          headers,
+          project_id,
+          deadline,
+          ids,
+          true,
+          advanced?,
+          [approved | log],
+          runs
+        )
       end
     end
   end
