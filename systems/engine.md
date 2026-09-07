@@ -397,27 +397,23 @@ them.
     header — the same optionality every `input.<role>` carries), and
     that zero is final the instant the project exists, not
     provisional on anything the chain does later;
-  - `singleton` populated only by an external write path outside the
-    generation chain, with no `child_of(X)` mint of its own (`ref` —
-    `generator: llm`, but its own tier file records that it "accrete[s]
-    over a project's life via the `create_reference` write tool or the
-    dashboard," never by a fanout edge): drained unconditionally as
-    well, but for a different reason than `design_system`'s — this
-    population is never exhausted by anything the generation chain
-    does, so requiring exhaustion would mean `all.ref` could never be
-    satisfied at all. Read the same vacuous way `ContextResolver`'s own
-    moduledoc already reads `input.<role>` ("a role with no documents
-    never blocks readiness"): a walk over an externally-accreting pool
-    is satisfied whatever it currently holds, precisely because there
-    is no chain-visible "not yet" state for this recursion to wait
-    through;
   - `singleton` with a `generator: llm` draft dispatched through the
-    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`
-    — the two intake roots and this ticket's own opening tier, all
-    three `generator: llm` with no `per(X)`/`child_of(X)` parent):
-    drained once its one node exists and is `settled?` — never
-    vacuously, because such a tier's count is exactly one once the
-    chain reaches it, never legitimately zero;
+    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`,
+    `ref` — all four `generator: llm` with no `per(X)`/`child_of(X)`
+    parent, `ref` included: `ref.yaml`'s own comment calls it a flat
+    pool accreting via an external `create_reference` write tool, but
+    that tool exists nowhere in this tree, `Sweeper.dispatchable?/1`
+    matches `ref` on its `draft:`/`generator: "llm"` pair exactly like
+    any other chain-dispatched tier, and the engine's `{:singleton}`
+    scope holds exactly one row per project per tier
+    (`candidates/3`'s `scope_key: %{}`, the `unique_index` on
+    `(project_id, tier, scope_key)`) — machinery with no way to express
+    the accretive-pool intent the comment describes. A doc's claim
+    about the tree is not evidence about the tree; treat `ref` by what
+    dispatches it, not by what its own header says it means): drained
+    once its one node exists and is `settled?` — never vacuously,
+    because such a tier's count is exactly one once the chain reaches
+    it, never legitimately zero;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
