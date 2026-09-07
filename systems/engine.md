@@ -1502,30 +1502,89 @@ them.
   entry fills in what each side calls.
 
   **Flow walks call `stale?/2` directly, and nothing calls it yet
-  because flow instances don't exist.** §7.11's own "through ordinary
-  staleness" language for the repair loop's down-walk means exactly
-  what it says: the down-walk's own membership test for "passed but
-  now stale" *is* a call to `Catapult.Engine.Projections.Staleness
-  .stale?/2` per candidate sibling, reused rather than reimplementing
-  `target_newer?/2` a third time — the same discipline
-  `ContextResolver` was built to hold across `Staleness` and
-  `ReadyScopes` already. Recording the call site now, ahead of the
-  machinery that will make it, is ORC-6's own precedent repeated: a
-  later ticket building flow instances has something to call rather
-  than something to design.
+  because the cascade walk that would call it isn't built — flow
+  instances themselves already are, on a claim this entry originally
+  got wrong.** ORC-229 shipped `Catapult.Engine.Store.Flow`
+  (`engine_flows`), `FlowOpened`/`FlowCompleted`/`FlowResumed` on the
+  reducer, and `Catapult.Delivery.DraftResolution` keyed on
+  `(project_id, flow_id)` — a flow instance is a real, dispatched
+  thing today, not a gap this ticket was waiting on. What's still
+  missing, and what actually leaves this call site uncalled, is the
+  walk itself: `ReadyScopes.candidates/2` returns `[]` for
+  `{:cascade_visit}` scope (`ready_scopes.ex:170`) — engine-minted
+  mid-flow-walk, per that module's own moduledoc — so no planning tier
+  ever dispatches from one and the repair loop's down-walk never runs
+  to call anything. §7.11's own "through ordinary staleness" language
+  for that down-walk means exactly what it says once it exists: its
+  membership test for "passed but now stale" *is* a call to
+  `Catapult.Engine.Projections.Staleness.stale?/2` per candidate
+  sibling, reused rather than reimplementing `target_newer?/2` a third
+  time — the same discipline `ContextResolver` was built to hold
+  across `Staleness` and `ReadyScopes` already. Recording the call
+  site now, ahead of the cascade-walk machinery that will make it, is
+  ORC-6's own precedent repeated: a later ticket building the walk has
+  something to call rather than something to design.
 
-  **Out-of-band filing triggers off the same `DraftCommitted` that
-  creates the staleness, never a sweep.** The event that drops an
-  `:approved` node back to `:drafted` already carries everything the
-  filer needs — chain, node, tier — so the reaction fires there: find
-  every node whose context walk reaches the regenerated node and is
-  newly stale (`stale?/2` over each), and file one ordinary ticket per
-  stale node. There is no periodic re-check of already-known
-  staleness, which is the whole answer to "one ticket per sweep tick
-  per stale node" — ORC-223's own 574-runs incident is the identical
-  gap behind a different actor, a re-observed hint with nothing
-  telling it apart from a fresh one. An event fires once per
-  regeneration, never once per tick, so there is no tick to repeat
+  **A design-review correction: a declined regeneration must not leave
+  its downstream cone permanently stale, and the fix belongs in the
+  projection, not only in the trigger.** `Store.discard_node/2` sets
+  `status: :absent` on a declined regeneration but leaves
+  `committed_sequence` at the discarded draft's own value
+  (`store.ex:118-125`) — nothing rolls it back, because nothing else
+  ever needed to. `target_newer?/2` compares raw `committed_sequence`
+  with no read of the target's own `status`, so a declined
+  regeneration's sequence bump makes every downstream node whose
+  context walk targets it read `stale?/2` true forever, against
+  content the graph has already thrown away — the identical
+  no-path-back shape this ticket exists to close, reintroduced by the
+  mechanism meant to close it.
+
+  **The fix: `target_newer?/2` only counts a target that is itself
+  `:approved`.** A target sitting at `:drafted` (mid-regeneration, not
+  yet reviewed) or `:absent` (declined) contributes nothing to its
+  dependents' staleness — only an accepted commit can make a
+  downstream node stale, which is also the reading this module's own
+  moduledoc already gives the comparison ("predates the inputs its
+  context walk reads," an input being what the graph currently
+  affirms, not whatever most recently committed and might yet be
+  thrown away). This corrects both consumers at once, from the one
+  projection both read, rather than patching the filer alone and
+  leaving `explain/2` to report stale against a discarded draft
+  indefinitely.
+
+  **Consequence for the trigger: filing moves from `DraftCommitted` to
+  `DraftApproved`.** Gating the comparison on `:approved` makes a
+  `DraftCommitted` trigger structurally unable to find anything: the
+  regenerated node is still `:drafted`, not yet `:approved`, at the
+  instant its own commit event fires, so the corrected
+  `target_newer?/2` would report every downstream dependent unstale on
+  exactly the event this entry originally fired the filer from. The
+  filer moves to `DraftApproved` — the event that actually makes a
+  downstream node's content stale in the corrected projection's terms.
+  `DraftApproved` carries `project_id`/`node_id`/`draft_id`, not the
+  node's tier or chain directly; the reaction reads the node's own
+  current tier off the store the same way any other event-triggered
+  reaction here already reads live projection state to act, and takes
+  the chain the same way `stale?/2` itself already does — a
+  caller-supplied, loaded `Chain.t()`, this module's own moduledoc's
+  existing calling convention, not a new one invented for the filer —
+  not a data-availability gap, only a read this entry previously
+  assumed the event carried for free. This also sharpens "chosen, not
+  triggered" (§4.5): filing off an accepted regeneration, never a
+  merely-committed one, is what "chosen" already meant.
+
+  **Out-of-band filing, never a sweep.** `DraftApproved` fires the
+  reaction directly: find every node whose context walk directly
+  targets the newly-approved node and is newly stale (`stale?/2` over
+  each — a direct context target only; transitive staleness needs no
+  separate walk here, because each downstream regeneration fires its
+  own reaction in turn once it is itself approved), and file one
+  ordinary ticket per stale node. There is no periodic re-check of
+  already-known staleness, which is the whole answer to "one ticket
+  per sweep tick per stale node" — ORC-223's own 574-runs incident is
+  the identical gap behind a different actor, a re-observed hint with
+  nothing telling it apart from a fresh one. An event fires once per
+  approval, never once per tick, so there is no tick to repeat
   against.
 
   **The filed ticket is ordinary, not a new kind** — exactly what
@@ -1550,10 +1609,14 @@ them.
   `Catapult.Delivery.Store.upsert_container_proposal/1` already uses
   for the nearest built analogue. The audit gains the matching
   inventory check §2.14's pattern already names for the other two
-  out-of-band shapes ("every `implementation: stubbed` scope has
-  exactly one open `Stubbed` swap ticket") — none of the three coded
-  yet, all three the same invariant: every node `stale?/2` finds true
-  has exactly one open ticket carrying its label.
+  out-of-band shapes, both named rather than one quoted and one left
+  to inference: the stub inventory's own ticket-sync check ("every
+  `implementation: stubbed` scope has exactly one open `Stubbed` swap
+  ticket") and the enforcement-gap inventory's own ("every
+  policy×scope missing its declared-grade artifact has exactly one
+  open enforcement ticket," §4.5) — none of the three coded yet, all
+  three the same invariant: every node `stale?/2` finds true has
+  exactly one open ticket carrying its label.
 
   **`:unsupported` reads two different ways depending on who's asking,
   and both readings are decided rather than accidental.**
@@ -1584,8 +1647,12 @@ file, not this doc's (this doc's own map above stops at
 engine's, the file is foundation's, so this ticket carries
 `system:foundation` alongside `system:engine`, matching
 `foundation.md`'s own Initial-vs-target note that the migration lands
-"with engine." Target: flow instances, staleness provenance,
-snapshots, replay tooling surfaced in the dashboard.
+"with engine." Target: the cascade walk itself — planning-tier
+minting and staleness provenance, `Catapult.Engine.Store.Flow`'s own
+moduledoc's phrasing for what it does not do — plus snapshots and
+replay tooling surfaced in the dashboard. Flow instances themselves
+shipped with ORC-229 and are Initial (ORC-231, design pass,
+design-review correction: this line named them Target until then).
 
 **ORC-6's own diff stops short of the scheduler and sweeper**, despite
 both being named Initial above. The ticket's own scope paragraph
