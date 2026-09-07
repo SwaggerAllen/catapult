@@ -822,31 +822,38 @@ and validation logic and must not fork it.
   early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
   `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
   `Extraction.mints/4` at commit time, before `sysarch`'s own review or
-  approval), and `comparch`'s only walk onto it is `self.parent.handle`
-  — already `:approved` the instant `comp` exists. Nothing named here
-  requires `comparch` to wait for `sysarch`'s own approval rather than
-  just its draft, and ORC-235 is the open question of whether readiness
-  should. The rounds and waves below assume the sequential reading this
-  entry has used throughout — a tier reached through a
-  `draft:`-carrying ancestor waits for that ancestor's own approval,
-  not merely its draft — which is the conservative assumption for a
-  deadline, and it is the *weaker* of two tightenings ORC-235 could
-  land: if it leaves early-readiness behavior as it is, real runs
-  dispatch earlier than this floor assumes and finish inside it with
-  room to spare; if it tightens readiness to this sequential-per-branch
-  reading, this floor already costs that. It does not cost the
-  stronger tightening ORC-235 also names in scope — no parallelism
-  between tiers at all, only within one — which would serialize every
-  `draft:`-carrying tier in the raft rather than only each branch
-  against itself, and does not fit inside this number. Which of the
-  two ORC-235 lands is that ticket's question, not this entry's to
-  guess at, but this entry does not claim to already cost the stronger
-  one. The same assumption is why `non_goals`, `ref` and `vocab` — all
-  three `draft:`-carrying, each two waves — cost nothing added here:
-  they run alongside rounds one and two under the current branch
-  structure, and that is a fact about this graph's shape, not a
-  headroom margin, so it moves if ORC-235 changes what may run
-  alongside what.
+  approval), and all three of `comparch`'s walks onto it —
+  `self.parent.handle` plus the two `self.parent.dependency ->
+  comp.handle.fragments[pubapi]`/`[failure_surface]` reads onto
+  sibling comps (`comparch.yaml:26,28,29`) — land on a node already
+  `:approved` the instant `comp` exists. Those two fragment reads are
+  intra-tier: `comparch` authors the fragments it reads, so they raise
+  none of the cross-tier fragment-authorship wait the `impl_*` step
+  below does. Nothing named here requires `comparch` to wait for
+  `sysarch`'s own approval rather than just its draft, and ORC-235 is
+  the open question of whether readiness should. The rounds and waves
+  below assume the sequential reading this entry has used throughout —
+  a tier reached through a `draft:`-carrying ancestor waits for that
+  ancestor's own approval, not merely its draft, and a tier waits for
+  whichever tier authors a fragment it reads, which is not always that
+  ancestor (the `impl_*` step below is where the two part company) —
+  which is the conservative assumption for a deadline, and it is the
+  *weaker* of two tightenings ORC-235 could land: if it leaves
+  early-readiness behavior as it is, real runs dispatch earlier than
+  this floor assumes and finish inside it with room to spare; if it
+  tightens readiness to this sequential-per-branch reading, this floor
+  already costs that. It does not cost the stronger tightening
+  ORC-235 also names in scope — no parallelism between tiers at all,
+  only within one — which would serialize every `draft:`-carrying tier
+  in the raft rather than only each branch against itself, and does
+  not fit inside this number. Which of the two ORC-235 lands is that
+  ticket's question, not this entry's to guess at, but this entry does
+  not claim to already cost the stronger one. The same assumption is
+  why `non_goals`, `ref` and `vocab` — all three `draft:`-carrying,
+  each two waves — cost nothing added here: they run alongside rounds
+  one and two under the current branch structure, and that is a fact
+  about this graph's shape, not a headroom margin, so it moves if
+  ORC-235 changes what may run alongside what.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -894,12 +901,14 @@ and validation logic and must not fork it.
     `subcomparch` (`per(subcomp)`, `subcomp` already `:approved` at
     `comparch`'s draft) drafts and reviews — 2 waves — then
     `impl_backend` drafts and reviews — 2 waves, not alongside
-    `subcomparch`: `impl_backend`'s only content read is
-    `self.parent.dependency -> subcomp.handle.fragments[pubapi]`
-    (`impl_backend.yaml:27`), and `subcomp`'s `pubapi` fragment is
-    authored by `subcomparch`'s own `produces:` (`subcomparch.yaml:33`)
-    — `subcomp` itself carries only `mint.*` copies, no fragment
-    content of its own. 6 waves, ~9 minutes.
+    `subcomparch`: the only thing `impl_backend` reads that
+    `subcomparch` writes is `self.parent.dependency ->
+    subcomp.handle.fragments[pubapi]` (`impl_backend.yaml:27`) — its
+    other context entries are its parent's own `mint.*` fields, `ref`
+    and `feature_expansion`, none of which `subcomparch` touches. That
+    `pubapi` fragment is authored by `subcomparch`'s own `produces:`
+    (`subcomparch.yaml:33`), and `subcomp` itself carries only `mint.*`
+    copies, no fragment content of its own. 6 waves, ~9 minutes.
   - Front end: `frontend_sysarch` (`scope: singleton`, its three
     `all.<tier>` walks all already `:approved`) drafts and reviews — 2
     waves — then `ui_collarch`/`screen_collarch` (`ui_coll`/
