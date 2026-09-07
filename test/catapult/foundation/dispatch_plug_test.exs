@@ -129,7 +129,13 @@ defmodule Catapult.Foundation.DispatchPlugTest do
         |> DispatchPlug.call(opts)
 
       assert conn.status == 200
-      assert Jason.decode!(conn.resp_body) == []
+      body = Jason.decode!(conn.resp_body)
+      assert body["runs"] == []
+      # `remaining` (ORC-230) is not zero even here: the toy raft's own
+      # `scope: singleton` tiers read ready off a virtual, never-persisted
+      # candidate, independent of whether this project has any engine
+      # rows at all.
+      assert is_integer(body["remaining"]) and body["remaining"] >= 0
     end
 
     test "GET /dispatch/test-project/:project_id/runs 200s authenticated with every run, oldest first" do
@@ -172,6 +178,8 @@ defmodule Catapult.Foundation.DispatchPlugTest do
         |> DispatchPlug.call(opts)
 
       assert conn.status == 200
+      body = Jason.decode!(conn.resp_body)
+      assert is_integer(body["remaining"]) and body["remaining"] >= 0
 
       assert [
                %{"tier" => "comp", "root_tag" => "comparch", "status" => "dispatched"},
@@ -182,7 +190,32 @@ defmodule Catapult.Foundation.DispatchPlugTest do
                  "outcome" => "success",
                  "credential_used" => "claude_code_oauth_token"
                }
-             ] = Jason.decode!(conn.resp_body)
+             ] = body["runs"]
+    end
+
+    test "POST /dispatch/test-project/:project_id/approve-drafts 401s with no bearer" do
+      opts = DispatchPlug.init([])
+
+      conn =
+        DispatchPlug.call(
+          conn(:post, "/dispatch/test-project/no-such-project/approve-drafts", ""),
+          opts
+        )
+
+      assert conn.status == 401
+    end
+
+    test "POST /dispatch/test-project/:project_id/approve-drafts 200s authenticated with zero approvals, on a project with no drafted nodes" do
+      opts = DispatchPlug.init([])
+
+      conn =
+        :post
+        |> conn("/dispatch/test-project/no-such-project/approve-drafts", "")
+        |> put_req_header("authorization", "Bearer test-token")
+        |> DispatchPlug.call(opts)
+
+      assert conn.status == 200
+      assert Jason.decode!(conn.resp_body) == %{"approved" => 0}
     end
   end
 

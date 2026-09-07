@@ -36,26 +36,84 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   fixture content and intaking the raft, the deployed sweeper picking
   up a freshly bound project with no engine row of its own yet
   (`Catapult.Generation.Sweeper`'s own ORC-216 entry) and dispatching
-  `feature_expansion` — the toy chain's one entry tier — onto a real
-  GitHub Actions run, that run installing Claude Code and running the
-  pinned runner harness for real, and the result-report landing back
-  on the same database that issued the dispatch.
+  `feature_expansion` — the toy chain's own entry tier and this walk's
+  first dispatch — a full downward-cascade walk of the toy raft against
+  real GitHub Actions runs, `Provisioning.approve_drafts/2` approving
+  every drafted node the walk produces since no human is in this run to
+  do it, and the tier set the run actually reached, not a fixed one, as
+  what a passing run demonstrates.
 
-  **How far the toy chain runs before release, and why every run gets
-  asserted rather than one** (ORC-216 named this cost question and
-  left it open; ORC-225 answers it — `systems/delivery.md`'s own
-  entry). This test no longer stops at `feature_expansion`'s own
-  terminal status: it polls `Provisioning.runs/2`
-  (`/dispatch/test-project/:project_id/runs`) until the whole run set
-  reaches *quiescence* — every run terminal, and the same run-id set
-  observed across two polls separated by more than one full
-  `GENERATION_SWEEP_INTERVAL_MS` tick plus this test's own
-  `@poll_interval` margin — then asserts every run individually,
-  rather than the one tier `@entry_tier` alone named before. Live-suite
-  run 26 is why: it read green with four of its five dispatched runs
-  red, because nothing polled the other four. No new dispatch
-  mechanism is added for this — `Catapult.Generation.Sweeper` runs
-  exactly as it does today; this test only widens what it *asserts on*.
+  **ORC-230: an actor for the unattended run, and assertions that name
+  the walk rather than accept whatever stopped.** Quiescence — the
+  run-id set holding steady with everything terminal — cannot tell a
+  chain that finished from one that merely stalled: a permanently
+  blocked graph satisfies it as comfortably as a completed one, which
+  is exactly what happened before this ticket. Nothing ever dispatched
+  `ApproveDraft` in an unattended run
+  (`Catapult.Delivery.DraftResolution` only reacts to a human's
+  `GateApproved`), so every tier gated on an ancestor's `:approved`
+  status stayed permanently unready, and the two-round walk that
+  produced was the ceiling, not evidence of a finished chain. Now that
+  `Provisioning.approve_drafts/2` exists as the unattended run's own
+  actor (test scaffolding, not product semantics —
+  `docs/dsl-syntax.md` §15.10's threshold-based-gating decision stays
+  parked; this reads no review score and approves unconditionally), the
+  poll loop alternates: poll `runs/2`
+  (`/dispatch/test-project/:project_id/runs`,
+  `systems/delivery.md`'s ORC-230 entry) until its own `remaining`
+  count reads zero — nothing left to dispatch and nothing running —
+  call `approve_drafts/2` once, and poll again. It stops only when a
+  full cycle leaves `remaining` at zero **and** `approve_drafts/2`
+  reports zero approvals: together, nothing dispatchable, nothing
+  running, and nothing sitting `:drafted` waiting on an approval that
+  will never come from a human.
+
+  This is deliberate, not a missed opportunity to cap it: the boundary
+  pass exists to be as close to production as the toy chain gets
+  without a model in the loop, so it runs the whole chain agentless
+  rather than stopping at a fixed round count sized to what nobody has
+  measured — the position design review settled on over a round-capped
+  alternative an earlier draft of this ticket proposed. A real-model
+  run confirms the production case separately and strictly afterward.
+
+  **The assertion is that an approval produced a new dispatch, not
+  merely that one node crossed into `:approved`.** `approve_drafts/2`
+  dispatches `ApproveDraft` directly against every `:drafted` node, so
+  one reported approval already means one node advanced — what still
+  isn't proof on its own is that the approval *did* anything: a leaf
+  tier's own approval unblocks nothing further downstream. So this test
+  tracks `run_key`s across polls, and asserts that at least one
+  `approve_drafts/2` call reporting an approval is followed, on a later
+  poll, by a `run_key` that was not present before — the fact only a
+  node crossing into `:approved` and becoming ready for whatever reads
+  it can produce. `Provisioning` exposes no node-status read, so a new
+  run is the fact this test can actually observe.
+
+  **The tier set the walk reaches is checked against a predicate, not
+  a fixed number.** `bundles/default/tiers/*.yaml`'s own shape fixes
+  which tiers a complete walk dispatches: every tier the sweeper would
+  ever consider (`reviews:` set, or `draft:` present with
+  `generator: "llm"`) minus the ones scoped `cascade_visit` — Target,
+  not Initial (`Catapult.Engine.Projections.ReadyScopes`'s own
+  moduledoc) — since `ReadyScopes`'s own candidate enumeration returns
+  `[]` for that scope unconditionally, so a `cascade_visit`-scoped tier
+  is stub-fixtured but structurally unreachable from this walk, not
+  part of the toy raft's own downward cascade. `expected_tier_names/0`
+  derives that set straight off the loaded bundle rather than a
+  hand-maintained list, so the assertion moves with the bundle instead
+  of drifting the next time a tier is added — twenty of ORC-225's
+  twenty-two stub fixtures were unreachable before this ticket, and a
+  passing run here is the first observed evidence that every one of
+  them the toy raft's cascade actually reaches resolves against its
+  stub.
+
+  **`Catapult.Generation.Quiescence` retired in the same change.** Its
+  quiet-since arithmetic hedged a race `remaining == 0` now reads
+  directly off plane state — a sweep tick that fired but had not yet
+  produced a visible row. This test was its only caller; nothing in
+  the tree calls `next_quiet_since/5` or `outcome/4` anymore, so
+  `test/support/quiescence.ex` and its own direct-coverage test are
+  deleted rather than kept alive with no caller.
 
   **Needs setup this environment cannot supply.** `DELIVERY_PROVISIONING_TOKEN`
   defaults to a fake string (`config/test.exs`) unless the live-suite
@@ -68,7 +126,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
   alias Catapult.Config.Secret
   alias Catapult.Delivery
-  alias Catapult.Generation.Quiescence
+  alias Catapult.Dsl
   alias Catapult.ToySeed
 
   @moduletag :live
@@ -88,33 +146,23 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   # minutes, for one dispatch.
   @poll_interval :timer.seconds(5)
 
-  # ORC-225 widens what this deadline has to cover, from one dispatch
-  # reaching terminal to the whole run set reaching quiescence
-  # (`systems/generation.md`'s own entry) — up to two sequential
-  # rounds on a toy-seed project today (a tick-0 draft round and the
-  # review round it unblocks), each bounded by one dispatch's own
-  # runner latency plus up to one sweep tick, plus this test's own
-  # `@quiescence_window` tail charged once per round.
-  @poll_deadline :timer.minutes(6)
+  # ORC-230 widens what this deadline has to cover, from up to two
+  # sequential rounds to the raft's full downward-cascade walk
+  # (`systems/generation.md`'s own entry derives this floor: three
+  # approval-gated rounds at 15 minutes, plus the longer of the two
+  # post-`sysarch` branches at 12 minutes, for a 27-minute floor, plus
+  # 6 minutes of headroom for the fan-out breadth a tier-depth count
+  # alone cannot predict — 33 minutes).
+  @poll_deadline :timer.minutes(33)
 
   @entry_tier "feature_expansion"
 
-  # `GENERATION_SWEEP_INTERVAL_MS`'s own default
-  # (`lib/catapult/generation.ex`) plus `@poll_interval`'s own
-  # row-visibility margin (`systems/delivery.md`'s ORC-225 entry): a
-  # bare sweep-interval threshold would only guarantee a tick *fired*,
-  # not that whatever it dispatched had time to land as a visible row
-  # this test can observe — `DispatchWorker.perform/1` still has to
-  # run its re-validations, a `Dsl.load` and a full
-  # `ContextAssembly.build` before a row exists at all.
-  @quiescence_window :timer.seconds(10) + @poll_interval
-
   # Wider than `@poll_deadline` so a genuine timeout ends the test via
   # `flunk/1` — a real assertion failure — rather than ExUnit's own
-  # 60s default kill, which would skip the `after` block below and
-  # leave the test project `:active` forever (ORC-223, the incident
-  # this figure was originally sized against).
-  @tag timeout: :timer.minutes(7)
+  # default kill, which would skip the `after` block below and leave
+  # the test project `:active` forever (ORC-223, the incident this
+  # figure was originally sized against).
+  @tag timeout: :timer.minutes(35)
   test "provisions a test project through the deployed plane and drives a dispatched run end to end" do
     base = Application.fetch_env!(:catapult, :live_base_url)
     headers = [{"authorization", "Bearer #{provisioning_token()}"}]
@@ -138,11 +186,18 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     assert %{"project_id" => project_id} = provisioned.body
 
     try do
-      runs = poll_until_quiescent!(base, headers, project_id)
+      runs = poll_walk!(base, headers, project_id)
 
-      assert Enum.any?(runs, &(&1["tier"] == @entry_tier)),
-             "expected #{@entry_tier}'s own dispatched run among the quiescent set, " <>
-               "got: #{inspect(runs)}"
+      assert List.first(runs)["tier"] == @entry_tier,
+             "expected #{@entry_tier} to be the walk's first dispatch, " <>
+               "got: #{inspect(List.first(runs))}"
+
+      observed_tiers = runs |> Enum.map(& &1["tier"]) |> MapSet.new()
+      expected_tiers = expected_tier_names()
+
+      assert observed_tiers == expected_tiers,
+             "expected the walk to reach exactly #{inspect(Enum.sort(MapSet.to_list(expected_tiers)))}, " <>
+               "got: #{inspect(Enum.sort(MapSet.to_list(observed_tiers)))}"
 
       for run <- runs do
         assert run["outcome"] == "success",
@@ -159,48 +214,74 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     end
   end
 
-  # Quiescence (`systems/delivery.md`'s ORC-225 entry): the first poll
-  # whose run-id set matches the previous poll's, with every run in
-  # that set terminal, opens the quiet window; any later poll that
-  # breaks either condition — a new run appears, or one drops out of
-  # the terminal set — closes it and starts over. The set is
-  # quiescent, and this returns it, once the window has stood open for
-  # more than `@quiescence_window`. An empty run set is never
-  # quiescent, however long it holds steady: a bare "the observed set
-  # is stable" check is vacuously true on a project the sweeper hasn't
-  # reached yet, which is exactly the shape of the bug this entry
-  # closes (a suite reading green because it polled nothing). The
-  # decision arithmetic itself lives in `Catapult.Generation
-  # .Quiescence` (`test/support/quiescence.ex`) — this loop owns only
-  # the network fetch, the sleep, and the deadline flunk, so the
-  # arithmetic can be exercised directly, with synthetic run-list
-  # inputs, in `test/catapult/generation/quiescence_test.exs`.
-  defp poll_until_quiescent!(base, headers, project_id) do
+  # Alternates polling `runs/2` to `remaining == 0` with a single
+  # `approve_drafts!/3` call, stopping only once a full cycle leaves
+  # both zero (this module's own moduledoc). `seen_ids` is the
+  # previous poll's own `run_key` set; `awaiting_effect?` is true from
+  # the moment an `approve_drafts!/3` call reports at least one
+  # approval until a later poll's run set actually grows, at which
+  # point `advanced?` latches — the assertion that an approval produced
+  # a new dispatch, not merely that a node compare-and-swapped.
+  # `approvals_log` is diagnostic only, folded into a timeout's own
+  # `flunk/1` message.
+  defp poll_walk!(base, headers, project_id) do
     deadline = System.monotonic_time(:millisecond) + @poll_deadline
-    poll_until_quiescent!(base, headers, project_id, deadline, nil, nil)
+    poll_walk!(base, headers, project_id, deadline, MapSet.new(), false, false, [])
   end
 
-  defp poll_until_quiescent!(base, headers, project_id, deadline, prev_ids, quiet_since) do
-    runs = fetch_runs!(base, headers, project_id)
+  defp poll_walk!(base, headers, project_id, deadline, seen_ids, awaiting_effect?, advanced?, log) do
+    if System.monotonic_time(:millisecond) >= deadline do
+      flunk(
+        "timed out waiting for the toy raft's downward-cascade walk to finish — " <>
+          "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(log))}"
+      )
+    end
+
+    %{"runs" => runs, "remaining" => remaining} = fetch_runs!(base, headers, project_id)
     ids = runs |> Enum.map(& &1["run_key"]) |> MapSet.new()
-    now = System.monotonic_time(:millisecond)
-    quiet_since = Quiescence.next_quiet_since(runs, ids, prev_ids, quiet_since, now)
+    advanced? = advanced? or (awaiting_effect? and not MapSet.subset?(ids, seen_ids))
 
-    case Quiescence.outcome(quiet_since, now, deadline, @quiescence_window) do
-      :quiescent ->
+    if remaining > 0 do
+      Process.sleep(@poll_interval)
+      poll_walk!(base, headers, project_id, deadline, ids, awaiting_effect?, advanced?, log)
+    else
+      approved = approve_drafts!(base, headers, project_id)
+
+      if approved == 0 do
+        assert advanced?,
+               "expected at least one approve_drafts/2 call reporting an approval to be " <>
+                 "followed by a later poll showing a new dispatched run, proving the " <>
+                 "mechanism actually advanced the walk — approve_drafts/2 calls (oldest " <>
+                 "first): #{inspect(Enum.reverse(log))}"
+
         runs
-
-      :timeout ->
-        flunk(
-          "timed out waiting for the dispatched run set to reach quiescence, " <>
-            "last observed: #{inspect(runs)}"
-        )
-
-      :continue ->
+      else
         Process.sleep(@poll_interval)
-        poll_until_quiescent!(base, headers, project_id, deadline, ids, quiet_since)
+        poll_walk!(base, headers, project_id, deadline, ids, true, advanced?, [approved | log])
+      end
     end
   end
+
+  # Every tier the sweeper would ever consider — `ready/3` and
+  # `ready_review/3`'s own eligibility, replayed here rather than
+  # imported (this module's own moduledoc: the same small duplication
+  # `Catapult.Delivery.Provisioning`'s `remaining` computation carries)
+  # — minus `cascade_visit`-scoped tiers, structurally unreachable from
+  # this walk regardless of `draft:`/`reviews:` shape. Loaded straight
+  # off the bundle so this assertion moves with it instead of a
+  # hand-maintained list drifting the next time a tier is added.
+  defp expected_tier_names do
+    {:ok, %{chain: chain}} = Dsl.load(".")
+
+    chain.tiers
+    |> Enum.filter(fn {_name, tier} -> dispatchable?(tier) and tier.scope != {:cascade_visit} end)
+    |> Enum.map(fn {name, _tier} -> name end)
+    |> MapSet.new()
+  end
+
+  defp dispatchable?(%{reviews: reviewed}) when not is_nil(reviewed), do: true
+  defp dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft), do: true
+  defp dispatchable?(_tier), do: false
 
   defp fetch_runs!(base, headers, project_id) do
     case Req.get(base <> "/dispatch/test-project/#{project_id}/runs",
@@ -209,11 +290,27 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
            receive_timeout: @request_timeout,
            connect_options: [timeout: @request_timeout]
          ) do
-      {:ok, %{status: 200, body: runs}} when is_list(runs) ->
-        runs
+      {:ok, %{status: 200, body: %{"runs" => runs, "remaining" => remaining}}}
+      when is_list(runs) and is_integer(remaining) ->
+        %{"runs" => runs, "remaining" => remaining}
 
       other ->
         flunk("failed to read the dispatch-run set for #{project_id}: #{inspect(other)}")
+    end
+  end
+
+  defp approve_drafts!(base, headers, project_id) do
+    case Req.post(base <> "/dispatch/test-project/#{project_id}/approve-drafts",
+           headers: headers,
+           retry: false,
+           receive_timeout: @request_timeout,
+           connect_options: [timeout: @request_timeout]
+         ) do
+      {:ok, %{status: 200, body: %{"approved" => approved}}} when is_integer(approved) ->
+        approved
+
+      other ->
+        flunk("failed to approve drafts for #{project_id}: #{inspect(other)}")
     end
   end
 
