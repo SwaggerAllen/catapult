@@ -820,7 +820,7 @@ and validation logic and must not fork it.
 
   **This derivation assumes the graph's intended sequencing, not the
   early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
-  `DraftCommitted` (`CommitPath.commit_draft/2` calls
+  `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
   `Extraction.mints/4` at commit time, before `sysarch`'s own review or
   approval), and `comparch`'s only walk onto it is `self.parent.handle`
   — already `:approved` the instant `comp` exists. Nothing named here
@@ -830,12 +830,23 @@ and validation logic and must not fork it.
   entry has used throughout — a tier reached through a
   `draft:`-carrying ancestor waits for that ancestor's own approval,
   not merely its draft — which is the conservative assumption for a
-  deadline: if ORC-235 leaves the early-readiness behavior as it is,
-  real runs dispatch earlier than this floor assumes and finish inside
-  it with room to spare; if ORC-235 tightens readiness to match the
-  intended order, this floor already costs that order. Either way this
-  number does not need to shrink; whether it needs to grow is
-  ORC-235's question to answer, not this entry's to guess at.
+  deadline, and it is the *weaker* of two tightenings ORC-235 could
+  land: if it leaves early-readiness behavior as it is, real runs
+  dispatch earlier than this floor assumes and finish inside it with
+  room to spare; if it tightens readiness to this sequential-per-branch
+  reading, this floor already costs that. It does not cost the
+  stronger tightening ORC-235 also names in scope — no parallelism
+  between tiers at all, only within one — which would serialize every
+  `draft:`-carrying tier in the raft rather than only each branch
+  against itself, and does not fit inside this number. Which of the
+  two ORC-235 lands is that ticket's question, not this entry's to
+  guess at, but this entry does not claim to already cost the stronger
+  one. The same assumption is why `non_goals`, `ref` and `vocab` — all
+  three `draft:`-carrying, each two waves — cost nothing added here:
+  they run alongside rounds one and two under the current branch
+  structure, and that is a fact about this graph's shape, not a
+  headroom margin, so it moves if ORC-235 changes what may run
+  alongside what.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -892,10 +903,29 @@ and validation logic and must not fork it.
     `:approved` at the collarch tiers' drafts) together — 2 waves. 6
     waves, ~9 minutes.
 
-  The two branches run alongside each other, not in sequence — nothing
-  in either reads the other — so they do not add; the front end's 6
-  waves is the longer of the two and is what the walk actually waits
-  on after `sysarch`'s approval. The floor to `remaining == 0` is 15
+  The two branches run alongside each other, not in sequence, so they
+  do not add — but not because neither reads the other. They do:
+  `ui_collarch` walks `self.parent.uses_shapes -> comp.handle
+  .fragments[pubapi]` and `screen_collarch` walks `self.parent.calls ->
+  comp.handle.fragments[pubapi]` (`bundles/default/tiers
+  /ui_collarch.yaml:38`, `screen_collarch.yaml:45`), and `comp`'s
+  `pubapi` fragment is authored by `comparch`'s own `produces:`
+  (`comparch.yaml:58`), not by `sysarch`. Three relationships are in
+  play here, and only two are counted above: `comp` reaches `:approved`
+  at `sysarch`'s mint (mint-ancestry) and needs no wait on `comparch`'s
+  own approval (approval-ancestry) — but the *content* the front end
+  actually reads is written by `comparch`'s draft, a third relationship
+  neither name covers. It does not move the count in this entry: both
+  branches finish their first tier two waves after `sysarch`'s
+  approval regardless of which of the two relationships governs
+  `ui_collarch`'s wait, so it lands in the same wave either way. But
+  it is exactly the gap ORC-235's own second defect is about — a
+  context walk's readiness check passes at `comp`'s mint-time
+  `:approved` while the fragment content it reads is still being
+  written by `comparch` — and this entry does not depend on that gap
+  being closed. The front end's 6 waves is the longer of the two
+  branches and is what the walk actually waits on after `sysarch`'s
+  approval. The floor to `remaining == 0` is 15
   (the three approval-gated rounds) plus 9 (the front-end branch) — 24
   minutes, not 15 — before the breadth headroom below is added on top.
 
