@@ -48,9 +48,47 @@ and validation logic and must not fork it.
   (`:approved` for a join target, `:absent` otherwise), rather than
   the reducer inferring it from bundle content it isn't supposed to
   read. The decision this answers to — what a join target's status
-  means and why readiness needed no change — is `systems/engine.md`'s;
-  this entry only records that the computation sits here rather than
-  being rediscovered as a surprise in that ticket's diff.
+  means — is `systems/engine.md`'s; this entry only records that the
+  computation sits here rather than being rediscovered as a surprise
+  in that ticket's diff. (`systems/engine.md`'s own ORC-235 entry
+  corrects this entry's earlier claim that readiness needed no further
+  change: the mint-time value written here is necessary but not
+  sufficient, and readiness now also asks whether the node that minted
+  a join target is itself settled, recursively.)
+- **`Extraction` extracts `type: fanout` and `type: reference` edges
+  only — `type: dependency` and `type: policy_application` are not
+  extracted by any code path today, for any declaring tier, and this
+  is a gap rather than the closed vocabulary's final shape** (ORC-235,
+  design pass; confirmed by reading `Catapult.Generation.CommitPath
+  .commit_draft/3`, not inferred: `mints:` comes from `Extraction
+  .mints/4` (`edge.type == "fanout"`), `edges:` comes from `Extraction
+  .references/5` (`edge.type == "reference"`), and nothing else feeds
+  either field — `Extraction`'s own moduledoc names this as scope
+  "stated rather than discovered later," but states it as a
+  third-party-declaring-tier gap specifically, when the actual gate
+  (`instance.source == committing tier_name`) excludes a
+  `type: dependency` instance regardless of which tier declares it,
+  since no tier named as a `dependency` edge's `source` ever commits a
+  matching `DraftCommitted` to trigger extraction under its own name
+  (a join target with no `draft:` cannot). Consequence, checked against
+  every `type: dependency` instance `bundles/default` currently
+  declares: `comp↔comp`, `subcomp↔subcomp`, `ui_coll↔ui_coll`,
+  `screen_coll↔screen_coll` and `ui_coll → design_system` never become
+  real edges, so every context walk reading one (`comparch`'s,
+  `subcomparch`'s, `ui_collarch`'s and `screen_collarch`'s own
+  `dependency` entries) resolves to `[]` and stays vacuously satisfied
+  regardless of tier ordering — `systems/platform_content.md`'s ORC-232
+  entry already found and recorded the `subcomp↔subcomp` instance of
+  this as live and broken; this entry generalizes it to the whole
+  `type: dependency`/`type: policy_application` family rather than
+  leaving it read as specific to that one instance. Out of ORC-235's
+  own scope (that ticket is tier ordering, this is extraction type
+  coverage) and not fixed here — recorded so the three edges
+  `systems/platform_content.md`'s own ORC-235 entry relocates
+  (`uses_shapes`, `calls`, `renders`, all `type: dependency`) are
+  understood to be correctly *declared* once that entry lands, and
+  inert until a further ticket closes this gap, rather than the two
+  facts being conflated.
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
   cluster canonically, managed opt-in) are two adapters over one

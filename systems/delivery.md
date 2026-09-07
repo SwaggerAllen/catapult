@@ -2505,13 +2505,24 @@ generating as scope-runs inside one ticket.
   permanently unready once swept with no external actor approving
   anything. What the sweeper alone ever reaches from a toy-seed project
   is the tiers whose full `context:` resolves vacuously regardless of
-  any node's approval status — today the four `scope: singleton` tiers
-  `feature_expansion`, `non_goals`, `ref` and `frontend_sysarch` — plus
-  each one's own review: eight dispatch events total, each firing once,
-  ever. That boundedness is what makes "wait for quiescence" cheap
-  rather than open-ended; it is a property of the current engine wiring
-  the sweeper walks, not a limit this test imposes, and the identical
-  poll loop widens or narrows with it unmodified if that wiring changes.
+  any node's approval status — today the three `scope: singleton` tiers
+  `feature_expansion`, `non_goals` and `ref` — plus each one's own
+  review: six dispatch events total, each firing once, ever.
+  `frontend_sysarch` is not a fourth: it was, before `systems
+  /engine.md`'s ORC-235 entry closed the reason it belonged here at
+  all — its context (`all.journey.handle`, `all.screen.handle`,
+  `all.sysarch.handle`) resolved vacuously on an empty project the same
+  way an unresolved `all.<tier>` walk does, which is exactly the defect
+  that entry fixes. Once `all.<tier>` requires the tiers that could
+  still populate `<tier>` to be drained rather than merely absent,
+  `frontend_sysarch`'s own context needs `journeys`/`screens`/`sysarch`
+  approved — which, in this unattended run, never happens — so it joins
+  every other `self.parent`-gated tier in staying permanently unready
+  instead of firing on tick 0. That boundedness is what makes "wait for
+  quiescence" cheap rather than open-ended; it is a property of the
+  current engine wiring the sweeper walks, not a limit this test
+  imposes, and the identical poll loop widens or narrows with it
+  unmodified if that wiring changes.
 - **The in-flight guard's query lives on `Store`, beside the table it
   reads** (ORC-223 — `systems/generation.md`'s companion entry states
   why the guard exists and how its cutoff was chosen). No new column
