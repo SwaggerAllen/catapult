@@ -17,8 +17,10 @@ has a second opinion about what "blocked" means.
 ## What it reads
 
 One node: a project, a tier, a scope key (ORC-87 — the route carries the project; there is no
-cross-project view here either). `explain/2` returns three facts, and the screen has a place for
-each:
+cross-project view here either). `explain/2` returns four facts, and the screen has a place for
+each — `passes_scope_filter`, `blocking`, and the empty-`blocking` case immediately below; the
+fourth, `stale`, gets its own section further down since it answers a different question than the
+first three do:
 
 - **`passes_scope_filter`** — `false` means the node was never a candidate for generation at all;
   it is excluded before context is even considered. This renders as its own top-level state, not
@@ -85,6 +87,27 @@ be a claim this screen has no way to back up. Whether an unreviewed draft is wai
 this view does not have; a future pass may extend `explain/2`'s report or build a sibling query for
 it, but this ticket renders what exists.
 
+## Staleness is a second question, not a third state of `blocking`
+
+`explain/2` gains a `stale` reading (ORC-231, design pass — `systems/engine.md`'s entry carries the
+full argument): `true | false | :unknown`, plus a `stale_because` list of the walks that make it
+true, each carrying the same `walk`/`targets` shape a `blocking` entry already has. This is not a
+new value squeezed into `blocking`: `blocking` answers "why hasn't this node drafted yet," and a
+stale node has typically already drafted — long since approved, in the regeneration case ORC-231
+names — so the two questions coexist rather than one folding into the other. A node can honestly be
+both "nothing in scope is blocking this" and "this needs a fresh look," and the screen renders them
+as two independent facts: a content-status badge beside the tier/node-id row at the top (`current`,
+`stale`, or `staleness unknown`), and, only when it isn't `current`, a detail block naming which
+walk moved and past which target.
+
+**`:unknown` is not "not stale."** A `ticket.<source>` walk (above) resolves `:unsupported`, and
+`Staleness.stale?/2` itself folds that to "not stale" for its own automatic caller — a filer must
+fail closed on a walk it can't check. This screen doesn't get to make that same call: reporting
+`false` for a walk that was never actually checked is the exact false-negative `systems/engine.md`'s
+ORC-231 entry names. So `stale` reads `:unknown` here instead, with its own visual treatment — the
+same "not wired up yet, not a clean bill of health" register the `:unsupported` badge above already
+uses, never rendered as the green "up to date" state.
+
 ## Navigation out
 
 **The one link this screen offers is to `event-log`, project- and node-scoped.** J3 in
@@ -100,3 +123,6 @@ screen can honestly offer today is "see what has happened to this node so far" �
   built this function to prevent.
 - No approve/throw-back affordance here. This is `docs/ui-spec.md`'s `ticket`/`document-review`
   surface (v1, out of scope) — explain-why only ever explains.
+- No regenerate affordance either, for the identical reason. Seeing that a node is stale is this
+  screen's job; choosing to act on it is `docs/v5-design-decisions.md` §4.5's "regeneration is
+  chosen, not triggered" — a tracker action, not a click on an explain surface.

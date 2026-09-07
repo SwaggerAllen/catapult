@@ -220,6 +220,20 @@ generating as scope-runs inside one ticket.
   notice itself rides Phase 7's reconciliation machinery alongside the
   sweep's other two triggers, rather than a bespoke ticket-filer built
   now and rehomed later.
+- **Staleness's own out-of-band ticket-filing is not this gap, though
+  it looks adjacent** (`systems/engine.md`'s ORC-231 entry). Both are
+  "the plane files a ticket," both uncoded today, but they don't share
+  a blocker: the frozen-edit notice above waits on Phase 7's
+  reconciliation machinery to answer "did a diff land here, and does
+  it matter" — a question only the validation loop can answer.
+  Staleness already has its own complete answer, computed off
+  Initial-scope projections (`Catapult.Engine.Projections.Staleness
+  .stale?/2`) — no reconciliation pass is needed to know a node is
+  stale, only to know an *input document* changed. So staleness's
+  filer is ordinary delivery work, buildable now: a ticket carrying
+  the stale node's own mutex label, idempotent per node, landing in
+  `Triage` — not a second instance of this gap waiting on the same
+  Phase-7 machinery.
 - **Ticket state is a projection; the event log is the authority**
   (v5 §7.1). Unchanged by owning the tracker — if anything sharpened,
   since the surface and the authority now agree. Human actions arrive

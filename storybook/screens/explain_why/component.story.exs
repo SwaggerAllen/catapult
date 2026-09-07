@@ -115,6 +115,50 @@ defmodule Catapult.Storybook.Screens.ExplainWhyStory do
         }
       },
       %Variation{
+        id: :stale_content,
+        description:
+          "Fully satisfied and stale at once — nothing is blocking this node, and its committed " <>
+            "content predates a ref it depends on that was edited and re-approved since. The two " <>
+            "facts render independently: the ordinary blocking sections stay empty while the " <>
+            "content-status badge and detail block name what moved.",
+        attributes: %{
+          project_id: @project_id,
+          node_id: "impl:dashboard",
+          tier: "impl",
+          scope_key: %{},
+          passes_scope_filter: true,
+          blocking: [],
+          review_tier?: false,
+          stale: true,
+          stale_because: [
+            %{
+              walk: "self.parent.dependency -> ref.handle",
+              targets: [%{node_id: "ref:runbook", tier: "ref", status: :approved}]
+            }
+          ]
+        }
+      },
+      %Variation{
+        id: :stale_unknown,
+        description:
+          "Illustrative only, same reachability caveat as unsupported_walk above — a node whose " <>
+            "tier declares a ticket.<source> walk can't have its staleness computed for that walk, " <>
+            "which reads as \"unknown,\" never as the green \"current\" state.",
+        attributes: %{
+          project_id: @project_id,
+          node_id: "hypothetical_extension_tier:dashboard",
+          tier: "hypothetical_extension_tier",
+          scope_key: %{},
+          passes_scope_filter: true,
+          blocking: [
+            %{walk: "ticket.findings", satisfied: false, targets: [], reason: :unsupported}
+          ],
+          review_tier?: false,
+          stale: :unknown,
+          stale_because: []
+        }
+      },
+      %Variation{
         id: :review_tier_caveat,
         description:
           "A review tier: blocking is structurally always empty (no context: of its own), so the " <>

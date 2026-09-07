@@ -1492,9 +1492,84 @@ them.
   How staleness is consumed is settled above — "consumed by flow walks
   and the plane's out-of-band ticket filing" — and
   `docs/v5-design-decisions.md`'s "staleness hints, never cascades"
-  rules out an auto-reopening `ready/3`. What is missing is the
-  connection: neither named consumer calls `stale?/2`. ORC-231 carries
-  wiring it.
+  rules out an auto-reopening `ready/3`. Neither named consumer called
+  `stale?/2` yet; the connection each one makes is settled immediately
+  below.
+
+- **Staleness's two consumers, wired** (ORC-231, design pass). §7.11
+  already fixed the split — inside a live flow, staleness resolution
+  *is* the walk; outside one, a plane-filed backlog ticket — this
+  entry fills in what each side calls.
+
+  **Flow walks call `stale?/2` directly, and nothing calls it yet
+  because flow instances don't exist.** §7.11's own "through ordinary
+  staleness" language for the repair loop's down-walk means exactly
+  what it says: the down-walk's own membership test for "passed but
+  now stale" *is* a call to `Catapult.Engine.Projections.Staleness
+  .stale?/2` per candidate sibling, reused rather than reimplementing
+  `target_newer?/2` a third time — the same discipline
+  `ContextResolver` was built to hold across `Staleness` and
+  `ReadyScopes` already. Recording the call site now, ahead of the
+  machinery that will make it, is ORC-6's own precedent repeated: a
+  later ticket building flow instances has something to call rather
+  than something to design.
+
+  **Out-of-band filing triggers off the same `DraftCommitted` that
+  creates the staleness, never a sweep.** The event that drops an
+  `:approved` node back to `:drafted` already carries everything the
+  filer needs — chain, node, tier — so the reaction fires there: find
+  every node whose context walk reaches the regenerated node and is
+  newly stale (`stale?/2` over each), and file one ordinary ticket per
+  stale node. There is no periodic re-check of already-known
+  staleness, which is the whole answer to "one ticket per sweep tick
+  per stale node" — ORC-223's own 574-runs incident is the identical
+  gap behind a different actor, a re-observed hint with nothing
+  telling it apart from a fresh one. An event fires once per
+  regeneration, never once per tick, so there is no tick to repeat
+  against.
+
+  **The filed ticket is ordinary, not a new kind** — exactly what
+  §7.11 already refuses ("no generic 'staleness ticket' kind"). It
+  carries the stale node's own mutex label (§2.1's slug-spine
+  derivation — the same label any other ticket touching that scope
+  would carry) and an argument stating which walk moved and which
+  target now outruns the node's own `committed_sequence`, the
+  identical fact `explain/2`'s new stale reading (below) computes,
+  read rather than re-derived. It lands in `Triage`, unscheduled,
+  batch-accept — the routine-bump cadence `docs/v5-design-decisions
+  .md` §7.10 already settles for its own maintenance watcher, not
+  `Urgent`: nothing is broken, nothing blocks, and "regeneration is
+  chosen, not triggered" (§4.5) means the filing is a hint delivered
+  through the tracker, not a demand.
+
+  **Exactly one open ticket per stale node, kept by construction, not
+  by a race-prone check-then-file.** The filing write is idempotent,
+  keyed on the stale node's own id — a node that stales twice before
+  anyone acts updates the one open ticket rather than accumulating a
+  second, the identical `(project_id, id)` upsert discipline
+  `Catapult.Delivery.Store.upsert_container_proposal/1` already uses
+  for the nearest built analogue. The audit gains the matching
+  inventory check §2.14's pattern already names for the other two
+  out-of-band shapes ("every `implementation: stubbed` scope has
+  exactly one open `Stubbed` swap ticket") — none of the three coded
+  yet, all three the same invariant: every node `stale?/2` finds true
+  has exactly one open ticket carrying its label.
+
+  **`:unsupported` reads two different ways depending on who's asking,
+  and both readings are decided rather than accidental.**
+  `Staleness.stale?/2` itself keeps folding `:unsupported` to "not
+  stale": an automatic filer must fail closed on a walk it cannot
+  verify, never file off one it can't check. `ReadyScopes.explain/2`
+  does not get to make that same simplification, because it is a
+  human-facing report, not an actor — its new stale reading is
+  three-valued, `true | false | :unknown`, `:unknown` exactly where
+  the walk itself is `:unsupported`, so nothing on that screen quietly
+  claims "not stale" for a walk it structurally couldn't check — the
+  identical "loud lie" discipline `screens/explain-why.md`'s own
+  `:unsupported` treatment already applies to `blocking`. Deciding this
+  now costs nothing, since no shipped tier reaches `:unsupported`
+  today; deciding it after `ticket.findings` is wired would mean
+  finding the false negative live.
 
 ## Initial vs target
 

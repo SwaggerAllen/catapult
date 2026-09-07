@@ -12,6 +12,12 @@ defmodule Catapult.Storybook.Screens.ExplainWhy do
   already has (it looked the tier up to call `explain/2` in the first place) and hands down so
   this component can render the caveat `screens/explain-why.md` requires rather than staying
   silent the way an ordinary empty `blocking` list would.
+
+  `stale`/`stale_because` are `explain/2`'s stale reading (ORC-231, design pass —
+  `screens/explain-why.md`'s own section): `stale` is `true | false | :unknown`, rendered as a
+  content-status badge independent of `blocking` — a node can be both "nothing blocking" and
+  "stale." `:unknown` gets the same "not wired up, not a clean bill of health" treatment as an
+  `:unsupported` blocking entry, never the green "current" badge.
   """
 
   use Phoenix.Component
@@ -23,6 +29,8 @@ defmodule Catapult.Storybook.Screens.ExplainWhy do
   attr :passes_scope_filter, :boolean, required: true
   attr :blocking, :list, default: []
   attr :review_tier?, :boolean, default: false
+  attr :stale, :atom, default: false
+  attr :stale_because, :list, default: []
 
   def explain_why(assigns) do
     ~H"""
@@ -36,6 +44,29 @@ defmodule Catapult.Storybook.Screens.ExplainWhy do
         <span class="badge badge-neutral"><%= @tier %></span>
         <span class="font-mono opacity-70"><%= @node_id %></span>
         <span :if={@scope_key != %{}} class="font-mono opacity-50"><%= inspect(@scope_key) %></span>
+        <span class={["badge", stale_badge_class(@stale)]}><%= stale_badge_label(@stale) %></span>
+      </div>
+
+      <div :if={@stale != false} class="rounded-box border border-base-300 p-4 flex flex-col gap-2">
+        <p :if={@stale == :unknown} class="text-sm opacity-70">
+          At least one context walk on this node is <code>:unsupported</code> — staleness can't be
+          computed for it, which is not the same fact as "current." Whatever this section lists
+          below is checkable; an unsupported walk contributes nothing to it either way.
+        </p>
+        <p :if={@stale == true} class="text-sm opacity-70">
+          This node's committed content predates at least one of its own approved inputs.
+        </p>
+        <ul :if={@stale_because != []} class="flex flex-col gap-1">
+          <li :for={entry <- @stale_because} class="flex flex-col gap-1">
+            <span class="font-mono text-sm"><%= entry.walk %></span>
+            <ul class="flex flex-col gap-1 pl-4">
+              <li :for={target <- entry.targets} class="flex items-center gap-2 text-sm">
+                <span class="opacity-70"><%= target.tier %></span>
+                <span class="font-mono"><%= target.node_id %></span>
+              </li>
+            </ul>
+          </li>
+        </ul>
       </div>
 
       <div :if={!@passes_scope_filter} class="alert alert-error">
@@ -104,4 +135,12 @@ defmodule Catapult.Storybook.Screens.ExplainWhy do
   defp status_badge_class(:approved), do: "badge-success"
   defp status_badge_class(:drafted), do: "badge-warning"
   defp status_badge_class(:absent), do: "badge-ghost"
+
+  defp stale_badge_class(false), do: "badge-success"
+  defp stale_badge_class(true), do: "badge-warning"
+  defp stale_badge_class(:unknown), do: "badge-ghost"
+
+  defp stale_badge_label(false), do: "current"
+  defp stale_badge_label(true), do: "stale"
+  defp stale_badge_label(:unknown), do: "staleness unknown"
 end
