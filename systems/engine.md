@@ -1587,7 +1587,10 @@ them.
   regeneration fires its own reaction in turn once it is itself
   approved) — file one ordinary ticket per node `stale?/2` finds true.
   That is a full project-wide node scan, per node's context walks, on
-  every approval — the cost this design actually pays, not a cost
+  every approval — and ORC-230's `Provisioning.approve_drafts/2`
+  approves every `:drafted` node in a single boundary walk, so one
+  walk now fires this scan on the order of forty times, once per
+  approval, not once — the cost this design actually pays, not a cost
   avoided by firing on the event.
 
   What answers ORC-223's own 574-runs shape ("one ticket per sweep
@@ -1614,22 +1617,37 @@ them.
   chosen, not triggered" (§4.5) means the filing is a hint delivered
   through the tracker, not a demand.
 
-  **Exactly one open ticket per stale node, kept by construction, not
-  by a race-prone check-then-file.** The filing write is idempotent,
-  keyed on the stale node's own id — a node that stales twice before
-  anyone acts updates the one open ticket rather than accumulating a
-  second, the identical `(project_id, id)` upsert discipline
+  **Exactly one open ticket per stale node, and none once it stops
+  being one — both kept by construction, not by a race-prone
+  check-then-file.** The filing write is idempotent, keyed on the
+  stale node's own id — a node that stales twice before anyone acts
+  updates the one open ticket rather than accumulating a second, the
+  identical `(project_id, id)` upsert discipline
   `Catapult.Delivery.Store.upsert_container_proposal/1` already uses
-  for the nearest built analogue. The audit gains the matching
-  inventory check §2.14's pattern already names for the other two
-  out-of-band shapes, both named rather than one quoted and one left
-  to inference: the stub inventory's own ticket-sync check ("every
-  `implementation: stubbed` scope has exactly one open `Stubbed` swap
-  ticket") and the enforcement-gap inventory's own ("every
-  policy×scope missing its declared-grade artifact has exactly one
-  open enforcement ticket," §4.5) — none of the three coded yet, all
-  three the same invariant: every node `stale?/2` finds true has
-  exactly one open ticket carrying its label.
+  for the nearest built analogue. That same keyed record is what makes
+  closing possible without a new ticket kind to search by: it maps a
+  stale node's id to the ticket filed for it, and the scan already
+  computes `stale?/2` for every node on every approval — so a node the
+  scan finds *not* stale that still holds an entry in that record is
+  exactly as visible to it as a stale node with none. The scan closes
+  that ticket with a comment and clears the record — the same
+  per-approval scan that files new tickets closes ones that cleared,
+  not a separate watcher or a second reaction.
+  `docs/v5-design-decisions.md` §2.14 states the stub swap ticket's
+  invariant as one sentence with two halves — "every `implementation:
+  stubbed` scope has exactly one open `Stubbed` swap ticket, **and a
+  swapped or deleted scope's ticket closes with a comment**" (§2.16,
+  §7.10) — and the filed staleness ticket follows both halves, not
+  only the first.
+  The audit gains the matching two-sided inventory check, and both
+  out-of-band precedents §2.14 already names carry the same full
+  shape, named rather than one quoted and one left to inference: the
+  stub inventory's own ticket-sync check and the enforcement-gap
+  inventory's own ("every policy×scope missing its declared-grade
+  artifact has exactly one open enforcement ticket," §4.5) — none of
+  the three coded yet, all three the same invariant, stated whole:
+  every node `stale?/2` finds true has exactly one open ticket
+  carrying its label, and every node it finds false has none.
 
   **`:unsupported` reads two different ways depending on who's asking,
   and both readings are decided rather than accidental.**
