@@ -400,20 +400,17 @@ them.
   - `singleton` with a `generator: llm` draft dispatched through the
     chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`,
     `ref` — all four `generator: llm` with no `per(X)`/`child_of(X)`
-    parent, `ref` included: `ref.yaml`'s own comment calls it a flat
-    pool accreting via an external `create_reference` write tool, but
-    that tool exists nowhere in this tree, `Sweeper.dispatchable?/1`
-    matches `ref` on its `draft:`/`generator: "llm"` pair exactly like
-    any other chain-dispatched tier, and the engine's `{:singleton}`
-    scope holds exactly one row per project per tier
-    (`candidates/3`'s `scope_key: %{}`, the `unique_index` on
-    `(project_id, tier, scope_key)`) — machinery with no way to express
-    the accretive-pool intent the comment describes. A doc's claim
-    about the tree is not evidence about the tree; treat `ref` by what
-    dispatches it, not by what its own header says it means): drained
-    once its one node exists and is `settled?` — never vacuously,
-    because such a tier's count is exactly one once the chain reaches
-    it, never legitimately zero;
+    parent, `ref` included: `Sweeper.dispatchable?/1` matches it on its
+    `draft:`/`generator: "llm"` pair exactly like any other
+    chain-dispatched tier, and the engine's `{:singleton}` scope holds
+    exactly one row per project per tier (`candidates/3`'s
+    `scope_key: %{}`, the `unique_index` on `(project_id, tier,
+    scope_key)`) — the recorded shape for refs, v5 §4.5's singleton
+    *pool* with `id` identity, is in tension with that machinery, but
+    resolving the tension is ORC-236's, and `ref` falls in this bucket
+    by what it declares today): drained once its one node exists and
+    is `settled?` — never vacuously, because such a tier's count is
+    exactly one once the chain reaches it, never legitimately zero;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
