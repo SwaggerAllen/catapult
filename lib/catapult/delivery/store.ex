@@ -170,7 +170,7 @@ defmodule Catapult.Delivery.Store do
   @doc """
   Every dispatch run for `project_id`, any tier, oldest first — the
   provisioning surface's own enumerating read (ORC-225,
-  `systems/delivery.md`'s ORC-225 entry: the live suite's quiescence
+  `systems/delivery.md`'s ORC-225 entry: the live suite's completion
   check needs every run a dispatch window produced, not one tier's).
   `terminal_dispatch_status/2`'s own five keys (`status`, `outcome`,
   `credential_used`, `node_id`, `body_sha`) plus the two facts a
@@ -183,6 +183,14 @@ defmodule Catapult.Delivery.Store do
   tell whether the run set it observed has changed between two polls.
   The same rows `dispatch_runs_for_flow/2` already gives one `flow_id`
   at a time, minus the `flow_id` filter.
+
+  `duration_ms` is ORC-230's own addition — `DateTime.diff/3` between
+  the row's `updated_at` and `inserted_at`, in milliseconds
+  (`systems/delivery.md`'s ORC-230 entry): dispatch-to-terminal, not
+  per-phase, since `updated_at` bumps on every status transition and a
+  per-phase figure would need columns this ticket does not add. It is
+  what turns a flaky boundary run into something measurable rather
+  than something re-run by hand.
   """
   @spec dispatch_runs_for_project(binary()) :: [map()]
   def dispatch_runs_for_project(project_id) do
@@ -199,9 +207,30 @@ defmodule Catapult.Delivery.Store do
         outcome: run.outcome,
         credential_used: run.credential_used,
         node_id: run.node_id,
-        body_sha: node_body_sha(project_id, run.node_id)
+        body_sha: node_body_sha(project_id, run.node_id),
+        duration_ms: DateTime.diff(run.updated_at, run.inserted_at, :millisecond)
       }
     end)
+  end
+
+  @doc """
+  Every `{tier, scope_key}` pair `project_id` currently has an
+  in-flight (non-terminal, `status in [:dispatched, :context_fetched]`)
+  dispatch run for — `Provisioning.runs/2`'s own `remaining`
+  computation (`systems/delivery.md`'s ORC-230 entry): a node still
+  `:absent` while its own dispatch is running reads ready per
+  `ReadyScopes.ready/3` exactly as it did before the dispatch fired, so
+  `remaining` has to know which ready-looking scopes are already
+  spoken for rather than counting the same piece of outstanding work
+  twice — once as "ready" and once as "running".
+  """
+  @spec in_flight_scope_keys(binary()) :: MapSet.t({String.t(), map()})
+  def in_flight_scope_keys(project_id) do
+    DispatchRun
+    |> where([r], r.project_id == ^project_id and r.status in [:dispatched, :context_fetched])
+    |> select([r], {r.tier, r.scope_key})
+    |> Repo.all()
+    |> MapSet.new()
   end
 
   ## Test project lifecycle (ORC-216, systems/delivery.md)

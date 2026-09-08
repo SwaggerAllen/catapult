@@ -821,24 +821,315 @@ and validation logic and must not fork it.
   quiescence" (`systems/delivery.md`'s entry — a quiet-since duration
   exceeding one full `GENERATION_SWEEP_INTERVAL_MS` tick plus a
   `@poll_interval` margin for that tick's own dispatch to land as a
-  visible row, not a fixed poll count), which on a toy-seed project
-  costs up to two sequential rounds today — a tick-0 draft round and
-  the review round it unblocks — each round
+  visible row, not a fixed poll count), each round
   bounded by one dispatch's own tens-of-seconds runner latency plus up
   to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
   `@poll_interval` (5s) row-visibility margin, for the sweeper to notice
-  the round before it. The 15-second quiescence window is charged once
-  per round and is negligible next to the minutes-wide deadline below,
-  so `@poll_deadline` widens to
-  `:timer.minutes(6)` — two rounds at a generous per-round ceiling, plus
-  the quiescence check's own sweep-tick-plus tail — and the test itself
-  carries `@tag timeout: :timer.minutes(7)`, wider than the deadline it bounds
-  so the assertion failure path (a real `flunk/1`) is what ends the
-  test on a genuine timeout, never ExUnit's own kill — which is what
-  restores the `after` block's own guarantee, since an `after` runs on
-  a normal exit or an assertion failure and never on an ExUnit-timeout
-  kill. `TodoAppProofLiveTest` is unaffected: it dispatches with
-  `stub_mode: false` and does not poll.
+  the round before it, with the 15-second quiescence window charged once
+  per round. Under ORC-225 alone this cost up to two sequential rounds
+  — a tick-0 draft round and the review round it unblocks — because
+  nothing resolved the gate the second round left open. ORC-230 (below)
+  widens the round count past two and drops the 15-second quiescence
+  tail from the arithmetic entirely: once an actor exists to approve
+  drafts, the suite has no reason to stop at two rounds rather than
+  however many the raft's downward cascade actually takes, and once
+  `remaining` (`systems/delivery.md`'s entry) reads readiness directly,
+  `Catapult.Generation.Quiescence`'s own quiet-since margin has nothing
+  left to hedge and retires with it. `TodoAppProofLiveTest` is
+  unaffected: it dispatches with `stub_mode: false` and does not poll.
+- **ORC-230 gives the boundary suite an actor, and the whole walk runs
+  on every boundary — there is no shallower suite.** `ToySeedChainLiveTest`
+  (tag `:live`) is the only toy-seed live test, and it does not stop at
+  the round that first reaches quiescence. Its poll loop alternates:
+  poll `runs/2` (`systems/delivery.md`'s widened entry) until it
+  reports `remaining: 0`, call `Provisioning.approve_drafts/2` once, and
+  poll again — stopping only when a full cycle leaves `remaining` at
+  zero **and** `approve_drafts/2` reports zero approvals, which together
+  mean nothing is dispatchable, nothing is running, and nothing is
+  sitting `:drafted` waiting to be approved. This is deliberate, not a
+  missed opportunity to cap it: the boundary pass exists to be as close
+  to production as the toy chain gets without a model in the loop, so it
+  runs the whole chain agentless, and a real-model run confirms the
+  production case separately and strictly afterward — sequencing the
+  two within one boundary run is its own design, not this ticket's
+  (`systems/delivery.md`'s ORC-216 entry is why they cannot run
+  concurrently regardless: at most one `:active` test project). A round
+  cap, or a second, shallower test beside a full-walk one, would be
+  sizing the every-milestone suite to a depth nobody has measured —
+  the position design review rejected in favor of this one.
+
+- **The assertion is that an approval produced a new dispatch, which a
+  bare approval count cannot tell you.** `approve_drafts/2` dispatches
+  `ApproveDraft` directly (`systems/delivery.md`'s corrected entry — it
+  no longer goes through a ticket's gate at all), so unlike the
+  ticket-gate design this replaces, one reported approval already means
+  one node crossed into `:approved`; there is no second call needed
+  per node. What still isn't proof on its own is that the approval
+  *did* anything: a leaf tier's own approval unblocks nothing further
+  downstream. So the suite tracks `run_key`s rather than the approval
+  count alone: every `runs/2` poll is diffed against the previous one,
+  and the assertion is that at least one `approve_drafts/2` call
+  reporting an approval is followed, on a later poll, by a `run_key`
+  that was not present before — a new dispatch, which only a node
+  crossing into `:approved` (and so becoming ready for whatever tier
+  reads it) can produce. `Provisioning` exposes no node-status read, so
+  a new run is the fact the suite can actually observe; asserting on it
+  rather than on the approval count is what makes the assertion prove
+  the mechanism advanced the walk rather than merely that a compare-
+  and-swap succeeded.
+
+- **The deadline is sized from the walk's own measured depth, not left
+  a bare "generous" constant — but depth only counts *approvals*, and
+  the suite's own stop condition (`remaining == 0` and zero approvals
+  pending) is priced on waves, not approvals, so the tiers past the
+  last approval still have to be counted rather than assumed free.**
+  `bundles/default/tiers/*.yaml`'s downward-cascade graph fixes the
+  walk's *approval depth* — how many sequential approve-then-dispatch
+  rounds a complete walk takes — because every join-target tier
+  (`comp`, `subcomp`, `screen_coll`, `ui_coll`, `ui_subcomp`,
+  `screen_subcomp` and the rest) has no `draft:` block at all, so
+  `Extraction.mint_status/2` returns `:approved` for it at mint time
+  rather than `:absent`, and it never dispatches or needs a human (or
+  `approve_drafts/2`) to move it. Every context walk this bundle writes
+  — `self.parent`, `self.reference`, `all.<tier>` alike — folds the
+  identical `status == :approved` requirement over whatever it
+  resolves to (`walk_ready?/2`); the two kinds of tier differ only in
+  *how* a target reaches `:approved` — instantly at mint for a
+  join target, or through its own generate-then-review-then-approve
+  cycle for one that carries a `draft:` block — not in whether the
+  requirement applies. So a tier costs an **approval round** only when
+  it carries a `draft:` block *and* something has to wait on that
+  approval to become ready; it still costs **dispatch waves** — a
+  draft and a review, each a real run the sweeper has to find and the
+  suite has to poll for — whenever it carries a `draft:` block at all,
+  approval-gated or not. Tracing the toy raft's longest approval-gated
+  chain from `feature_expansion` gives exactly **three** gate-bearing
+  tiers: `feature_expansion` → `requirements` → `sysarch` — every tier
+  past `sysarch` reads either a join-target's mint-time `:approved` or
+  `sysarch`'s own approval, never a fourth tier's *approval*. But most
+  of those tiers still carry their own `draft:` block, and the suite's
+  loop does not stop at the last approval: it stops at `remaining == 0`
+  with nothing left `:drafted`, which means every one of those tiers'
+  drafts and reviews still has to dispatch and settle. This is depth,
+  not breadth: `per(comp)`/`child_of` fan-out still depends on what a
+  draft itself mints, which the tier bundle alone cannot predict, so
+  the number of *nodes* dispatched within a wave stays unmeasured and
+  the deadline still needs headroom for it — depth fixes how many
+  waves the suite must wait through, not how much work each wait
+  costs.
+
+  **This derivation assumes the graph's intended sequencing, not the
+  early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
+  `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
+  `Extraction.mints/4` at commit time, before `sysarch`'s own review or
+  approval), and all three of `comparch`'s walks onto it —
+  `self.parent.handle` plus the two `self.parent.dependency ->
+  comp.handle.fragments[pubapi]`/`[failure_surface]` reads onto
+  sibling comps (`comparch.yaml:26,28,29`) — land on a node already
+  `:approved` the instant `comp` exists. Those two fragment reads are
+  intra-tier: `comparch` authors the fragments it reads, so they raise
+  none of the cross-tier fragment-authorship wait the `impl_*` step
+  below does. Nothing named here requires `comparch` to wait for
+  `sysarch`'s own approval rather than just its draft, and ORC-235 is
+  the open question of whether readiness should. The rounds and waves
+  below assume the sequential reading this entry has used throughout —
+  a tier reached through a `draft:`-carrying ancestor waits for that
+  ancestor's own approval, not merely its draft, and a tier waits for
+  whichever tier authors a fragment it reads, which is not always that
+  ancestor (the `impl_*` step below is where the two part company) —
+  which is the conservative assumption for a deadline, and it is the
+  *weaker* of two tightenings ORC-235 could land: if it leaves
+  early-readiness behavior as it is, real runs dispatch earlier than
+  this floor assumes and finish inside it with room to spare; if it
+  tightens readiness to this sequential-per-branch reading, this floor
+  already costs that. It does not cost the stronger tightening
+  ORC-235 also names in scope — no parallelism between tiers at all,
+  only within one — which would serialize every `draft:`-carrying tier
+  in the raft rather than only each branch against itself, and does
+  not fit inside this number. Which of the two ORC-235 lands is that
+  ticket's question, not this entry's to guess at, but this entry does
+  not claim to already cost the stronger one. The same assumption is
+  why `non_goals`, `ref` and `vocab` — all three `draft:`-carrying,
+  each two waves — cost nothing added here: they run alongside rounds
+  one and two under the current branch structure, and that is a fact
+  about this graph's shape, not a headroom margin, so it moves if
+  ORC-235 changes what may run alongside what.
+
+  A single dispatch wave (a tier's own draft, or its review) costs the
+  ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
+  runner latency under `stub_mode`, plus one
+  `GENERATION_SWEEP_INTERVAL_MS` (10s) tick, plus the `@poll_interval`
+  (5s) margin, call it 90 seconds generously. Not every one of the
+  three approval-gated rounds costs the same number of waves, because
+  the middle one is not one tier but three run in sequence.
+  `feature_expansion`'s approval unlocks `journeys`, `screens` and
+  `requirements` together, but `screens`'s context reads
+  `all.journey.handle` and `requirements`'s reads `all.screen.handle`
+  (`bundles/default/tiers/screens.yaml`, `requirements.yaml`), and both
+  are populated by `journey`/`screen` child nodes minted from the
+  upstream tier's own **draft**
+  (`bundles/default/edges/decomposition.yaml:70,78`) — so `screens`
+  cannot dispatch until `journeys` has drafted, and `requirements`
+  cannot dispatch until `screens` has, whatever a reviewer's own
+  wall-clock happens to overlap with the next tier's draft. Costed
+  conservatively — draft and review both waited on for each of the
+  three, rather than assumed to overlap with the next tier's draft —
+  that round is six waves, not two:
+
+  - `feature_expansion`'s own draft and review, before the first
+    approval: 2 waves, ~3 minutes.
+  - `journeys` → `screens` → `requirements`, each tier's draft and
+    review before the next tier's draft is even ready: 6 waves,
+    ~9 minutes.
+  - `sysarch` alone, after `requirements`'s approval — its other
+    context source, `self.parent.decomposition -> resp.handle`, mints
+    at `requirements`'s own draft time and costs no separate wave: 2
+    waves, ~3 minutes.
+
+  15 minutes is the floor for the three approval-gated rounds alone,
+  plus the `approve_drafts/2` call and the next poll that observes its
+  effect at each of the three approvals. It is not the floor to
+  `remaining == 0` — the suite's actual stop condition — because most
+  of the tiers past `sysarch` still carry a `draft:` block and still
+  cost waves, even though none of them costs another approval. Named
+  by branch, costed the same conservative way as the three rounds
+  above (draft and review both waited on, no overlap with the next
+  tier's draft assumed):
+
+  - Backend: `comparch` (`per(comp)`, `comp` already `:approved` at
+    `sysarch`'s draft) drafts and reviews — 2 waves — then
+    `subcomparch` (`per(subcomp)`, `subcomp` already `:approved` at
+    `comparch`'s draft) drafts and reviews — 2 waves — then
+    `impl_backend` drafts and reviews — 2 waves, not alongside
+    `subcomparch`: the only thing `impl_backend` reads that
+    `subcomparch` writes is `self.parent.dependency ->
+    subcomp.handle.fragments[pubapi]` (`impl_backend.yaml:27`) — its
+    other context entries are its parent's own `mint.*` fields, `ref`
+    and `feature_expansion`, none of which `subcomparch` touches. That
+    `pubapi` fragment is authored by `subcomparch`'s own `produces:`
+    (`subcomparch.yaml:33`), and `subcomp` itself carries only `mint.*`
+    copies, no fragment content of its own. 6 waves, ~9 minutes.
+  - Front end: `frontend_sysarch` (`scope: singleton`, its three
+    `all.<tier>` walks all already `:approved`) drafts and reviews — 2
+    waves — then `ui_collarch`/`screen_collarch` (`ui_coll`/
+    `screen_coll` already `:approved` at `frontend_sysarch`'s draft)
+    together — 2 waves — then `ui_subcomparch`/`screen_subcomparch`
+    (their own subcomps already `:approved` at the collarch tiers'
+    drafts) together — 2 waves — then `impl_ui`/`impl_screen` together
+    — 2 waves, not alongside the `*subcomparch` pair, for the same
+    reason `impl_backend` isn't alongside `subcomparch`: `impl_ui`
+    reads `ui_subcomp.handle.fragments[pubapi]` (`impl_ui.yaml:24`),
+    authored by `ui_subcomparch`'s own `produces:`
+    (`ui_subcomparch.yaml:27`), and `impl_screen` reads
+    `screen_subcomp.handle.fragments[pubapi]` (`impl_screen.yaml:22`),
+    authored by `screen_subcomparch`'s own `produces:`
+    (`screen_subcomparch.yaml:26`). 8 waves, ~12 minutes.
+
+  The two branches run alongside each other, not in sequence, so they
+  do not add on top of each other — but fragment-authorship, a third
+  relationship distinct from mint-ancestry and approval-ancestry, does
+  not move the count everywhere it applies the same way, and it applies
+  twice more above, past the one place this entry already checked it.
+
+  At the `ui_collarch`/`screen_collarch` step, it happens not to move
+  the count. `ui_collarch` walks `self.parent.uses_shapes -> comp
+  .handle.fragments[pubapi]` and `screen_collarch` walks
+  `self.parent.calls -> comp.handle.fragments[pubapi]`
+  (`bundles/default/tiers/ui_collarch.yaml:38`,
+  `screen_collarch.yaml:45`), and `comp`'s `pubapi` fragment is
+  authored by `comparch`'s own `produces:` (`comparch.yaml:58`), not by
+  `sysarch` — so `comp` reaches `:approved` at `sysarch`'s mint
+  (mint-ancestry) and needs no wait on `comparch`'s own approval
+  (approval-ancestry), but the *content* the front end actually reads
+  is written by `comparch`'s draft (fragment-authorship). It does not
+  move the count *at this one step* because both branches finish their
+  first tier two waves after `sysarch`'s approval regardless of which
+  relationship governs `ui_collarch`'s wait — they land in the same
+  wave either way. It is exactly the gap ORC-235's own second defect is
+  about — a context walk's readiness check passes at `comp`'s mint-time
+  `:approved` while the fragment content it reads is still being
+  written by `comparch` — and this entry does not depend on that gap
+  being closed.
+
+  It does move the count at the `impl_*` step, in both branches, which
+  is why the waves above cost `impl_backend` after `subcomparch` and
+  `impl_ui`/`impl_screen` after `ui_subcomparch`/`screen_subcomparch`
+  rather than alongside them. `subcomp`/`ui_subcomp`/`screen_subcomp`
+  are join targets with no fragment content of their own — every field
+  they carry is a mint-time copy — so unlike the `comp`/`comparch`
+  step above, there is no mint-ancestry route into an `impl_*` tier
+  that bypasses the tier that writes the content it reads: fragment-
+  authorship is the *only* relationship in play, not one of two that
+  happen to agree. Costing `impl_backend`/`impl_ui`/`impl_screen` as
+  concurrent with their `*subcomparch` sibling would let the suite call
+  the walk complete while an `impl_*` draft was rendered against an
+  empty `pubapi` fragment — precisely the class of failure a full walk
+  exists to surface, so the wave count above prices it as sequential.
+
+  The front end's 8 waves is the longer of the two branches and is
+  what the walk actually waits on after `sysarch`'s approval. The
+  floor to `remaining == 0` is 15 (the three approval-gated rounds)
+  plus 12 (the front-end branch) — 27 minutes, not 24 — before the
+  breadth headroom below is added on top.
+
+  The unmeasured breadth this entry already names (several tiers'
+  worth of siblings queueing behind Oban's `generation_dispatch`
+  concurrency of 5, and whatever GitHub Actions' own runner queue adds
+  under load) is still the headroom a depth-based floor alone would not
+  cover, and nothing about the corrected floor changes that headroom's
+  own size — it stays the 6 minutes the prior figure carried, and it
+  belongs on top of the 27-minute floor rather than folded into it: a
+  floor that spends the headroom on waves instead leaves nothing for
+  the breadth it exists to cover, and a passing walk plausibly
+  `flunk`s on a tight, unexplained timeout. `@poll_deadline` widens to
+  `:timer.minutes(33)` — the 27-minute floor plus the 6-minute headroom
+  — and `@tag timeout: :timer.minutes(35)`, wider still so the
+  assertion failure path (a real `flunk/1`) is what ends the test on a
+  genuine timeout, never ExUnit's own kill, for the identical
+  `after`-block reason ORC-225's own entry above already gives.
+
+  What changes on top of the number is the failure path: a `flunk/1`
+  on timeout reports the tier set that ran, every node
+  `Store.list_nodes/2` still shows `:drafted` project-wide, how many
+  `approve_drafts/2` calls fired and how many approvals each reported,
+  and the per-run `duration_ms` `systems/delivery.md`'s widened `runs/2`
+  now carries — enough to tell a genuinely stuck graph from a slow one
+  without re-running it by hand, and the thing that stands against the
+  pressure a tight, unexplained timeout creates to shorten the suite
+  back down.
+
+- **A full walk is the first exercise of `@root_tag_fixtures`'s
+  previously-unreached stubs.** Nothing before ORC-230 dispatched past
+  two rounds, so most of the fixtures ORC-225 built existed for tiers
+  no run had ever reached. A `ToySeedChainLiveTest` run that reaches
+  `remaining == 0` with zero approvals pending is the first observed
+  evidence that the `root_tag`s the toy raft's downward cascade
+  actually reaches resolve against their stubs, rather than an
+  assumed one.
+
+- **Two stale moduledocs are corrected in the same change**, both
+  design-owned prose sitting in dev-owned test files, so design records
+  the finished shape here and dev writes it.
+  `test/catapult/generation/todo_app_proof_live_test.exs`'s own
+  comparison sentence — "unlike `ToySeedChainLiveTest`, which dispatches
+  exactly one tier and can afford to poll a single run to a terminal
+  status inside one test's deadline" — was already false under ORC-225
+  and is doubly so now: there is no round count left to compare against,
+  since `ToySeedChainLiveTest` walks the raft's full downward cascade
+  with no cap. The sentence drops the comparison rather than restating
+  it with a new number — `TodoAppProofLiveTest` stops at provisioning
+  because its own middle spans hours or days of human review, which is
+  reason enough on its own and needs no contrast to the other test's
+  poll shape. `test/catapult/generation/toy_seed_chain_live_test.exs`'s
+  own "What this proves for real" paragraph names `feature_expansion`
+  alone as the dispatch this test proves, a claim its very next
+  paragraph already supersedes even before this ticket. It states
+  instead that this test proves a full downward-cascade walk of the toy
+  raft against real GitHub Actions runs — `feature_expansion` as the
+  walk's first dispatch, `Provisioning.approve_drafts/2` approving every
+  drafted node the walk produces, and the tier set the run actually
+  reached, not a fixed one, as what a passing run demonstrates.
+
 - **A dispatch can beat provisioning itself, not only beat a release**
   (ORC-224 — `systems/delivery.md`'s companion entry states the
   mechanism and the state-machine change). ORC-216's own lifecycle
