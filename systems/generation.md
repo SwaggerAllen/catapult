@@ -101,9 +101,14 @@ and validation logic and must not fork it.
   `screen_subcomp` ever commits a `DraftCommitted` of its own. So every
   context walk reading one of these (`comparch`'s, `subcomparch`'s,
   `ui_collarch`'s, `ui_subcomparch`'s, `screen_collarch`'s and
-  `screen_subcomparch`'s own `dependency` entries, and now `comparch`'s
-  and `screen_collarch`'s own `fulfills` walks too) resolves to `[]`
-  and stays vacuously satisfied regardless of tier ordering.
+  `screen_subcomparch`'s own `dependency` entries — `impl_backend`,
+  `impl_ui` and `impl_screen` walk the identical sibling-dependency
+  entry their own `*subcomparch`/`*collarch` counterpart declares
+  (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
+  `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
+  the same emptiness reaches them too — and now `comparch`'s and
+  `screen_collarch`'s own `fulfills` walks too) resolves to `[]` and
+  stays vacuously satisfied regardless of tier ordering.
   `systems/platform_content.md`'s ORC-232 entry already found and
   recorded the `subcomp↔subcomp` instance of this as live and broken;
   this entry generalizes it to every instance the same
@@ -918,42 +923,41 @@ and validation logic and must not fork it.
   waves the suite must wait through, not how much work each wait
   costs.
 
-  **This derivation assumes the graph's intended sequencing, not the
-  early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
-  `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
+  **ORC-235 landed the sequential-per-branch reading this derivation
+  already used, and no walk in the raft costs more than this floor
+  already prices.** `comp` mints at `sysarch`'s `DraftCommitted`
+  (`CommitPath`'s own private `commit_draft/3` calls
   `Extraction.mints/4` at commit time, before `sysarch`'s own review or
-  approval), and all three of `comparch`'s walks onto it —
-  `self.parent.handle` plus the two `self.parent.dependency ->
-  comp.handle.fragments[pubapi]`/`[failure_surface]` reads onto
-  sibling comps (`comparch.yaml:26,28,29`) — land on a node already
-  `:approved` the instant `comp` exists. Those two fragment reads are
-  intra-tier: `comparch` authors the fragments it reads, so they raise
-  none of the cross-tier fragment-authorship wait the `impl_*` step
-  below does. Nothing named here requires `comparch` to wait for
-  `sysarch`'s own approval rather than just its draft, and ORC-235 is
-  the open question of whether readiness should. The rounds and waves
-  below assume the sequential reading this entry has used throughout —
-  a tier reached through a `draft:`-carrying ancestor waits for that
-  ancestor's own approval, not merely its draft, and a tier waits for
-  whichever tier authors a fragment it reads, which is not always that
-  ancestor (the `impl_*` step below is where the two part company) —
-  which is the conservative assumption for a deadline, and it is the
-  *weaker* of two tightenings ORC-235 could land: if it leaves
-  early-readiness behavior as it is, real runs dispatch earlier than
-  this floor assumes and finish inside it with room to spare; if it
-  tightens readiness to this sequential-per-branch reading, this floor
-  already costs that. It does not cost the stronger tightening
-  ORC-235 also names in scope — no parallelism between tiers at all,
-  only within one — which would serialize every `draft:`-carrying tier
-  in the raft rather than only each branch against itself, and does
-  not fit inside this number. Which of the two ORC-235 lands is that
-  ticket's question, not this entry's to guess at, but this entry does
-  not claim to already cost the stronger one. The same assumption is
-  why `non_goals`, `ref` and `vocab` — all three `draft:`-carrying,
-  each two waves — cost nothing added here: they run alongside rounds
-  one and two under the current branch structure, and that is a fact
-  about this graph's shape, not a headroom margin, so it moves if
-  ORC-235 changes what may run alongside what.
+  approval), but `comparch`'s `self.parent.handle` walk onto it no
+  longer reads that mint-time `:approved` bare: `settled?/2`
+  (`systems/engine.md`'s ORC-235 entry) resolves a join target by
+  deferring to its minting parent, so `comp` is `settled?` only once
+  `sysarch` itself is approved — exactly the wait this entry's
+  "a tier reached through a `draft:`-carrying ancestor waits for that
+  ancestor's own approval, not merely its draft" reading already
+  costs. Tracing every walk in the raft against `settled?`/`drained?`
+  finds no site where the derived graph waits on more than that:
+  `frontend_sysarch`'s new `all.comp.handle`
+  (`systems/platform_content.md`'s ORC-235 entry) reduces, via
+  `drained?(comp)`'s own recursion through `sysarch`, to the identical
+  `sysarch`-approved condition `all.sysarch.handle` already required,
+  so the front-end and back-end branches still land on the same wave
+  rather than one gating the other — the "run alongside each other"
+  claim below holds under the landed mechanism, not only the reading
+  this entry assumed before it landed. Nor is there a second, stronger
+  mechanism left to price separately: `systems/engine.md`'s own
+  ORC-235 entry rejects a declared tier sequence and derives order
+  purely from `context:` walks, so "no parallelism between tiers" is
+  exactly the per-tier, per-walk waiting `settled?`/`drained?` already
+  produce — never a blanket ordering over tiers with no read
+  relationship between them, which is what would have been needed to
+  exceed this floor. The same reasoning is why `non_goals`, `ref` and
+  `vocab` still cost nothing added here: `drained?(vocab)` now requires
+  every existing vocab entry `settled?` rather than reading an empty
+  list as vacuously satisfied, but vocab's own draft-and-review (2
+  waves) lands well before `comparch`'s walk onto `all.vocab.handle` is
+  first checked (15-plus minutes in), so the wait this fix adds is
+  already spent by the time anything asks for it.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -1065,6 +1069,26 @@ and validation logic and must not fork it.
   the walk complete while an `impl_*` draft was rendered against an
   empty `pubapi` fragment — precisely the class of failure a full walk
   exists to surface, so the wave count above prices it as sequential.
+
+  **That wait is priced, not enforced, by the mechanism as landed.**
+  `impl_backend`'s `self.parent.dependency ->
+  subcomp.handle.fragments[pubapi]` (`impl_ui`'s and `impl_screen`'s
+  own reads are the identical shape one tier over) is the same
+  `subcomp↔subcomp` `dependency` walk `subcomparch`'s own context
+  entry already is, and this entry's extraction-gate finding above
+  already covers it: no `dependency` instance is extracted regardless
+  of which tier's context declares the walk, so it resolves to `[]`
+  and is vacuously satisfied whether or not `subcomparch` has run.
+  Today `impl_backend`/`impl_ui`/`impl_screen` are actually ready the
+  same wave as their `*subcomparch`/`*collarch` sibling — once
+  `subcomp`/`ui_subcomp`/`screen_subcomp` is `settled?`, i.e. once
+  `comparch`/`ui_collarch`/`screen_collarch` is approved — not one wave
+  after it. Pricing them as sequential anyway does not undercount: it
+  charges a wait the graph does not yet enforce, which only widens this
+  floor's own margin, and it stays priced this way on purpose, since
+  closing the extraction gap would reintroduce the wait for real and a
+  floor that assumed otherwise would need re-deriving the moment it
+  does.
 
   The front end's 8 waves is the longer of the two branches and is
   what the walk actually waits on after `sysarch`'s approval. The
