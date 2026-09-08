@@ -28,7 +28,9 @@ data loads against):
 {% endfor %}
 {% endfor %}
 
-Journeys this collection consumes live state from (may be empty):
+Every journey minted so far (the full pool to choose from — cite by id
+in `<journeys>` below the ones whose live state this collection
+actually consumes; may be empty):
 {% for j in journeys %}
 - `{{ j.id }}` — **{{ j.name }}**: {{ j.state.carries }}
 {% endfor %}
@@ -53,19 +55,21 @@ Attached references:
 {% endfor %}
 
 Your job is to produce a single `<screen_collarch>` block containing
-eleven sections in a fixed order: a role-level technical specification,
+nine sections in a fixed order: a role-level technical specification,
 the collection's public surface (its routes and layout-slot contract),
 its private surface, its failure surface, what it mints as policy
-considerations, the UI collections it renders, the backend components
-it calls, the journeys it consumes, its subcomponent decomposition,
-the dependency edges between subcomponents, and attached references.
+considerations, the journeys it consumes, its subcomponent
+decomposition, the dependency edges between subcomponents, and
+attached references. Which UI collections it renders and which backend
+components it calls are `frontend_sysarch`'s own decisions (shown to
+you as input above), not this document's to redeclare.
 
 # Output format
 
 Emit exactly one `<screen_collarch>` block with these children in this
 order: `<technical-specification>` → `<public-surface>` →
 `<private-surface>` → `<failure-surface>` → `<policies>` →
-`<renders>` → `<dependencies>` → `<journeys>` (optional) →
+`<journeys>` (optional) →
 `<subcomponents>` → `<sub-dependencies>` → `<references>` (optional).
 Example (abbreviated):
 
@@ -102,13 +106,6 @@ Example (abbreviated):
       <policies>
     No collection-local policy considerations.
       </policies>
-      <renders>
-        <dep to="ui_coll_plancrd1"/>
-        <dep to="ui_coll_avatar02"/>
-      </renders>
-      <dependencies>
-        <dep to="comp_billing01"/>
-      </dependencies>
       <journeys>
         <journey ref="journey_signup01"/>
       </journeys>
@@ -142,7 +139,7 @@ Example (abbreviated):
   nothing after.
 * The children **must appear in this order**: `<technical-specification>`
   → `<public-surface>` → `<private-surface>` → `<failure-surface>` →
-  `<policies>` → `<renders>` → `<dependencies>` → `<journeys>`
+  `<policies>` → `<journeys>`
   (omit entirely when empty) → `<subcomponents>` → `<sub-dependencies>`
   → `<references>` (omit entirely when nothing is attached).
 
@@ -168,23 +165,28 @@ Example (abbreviated):
   affordance with no path to a call or a route is a coverage gap the
   reviewer will flag.
 
-## Renders, dependencies, journeys
+## Rendering and calling backend components
 
-* `<renders>` lists every UI collection this screen collection's
-  screens actually render, each `<dep to="ui_coll_XXXX"/>` with a real
-  id from the list above. Ground every entry in the technical
-  specification or a subcomponent's operations — an ungrounded
-  `<renders>` entry is spurious.
-* `<dependencies>` lists every backend component this collection calls
-  directly, each `<dep to="comp_XXXX"/>`. **This is the only tier that
-  may call a backend component** — never delegate a call down into a
-  UI collection's props; the UI collection receives the *result* of
-  the call as an assign.
-* `<journeys>` is optional — `<journey ref="..."/>` for each journey
-  whose live state this collection actually reads or writes (a draft's
-  progress, a cart). Omit or leave empty when this collection consumes
-  no journey state; most screen collections outside a multi-step flow
-  will.
+* **Which UI collections this collection renders and which backend
+  components it calls are `frontend_sysarch`'s own decisions**, not
+  this document's — that pass mints every collection and sees the
+  whole backend surface at once, the one moment those cross-family
+  relationships can be named correctly. You read both back as input
+  (the UI-collections and backend-components lists above) and ground
+  `<technical-specification>`/`<public-surface>` in them; you don't
+  redeclare either structurally.
+* **This is still the only tier whose design may call a backend
+  component** — never delegate a call down into a UI collection's
+  props; the UI collection receives the *result* of the call as an
+  assign.
+
+## Journeys
+
+* `<journeys>` is optional — `<journey ref="..."/>` for each journey,
+  from the full pool above, whose live state this collection actually
+  reads or writes (a draft's progress, a cart). Omit or leave empty
+  when this collection consumes no journey state; most screen
+  collections outside a multi-step flow will.
 
 ## Subcomponents
 
@@ -229,12 +231,11 @@ Example (abbreviated):
   feedback names them — a route rename breaks navigation edges
   declared upstream in `screens`.
 * **"Rename X to Y"** — edit `<name>` only. **"Add a screen to this
-  collection"** — that is `frontend_sysarch`'s own grouping decision,
-  not this tier's; push back rather than absorbing a screen not
-  already hosted here. **"Add / drop a `<renders>` or `<dependencies>`
-  entry"** — edit only that block, and ground the change in
-  `<technical-specification>`. **"Re-articulate a fragment section"**
-  — edit only that section.
+  collection"**, **"add / drop a rendered UI collection"**, **"add /
+  drop a backend call"** — all three are `frontend_sysarch`'s own
+  decisions, not this tier's; push back rather than absorbing them
+  here. **"Add / drop a `<journeys>` entry"** — edit only that block.
+  **"Re-articulate a fragment section"** — edit only that section.
 * Don't reshuffle `<journeys>` or subcomponent decomposition the
   feedback isn't pointed at.
 {% endif %}

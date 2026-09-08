@@ -43,6 +43,14 @@ technical framing to design UI collections against; one per project):
 {{ sa.techspec }}
 {% endfor %}
 
+Backend components available for `<uses-shapes>`/`<calls>` (name and
+purpose only — this is a grouping-level decision, not the component's
+full public surface; a UI collection may only read a backend
+component's shapes, never call it, a screen collection may call it):
+{% for c in comp %}
+- **{{ c.name }}** (`{{ c.id }}`): {{ c.purpose }}
+{% endfor %}
+
 # Output format
 
 Output two top-level blocks in this order: `<introduction>` and
@@ -76,6 +84,9 @@ these children in this order: `<ui-collections>`, `<ui-dependencies>`,
           <name>PlanCard</name>
           <purpose>Renders a subscription plan's price, features, and
           selection state, sourced from Billing's plan shapes.</purpose>
+          <uses-shapes>
+            <comp ref="comp_billing01"/>
+          </uses-shapes>
         </collection>
       </ui-collections>
       <ui-dependencies>
@@ -104,6 +115,12 @@ these children in this order: `<ui-collections>`, `<ui-dependencies>`,
             <screen ref="screen_paydetail2"/>
             <screen ref="screen_subconfirm3"/>
           </screens>
+          <renders>
+            <dep to="plan_card"/>
+          </renders>
+          <calls>
+            <comp ref="comp_billing01"/>
+          </calls>
         </collection>
       </screen-collections>
       <screen-dependencies>
@@ -163,6 +180,13 @@ these children in this order: `<ui-collections>`, `<ui-dependencies>`,
 * `<name>`/`<purpose>` follow the same handle discipline every
   architecture tier in this chain uses: project-distinctive, not
   generic ("Avatar" naming what it actually renders, not "UserWidget").
+* **`<uses-shapes>`** (optional, inside a `<ui-collections>/<collection>`)
+  names the backend components, from the list above, whose **types and
+  handle shapes** this collection's props are built from — never a call
+  target (v5 §5.4: a UI collection may read a backend shape, never
+  invoke it). Each `<comp ref="comp_XXXX"/>` uses a real id from the
+  backend-components list. Omit or leave empty when a collection is
+  built from no backend shape.
 
 ## Dependencies
 
@@ -174,12 +198,35 @@ these children in this order: `<ui-collections>`, `<ui-dependencies>`,
 * **The layering rule is absolute: no `<screen-dependencies>` entry may
   point the other direction, and no cross-family entry exists in
   either block.** Screen collections may depend on any UI collection —
-  that is a separate mechanism (`renders`, articulated later, per
-  screen collection) — not a same-family dependency here. This block
-  is same-tier only: UI collections depending on UI collections,
-  screen collections depending on screen collections.
+  that is a separate mechanism (`<renders>`, inside a
+  `<screen-collections>/<collection>`, below) — not a same-family
+  dependency here. This block is same-tier only: UI collections
+  depending on UI collections, screen collections depending on screen
+  collections.
 * Both graphs must be acyclic; a cycle is a structural error fed back
   on retry with the cycle path named.
+
+## A screen collection's own backend/UI dependencies
+
+* **`<renders>`** (optional, inside a `<screen-collections>/<collection>`)
+  names every UI collection, by its `<ui-collections>` alias, that this
+  screen collection's screens actually render — `<dep to="avatar"/>`.
+  Ground every entry in what the hosted screens actually display; an
+  ungrounded entry is spurious.
+* **`<calls>`** (optional, inside a `<screen-collections>/<collection>`)
+  names every backend component, from the list above, that this screen
+  collection calls directly — `<comp ref="comp_XXXX"/>`. **This is the
+  only place a backend component may be named as a call target** — a
+  UI collection never calls the backend (v5 §5.4); a screen collection
+  hands the call's result down to the UI collections it renders as an
+  assign.
+* Both are decided here, at grouping time, because this is the one
+  pass that sees every minted collection and the full backend surface
+  at once — the identical reasoning `<ui-dependencies>`/
+  `<screen-dependencies>` above already state for the same-family case.
+  `ui_collarch`/`screen_collarch` read these back (`uses_shapes`/
+  `calls`/`renders` in their own context) to inform their own
+  articulation; they do not re-declare them.
 
 ## Meta-rules
 

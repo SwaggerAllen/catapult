@@ -14,6 +14,7 @@ context:
   - all.journey.handle
   - all.screen.handle
   - all.sysarch.handle
+  - all.comp.handle
 delivery:
   phase: critique
   agent_step: critique

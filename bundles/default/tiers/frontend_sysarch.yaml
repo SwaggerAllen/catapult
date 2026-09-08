@@ -11,7 +11,15 @@
 # between them — `all.<tier>` is the mechanism this loader ships for a
 # needed read with no walkable relationship (dsl-syntax.md §7.2), the
 # same no-owning-parent case `vocab`/`ref`/project-global `policy`
-# already use.
+# already use. `all.comp.handle` (ORC-235) is the same mechanism for
+# backend components: naming which `comp` a UI or screen collection
+# depends on (`uses-shapes`/`calls`, below) needs backend components in
+# view, which `all.sysarch.handle`'s own handle (`[id, intro,
+# techspec]`) does not supply. The bare handle is enough — `comp`'s
+# handle fields are set at mint time from sysarch's own decomposition
+# and already say which component to name; the pubapi text itself is a
+# separate, currently-unextracted fragment read
+# (`systems/generation.md`'s ORC-235 entry).
 tier: frontend_sysarch
 scope: singleton
 identity: id
@@ -31,6 +39,7 @@ context:
   - all.journey.handle
   - all.screen.handle
   - all.sysarch.handle
+  - all.comp.handle
 delivery:
   phase: generation
   agent_step: design

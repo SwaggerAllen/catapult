@@ -4,15 +4,22 @@
   the same way ui_collarch.xsd does, with the backend-specific
   machinery dropped (no `<permissions>`/`<enforcement>`, no `<owns>`
   resp/feat claims — a screen collection fulfills no resp either, its
-  `fulfills` edge targets `screen`, edges/fulfills.yaml). `<renders>`
-  carries the `renders` edge's UI-collection targets; `<dependencies>`
-  carries the `calls` edge's backend-comp targets — screen collections
-  own all `calls` edges (v5 §5.4); `<journeys>` carries the
-  `reference` edge's `screen_coll -> journey` instance ("consumes
-  journey state"). Which screens this collection hosts is not declared
-  here — that is `frontend_sysarch`'s own `fulfills` instance,
-  declared at mint time (schemas/frontend_sysarch.xsd), since the pass
-  that groups screens into collections is the one that names them.
+  `fulfills` edge targets `screen`, edges/fulfills.yaml). No
+  `<renders>`/`<dependencies>` elements: those carried the `renders`
+  edge's UI-collection targets and the `calls` edge's backend-comp
+  targets respectively — screen collections own all `calls` edges (v5
+  §5.4) — and both now declare in `frontend_sysarch`'s own draft
+  instead, since the pass that mints both collection families is the
+  one naming a screen collection's cross-family dependencies (ORC-235,
+  systems/platform_content.md); this tier still *reads* both
+  (context:, below), it no longer writes them. `<journeys>` still
+  carries the `reference` edge's `screen_coll -> journey` instance
+  ("consumes journey state") — a decision this tier's own pass still
+  makes, unrelocated (same entry). Which screens this collection hosts
+  is not declared here either — that is `frontend_sysarch`'s own
+  `fulfills` instance, declared at mint time
+  (schemas/frontend_sysarch.xsd), since the pass that groups screens
+  into collections is the one that names them.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
@@ -25,16 +32,6 @@
   <xs:complexType name="Operations">
     <xs:sequence>
       <xs:element name="operation" type="xs:string" minOccurs="3" maxOccurs="6"/>
-    </xs:sequence>
-  </xs:complexType>
-
-  <xs:complexType name="Targets">
-    <xs:sequence>
-      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="to" type="xs:string" use="required"/>
-        </xs:complexType>
-      </xs:element>
     </xs:sequence>
   </xs:complexType>
 
@@ -120,8 +117,6 @@
         <xs:element name="private-surface" type="xs:string"/>
         <xs:element name="failure-surface" type="xs:string"/>
         <xs:element name="policies" type="xs:string"/>
-        <xs:element name="renders" type="Targets"/>
-        <xs:element name="dependencies" type="Targets"/>
         <xs:element name="journeys" type="JourneyRefs" minOccurs="0"/>
         <xs:element name="subcomponents" type="Subcomponents"/>
         <xs:element name="sub-dependencies" type="SubDependencies"/>
