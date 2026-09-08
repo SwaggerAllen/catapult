@@ -167,6 +167,25 @@ path already is (§13 checks cross-references, not path semantics);
 naming the convention here is so two bundle authors, or one bundle
 read twice, agree on what a join-target tier's `fields:` values mean.
 
+**`mint.parent.<name>` is that second, inherited case, spelled rather
+than left for a reader to infer from context** (ORC-236). It never
+navigates the minting instance element: `<name>` must instead name one
+of the *committing* tier's own `fields:` entries or one of its own
+`produces:` fragment kinds, and the value copied onto the newly minted
+node is whichever of those two the committing tier's own
+`DraftCommitted` already computed for itself at that same commit — a
+comp's `mint.parent.project_techspec` names `sysarch`'s own `techspec`
+field (`sysarch.yaml`'s `fields: techspec: draft.techspec`); a
+subcomp's `mint.parent.parent_techspec` names the `techspec` fragment
+`comparch.yaml`'s own `produces:` writes onto its `self.parent` (comp)
+in the identical commit that fans subcomp out. Nothing is read from the
+node the fragment lands on (comp is not subcomp's own minting parent;
+comparch is) and nothing is read from the store — both sources are
+already local values the committing tier's own extraction pass holds
+before `mints:` is even built, so `mint.parent.<name>` costs no new
+navigation, only a second place already-computed values are read from.
+A bare `mint.<name>` stays the row-local form above, unchanged.
+
 **`argument` is a reserved `fields:` name on a flow's entry tier — the
 human-readable case for the work, v5 §7.2 — read by the work surface,
 never enforced at load time** (ORC-114). `docs/ui-spec.md` §3.1's
@@ -207,6 +226,17 @@ client family's own tier chain instead (v5 §5.1, §5.6).
   visited scaffold node, closing the gap a `per(X)` scope can't (a
   cascade visits nodes across several different tiers, and `per(X)`
   names exactly one).
+- **`authored`** — a flat, project-scoped pool of nodes created
+  directly by a write path outside the chain, each identified by the
+  `id` that write path assigns, never minted by a fanout edge and
+  bound to no parent tier (ORC-236). The one shape none of the three
+  above can express: `singleton` is one node, `per(X)`/`child_of(X)`
+  both need a tier whose own instances drive the count, and a ref —
+  the sole tier at this scope today — has neither a fixed count nor a
+  minting parent, only an indefinite stream of write-path creations
+  (`docs/v5-design-decisions.md` §4.5). Legal only paired with
+  `generator: authored` (§3.2); the two exist for exactly one tier
+  shape and neither makes sense without the other.
 
 **Delta from v4: the phased variants (`per(X) × phase`) are removed**
 with the phase machinery (v5 §6). There is no `phase` dimension.
@@ -233,7 +263,19 @@ review, no LLM call — the same "extracted, not authored twice" shape
 `external` uses for registry content, but sourced from the project's
 own frozen raft instead of the component registry, since there is no
 registry publishing versions of a user's own design system —
-`systems/core_dsl.md`'s entry).
+`systems/core_dsl.md`'s entry), and **`authored`** (content is written
+directly by a write path outside the chain — no `source:`, no intake
+pin, no fixed content at all until the write happens; no `draft:`, no
+`prompt:`, no review, the identical "nothing here for an LLM to author
+or a human to gate a second time" shape `supplied` has, for a different
+reason: `supplied`'s content is already final at intake, `authored`'s
+content is final at the moment its own write lands, and neither has a
+draft anywhere in between — ORC-236, ref's new shape,
+`docs/v5-design-decisions.md` §4.5). `authored` differs from `supplied`
+precisely where `design_system` and `ref` differ: one pinned document,
+frozen at intake, versus an indefinite, ongoing stream of write-path
+creations with no intake tie at all — sourced differently, gated
+differently, and legal only paired with `scope: authored` (§3.1).
 
 ### 3.3 Review tiers — `reviews: <tier>`
 
@@ -412,6 +454,73 @@ walks). Declared in `bundle.yaml`'s closed vocabulary; written via
 `...fragments[<kind>]` walk projections. Ownership and authorship
 are projection state.
 
+### 4.2 Locating a source or target that isn't `self` — `source_ref:`/`target_ref:`
+
+An instance's `declared_in` names where the *committing* tier's draft
+carries the relationship; every example so far has that tier naming
+itself as `source` (or, for a fanout, as the tier whose draft names the
+`target` it mints). Not every instance is that shape (ORC-236): a
+`fulfills` instance can name `comp` as `source` while the relationship
+is declared in `sysarch`'s own draft, because `comp` never drafts under
+its own name at all (§3's join-target tiers) — the fanout that mints it
+already reads the exact element the relationship is declared beside.
+Two optional instance-level fields, `source_ref:`/`target_ref:`, name
+how to locate whichever endpoint isn't the committing tier itself, from
+a closed vocabulary:
+
+- **`self`** — the endpoint is the committing tier's own node. The
+  default for `source_ref:` when omitted, unchanged from every
+  `<arch> → ref` instance today.
+- **`self.parent`** — the endpoint is the committing node's own
+  `per(X)`/`child_of(X)` parent, the identical vocabulary `produces:`
+  already uses for a fragment's `owner:` (§4). Instance: `fulfills`'s
+  `screen_coll → screen` counterpart in `reference.yaml`,
+  `screen_collarch.draft.journeys.journey[].@ref`'s `screen_coll` end —
+  `screen_collarch` is `per(screen_coll)`, so its own parent is exactly
+  the source this instance needs, with no path to navigate for it.
+- **`fanout(<edge>)`** — the endpoint is the node minted by `<edge>`'s
+  own fanout instance whose `declared_in` is a path-prefix of this
+  instance's own `declared_in`. Instance: `fulfills`'s `comp → resp`,
+  `declared_in: sysarch.draft.components.component[].responsibilities
+  .resp[].@id` — `decomposition`'s own `sysarch → comp` instance has
+  `declared_in: sysarch.draft.components.component[]`, a strict prefix,
+  so `source_ref: fanout(decomposition)` names `comp` as "whichever
+  node this same `<component>` element already minted," read off the
+  identical element the trailing path segment is about to navigate
+  further from — no second walk, the fanout's own instance element *is*
+  the anchor.
+- **an explicit path** (`@<attr>` or a dotted element path, the same
+  shape a bare `declared_in` already uses) — the endpoint's id is read
+  off that path, relative to the element the *other* endpoint's locator
+  resolved to, and looked up by identity the same way a `reference`
+  edge's trailing `@attr` already is. This is the only form that needs
+  a bundle-declared path rather than resolving structurally, and it is
+  required whenever neither `self`, `self.parent` nor a `fanout(<edge>)`
+  match — every `dependency` instance (`comp ↔ comp`, `subcomp ↔
+  subcomp`, and the rest): `sysarch.draft.dependencies.dep[]` shares no
+  prefix with `decomposition`'s own `comp` fanout locus and neither
+  endpoint is `sysarch`'s own parent (`sysarch` has none), so both
+  `source_ref: "@from"` and `target_ref: "@to"` must be declared
+  explicitly, naming the two attributes one `<dep>` element carries.
+
+`target_ref:` defaults to the trailing `.@attr` segment of
+`declared_in` when the instance has one and `source_ref:` is `self` —
+today's implicit shape, unchanged. An instance whose `source`/`target`
+isn't `self`, doesn't structurally match `self.parent` or a
+`fanout(<edge>)` prefix, and declares no explicit locator is a load
+error naming the instance and the unresolved side (§13) — a silent
+`[]` is no longer a legal outcome of an edge the bundle declared with a
+non-zero `cardinality` minimum.
+
+`type: policy_application`'s two instances are not this mechanism.
+Their `declared_in` (`policy.structural`, `policy.required`) names a
+marker on the *minting* instance element itself, not a location in a
+committed draft body — `fields:`'s and `mint.parent.<name>`'s own
+engine-side resolution (§3) is the precedent, not a `source_ref:`
+locator: both are read at the same moment and off the same element a
+fanout mint already walks, never extracted from a committed draft
+under `references/5`'s own mechanism at all.
+
 ## 6. Flows
 
 ```yaml
@@ -435,10 +544,21 @@ legal (v5 §7.11).
 
 Anatomy: `self`, `self.parent`,
 `.<edge_name>` follows a declared edge, `-> <tier>.<projection>`
-types the target and names what to read — `.handle`,
-`.handle.fragments[<kind>]`, `.synthesis`. Cardinality-many walks
+types the target and names what to read — `.handle` or
+`.handle.fragments[<kind>]`. Cardinality-many walks
 yield collections; readiness requires **all** targets ready.
 Context is the only readiness signal.
+
+**`.synthesis` retires from the projection vocabulary** (ORC-236): no
+tier in `bundles/default` ever declared a walk targeting it, and
+building a projection with no consumer to design it against would be
+exactly the half-finished implementation this grammar otherwise
+avoids. `-> <tier>.synthesis` is a load error now, the same shape any
+other retired form takes (§11's `extends:`). This is a projection, the
+target of a `-> <tier>.<kind>` walk; the *edge* type `type: synthesis`
+(§4) is a different vocabulary word for a different thing — an edge an
+engine-computed cascade-planning correspondence rides on — and is
+unaffected.
 
 ### 7.1 Hop chains and reversal
 
@@ -1201,6 +1321,39 @@ Added with `declared_in`/schema cross-validation (ORC-232,
 - attribute segments (a trailing `.@attr`) are checked the same way as
   element segments, off the same schema walk — never modeled as
   elements-only with attributes left unchecked.
+
+Added with `source_ref:`/`target_ref:`, `mint.parent.<name>` and the
+`authored` scope/generator pair (ORC-236, `systems/core_dsl.md`'s
+ORC-236 entry):
+
+- an edge instance whose `source` or `target` differs from the
+  committing tier's own name, and does not structurally resolve as
+  `self.parent` or `fanout(<edge>)` (§4.2), must declare that side's
+  locator explicitly — `source_ref:`/`target_ref:` left implicit where
+  neither applies is a load error naming the instance and the
+  unresolved side, not a silently-empty walk;
+- a `fanout(<edge>)` locator names an edge in the loaded union whose
+  own `declared_in` is a path-prefix of the citing instance's
+  `declared_in` — an unknown edge name, or one whose `declared_in`
+  isn't a prefix, is a load error naming both instances;
+- an explicit `source_ref:`/`target_ref:` path gets the identical
+  declared_in/schema cross-validation the ORC-232 block above runs,
+  against the schema of whichever tier's draft it resolves against;
+- a `mint.parent.<name>` field source's `<name>` must name one of the
+  committing tier's own `fields:` entries or one of its own `produces:`
+  fragment kinds — the same cross-reference discipline a context walk's
+  target tier already gets, applied to this second, engine-side-
+  resolved source form (§3);
+- `scope: authored` and `generator: authored` (§3.1, §3.2) are legal
+  only paired with each other — a tier declaring one without the other
+  is a load error naming the mismatch, since neither shape exists on
+  its own;
+- an `all.<tier>` walk (§7.2) may not target an `authored`-scope tier —
+  an indefinite, write-path-created pool has no point at which "no
+  further node will ever appear" becomes true, so there is no answer
+  §7.2's own readiness reading could give; a load error naming the walk
+  and the tier, rather than a readiness check with no correct result to
+  return.
 
 ## 14. Deliberately absent
 

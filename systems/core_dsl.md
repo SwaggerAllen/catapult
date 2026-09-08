@@ -1014,6 +1014,99 @@ profiles.
   off the same schema walk rather than modeling elements and leaving
   attributes unchecked.
 
+- **A third-party-declared edge instance locates its non-`self`
+  endpoint one of three ways, and only one of the three needs bundle
+  content to say so** (ORC-236, design pass; `dsl-syntax.md` §4.2,
+  §13). `Extraction`'s own moduledoc named the gap and declined to
+  guess at it: an instance whose `source` (or `target`) differs from
+  the tier committing the draft that declares it needs "per-edge-type
+  knowledge of that instance element's own shape... that the generic
+  navigator cannot safely infer." Tracing every instance this ticket's
+  own audit named — six `reference`/`fulfills` instances, seven
+  `dependency` instances — finds that knowledge is inferable structurally
+  in five of the six `reference`/`fulfills` cases and never for
+  `dependency`, which is why the mechanism is three locator kinds, not
+  one: `self` (the committing tier, unchanged), `self.parent` (the
+  committing node's own `per(X)`/`child_of(X)` parent — reusing
+  `produces:`'s existing owner vocabulary rather than inventing a
+  second one, `screen_coll → screen`'s own instance), `fanout(<edge>)`
+  (the node minted by another edge's fanout instance whose own
+  `declared_in` prefixes this instance's — `comp → resp`'s own
+  instance, where `decomposition`'s `sysarch → comp` locus
+  *is* the element `fulfills`'s own path continues past), and an
+  explicit path (`@<attr>` or a dotted element path) for the residual
+  case neither of the first three can resolve: `dependency`'s seven
+  instances name two peer tiers off one element
+  (`sysarch.draft.dependencies.dep[]`, and the rest) with no fanout
+  locus and no `self.parent` relationship in reach, so both ends need
+  a bundle-declared attribute name. **The loader does not attempt to
+  infer the fourth case** — a `source_ref:`/`target_ref:` left
+  implicit where none of `self`/`self.parent`/`fanout(<edge>)`
+  structurally match is a load error, not a guess, for the identical
+  reason `Extraction`'s original moduledoc gave for declining to guess
+  in the first place: a wrong inference here fails silently (an empty
+  walk that reads as "nothing to report" rather than "the bundle is
+  broken"), which is worse than refusing to load.
+- **`type: policy_application` is not this mechanism, and gains none of
+  it.** Its two instances' `declared_in` (`policy.structural`,
+  `policy.required`) names a marker on the minting instance element
+  itself, not a location in a *committed* draft body — there is no
+  `references/5`-style extraction to locate a non-`self` endpoint for,
+  because there is no second draft to read. It resolves the same way
+  `mint.<name>`/`mint.parent.<name>` already do: engine-side, at the
+  same moment and off the same element a fanout mint already walks.
+  Recorded here because ORC-235's own entry (`systems/generation.md`)
+  named this as one of "two separate mechanisms, not one" the
+  follow-on ticket had to build — this bullet and the one above are
+  that split, kept apart in the grammar the same way they stay apart
+  in the extractor.
+- **`mint.parent.<name>` names the inherited half of a join-target
+  tier's `mint.<name>` field source, spelled rather than left
+  implicit** (ORC-236, design pass; `dsl-syntax.md` §3). Checked
+  against real bundle content rather than assumed: `comp`'s
+  `project_techspec`/`project_policies_summary` and every `parent_*`
+  field on `subcomp`/`ui_subcomp`/`screen_subcomp` are not row-local to
+  a fanout instance element at all — `subcomp`'s `parent_techspec`
+  names the same `techspec` fragment `comparch.yaml`'s own `produces:`
+  writes onto its `self.parent` (comp), computed in the identical
+  commit that fans subcomp out. Both `fields:` and `produces:` are
+  already local values `Extraction`'s own commit-time pass holds before
+  `mints:` is built, so reading one of them by name at mint time adds
+  no navigation the extractor doesn't already do — only a second place
+  to read an already-computed value from, named so a bundle author (or
+  a loader) can tell "read off the instance element" apart from "copy
+  what this same commit already wrote about itself" without guessing
+  from the field name alone.
+- **`design_system`'s `generator: supplied` mint is a scaffold-time
+  write, not a swept dispatch.** `core_dsl.md`'s own ORC-110 entry
+  already settled the tier's shape (mints at most one, directly from
+  the pinned raft artifact, no fanout); what it left open is *when*
+  that mint happens, since a `supplied` tier has no `context:` to gate
+  readiness and no `draft:` for the sweeper's own `dispatchable?/1` to
+  match. It happens once, at the same write that pins the raft (v5
+  §1.1's freeze) — the engine gains one new write path alongside
+  `DraftCommitted`'s own mint application, for a generator kind whose
+  content is already final the moment the tier becomes reachable,
+  never revisited by a later sweep tick. `design_system` was never
+  counted in `systems/generation.md`'s own dispatch/fixture-coverage
+  totals (it has no `draft:` for `Sweeper.dispatchable?/1` to match,
+  same as every join-target tier), so this entry changes no count
+  there — only `ref`'s retirement from the swept set does
+  (`systems/generation.md`'s own ORC-236 entry).
+- **`.synthesis` retires from the context-walk projection vocabulary**
+  (ORC-236, design pass; `dsl-syntax.md` §7). No tier in
+  `bundles/default` ever declared a walk targeting it, and
+  `ContextAssembly.render_node/2` never implemented it either — parsed,
+  documented, never consumed on either side. Building it now would be
+  designing a projection against no consumer; deleting it is the
+  smaller, correct move, and it costs nothing to ship-fix since nothing
+  in `bundles/default` regresses. `type: synthesis`, the edge type a
+  `cascade_visit`-scoped planning tier's `plan_target`-style edges
+  declare, is a different vocabulary word for a different thing and
+  is unaffected — checked, not assumed: `refactor_plan.yaml`,
+  `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
+  all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

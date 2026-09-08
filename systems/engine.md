@@ -411,19 +411,30 @@ them.
     that zero is final the instant the project exists, not
     provisional on anything the chain does later;
   - `singleton` with a `generator: llm` draft dispatched through the
-    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`,
-    `ref` — all four `generator: llm` with no `per(X)`/`child_of(X)`
-    parent, `ref` included: `Sweeper.dispatchable?/1` matches it on its
+    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`
+    — three, not four: `ref` moved off this bucket at ORC-236, below,
+    once its own `scope: singleton` was found in tension with `id`
+    identity over a literal singleton and corrected to `scope: authored`
+    — `Sweeper.dispatchable?/1` matches each of the three on its
     `draft:`/`generator: "llm"` pair exactly like any other
     chain-dispatched tier, and the engine's `{:singleton}` scope holds
     exactly one row per project per tier (`candidates/3`'s
     `scope_key: %{}`, the `unique_index` on `(project_id, tier,
-    scope_key)`) — the recorded shape for refs, v5 §4.5's singleton
-    *pool* with `id` identity, is in tension with that machinery, but
-    resolving the tension is ORC-236's, and `ref` falls in this bucket
-    by what it declares today): drained once its one node exists and
+    scope_key)`)): drained once its one node exists and
     is `settled?` — never vacuously, because such a tier's count is
     exactly one once the chain reaches it, never legitimately zero;
+  - `authored` (`ref` is `bundles/default`'s only instance, ORC-236,
+    below): never drained. An indefinite, write-path-created pool
+    cannot tell "no more will ever be authored" from "none exist yet"
+    the way every branch above can — there is no upstream tier whose
+    own exhaustion would settle the question, and no chain event marks
+    the pool complete. Rather than leave that recursion hang the first
+    time anything asks, `dsl-syntax.md` §13 refuses an `all.<tier>`
+    walk targeting an `authored`-scope tier at load time; nothing in
+    `bundles/default` names `all.ref.*` today (every `ref` read is a
+    named `reference`/`fulfills` citation, resolved by id, never a
+    population walk), so the refusal costs no shipped content and this
+    branch of `drained?/1` is never actually called;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
@@ -520,10 +531,120 @@ them.
   `uses_shapes`/`calls` resolve to `[]` regardless once relocated,
   because relocating a `dependency` edge's declaration does not change
   whether its `source` tier can ever commit it (`systems/generation.md`'s
-  ORC-235 entry). Two further tickets stand between here and the
-  ticket's own stated purpose — a same-tier `.fragments[kind]`
-  provenance carve-out in `settled?`, and the source-identity extraction
-  gap.
+  ORC-235 entry) — **closed at ORC-236, below**: `source_ref:`/
+  `target_ref:` extracts every `dependency` instance regardless of which
+  tier `declared_in` names, `uses_shapes`/`calls` included, so this walk
+  no longer resolves to `[]` for want of extraction. One gap stands
+  between here and the ticket's own stated purpose now, not two — a
+  same-tier `.fragments[kind]` provenance carve-out in `settled?`,
+  unclosed by ORC-236 and not attempted there (its own scope is
+  extraction and mint-time values, not readiness's mint-ancestry-vs-
+  fragment-authorship distinction).
+
+- **A minted node's `fields` are written at mint time, copied from the
+  mint entry unchanged — the identical "copy, never derive" shape
+  ORC-117 already established for `status`** (ORC-236, design pass).
+  `apply_mint/2` already threads `mint.status` from
+  `Extraction.mints/4`'s own entry onto `Store.mint_node/1` without the
+  reducer deriving anything; the mint entry now also carries `fields:`
+  — every `mint.<name>`/`mint.parent.<name>` value `Extraction.mints/4`
+  resolved at the command edge (`docs/dsl-syntax.md` §3,
+  `systems/core_dsl.md`'s ORC-236 entry) — and `apply_mint/2` copies it
+  onto the same call, alongside `status`. No new reducer branch and no
+  new purity-floor exposure: the values are already computed,
+  purity-floor-clean, before the event is dispatched, the same
+  guarantee `mint.status` already relies on.
+- **`settled?/2`'s `generator: supplied` clause widens to
+  `generator: authored`, unconditionally, for the identical reason**
+  (ORC-236, design pass, extending ORC-235's own three-way match,
+  above). A `supplied` node is settled the moment it exists because
+  nothing upstream in the generation chain produced it and could still
+  revise it; an `authored` node (`ref`, the tier `dsl-syntax.md` §3.1's
+  new scope kind exists for) has the identical property for a different
+  reason — its content is written once, by a write path outside the
+  chain, with no draft anywhere in its history to be unapproved. Both
+  clauses now read "settled unconditionally, the moment the node
+  exists," keyed on the tier's own generator declaration rather than on
+  `parent_node_id == nil`, unchanged from ORC-235's own reasoning for
+  keeping the check declaration-keyed. This is what makes a
+  `self.reference -> ref.handle` walk (`docs/dsl-syntax.md` §3.3's own
+  worked example) resolvable at all: before this entry, a `ref` node
+  minted no differently from any other `singleton`/`generator: llm`
+  tier, so its own draft→review→approve path gated it exactly like
+  `sysarch`'s; after ORC-236's `scope`/`generator` correction (above),
+  there is no draft to gate on, and `settled?` has to say so rather
+  than wait on an approval that will never come.
+- **Cardinality and instance-level `graph_constraint` are evaluated
+  once the edge's own bound side is drained, never eagerly, and a
+  violation is a reported, non-blocking finding — never a retried draft
+  and never a blocking gate** (ORC-236, design pass). `dsl-syntax.md`
+  §13's own opening line already places this at "projection time," not
+  load time; what it left unstated is which moment of projection time,
+  and the ticket's own warning is exactly the failure a naive answer
+  ("check on every `DraftCommitted`") produces: `fulfills`'s
+  `source: {min: 1}` ("every comp fulfills ≥1 resp") reads as violated
+  on every comp that hasn't drafted its `fulfills` edge yet, which is
+  every comp for some nonzero span of the chain's own run — a check
+  that fires on every intermediate state is not a check, it is noise
+  indistinguishable from a real defect. The fix reuses the mechanism
+  this system already built to tell "not yet" from "never": a `{min,
+  max}` bound on one side of an edge instance is evaluated only once
+  that side's own tier is `drained?/1` (above) — the identical
+  "has everything that could ever exist already committed and settled"
+  question `all.<tier>` readiness already answers, asked here of a
+  cardinality bound instead of a context walk. `max` bounds need no
+  such gate (a count that has already exceeded a ceiling stays
+  exceeded; checking early costs nothing) and are evaluated as soon as
+  they can be violated, `min` bounds and `graph_constraint: acyclic`/
+  `no_self_loop`/`tree` (both real properties of the whole instance
+  graph, not of a single edge as it's written) wait on drainage the
+  same way.
+
+  **Why a reported finding rather than a blocking gate or a retried
+  draft.** Grammar validation retries the agent that wrote the failing
+  body — there is exactly one draft and one author to hand a typed
+  error back to (`systems/generation.md`'s "validation failure is
+  feedback, not error"). A cardinality or graph-constraint violation
+  has neither: the defect is a property of the graph as a whole, most
+  often spanning several already-committed, individually-valid drafts
+  (a `{min: 1}` violated because a *different* tier's draft failed to
+  reference this one, or never existed at all) — there is no single
+  agent whose retry could fix it and no single draft to decline.
+  Surfaced as a finding a human resolves, the same shape a policy
+  enforcement gap already takes (`docs/v5-design-decisions.md` §4.5's
+  "enforcement gaps are plane-filed tickets, instantly visible") rather
+  than as a new blocking state this system's readiness graph would have
+  to reason about. This system gains no new node status and no new gate
+  for it — the finding's own surface (a ticket, a dashboard entry, or
+  reuse of an existing structured-signal channel) is generation's/
+  delivery's to build against this timing rule, not a new engine
+  primitive.
+- **A declared edge now resolves to the node it names, closing the
+  chain this ticket's own audit found empty — from two independent
+  directions, not one fix gating the other.** Every `<arch> → ref`
+  citation was already extracted before this ticket (`systems/generation
+  .md`'s ORC-235 entry: nine instances satisfy the source-identity gate
+  today); what made every one of them resolve to nothing was `ref`'s own
+  broken `scope_key` (above) — `ref`'s `scope: authored` correction
+  alone is what makes `resolve_target/3`'s `Store.get_node_by_scope
+  (project_id, target_tier, %{"id" => value})` lookup succeed for all
+  nine, since a `ref` node's `scope_key` is now `%{"id" => <the id the
+  write path assigned>}`, the exact shape a `<reference target="...">`
+  citation already looks up, rather than the single flat `%{}` every
+  `ref` node shared under the superseded `scope: singleton` reading.
+  Separately, `source_ref:`/`target_ref:` extraction
+  (`systems/core_dsl.md`'s ORC-236 entry) makes the thirteen `dependency`
+  and non-`ref` `reference`/`fulfills` instances extractable for the
+  first time, and every one of *their* targets (`comp`, `resp`,
+  `journey`, `screen`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll`,
+  `screen_subcomp`, `design_system`) already carries a correctly
+  id-shaped `scope_key` from its own ordinary fanout mint — so those
+  thirteen resolve the moment they're extracted, with no dependency on
+  the `ref` fix at all. No new engine mechanism either way —
+  `resolve_target/3`, `Extraction.references/5` and
+  `apply_declared_edge/2` are unchanged; what changes is that the values
+  reaching them are finally shaped, and finally present, the way those
+  functions already expected.
 
 - **A fanned-out child cannot leave its parent's workflow-axis
   sub-array, and this is a consequence of readiness already gating,
