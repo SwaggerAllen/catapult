@@ -1015,29 +1015,32 @@ profiles.
   attributes unchecked.
 
 - **A third-party-declared edge instance locates its non-`self`
-  endpoint one of four ways, and only one of the four needs bundle
+  endpoint one of five ways, and only one of the five needs bundle
   content to say so** (ORC-236, design pass; `dsl-syntax.md` §4.2,
   §13). `Extraction`'s own moduledoc named the gap and declined to
   guess at it: an instance whose `source` (or `target`) differs from
   the tier committing the draft that declares it needs "per-edge-type
   knowledge of that instance element's own shape... that the generic
   navigator cannot safely infer." Tracing every third-party-declared
-  instance in `bundles/default` — not only the ticket's own audit list,
-  which named six `reference`/`fulfills` instances and seven
-  `dependency` instances and missed two classes: `navigation`'s own
-  `screen → screen` instance (`type: reference`, `source: screen`,
-  declared in `screens`'s draft — `screens` never commits under the
-  name `screen`, the identical unnamed-class shape the six others have)
-  and three more `type: dependency` edges declared outside
-  `dependency.yaml` (`calls`, `renders`, `uses_shapes`, all sourced from
-  `frontend_sysarch`'s own draft) — finds that knowledge is inferable
-  structurally for every one of the seven `reference`-typed instances
-  and for four of the ten `dependency`-typed ones, which is why the
-  mechanism is four locator kinds, not one: `self` (the committing
+  instance in `bundles/default` — seven `reference`/`fulfills`
+  instances (`comp → resp`, `screen_coll → screen`, `journey →
+  screen`, `resp → journey`, `resp → screen` and `screen_coll →
+  journey`, plus `navigation`'s own `screen → screen` instance,
+  `type: reference`, `source: screen`, declared in `screens`'s draft —
+  `screens` never commits under the name `screen`, the identical
+  unnamed-source shape the other six have) and ten `dependency`-typed
+  instances (the six same-tier peer instances below, `ui_coll →
+  design_system`, and three more `type: dependency` edges declared
+  outside `dependency.yaml` — `calls`, `renders`, `uses_shapes`, all
+  sourced from `frontend_sysarch`'s own draft) — finds that knowledge
+  is inferable structurally for every one of the seven
+  `reference`-typed instances and for four of the ten
+  `dependency`-typed ones, which is why the mechanism is five locator
+  kinds, not one: `self` (the committing
   tier, unchanged), `self.parent` (the committing node's own
   `per(X)`/`child_of(X)` parent — reusing `produces:`'s existing owner
   vocabulary rather than inventing a second one, `screen_coll →
-  screen`'s and `ui_coll → design_system`'s own instances),
+  journey`'s and `ui_coll → design_system`'s own instances),
   `fanout(<edge>)` (the node minted by another edge's fanout instance
   whose own `declared_in` prefixes this instance's — `comp → resp`'s
   own instance, where `decomposition`'s `sysarch → comp` locus *is* the
@@ -1045,12 +1048,13 @@ profiles.
   `calls`/`renders`/`uses_shapes`, whose `declared_in` each shares
   `frontend_sysarch`'s own `ui-collections.collection[]` or
   `screen-collections.collection[]` prefix with `decomposition`'s own
-  `ui_coll`/`screen_coll` fanout instance), and a `scope: singleton`
+  `ui_coll`/`screen_coll` fanout instance), a `scope: singleton`
   endpoint (the endpoint's own tier holds at most one node project-wide,
   so no locator is needed to say which — `ui_coll → design_system`'s
   own target, `design_system` being `scope: singleton` (this system's
-  own ORC-110 entry, above). A side that resolves one of
-  these three structural ways lets its *other* side default to the
+  own ORC-110 entry, above)), and an explicit path (the residual case,
+  below). A side that resolves one of
+  these four structural ways lets its *other* side default to the
   trailing `.@attr` segment of `declared_in` when it has one
   (`dsl-syntax.md` §4.2) — which is why every `reference`-typed instance
   and four of the ten `dependency`-typed ones (`ui_coll →
@@ -1058,9 +1062,10 @@ profiles.
   at all: one side resolves structurally and the other takes the
   default.
 
-  An explicit path (`@<attr>` or a dotted element path) is the residual
-  case, for the six `dependency` instances neither of the first three
-  structural kinds can resolve: `comp ↔ comp`, `subcomp ↔ subcomp`,
+  An explicit path (`@<attr>` or a dotted element path) is the fifth
+  kind and the only one that needs bundle content, for the six
+  `dependency` instances none of the four structural kinds can resolve:
+  `comp ↔ comp`, `subcomp ↔ subcomp`,
   `ui_coll ↔ ui_coll`, `ui_subcomp ↔ ui_subcomp`, `screen_coll ↔
   screen_coll`, `screen_subcomp ↔ screen_subcomp` — each names two peer
   instances of the *same* tier off one element with no fanout locus in
@@ -1068,9 +1073,10 @@ profiles.
   `comp ↔ comp` instance's committing tier, is `per(requirements)`;
   neither `comp` endpoint is `requirements`), so both ends need a
   bundle-declared attribute name. **The loader does not attempt to
-  infer a fifth case** — a `source_ref:`/`target_ref:` left implicit
-  where none of `self`/`self.parent`/`fanout(<edge>)`/a `scope:
-  singleton` endpoint structurally match is a load error, not a guess,
+  infer a locator for this case** — a `source_ref:`/`target_ref:` left
+  implicit where none of `self`/`self.parent`/`fanout(<edge>)`/a
+  `scope: singleton` endpoint structurally match is a load error, not a
+  guess,
   for the identical reason `Extraction`'s original moduledoc gave for
   declining to guess in the first place: a wrong inference here fails
   silently (an empty walk that reads as "nothing to report" rather than

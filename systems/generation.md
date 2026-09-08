@@ -77,25 +77,31 @@ and validation logic and must not fork it.
   `bundles/default` for every `<arch> → ref` citation — a tier names
   itself as both the edge's `source` and `declared_in`'s leading
   segment — which is exactly why that shape reads as "the" shape and
-  the join-target-`source` class went unnamed. Fifteen `reference`/
-  `fulfills` instances exist in `bundles/default`, and six fall into
+  the join-target-`source` class went unnamed. Sixteen `reference`/
+  `fulfills` instances exist in `bundles/default`, and seven fall into
   the unnamed class, each because its `source` names a join-target
   node type: `fulfills comp → resp`
   (`source: comp`, declared in `sysarch`), `fulfills screen_coll →
   screen` (`source: screen_coll`, declared in `frontend_sysarch`),
   `reference journey → screen` (`source: journey`, declared in
   `screens`), `reference resp → journey` and `reference resp →
-  screen` (`source: resp`, both declared in `requirements`), and
+  screen` (`source: resp`, both declared in `requirements`),
   `reference screen_coll → journey` (`source: screen_coll`, declared
-  in `screen_collarch`). Only the nine `<arch> → ref` instances
+  in `screen_collarch`), and `navigation`'s own `screen → screen`
+  (`source: screen`, declared in `screens` — `screens` never commits
+  under the name `screen`, the identical unnamed-class shape the other
+  six have). Only the nine `<arch> → ref` instances
   (`comparch`, `subcomparch`, `impl_backend`, `ui_collarch`,
   `ui_subcomparch`, `impl_ui`, `screen_collarch`, `screen_subcomparch`,
   `impl_screen`) satisfy both conditions and are extracted.
 
-  Every `type: dependency` instance `bundles/default` declares — seven
+  Every `type: dependency` instance `bundles/default` declares — ten
   in total: `comp↔comp`, `subcomp↔subcomp`, `ui_coll↔ui_coll`,
   `ui_subcomp↔ui_subcomp`, `screen_coll↔screen_coll`,
-  `screen_subcomp↔screen_subcomp` and `ui_coll → design_system` — fails
+  `screen_subcomp↔screen_subcomp`, `ui_coll → design_system`, and
+  `calls`/`renders`/`uses_shapes` (three more, declared in
+  `frontend_sysarch`'s own draft rather than `screen_coll`'s or
+  `ui_coll`'s) — fails
   the identical `source`-identity gate, for the identical reason: none
   of `comp`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll` or
   `screen_subcomp` ever commits a `DraftCommitted` of its own. So every
@@ -107,7 +113,8 @@ and validation logic and must not fork it.
   (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
   `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
   the same emptiness reaches them too — and now `comparch`'s and
-  `screen_collarch`'s own `fulfills` walks too) resolves to `[]` and
+  `screen_collarch`'s own `fulfills` walks, and `frontend_sysarch`'s own
+  `calls`/`renders`/`uses_shapes` walks, too) resolves to `[]` and
   stays vacuously satisfied regardless of tier ordering.
   `systems/platform_content.md`'s ORC-232 entry already found and
   recorded the `subcomp↔subcomp` instance of this as live and broken;
@@ -135,8 +142,8 @@ and validation logic and must not fork it.
     `source` — the harder case `Extraction`'s own moduledoc already
     names, needing per-edge-type knowledge of which child element
     names source vs. target that the generic self-sourced navigator
-    cannot infer. This is what the seven `dependency` instances and the
-    six `reference`/`fulfills` instances above both need, and it is
+    cannot infer. This is what the ten `dependency` instances and the
+    seven `reference`/`fulfills` instances above both need, and it is
     also what relocating `uses_shapes`/`calls`/`renders` to
     `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
     ORC-235 entry, below) still needs afterward: their `source` is

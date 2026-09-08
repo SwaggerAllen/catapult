@@ -506,14 +506,17 @@ a closed vocabulary:
   size instead of a fixed relationship.
 - **an explicit path** (`@<attr>` or a dotted element path, the same
   shape a bare `declared_in` already uses) — the endpoint's id is read
-  off that path, relative to the element the *other* endpoint's locator
-  resolved to, and looked up by identity the same way a `reference`
-  edge's trailing `@attr` already is. This is the only form that needs
-  a bundle-declared path rather than resolving structurally, and it is
-  required whenever neither `self`, `self.parent`, `fanout(<edge>)` nor
-  a `scope: singleton` endpoint applies — every same-tier `dependency`
-  instance (`comp ↔ comp`, `subcomp ↔ subcomp`, and the rest):
-  `sysarch.draft.dependencies.dep[]` shares no prefix with
+  off that path, relative to `declared_in`'s own terminal element. For
+  the six same-tier `dependency` instances this form exists for, both
+  endpoints are explicit and both read off that same terminal element —
+  there is no other endpoint's locator to be relative to, since neither
+  side resolves structurally. The id is then looked up by identity the
+  same way a `reference` edge's trailing `@attr` already is. This is the
+  only form that needs a bundle-declared path rather than resolving
+  structurally, and it is required whenever neither `self`, `self.parent`,
+  `fanout(<edge>)` nor a `scope: singleton` endpoint applies — every
+  same-tier `dependency` instance (`comp ↔ comp`, `subcomp ↔ subcomp`,
+  and the rest): `sysarch.draft.dependencies.dep[]` shares no prefix with
   `decomposition`'s own `comp` fanout locus, `sysarch`'s own parent is
   `requirements` (`per(requirements)`) rather than either endpoint, and
   neither `comp` nor `comp` again is `scope: singleton`, so both
@@ -584,10 +587,12 @@ reasons: this is a projection, the target of a `-> <tier>.<kind>` walk,
 so the *edge* type `type: synthesis` (§4, an edge an engine-computed
 cascade-planning correspondence rides on) is a different slot in the
 grammar entirely, not a variant of this one; and `generator: synthesis`
-(§3.2, declared by eleven tiers in `bundles/default`) names how a
+(§3.2, declared by ten tiers in `bundles/default`: `comp`, `journey`,
+`policy`, `resp`, `screen`, `screen_coll`, `screen_subcomp`, `subcomp`,
+`ui_coll`, `ui_subcomp`) names how a
 tier's own draft is produced, a third slot again — a tier declaring
 `generator: synthesis` says nothing about what any walk *targeting*
-that tier may project, and none of the eleven is affected by this
+that tier may project, and none of the ten is affected by this
 retirement.
 
 ### 7.1 Hop chains and reversal

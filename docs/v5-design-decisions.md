@@ -1291,9 +1291,9 @@ is an escape hatch for content that does not fit the
 draft→review→approve model this document describes for every
 generated tier, and forcing that model onto it would be a second
 mechanism wearing the first one's shape. A ref's scope is `authored`
-(`docs/dsl-syntax.md` §3.1) — `id` identity over a literal singleton
-would be meaningless, so the scope kind states directly what a reader
-otherwise had to bring as a convention: a flat pool. Out-of-cycle
+(`docs/dsl-syntax.md` §3.1): `id` identity over a literal singleton
+would be meaningless, and `scope: authored` names exactly what a ref
+is — a flat pool. Out-of-cycle
 iteration is re-authoring the node in place through the same write
 path that created it, surfaced through the staleness projection: a ref
 edit surfaces its consumers (§7.11 — stale is derived, never stored; no

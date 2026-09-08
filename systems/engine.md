@@ -419,7 +419,7 @@ them.
     exactly like any other chain-dispatched tier, and the engine's
     `{:singleton}` scope holds exactly one row per project per tier
     (`candidates/3`'s `scope_key: %{}`, the `unique_index` on
-    `(project_id, tier, scope_key)`)): drained once its one node exists
+    `(project_id, tier, scope_key)`): drained once its one node exists
     and is `settled?` — never vacuously, because such a tier's count is
     exactly one once the chain reaches it, never legitimately zero;
   - `authored` (`ref` is `bundles/default`'s only instance, `docs
@@ -634,14 +634,14 @@ them.
   citation already looks up, rather than the single flat `%{}` every
   node of a `scope: singleton` tier shares. Separately,
   `source_ref:`/`target_ref:` extraction
-  (`systems/core_dsl.md`'s ORC-236 entry) makes the thirteen `dependency`
+  (`systems/core_dsl.md`'s ORC-236 entry) makes the seventeen `dependency`
   and non-`ref` `reference`/`fulfills` instances extractable for the
-  first time. Twelve of their targets (`comp`, `resp`, `journey`,
+  first time. Sixteen of their targets (`comp`, `resp`, `journey`,
   `screen`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll`,
   `screen_subcomp`) already carry a correctly id-shaped `scope_key` from
-  their own ordinary fanout mint, so those twelve resolve by the same
+  their own ordinary fanout mint, so those sixteen resolve by the same
   `%{"id" => value}` lookup the moment they're extracted, with no
-  dependency on the `ref` fix at all. The thirteenth, `ui_coll →
+  dependency on the `ref` fix at all. The seventeenth, `ui_coll →
   design_system`, does not: `design_system` is `scope: singleton`, not
   fanout-minted, and its one node's `scope_key` is the flat `%{}` every
   `scope: singleton` tier shares — an id lookup against it can never

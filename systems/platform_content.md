@@ -260,10 +260,10 @@ loader tickets carry `system:core_dsl`.
   loader as implemented today, since `Catapult.Dsl.Tier`'s scope check
   only requires `child_of(X)` to name a *declared* tier, not the sole
   edge targeting it); `ref` is `scope: authored`
-  (`docs/dsl-syntax.md` §3.1, ORC-236) — `id` identity over a literal
-  singleton would be meaningless, so the scope kind states directly
-  what used to be a convention a reader had to bring: a flat pool that
-  accretes via a write tool, never minted by a fanout edge at all.
+  (`docs/dsl-syntax.md` §3.1, ORC-236): `id` identity over a literal
+  singleton would be meaningless, and `scope: authored` names exactly
+  what `ref` is — a flat pool that accretes via a write tool, never
+  minted by a fanout edge at all.
   **`ref` may attach anywhere, any
   parent, any child** — an author decision loosening v4's "comparch
   and below" restriction to a general rule: no per-use kinds, no
@@ -1242,10 +1242,9 @@ loader tickets carry `system:core_dsl`.
   `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
   `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
   `target_ref:` at all, so this instance extracts and resolves with no
-  bundle edit — a same-tier locator pair, not the `all.design_system
-  .handle` reformulation an earlier pass here once expected, since the
-  edge's own `{min: 0, max: 1}` cardinality is a fact about *this*
-  `ui_coll`'s dependency, which a project-wide pool read can't carry.
+  bundle edit — a same-tier locator pair, since the edge's own
+  `{min: 0, max: 1}` cardinality is a fact about *this* `ui_coll`'s
+  dependency, which a project-wide pool read can't carry.
 
   **No `policy_application` instances for either family.** A UI or
   screen collection fulfills no `resp`, so the through-responsibility
@@ -1447,31 +1446,35 @@ loader tickets carry `system:core_dsl`.
   tier both drop out of that count).
 - **Every third-party-declared edge instance gains `source_ref:`/
   `target_ref:` where their `source`/`target` isn't the committing tier
-  itself, and the audit undercounted the class this reaches** (ORC-236,
-  design pass; `docs/dsl-syntax.md` §4.2, `systems/core_dsl.md`'s
-  ORC-236 entry). The ticket's own audit named six `reference`/
-  `fulfills` instances and seven `dependency` instances; two more
-  belong beside them, unnamed there for the same reason the six were —
-  `navigation.yaml`'s `screen → screen` instance (declared in
-  `screens`'s draft, which never commits under the name `screen`), and
-  `calls`/`renders`/`uses_shapes` (three separate `type: dependency`
-  edges, not instances of the `dependency` edge itself, each declared
-  in `frontend_sysarch`'s own draft rather than `screen_coll`'s or
-  `ui_coll`'s). All seven `reference`-typed instances resolve
+  itself** (ORC-236, design pass; `docs/dsl-syntax.md` §4.2,
+  `systems/core_dsl.md`'s ORC-236 entry). Seven `reference`/`fulfills`
+  instances and ten `dependency`-typed instances share this shape,
+  each enumerated below with its locator kind — the two edge files'
+  own instance count includes `navigation.yaml`'s `screen → screen`
+  (declared in `screens`'s draft, which never commits under the name
+  `screen`) and `calls`/`renders`/`uses_shapes` (three separate
+  `type: dependency` edges, not instances of the `dependency` edge
+  itself, each declared in `frontend_sysarch`'s own draft rather than
+  `screen_coll`'s or `ui_coll`'s). All seven `reference`-typed instances
+  resolve
   structurally with no bundle edit at all: `fulfills`'s `comp → resp`
-  and `screen_coll → screen`, and `reference`'s `resp → journey`,
-  `resp → screen` and `navigation`'s `screen → screen` (its *source*
+  and `screen_coll → screen`, `reference`'s `resp → journey`,
+  `resp → screen`, and `navigation`'s `screen → screen` (its *source*
   side) all take `source_ref: fanout(decomposition)` implicitly the
   moment the loader finds `decomposition`'s own matching instance's
   `declared_in` is a prefix of theirs; `reference`'s `journey → screen`
-  and `navigation`'s own *target* side are the mirror shape,
-  `target_ref: fanout(decomposition)`; `reference`'s `screen_coll →
+  is the mirror shape on its target side, `target_ref:
+  fanout(decomposition)`; `reference`'s `screen_coll →
   journey` takes `source_ref: self.parent`, also automatic
   (`screen_collarch` is `per(screen_coll)`). Every side not resolved
   structurally on its own instance defaults to the trailing `.@attr`
   segment of `declared_in` (`docs/dsl-syntax.md` §4.2's widened
-  default), which is what closes the *other* side of each of these
-  seven with no bundle edit either.
+  default) — which is what closes `navigation`'s own target side (its
+  `declared_in`'s trailing `.@to`, not a second `fanout(decomposition)`
+  locator: both sides resolving through the same fanout element would
+  make source and target the identical `<screen>` node on every
+  instance) and the *other* side of each of the remaining six with no
+  bundle edit either.
 
   Of the ten `dependency`-typed instances, four resolve the identical
   no-bundle-edit way: `calls`, `renders` and `uses_shapes` each take
@@ -1508,7 +1511,15 @@ loader tickets carry `system:core_dsl`.
   `mint.parent.policies_summary`, naming a `policies_summary` field
   this same change adds to `sysarch.yaml` (`fields: policies_summary:
   draft.policies_summary`) — `sysarch` declared no such field before,
-  and `comp`'s own field has nothing else to name. `subcomp.yaml`,
+  and `comp`'s own field has nothing else to name. Three more sites
+  carry that same addition, since a field naming nothing to read is as
+  inert as the ones this ticket exists to fix: `bundles/default/schemas
+  /sysarch.xsd`'s `<sysarch>` sequence gains a `policies-summary`
+  element alongside `introduction`/`techspec`/`components`/`policies`/
+  `dependencies`; `bundles/default/prompts/sysarch.md.liquid` gains the
+  instruction to produce it; and `test/catapult/generation/fixtures
+  /toy_seed/sysarch.xml` gains the element so the toy chain's own
+  fixture stays valid against the widened schema. `subcomp.yaml`,
   `ui_subcomp.yaml` and `screen_subcomp.yaml`'s five `parent_*` fields'
   values each become `mint.parent.<fragment kind>` (`parent_techspec:
   mint.parent.techspec`, and so on for the other four), each naming the
