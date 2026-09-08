@@ -1573,31 +1573,32 @@ them.
   triggered" (§4.5): filing off an accepted regeneration, never a
   merely-committed one, is what "chosen" already meant.
 
-  **Out-of-band filing, never a sweep.** `DraftApproved` fires the
-  reaction directly: find every node whose context walk directly
-  targets the newly-approved node and is newly stale (`stale?/2` over
-  each — a direct context target only; transitive staleness needs no
-  separate walk here, because each downstream regeneration fires its
-  own reaction in turn once it is itself approved), and file one
-  ordinary ticket per stale node. There is no periodic re-check of
-  already-known staleness, which is the whole answer to "one ticket
-  per sweep tick per stale node" — ORC-223's own 574-runs incident is
-  the identical gap behind a different actor, a re-observed hint with
-  nothing telling it apart from a fresh one. An event fires once per
-  approval, never once per tick, so there is no tick to repeat
-  against.
+  **Out-of-band filing, triggered by the event, not narrowed by it.**
+  `DraftApproved` fires the reaction directly, but nothing about which
+  node was approved narrows what the reaction checks: there is no
+  reverse index from a node to the nodes whose context walks reach it
+  — no store table maps one, and `Store.edges_to/2` covers only
+  named-edge hops, not the `all.<tier>` or `self.parent` walks a
+  context can use — so "which node just changed" cannot answer "which
+  nodes to check." The reaction folds instead: for every tier in the
+  loaded `chain.tiers`, `Store.list_nodes/2` on that tier, `stale?/2`
+  on each node returned (a direct context target only; transitive
+  staleness needs no separate walk here, because each downstream
+  regeneration fires its own reaction in turn once it is itself
+  approved) — file one ordinary ticket per node `stale?/2` finds true.
+  That is a full project-wide node scan, per node's context walks, on
+  every approval — the cost this design actually pays, not a cost
+  avoided by firing on the event.
 
-  **"Every node whose context walk targets the newly-approved node"
-  has no reverse index to answer it, and none is added.** No store
-  table maps a node to the nodes whose context walks reach it;
-  `Store.edges_to/2` covers named-edge hops, but a context walk can
-  read `all.<tier>` or `self.parent`, neither of which is an edge row,
-  so no edge query answers this either. The reaction folds instead:
-  for every tier in the loaded `chain.tiers`, `Store.list_nodes/2` on
-  that tier, `stale?/2` on each node returned. That is a full
-  project-wide node scan, per node's context walks, per approval —
-  the cost that replaces the sweep this entry already argues against
-  keeping, not a cost avoided by firing on the event.
+  What answers ORC-223's own 574-runs shape ("one ticket per sweep
+  tick per stale node") is not an avoided re-check — the scan above
+  re-checks already-known staleness on every approval, because it has
+  no way to tell "newly stale" from "already stale" without stored
+  prior state, which is exactly what §7.11 refuses. What answers it is
+  the idempotent keyed upsert below: filing is safe to repeat because
+  repeating it converges on the same one open ticket per node, which
+  is the "something" telling a re-observed hint apart from a fresh one
+  that ORC-223's own actor lacked.
 
   **The filed ticket is ordinary, not a new kind** — exactly what
   §7.11 already refuses ("no generic 'staleness ticket' kind"). It
