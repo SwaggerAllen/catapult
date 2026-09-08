@@ -233,7 +233,15 @@ generating as scope-runs inside one ticket.
   filer is ordinary delivery work, buildable now: a ticket carrying
   the stale node's own mutex label, idempotent per node, landing in
   `Triage` — not a second instance of this gap waiting on the same
-  Phase-7 machinery.
+  Phase-7 machinery. Idempotent filing and eventual closing both need
+  a handle the ticket's own label can't supply (the label is shared
+  with every other ticket already open on that scope), so this table
+  lives here rather than in engine: a `Catapult.Delivery.Store` record
+  keyed `(project_id, node_id)`, holding the id of the ticket filed
+  for that node, on the identical upsert discipline
+  `upsert_container_proposal/1` already uses. `systems/engine.md`'s
+  ORC-231 entry has the full mechanism; this is where the table it
+  names actually lives.
 - **Ticket state is a projection; the event log is the authority**
   (v5 §7.1). Unchanged by owning the tracker — if anything sharpened,
   since the surface and the authority now agree. Human actions arrive

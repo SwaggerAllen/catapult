@@ -1619,35 +1619,50 @@ them.
 
   **Exactly one open ticket per stale node, and none once it stops
   being one — both kept by construction, not by a race-prone
-  check-then-file.** The filing write is idempotent, keyed on the
-  stale node's own id — a node that stales twice before anyone acts
-  updates the one open ticket rather than accumulating a second, the
-  identical `(project_id, id)` upsert discipline
-  `Catapult.Delivery.Store.upsert_container_proposal/1` already uses
-  for the nearest built analogue. That same keyed record is what makes
-  closing possible without a new ticket kind to search by: it maps a
-  stale node's id to the ticket filed for it, and the scan already
-  computes `stale?/2` for every node on every approval — so a node the
-  scan finds *not* stale that still holds an entry in that record is
-  exactly as visible to it as a stale node with none. The scan closes
-  that ticket with a comment and clears the record — the same
-  per-approval scan that files new tickets closes ones that cleared,
-  not a separate watcher or a second reaction.
+  check-then-file, and both kept against a record that can actually
+  answer the question.** The stale node's own mutex label cannot do
+  it: it is shared with every other ticket already open against that
+  scope, so counting "open tickets carrying the label" reports noise
+  for an unrelated ticket on a not-stale node and misses the gap
+  entirely when a stale node's only open ticket is that same unrelated
+  one. A generic ticket kind is refused (§7.11, "no generic 'staleness
+  ticket' kind"), so the label was the only handle this entry had
+  named — and it isn't one.
+
+  What does the job is a second artifact, not the ticket itself: a
+  delivery-owned record mapping the stale node's id to the id of the
+  ticket filed for it — `Catapult.Delivery.Store`'s own table, keyed
+  `(project_id, node_id)` on the identical upsert discipline
+  `upsert_container_proposal/1` already uses for the nearest built
+  analogue, and named in `systems/delivery.md` rather than here, since
+  delivery already owns "staleness's filer is ordinary delivery work,
+  buildable now." The filing write is idempotent on that key — a node
+  that stales twice before anyone acts updates the one record (and, if
+  the ticket changed underneath it, the ticket it points at) rather
+  than accumulating a second. The scan already computes `stale?/2` for
+  every node on every approval, so it already knows which nodes hold a
+  record they no longer need: for a node the scan finds *not* stale
+  that still has one, it reads the ticket id off the record, closes
+  that ticket with a comment, and deletes the record row — two writes,
+  not one, because the record and the ticket are two artifacts. The
+  same per-approval scan that files new tickets closes the ones that
+  cleared; no separate watcher or second reaction.
+
   `docs/v5-design-decisions.md` §2.14 states the stub swap ticket's
   invariant as one sentence with two halves — "every `implementation:
   stubbed` scope has exactly one open `Stubbed` swap ticket, **and a
   swapped or deleted scope's ticket closes with a comment**" (§2.16,
   §7.10) — and the filed staleness ticket follows both halves, not
-  only the first.
-  The audit gains the matching two-sided inventory check, and both
-  out-of-band precedents §2.14 already names carry the same full
-  shape, named rather than one quoted and one left to inference: the
-  stub inventory's own ticket-sync check and the enforcement-gap
-  inventory's own ("every policy×scope missing its declared-grade
-  artifact has exactly one open enforcement ticket," §4.5) — none of
-  the three coded yet, all three the same invariant, stated whole:
-  every node `stale?/2` finds true has exactly one open ticket
-  carrying its label, and every node it finds false has none.
+  only the first. Both out-of-band precedents §2.14 already names
+  carry the same full shape, named rather than one quoted and one left
+  to inference: the stub inventory's own ticket-sync check and the
+  enforcement-gap inventory's own ("every policy×scope missing its
+  declared-grade artifact has exactly one open enforcement ticket,"
+  §4.5) — none of the three coded yet, all three the same invariant.
+  Stated against the record rather than the label, so it is actually
+  evaluable: every node `stale?/2` finds true has an entry in the
+  record (and that entry's ticket is open), and every node it finds
+  false has none.
 
   **`:unsupported` reads two different ways depending on who's asking,
   and both readings are decided rather than accidental.**
