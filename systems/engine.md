@@ -132,7 +132,7 @@ them.
   storybook fixture are corrected to match (ORC-107).
 - **Explain-why is `ReadyScopes`'s own second query, not a parallel
   implementation.** "What is blocking this scope"
-  (`systems/dashboard.md`'s naming) reuses `candidates/2` and the same
+  (`systems/dashboard.md`'s naming) reuses `candidates/3` and the same
   per-walk resolution `ready?/2` already does, replacing the boolean
   fold with a structured report: which context-walk entry is unmet,
   and for each of its resolved targets, its current status. Built
@@ -1503,15 +1503,15 @@ them.
 
   **Flow walks call `stale?/2` directly, and nothing calls it yet
   because the cascade walk that would call it isn't built — flow
-  instances themselves already are, on a claim this entry originally
-  got wrong.** ORC-229 shipped `Catapult.Engine.Store.Flow`
-  (`engine_flows`), `FlowOpened`/`FlowCompleted`/`FlowResumed` on the
-  reducer, and `Catapult.Delivery.DraftResolution` keyed on
-  `(project_id, flow_id)` — a flow instance is a real, dispatched
-  thing today, not a gap this ticket was waiting on. What's still
-  missing, and what actually leaves this call site uncalled, is the
-  walk itself: `ReadyScopes.candidates/2` returns `[]` for
-  `{:cascade_visit}` scope (`ready_scopes.ex:170`) — engine-minted
+  instances themselves already are.** ORC-229 shipped
+  `Catapult.Engine.Store.Flow` (`engine_flows`),
+  `FlowOpened`/`FlowCompleted`/`FlowResumed` on the reducer, and
+  `Catapult.Delivery.DraftResolution` keyed on `(project_id, flow_id)`
+  — a flow instance is a real, dispatched thing today, not a gap this
+  ticket was waiting on. What's still missing, and what actually
+  leaves this call site uncalled, is the walk itself:
+  `ReadyScopes.candidates/3` returns `[]` for `{:cascade_visit}` scope
+  (`ready_scopes.ex:170`) — engine-minted
   mid-flow-walk, per that module's own moduledoc — so no planning tier
   ever dispatches from one and the repair loop's down-walk never runs
   to call anything. §7.11's own "through ordinary staleness" language
@@ -1525,9 +1525,9 @@ them.
   ORC-6's own precedent repeated: a later ticket building the walk has
   something to call rather than something to design.
 
-  **A design-review correction: a declined regeneration must not leave
-  its downstream cone permanently stale, and the fix belongs in the
-  projection, not only in the trigger.** `Store.discard_node/2` sets
+  **A declined regeneration must not leave its downstream cone
+  permanently stale, and the fix belongs in the projection, not only
+  in the trigger.** `Store.discard_node/2` sets
   `status: :absent` on a declined regeneration but leaves
   `committed_sequence` at the discarded draft's own value
   (`store.ex:118-125`) — nothing rolls it back, because nothing else
@@ -1557,9 +1557,9 @@ them.
   `DraftCommitted` trigger structurally unable to find anything: the
   regenerated node is still `:drafted`, not yet `:approved`, at the
   instant its own commit event fires, so the corrected
-  `target_newer?/2` would report every downstream dependent unstale on
-  exactly the event this entry originally fired the filer from. The
-  filer moves to `DraftApproved` — the event that actually makes a
+  `target_newer?/2` would report every downstream dependent unstale at
+  commit time, finding nothing to file. The filer moves to
+  `DraftApproved` — the event that actually makes a
   downstream node's content stale in the corrected projection's terms.
   `DraftApproved` carries `project_id`/`node_id`/`draft_id`, not the
   node's tier or chain directly; the reaction reads the node's own
@@ -1586,6 +1586,18 @@ them.
   nothing telling it apart from a fresh one. An event fires once per
   approval, never once per tick, so there is no tick to repeat
   against.
+
+  **"Every node whose context walk targets the newly-approved node"
+  has no reverse index to answer it, and none is added.** No store
+  table maps a node to the nodes whose context walks reach it;
+  `Store.edges_to/2` covers named-edge hops, but a context walk can
+  read `all.<tier>` or `self.parent`, neither of which is an edge row,
+  so no edge query answers this either. The reaction folds instead:
+  for every tier in the loaded `chain.tiers`, `Store.list_nodes/2` on
+  that tier, `stale?/2` on each node returned. That is a full
+  project-wide node scan, per node's context walks, per approval —
+  the cost that replaces the sweep this entry already argues against
+  keeping, not a cost avoided by firing on the event.
 
   **The filed ticket is ordinary, not a new kind** — exactly what
   §7.11 already refuses ("no generic 'staleness ticket' kind"). It
@@ -1651,8 +1663,7 @@ engine's, the file is foundation's, so this ticket carries
 minting and staleness provenance, `Catapult.Engine.Store.Flow`'s own
 moduledoc's phrasing for what it does not do — plus snapshots and
 replay tooling surfaced in the dashboard. Flow instances themselves
-shipped with ORC-229 and are Initial (ORC-231, design pass,
-design-review correction: this line named them Target until then).
+shipped with ORC-229 and are Initial (ORC-231, design pass).
 
 **ORC-6's own diff stops short of the scheduler and sweeper**, despite
 both being named Initial above. The ticket's own scope paragraph
