@@ -125,6 +125,8 @@ defmodule Catapult.Generation.ToySeedChainTest do
   @feature_expansion_body File.read!(
                             Path.join(__DIR__, "fixtures/toy_seed/feature_expansion.xml")
                           )
+  @journeys_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/journeys.xml"))
+  @screens_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/screens.xml"))
   @requirements_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/requirements.xml"))
   @sysarch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/sysarch.xml"))
   @comparch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/comparch.xml"))
@@ -171,7 +173,47 @@ defmodule Catapult.Generation.ToySeedChainTest do
     review!(chain, project_id, "feature_expansion_review", fe, @approve_review_body)
     approve_real!(project_id, fe.id, fe.current_draft_id)
 
-    # -- requirements: organically ready (self.parent = feature_expansion, approved) --
+    # -- journeys: organically ready (self.parent = feature_expansion,
+    #    approved) — dispatched ahead of requirements now that
+    #    `all.journey.handle` gates on it for real (ORC-235,
+    #    systems/engine.md: an `all.<tier>` walk is no longer vacuously
+    #    satisfied by an as-yet-undrafted tier). --
+    journeys = ready_one!(chain, project_id, "journeys")
+    journeys = commit!(chain, project_id, "journeys", journeys, @journeys_body)
+    review!(chain, project_id, "journeys_review", journeys, @approve_review_body)
+    approve_real!(project_id, journeys.id, journeys.current_draft_id)
+
+    # -- journey: journeys' own mint, seeded — see moduledoc (`<journey>`
+    #    carries no id/alias, the same fanout-mint-identity gap
+    #    resp/vocab/policy already carry). Seeded `:approved`, the
+    #    ORC-117 join-target mint rule. --
+    seed_mint!(
+      project_id,
+      "journey",
+      "create_and_monitor",
+      journeys.id,
+      "decomposition",
+      :approved
+    )
+
+    # -- screens: organically ready once `all.journey.handle` is
+    #    drained (journeys approved, its one journey settled — ORC-235).
+    #    Before this fix this tier was organically ready alongside
+    #    journeys itself, off the identical vacuous-`all.<tier>` bug. --
+    screens = ready_one!(chain, project_id, "screens")
+    screens = commit!(chain, project_id, "screens", screens, @screens_body)
+    review!(chain, project_id, "screens_review", screens, @approve_review_body)
+    approve_real!(project_id, screens.id, screens.current_draft_id)
+
+    # -- screen: screens' own mint, seeded — same identity gap as journey. --
+    seed_mint!(project_id, "screen", "link_list", screens.id, "decomposition", :approved)
+    seed_mint!(project_id, "screen", "link_create", screens.id, "decomposition", :approved)
+
+    # -- requirements: organically ready once `all.journey.handle` AND
+    #    `all.screen.handle` are both drained (ORC-235 — before this
+    #    fix, requirements was organically ready right after
+    #    feature_expansion alone, the vacuous-`all.<tier>` bug this
+    #    ticket fixes). --
     req = ready_one!(chain, project_id, "requirements")
     req = commit!(chain, project_id, "requirements", req, @requirements_body)
     review!(chain, project_id, "requirements_review", req, @approve_review_body)

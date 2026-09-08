@@ -995,15 +995,34 @@ loader tickets carry `system:core_dsl`.
   scope set — dsl-syntax.md §3.1 — has a real kind for exactly this: no
   `per(X)` parent it would otherwise need a context walk to reach), one
   `generator: llm` draft per project, reading `context: [all.journey
-  .handle, all.screen.handle, all.sysarch.handle]` — three `all.<tier>`
-  walks (dsl-syntax.md §7.2), no edge needed for any of them, the same
-  no-owning-parent case `vocab`/`ref`/project-global `policy` already
-  use. `all.sysarch.handle` is what makes "reads … the backend sysarch
-  handle" (the ticket's own phrase) expressible at all: `sysarch` is
-  `scope: per(requirements)`, a sibling of `frontend_sysarch` under no
-  common fanout edge, so there is no `self.parent` walk between them —
-  `all.<tier>` is exactly the mechanism this loader ships for a needed
-  read with no walkable relationship, not a workaround.
+  .handle, all.screen.handle, all.sysarch.handle, all.comp.handle]` —
+  four `all.<tier>` walks (dsl-syntax.md §7.2), no edge needed for any
+  of them, the same no-owning-parent case `vocab`/`ref`/project-global
+  `policy` already use. `all.sysarch.handle` is what makes "reads … the
+  backend sysarch handle" (the ticket's own phrase) expressible at all:
+  `sysarch` is `scope: per(requirements)`, a sibling of
+  `frontend_sysarch` under no common fanout edge, so there is no
+  `self.parent` walk between them — `all.<tier>` is exactly the
+  mechanism this loader ships for a needed read with no walkable
+  relationship, not a workaround.
+
+  **`all.comp.handle` is ORC-235's own addition**, needed once
+  `uses_shapes`/`calls` relocate to this draft (below): naming which
+  backend `comp` a UI or screen collection depends on means having
+  backend components to name, and `all.sysarch.handle`'s own handle
+  (`[id, intro, techspec]`) names no component at all. The bare handle,
+  not `.handle.fragments[pubapi]`: `comp`'s handle fields (`name`,
+  `purpose`, `is_foundation` — `tiers/comp.yaml`) are `mint.<name>`,
+  set directly from `sysarch`'s own decomposition at mint time, and
+  already enough to decide *which* component a dependency should name;
+  the pubapi text itself is a `comparch`-written fragment `comp`'s bare
+  handle carries no promise about (this entry's own ORC-235 addition to
+  `systems/generation.md` is why that distinction matters — a fragment
+  read is a different, and currently moot, question from a handle
+  read). `drained?(comp)` (`systems/engine.md`'s ORC-235 entry) reduces
+  to `sysarch` `:approved` for the same reason `comp`'s handle fields
+  do, so this addition costs `frontend_sysarch` no wait beyond what
+  `all.sysarch.handle` already required of it.
 
   Each family is `<coll> → <collarch> → <subcomp> → <subcomparch> →
   impl_<family>`, the backend shape renamed per family: UI
@@ -1111,26 +1130,41 @@ loader tickets carry `system:core_dsl`.
   cross-reference check rather than a convention someone has to
   remember to grep for:
   - `renders` (`type: dependency`), `source: screen_coll, target:
-    ui_coll`, declared in `screen_collarch`'s own draft — a screen
-    collection's own composition decision, made when that collection is
-    fully articulated, the same moment backend's local `subcomp↔subcomp`
-    deps are decided.
+    ui_coll`, declared in `frontend_sysarch`'s own draft, not
+    `screen_collarch`'s (corrected, ORC-235 — see that entry below: the
+    analogy this bullet originally drew, "the same moment backend's
+    local `subcomp↔subcomp` deps are decided," named the wrong tier
+    for its own backend comparison, since `subcomp↔subcomp` is decided
+    by `comparch`, one tier *above* `subcomparch`, not by the reading
+    tier itself). `screen_collarch`'s own `self.parent.renders ->
+    ui_coll.handle...` context entry is unchanged — it still reads
+    which `ui_coll`s its own `screen_coll` renders — only where that
+    fact gets declared moves, to the pass that mints both collections
+    and is already deciding their relationship.
   - `uses_shapes` (`type: dependency`), `source: ui_coll, target: comp`
     (the backend join-target tier, the same target `comp↔comp`
-    dependency already reads), declared in `ui_collarch`'s own draft.
-    Only `ui_collarch`'s tier file ever declares this edge — no
-    screen-family tier does, and no instance targets anything but
-    backend `comp` — which is what makes "a UI collection reads backend
-    shapes, never calls" a fact about which edges the *loaded bundle*
-    contains, not only about what a generated file happens to do.
+    dependency already reads), declared in `frontend_sysarch`'s own
+    draft, not `ui_collarch`'s (corrected, ORC-235). Only
+    `frontend_sysarch`'s own `ui-collections.collection[]` rows may
+    carry this edge's `declared_in` path — no `screen-collections` row
+    does, and no instance targets anything but backend `comp` — which
+    is what makes "a UI collection reads backend shapes, never calls" a
+    fact about which edges the *loaded bundle* contains, not only about
+    what a generated file happens to do; the guarantee moves from "which
+    tier's schema" to "which of `frontend_sysarch`'s own two top-level
+    sub-trees," the identical `declared_in`-leading-segment check
+    `systems/core_dsl.md`'s ORC-232 entry already established for a
+    join target's relationships living in its minting tier's draft.
   - `calls` (`type: dependency`), `source: screen_coll, target: comp`,
-    declared in `screen_collarch`'s own draft — symmetric to
-    `uses_shapes`, and, again, the edge simply has no `ui_coll`- sourced
-    instance anywhere, so a UI collection has no declared path to a
-    backend call at all; the ticket's own "backend function invocation
-    inside a UI collection's file map is a layering violation" audit
-    check still catches a generated file that ignores its own graph,
-    but the graph itself already refuses the shape.
+    declared in `frontend_sysarch`'s own draft, not `screen_collarch`'s
+    (corrected, ORC-235) — symmetric to `uses_shapes`, checked against
+    `screen-collections` rows instead of `ui-collections` ones, and,
+    again, the edge simply has no `ui_coll`-sourced instance anywhere,
+    so a UI collection has no declared path to a backend call at all;
+    the ticket's own "backend function invocation inside a UI
+    collection's file map is a layering violation" audit check still
+    catches a generated file that ignores its own graph, but the graph
+    itself already refuses the shape.
 
   `screen_coll → screen` ("hosts") reuses `fulfills` rather than
   minting a fourth new edge name: a screen collection is the
@@ -1157,7 +1191,26 @@ loader tickets carry `system:core_dsl`.
   Declared at articulation time, not mint time: which journeys a
   collection actually needs state from is a design decision for that
   collection's own pass, not a grouping fact `frontend_sysarch` can
-  read off IA region alone. `ui_collarch`, `ui_subcomparch`, `impl_ui`,
+  read off IA region alone — **this holds, unrevised, against ORC-235's
+  own question of whether it should** (that entry names this as the one
+  of its five broken reads where the reasoning above might still stand,
+  and it does: the edge's declaration site stays `screen_collarch`'s
+  own draft). What moves is `screen_collarch`'s own **context** entry
+  reading it: `self.parent.reference -> journey.handle` named the
+  collection's own not-yet-declared edge, which can never resolve to
+  anything on the pass that would declare it — the identical
+  chicken-and-egg shape the edge-relocation fixes above solve by moving
+  the *declaration*, but moving `screen_coll → journey`'s declaration
+  would contradict the paragraph just above. The fix instead moves the
+  *read*: `screen_collarch`'s `context:` reads `all.journey.handle` —
+  every already-minted journey, the full pool to choose from and cite
+  by id — exactly the pattern `requirements`, `screens` and
+  `frontend_sysarch` itself already use for "cite an already-minted
+  node by id, chosen from the full pool" (the ORC-109 entry above). The
+  `reference` instance itself is still declared inside
+  `screen_collarch.draft.journeys.journey[].@ref`, still screen_coll's
+  own decision, made from real journey content rather than from an
+  edge that cannot yet exist. `ui_collarch`, `ui_subcomparch`, `impl_ui`,
   `screen_collarch`, `screen_subcomparch` and `impl_screen` each gain
   the same `reference → ref` attachment site backend's `comparch`,
   `subcomparch` and `impl` already have, and each gains `all.vocab
@@ -1174,6 +1227,31 @@ loader tickets carry `system:core_dsl`.
   at most one node project-wide (ORC-110), so a project supplying none
   simply has no instance of this edge to declare — absence, not a
   zero-cardinality edge naming a node that doesn't exist.
+
+  **Left declared in `ui_collarch`'s own draft, unlike the three above
+  (ORC-235's own fifth broken read, decided the other way).** This
+  walk has the identical self-referential shape — `ui_collarch` reads
+  `self.parent.dependency -> design_system.handle`, an edge only its
+  own draft declares — but unlike `renders`/`uses_shapes`/`calls`, no
+  tier-ordering benefit is available to relocate it for: `design_system`
+  is pinned at intake (v5 §1.1) and carries no draft of its own to wait
+  on, so nothing about *when* the edge is declared changes whether the
+  content behind it is settled. It is also, today, moot regardless of
+  where it is declared: `ui_coll`'s `source` on this `dependency`
+  instance never itself commits a `DraftCommitted`, the same
+  source-identity gate `systems/generation.md`'s own ORC-235 entry
+  finds excludes every `dependency` instance in this bundle (not an
+  edge-type exclusion specifically), so the walk resolves to `[]` and
+  stays vacuously satisfied whether declared here or anywhere else.
+  Left as-is rather than patched for a problem that costs nothing
+  today; a future pass closing that extraction gap should apply the
+  same fix `screen_coll → journey` gets above — read the pool
+  (`all.design_system.handle`, at most one node, the same shape
+  `all.vocab.handle` already reads a flat pool by, and — since
+  `design_system` is `generator: supplied` — already `drained?`
+  unconditionally under `systems/engine.md`'s own rule) instead of the
+  collection's own not-yet-declared edge — rather than treat this as a
+  fresh problem.
 
   **No `policy_application` instances for either family.** A UI or
   screen collection fulfills no `resp`, so the through-responsibility

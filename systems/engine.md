@@ -193,27 +193,28 @@ them.
   write — `:approved` when the target tier declares no `draft:`,
   `:absent` otherwise — and the reducer copies it onto `Store
   .mint_node/1` unchanged, the same "copy, never derive" shape every
-  other reducer branch already follows. `walk_ready?/2`
-  (`Catapult.Engine.Projections.ReadyScopes`) and its `explain/2`
-  counterpart's `walk_report/2` are **not touched**: both already read
-  `status == :approved` and nothing else, so once a join target mints
-  there directly, both keep answering off the identical predicate they
-  always did. That is the reason this shape wins over the alternative
-  design review also had in view — teaching `walk_ready?/2` to treat a
-  synthesis-generator target as satisfied regardless of status — which
-  would have put the same "is this target's tier a join target" check
-  in two independently-folded places (`ready?/2`'s boolean fold and
-  `explain/2`'s structured one) rather than one, exactly the
-  two-computations-of-one-fact shape this doc's own ORC-34 entries
-  spent three design-review passes closing elsewhere. `Node.status`
-  keeps its existing three values — `:absent`, `:drafted`, `:approved`
-  — no fourth value for "synthesized, never reviewed." A join target's
+  other reducer branch already follows. `Node.status` keeps its
+  existing three values — `:absent`, `:drafted`, `:approved` — no
+  fourth value for "synthesized, never reviewed." A join target's
   `:approved` is a deliberate reuse of the readiness-only reading of
   that atom ("this node satisfies anything walking toward it"), not a
   claim that a human or a draft was ever approved; recorded here so a
   later pass doesn't split it into a fourth status to make the name
-  more honest; that fourth value is what `walk_ready?/2` would then
-  need to know about, reopening exactly the split this fix avoids.
+  more honest.
+
+  **What a reader makes of that value is a separate question from
+  what the mint writes.** `status: :approved` at mint time answers
+  "does this node itself have anything left to review" — correctly,
+  since a join target never does — but a reader walking onto it is
+  asking a different question, "has the content behind this node
+  settled," and the two coincide only once the draft that minted the
+  node is itself approved. So `walk_ready?/2` and `explain/2`'s
+  `walk_report/2` resolve a target through `settled?/2` (below)
+  rather than testing `status` directly, and the "is this target's
+  tier a join target" check lives in exactly one place, shared by
+  `ready?/2`'s boolean fold and `explain/2`'s structured one — never
+  folded independently into each, which would be two computations of
+  one fact.
 
   **Why the condition is "no `draft:`," not "`generator: synthesis`."**
   Every join-target tier in `bundles/default` happens to declare
@@ -280,6 +281,249 @@ them.
   (`lib/catapult/dsl/tier.ex`, outside this doc's file map), not this
   ticket's to close, but worth stating so a future bundle author
   hitting it reads a known gap rather than a surprise.
+
+- **A node's readiness-effective status is resolved, not read bare —
+  a join target defers to whichever node minted it, recursively**
+  (ORC-235, design pass). `walk_ready?/2` and `explain/2`'s
+  `walk_report/2` stop testing `target.status == :approved` directly
+  and instead call one shared resolver — call it `settled?/2` here,
+  named for the concept rather than committing dev to a literal
+  function name — that both already fold generically over a walk's
+  targets:
+
+  - a target whose tier declares a `draft:` (`chain.tiers[target.tier]
+    .draft != nil`) is `settled?` exactly when `target.status ==
+    :approved` — unchanged, the ordinary review/approval path;
+  - a target whose tier declares no `draft:` and is not `generator:
+    supplied` (a join target fanned out by some other node's
+    `DraftCommitted`) is `settled?` exactly when its minting parent is
+    `settled?` — `Store.get_node(project_id, target.parent_node_id)`,
+    recursed through the same predicate. `apply_mint/2` already writes
+    `parent_node_id: event.node_id` (the committing node, i.e. the
+    minting parent) for every mint, and a `per(X)` node's own
+    `parent_node_id` is already its `per`-parent for the identical
+    reason (`Reducer.apply/2`'s `DraftCommitted` clause,
+    `parent_node_id: event.parent_node_id`) — this fix reads a field
+    the reducer already writes, on both sides of the recursion, and
+    adds no column. A node reaching this branch with `parent_node_id
+    == nil` is a data-integrity error to surface, not a signal to read
+    as settled — every fanout mint writes this field, so its absence
+    here means the mint itself is broken, not that the node has
+    nothing to wait on;
+  - a target whose tier declares `generator: supplied` (`design_system`
+    is `bundles/default`'s only instance today) is `settled?`
+    unconditionally, the moment the node exists at all — keyed on the
+    tier's own declaration rather than on `parent_node_id == nil`, so
+    a genuine join target that somehow reached the store with no
+    parent recorded falls into the error case above instead of reading
+    as settled by coincidence. A supplied tier is pinned complete at
+    intake (v5 §1.1, §5.4) with nothing upstream in the generation
+    chain that produced it and could still revise it — the join-target
+    recursion above exists because a join target's content traces back
+    to a draft that may not yet be approved, and a supplied node has no
+    draft anywhere in its history to be unapproved.
+
+  Recursion terminates because a node's `parent_node_id` chain is
+  acyclic by construction: a node's minting parent is committed, and
+  exists as a stored row, strictly before the mint that names it as
+  parent, so no chain of `parent_node_id` lookups can revisit a node
+  still being resolved. The tier graph's own type-level acyclicity
+  check (`core_dsl.md`'s standing decision) does not cover this
+  guarantee: that check covers which tiers may name which as `per(X)`/
+  `child_of(X)` targets at the schema level, and says nothing about
+  instance-level `parent_node_id` pointers, which is the thing this
+  recursion actually walks. A join-target chain in `bundles/default`
+  today is one level deep
+  (`comp`'s minting parent is a `sysarch` node, which has a `draft:`
+  and stops the recursion there), but nothing in the rule assumes that
+  depth. This closes the concrete cases the ticket named: `comparch`'s
+  `self.parent.handle` now requires the `comp` it reads to trace back
+  to an `:approved` `sysarch`, not merely a minted one, and the
+  identical shape fixes `subcomparch` off `comparch`, `ui_collarch`/
+  `screen_collarch` off `frontend_sysarch`'s minted `ui_coll`/
+  `screen_coll`, and every `all.journey.handle`/`all.screen.handle`
+  read that lands on a `journey`/`screen` node once one exists.
+
+  **What this does not touch:** `Node.status`'s three values, the
+  mint-time write itself (still `:approved` for a `draft:`-less tier,
+  ORC-117 above, unrevisited per this ticket's own "not in scope"), and
+  `ContextResolver.resolve/2` — a walk still resolves to exactly the
+  targets it always did; only how a resolved target is judged
+  `settled?` changes. And it does not yet reach every walk the ticket's
+  scope touches: `.fragments[kind]` reads (`self.parent.dependency ->
+  comp.handle.fragments[pubapi]` and its siblings) name a fragment a
+  *different* node writes (the `per(comp)` `comparch` node, via
+  `produces:`, never `comp` itself), a provenance question `settled?`
+  as stated here does not answer — moot for every such read in
+  `bundles/default` today for an unrelated reason
+  (`systems/generation.md`'s ORC-235 entry: every `.fragments[kind]`-
+  typed walk in this bundle walks a `dependency`-typed edge, and no
+  `dependency` instance in this bundle is extracted, because its
+  `source` always names a join-target node type that never commits a
+  `DraftCommitted` under its own name — a source-identity gate, not an
+  edge-type one, but one that excludes this whole family regardless —
+  so the walk resolves to `[]` and stays vacuously satisfied whatever
+  `settled?` says). Closing that
+  gap is generation's, not this entry's; a future pass reopening
+  `.fragments[kind]` readiness once dependency extraction exists should
+  extend `settled?` with a same-tier carve-out (a tier reading a
+  fragment its own sibling instance writes — `comparch` reading another
+  `comp`'s pubapi — stays ungated, preserving "a tier's own nodes fan
+  out in parallel," the same allowance this entry's own scope note
+  below states) rather than treat this as a fresh problem.
+
+- **`all.<tier>` is satisfied only once `<tier>`'s own population is
+  exhausted, not merely once every node that happens to exist already
+  is approved** (ORC-235). `ContextResolver.resolve/2`'s `source: :all`
+  clause is unchanged — it still returns every currently-`Store
+  .list_nodes/2` node of `<tier>` — but `ReadyScopes` no longer folds
+  that list alone with `Enum.all?/2`; empty is satisfied only when
+  emptiness is known to be final, which `Enum.all?([], _)` cannot tell
+  from "nothing has minted or drafted here yet." A tier's population is
+  exhausted — call it `drained?/1`, the same naming register as
+  `settled?/2` above — when no further node of that tier will ever
+  appear *and* nothing that already exists is still pending. The
+  recursion below folds over the same closed `scope:` vocabulary
+  `candidates/3` already switches on, but its two recursive branches
+  (`per(X)`, `child_of(X1..Xn)`) test that definition differently,
+  because the two node kinds come into existence at different points.
+  A `per(X)` node has no stored row until it drafts (`ReadyScopes`'s
+  own moduledoc: a transient, never-persisted placeholder stands in
+  until then), so the existing-row list at a `per(X)` tier is never
+  trustworthy as a final population on its own — zero rows there means
+  either "none will ever exist" or merely "hasn't drafted yet," and the
+  only way to tell them apart is to check whether the driving tier `X`
+  is itself exhausted first. A `child_of(X)` node's row appears at its
+  parent's mint, not at its own draft, so once every minting parent
+  `Xi` is exhausted the current row count at `<tier>` is already final
+  and the recursion needs no further condition on those rows
+  themselves — the asymmetry between the two branches below is this,
+  not an inconsistency:
+
+  - `singleton` with `generator: supplied` (`design_system` is
+    `bundles/default`'s only instance today): drained unconditionally,
+    from the moment the project exists — a supplied tier's population
+    is fixed at intake, before the chain ever dispatches a single tier,
+    so there is no "not yet" state between zero and its final count for
+    this recursion to distinguish. A project supplying no document
+    tagged `design_system` mints none (`design_system.yaml`'s own
+    header — the same optionality every `input.<role>` carries), and
+    that zero is final the instant the project exists, not
+    provisional on anything the chain does later;
+  - `singleton` with a `generator: llm` draft dispatched through the
+    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`,
+    `ref` — all four `generator: llm` with no `per(X)`/`child_of(X)`
+    parent, `ref` included: `Sweeper.dispatchable?/1` matches it on its
+    `draft:`/`generator: "llm"` pair exactly like any other
+    chain-dispatched tier, and the engine's `{:singleton}` scope holds
+    exactly one row per project per tier (`candidates/3`'s
+    `scope_key: %{}`, the `unique_index` on `(project_id, tier,
+    scope_key)`) — the recorded shape for refs, v5 §4.5's singleton
+    *pool* with `id` identity, is in tension with that machinery, but
+    resolving the tension is ORC-236's, and `ref` falls in this bucket
+    by what it declares today): drained once its one node exists and
+    is `settled?` — never vacuously, because such a tier's count is
+    exactly one once the chain reaches it, never legitimately zero;
+  - `per(X)`: drained once X is drained *and* every node `Store
+    .list_nodes(X)` names (trustworthy as the final list only because X
+    is already confirmed drained) has its corresponding `per(X)` node
+    `settled?` — and a corresponding node with no stored row at all
+    reads as not settled, the same "hasn't drafted yet" case the
+    driving-tier check above exists to catch, not a gap the clause
+    forgets to answer;
+  - `child_of(X1..Xn)` (every tier a `type: fanout` edge instance
+    targets — `chain.edges`, filtered to `type == "fanout"` and
+    `instance.target == tier`, already gives the source set, a purely
+    load-time-derivable list): drained once every `Xi` is drained
+    *and* every row already at `<tier>` is `settled?` — a fanout mint
+    runs exactly once, synchronously with its source's own
+    `DraftCommitted` (regeneration is chosen, not triggered,
+    `docs/v5-design-decisions.md`), so once every possible minting
+    source has committed and been approved, no further instance of
+    `<tier>` will ever appear and the current list is final, whatever
+    its length. The second conjunct costs nothing at the ten
+    `child_of` tiers that are join targets (`comp`, `subcomp`,
+    `journey`, `screen`, `resp`, `policy`, `ui_coll`, `ui_subcomp`,
+    `screen_coll`, `screen_subcomp`), whose rows are `:approved` from
+    mint and whose `settled?` already defers to the very `Xi` this
+    branch checks. It is load-bearing at the eleventh: `vocab` is the
+    one `child_of` tier in `bundles/default` carrying a `draft:` of
+    its own, so its rows mint `:absent` and stay pending until drafted
+    and approved — without the conjunct, `drained?(vocab)` would read
+    true the instant `feature_expansion` is approved and every vocab
+    entry is still undrafted, which is "no further node will appear"
+    without "nothing existing is still pending."
+
+  This is what tells `all.vocab.handle` (`vocab` is `child_of
+  (feature_expansion)`) that zero vocab entries is a legitimate,
+  terminal answer once `feature_expansion` is `:approved`, apart from
+  `all.journey.handle`/`all.screen.handle`/`all.sysarch.handle` in a
+  fresh `frontend_sysarch` context, where `journeys`/`screens`/
+  `sysarch` (respectively `per(feature_expansion)`/`per(feature_expansion)`
+  /`per(requirements)`) have not drafted at all — `drained?` is `false`
+  for all three, so `frontend_sysarch` no longer dispatches on the
+  first sweep with an empty context, which was this ticket's own
+  opening claim.
+
+  **Termination is a property of `bundles/default`'s own scope graph
+  today, not one the loader enforces.** `per(X)`/`child_of(X1..Xn)`
+  references are declared over tier *names*, not edge instances:
+  `Chain.build`'s acyclicity check (`lib/catapult/dsl/chain.ex`) walks
+  `edges:` instances only, and `scope_problems/1` checks only that a
+  scope names a tier the bundle actually declares — nothing at load
+  time rejects a bundle declaring `A per(B)` and `B per(A)`, which
+  would recurse `drained?` forever the first time either tier's
+  readiness is asked for. `per(X)`/`child_of(X1..Xn)` are the only
+  cases that recurse at all — every `singleton` tier is a base case
+  for this recursion, whatever its own `drained?` branch decides. In
+  `bundles/default` today the scope graph is finite because every
+  `per(X)`/`child_of(X1..Xn)` chain eventually reaches one of the
+  bundle's five `singleton` tiers (`design_system`, `feature_expansion`,
+  `frontend_sysarch`, `non_goals`, `ref`), because the bundle's authors
+  have kept the scope graph a DAG by convention — not because anything
+  checks it. Closing that gap — extending `Chain.build`'s existing
+  cycle detection to scope references alongside edge instances — is a
+  `core_dsl` loader change, outside this ticket's own
+  engine-and-generation scope; filed as a project finding, since
+  `drained?`'s own correctness leans on a guarantee the loader does not
+  yet supply.
+
+  **Rejected: a declared tier sequence, as the ticket's own alternative
+  invited.** A separate ordering declaration would still need this same
+  recursion to answer "is the tier before me actually finished" — a
+  sequence position alone cannot tell "zero nodes because none will
+  ever mint" from "zero nodes because nothing upstream has drafted yet"
+  any more than the unfixed fold could, since that is a fact about the
+  scope/fanout graph, not about position in a list. A sequence would
+  therefore buy no simplification over deriving order from the graph
+  `context:`/`scope:` already declare, while adding a second,
+  independently-authored representation of the same fact — exactly the
+  drift a declared order and a declared graph disagreeing would invite,
+  and exactly what `docs/dsl-syntax.md` §7/§7.2's "context is the only
+  readiness signal" already commits this system to not needing.
+  `ready_scopes` stays derived from one graph, not two.
+
+  **What this ticket's fix reaches, and what it does not — stated once,
+  plainly.** The Scope section above states
+  the point of ordering `frontend_sysarch` after the backend as letting
+  "the front-end family read real component APIs on its first pass
+  rather than a shape it has to guess at." This fix delivers the
+  ordering half — `frontend_sysarch` no longer dispatches before
+  `sysarch` is approved — but not the reading-real-APIs half, for two
+  reasons already on record separately and stated together here for
+  the first time: `frontend_sysarch`'s new `all.comp.handle` and
+  `ui_collarch`'s `self.parent.uses_shapes -> comp.handle
+  .fragments[pubapi]` wait, via `settled?`, only on the `comp` node's
+  own minting `sysarch` — never on `comparch`, the tier that actually
+  writes the `pubapi` fragment `uses_shapes` reads (the `.fragments
+  [kind]` provenance gap noted above, in this same entry); and
+  `uses_shapes`/`calls` resolve to `[]` regardless once relocated,
+  because relocating a `dependency` edge's declaration does not change
+  whether its `source` tier can ever commit it (`systems/generation.md`'s
+  ORC-235 entry). Two further tickets stand between here and the
+  ticket's own stated purpose — a same-tier `.fragments[kind]`
+  provenance carve-out in `settled?`, and the source-identity extraction
+  gap.
 
 - **A fanned-out child cannot leave its parent's workflow-axis
   sub-array, and this is a consequence of readiness already gating,

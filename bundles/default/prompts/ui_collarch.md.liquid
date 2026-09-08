@@ -13,8 +13,12 @@ its own. It receives everything it renders as assigns and slots from
 whatever screen collection mounts it, and it renders. This is what
 keeps a UI collection reviewable in isolation — in a storybook, with no
 socket, no backend running — and it is the entire reason `uses_shapes`
-(below) exists as a separate mechanism from a real dependency: you may
-read a backend component's **types**, never call its functions.
+exists as a separate mechanism from a real dependency: you may read a
+backend component's **types**, never call its functions. Which backend
+components this collection uses shapes from is decided upstream, by
+`frontend_sysarch` (the pass that mints every collection and sees the
+whole backend surface at once) — the list below is that decision, shown
+to you as input; you don't redeclare it.
 
 **You also decompose the collection**: each subcomponent is a slice of
 the collection's own rendering surface — a variant, a sub-part, a named
@@ -51,19 +55,19 @@ Attached references:
 {{ ref.body }}
 {% endfor %}
 
-Your job is to produce a single `<ui_collarch>` block containing ten
+Your job is to produce a single `<ui_collarch>` block containing nine
 sections in a fixed order: a role-level technical specification, the
 collection's public surface, its private surface, its failure surface,
-what it mints as policy considerations, its sibling dependencies, its
-design-system primitives, its subcomponent decomposition, the
-dependency edges between subcomponents, and attached references.
+what it mints as policy considerations, its design-system primitives,
+its subcomponent decomposition, the dependency edges between
+subcomponents, and attached references.
 
 # Output format
 
 Emit exactly one `<ui_collarch>` block with these children in this
 order: `<technical-specification>` → `<public-surface>` →
 `<private-surface>` → `<failure-surface>` → `<policies>` →
-`<dependencies>` → `<primitives>` → `<subcomponents>` →
+`<primitives>` → `<subcomponents>` →
 `<sub-dependencies>` → `<references>` (optional). Example (abbreviated):
 
     <ui_collarch>
@@ -97,8 +101,6 @@ order: `<technical-specification>` → `<public-surface>` →
       <policies>
     No collection-local policy considerations.
       </policies>
-      <dependencies>
-      </dependencies>
       <primitives>
         <design-system to="design_system01"/>
       </primitives>
@@ -135,7 +137,7 @@ order: `<technical-specification>` → `<public-surface>` →
   nothing after.
 * The children **must appear in this order**: `<technical-specification>`
   → `<public-surface>` → `<private-surface>` → `<failure-surface>` →
-  `<policies>` → `<dependencies>` → `<primitives>` → `<subcomponents>`
+  `<policies>` → `<primitives>` → `<subcomponents>`
   → `<sub-dependencies>` → `<references>` (omit entirely when nothing
   is attached). Out-of-order sections are a structural error.
 
@@ -155,23 +157,24 @@ order: `<technical-specification>` → `<public-surface>` →
   trip, that behavior belongs in a screen collection, not here — name
   the data shape you need as an assign instead.
 
-## Dependencies and primitives
+## Primitives
 
-* `<dependencies>` lists sibling UI collections this one composes,
-  each `<dep to="ui_coll_XXXX"/>` with a real id from the sibling list
-  above. May be empty.
 * `<primitives>` carries at most one `<design-system to="..."/>` —
   include it only when the project supplied a design system (shown
   above) and this collection actually builds on its primitives rather
   than defining its own from scratch. Omit `<primitives></primitives>`
   content (leave it empty) when no design system was supplied or this
   collection doesn't use one.
-* **Never a `<dep>` to a backend component here.** A backend shape you
-  read is `uses_shapes`, expressed only through the `<technical-
-  specification>`/`<public-surface>` prose naming which backend type
-  this collection's props are shaped from — there is no structural
-  element for it, because naming the dependency structurally would
-  invite the next pass to read it as a call target.
+* **No dependency edges are declared here.** Which sibling UI
+  collections this one composes (`<ui-dependencies>`) and which backend
+  components it reads shapes from (`uses_shapes`) are both
+  `frontend_sysarch`'s own decisions, made when every collection and
+  the whole backend surface are in view at once — you read both back as
+  input (the sibling list and the backend-shapes list above) to inform
+  `<technical-specification>`/`<public-surface>`, you don't redeclare
+  either structurally. **Never a call to a backend component in
+  `<technical-specification>` or `<public-surface>`** — a backend shape
+  you read is types/handle shapes only, never invoked (v5 §5.4).
 
 ## Subcomponents
 
@@ -226,6 +229,6 @@ order: `<technical-specification>` → `<public-surface>` →
   subcomponent X"** — remove it, drop `<sub-dependencies>` edges
   touching it. **"Re-articulate the pubapi / privapi / failure-surface
   / policies section"** — edit only that section.
-* Don't reshuffle `<dependencies>` or `<primitives>` the feedback isn't
-  pointed at; don't add "while we're here" tweaks.
+* Don't reshuffle `<primitives>` the feedback isn't pointed at; don't
+  add "while we're here" tweaks.
 {% endif %}

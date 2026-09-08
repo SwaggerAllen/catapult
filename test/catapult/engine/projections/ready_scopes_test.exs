@@ -3,6 +3,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
   alias Catapult.Dsl.Chain
   alias Catapult.Dsl.ContextWalk
+  alias Catapult.Dsl.Edge
   alias Catapult.Dsl.Predicate
   alias Catapult.Dsl.Tier
   alias Catapult.Engine.Projections.ReadyScopes
@@ -14,6 +15,23 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   end
 
   defp chain(tiers), do: %Chain{name: "test", tiers: Map.new(tiers, &{&1.name, &1})}
+
+  defp chain(tiers, edges) do
+    %Chain{
+      name: "test",
+      tiers: Map.new(tiers, &{&1.name, &1}),
+      edges: Map.new(edges, &{&1.name, &1})
+    }
+  end
+
+  defp fanout_edge!(name, source, target) do
+    %Edge{
+      name: name,
+      file: "f",
+      type: "fanout",
+      instances: [%{source: source, target: target, declared_in: "x", cardinality: %{}}]
+    }
+  end
 
   defp node!(id, tier, opts) do
     Store.upsert_node(%{
@@ -245,6 +263,252 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain = chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
       assert ReadyScopes.ready_review(chain, "p1", "comp_review") == []
+    end
+  end
+
+  describe "settled? (ORC-235): a join target's mint-time :approved defers to its minting parent" do
+    test "a join target minted :approved is not settled while its minting parent is still drafted" do
+      node!("sysarch", "sysarch", status: :drafted)
+
+      node!("comp1", "comp",
+        status: :approved,
+        parent_node_id: "sysarch",
+        scope_key: %{"id" => "comp1"}
+      )
+
+      chain =
+        chain([
+          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{
+            name: "reader",
+            file: "f",
+            draft: %{},
+            scope: {:per, "comp"},
+            context: [walk!("self.parent.handle")]
+          }
+        ])
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
+    end
+
+    test "settled once the minting parent is itself approved" do
+      node!("sysarch", "sysarch", status: :approved)
+
+      node!("comp1", "comp",
+        status: :approved,
+        parent_node_id: "sysarch",
+        scope_key: %{"id" => "comp1"}
+      )
+
+      chain =
+        chain([
+          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{
+            name: "reader",
+            file: "f",
+            draft: %{},
+            scope: {:per, "comp"},
+            context: [walk!("self.parent.handle")]
+          }
+        ])
+
+      assert [candidate] = ReadyScopes.ready(chain, "p1", "reader")
+      assert candidate.parent_node_id == "comp1"
+    end
+
+    test "a chain one level deeper recurses through two join targets to a real approval" do
+      node!("sysarch", "sysarch", status: :drafted)
+
+      node!("comp1", "comp",
+        status: :approved,
+        parent_node_id: "sysarch",
+        scope_key: %{"id" => "comp1"}
+      )
+
+      node!("subcomp1", "subcomp",
+        status: :approved,
+        parent_node_id: "comp1",
+        scope_key: %{"id" => "subcomp1"}
+      )
+
+      chain =
+        chain([
+          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "subcomp", file: "f", scope: {:child_of, "comp"}, generator: "synthesis"},
+          %Tier{
+            name: "reader",
+            file: "f",
+            draft: %{},
+            scope: {:per, "subcomp"},
+            context: [walk!("self.parent.handle")]
+          }
+        ])
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
+
+      Store.upsert_node(%{id: "sysarch", project_id: "p1", tier: "sysarch", status: :approved})
+      assert [_candidate] = ReadyScopes.ready(chain, "p1", "reader")
+    end
+
+    test "a generator: supplied tier is settled unconditionally, regardless of its stored status" do
+      node!("design_system", "design_system", status: :absent)
+
+      chain =
+        chain([
+          %Tier{
+            name: "design_system",
+            file: "f",
+            scope: {:singleton},
+            generator: "supplied"
+          },
+          %Tier{
+            name: "reader",
+            file: "f",
+            draft: %{},
+            scope: {:per, "design_system"},
+            context: [walk!("self.parent.handle")]
+          }
+        ])
+
+      assert [_candidate] = ReadyScopes.ready(chain, "p1", "reader")
+    end
+  end
+
+  describe "drained? (ORC-235): all.<tier> is satisfied only once <tier>'s population is exhausted" do
+    test "an empty all.<tier> walk is not satisfied while the driving tier hasn't drafted yet" do
+      node!("driver", "driver", status: :absent)
+
+      chain =
+        chain(
+          [
+            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{name: "child", file: "f", scope: {:child_of, "driver"}, generator: "synthesis"},
+            %Tier{
+              name: "reader",
+              file: "f",
+              draft: %{},
+              scope: {:singleton},
+              context: [walk!("all.child.handle")]
+            }
+          ],
+          [fanout_edge!("decomp", "driver", "child")]
+        )
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
+    end
+
+    test "an empty all.<tier> walk is satisfied once the driving tier is approved with zero children" do
+      node!("driver", "driver", status: :approved)
+
+      chain =
+        chain(
+          [
+            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{name: "child", file: "f", scope: {:child_of, "driver"}, generator: "synthesis"},
+            %Tier{
+              name: "reader",
+              file: "f",
+              draft: %{},
+              scope: {:singleton},
+              context: [walk!("all.child.handle")]
+            }
+          ],
+          [fanout_edge!("decomp", "driver", "child")]
+        )
+
+      assert [_candidate] = ReadyScopes.ready(chain, "p1", "reader")
+    end
+
+    test "not satisfied while an existing child is still pending, even with the driving tier approved" do
+      node!("driver", "driver", status: :approved)
+
+      node!("child1", "child",
+        status: :absent,
+        parent_node_id: "driver",
+        scope_key: %{"id" => "child1"}
+      )
+
+      chain =
+        chain(
+          [
+            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{name: "child", file: "f", draft: %{}, scope: {:child_of, "driver"}},
+            %Tier{
+              name: "reader",
+              file: "f",
+              draft: %{},
+              scope: {:singleton},
+              context: [walk!("all.child.handle")]
+            }
+          ],
+          [fanout_edge!("decomp", "driver", "child")]
+        )
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
+    end
+
+    test "a child_of tier with several fanout sources is drained only once every source is drained" do
+      node!("sysarch", "sysarch", status: :approved)
+      node!("comparch", "comparch", status: :drafted)
+
+      chain =
+        chain(
+          [
+            %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{name: "comparch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{
+              name: "policy",
+              file: "f",
+              scope: {:child_of, "sysarch"},
+              generator: "synthesis"
+            },
+            %Tier{
+              name: "reader",
+              file: "f",
+              draft: %{},
+              scope: {:singleton},
+              context: [walk!("all.policy.handle")]
+            }
+          ],
+          [
+            fanout_edge!("decomp_sysarch", "sysarch", "policy"),
+            fanout_edge!("decomp_comparch", "comparch", "policy")
+          ]
+        )
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
+
+      Store.upsert_node(%{id: "comparch", project_id: "p1", tier: "comparch", status: :approved})
+      assert [_candidate] = ReadyScopes.ready(chain, "p1", "reader")
+    end
+
+    test "a per(X) tier is drained only once every existing X's own child is settled, not merely X itself" do
+      node!("sysarch", "sysarch", status: :approved)
+
+      node!("comp1", "comp",
+        status: :approved,
+        parent_node_id: "sysarch",
+        scope_key: %{"id" => "comp1"}
+      )
+
+      chain =
+        chain([
+          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "comparch", file: "f", draft: %{}, scope: {:per, "comp"}, context: []},
+          %Tier{
+            name: "reader",
+            file: "f",
+            draft: %{},
+            scope: {:singleton},
+            context: [walk!("all.comparch.handle")]
+          }
+        ])
+
+      assert ReadyScopes.ready(chain, "p1", "reader") == []
     end
   end
 

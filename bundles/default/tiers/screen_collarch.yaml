@@ -14,12 +14,23 @@
 # it composes, and `calls` reaches backend comps directly — screen
 # collections own all `calls` edges (v5 §5.4's layering rule; a UI
 # collection has no declared path to a backend call at all,
-# edges/uses_shapes.yaml). `reference`'s own `screen_coll -> journey`
-# instance is declared here, at articulation time, not at
-# frontend_sysarch's mint time: which journeys a collection actually
-# needs live state from is a design decision for this collection's own
-# pass, not a grouping fact frontend_sysarch can read off IA region
-# alone (systems/platform_content.md's ORC-111 entry). No
+# edges/uses_shapes.yaml). `renders` and `calls` are declared in
+# `frontend_sysarch`'s own draft, not here (ORC-235,
+# systems/platform_content.md) — the same pass that mints both
+# collection families is the one naming a screen collection's
+# cross-family dependencies, mirroring `comp<->comp`'s own placement in
+# `sysarch`'s draft rather than `comparch`'s; this tier's own context
+# entries still read them by name, unchanged, wherever they're
+# declared. `reference`'s own `screen_coll -> journey` instance is
+# still declared here, at articulation time, not at frontend_sysarch's
+# mint time: which journeys a collection actually needs live state
+# from is a design decision for this collection's own pass, not a
+# grouping fact frontend_sysarch can read off IA region alone
+# (systems/platform_content.md's ORC-111 entry) — but this tier's own
+# context now reads `all.journey.handle` rather than walking that
+# not-yet-declared edge (ORC-235): the full pool of already-minted
+# journeys to choose from and cite by id, the same pattern
+# `requirements`/`screens`/`frontend_sysarch` itself already use. No
 # `policy_application` reads, the same reason ui_collarch has none.
 tier: screen_collarch
 scope: per(screen_coll)
@@ -43,7 +54,7 @@ context:
   - self.parent.dependency -> screen_coll.handle.fragments[failure_surface]
   - self.parent.renders -> ui_coll.handle.fragments[pubapi]
   - self.parent.calls -> comp.handle.fragments[pubapi]
-  - self.parent.reference -> journey.handle
+  - all.journey.handle
   - self.reference -> ref.handle
   - all.vocab.handle
 produces:

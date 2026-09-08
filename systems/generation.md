@@ -48,9 +48,114 @@ and validation logic and must not fork it.
   (`:approved` for a join target, `:absent` otherwise), rather than
   the reducer inferring it from bundle content it isn't supposed to
   read. The decision this answers to — what a join target's status
-  means and why readiness needed no change — is `systems/engine.md`'s;
-  this entry only records that the computation sits here rather than
-  being rediscovered as a surprise in that ticket's diff.
+  means — is `systems/engine.md`'s; this entry only records that the
+  computation sits here rather than being rediscovered as a surprise
+  in that ticket's diff. The value written here is necessary but not
+  sufficient: readiness also asks whether the node that minted a join
+  target is itself settled, recursively (`systems/engine.md`).
+- **The gate `Extraction` applies is source-identity, not `edge.type`
+  — and it cuts out more than the `dependency`/`policy_application`
+  family** (ORC-235, design pass).
+  `Catapult.Generation.CommitPath.commit_draft/3` feeds `mints:` from
+  `Extraction.mints/4` (`edge.type == "fanout"`) and `edges:` from
+  `Extraction.references/5` (`edge.type == "reference"`, which also
+  covers `fulfills` — `type: reference` under the hood), and nothing
+  else feeds either field. Both functions gate every candidate
+  instance on two conditions together — `instance.source == tier_name`
+  *and* `self_sourced_path`/`self_sourced_attr_path` requiring
+  `declared_in`'s own leading segment to equal that same `tier_name`
+  — before extracting it at all, and the first of the two is
+  **type-independent**. `Extraction`'s own moduledoc frames the gap it
+  leaves as "a `declared_in` path whose leading tier differs from the
+  tier being committed," naming only the second condition, when the
+  first already excludes a whole further class on its own: for an
+  instance whose `source` names a join-target node type — one that
+  never commits a `DraftCommitted` under its own name at all — no
+  choice of `tier_name` can satisfy `source == tier_name`, so the
+  instance is unextractable regardless of where `declared_in` points
+  or what the edge's type is. The two conditions coincide in
+  `bundles/default` for every `<arch> → ref` citation — a tier names
+  itself as both the edge's `source` and `declared_in`'s leading
+  segment — which is exactly why that shape reads as "the" shape and
+  the join-target-`source` class went unnamed. Fifteen `reference`/
+  `fulfills` instances exist in `bundles/default`, and six fall into
+  the unnamed class, each because its `source` names a join-target
+  node type: `fulfills comp → resp`
+  (`source: comp`, declared in `sysarch`), `fulfills screen_coll →
+  screen` (`source: screen_coll`, declared in `frontend_sysarch`),
+  `reference journey → screen` (`source: journey`, declared in
+  `screens`), `reference resp → journey` and `reference resp →
+  screen` (`source: resp`, both declared in `requirements`), and
+  `reference screen_coll → journey` (`source: screen_coll`, declared
+  in `screen_collarch`). Only the nine `<arch> → ref` instances
+  (`comparch`, `subcomparch`, `impl_backend`, `ui_collarch`,
+  `ui_subcomparch`, `impl_ui`, `screen_collarch`, `screen_subcomparch`,
+  `impl_screen`) satisfy both conditions and are extracted.
+
+  Every `type: dependency` instance `bundles/default` declares — seven
+  in total: `comp↔comp`, `subcomp↔subcomp`, `ui_coll↔ui_coll`,
+  `ui_subcomp↔ui_subcomp`, `screen_coll↔screen_coll`,
+  `screen_subcomp↔screen_subcomp` and `ui_coll → design_system` — fails
+  the identical `source`-identity gate, for the identical reason: none
+  of `comp`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll` or
+  `screen_subcomp` ever commits a `DraftCommitted` of its own. So every
+  context walk reading one of these (`comparch`'s, `subcomparch`'s,
+  `ui_collarch`'s, `ui_subcomparch`'s, `screen_collarch`'s and
+  `screen_subcomparch`'s own `dependency` entries — `impl_backend`,
+  `impl_ui` and `impl_screen` walk the identical sibling-dependency
+  entry their own `*subcomparch`/`*collarch` counterpart declares
+  (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
+  `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
+  the same emptiness reaches them too — and now `comparch`'s and
+  `screen_collarch`'s own `fulfills` walks too) resolves to `[]` and
+  stays vacuously satisfied regardless of tier ordering.
+  `systems/platform_content.md`'s ORC-232 entry already found and
+  recorded the `subcomp↔subcomp` instance of this as live and broken;
+  this entry generalizes it to every instance the same
+  `source`-identity gate excludes, not only the ones typed
+  `dependency`.
+
+  The two `type: policy_application` instances
+  (`bundles/default/edges/policy_application.yaml:24,35`) are a third
+  shape, not a second instance of the class above. Their `declared_in`
+  values are `policy.structural` and `policy.required` — not a
+  `<tier>.draft....` path at all, so `self_sourced_path/2` has nothing
+  to navigate: it returns `:skip` on the shape mismatch before
+  `instance.source == tier_name` is even asked. Both are set at mint
+  time off a marker the minting draft itself carries (a `<policy>`
+  element's `<structural/>` vs. `<required>` child — that edge file's
+  own comments), never extracted from any committing tier's draft body
+  at all.
+
+  Out of ORC-235's own scope (that ticket is tier ordering, this is
+  extraction coverage) and not fixed here. **What the follow-on ticket
+  actually has to build is two separate mechanisms, not one:**
+
+  - Reading an edge instance declared by a tier that is not its own
+    `source` — the harder case `Extraction`'s own moduledoc already
+    names, needing per-edge-type knowledge of which child element
+    names source vs. target that the generic self-sourced navigator
+    cannot infer. This is what the seven `dependency` instances and the
+    six `reference`/`fulfills` instances above both need, and it is
+    also what relocating `uses_shapes`/`calls`/`renders` to
+    `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
+    ORC-235 entry, below) still needs afterward: their `source` is
+    `ui_coll`/`screen_coll` whether declared in `ui_collarch`/
+    `screen_collarch` (before this ticket) or in `frontend_sysarch`
+    (after it), and neither tier name is the edge's `source` either
+    way, so `instance.source == tier_name` fails identically before
+    and after the relocation. These three are not "correctly declared
+    and inert until extraction adds a type" — no relocation makes them
+    extractable, because the gate they fail is never edge-type.
+  - Synthesizing an edge instance at fanout-mint time from a marker the
+    minting draft itself carries, with no `declared_in` path to
+    navigate at all — what both `policy_application` instances need
+    instead, since their `declared_in` names no tier's draft body for
+    any navigator to read.
+
+  Recorded here so that ticket is filed against the two gates it
+  actually has to cross, not one.
+
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
   cluster canonically, managed opt-in) are two adapters over one
@@ -818,42 +923,41 @@ and validation logic and must not fork it.
   waves the suite must wait through, not how much work each wait
   costs.
 
-  **This derivation assumes the graph's intended sequencing, not the
-  early-readiness case ORC-235 filed.** `comp` mints at `sysarch`'s
-  `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
+  **ORC-235 landed the sequential-per-branch reading this derivation
+  already used, and no walk in the raft costs more than this floor
+  already prices.** `comp` mints at `sysarch`'s `DraftCommitted`
+  (`CommitPath`'s own private `commit_draft/3` calls
   `Extraction.mints/4` at commit time, before `sysarch`'s own review or
-  approval), and all three of `comparch`'s walks onto it —
-  `self.parent.handle` plus the two `self.parent.dependency ->
-  comp.handle.fragments[pubapi]`/`[failure_surface]` reads onto
-  sibling comps (`comparch.yaml:26,28,29`) — land on a node already
-  `:approved` the instant `comp` exists. Those two fragment reads are
-  intra-tier: `comparch` authors the fragments it reads, so they raise
-  none of the cross-tier fragment-authorship wait the `impl_*` step
-  below does. Nothing named here requires `comparch` to wait for
-  `sysarch`'s own approval rather than just its draft, and ORC-235 is
-  the open question of whether readiness should. The rounds and waves
-  below assume the sequential reading this entry has used throughout —
-  a tier reached through a `draft:`-carrying ancestor waits for that
-  ancestor's own approval, not merely its draft, and a tier waits for
-  whichever tier authors a fragment it reads, which is not always that
-  ancestor (the `impl_*` step below is where the two part company) —
-  which is the conservative assumption for a deadline, and it is the
-  *weaker* of two tightenings ORC-235 could land: if it leaves
-  early-readiness behavior as it is, real runs dispatch earlier than
-  this floor assumes and finish inside it with room to spare; if it
-  tightens readiness to this sequential-per-branch reading, this floor
-  already costs that. It does not cost the stronger tightening
-  ORC-235 also names in scope — no parallelism between tiers at all,
-  only within one — which would serialize every `draft:`-carrying tier
-  in the raft rather than only each branch against itself, and does
-  not fit inside this number. Which of the two ORC-235 lands is that
-  ticket's question, not this entry's to guess at, but this entry does
-  not claim to already cost the stronger one. The same assumption is
-  why `non_goals`, `ref` and `vocab` — all three `draft:`-carrying,
-  each two waves — cost nothing added here: they run alongside rounds
-  one and two under the current branch structure, and that is a fact
-  about this graph's shape, not a headroom margin, so it moves if
-  ORC-235 changes what may run alongside what.
+  approval), but `comparch`'s `self.parent.handle` walk onto it no
+  longer reads that mint-time `:approved` bare: `settled?/2`
+  (`systems/engine.md`'s ORC-235 entry) resolves a join target by
+  deferring to its minting parent, so `comp` is `settled?` only once
+  `sysarch` itself is approved — exactly the wait this entry's
+  "a tier reached through a `draft:`-carrying ancestor waits for that
+  ancestor's own approval, not merely its draft" reading already
+  costs. Tracing every walk in the raft against `settled?`/`drained?`
+  finds no site where the derived graph waits on more than that:
+  `frontend_sysarch`'s new `all.comp.handle`
+  (`systems/platform_content.md`'s ORC-235 entry) reduces, via
+  `drained?(comp)`'s own recursion through `sysarch`, to the identical
+  `sysarch`-approved condition `all.sysarch.handle` already required,
+  so the front-end and back-end branches still land on the same wave
+  rather than one gating the other — the "run alongside each other"
+  claim below holds under the landed mechanism, not only the reading
+  this entry assumed before it landed. Nor is there a second, stronger
+  mechanism left to price separately: `systems/engine.md`'s own
+  ORC-235 entry rejects a declared tier sequence and derives order
+  purely from `context:` walks, so "no parallelism between tiers" is
+  exactly the per-tier, per-walk waiting `settled?`/`drained?` already
+  produce — never a blanket ordering over tiers with no read
+  relationship between them, which is what would have been needed to
+  exceed this floor. The same reasoning is why `non_goals`, `ref` and
+  `vocab` still cost nothing added here: `drained?(vocab)` now requires
+  every existing vocab entry `settled?` rather than reading an empty
+  list as vacuously satisfied, but vocab's own draft-and-review (2
+  waves) lands well before `comparch`'s walk onto `all.vocab.handle` is
+  first checked (15-plus minutes in), so the wait this fix adds is
+  already spent by the time anything asks for it.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -965,6 +1069,26 @@ and validation logic and must not fork it.
   the walk complete while an `impl_*` draft was rendered against an
   empty `pubapi` fragment — precisely the class of failure a full walk
   exists to surface, so the wave count above prices it as sequential.
+
+  **That wait is priced, not enforced, by the mechanism as landed.**
+  `impl_backend`'s `self.parent.dependency ->
+  subcomp.handle.fragments[pubapi]` (`impl_ui`'s and `impl_screen`'s
+  own reads are the identical shape one tier over) is the same
+  `subcomp↔subcomp` `dependency` walk `subcomparch`'s own context
+  entry already is, and this entry's extraction-gate finding above
+  already covers it: no `dependency` instance is extracted regardless
+  of which tier's context declares the walk, so it resolves to `[]`
+  and is vacuously satisfied whether or not `subcomparch` has run.
+  Today `impl_backend`/`impl_ui`/`impl_screen` are actually ready the
+  same wave as their `*subcomparch`/`*collarch` sibling — once
+  `subcomp`/`ui_subcomp`/`screen_subcomp` is `settled?`, i.e. once
+  `comparch`/`ui_collarch`/`screen_collarch` is approved — not one wave
+  after it. Pricing them as sequential anyway does not undercount: it
+  charges a wait the graph does not yet enforce, which only widens this
+  floor's own margin, and it stays priced this way on purpose, since
+  closing the extraction gap would reintroduce the wait for real and a
+  floor that assumed otherwise would need re-deriving the moment it
+  does.
 
   The front end's 8 waves is the longer of the two branches and is
   what the walk actually waits on after `sysarch`'s approval. The
