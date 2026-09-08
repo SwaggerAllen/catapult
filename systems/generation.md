@@ -50,11 +50,9 @@ and validation logic and must not fork it.
   read. The decision this answers to — what a join target's status
   means — is `systems/engine.md`'s; this entry only records that the
   computation sits here rather than being rediscovered as a surprise
-  in that ticket's diff. (`systems/engine.md`'s own ORC-235 entry
-  corrects this entry's earlier claim that readiness needed no further
-  change: the mint-time value written here is necessary but not
-  sufficient, and readiness now also asks whether the node that minted
-  a join target is itself settled, recursively.)
+  in that ticket's diff. The value written here is necessary but not
+  sufficient: readiness also asks whether the node that minted a join
+  target is itself settled, recursively (`systems/engine.md`).
 - **The gate `Extraction` applies is source-identity, not `edge.type`
   — and it cuts out more than the `dependency`/`policy_application`
   family** (ORC-235, design pass).

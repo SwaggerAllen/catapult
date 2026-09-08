@@ -202,22 +202,19 @@ them.
   later pass doesn't split it into a fourth status to make the name
   more honest.
 
-  **What `walk_ready?/2` does with that value is corrected separately,
-  by ORC-235, below — this entry's own claim that `walk_ready?/2` and
-  `explain/2`'s `walk_report/2` are untouched no longer holds, and is
-  restated rather than left standing.** `status: :approved` at mint
-  time answers "does this node itself have anything left to review" —
-  correctly, since a join target never does — but a reader walking
-  onto it is asking a different question, "has the content behind this
-  node settled," and those two questions coincide only once the draft
-  that minted the node is itself approved. ORC-235's fix keeps this
-  entry's own discipline: the "is this target's tier a join target"
-  check still lives in exactly one place, shared by `ready?/2`'s
-  boolean fold and `explain/2`'s structured one, never folded
-  independently into each — the same two-computations-of-one-fact
-  concern this entry raised against the alternative it rejected still
-  holds, and ORC-235's fix is additional depth on the one shared place
-  rather than a second place.
+  **What a reader makes of that value is a separate question from
+  what the mint writes.** `status: :approved` at mint time answers
+  "does this node itself have anything left to review" — correctly,
+  since a join target never does — but a reader walking onto it is
+  asking a different question, "has the content behind this node
+  settled," and the two coincide only once the draft that minted the
+  node is itself approved. So `walk_ready?/2` and `explain/2`'s
+  `walk_report/2` resolve a target through `settled?/2` (below)
+  rather than testing `status` directly, and the "is this target's
+  tier a join target" check lives in exactly one place, shared by
+  `ready?/2`'s boolean fold and `explain/2`'s structured one — never
+  folded independently into each, which would be two computations of
+  one fact.
 
   **Why the condition is "no `draft:`," not "`generator: synthesis`."**
   Every join-target tier in `bundles/default` happens to declare
