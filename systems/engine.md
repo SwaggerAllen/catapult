@@ -434,13 +434,25 @@ them.
   - `child_of(X1..Xn)` (every tier a `type: fanout` edge instance
     targets — `chain.edges`, filtered to `type == "fanout"` and
     `instance.target == tier`, already gives the source set, a purely
-    load-time-derivable list): drained once every `Xi` is drained — a
-    fanout mint runs exactly once, synchronously with its source's own
+    load-time-derivable list): drained once every `Xi` is drained
+    *and* every row already at `<tier>` is `settled?` — a fanout mint
+    runs exactly once, synchronously with its source's own
     `DraftCommitted` (regeneration is chosen, not triggered,
     `docs/v5-design-decisions.md`), so once every possible minting
     source has committed and been approved, no further instance of
     `<tier>` will ever appear and the current list is final, whatever
-    its length.
+    its length. The second conjunct costs nothing at the ten
+    `child_of` tiers that are join targets (`comp`, `subcomp`,
+    `journey`, `screen`, `resp`, `policy`, `ui_coll`, `ui_subcomp`,
+    `screen_coll`, `screen_subcomp`), whose rows are `:approved` from
+    mint and whose `settled?` already defers to the very `Xi` this
+    branch checks. It is load-bearing at the eleventh: `vocab` is the
+    one `child_of` tier in `bundles/default` carrying a `draft:` of
+    its own, so its rows mint `:absent` and stay pending until drafted
+    and approved — without the conjunct, `drained?(vocab)` would read
+    true the instant `feature_expansion` is approved and every vocab
+    entry is still undrafted, which is "no further node will appear"
+    without "nothing existing is still pending."
 
   This is what tells `all.vocab.handle` (`vocab` is `child_of
   (feature_expansion)`) that zero vocab entries is a legitimate,
