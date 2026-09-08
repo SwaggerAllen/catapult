@@ -174,11 +174,13 @@ of the *committing* tier's own `fields:` entries or one of its own
 `produces:` fragment kinds, and the value copied onto the newly minted
 node is whichever of those two the committing tier's own
 `DraftCommitted` already computed for itself at that same commit — a
-comp's `mint.parent.project_techspec` names `sysarch`'s own `techspec`
-field (`sysarch.yaml`'s `fields: techspec: draft.techspec`); a
-subcomp's `mint.parent.parent_techspec` names the `techspec` fragment
-`comparch.yaml`'s own `produces:` writes onto its `self.parent` (comp)
-in the identical commit that fans subcomp out. Nothing is read from the
+comp's own `project_techspec` field is declared `project_techspec:
+mint.parent.techspec`, naming `sysarch`'s own `techspec` field
+(`sysarch.yaml`'s `fields: techspec: draft.techspec`); a subcomp's own
+`parent_techspec` field is declared `parent_techspec:
+mint.parent.techspec`, naming the `techspec` fragment `comparch.yaml`'s
+own `produces:` writes onto its `self.parent` (comp) in the identical
+commit that fans subcomp out. Nothing is read from the
 node the fragment lands on (comp is not subcomp's own minting parent;
 comparch is) and nothing is read from the store — both sources are
 already local values the committing tier's own extraction pass holds
@@ -489,28 +491,50 @@ a closed vocabulary:
   identical element the trailing path segment is about to navigate
   further from — no second walk, the fanout's own instance element *is*
   the anchor.
+- **a `scope: singleton` endpoint** — when the tier named by `source`
+  or `target` is itself `scope: singleton` (§3.1), that side needs no
+  locator at all, structural or explicit: a `scope: singleton` tier
+  holds at most one node project-wide (`scope_key: %{}`), so which node
+  the edge means is never in question, the same way `Store
+  .get_node_by_scope/3` already resolves every other `scope: singleton`
+  read. Instance: `dependency`'s `ui_coll → design_system`,
+  `declared_in: ui_collarch.draft.primitives.design-system[]` —
+  `design_system` is `scope: singleton` (§3.1, `systems/core_dsl.md`'s
+  ORC-110 entry), so `target_ref:` resolves with no path to navigate,
+  the identical "there is only one, so naming it is moot" shape
+  `self.parent` has for a fixed parent, applied here to a fixed pool
+  size instead of a fixed relationship.
 - **an explicit path** (`@<attr>` or a dotted element path, the same
   shape a bare `declared_in` already uses) — the endpoint's id is read
   off that path, relative to the element the *other* endpoint's locator
   resolved to, and looked up by identity the same way a `reference`
   edge's trailing `@attr` already is. This is the only form that needs
   a bundle-declared path rather than resolving structurally, and it is
-  required whenever neither `self`, `self.parent` nor a `fanout(<edge>)`
-  match — every `dependency` instance (`comp ↔ comp`, `subcomp ↔
-  subcomp`, and the rest): `sysarch.draft.dependencies.dep[]` shares no
-  prefix with `decomposition`'s own `comp` fanout locus and neither
-  endpoint is `sysarch`'s own parent (`sysarch` has none), so both
+  required whenever neither `self`, `self.parent`, `fanout(<edge>)` nor
+  a `scope: singleton` endpoint applies — every same-tier `dependency`
+  instance (`comp ↔ comp`, `subcomp ↔ subcomp`, and the rest):
+  `sysarch.draft.dependencies.dep[]` shares no prefix with
+  `decomposition`'s own `comp` fanout locus, `sysarch`'s own parent is
+  `requirements` (`per(requirements)`) rather than either endpoint, and
+  neither `comp` nor `comp` again is `scope: singleton`, so both
   `source_ref: "@from"` and `target_ref: "@to"` must be declared
   explicitly, naming the two attributes one `<dep>` element carries.
 
-`target_ref:` defaults to the trailing `.@attr` segment of
-`declared_in` when the instance has one and `source_ref:` is `self` —
-today's implicit shape, unchanged. An instance whose `source`/`target`
-isn't `self`, doesn't structurally match `self.parent` or a
-`fanout(<edge>)` prefix, and declares no explicit locator is a load
-error naming the instance and the unresolved side (§13) — a silent
-`[]` is no longer a legal outcome of an edge the bundle declared with a
-non-zero `cardinality` minimum.
+The side not otherwise resolved defaults to the trailing `.@attr`
+segment of `declared_in`, when the instance has one, provided the
+*other* side resolves structurally — via `self`, `self.parent`,
+`fanout(<edge>)`, or a `scope: singleton` endpoint — widening the
+implicit shape every `<arch> → ref` instance already relied on (which
+happened to have `source_ref: self`) to every structural case, not
+only that one: `fulfills`'s `comp → resp` resolves `source_ref:
+fanout(decomposition)` and defaults `target_ref:` to the trailing
+`.@id`, the identical default a bare `self` source already got. An
+instance whose `source`/`target` isn't `self`, doesn't structurally
+match `self.parent`, `fanout(<edge>)` or a `scope: singleton` endpoint,
+and declares no explicit locator is a load error naming the instance
+and the unresolved side (§13) — a silent `[]` is no longer a legal
+outcome of an edge the bundle declared with a non-zero `cardinality`
+minimum.
 
 `type: policy_application`'s two instances are not this mechanism.
 Their `declared_in` (`policy.structural`, `policy.required`) names a
@@ -553,12 +577,18 @@ Context is the only readiness signal.
 tier in `bundles/default` ever declared a walk targeting it, and
 building a projection with no consumer to design it against would be
 exactly the half-finished implementation this grammar otherwise
-avoids. `-> <tier>.synthesis` is a load error now, the same shape any
-other retired form takes (§11's `extends:`). This is a projection, the
-target of a `-> <tier>.<kind>` walk; the *edge* type `type: synthesis`
-(§4) is a different vocabulary word for a different thing — an edge an
-engine-computed cascade-planning correspondence rides on — and is
-unaffected.
+avoids. `-> <tier>.synthesis` is a load error now (§13), the same shape
+any other retired form takes (§11's `extends:`). Two other vocabulary
+words share the spelling and are both unaffected, for different
+reasons: this is a projection, the target of a `-> <tier>.<kind>` walk,
+so the *edge* type `type: synthesis` (§4, an edge an engine-computed
+cascade-planning correspondence rides on) is a different slot in the
+grammar entirely, not a variant of this one; and `generator: synthesis`
+(§3.2, declared by eleven tiers in `bundles/default`) names how a
+tier's own draft is produced, a third slot again — a tier declaring
+`generator: synthesis` says nothing about what any walk *targeting*
+that tier may project, and none of the eleven is affected by this
+retirement.
 
 ### 7.1 Hop chains and reversal
 
@@ -603,7 +633,7 @@ context:
 Reads every declared instance of `<tier>` in the project, unfiltered
 by any relationship — no `self`, no edge, no walker to arrive from.
 Two cases want this: a genuinely flat pool with no single owning
-parent (`vocab`, `ref`, a project-global `policy` — v5 §4.5's first
+parent (`vocab`, a project-global `policy` — v5 §4.5's first
 grain, which by construction has no `policy_application` edge for a
 graph walk to follow at all), and a `cascade_visit`-scoped planning
 tier that needs to see the whole component graph rather than one
@@ -1328,10 +1358,11 @@ ORC-236 entry):
 
 - an edge instance whose `source` or `target` differs from the
   committing tier's own name, and does not structurally resolve as
-  `self.parent` or `fanout(<edge>)` (§4.2), must declare that side's
-  locator explicitly — `source_ref:`/`target_ref:` left implicit where
-  neither applies is a load error naming the instance and the
-  unresolved side, not a silently-empty walk;
+  `self.parent`, `fanout(<edge>)`, or a `scope: singleton` endpoint
+  (§4.2), must declare that side's locator explicitly —
+  `source_ref:`/`target_ref:` left implicit where none applies is a
+  load error naming the instance and the unresolved side, not a
+  silently-empty walk;
 - a `fanout(<edge>)` locator names an edge in the loaded union whose
   own `declared_in` is a path-prefix of the citing instance's
   `declared_in` — an unknown edge name, or one whose `declared_in`
@@ -1353,7 +1384,18 @@ ORC-236 entry):
   further node will ever appear" becomes true, so there is no answer
   §7.2's own readiness reading could give; a load error naming the walk
   and the tier, rather than a readiness check with no correct result to
-  return.
+  return;
+- an edge instance's `cardinality` may not declare a non-zero `min` on
+  the side naming an `authored`-scope tier, for the identical reason as
+  the bullet above: `systems/engine.md`'s own ORC-236 entry evaluates a
+  `min` bound only once that side's tier is `drained?/1`, and an
+  `authored`-scope tier is never drained — a non-zero minimum there
+  could never be honestly evaluated as satisfied or violated, only
+  permanently pending. A load error naming the edge instance, the side,
+  and the tier;
+- a walk whose projection is `.synthesis` is a load error (§7) — the
+  form retired with no shipped consumer and no implementation on either
+  side of it.
 
 ## 14. Deliberately absent
 

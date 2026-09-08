@@ -1015,38 +1015,66 @@ profiles.
   attributes unchecked.
 
 - **A third-party-declared edge instance locates its non-`self`
-  endpoint one of three ways, and only one of the three needs bundle
+  endpoint one of four ways, and only one of the four needs bundle
   content to say so** (ORC-236, design pass; `dsl-syntax.md` §4.2,
   §13). `Extraction`'s own moduledoc named the gap and declined to
   guess at it: an instance whose `source` (or `target`) differs from
   the tier committing the draft that declares it needs "per-edge-type
   knowledge of that instance element's own shape... that the generic
-  navigator cannot safely infer." Tracing every instance this ticket's
-  own audit named — six `reference`/`fulfills` instances, seven
-  `dependency` instances — finds that knowledge is inferable structurally
-  in five of the six `reference`/`fulfills` cases and never for
-  `dependency`, which is why the mechanism is three locator kinds, not
-  one: `self` (the committing tier, unchanged), `self.parent` (the
-  committing node's own `per(X)`/`child_of(X)` parent — reusing
-  `produces:`'s existing owner vocabulary rather than inventing a
-  second one, `screen_coll → screen`'s own instance), `fanout(<edge>)`
-  (the node minted by another edge's fanout instance whose own
-  `declared_in` prefixes this instance's — `comp → resp`'s own
-  instance, where `decomposition`'s `sysarch → comp` locus
-  *is* the element `fulfills`'s own path continues past), and an
-  explicit path (`@<attr>` or a dotted element path) for the residual
-  case neither of the first three can resolve: `dependency`'s seven
-  instances name two peer tiers off one element
-  (`sysarch.draft.dependencies.dep[]`, and the rest) with no fanout
-  locus and no `self.parent` relationship in reach, so both ends need
-  a bundle-declared attribute name. **The loader does not attempt to
-  infer the fourth case** — a `source_ref:`/`target_ref:` left
-  implicit where none of `self`/`self.parent`/`fanout(<edge>)`
-  structurally match is a load error, not a guess, for the identical
-  reason `Extraction`'s original moduledoc gave for declining to guess
-  in the first place: a wrong inference here fails silently (an empty
-  walk that reads as "nothing to report" rather than "the bundle is
-  broken"), which is worse than refusing to load.
+  navigator cannot safely infer." Tracing every third-party-declared
+  instance in `bundles/default` — not only the ticket's own audit list,
+  which named six `reference`/`fulfills` instances and seven
+  `dependency` instances and missed two classes: `navigation`'s own
+  `screen → screen` instance (`type: reference`, `source: screen`,
+  declared in `screens`'s draft — `screens` never commits under the
+  name `screen`, the identical unnamed-class shape the six others have)
+  and three more `type: dependency` edges declared outside
+  `dependency.yaml` (`calls`, `renders`, `uses_shapes`, all sourced from
+  `frontend_sysarch`'s own draft) — finds that knowledge is inferable
+  structurally for every one of the seven `reference`-typed instances
+  and for four of the ten `dependency`-typed ones, which is why the
+  mechanism is four locator kinds, not one: `self` (the committing
+  tier, unchanged), `self.parent` (the committing node's own
+  `per(X)`/`child_of(X)` parent — reusing `produces:`'s existing owner
+  vocabulary rather than inventing a second one, `screen_coll →
+  screen`'s and `ui_coll → design_system`'s own instances),
+  `fanout(<edge>)` (the node minted by another edge's fanout instance
+  whose own `declared_in` prefixes this instance's — `comp → resp`'s
+  own instance, where `decomposition`'s `sysarch → comp` locus *is* the
+  element `fulfills`'s own path continues past; the same match closes
+  `calls`/`renders`/`uses_shapes`, whose `declared_in` each shares
+  `frontend_sysarch`'s own `ui-collections.collection[]` or
+  `screen-collections.collection[]` prefix with `decomposition`'s own
+  `ui_coll`/`screen_coll` fanout instance), and a `scope: singleton`
+  endpoint (the endpoint's own tier holds at most one node project-wide,
+  so no locator is needed to say which — `ui_coll → design_system`'s
+  own target, `design_system` being `scope: singleton` (this system's
+  own ORC-110 entry, above). A side that resolves one of
+  these three structural ways lets its *other* side default to the
+  trailing `.@attr` segment of `declared_in` when it has one
+  (`dsl-syntax.md` §4.2) — which is why every `reference`-typed instance
+  and four of the ten `dependency`-typed ones (`ui_coll →
+  design_system`, `calls`, `renders`, `uses_shapes`) need no bundle edit
+  at all: one side resolves structurally and the other takes the
+  default.
+
+  An explicit path (`@<attr>` or a dotted element path) is the residual
+  case, for the six `dependency` instances neither of the first three
+  structural kinds can resolve: `comp ↔ comp`, `subcomp ↔ subcomp`,
+  `ui_coll ↔ ui_coll`, `ui_subcomp ↔ ui_subcomp`, `screen_coll ↔
+  screen_coll`, `screen_subcomp ↔ screen_subcomp` — each names two peer
+  instances of the *same* tier off one element with no fanout locus in
+  reach and no `self.parent` relationship either (`sysarch`, the
+  `comp ↔ comp` instance's committing tier, is `per(requirements)`;
+  neither `comp` endpoint is `requirements`), so both ends need a
+  bundle-declared attribute name. **The loader does not attempt to
+  infer a fifth case** — a `source_ref:`/`target_ref:` left implicit
+  where none of `self`/`self.parent`/`fanout(<edge>)`/a `scope:
+  singleton` endpoint structurally match is a load error, not a guess,
+  for the identical reason `Extraction`'s original moduledoc gave for
+  declining to guess in the first place: a wrong inference here fails
+  silently (an empty walk that reads as "nothing to report" rather than
+  "the bundle is broken"), which is worse than refusing to load.
 - **`type: policy_application` is not this mechanism, and gains none of
   it.** Its two instances' `declared_in` (`policy.structural`,
   `policy.required`) names a marker on the minting instance element

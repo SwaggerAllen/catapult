@@ -411,30 +411,32 @@ them.
     that zero is final the instant the project exists, not
     provisional on anything the chain does later;
   - `singleton` with a `generator: llm` draft dispatched through the
-    chain itself (`feature_expansion`, `non_goals`, `frontend_sysarch`
-    — three, not four: `ref` moved off this bucket at ORC-236, below,
-    once its own `scope: singleton` was found in tension with `id`
-    identity over a literal singleton and corrected to `scope: authored`
-    — `Sweeper.dispatchable?/1` matches each of the three on its
-    `draft:`/`generator: "llm"` pair exactly like any other
-    chain-dispatched tier, and the engine's `{:singleton}` scope holds
-    exactly one row per project per tier (`candidates/3`'s
-    `scope_key: %{}`, the `unique_index` on `(project_id, tier,
-    scope_key)`)): drained once its one node exists and
-    is `settled?` — never vacuously, because such a tier's count is
+    chain itself — exactly the tiers that are both `scope: singleton`
+    and `generator: llm` (`feature_expansion`, `non_goals`,
+    `frontend_sysarch`; `ref` is `scope: authored`, not `singleton`,
+    below, so it is not in this bucket): `Sweeper.dispatchable?/1`
+    matches each of the three on its `draft:`/`generator: "llm"` pair
+    exactly like any other chain-dispatched tier, and the engine's
+    `{:singleton}` scope holds exactly one row per project per tier
+    (`candidates/3`'s `scope_key: %{}`, the `unique_index` on
+    `(project_id, tier, scope_key)`)): drained once its one node exists
+    and is `settled?` — never vacuously, because such a tier's count is
     exactly one once the chain reaches it, never legitimately zero;
-  - `authored` (`ref` is `bundles/default`'s only instance, ORC-236,
-    below): never drained. An indefinite, write-path-created pool
-    cannot tell "no more will ever be authored" from "none exist yet"
-    the way every branch above can — there is no upstream tier whose
-    own exhaustion would settle the question, and no chain event marks
-    the pool complete. Rather than leave that recursion hang the first
-    time anything asks, `dsl-syntax.md` §13 refuses an `all.<tier>`
-    walk targeting an `authored`-scope tier at load time; nothing in
-    `bundles/default` names `all.ref.*` today (every `ref` read is a
-    named `reference`/`fulfills` citation, resolved by id, never a
-    population walk), so the refusal costs no shipped content and this
-    branch of `drained?/1` is never actually called;
+  - `authored` (`ref` is `bundles/default`'s only instance, `docs
+    /dsl-syntax.md` §3.1, ORC-236): never drained. An indefinite,
+    write-path-created pool cannot tell "no more will ever be authored"
+    from "none exist yet" the way every branch above can — there is no
+    upstream tier whose own exhaustion would settle the question, and
+    no chain event marks the pool complete. Rather than leave that
+    recursion hang the first time anything asks, `dsl-syntax.md` §13
+    refuses two things at load time instead: an `all.<tier>` walk
+    targeting an `authored`-scope tier, and a non-zero cardinality `min`
+    on the side of an edge instance that names one (below) — nothing in
+    `bundles/default` needs either (every `ref` read is a named
+    `reference`/`fulfills` citation resolved by id, never a population
+    walk, and every `→ ref` instance's cardinality is `{min: 0}` on both
+    ends), so both refusals cost no shipped content and this branch of
+    `drained?/1` is never actually called;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
@@ -568,12 +570,11 @@ them.
   `parent_node_id == nil`, unchanged from ORC-235's own reasoning for
   keeping the check declaration-keyed. This is what makes a
   `self.reference -> ref.handle` walk (`docs/dsl-syntax.md` §3.3's own
-  worked example) resolvable at all: before this entry, a `ref` node
-  minted no differently from any other `singleton`/`generator: llm`
-  tier, so its own draft→review→approve path gated it exactly like
-  `sysarch`'s; after ORC-236's `scope`/`generator` correction (above),
-  there is no draft to gate on, and `settled?` has to say so rather
-  than wait on an approval that will never come.
+  worked example) resolvable at all: a `ref` node has no draft anywhere
+  in its history, so there is no approval for `settled?` to wait on —
+  it has to read the node's `generator: authored` declaration and say
+  "settled" the moment the node exists, the same way it already reads
+  `generator: supplied` for `design_system`.
 - **Cardinality and instance-level `graph_constraint` are evaluated
   once the edge's own bound side is drained, never eagerly, and a
   violation is a reported, non-blocking finding — never a retried draft
@@ -631,20 +632,30 @@ them.
   nine, since a `ref` node's `scope_key` is now `%{"id" => <the id the
   write path assigned>}`, the exact shape a `<reference target="...">`
   citation already looks up, rather than the single flat `%{}` every
-  `ref` node shared under the superseded `scope: singleton` reading.
-  Separately, `source_ref:`/`target_ref:` extraction
+  node of a `scope: singleton` tier shares. Separately,
+  `source_ref:`/`target_ref:` extraction
   (`systems/core_dsl.md`'s ORC-236 entry) makes the thirteen `dependency`
   and non-`ref` `reference`/`fulfills` instances extractable for the
-  first time, and every one of *their* targets (`comp`, `resp`,
-  `journey`, `screen`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll`,
-  `screen_subcomp`, `design_system`) already carries a correctly
-  id-shaped `scope_key` from its own ordinary fanout mint — so those
-  thirteen resolve the moment they're extracted, with no dependency on
-  the `ref` fix at all. No new engine mechanism either way —
-  `resolve_target/3`, `Extraction.references/5` and
-  `apply_declared_edge/2` are unchanged; what changes is that the values
-  reaching them are finally shaped, and finally present, the way those
-  functions already expected.
+  first time. Twelve of their targets (`comp`, `resp`, `journey`,
+  `screen`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll`,
+  `screen_subcomp`) already carry a correctly id-shaped `scope_key` from
+  their own ordinary fanout mint, so those twelve resolve by the same
+  `%{"id" => value}` lookup the moment they're extracted, with no
+  dependency on the `ref` fix at all. The thirteenth, `ui_coll →
+  design_system`, does not: `design_system` is `scope: singleton`, not
+  fanout-minted, and its one node's `scope_key` is the flat `%{}` every
+  `scope: singleton` tier shares — an id lookup against it can never
+  match. That instance resolves through the `scope: singleton` endpoint
+  locator instead (`docs/dsl-syntax.md` §4.2), which is what makes
+  `resolve_target/3` gain a second clause: a `scope: singleton` target
+  resolves by `Store.get_node_by_scope(project_id, target_tier, %{})`,
+  no id involved, selected by the tier's own declared scope rather than
+  by an attribute value. `Extraction.references/5` changes too, for the
+  reason `systems/generation.md`'s own entry gives — it gains the
+  `source_ref:`/`target_ref:` locator resolution itself, not only
+  better-shaped inputs. `apply_declared_edge/2` alone is unchanged: it
+  applies whichever edge list it is handed, and does no locating of its
+  own either before this ticket or after.
 
 - **A fanned-out child cannot leave its parent's workflow-axis
   sub-array, and this is a consequence of readiness already gating,
