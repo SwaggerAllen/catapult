@@ -380,9 +380,25 @@ them.
   that list alone with `Enum.all?/2`; empty is satisfied only when
   emptiness is known to be final, which `Enum.all?([], _)` cannot tell
   from "nothing has minted or drafted here yet." A tier's population is
-  exhausted (call it `drained?/1`, the same naming register as
-  `settled?/2` above) by a recursion over the same closed `scope:`
-  vocabulary `candidates/3` already switches on:
+  exhausted — call it `drained?/1`, the same naming register as
+  `settled?/2` above — when no further node of that tier will ever
+  appear *and* nothing that already exists is still pending. The
+  recursion below folds over the same closed `scope:` vocabulary
+  `candidates/3` already switches on, but its two recursive branches
+  (`per(X)`, `child_of(X1..Xn)`) test that definition differently,
+  because the two node kinds come into existence at different points.
+  A `per(X)` node has no stored row until it drafts (`ReadyScopes`'s
+  own moduledoc: a transient, never-persisted placeholder stands in
+  until then), so the existing-row list at a `per(X)` tier is never
+  trustworthy as a final population on its own — zero rows there means
+  either "none will ever exist" or merely "hasn't drafted yet," and the
+  only way to tell them apart is to check whether the driving tier `X`
+  is itself exhausted first. A `child_of(X)` node's row appears at its
+  parent's mint, not at its own draft, so once every minting parent
+  `Xi` is exhausted the current row count at `<tier>` is already final
+  and the recursion needs no further condition on those rows
+  themselves — the asymmetry between the two branches below is this,
+  not an inconsistency:
 
   - `singleton` with `generator: supplied` (`design_system` is
     `bundles/default`'s only instance today): drained unconditionally,
@@ -411,7 +427,10 @@ them.
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
-    `settled?`;
+    `settled?` — and a corresponding node with no stored row at all
+    reads as not settled, the same "hasn't drafted yet" case the
+    driving-tier check above exists to catch, not a gap the clause
+    forgets to answer;
   - `child_of(X1..Xn)` (every tier a `type: fanout` edge instance
     targets — `chain.edges`, filtered to `type == "fanout"` and
     `instance.target == tier`, already gives the source set, a purely
