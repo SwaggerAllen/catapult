@@ -22,7 +22,8 @@ mutex; nothing else arbitrates.
   non-goals, DSL grammar, build plan). Governed by review of the
   documents themselves, not by any one system; no system has
   standing to own the record of decisions that shaped all of them.
-- **`systems/*.md`** (including this file), **`screens/**`** and
+- **`systems/*.md`** (including this file and each doc's
+  `<name>.reasons.md` sibling), **`screens/**`** and
   **`storybook/**`** — design-owned via `designOwnedPaths`: design
   passes change them through sketch diffs. Listed for completeness;
   the owner is the design process, not a system. `storybook/**` is

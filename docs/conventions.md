@@ -449,6 +449,23 @@ orchestration enforces its own protocol and this section defers to it.
   inventory, no state sections** (orchestration's rule: the code is
   the inventory; docs that mirror code drift silently). Amend the
   owning system doc in the same change that moves a boundary.
+- **A rule carries an id, and the reason it holds lives beside the
+  doc.** Every h2-or-deeper heading and every bullet under `## Standing
+  decisions` opens with `#n` (`## #1 Standing decisions`, `- **#17
+  Lead …**`), unique within the doc, minted as the highest present plus
+  one and never reused or renumbered; the reason is `## #17` in
+  `systems/<name>.reasons.md` (`screens/<name>.reasons.md` for a
+  screen), with `since:` / `revisit:` / `retired:` before the prose
+  (orchestration's DESIGN §4). The doc keeps what a pass needs to obey
+  the rule — the rule, the mechanism it names, the predicate, one clause
+  of why in the rule's own sentence; the sibling gets what a pass needs
+  only to change it. Run `pipeline reasons <doc>#n` before changing a
+  rule; amend its entry in the same commit; a retired rule loses its
+  line and its entry gains `retired:`. Cite a rule as `name#n`
+  (`delivery#17`), never by its wording: `pipeline audit` resolves the
+  id, holds every heading and standing decision to carrying one, and
+  reports an entry whose rule is gone and a retired entry whose rule
+  survives.
 - **Reasoning is never deleted from `systems/*.md` or `docs/*.md` on
   the premise that it now lives in code.** This is about rationale a
   human reads, not a value code dereferences — `docs/non-goals.md`'s
@@ -475,7 +492,10 @@ orchestration enforces its own protocol and this section defers to it.
   neither half is redundant with the other" — but the design doc stays
   the authoritative, complete copy, so nothing needs a lint keeping
   the two in sync: the code copy is never required to carry everything
-  the doc does, only what its own local reader needs.
+  the doc does, only what its own local reader needs. A reason moved
+  into the doc's `.reasons.md` sibling is not this deletion: same
+  commit, same `designOwnedPaths` glob, same record review, and the id
+  joins the two halves under an audit that reports either one idle.
 - A convention change is a change to *this file*, in a reviewed
   commit, with its rationale — never a silent divergence that a
   later session codifies by imitation.
