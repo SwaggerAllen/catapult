@@ -15,19 +15,19 @@ first consumer of the ES store family (v5 §2.4) — its purity floors
 and `events/0` registry are proven here before any target app uses
 them.
 
-## Standing decisions
+## #1 Standing decisions
 
-- **The log is the source of truth; projections are derived and
+- **#2 The log is the source of truth; projections are derived and
   disposable.** Rebuild-from-zero byte-identity is a standing test:
   replaying the full log into fresh projections must equal
   incremental state, always. This is also the
   recovery mechanism — no projection surgery, ever.
-- **The scheduler is state-driven, not event-driven**:
+- **#3 The scheduler is state-driven, not event-driven**:
   readiness is a query against current projections, so the same
   query answers "ready now" and "ready at sequence T," and there is
   no in-memory pending-set to corrupt. Fast path via PubSub;
   sweeper as the convergence floor.
-- **"Write the ready_scopes row" (the scheduler's rule 3) is a PubSub
+- **#4 "Write the ready_scopes row" (the scheduler's rule 3) is a PubSub
   broadcast, never a table write** — the same "never materialized"
   standing decision below applies to the scheduler's own output, not
   only to the query it wraps. On each trigger the scheduler re-runs
@@ -48,21 +48,8 @@ them.
   one), which is also why the broadcast needs no de-duplication of its
   own — whatever a consumer does with a ready pair is idempotent on
   its own side regardless of how many times the pair gets announced.
-- **The scheduler dispatches to no component by name.** Generation and
-  delivery both land after this ticket in the build order
-  (`docs/build-plan.md` Phase 3/4), so the scheduler cannot call an
-  enqueue function that doesn't exist yet and must not be built to
-  assume one particular shape for a consumer that hasn't landed.
-  "The engine writes it; generation and delivery consume it" (below)
-  is a claim about which side owns the *readiness signal* — engine,
-  exclusively, which is what makes "nothing else initiates work" true
-  — not about the engine performing generation's or delivery's own
-  outbox insert. When each consumer lands, its own ticket names the
-  cross-component edge, and conventions §7's pattern ("insert the job
-  through the target's exported enqueue function inside the local
-  transaction") applies on *its* side of the subscription, not this
-  one's.
-- **Review-tier dispatch is a second, simpler readiness rule, not an
+- **#5 The scheduler dispatches to no component by name.**
+- **#6 Review-tier dispatch is a second, simpler readiness rule, not an
   extension of the context-walk one.** `ReadyScopes.ready/3` filters
   review tiers out entirely (`generation_tier?/1`) because §7.19
   already settled their dispatch: fired one cycle after the tier they
@@ -76,7 +63,7 @@ them.
   answerable via `Store.reviews_for_draft/1`) for review tiers — both
   land on the same broadcast, so a consumer never has to know which
   rule produced a given pair.
-- **`scope_filter` is evaluated where readiness is, and answers a
+- **#7 `scope_filter` is evaluated where readiness is, and answers a
   different question than the context walk does.** A node failing its
   tier's `scope_filter` is not a candidate at all — it never appears in
   enumeration, which is distinct from appearing and being not-yet-ready.
@@ -88,7 +75,7 @@ them.
   other three slots (`cardinality.when`, an edge `constraint`, a flow
   `completion`, `dsl-syntax.md` §8) when their own tickets land, not a
   one-off for this slot alone.
-- **`input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
+- **#8 `input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
   a real target, never `{:error, :unsupported}`** (ORC-107, closing the
   gap `systems/generation.md`'s ORC-10 entry names). `ContextResolver.resolve/2`
   gives `:input` its own clause rather than folding it into a shared
@@ -101,35 +88,20 @@ them.
   how a prompt reads it), so `ContextResolver` — whose whole job is
   walking *declared node/edge instances* — has nothing to resolve
   either form against and says so the same way for both.
-
-  **The empty list is the whole mechanism, not a placeholder for one.**
-  `ReadyScopes.walk_ready?/2` and `.walk_report/2`, and `Staleness
-  .walk_stales?/2`, fold `{:ok, targets}` generically —
-  `Enum.all?(targets, &(&1.status == :approved))` on an empty list is
-  vacuously true, `Enum.any?(targets, &target_newer?/2)` on an empty
-  list is vacuously false. Neither module carries a line for this: an
-  `input.<role>` walk is therefore *structurally* incapable of blocking
-  readiness or reporting staleness, which is dsl-syntax.md §7's "a role
-  with no documents never blocks readiness" and v5 §1.1's "an input-doc
-  edit... stales nothing" — both already true of every `{:ok, []}`
-  regardless of source, so neither invariant needs a bespoke branch
-  written *for* it. A pinned input document is not modeled as a
-  synthetic `Node` flowing through the existing `{:ok, [Node.t()]}`
-  shape uniformly: that would need a fabricated `status` for every
-  consumer's status check to key off, and
-  the one status that keeps both call sites correct (permanently
-  `:approved`) is a fact about the readiness query, not about the
-  document, which is exactly the "special case grown to fit an escape
-  hatch" this system's standing decisions elsewhere refuse (see
-  "Navigation edges get no second check," above).
-
-  **Consequence for `explain/2`:** an `input.<role>` walk resolves
-  satisfied with zero targets, the same shape a fully-satisfied ordinary
-  walk has, so `Enum.reject(& &1.satisfied)` drops it from `blocking`
-  entirely — it carries no `reason: :unsupported`. Only
-  `ticket.<source>` walks do. `screens/explain-why.md` and its
-  storybook fixture show the same (ORC-107).
-- **Explain-why is `ReadyScopes`'s own second query, not a parallel
+- **#9 The empty list is the whole mechanism, not a placeholder for one.**
+  `ReadyScopes.walk_ready?/2` and `.walk_report/2`, and `Staleness .walk_stales?/2`, fold `{:ok,
+  targets}` generically — `Enum.all?(targets, &(&1.status == :approved))` on an empty list is
+  vacuously true, `Enum.any?(targets, &target_newer?/2)` on an empty list is vacuously false. Neither
+  module carries a line for this: an `input.<role>` walk is therefore *structurally* incapable of
+  blocking readiness or reporting staleness, which is dsl-syntax.md §7's "a role with no documents
+  never blocks readiness" and v5 §1.1's "an input-doc edit... stales nothing" — both already true of
+  every `{:ok, []}` regardless of source, so neither invariant needs a bespoke branch written *for*
+  it.
+- **#10 Consequence for `explain/2`:** an `input.<role>` walk resolves satisfied with zero targets,
+  the same shape a fully-satisfied ordinary walk has, so `Enum.reject(& &1.satisfied)` drops it from
+  `blocking` entirely — it carries no `reason: :unsupported`. Only `ticket.<source>` walks do.
+  `screens/explain-why.md` and its storybook fixture show the same (ORC-107).
+- **#11 Explain-why is `ReadyScopes`'s own second query, not a parallel
   implementation.** "What is blocking this scope"
   (`systems/dashboard.md`'s naming) reuses `candidates/2` and the same
   per-walk resolution `ready?/2` already does, replacing the boolean
@@ -138,16 +110,11 @@ them.
   beside readiness because both read the same candidate/target
   machinery — a second traversal implementation is the drift risk, not
   the convenience.
-- **Navigation edges get no second check in the engine.**
-  `Catapult.Dsl.Chain` already refuses to load a context walk that
-  traverses a `navigation: true` edge (dsl-syntax.md §4, §13) — the
-  readiness and explain-why queries walk only what the loader already
-  proved is readiness-bearing, and add no redundant edge-kind filter of
-  their own. Restated here because a query written defensively
-  (checking a property its input already guarantees) is exactly the
-  kind of drift-prone duplication `core_dsl.md`'s "all validation at
-  load time where possible" standing decision exists to prevent.
-- **Creation is not dispatchability, and the engine needs no new node
+- **#12 Navigation edges get no second check in the engine.** `Catapult.Dsl.Chain` already refuses
+  to load a context walk that traverses a `navigation: true` edge (dsl-syntax.md §4, §13) — the
+  readiness and explain-why queries walk only what the loader already proved is readiness-bearing, and
+  add no redundant edge-kind filter of their own.
+- **#13 Creation is not dispatchability, and the engine needs no new node
   status to hold that line.** `Reducer.apply_mint/2` already lands a
   minted child at `status: :absent` the moment its parent's draft names
   it (v5 §7.10's "children are created when the plan node names them"),
@@ -166,119 +133,37 @@ them.
   never treats a node's children as a precondition of that node's own
   readiness — only its declared `context:` is.
 
-- **A join-target tier mints straight to `:approved`, and the mint-
-  time default is what changes — readiness needed no new rule**
-  (ORC-117). The bullet above's premise — every minted child
-  eventually earns `:approved` through `DraftApproved` — does not hold
-  for exactly the tiers dsl-syntax.md §3 calls a
-  **join-target tier** — one declared with no `draft:` block (`comp`,
-  `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
-  synthesis` today, though the condition that matters is "no `draft:`,"
-  not the generator kind — see below). Such a tier commits no draft, so
-  no `DraftCommitted`/`ApproveDraft` pair ever runs for it, and
-  `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{},
-  _)`) can never name it. Minted at `:absent`, a
-  join target sits there forever, and `walk_ready?/2`'s `status ==
-  :approved` — dsl-syntax.md §7's "readiness requires all targets
-  ready; context is the only readiness signal" — never turns true for
-  any tier whose context walk reaches it (`comparch`'s `per(comp)`
-  `self.parent.handle`, and the same shape for `subcomparch`). The
-  chain stalls at the first join target and never reaches the tiers
-  downstream of it.
-
-  **The fix is where the node is minted, not where readiness is
-  read.** `Catapult.Engine.Reducer.apply_mint/2` does not hardcode
-  `status: :absent`; the mint entry itself carries the status to
-  write — `:approved` when the target tier declares no `draft:`,
-  `:absent` otherwise — and the reducer copies it onto `Store
-  .mint_node/1` unchanged, the same "copy, never derive" shape every
-  other reducer branch follows. `Node.status` keeps its three
-  values — `:absent`, `:drafted`, `:approved` — no
-  fourth value for "synthesized, never reviewed." A join target's
-  `:approved` is a deliberate reuse of the readiness-only reading of
-  that atom ("this node satisfies anything walking toward it"), not a
-  claim that a human or a draft was ever approved, and it is not
+- **#14 A join-target tier mints straight to `:approved`, and the mint- time default is what changes
+  — readiness needed no new rule** (ORC-117).
+- **#15 The fix is where the node is minted, not where readiness is read.**
+  `Catapult.Engine.Reducer.apply_mint/2` does not hardcode `status: :absent`; the mint entry itself
+  carries the status to write — `:approved` when the target tier declares no `draft:`, `:absent`
+  otherwise — and the reducer copies it onto `Store .mint_node/1` unchanged, the same "copy, never
+  derive" shape every other reducer branch follows. `Node.status` keeps its three values — `:absent`,
+  `:drafted`, `:approved` — no fourth value for "synthesized, never reviewed." A join target's
+  `:approved` is a deliberate reuse of the readiness-only reading of that atom ("this node satisfies
+  anything walking toward it"), not a claim that a human or a draft was ever approved, and it is not
   split into a fourth status to make the name more honest.
+- **#16 What a reader makes of that value is a separate question from what the mint writes.**
+  `status: :approved` at mint time answers "does this node itself have anything left to review" —
+  correctly, since a join target never does — but a reader walking onto it is asking a different
+  question, "has the content behind this node settled," and the two coincide only once the draft that
+  minted the node is itself approved. So `walk_ready?/2` and `explain/2`'s `walk_report/2` resolve a
+  target through `settled?/2` (below) rather than testing `status` directly, and the "is this target's
+  tier a join target" check lives in exactly one place, shared by `ready?/2`'s boolean fold and
+  `explain/2`'s structured one — never folded independently into each, which would be two computations
+  of one fact.
+- **#17 Where the value is computed: the command edge, not the reducer.**
+  `Catapult.Generation.Extraction.mints/4` resolves the target tier's full declaration (via `chain`)
+  to build each mint entry's `tier`/`scope_key`/`edge_name` — the same lookup that has
+  `chain.tiers[instance.target].draft` in hand carries one more field on the entry it returns,
+  threaded unchanged through `Catapult.Engine .Commands.CommitDraft`'s `mints:` and onto
+  `DraftCommitted`'s own `mint()` type.
+- **#18 The same default reaches `policy`, and staleness needs no change.** `policy`
+  (`bundles/default/tiers/policy.yaml`) is `generator: synthesis` with no `draft:`, structurally
+  identical to `comp`/`subcomp`/`resp`, so it gets the identical mint-time `:approved`.
 
-  **What a reader makes of that value is a separate question from
-  what the mint writes.** `status: :approved` at mint time answers
-  "does this node itself have anything left to review" — correctly,
-  since a join target never does — but a reader walking onto it is
-  asking a different question, "has the content behind this node
-  settled," and the two coincide only once the draft that minted the
-  node is itself approved. So `walk_ready?/2` and `explain/2`'s
-  `walk_report/2` resolve a target through `settled?/2` (below)
-  rather than testing `status` directly, and the "is this target's
-  tier a join target" check lives in exactly one place, shared by
-  `ready?/2`'s boolean fold and `explain/2`'s structured one — never
-  folded independently into each, which would be two computations of
-  one fact.
-
-  **Why the condition is "no `draft:`," not "`generator: synthesis`."**
-  Every join-target tier in `bundles/default` happens to declare
-  `generator: synthesis`, but the causal fact is the missing `draft:`
-  block: that's what makes `DraftCommitted`/`DraftApproved` structurally
-  unable to name the node, and dsl-syntax.md §3 already has a name for
-  a tier in that shape — "join-target tier" — independent of which
-  `generator:` it declares. Keying the mint-time default on `tiers
-  .<target>.draft == nil` rather than on the generator atom is what
-  makes the default generalise to a future `generator:` kind that also
-  produces no draft (`external`, `template` per dsl-syntax.md §3.2,
-  neither of which happens to omit `draft:` in `bundles/default`
-  today) without revisiting this decision when one arrives: any tier a
-  bundle author writes with no
-  `draft:` gets the same mint-time `:approved`, whatever its `generator:`
-  says.
-
-  **Where the value is computed: the command edge, not the reducer.**
-  `Catapult.Generation.Extraction.mints/4` resolves the target
-  tier's full declaration (via `chain`) to build each mint entry's
-  `tier`/`scope_key`/`edge_name` — the same lookup that has
-  `chain.tiers[instance.target].draft` in hand carries one more field on
-  the entry it returns, threaded unchanged through `Catapult.Engine
-  .Commands.CommitDraft`'s `mints:` and onto `DraftCommitted`'s own
-  `mint()` type. This keeps `Catapult.Engine.Events.DraftCommitted`'s
-  own moduledoc true without qualification — "extraction against the
-  bundle's `declared_in` paths happens at the command edge... never
-  inside the reducer" — rather than having `apply_mint/2` load a
-  `Chain` to answer the same question, which is exactly the impure,
-  bundle-content-dependent read this system's purity floor and the
-  harvesting entry's command-edge rule for `since_sequence` (below)
-  both rule out for a different value. `system:generation` carries
-  ORC-117 alongside `system:engine` for that reason: the decision is engine's
-  (what a join target's status means), the computation is generation's
-  (where the tier's declaration is already being read).
-
-  **The same default reaches `policy`, and staleness needs no
-  change.** `policy` (`bundles/default/tiers/policy.yaml`) is
-  `generator: synthesis` with no `draft:`, structurally identical to
-  `comp`/`subcomp`/`resp`, so it gets the identical mint-time
-  `:approved`. That `Extraction.mints/4`'s `id`/`alias` identity fallback is
-  verified only against `sysarch`'s own `<component alias="...">`
-  shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise
-  (the module's own comment on `identity_value/2`, and
-  `test/catapult/generation/toy_seed_chain_test.exs`'s moduledoc, which
-  is why that test seeds those three by hand) is a real but separate
-  gap in *identity extraction*, orthogonal to a join target's
-  *status*. `vocab`
-  (`bundles/default/tiers/vocab.yaml`) declares a `draft:` block and is
-  unaffected. And `Catapult.Engine
-  .Projections.Staleness.stale?/2`'s early `:absent` clause ("not
-  stale, merely not drafted") does not match a join target once it
-  mints at `:approved`, which is safe because every
-  join-target tier in `bundles/default` declares no `context:` of its
-  own (there is nothing to gate its own generation on, since it is
-  never dispatched — `generation_tier?/1` requires `draft` non-nil),
-  so `stale?/2`'s general clause (`Enum.any?(tier.context, ...)`)
-  degenerates to the same `false` the `:absent` short-circuit gave. **Named rather than silently relied on:** nothing at load time
-  stops a bundle from declaring `context:` on a tier with no `draft:`
-  the way `Catapult.Dsl.Tier`'s `@review_forbidden` already stops one
-  on a review tier — a gap in `core_dsl`'s own validation
-  (`lib/catapult/dsl/tier.ex`, outside this doc's file map), named so
-  a future bundle author hitting it reads a known gap rather than a
-  surprise.
-
-- **A node's readiness-effective status is resolved, not read bare —
+- **#19 A node's readiness-effective status is resolved, not read bare —
   a join target defers to whichever node minted it, recursively**
   (ORC-235). `walk_ready?/2` and `explain/2`'s
   `walk_report/2` do not test `target.status == :approved` directly;
@@ -318,82 +203,22 @@ them.
     recursion above exists because a join target's content traces back
     to a draft that may not yet be approved, and a supplied node has no
     draft anywhere in its history to be unapproved.
+- **#20 Unchanged by the resolver:** `Node.status`'s three values, the mint-time write itself
+  (`:approved` for a `draft:`-less tier, ORC-117 above), and `ContextResolver.resolve/2` — a walk
+  resolves to exactly the targets it always did; only how a resolved target is judged `settled?`
+  differs.
 
-  Recursion terminates because a node's `parent_node_id` chain is
-  acyclic by construction: a node's minting parent is committed, and
-  exists as a stored row, strictly before the mint that names it as
-  parent, so no chain of `parent_node_id` lookups can revisit a node
-  still being resolved. The tier graph's own type-level acyclicity
-  check (`core_dsl.md`'s standing decision) does not cover this
-  guarantee: that check covers which tiers may name which as `per(X)`/
-  `child_of(X)` targets at the schema level, and says nothing about
-  instance-level `parent_node_id` pointers, which is the thing this
-  recursion actually walks. A join-target chain in `bundles/default`
-  today is one level deep
-  (`comp`'s minting parent is a `sysarch` node, which has a `draft:`
-  and stops the recursion there), but nothing in the rule assumes that
-  depth. So `comparch`'s
-  `self.parent.handle` requires the `comp` it reads to trace back
-  to an `:approved` `sysarch`, not merely a minted one, and the
-  identical shape covers `subcomparch` off `comparch`, `ui_collarch`/
-  `screen_collarch` off `frontend_sysarch`'s minted `ui_coll`/
-  `screen_coll`, and every `all.journey.handle`/`all.screen.handle`
-  read that lands on a `journey`/`screen` node once one exists.
-
-  **Unchanged by the resolver:** `Node.status`'s three values, the
-  mint-time write itself (`:approved` for a `draft:`-less tier,
-  ORC-117 above), and
-  `ContextResolver.resolve/2` — a walk resolves to exactly the
-  targets it always did; only how a resolved target is judged
-  `settled?` differs. And the resolver does not reach every walk:
-  `.fragments[kind]` reads (`self.parent.dependency ->
-  comp.handle.fragments[pubapi]` and its siblings) name a fragment a
-  *different* node writes (the `per(comp)` `comparch` node, via
-  `produces:`, never `comp` itself), a provenance question `settled?`
-  as stated here does not answer — moot for every such read in
-  `bundles/default` today for an unrelated reason
-  (`systems/generation.md`'s ORC-235 entry: every `.fragments[kind]`-
-  typed walk in this bundle walks a `dependency`-typed edge, and no
-  `dependency` instance in this bundle is extracted, because its
-  `source` always names a join-target node type that never commits a
-  `DraftCommitted` under its own name — a source-identity gate, not an
-  edge-type one, but one that excludes this whole family regardless —
-  so the walk resolves to `[]` and stays vacuously satisfied whatever
-  `settled?` says). Closing that
-  gap is generation's; `.fragments[kind]` readiness, once dependency
-  extraction exists, extends `settled?` with a same-tier carve-out (a
-  tier reading a fragment its own sibling instance writes — `comparch`
-  reading another `comp`'s pubapi — stays ungated, preserving "a
-  tier's own nodes fan out in parallel") rather than being treated as
-  a fresh problem.
-
-- **`all.<tier>` is satisfied only once `<tier>`'s own population is
-  exhausted, not merely once every node that happens to exist already
-  is approved** (ORC-235). `ContextResolver.resolve/2`'s `source: :all`
-  clause returns every currently-`Store
-  .list_nodes/2` node of `<tier>`, but `ReadyScopes` does not fold
-  that list alone with `Enum.all?/2`; empty is satisfied only when
-  emptiness is known to be final, which `Enum.all?([], _)` cannot tell
-  from "nothing has minted or drafted here yet." A tier's population is
-  exhausted — call it `drained?/1`, the same naming register as
-  `settled?/2` above — when no further node of that tier will ever
-  appear *and* nothing that already exists is still pending. The
-  recursion below folds over the same closed `scope:` vocabulary
-  `candidates/3` already switches on, but its two recursive branches
-  (`per(X)`, `child_of(X1..Xn)`) test that definition differently,
-  because the two node kinds come into existence at different points.
-  A `per(X)` node has no stored row until it drafts (`ReadyScopes`'s
-  own moduledoc: a transient, never-persisted placeholder stands in
-  until then), so the existing-row list at a `per(X)` tier is never
-  trustworthy as a final population on its own — zero rows there means
-  either "none will ever exist" or merely "hasn't drafted yet," and the
-  only way to tell them apart is to check whether the driving tier `X`
-  is itself exhausted first. A `child_of(X)` node's row appears at its
-  parent's mint, not at its own draft, so once every minting parent
-  `Xi` is exhausted the current row count at `<tier>` is already final
-  and the recursion needs no further condition on those rows
-  themselves — the asymmetry between the two branches below is this,
-  not an inconsistency:
+- **#21 `all.<tier>` is satisfied only once `<tier>`'s own population is exhausted, not merely once
+  every node that happens to exist already is approved** (ORC-235). `ContextResolver.resolve/2`'s
+  `source: :all` clause returns every currently-`Store .list_nodes/2` node of `<tier>`, but
+  `ReadyScopes` does not fold that list alone with `Enum.all?/2`; empty is satisfied only when
+  emptiness is known to be final, which `Enum.all?([], _)` cannot tell from "nothing has minted or
+  drafted here yet." A tier's population is exhausted — call it `drained?/1`, the same naming register
+  as `settled?/2` above — when no further node of that tier will ever appear *and* nothing that
+  already exists is still pending. The recursion below folds over the same closed `scope:` vocabulary
+  `candidates/3` already switches on, but its two recursive branches (`per(X)`, `child_of(X1..Xn)`)
+  test that definition differently, because the two node kinds come into existence at different
+  points.
 
   - `singleton` with `generator: supplied` (`design_system` is
     `bundles/default`'s only instance today): drained unconditionally,
@@ -461,81 +286,20 @@ them.
     true the instant `feature_expansion` is approved and every vocab
     entry is still undrafted, which is "no further node will appear"
     without "nothing existing is still pending."
+- **#22 Termination is a property of `bundles/default`'s own scope graph today, not one the loader
+  enforces.** `per(X)`/`child_of(X1..Xn)` references are declared over tier *names*, not edge
+  instances: `Chain.build`'s acyclicity check (`lib/catapult/dsl/chain.ex`) walks `edges:` instances
+  only, and `scope_problems/1` checks only that a scope names a tier the bundle actually declares —
+  nothing at load time rejects a bundle declaring `A per(B)` and `B per(A)`, which would recurse
+  `drained?` forever the first time either tier's readiness is asked for. `per(X)`/`child_of(X1..Xn)`
+  are the only cases that recurse at all — every `singleton` tier is a base case for this recursion,
+  whatever its own `drained?` branch decides.
+- **#23 Order is derived from the graph `context:`/`scope:` declare, never from a declared tier
+  sequence.**
+- **#24 `drained?` delivers the ordering half of the Scope section's purpose, not the
+  reading-real-APIs half.**
 
-  This is what tells `all.vocab.handle` (`vocab` is `child_of
-  (feature_expansion)`) that zero vocab entries is a legitimate,
-  terminal answer once `feature_expansion` is `:approved`, apart from
-  `all.journey.handle`/`all.screen.handle`/`all.sysarch.handle` in a
-  fresh `frontend_sysarch` context, where `journeys`/`screens`/
-  `sysarch` (respectively `per(feature_expansion)`/`per(feature_expansion)`
-  /`per(requirements)`) have not drafted at all — `drained?` is `false`
-  for all three, so `frontend_sysarch` does not dispatch on the
-  first sweep with an empty context — the failure ORC-235 opened
-  against.
-
-  **Termination is a property of `bundles/default`'s own scope graph
-  today, not one the loader enforces.** `per(X)`/`child_of(X1..Xn)`
-  references are declared over tier *names*, not edge instances:
-  `Chain.build`'s acyclicity check (`lib/catapult/dsl/chain.ex`) walks
-  `edges:` instances only, and `scope_problems/1` checks only that a
-  scope names a tier the bundle actually declares — nothing at load
-  time rejects a bundle declaring `A per(B)` and `B per(A)`, which
-  would recurse `drained?` forever the first time either tier's
-  readiness is asked for. `per(X)`/`child_of(X1..Xn)` are the only
-  cases that recurse at all — every `singleton` tier is a base case
-  for this recursion, whatever its own `drained?` branch decides. In
-  `bundles/default` today the scope graph is finite because every
-  `per(X)`/`child_of(X1..Xn)` chain eventually reaches one of the
-  bundle's four `singleton` tiers (`design_system`, `feature_expansion`,
-  `frontend_sysarch`, `non_goals` — `ref` is `scope: reference`, not
-  `singleton`, above, and no `per(X)`/`child_of(X1..Xn)` chain in
-  `bundles/default` names it as a parent), because the bundle's authors
-  have kept the scope graph a DAG by convention — not because anything
-  checks it. Closing that gap — extending `Chain.build`'s existing
-  cycle detection to scope references alongside edge instances — is a
-  `core_dsl` loader change; `drained?`'s own correctness leans on a
-  guarantee the loader does not supply.
-
-  **Order is derived from the graph `context:`/`scope:` declare, never
-  from a declared tier sequence.** A separate ordering declaration
-  would still need this same
-  recursion to answer "is the tier before me actually finished" — a
-  sequence position alone cannot tell "zero nodes because none will
-  ever mint" from "zero nodes because nothing upstream has drafted yet"
-  any more than a bare `Enum.all?/2` fold can, since that is a fact about the
-  scope/fanout graph, not about position in a list. A sequence would
-  therefore buy no simplification over deriving order from the graph
-  `context:`/`scope:` already declare, while adding a second,
-  independently-authored representation of the same fact — exactly the
-  drift a declared order and a declared graph disagreeing would invite,
-  and exactly what `docs/dsl-syntax.md` §7/§7.2's "context is the only
-  readiness signal" already commits this system to not needing.
-  `ready_scopes` stays derived from one graph, not two.
-
-  **`drained?` delivers the ordering half of the Scope section's
-  purpose, not the reading-real-APIs half.** The Scope section above
-  states the point of ordering `frontend_sysarch` after the backend as
-  letting "the front-end family read real component APIs on its first
-  pass rather than a shape it has to guess at." `drained?` delivers the
-  ordering half — `frontend_sysarch` does not dispatch before
-  `sysarch` is approved — but not the reading-real-APIs half:
-  `frontend_sysarch`'s `all.comp.handle` and `ui_collarch`'s
-  `self.parent.uses_shapes -> comp.handle.fragments[pubapi]` wait, via
-  `settled?`, only on the `comp` node's own minting `sysarch` — never
-  on `comparch`, the tier that actually writes the `pubapi` fragment
-  `uses_shapes` reads (the `.fragments[kind]` provenance gap noted
-  above). The walk itself does resolve: `source_ref:`/`target_ref:`
-  extraction (`systems/generation.md`'s ORC-235 entry,
-  `systems/core_dsl.md`'s ORC-236 entry) extracts every `dependency`
-  instance regardless of which tier `declared_in` names,
-  `uses_shapes`/`calls` included, so relocating a `dependency` edge's
-  declaration does not leave it resolving to `[]` for want of
-  extraction. The one gap between `drained?` and the Scope section's
-  stated purpose is a same-tier `.fragments[kind]` provenance carve-out
-  in `settled?` — readiness's mint-ancestry-vs-fragment-authorship
-  distinction, not an extraction or mint-time-value question.
-
-- **A minted node's `fields` are written at mint time, copied from the
+- **#25 A minted node's `fields` are written at mint time, copied from the
   mint entry unchanged — the identical "copy, never derive" shape
   ORC-117 already established for `status`** (ORC-236).
   `apply_mint/2` threads `mint.status` from `Extraction.mints/4`'s own
@@ -548,72 +312,13 @@ them.
   them and the purity floor is not exposed: the values are computed,
   purity-floor-clean, before the event is dispatched, the same
   guarantee `mint.status` relies on.
-- **`settled?/2`'s `generator: supplied` clause widens to
-  `generator: reference`, unconditionally, for the identical reason**
-  (ORC-236; the three-way match above). A `supplied` node is settled
-  the moment it exists because nothing upstream in the generation chain
-  produced it and could still revise it; a `reference` node (`ref`, the
-  tier `dsl-syntax.md` §3.1's `reference` scope kind exists for) has
-  the identical property for a different reason — its content is
-  written once, by a write path outside the chain, with no draft
-  anywhere in its history to be unapproved. Both clauses read "settled
-  unconditionally, the moment the node exists," keyed on the tier's own
-  generator declaration rather than on `parent_node_id == nil`, for the
-  reason the three-way match above keeps the check declaration-keyed.
-  This is what makes a
-  `self.reference -> ref.handle` walk (`docs/dsl-syntax.md` §3.3's own
-  worked example) resolvable at all: a `ref` node has no draft anywhere
-  in its history, so there is no approval for `settled?` to wait on —
-  it has to read the node's `generator: reference` declaration and say
-  "settled" the moment the node exists, the same way it already reads
-  `generator: supplied` for `design_system`.
-- **Cardinality and instance-level `graph_constraint` are evaluated
-  once the edge's own bound side is drained — except a `max` bound,
-  which needs no such gate and is evaluated as soon as it can be
-  violated — and a violation is a reported, non-blocking finding —
-  never a retried draft and never a blocking gate** (ORC-236).
-  `dsl-syntax.md` §13 places this at "projection time," not load time;
-  which moment of projection time is the load-bearing part, because
-  the naive answer ("check on every `DraftCommitted`") produces exactly
-  this failure: `fulfills`'s
-  `source: {min: 1}` ("every comp fulfills ≥1 resp") reads as violated
-  on every comp that hasn't drafted its `fulfills` edge yet, which is
-  every comp for some nonzero span of the chain's own run — a check
-  that fires on every intermediate state is not a check, it is noise
-  indistinguishable from a real defect. The gate is the mechanism this
-  system uses to tell "not yet" from "never": a `{min, max}` bound on
-  one side of an edge instance is evaluated only once that side's own
-  tier is `drained?/1` (above) — the identical "has everything that
-  could ever exist already committed and settled" question `all.<tier>`
-  readiness answers, asked here of a cardinality bound instead of a
-  context walk. `max` bounds need no
-  such gate (a count that has already exceeded a ceiling stays
-  exceeded; checking early costs nothing) and are evaluated as soon as
-  they can be violated, `min` bounds and `graph_constraint: acyclic`/
-  `no_self_loop`/`tree` (both real properties of the whole instance
-  graph, not of a single edge as it's written) wait on drainage the
-  same way.
-
-  **Why a reported finding rather than a blocking gate or a retried
-  draft.** Grammar validation retries the agent that wrote the failing
-  body — there is exactly one draft and one author to hand a typed
-  error back to (`systems/generation.md`'s "validation failure is
-  feedback, not error"). A cardinality or graph-constraint violation
-  has neither: the defect is a property of the graph as a whole, most
-  often spanning several already-committed, individually-valid drafts
-  (a `{min: 1}` violated because a *different* tier's draft failed to
-  reference this one, or never existed at all) — there is no single
-  agent whose retry could fix it and no single draft to decline.
-  Surfaced as a finding a human resolves, the same shape a policy
-  enforcement gap already takes (`docs/v5-design-decisions.md` §4.5's
-  "enforcement gaps are plane-filed tickets, instantly visible") rather
-  than as a blocking state this system's readiness graph would have to
-  reason about. This system has no node status and no gate for it —
-  the finding's own surface (a ticket, a dashboard entry, or
-  reuse of an existing structured-signal channel) is generation's/
-  delivery's to build against this timing rule, not a new engine
-  primitive.
-- **A declared edge now resolves to the node it names, closing the
+- **#26 `settled?/2`'s `generator: supplied` clause widens to `generator: reference`,
+  unconditionally, for the identical reason** (ORC-236; the three-way match above).
+- **#27 Cardinality and instance-level `graph_constraint` are evaluated once the edge's own bound
+  side is drained — except a `max` bound, which needs no such gate and is evaluated as soon as it can
+  be violated — and a violation is a reported, non-blocking finding — never a retried draft and never
+  a blocking gate** (ORC-236).
+- **#28 A declared edge now resolves to the node it names, closing the
   chain this ticket's own audit found empty — from two independent
   directions, not one fix gating the other.** Every `<arch> → ref`
   citation is extracted (`systems/generation.md`'s ORC-235 entry: nine
@@ -649,381 +354,109 @@ them.
   `apply_declared_edge/2` applies whichever edge list it is handed and
   does no locating of its own.
 
-- **A fanned-out child cannot leave its parent's workflow-axis
-  sub-array, and this is a consequence of readiness already gating,
-  not a new rule for this system to enforce** (ORC-115, design pass —
-  stated as an invariant `docs/dsl-syntax.md` §15.10's sub-array
-  grouping and ORC-116's own subflow-navigation design both lean on).
-  `walk_ready?/2`'s own predicate — `Enum.all?(targets, &(&1.status ==
-  :approved))` — already requires every node a context walk reaches to
-  be `:approved` before the tier reading that walk can dispatch; §7
-  states the same fact from the grammar side ("readiness requires all
-  targets ready. Context is the only readiness signal"). So a tier
-  positioned in a workflow sub-array *after* a gate can never become
-  ready while the tier(s) the gate's own sub-array pins remain
-  unapproved — not because anything checks the workflow-axis grouping
-  against the chain-axis node, but because there is no path to
-  `:approved` for the later tier that does not first satisfy the
-  earlier one's own context walk. **What this is not:** a claim that
-  this system reads or enforces sub-array membership at all — it
-  doesn't, and gains no new code from this entry. The invariant is
-  chain-axis readiness, restated for a workflow-axis reader (ORC-116's
-  navigation) who needs to know a fanned-out node cannot be "ahead of"
-  its own group's gate. If that reader ever needs something this
-  system doesn't already expose — the sub-array a given node's tier
-  belongs to, say — that is a new query, not evidence this invariant
-  is wrong.
+- **#29 A fanned-out child cannot leave its parent's workflow-axis sub-array, and this is a
+  consequence of readiness already gating, not a new rule for this system to enforce** (ORC-115,
+  design pass — stated as an invariant `docs/dsl-syntax.md` §15.10's sub-array grouping and ORC-116's
+  own subflow-navigation design both lean on).
 
-- **Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings
-  surface, same mechanism as every other marked threshold) — enough
-  headroom that a burst of events doesn't turn the convergence floor
-  into a second fast path, short enough that a lost PubSub message
-  (process crash, netsplit) is invisible within one dispatch cycle in
-  practice. **`staleClaimGrace` (§7.16's still-open item) is not this
-  constant** — it measures ticket-claim staleness on the delivery/
-  tracker side (`max(Run.EndedAt, StateSince)`), a different clock for
-  a different job, noted so the two are not conflated by a reader
-  reaching for "the scheduler's timer" and finding two candidates.
-  §7.16's item is open independently of this constant.
-  **A tick walks its projects serially, not fanned out.** `Catapult
-  .Repo`'s pool is a shared, finite budget, not this sweep's alone to
-  spend — SETUP.md §2 sizes it against the projector's writes, Oban's
-  workers as queues land, the health check, *and* this sweep together,
-  on the one reference cluster this code deploys to, and owns that
-  number alone (`docs/non-goals.md`: the instance's live facts have
-  one home). `Task.async_stream`'s default width
-  (`System.schedulers_online`) is the idiomatic move and the wrong one
-  here: on a run of any real size it alone can reach for more
-  connections than the pool holds, ahead of a request the pool exists
-  to serve. One project at a time keeps a tick's own footprint at a
-  single checked-out connection regardless of how many projects exist,
-  which is affordable at 30s cadence because a readiness query is
-  cheap and the floor's whole job is convergence, not speed. Revisit
-  condition: a measured tick duration exceeding the cadence at real
-  project counts — the fix then is a bounded width stated as a number
-  here, never the default.
-- **The sweeper is a distinct registered process and declares
-  `:singleton` placement, the same kind `engine_projector` already
-  uses** (v5 §2.5). The fast path
-  is not a second process to place: "on each trigger the scheduler
-  re-runs `ReadyScopes.ready/3` ... and broadcasts" (above) rides
-  inside `Catapult.Engine.Projector.handle/2`, which already runs
-  cluster-wide singleton by construction (a Commanded event handler
-  subscription is consumed once, in order, or replay guarantees break)
-  — so placement is only ever a question about the timer loop.
-  `:local` placement would be defensible on
-  redundant-computation grounds alone (a stateless read costs cycles,
-  not correctness, if every node repeats it), which does not price what
-  "every node" costs against a pool sized in the single digits: a
-  rolling deploy runs two full instances briefly, and `:local` turns
-  one sweep into two, against the same budget the paragraph above
-  already spends down to one connection per tick. `:singleton` removes
-  the doubling by construction — one sweeper cluster-wide, like the
-  projector beside it — rather than accepting it and arguing the size
-  is fine; the two processes share one placement rule for one
-  reason (each must run exactly once, not once per node) instead of
-  each defending a different number. Registered via `processes/0`
-  like any other named process.
-- **A node id is a per-project slug, not globally unique** (ORC-87).
-  ORC-6 fixed the id column's *type* at `:string` rather than
-  `:binary_id` deliberately, to leave the scheme open — but fixed the
-  primary key to `id` alone in the same migration, which only one of
-  the two legal schemes supports. Per-project is the scheme that
-  holds.
-  `scope_key` and `handle` are already how a node is addressed
-  *within* a project (`dsl-syntax.md` §3), and neither the command
-  edge nor a bundle's own vocabulary promises more than that. A
-  caller-supplied string unique across every project the plane will
-  ever build is not a constraint anyone picks on purpose, and both
-  alternatives are worse: reopen the UUID door ORC-6 deliberately shut
-  for no gain the DSL asks for, or lean on bundle authors to
-  hand-prefix every id with its project — a convention nothing
-  enforces.
+- **#30 Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings surface, same mechanism as
+  every other marked threshold) — enough headroom that a burst of events doesn't turn the convergence
+  floor into a second fast path, short enough that a lost PubSub message (process crash, netsplit) is
+  invisible within one dispatch cycle in practice. **`staleClaimGrace` (§7.16's still-open item) is
+  not this constant** — it measures ticket-claim staleness on the delivery/ tracker side
+  (`max(Run.EndedAt, StateSince)`), a different clock for a different job, noted so the two are not
+  conflated by a reader reaching for "the scheduler's timer" and finding two candidates. §7.16's item
+  is open independently of this constant. **A tick walks its projects serially, not fanned out.**
+- **#31 The sweeper is a distinct registered process and declares `:singleton` placement, the same
+  kind `engine_projector` already uses** (v5 §2.5). The fast path is not a second process to place:
+  "on each trigger the scheduler re-runs `ReadyScopes.ready/3` ... and broadcasts" (above) rides
+  inside `Catapult.Engine.Projector.handle/2`, which already runs cluster-wide singleton by
+  construction (a Commanded event handler subscription is consumed once, in order, or replay
+  guarantees break) — so placement is only ever a question about the timer loop.
+- **#32 A node id is a per-project slug, not globally unique** (ORC-87).
 
-  **The evidence is that authors already do not follow it.** Test
-  modules deadlocked on shared bare ids — `"sysarch"`, `"comp1"`,
-  `"n1"` — independently written and each reaching
-  for the same plausible name, exactly as a bundle's own tier and
-  scope vocabulary would. That is ordinary authoring rather than a
-  test artifact, which is why per-module id prefixing is the wrong
-  fix: it makes the suite pass without saying whether two real
-  projects can collide the same way.
+- **#33 Every engine table keys by `(project_id, id)` — and so does every *secondary* unique index
+  on it, which is the half that does not follow from the first.**
 
-- **Every engine table keys by `(project_id, id)` — and so does every
-  *secondary* unique index on it, which is the half that does not
-  follow from the first.** A natural key like `engine_edges`'
-  `(edge_name, source_node_id, target_node_id)` gains nothing from the
-  primary key widening, and `Repo.insert!`'s `on_conflict: :nothing`
-  names exactly one arbiter: a *different* unique index the same
-  insert violates either raises, or drops the row as an apparent
-  replay and leaves a graph silently missing an edge. The failure mode
-  is silence by construction, so a new table in this store carries the
-  obligation whether or not a test has tripped over it yet.
-  `priv/repo/migrations/20260820000003_key_engine_store_by_project.exs`
-  carries the per-table mechanics and that arbiter subtlety in full,
-  at the point either would be edited.
-
-- **Purity floors are absolute in this system**: no clocks,
+- **#34 Purity floors are absolute in this system**: no clocks,
   randomness, or generated ids in aggregate/reducer/projection code;
   inject at the command edge. Enforced by the substrate's call-graph
   audit check, which this system is the reason to build.
-- **`ready_scopes` is the plane's dispatch source** (v5 §1.2's
+- **#35 `ready_scopes` is the plane's dispatch source** (v5 §1.2's
   inversion) — the engine writes it; generation and delivery consume
   it; nothing else initiates work.
-- **Events are versioned and upcast on read** (v5 §2.4): shapes are
+- **#36 Events are versioned and upcast on read** (v5 §2.4): shapes are
   immutable contracts; changes are new versions with pure upcasters
   registered beside the reducer; the log is never rewritten; replay
   fixtures retain every historical shape. Built into the ES family
   from the first event, because retrofit means a broken replay.
-- **Every atom an engine event carries needs a `JsonDecoder` on read,
-  and the class is exactly four events today, not one** (ORC-226; the
-  crash that found it: `Catapult.Engine.Projector`
-  raising `Ecto.ChangeError` on `ReviewWritten.kind` and taking the
-  reference instance down with it — a `Commanded.Event.Handler` with
-  no `error/3` stops on the first bad event, permanently, since it
-  re-reads the same event on every boot). `Catapult.Engine.EventStore`
-  sets `Commanded.Serialization.JsonSerializer` deliberately (its own
-  moduledoc: it round-trips atom-keyed struct fields, which the
-  library's default serializer does not attempt); `deserialize/2`
-  rebuilds the event via `struct/2` and then always runs
-  `Commanded.Serialization.JsonDecoder.decode/1` on the result — the
-  same mandatory second step `Catapult.Delivery.ContainerLifecycle`
-  and `Catapult.Delivery.FeatureLifecycle` already implement for their
-  own persisted state (ORC-120). `struct/2`
-  restores atom *keys*; it does nothing for a value that started life
-  as an atom and travelled the wire as a JSON string, and no consumer
-  downstream ever casts on read — every `Store` insert/upsert this
-  system makes goes through `Ecto.Changeset.change/2`, which performs
-  no casting, which is exactly why the defect surfaces as
-  `Ecto.ChangeError` against an `Ecto.Enum` column rather than a
-  silent coercion.
-
-  **The class, over every event this doc's file map owns:** four
-  events carry a value the
-  reducer passes unchanged into a `Store` call backed by an
-  `Ecto.Enum` column — `ReviewWritten.kind` (`Store.Review.kind`),
-  `ActiveBundleFlipped.axis` (`Store.ActiveBundleVersion.axis`),
-  `FindingAdjudicated.disposition`
-  (`Store.ContainerFinding.disposition`), and `DraftCommitted
-  .mints[].status`/`.edge_type` and `.edges[].type` (`Store.Node
-  .status`, `Store.Edge.type`), the last landing through `Reducer
-  .apply_mint/2`'s and `.apply_declared_edge/2`'s own pass-through
-  `status:`/`type:` assignments. Every other atom- or `DateTime`-typed
-  field on an engine event either never reaches a `Store` call at all
-  (`DraftCommitted.committed_at` is read off the event but never
-  forwarded to `insert_draft/1`; `CommentPosted.posted_at` and
-  `RunFailed.occurred_at` fold through `apply/2` clauses that write no
-  projection row, by design, above) or is a plain string end to end
-  (every `reason`, every `gate`, every `type_name`) — this is the
-  whole set for atom- and `DateTime`-typed fields, not a sample of
-  it. `keys: :atoms` also turns a map-valued field's own
-  keys into atoms on the way back — `DraftCommitted.scope_key` and
-  `.fields` both go in string-keyed and come back atom-keyed — but
-  neither is atom- or `DateTime`-typed, so both sit outside the
-  predicate above rather than inside a gap it missed. They are safe
-  today for a stated reason: every
-  consumer re-encodes them straight to jsonb without ever comparing a
-  key in memory — `Store.Node.scope_key` is a `:map` column, and both
-  `mint_node/1`'s `conflict_target: [:project_id, :tier, :scope_key]`
-  and `get_node_by_scope!/3`'s `Repo.get_by` compare the dumped jsonb,
-  where the Elixir key type has already stopped existing. The day a
-  map-valued field's keys are compared in memory rather than dumped
-  whole, it joins this class and this predicate widens to say so.
-
-  **`DraftCommitted` fails as `Ecto.ChangeError` one level in, not as
-  `KeyError`, because `keys: :atoms` reifies nested keys as well as
-  top-level ones:** `Commanded.Serialization.JsonSerializer.deserialize/2`
-  only turns on `keys: :atoms` when its caller supplies a `type:`, and
-  it is the caller, not this function, that "always" applies to —
-  `EventStore.RecordedEvent.deserialize/2` calls it with
-  `type: event_type` for event data and with no `type:` at all for
-  metadata, which is also why metadata stays string-keyed on arrival
-  while event data does not. Once `keys: :atoms` is on, it threads
-  through every nested object Jason's own decoder parses, not only the
-  struct's top level (confirmed by reproducing the exact round trip
-  against `Catapult.Engine.Events.DraftCommitted`, not inferred from
-  reading the library). A `mint`'s `node_id`/`tier`/`edge_name` keys arrive as
-  atoms already; dot access on them does not raise `KeyError`. What
-  survives the wire wrong is the same failure the other three events
-  have, one level in: `mint.status`/`mint.edge_type` and `edge.type`
-  are JSON strings, `Reducer.apply_mint/2`/`.apply_declared_edge/2`
-  copy them unchanged into `Store.mint_node/1`/`.insert_edge/1`, and
-  both land on an `Ecto.Enum` column through the same uncasted
-  `Ecto.Changeset.change/2` — `Ecto.ChangeError`, not `KeyError`, and
-  only once a committed draft's `mints`/`edges` are non-empty, which is
-  why nothing has fired yet.
-
-  **The fix is one shared helper, not four bespoke decoders, and it
-  resolves each value against the legal set `Ecto.Enum.values/2`
-  returns rather than against the runtime atom table — which an event
-  module's own compiled form does not populate with its legal
-  values.** `ContainerLifecycle`/`FeatureLifecycle` are each
-  safe by the argument their own moduledocs give: the legal values are
-  compile-time literals *in that module*, so they are in the atom
-  table before any decode runs. An event module's `@type` spec is not
-  that — typespec atoms never reach the runtime atom table — and
-  loading only `Catapult.Engine.Events.ReviewWritten` and decoding
-  confirms it: `"ai"` resolves, because it is also the struct's default
-  value and so a real literal, while `"human"`, named only in the
-  `@type`, raises `ArgumentError`. For `ActiveBundleFlipped` and
-  `FindingAdjudicated`, measured the same way, every legal value is
-  missing outright until something else happens to have already loaded
-  their `Store.*` schema, whose `Ecto.Enum, values: [...]` list is the
-  actual literal. For `DraftCommitted`, measured with only its own
-  module loaded, three of its six legal values (`:absent`, `:approved`,
-  `:reference`) resolved anyway, from atoms other already-loaded
-  modules happened to carry, while the other three (`:fanout`,
-  `:dependency`, `:policy_application`) still raised `ArgumentError` —
-  and that partial result is the sharper evidence, not a softer one: a
-  decode that fails every time is a loud bug any smoke test catches,
-  while one that succeeds on some values and crashes on others
-  depending on incidental load order is exactly the shape that passes
-  every offline check and only fires in production on the first
-  unlucky value. The failure mode either way is worse than the
-  `Projector` crash above: decode runs before
-  the reducer ever touches `Store`, so a poison value here raises
-  inside `JsonDecoder.decode/1` itself — before `Projector`'s handler,
-  and its `error/3`, are ever reached. `Catapult.Engine.Events
-  .WireDecoding` (new, `lib/catapult/engine/events/wire_decoding.ex`)
-  is what recovers the same safety property `ContainerLifecycle`'s
-  idiom rests on, without keeping a second copy of any value set and,
-  as the entry below states, without calling
-  `String.to_existing_atom/1` on the wire value at all: each repaired
-  field's legal atoms come from `Ecto.Enum.values/2` read against that
-  field's own `Store` schema and column at decode time
-  (`Ecto.Enum.values(Store.Review, :kind)`, and the same call shape for
-  the other three), never from a list `WireDecoding` writes out itself.
-  That call forces the same `Store.*` module load that puts the real
-  literals in the atom table — the exact property `ContainerLifecycle`'s
-  argument rests on — and it leaves no duplicate list for `Store`'s own
-  enum to drift out of step with: the day a value is added to
-  `Store.Review.kind`'s `Ecto.Enum, values: [...]`, `WireDecoding` sees
-  it on the very next call, with nothing to edit and nothing that can
-  fall out of sync. A single `defimpl Commanded.Serialization.JsonDecoder,
-  for: [ReviewWritten, ActiveBundleFlipped, FindingAdjudicated,
-  DraftCommitted]` block in the same file gives each struct its own
-  `decode/1` clause built on this lookup, rather than four `defimpl`
-  blocks scattered across the four event files each repeating the same
-  three-line shape. This is a deliberate departure from where
-  `ContainerLifecycle`/`FeatureLifecycle` keep theirs (in the struct's
-  own file) — each of those is the only consumer of its own repair, and
-  this one repair is six fields across five `Store` schemas, not four
-  call sites: `ReviewWritten.kind` → `Store.Review`,
-  `ActiveBundleFlipped.axis` → `Store.ActiveBundleVersion`,
-  `FindingAdjudicated.disposition` → `Store.ContainerFinding`,
-  `DraftCommitted.mints[].status` → `Store.Node`, and
-  `DraftCommitted.mints[].edge_type` alongside `.edges[].type` — both
-  → `Store.Edge`, because `Reducer.apply_mint/2` writes both `status:`
-  and `type:` from a single mint and `.apply_declared_edge/2` writes
-  `type:` again from a declared edge, so `Store.Edge` is read twice.
-  Six is the count a shared file is sized against, and reading the
-  column's own set rather than the event's `@type` is strictly
-  stronger, not merely equivalent: `Store.Edge.type` declares five
-  values (`:fanout`, `:reference`, `:dependency`,
-  `:policy_application`, `:synthesis`) where `DraftCommitted`'s own
-  `@type` names four, so sourcing from `Ecto.Enum.values/2` lets the
-  decoder accept a value the column already considers legal even where
-  the event's own typespec has not caught up with it.
-
-  **An unrecognised value never raises inside `decode/1`, and the
-  mechanism that guarantees it leaves no ordering hazard for a dev to
-  get backwards.** `WireDecoding` does not call
-  `String.to_existing_atom/1` on the wire string as an independent
-  second step — it matches the wire string against the atoms
-  `Ecto.Enum.values/2` already returned (comparing each to
-  `Atom.to_string/1`) and substitutes the matching atom it already
-  holds. There is no separate lookup that could run before the
-  `values/2` call and reintroduce the `ArgumentError` measured above:
-  the only atoms `decode/1` can ever produce are the ones `values/2`
-  just handed back, already resolved, so there is no ordering for a
-  later change to invert. When no match exists, `decode
-  /1` leaves that field's value as the wire string, unchanged, rather
-  than raising — the struct then reaches the `Store` call it always
-  would have, meets the same uncasted `Ecto.Changeset.change/2` every
-  field in this class already goes through, and fails as
-  `Ecto.ChangeError` at the one site `Projector`'s `error/3` (`:stop`,
-  below) already governs. That is deliberate, not a default left
-  unchosen: this entry has already established that raising inside
-  `decode/1` is the worse placement, landing before `Projector`'s
-  handler and its `error/3` exist to see it, and an unrecognised value
-  — a schema migrated ahead of this decoder, say — is exactly the case
-  that placement would be worst for.
-
-  **The comment that documented the serializer choice is the site that
-  hid this defect, and it states the atom-keyed/atom-valued
-  distinction.** `lib/catapult/engine/event_store.ex`'s `init/1`
-  carries: "it round-trips the versioned event structs this component
-  emits, including their atom-keyed fields, which the library's own
-  default `EventStore.JsonSerializer` does not attempt." That sentence
-  is true and, on its own, reads as covering atom-*valued* fields too,
-  which it does not — atom-keyed is exactly what `struct/2` restores,
-  and atom-valued is exactly the gap the four decoders above close.
-  Left on its own, the next reader reaches this comment and draws the
-  same conclusion the milestone's worth of code that shipped around it
-  did, so the comment states the distinction rather than leaving true
-  words to imply the wrong thing.
-
-  **`Projector` keeps Commanded's default `error/3` (`:stop`),
-  unchanged — a decision, not an oversight.** A handler that skipped a
-  bad event instead would leave this doc's own "rebuild-from-zero...
-  must equal incremental state, always" quietly false for whatever
-  that event should have folded — worse than the crash-loop, and
-  there is no mechanism (no alert, no parked-event queue, no
-  replay-from-here tool) to make a skip visible rather than silent.
-  The four decoders above remove the only known way to reach a poison
-  event today; a *different* future defect reaching the same `:stop`
-  is a real gap, and designing what a human does about a skipped
-  event is its own ticket.
-
-  **The round-trip gap closes in the one test that reaches the real
-  serializer.** `config/test.exs`'s
-  `Commanded.EventStore.Adapters.InMemory` performs no serialization at
-  all, so the default suite is structurally incapable of exercising
-  any `JsonDecoder`, this class or the next one.
-  `test/catapult/engine/event_store_test.exs` — the one test already
-  reaching the real, Postgres-backed adapter — carries one case per event
-  in the class above, each asserting the decoded struct's atom-typed
-  field is an atom, not the string `Jason` would otherwise leave it as,
-  plus one case, on any single field in the class, asserting that an
-  unrecognised value comes back as the wire string unchanged rather
-  than raising inside `decode/1` — the fallback stated above, exercised
-  rather than only asserted in prose. `FlowCompleted`'s
-  two-binary case remains: it proves the
-  migration and the adapter wiring, which is a different and still-
-  needed fact from the one the new cases prove. No case asserts that
-  `WireDecoding`'s value sets agree with `Store`'s `Ecto.Enum`
-  declarations, because there are no separate sets to agree — the
-  `Ecto.Enum.values/2` lookup above reads `Store`'s own list directly,
-  so there is nothing a test would be checking for drift.
-- **The reducer resolves bundle semantics per event, from the log —
-  never from whatever `core_dsl` currently has loaded.** The active
-  bundle can flip mid-log, on either axis (v5 §6/§7.19;
-  `core_dsl.md`'s cutover decision), and rebuild-from-zero must equal
-  incremental state *always*, a flip included. A reducer that asks
-  "what bundle is loaded right now" would apply today's semantics to
-  yesterday's events on rebuild and diverge from what actually
-  happened. So the flip events fold into their own small per-axis
-  projection — current bundle version, and the sequence it became
-  current, two rows per project — and the reducer consults that
-  projection, in log order, exactly like every other event; it never
-  reads `core_dsl`'s loaded state mid-fold. This is also the
-  engine-side half of the join `core_dsl.md` already promises
-  delivery's Phase 7 re-resolution (a blocked ticket's status history
-  against the bundle-version timeline): the timeline is this
-  projection, so delivery reads it rather than re-deriving one of its
-  own. Built in from Phase 3 on the `events/0` precedent above: the
-  discipline costs nothing before a cutover exists and is a broken
-  replay to retrofit after one has landed. **A ninth projection, not
-  a port** — the intro paragraph names eight; this one exists because
-  the other eight can't be replayed correctly across a bundle flip
-  without it, not because the ticket asked for it by name.
-- **Staleness is a projection, never stored state** (v5 §7.11): a
+- **#37 Every atom an engine event carries needs a `JsonDecoder` on read, and the class is exactly
+  four events today, not one** (ORC-226; the crash that found it: `Catapult.Engine.Projector` raising
+  `Ecto.ChangeError` on `ReviewWritten.kind` and taking the reference instance down with it — a
+  `Commanded.Event.Handler` with no `error/3` stops on the first bad event, permanently, since it
+  re-reads the same event on every boot). `Catapult.Engine.EventStore` sets
+  `Commanded.Serialization.JsonSerializer` deliberately (its own moduledoc: it round-trips atom-keyed
+  struct fields, which the library's default serializer does not attempt); `deserialize/2` rebuilds
+  the event via `struct/2` and then always runs `Commanded.Serialization.JsonDecoder.decode/1` on the
+  result — the same mandatory second step `Catapult.Delivery.ContainerLifecycle` and
+  `Catapult.Delivery.FeatureLifecycle` already implement for their own persisted state (ORC-120).
+- **#38 The class, over every event this doc's file map owns:** four events carry a value the
+  reducer passes unchanged into a `Store` call backed by an `Ecto.Enum` column — `ReviewWritten.kind`
+  (`Store.Review.kind`), `ActiveBundleFlipped.axis` (`Store.ActiveBundleVersion.axis`),
+  `FindingAdjudicated.disposition` (`Store.ContainerFinding.disposition`), and `DraftCommitted
+  .mints[].status`/`.edge_type` and `.edges[].type` (`Store.Node .status`, `Store.Edge.type`), the
+  last landing through `Reducer .apply_mint/2`'s and `.apply_declared_edge/2`'s own pass-through
+  `status:`/`type:` assignments. Every other atom- or `DateTime`-typed field on an engine event either
+  never reaches a `Store` call at all (`DraftCommitted.committed_at` is read off the event but never
+  forwarded to `insert_draft/1`; `CommentPosted.posted_at` and `RunFailed.occurred_at` fold through
+  `apply/2` clauses that write no projection row, by design, above) or is a plain string end to end
+  (every `reason`, every `gate`, every `type_name`) — this is the whole set for atom- and
+  `DateTime`-typed fields, not a sample of it.
+- **#39 The fix is one shared helper, not four bespoke decoders, and it resolves each value against
+  the legal set `Ecto.Enum.values/2` returns rather than against the runtime atom table — which an
+  event module's own compiled form does not populate with its legal values.**
+- **#40 An unrecognised value never raises inside `decode/1`, and the mechanism that guarantees it
+  leaves no ordering hazard for a dev to get backwards.** `WireDecoding` does not call
+  `String.to_existing_atom/1` on the wire string as an independent second step — it matches the wire
+  string against the atoms `Ecto.Enum.values/2` already returned (comparing each to
+  `Atom.to_string/1`) and substitutes the matching atom it already holds. There is no separate lookup
+  that could run before the `values/2` call and reintroduce the `ArgumentError` measured above: the
+  only atoms `decode/1` can ever produce are the ones `values/2` just handed back, already resolved,
+  so there is no ordering for a later change to invert. When no match exists, `decode /1` leaves that
+  field's value as the wire string, unchanged, rather than raising — the struct then reaches the
+  `Store` call it always would have, meets the same uncasted `Ecto.Changeset.change/2` every field in
+  this class already goes through, and fails as `Ecto.ChangeError` at the one site `Projector`'s
+  `error/3` (`:stop`, below) already governs.
+- **#41 `Projector` keeps Commanded's default `error/3` (`:stop`), unchanged — a decision, not an
+  oversight.**
+- **#42 The round-trip gap closes in the one test that reaches the real serializer.**
+  `config/test.exs`'s `Commanded.EventStore.Adapters.InMemory` performs no serialization at all, so
+  the default suite is structurally incapable of exercising any `JsonDecoder`, this class or the next
+  one. `test/catapult/engine/event_store_test.exs` — the one test already reaching the real,
+  Postgres-backed adapter — carries one case per event in the class above, each asserting the decoded
+  struct's atom-typed field is an atom, not the string `Jason` would otherwise leave it as, plus one
+  case, on any single field in the class, asserting that an unrecognised value comes back as the wire
+  string unchanged rather than raising inside `decode/1` — the fallback stated above, exercised rather
+  than only asserted in prose. `FlowCompleted`'s two-binary case remains: it proves the migration and
+  the adapter wiring, which is a different and still- needed fact from the one the new cases prove.
+- **#43 The reducer resolves bundle semantics per event, from the log — never from whatever
+  `core_dsl` currently has loaded.** The active bundle can flip mid-log, on either axis (v5 §6/§7.19;
+  `core_dsl.md`'s cutover decision), and rebuild-from-zero must equal incremental state *always*, a
+  flip included. A reducer that asks "what bundle is loaded right now" would apply today's semantics
+  to yesterday's events on rebuild and diverge from what actually happened. So the flip events fold
+  into their own small per-axis projection — current bundle version, and the sequence it became
+  current, two rows per project — and the reducer consults that projection, in log order, exactly like
+  every other event; it never reads `core_dsl`'s loaded state mid-fold. This is also the engine-side
+  half of the join `core_dsl.md` already promises delivery's Phase 7 re-resolution (a blocked ticket's
+  status history against the bundle-version timeline): the timeline is this projection, so delivery
+  reads it rather than re-deriving one of its own.
+- **#44 Staleness is a projection, never stored state** (v5 §7.11): a
   node is stale when its committed content predates the inputs its
   context walk reads — computed from the log on demand, consumed by
   flow walks and the plane's out-of-band ticket filing. No stale
   flag is ever written, and no pending work attaches to nodes;
   pending work is always a ticket.
-- **A review tier needs no staleness treatment — but this does not
+- **#45 A review tier needs no staleness treatment — but this does not
   close v5 §7.16's open item, which names a different object.** §7.16
   asks what a passed *workflow* gate pins ("Approval is a status, and
   review states are declared"); `dsl-syntax.md` §3.3 (ORC-84)'s
@@ -1042,23 +475,13 @@ them.
   workflow gates land (`systems/delivery.md`'s Phase 7), over
   whatever this system's node/staleness projections already expose —
   not this ticket's to answer.
-- **Snapshot cadence and stream partitioning carry the v4 defaults
-  forward, unmoved.** Stream partitioning: one EventStore stream per
-  project, the Commanded aggregate identity being the project id (v4
-  §C.3) — already implied by "per-project aggregates" above, stated
-  explicitly here because the ticket asked; both axes' events land in
-  the same project stream; a project has one aggregate, not two.
-  Snapshot cadence: every 10,000 events per project.
-  Neither is built in Phase 3 (snapshots stay Target, below), but the
-  value is decided now rather than left for whoever builds them —
-  snapshots are disposable projections like any other (v5 §8's
-  cold-storage rider agrees), so a wrong cadence costs a resweep, not
-  a migration, and there is no reason to leave it unstated in the
-  meantime. Revisit condition: measured per-project event volume
-  disagreeing with v4's assumption enough to matter — nothing has run
-  long enough yet to measure it.
+- **#46 Snapshot cadence and stream partitioning carry the v4 defaults forward, unmoved.** Stream
+  partitioning: one EventStore stream per project, the Commanded aggregate identity being the project
+  id (v4 §C.3) — already implied by "per-project aggregates" above, stated explicitly here because the
+  ticket asked; both axes' events land in the same project stream; a project has one aggregate, not
+  two. Snapshot cadence: every 10,000 events per project.
 
-- **Container and workflow-axis lifecycle events land on the same
+- **#47 Container and workflow-axis lifecycle events land on the same
   single per-project aggregate, not a second one** (ORC-104;
   `docs/dsl-syntax.md` §15.6-§15.8, `docs/v5-design-decisions.md`
   §7.8). A container instance's
@@ -1094,24 +517,13 @@ them.
   resolves bundle semantics from the log rather than from whatever
   `core_dsl` currently has loaded (above); this system already depends
   on core_dsl for exactly this, so no new dependency edge is needed.
+- **#48 This is the first command edge into this aggregate that isn't this system's own.** Deciding
+  *when* a queue has emptied or a `blocks:` sibling has cleared, and issuing the command, is
+  `systems/delivery.md`'s new queue dispatcher; this system only validates and records what it's told,
+  exactly as "engine is state of record, delivery is the protocol interpreting it" already reads in
+  that doc.
 
-  **This is the first command edge into this aggregate that isn't this
-  system's own.** Deciding *when* a queue has emptied or a `blocks:`
-  sibling has cleared, and issuing the command, is
-  `systems/delivery.md`'s new queue dispatcher; this system only
-  validates and records what it's told, exactly as "engine is state of
-  record, delivery is the protocol interpreting it" already reads in
-  that doc. The split is not new in kind, only new in direction — every
-  writer into this aggregate so far has been this system's own command
-  edge, not another system's process manager. It does not reopen "the
-  scheduler dispatches to no component by name," several bullets up:
-  that invariant is scoped to the chain-axis generation signal
-  (`ready_scopes`) specifically — a
-  queue's resolved `flow:` that turns out to open ordinary ticket work
-  still dispatches through the existing `OpenFlow` path, driven by
-  nothing but `ready_scopes`.
-
-- **Membership is derived by reference, never a stored list — the
+- **#49 Membership is derived by reference, never a stored list — the
   queue-as-query principle applied one level up** (ORC-104;
   ORC-105's grammar, `dsl-syntax.md` §15.6-§15.7,
   `docs/v5-design-decisions.md` §7.8's "containers and projects alike
@@ -1132,20 +544,16 @@ them.
   "which instance is minted vs. which is active" (`dsl-syntax.md`
   §15.8) is exactly that same two-fact shape, mint recorded once and
   activation a later, separate write to the same row.
+- **#50 Membership is a version bump on the opening event, not a new table.** `container_id` and
+  `queue` are set once, at open — which means they are fields on the event that opens a work item, so
+  `Catapult.Engine.Events.FlowOpened` is version 2 and `FlowOpenedV1` joins `ReviewWrittenV1` as a
+  frozen historical shape with an upcaster (v5 §2.4). The upcast fills both with `nil` rather than
+  backfilling a guess: a version-1 event was written before containers existed, so the work item it
+  opened was genuinely a member of nothing, and a guessed container would have made an unowned work
+  item silently count into some queue's population — the one failure the queue-as-query has no way to
+  notice.
 
-  **Membership is a version bump on the opening event, not a new
-  table.** `container_id` and `queue` are set once, at open — which means
-  they are fields on the event that opens a work item, so
-  `Catapult.Engine.Events.FlowOpened` is version 2 and
-  `FlowOpenedV1` joins `ReviewWrittenV1` as a frozen historical shape
-  with an upcaster (v5 §2.4). The upcast fills both with `nil` rather
-  than backfilling a guess: a version-1 event was written before
-  containers existed, so the work item it opened was genuinely a member
-  of nothing, and a guessed container would have made an unowned work
-  item silently count into some queue's population — the one failure
-  the queue-as-query has no way to notice.
-
-- **`CommentPosted` (v1, explicit) is a new `events/0` entry, and a
+- **#51 `CommentPosted` (v1, explicit) is a new `events/0` entry, and a
   human review comment is an original protocol fact on this same
   aggregate, not a second one** (ORC-34). It joins
   `DraftApproved`/`FindingAdjudicated` on the identical ground "a
@@ -1188,46 +596,10 @@ them.
   committed body per node to comment on) and activates for free,
   unchanged, the day v2's anchoring ships a real one.
 
-- **Harvesting is a query against this log, not a second table — the
-  identical shape `Catapult.Engine.Projections.RunFailures` already
-  established for a different derived fact, corrected onto here after
-  design review found the first draft's cache reopened the exact
-  silent-failure risk it claimed to close** (ORC-34). The risk a cache
-  carries, named precisely: a cache table is written asynchronously by
-  whatever process reacts to a decline, while the *sweeper* that would
-  dispatch a regeneration is timer-driven and reads readiness from
-  projections the same reducer updates independently
-  (`Catapult.Generation.Sweeper`) — nothing orders the two, so a sweep
-  tick landing between "the gate declined" and "the cache row landed"
-  dispatches with a blank `feedback`, indistinguishable from a genuine
-  zero-comment case at render time. That is exactly the ambiguity that
-  must be resolved before dispatch, and a cache cannot resolve it —
-  only removing the asynchronous write can. `Catapult.Engine.Projections
-  .CommentFeedback.since_last_resolution(project_id, node_id)` reads
-  `Commanded.EventStore.stream_forward/2` directly, the same call
-  `RunFailures.count_since_commit/2` makes, and is a synchronous read
-  of the log itself, not a projection anything writes ahead of time —
-  so there is no ordering gap for a sweep tick to land in, whatever
-  the reset boundary is.
-
-  **The reset boundary is the resolution naming the gate, stamped on
-  the `GateDeclined` that used it — never `DraftCommitted`, and never
-  a position inferred from the global resolution sequence.**
-  `CommentFeedback.since_last_resolution(project_id, node_id)` reads
-  the most recent `GateApproved`/`GateDeclined` event in the project's
-  log, unfiltered by which gate it names — Phase 4's single pre-gate
-  `generation` status is what makes "whichever gate" safe here — and
-  if that event is a `GateDeclined`, folds every `CommentPosted` for
-  `node_id` seen after its stamped `since_sequence`; if it is a
-  `GateApproved`, or no resolution has happened yet, `feedback` is
-  empty. "Consumed" means "rendered into every regeneration dispatched
-  before the next resolution naming this gate, and gone the moment
-  that resolution lands" — not "discarded by an unrelated draft
-  commit," and not "discarded by an unrelated gate's own approval"
-  either. Each of the two excluded boundaries makes this fold and
-  `DeclineGate`'s own validation window different queries that can
-  each pass while the other sees something different, which reopens
-  the same blank-vs-zero ambiguity one level in:
+- **#52 Harvesting is a query against this log, not a second table — the identical shape
+  `Catapult.Engine.Projections.RunFailures` already established for a different derived fact,
+  corrected onto here after design review found the first draft's cache reopened the exact
+  silent-failure risk it claimed to close** (ORC-34).
 
   - `DraftCommitted` as the boundary: `GateDeclined` at T1 resets
     validation's window; a comment lands at T2, mid-regeneration;
@@ -1259,41 +631,6 @@ them.
     T1, and T2 postdates it) — but "the resolution before the most
     recent one," unfiltered, is T3, so the render folds since T3 and
     misses T2.
-
-  Having the validated boundary ride on the event that used it makes
-  the two windows the same window by identity rather than by an
-  argument that has to stay true across every gate count. Walked
-  through the two-gate case: `GateDeclined@T4` carries
-  `since_sequence: T1` — read off the command that produced it, not
-  re-derived — so the render folds since T1 and sees T2, the comment
-  that actually justified the decline, regardless of `GateApproved@T3`
-  sitting between them in the log.
-
-  **Where the boundary is computed: the command edge, never
-  `execute/2`.** `Catapult.Engine.Aggregate`'s own moduledoc states
-  the constraint: "`execute/2` and `apply/2` read only their own
-  arguments; every id, timestamp and sequence number a resulting event
-  carries is already present on the command" — checked by
-  `Catapult.Engine.Policies.PurityFloor`. Calling
-  `Catapult.Engine.Projections.GateComments.last_resolution_sequence/2`
-  from inside `execute/2` would break both halves at once: it is a
-  `Commanded.EventStore.stream_forward/2` read, not a read of
-  `execute/2`'s own state-and-command arguments, and `since_sequence`
-  is exactly "a sequence number a resulting event carries" that would
-  arrive by being computed there rather than by already being on the
-  command. The split is this system's own standing purity rule,
-  above — "no clocks, randomness, or generated ids in
-  aggregate/reducer/projection code; inject at the command edge" —
-  applied to a third kind of value that rule always implied: a **log
-  position** is injected the same way a clock or an id is, not
-  derived inside the aggregate. `Catapult.Engine.Projections.GateComments
-  .last_resolution_sequence(project_id, gate)` is the log position of
-  the most recent `GateApproved`/`GateDeclined` naming `gate`, or
-  `nil` if neither has happened yet (so `since_sequence` on a gate's
-  first-ever `GateDeclined` is `nil`, and `CommentFeedback` folds from
-  the start of the log, the same as its own "no resolution has
-  happened yet" case above) — and its caller is wherever
-  `DeclineGate` is built.
 
   - **Validation reads the aggregate's own state — no store read,
     because none is needed.** The aggregate keeps the "minimal state
@@ -1337,154 +674,71 @@ them.
     identical mechanism this doc already names for two humans commenting
     concurrently.
 
-  **A passed gate's already-answered feedback is never re-litigated by
-  an unrelated later re-dispatch** (staleness, a `RunFailed` retry).
-  Under a position-based boundary, a re-dispatch happening after a
-  `GateApproved` would still fold from whatever position that
-  inference produced, which can resurrect comments the gate that
-  approved already read. Under the stamped boundary, the most recent
-  resolution being a `GateApproved` renders `feedback` empty outright
-  — nothing is outstanding once a gate has passed, independent of what
-  triggered the re-dispatch.
-
-  **`since_sequence` is a log position, not a content claim, and does
-  not reopen §7.16's "what a passed gate pins"** — the same distinction
-  the sign-off entry below already draws for why neither gate event
-  carries a `body_sha`. It says only "here is where `CommentFeedback`
-  should start folding," never anything about what the gate approved or
-  whether downstream content still matches it.
-
   Delivery reads this the same way it reads `engine_flows` and the
   ninth projection — through a query, never a second copy of the log's
   own facts; there is exactly one description of this mechanism, here,
   and `systems/delivery.md`'s entry points at it rather than restating
   it.
+- **#53 The reset boundary is the resolution naming the gate, stamped on the `GateDeclined` that
+  used it — never `DraftCommitted`, and never a position inferred from the global resolution
+  sequence.** `CommentFeedback.since_last_resolution(project_id, node_id)` reads the most recent
+  `GateApproved`/`GateDeclined` event in the project's log, unfiltered by which gate it names — Phase
+  4's single pre-gate `generation` status is what makes "whichever gate" safe here — and if that event
+  is a `GateDeclined`, folds every `CommentPosted` for `node_id` seen after its stamped
+  `since_sequence`; if it is a `GateApproved`, or no resolution has happened yet, `feedback` is empty.
+  "Consumed" means "rendered into every regeneration dispatched before the next resolution naming this
+  gate, and gone the moment that resolution lands" — not "discarded by an unrelated draft commit," and
+  not "discarded by an unrelated gate's own approval" either.
+- **#54 Where the boundary is computed: the command edge, never `execute/2`.**
 
-- **A workflow gate's sign-off is two new commands landing on this
-  aggregate, closing the mechanism `systems/delivery.md`'s ORC-32
-  entry left as "a later increment"** (ORC-34; the write path lands
-  here rather than in Phase 7 because `docs/ui-spec.md` §2 rule 2
-  refuses a screen — `document-review`, ORC-75 — inventing protocol
-  vocabulary the platform doesn't have, so `PostComment` and a decline
-  command must exist before that screen can). `Catapult.Engine
-  .Commands.ApproveGate{project_id, flow_id, gate, actor_id}` →
-  `GateApproved`, and `Commands.DeclineGate{project_id, flow_id, gate,
-  throwback_to, since_sequence, actor_id}` → `GateDeclined`, both v1,
-  `since_sequence` caller-supplied per the harvesting entry above,
-  both keyed by the `(project_id, flow_id)` composite
-  `systems/delivery.md`'s own ORC-32 entry establishes for this
-  aggregate's process-manager consumer (ORC-87). **`gate`/`throwback_to`
-  legality — is `gate` a key of `workflow.gates`, is `throwback_to`
-  earlier in the citing type's own effective sequence (the "earlier in
-  the array" test `Catapult.Dsl.Workflow`'s own
-  `gate_throwback_problems/2` runs at load time for a *declared*
-  `throwback:` value, reused at the command edge as a runtime check,
-  since ORC-115 makes the declared `throwback:` a single-target
-  override on the derived default rather than the bound on legality,
-  `docs/dsl-syntax.md` §15.10, §15.4) — is the command edge's to
-  check, not `execute/2`'s**: the container commands this entry points
-  to as precedent validate bundle content at their own dispatcher,
-  `Catapult.Delivery.ContainerLifecycle`, and reject in `execute/2`
-  only against the aggregate's own pure state — this aggregate's own
-  moduledoc states that split ("never against bundle content, which
-  the command edge already validated before dispatch") and `execute/2`
-  loading a workflow bundle to check it directly would be exactly the
-  impure read the harvesting entry above rules out for
-  `since_sequence`, on the identical file this entry itself is
-  recorded in. Whatever constructs `ApproveGate`/`DeclineGate` —
-  ORC-75's screen — validates `gate` and `throwback_to` the same way
-  `ContainerLifecycle` validates `MintContainer`/`AdvanceContainerQueue`,
-  before dispatch. **A decline requires at least one comment; there is
-  no free-text override.** `docs/ui-spec.md` §3.2's own `document
-  -review` action set is "approve / throw back," target chosen from
-  the gate's own declared `throwback:` when it names one, its derived
-  default otherwise, or the earlier-prefix picker for anything else
-  (ORC-115, `docs/dsl-syntax.md` §15.4) — no reason field — so the
-  screen this command answers to specs exactly the simpler rule:
-  `DeclineGate` is rejected outright, synchronously, at the point of
-  action, when the aggregate's own comment counter has not advanced
-  past the mark it recorded for `gate` at that gate's last resolution
-  — pure aggregate state, no store read; the harvesting entry above
-  has the mechanism and the reason it is not
-  `GateComments.any_since_last_resolution?/2`, a store read
-  `execute/2` may not make. `since_sequence` on the emitted
-  `GateDeclined` is `cmd.since_sequence`, copied rather than computed,
-  for the identical reason — the caller populates it from `GateComments
-  .last_resolution_sequence(project_id, gate)` before dispatch, and the
-  same entry covers why that stays safe even when the read has gone
-  slightly stale by the time the aggregate processes the command.
-  **Project-wide, not flow-scoped, on purpose**: `CommentPosted`
-  carries no `flow_id`, and `systems/delivery.md`'s own
-  `FeaturePublisher` entry already leans on "nothing yet opens two
-  flows concurrently on one project" to resolve a flow from a bare
-  `project_id`; this reuses that exact standing simplification rather
-  than inventing a second one, and carries the identical Phase 7
-  revisit condition — multiple concurrent flows per project need
-  `CommentPosted` to carry `flow_id` too, not a new check here. **This
-  is a rejection the aggregate makes, not the view**: `docs/ui-spec.md`
-  §2 rule 1 and this doc's own "the rejection lands at the point of
-  action" already rule out a UI-side check as the arbiter for any
-  command on a surface we own; a decline attempt with no comments yet
-  is simply invalid input to `DeclineGate`; ORC-75's screen surfaces
-  that rejection synchronously, the same as any other compare-and-swap
-  failure, but does not perform it. **What this does not pin: §7.16's
-  "what a passed gate pins" stays open.** Neither event carries a
-  `body_sha` or any other content-identity field — they record only
-  enough for a ticket's projected status to move, forward or to a named
-  throwback target, for the comment-count check above to run, and (
-  `GateDeclined` only) the log position that check ran against —
-  `since_sequence`, above, a position in the log, not a claim about
-  content — so they are not a second attempt at the
-  staleness-of-a-passed-gate question `systems/delivery.md`'s ORC-32
-  entry and this section's own §7.16 bullet leave to Phase 7. Which
-  node(s) a given gate reviews — the general question behind "does
-  what this gate approved still match what's downstream of it" — is
-  likewise open; Phase 4's own shipped `feature.yaml` runs exactly one
-  `generation` status ahead of its gates, so nothing here needs the
-  general answer to work today. **The node(s)-per-gate answer is
-  structural since ORC-115, and the join is Phase 7's to build:**
-  `docs/dsl-syntax.md` §15.10's sub-array grammar gives "which node(s)
-  a gate reviews" a structural answer — the citing sub-array's own one
-  non-review-shaped agent-balled entry, at the gate's declared `depth:`
-  (`docs/v5-design-decisions.md` §7.16) — but neither event gains a
-  field from that alone; until the join is built, this entry's own
-  claim (no `body_sha`, position not content) holds.
-  **Named rather than left to be found by a fan-out: the decline check
-  is project-wide and the render is per-node, and those are not the
-  same scope.** A comment on one node is enough to pass `DeclineGate`'s
-  project-wide count, and the regeneration it triggers can cover
-  several nodes; `CommentFeedback` still renders exactly what landed on
-  each node's own log, so a sibling the comment never named
-  regenerates with blank `feedback` — correct per-node, not
-  blank-vs-real-zero ambiguous, but not "justified by a comment"
-  either. That gap is the same node(s)-per-gate mapping this entry
-  defers, not a new one; it is named here so the deferral reads as a
-  stated gap rather than an implied guarantee. Role authorization (does
-  this `actor_id` hold `gate.role`) is left exactly where §7.16 already
-  leaves grant evaluation — identity's, a Phase 7 component — recorded
-  the same way `actor_id` rides unvalidated on `DraftApproved` today.
-  **How a decline reopens a node for regeneration is closed at ORC-229
-  (below), off this same event.** `GateDeclined` moves the ticket's
-  own projected status (`systems/delivery.md`, below) and,
-  independently, `Catapult.Delivery.DraftResolution` dispatches
-  `DiscardDraft` against the node this gate reviews;
-  `Reducer.apply(%DraftDiscarded{}, _)` resets that node's projection
-  to `status: :absent` with `current_draft_id`/`body_sha` cleared, so
-  `ReadyScopes.ready/3`'s own `node.status == :absent` filter is what
-  makes it eligible for `ready_scopes` again. This entry only
-  guarantees that whenever ORC-9's executor does re-dispatch,
-  `feedback` cannot render blank where a real comment justified the
-  decline: `since_sequence` on `GateDeclined` is read from
-  `GateComments.last_resolution_sequence/2` at the same
-  command-construction boundary that populates the decline (the
-  harvesting entry above has the mechanism, and why a stale read there
-  is safe in the direction that matters), and `CommentFeedback`
-  (above) reads that stamped number back rather than re-deriving one
-  from the log's shape — independent of what triggers the re-dispatch,
-  how long the sweeper takes to notice, or how many gates the workflow
-  declares.
+- **#55 A workflow gate's sign-off is two new commands landing on this aggregate, closing the
+  mechanism `systems/delivery.md`'s ORC-32 entry left as "a later increment"** (ORC-34; the write path
+  lands here rather than in Phase 7 because `docs/ui-spec.md` §2 rule 2 refuses a screen —
+  `document-review`, ORC-75 — inventing protocol vocabulary the platform doesn't have, so
+  `PostComment` and a decline command must exist before that screen can). `Catapult.Engine
+  .Commands.ApproveGate{project_id, flow_id, gate, actor_id}` → `GateApproved`, and
+  `Commands.DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence, actor_id}` →
+  `GateDeclined`, both v1, `since_sequence` caller-supplied per the harvesting entry above, both keyed
+  by the `(project_id, flow_id)` composite `systems/delivery.md`'s own ORC-32 entry establishes for
+  this aggregate's process-manager consumer (ORC-87). **`gate`/`throwback_to` legality — is `gate` a
+  key of `workflow.gates`, is `throwback_to` earlier in the citing type's own effective sequence (the
+  "earlier in the array" test `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2` runs at load
+  time for a *declared* `throwback:` value, reused at the command edge as a runtime check, since
+  ORC-115 makes the declared `throwback:` a single-target override on the derived default rather than
+  the bound on legality, `docs/dsl-syntax.md` §15.10, §15.4) — is the command edge's to check, not
+  `execute/2`'s**: the container commands this entry points to as precedent validate bundle content at
+  their own dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in `execute/2` only against
+  the aggregate's own pure state — this aggregate's own moduledoc states that split ("never against
+  bundle content, which the command edge already validated before dispatch") and `execute/2` loading a
+  workflow bundle to check it directly would be exactly the impure read the harvesting entry above
+  rules out for `since_sequence`, on the identical file this entry itself is recorded in. Whatever
+  constructs `ApproveGate`/`DeclineGate` — ORC-75's screen — validates `gate` and `throwback_to` the
+  same way `ContainerLifecycle` validates `MintContainer`/`AdvanceContainerQueue`, before dispatch.
+  **A decline requires at least one comment; there is no free-text override.** `docs/ui-spec.md`
+  §3.2's own `document -review` action set is "approve / throw back," target chosen from the gate's
+  own declared `throwback:` when it names one, its derived default otherwise, or the earlier-prefix
+  picker for anything else (ORC-115, `docs/dsl-syntax.md` §15.4) — no reason field — so the screen
+  this command answers to specs exactly the simpler rule: `DeclineGate` is rejected outright,
+  synchronously, at the point of action, when the aggregate's own comment counter has not advanced
+  past the mark it recorded for `gate` at that gate's last resolution — pure aggregate state, no store
+  read; the harvesting entry above has the mechanism and the reason it is not
+  `GateComments.any_since_last_resolution?/2`, a store read `execute/2` may not make. `since_sequence`
+  on the emitted `GateDeclined` is `cmd.since_sequence`, copied rather than computed, for the
+  identical reason — the caller populates it from `GateComments .last_resolution_sequence(project_id,
+  gate)` before dispatch, and the same entry covers why that stays safe even when the read has gone
+  slightly stale by the time the aggregate processes the command. **Project-wide, not flow-scoped, on
+  purpose**: `CommentPosted` carries no `flow_id`, and `systems/delivery.md`'s own `FeaturePublisher`
+  entry already leans on "nothing yet opens two flows concurrently on one project" to resolve a flow
+  from a bare `project_id`; this reuses that exact standing simplification rather than inventing a
+  second one, and carries the identical Phase 7 revisit condition — multiple concurrent flows per
+  project need `CommentPosted` to carry `flow_id` too, not a new check here. **This is a rejection the
+  aggregate makes, not the view**: `docs/ui-spec.md` §2 rule 1 and this doc's own "the rejection lands
+  at the point of action" already rule out a UI-side check as the arbiter for any command on a surface
+  we own; a decline attempt with no comments yet is simply invalid input to `DeclineGate`; ORC-75's
+  screen surfaces that rejection synchronously, the same as any other compare-and-swap failure, but
+  does not perform it.
 
-- **`prior_review` needs a new `Store.reviews_for_node/2`, project-
+- **#56 `prior_review` needs a new `Store.reviews_for_node/2`, project-
   scoped per ORC-87 from the start — not the existing `reviews_for_draft
   /1` the pre-review draft leaned on, which answers a different
   question and stays exactly as bare-id as it already was, a real gap
@@ -1526,42 +780,10 @@ them.
   (`feedback`'s own entries carry the same kind of
   provenance — `posted_at` against the log's own ordering).
 
-- **`ApproveGate`/`DeclineGate` carried no compare-and-swap, which is a
-  defect against §7.16's own rule, not an open question — found reading
-  the code against the rule, not filed as a finding by either of the
-  two tickets that already dispatch these commands** (ORC-114; two
-  compares, because there are two distinct staleness questions — the
-  second is below). `ApproveGate`'s `execute/2` clause bound no aggregate state at
-  all (`def execute(%__MODULE__{}, %ApproveGate{} = cmd)`) and emitted
-  `GateApproved` unconditionally; `DeclineGate`'s only check was the
-  comment-count mark above, which guards a different fact (has anyone
-  commented since the last resolution) and has never guarded staleness
-  of the resolution itself. Two role-holders racing to resolve the same
-  gate — both looking at the same pending action, both dispatching
-  around the same moment — landed both writes; the second was never
-  told. `docs/ui-spec.md` §3.1 already promises otherwise for both
-  screens that dispatch these commands: `ticket`'s "optimistic-
-  concurrency feedback: a rejected transition names who moved it and
-  where (§7.16)" and `board`'s "the controls are the same two
-  transitions the ticket screen offers, under the same compare-and-
-  swap (§7.16), so a stale card fails the same way and says who moved
-  it" — sentences already committed against behavior the aggregate does
-  not have.
-
-  **The shape to copy is already in this file.** `AdvanceContainerQueue`
-  matches `%{state: :active, queue: current} when current == cmd.from_queue`
-  and carries `from_queue` on the command for the identical reason
-  §7.16 gives: first writer wins, a stale `from` is rejected rather than
-  applied. A gate's own precondition turns out simpler than a
-  container's, and the shape is smaller for a stated reason rather than
-  copied short: a container queue can be *any* of several named values,
-  so `AdvanceContainerQueue` has to say which one it believes it is
-  leaving; a gate has exactly one meaningful precondition — has this
-  resolution already happened — so nothing about the command needs to
-  say what state it expects to find, only which gate it is resolving,
-  which both commands already carry. **This compare alone needs no new
-  field** — the reopening-window fix below is a second, independent
-  one, guarding a different question.
+- **#57 `ApproveGate`/`DeclineGate` carried no compare-and-swap, which is a defect against §7.16's
+  own rule, not an open question — found reading the code against the rule, not filed as a finding by
+  either of the two tickets that already dispatch these commands** (ORC-114; two compares, because
+  there are two distinct staleness questions — the second is below).
 
   The aggregate gains two project-wide fields beside `comment_count`/
   `gate_marks` above, on the identical simplification those two already
@@ -1585,90 +807,39 @@ them.
   is exactly as true here as it was there, and the identical Phase 7
   revisit condition applies: multiple concurrent flows need this keyed
   by `{flow_id, gate}`, not a new mechanism.
+- **#58 The shape to copy is already in this file.** `AdvanceContainerQueue` matches `%{state:
+  :active, queue: current} when current == cmd.from_queue` and carries `from_queue` on the command for
+  the identical reason §7.16 gives: first writer wins, a stale `from` is rejected rather than applied.
+- **#59 The compare token is status, not version — §7.16's "compare token: version, not status"
+  item, settled in favor of the recorded rule by the first mechanism the item is about.**
+  `gate_resolutions` is a named-value compare (`:approved | :declined | absent`), the same
+  status-shaped kind `AdvanceContainerQueue`'s `queue` already is, not the aggregate's Commanded
+  stream version — following "Author's call: the rule as stated compares on status" (§7.16) and the
+  precedent already in this file, over the ABA risk the item itself names and leaves open.
+- **#60 The second compare is the one already in this file: `PostComment`'s own `body_sha` compare,
+  on the same two commands.** `ApproveGate`/ `DeclineGate` carry `node_id` and `body_sha`, the
+  identical pair `PostComment` already carries and for the identical reason — `execute/2` rejects when
+  `cmd.body_sha` doesn't match `nodes[cmd .node_id].body_sha`, the same per-node value
+  `DraftCommitted`'s own `apply/2` already maintains (that's what makes `PostComment`'s existing check
+  possible with no new aggregate state): `{:error, {:engine_stale_gate_resolution, node_id:
+  cmd.node_id, current: current, got: cmd.body_sha}}`, `:engine_stale_comment`'s own shape reused
+  rather than invented. This runs beside `gate_resolutions`, not instead of it — the two guard
+  different failures: `gate_resolutions` rejects a second writer racing the first on one still-open
+  resolution, `body_sha` rejects a resolution whose view is a body the aggregate has already moved
+  past, resolved or not. Which `node_id`: Phase 4's own shipped `feature.yaml` runs exactly one
+  `generation` status ahead of its gates (already named above), so the command edge —
+  `document-review`, ORC-75 — has exactly one node to read `body_sha` off; the general
+  node(s)-per-gate mapping stays open, as the rest of this entry leaves it, not a second deferral.
+- **#61 Verify by breaking it, per orchestration's own rule for a guard rather than a feature**: two
+  probes, not one. Revert `gate_resolutions`' compare and watch a regression test exercising two
+  racing `ApproveGate`s (or an `ApproveGate` racing a `DeclineGate`) fail; separately, revert the
+  `body_sha` compare and watch a test exercising decline → regenerate → stale approve fail — the exact
+  sequence the second axis above walks. Read each failure, put each compare back, record both probes
+  in the commit message; the expectation travels with the decision rather than being invented at
+  review time.
 
-  **The compare token is status, not version — §7.16's "compare
-  token: version, not status" item, settled in favor of the recorded
-  rule by the first mechanism the item is about.** `gate_resolutions` is a
-  named-value compare (`:approved | :declined | absent`), the same
-  status-shaped kind `AdvanceContainerQueue`'s `queue` already is, not
-  the aggregate's Commanded stream version — following "Author's call:
-  the rule as stated compares on status" (§7.16) and the precedent
-  already in this file, over the ABA risk the item itself names and
-  leaves open. The ABA exposure this carries is the same one
-  `AdvanceContainerQueue` already carries and no worse: a gate resolved,
-  reopened by a commit, and resolved again looks identical, at the
-  compare, to a gate resolved once — which is correct, since a second
-  legitimate resolution *should* succeed. What stays closed either way
-  is the case this fix exists for: two writers racing on the *same*
-  still-open resolution.
-
-  **A second axis `gate_resolutions` alone cannot cover: staleness
-  against a regenerated body, not staleness against a resolution.** `DraftCommitted`'s own `apply/2` clears the whole
-  `gate_resolutions` map (above) — correctly, since a fresh commit does
-  reopen the gate for review — but reopening the *compare* also reopens
-  the *action*: a reviewer who has `document-review` open on the body a
-  decline just threw back can still click Approve after a regeneration
-  commits a new body underneath them, and finds no key at `cmd.gate` to
-  reject against, because the key that would have named their view was
-  just cleared by the very commit they never saw. `gate_resolutions`
-  answers "has this gate already been resolved since it last reopened,"
-  which is the right question for two writers racing on one resolution
-  and the wrong one for a single writer acting on a view of the wrong
-  resolution.
-
-  **The second compare is the one already in this file: `PostComment`'s
-  own `body_sha` compare, on the same two commands.** `ApproveGate`/
-  `DeclineGate` carry `node_id` and `body_sha`, the identical pair
-  `PostComment` already carries and for the identical reason —
-  `execute/2` rejects when `cmd.body_sha` doesn't match `nodes[cmd
-  .node_id].body_sha`, the same per-node value `DraftCommitted`'s own
-  `apply/2` already maintains (that's what makes `PostComment`'s
-  existing check possible with no new aggregate state): `{:error,
-  {:engine_stale_gate_resolution, node_id: cmd.node_id, current:
-  current, got: cmd.body_sha}}`, `:engine_stale_comment`'s own shape
-  reused rather than invented. This runs beside `gate_resolutions`, not
-  instead of it — the two guard different failures: `gate_resolutions`
-  rejects a second writer racing the first on one still-open
-  resolution, `body_sha` rejects a resolution whose view is a body the
-  aggregate has already moved past, resolved or not. Which `node_id`:
-  Phase 4's own shipped `feature.yaml` runs exactly one `generation`
-  status ahead of its gates (already named above), so the command edge
-  — `document-review`, ORC-75 — has exactly one node to
-  read `body_sha` off; the general node(s)-per-gate mapping stays
-  open, as the rest of this entry leaves it, not a
-  second deferral.
-
-  **This does not reopen §7.16's "what a passed gate pins."** `body_sha`
-  rides the *command*, compared and discarded before the aggregate
-  decides whether to emit; `GateApproved`/`GateDeclined` carry no
-  content-identity of their own, so the
-  content-pinning question this entry leaves to Phase 7 (above)
-  stays open. A command-side compare token and an
-  event-side content pin are different mechanisms answering different
-  questions, the same distinction `since_sequence` already draws on
-  `DeclineGate` — a position the check ran against, not a claim about
-  content.
-
-  **Verify by breaking it, per orchestration's own rule for a guard
-  rather than a feature**: two probes, not one. Revert `gate_resolutions`'
-  compare and watch a regression test exercising two racing
-  `ApproveGate`s (or an `ApproveGate` racing a `DeclineGate`) fail;
-  separately, revert the `body_sha` compare and watch a test exercising
-  decline → regenerate → stale approve fail — the exact sequence the
-  second axis above walks. Read each failure, put each compare back,
-  record both probes in the commit message; the expectation travels
-  with the decision rather than being invented at review time.
-
-- **Unblocking a limit-class failure gains a real command — a human
-  action, not only a regeneration retry** (ORC-114, design pass).
-  `Catapult.Delivery.FeatureLifecycle.Projection`'s own moduledoc
-  records the gap precisely: "a block clears only via a subsequent
-  `DraftCommitted` retry — never a human action." `docs/ui-spec.md`
-  §3.1's `my-queue` names **unblock** as one of exactly three actions
-  the plane ever asks a human for, and J4 (§4) is "`board` (blocked,
-  grouped under origin) → `ticket` → return to origin, or pick an
-  earlier status from the prefix" — a real write, with nothing in
-  `lib/catapult/engine/commands/` to dispatch.
+- **#62 Unblocking a limit-class failure gains a real command — a human action, not only a
+  regeneration retry** (ORC-114, design pass).
 
   `Catapult.Engine.Commands.ResumeFlow{project_id, flow_id, to,
   actor_id}` → `Catapult.Engine.Events.FlowResumed{project_id, flow_id,
@@ -1685,34 +856,28 @@ them.
   projection-derived content is checked before dispatch, never inside
   `execute/2`.
 
-  **The compare-and-swap is the same mechanism as the gate fix above,
-  scaled down further: a gate has one precondition; being blocked has
-  one too.** The aggregate gains a third project-wide field, `blocked:
-  boolean`, `false` by default. `apply/2` for `RunFailed` sets it `true`
-  — unconditional, since every `RunFailed` this system's own event
-  already is limit-class by construction (its moduledoc: "a dispatched
-  agent run failed on a limit-class error"), so there is no second
-  failure class to distinguish here the way there was for a gate's
-  disposition. `apply/2` for `FlowResumed` and for `DraftCommitted` both
-  set it `false` — a retry and a human resume clear the same fact, the
-  identical pair `Projection.commit/2` already clears on the delivery
-  side. `execute/2` for `ResumeFlow` rejects unless `blocked == true`:
-  `{:error, {:engine_flow_not_blocked, flow_id: cmd.flow_id}}` — a
-  stale resume attempt (someone else already resumed it, or a retry
-  already landed) reads identically to "never was blocked," which is
-  enough for the rejection to be correct without the aggregate having
-  to retain who resolved it, the same level of detail the gate fix
-  settled on above. Project-wide, not flow-scoped, for the identical
-  reason and the identical Phase 7 revisit condition as `gate_resolutions`
-  and `comment_count` before it: `RunFailed` carries no `flow_id` either.
-
   `Catapult.Engine.Router` gains `ResumeFlow` in its dispatch list,
   beside `ApproveGate`/`DeclineGate`, with the same comment marking it
   part of this ticket's edge. Role authorization (does this `actor_id`
   own the blocked ticket's origin status) is left exactly where every
   other gate-adjacent command already leaves it — identity's, Phase 7.
+- **#63 The compare-and-swap is the same mechanism as the gate fix above, scaled down further: a
+  gate has one precondition; being blocked has one too.** The aggregate gains a third project-wide
+  field, `blocked: boolean`, `false` by default. `apply/2` for `RunFailed` sets it `true` —
+  unconditional, since every `RunFailed` this system's own event already is limit-class by
+  construction (its moduledoc: "a dispatched agent run failed on a limit-class error"), so there is no
+  second failure class to distinguish here the way there was for a gate's disposition. `apply/2` for
+  `FlowResumed` and for `DraftCommitted` both set it `false` — a retry and a human resume clear the
+  same fact, the identical pair `Projection.commit/2` already clears on the delivery side. `execute/2`
+  for `ResumeFlow` rejects unless `blocked == true`: `{:error, {:engine_flow_not_blocked, flow_id:
+  cmd.flow_id}}` — a stale resume attempt (someone else already resumed it, or a retry already landed)
+  reads identically to "never was blocked," which is enough for the rejection to be correct without
+  the aggregate having to retain who resolved it, the same level of detail the gate fix settled on
+  above. Project-wide, not flow-scoped, for the identical reason and the identical Phase 7 revisit
+  condition as `gate_resolutions` and `comment_count` before it: `RunFailed` carries no `flow_id`
+  either.
 
-- **`ApproveDraft`/`DiscardDraft` gain a dispatcher and the identical
+- **#64 `ApproveDraft`/`DiscardDraft` gain a dispatcher and the identical
   compare-and-swap `ApproveGate`/`DeclineGate` needed** (ORC-229).
   Both commands were registered and validated but had no
   production caller anywhere in `lib/**`: `Catapult.Delivery
@@ -1734,94 +899,47 @@ them.
   acted the same way `ApproveGate` already does — v5 §7.19's "who
   approved is answerable from the object" holds for a draft the
   identical way it already holds for a gate.
+- **#65 Approve only when the resolving gate is the review group's own last one; decline discards
+  unconditionally.** A gate's own citing sub-array (dsl-syntax.md §15.10) may hold more than one
+  `review:` entry ahead of `checks` — `feature.yaml` ships two, `ux-review` then `engineering-review`,
+  both reviewing the same single node (Phase 4's own mapping, above) — and marking the node
+  `:approved` the moment the first of them passes would let a downstream context walk dispatch before
+  the ticket's own required second sign-off ever ran, which is not what "readiness requires all
+  targets ready" is supposed to mean. So `ApproveDraft` dispatches only when `GateApproved`'s own
+  forward advance leaves the citing sub-array — the identical `leaves_group` computation
+  `Catapult.Dsl.Workflow .throwback_target_details/3` already derives for a throwback target
+  (`lib/catapult/dsl/workflow.ex`), read here in the forward direction instead; an earlier gate's
+  approval only advances the ticket's own projected status. A decline is not the same shape: every
+  `review:` entry in a `generation`/`critique`/ review group falls back to the same leading `pending`
+  (§15.10, the rule `screens/document-review.md` cites), so any `GateDeclined` against the node
+  dispatches `DiscardDraft` unconditionally — there is no partial-decline case where the draft should
+  survive.
+- **#66 `DraftDiscarded` resets the node to `:absent`, not a fourth status.** `Node.status` keeps
+  the same three values ORC-117 fixed it at — `Reducer.apply(%DraftDiscarded{}, _)` clears the
+  projection's `current_draft_id`/`body_sha` alongside `set_draft_status(:discarded)`, and writes
+  `status: :absent`, the identical value a never-drafted node carries. This is the whole mechanism for
+  "how a decline reopens a node for regeneration" (above): `ReadyScopes.ready/3`'s own candidate
+  filter reads `node.status == :absent` and needs no change, the same "write the correct value at the
+  transition, not a new branch at the read" precedent ORC-117 set. The aggregate's own in-memory
+  `pending_draft_id` is cleared on `DraftDiscarded` the same way; the projection's reset is its
+  equivalent.
+- **#67 `ApproveDraft`/`DiscardDraft` carry the compare-and-swap §7.16's own rule requires, the same
+  one ORC-114 gives `ApproveGate`/`DeclineGate`.** Without it, `execute/2` for both commands would
+  read no aggregate state at all and emit unconditionally on a replay or a duplicate dispatch — moot
+  while nothing dispatches them, live the moment a process manager does, since a process manager's own
+  event handler can itself be replayed. Both take `PostComment`'s own shape:
+  `execute(%__MODULE__{nodes: nodes}, %ApproveDraft{} = cmd)` rejects unless
+  `nodes[cmd.node_id].pending_draft_id == cmd.draft_id` — `{:error, {:engine_stale_draft_resolution,
+  node_id:, current:, got:}}` otherwise, `:engine_stale_gate_resolution`'s own shape reused rather
+  than invented — and `DiscardDraft` takes the identical guard. A duplicate dispatch of either command
+  against a node already moved past that draft (approved, discarded, or superseded by a fresh commit)
+  is a rejection, not a second event.
+- **#68 The review score stays parked.** Nothing here reads `ReviewWritten.score` —
+  `docs/dsl-syntax.md` §15.10's "a parked scheduler item, §7.19, not bundle content" stands, and
+  `ApproveDraft` dispatches only off a human's `GateApproved`, never off a review tier's own automated
+  pass.
 
-  **Approve only when the resolving gate is the review group's own
-  last one; decline discards unconditionally.** A gate's own citing
-  sub-array (dsl-syntax.md §15.10) may hold more than one `review:`
-  entry ahead of `checks` — `feature.yaml` ships two, `ux-review` then
-  `engineering-review`, both reviewing the same single node (Phase 4's
-  own mapping, above) — and marking the node `:approved` the moment
-  the first of them passes would let a downstream context walk
-  dispatch before the ticket's own required second sign-off ever ran,
-  which is not what "readiness requires all targets ready" is supposed
-  to mean. So `ApproveDraft` dispatches only when `GateApproved`'s own
-  forward advance leaves the citing sub-array — the identical
-  `leaves_group` computation `Catapult.Dsl.Workflow
-  .throwback_target_details/3` already derives for a throwback target
-  (`lib/catapult/dsl/workflow.ex`), read here in the forward direction
-  instead; an earlier gate's approval only advances the ticket's own
-  projected status. A decline is not
-  the same shape: every `review:` entry in a `generation`/`critique`/
-  review group falls back to the same leading `pending` (§15.10, the
-  rule `screens/document-review.md` cites), so any `GateDeclined`
-  against the node dispatches
-  `DiscardDraft` unconditionally — there is no partial-decline case
-  where the draft should survive.
-
-  **`DraftDiscarded` resets the node to `:absent`, not a fourth
-  status.** `Node.status` keeps the same three values ORC-117 fixed
-  it at — `Reducer.apply(%DraftDiscarded{}, _)` clears the
-  projection's `current_draft_id`/`body_sha` alongside
-  `set_draft_status(:discarded)`, and writes `status: :absent`, the
-  identical value a never-drafted node carries. This is the
-  whole mechanism for "how a decline reopens a node for regeneration"
-  (above): `ReadyScopes.ready/3`'s own candidate filter reads
-  `node.status == :absent` and needs no change, the same "write the
-  correct value at the transition, not a new branch at the read"
-  precedent ORC-117 set. The aggregate's own in-memory
-  `pending_draft_id` is cleared on `DraftDiscarded` the same way; the
-  projection's reset is its equivalent.
-
-  **`ApproveDraft`/`DiscardDraft` carry the compare-and-swap §7.16's
-  own rule requires, the same one ORC-114 gives
-  `ApproveGate`/`DeclineGate`.** Without it, `execute/2` for both
-  commands would read no aggregate state at all and emit
-  unconditionally on a replay or a duplicate dispatch — moot while
-  nothing dispatches them, live the moment a process manager does,
-  since a process manager's own event handler can itself be replayed.
-  Both take `PostComment`'s own shape:
-  `execute(%__MODULE__{nodes: nodes}, %ApproveDraft{} = cmd)` rejects
-  unless `nodes[cmd.node_id].pending_draft_id == cmd.draft_id` —
-  `{:error, {:engine_stale_draft_resolution, node_id:, current:, got:}}`
-  otherwise, `:engine_stale_gate_resolution`'s own shape reused rather
-  than invented — and `DiscardDraft` takes the identical guard. A
-  duplicate dispatch of either command against a node already moved
-  past that draft (approved, discarded, or superseded by a fresh
-  commit) is a rejection, not a second event.
-
-  **The review score stays parked.**
-  Nothing here reads `ReviewWritten.score` — `docs/dsl-syntax.md`
-  §15.10's "a parked scheduler item, §7.19, not bundle content" stands,
-  and `ApproveDraft` dispatches only off a human's `GateApproved`,
-  never off a review tier's own automated pass.
-
-  **Closing this loop makes regeneration reachable, and regeneration
-  leaves stale content downstream with no path back.** A fresh
-  `DraftCommitted` against a node that was already `:approved` needs no
-  new mechanism — `Reducer.apply/2` already sets `status: :drafted`
-  unconditionally (above `Node.status`'s own three values), so
-  `ReadyScopes.ready/3` correctly re-blocks every downstream context
-  walk until the new draft is itself approved. What has no mechanism is
-  content *already* committed downstream, against the superseded
-  approval: nothing moves it back to `:absent`, so it stays put, stale,
-  permanently.
-
-  `Catapult.Engine.Projections.Staleness` computes exactly this fact —
-  `stale?/2`, `target_newer?/2` comparing `committed_sequence` against
-  each resolved context target's — and has no production caller: every
-  `lib/**` reference to it outside its own module is a doc comment
-  (`context_resolver.ex:8`, `:25`; `store/draft.ex:8`), not a call.
-  Until a node can reach `:approved`, nothing drafts against one and
-  the case cannot occur; the dispatcher above is what makes it live.
-
-  How staleness is consumed is settled above — "consumed by flow walks
-  and the plane's out-of-band ticket filing" — and
-  `docs/v5-design-decisions.md`'s "staleness hints, never cascades"
-  rules out an auto-reopening `ready/3`. What is missing is the
-  connection: neither named consumer calls `stale?/2`. ORC-231 carries
-  wiring it.
-
-## Initial vs target
+## #69 Initial vs target
 
 Initial (Phase 3): event log, reducer for the design dialect's event
 set, core projections — including the active-bundle-version
@@ -1837,19 +955,6 @@ engine's, the file is foundation's, so this ticket carries
 "with engine." Target: flow instances, staleness provenance,
 snapshots, replay tooling surfaced in the dashboard.
 
-**ORC-6's own diff stops short of the scheduler and sweeper**, despite
-both being named Initial above. The ticket's own scope paragraph
-enumerates "the Commanded application, per-project aggregates and the
-event log, the reducer generic over bundle semantics, and the
-universal projections" and names none of the reactive-runtime pieces;
-`ready_scopes` and staleness land as this ticket's `Catapult.Engine
-.Projections.ReadyScopes`/`.Staleness` — pure queries against current
-projections, exactly the "state-driven" shape the scheduler standing
-decision above describes — so a later ticket's scheduler process has
-something to call rather than something to build from scratch. Filed
-here rather than silently: this is a deviation from this doc's own
-Initial line, argued for in ORC-6's hand-back.
-
 **The engine's own store tables live at `priv/repo/migrations/**`**,
 added to this doc's file map by the same ticket. Distinct from
 `priv/repo/migrations_infra/**` (foundation's, for EventStore/Oban):
@@ -1861,7 +966,7 @@ that migration and from any table: both are pure queries
 (`Catapult.Engine.Projections.Staleness`/`.ReadyScopes`), never
 materialized, per this doc's own standing decision above.
 
-## Depends on
+## #70 Depends on
 
 substrate, foundation (EventStore infra), core_dsl (bundle semantics
 the reducer is generic over).
