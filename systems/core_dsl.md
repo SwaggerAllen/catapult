@@ -1062,9 +1062,11 @@ profiles.
   at all: one side resolves structurally and the other takes the
   default.
 
-  An explicit path (`@<attr>` or a dotted element path) is the fifth
-  kind and the only one that needs bundle content, for the six
-  `dependency` instances none of the four structural kinds can resolve:
+  An explicit path (`@<attr>`, naming an attribute on `declared_in`'s
+  own terminal element — a closed form, not a dotted element path as
+  well, since the resolver implements only this one) is the fifth kind
+  and the only one that needs bundle content, for the six `dependency`
+  instances none of the four structural kinds can resolve:
   `comp ↔ comp`, `subcomp ↔ subcomp`,
   `ui_coll ↔ ui_coll`, `ui_subcomp ↔ ui_subcomp`, `screen_coll ↔
   screen_coll`, `screen_subcomp ↔ screen_subcomp` — each names two peer
@@ -1080,7 +1082,14 @@ profiles.
   for the identical reason `Extraction`'s original moduledoc gave for
   declining to guess in the first place: a wrong inference here fails
   silently (an empty walk that reads as "nothing to report" rather than
-  "the bundle is broken"), which is worse than refusing to load.
+  "the bundle is broken"), which is worse than refusing to load. The
+  same reasoning closes the vocabulary itself: a `source_ref:`/
+  `target_ref:` naming anything outside the five kinds above — a dotted
+  element path included — is a load error naming the instance and the
+  offending value, and the `@<attr>` form's own attribute gets the
+  identical ORC-232 declared_in/schema cross-validation described below,
+  against the schema of whichever tier's draft `declared_in` resolves
+  against.
 - **The ORC-232 declared_in/schema cross-validation widens to cover
   `fields:`/`produces:` `draft.<path>` sources, which have the identical
   defect already live in the shipped bundle** (ORC-236, design pass;

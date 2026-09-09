@@ -17,7 +17,10 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
     <xs:complexType name="Widgets">
       <xs:sequence>
         <xs:element name="widget" minOccurs="0" maxOccurs="unbounded">
-          <xs:complexType/>
+          <xs:complexType>
+            <xs:attribute name="from" type="xs:string"/>
+            <xs:attribute name="to" type="xs:string"/>
+          </xs:complexType>
         </xs:element>
       </xs:sequence>
     </xs:complexType>
@@ -210,5 +213,63 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
 
     assert {:error, :bundle, problems} = Loader.load(dir)
     assert Enum.any?(problems, &String.contains?(&1, inspect("widgetz")))
+  end
+
+  describe "explicit source_ref:/target_ref: @<attr> locators" do
+    defp write_dependency_bundle!(dir, source_ref, target_ref) do
+      write_bundle!(dir, """
+      edge: probe
+      type: dependency
+      source: other
+      target: other
+      declared_in: comparch.draft.widgets.widget[]
+      source_ref: "#{source_ref}"
+      target_ref: "#{target_ref}"
+      cardinality:
+        source: { min: 0 }
+        target: { min: 0 }
+      """)
+
+      Fixture.write!(dir, %{
+        "bundles/default/tiers/other.yaml" => """
+        tier: other
+        scope: singleton
+        identity: id
+        generator: synthesis
+        handle:
+          fields: [id]
+        """
+      })
+    end
+
+    test "an explicit ref's attribute that matches the schema loads clean", %{tmp_dir: dir} do
+      write_dependency_bundle!(dir, "@from", "@to")
+
+      assert {:ok, _loaded} = Loader.load(dir)
+    end
+
+    test "an explicit ref's attribute the schema does not declare is a load error naming the ref and the attribute",
+         %{tmp_dir: dir} do
+      write_dependency_bundle!(dir, "@from", "@nope")
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+
+      assert Enum.any?(problems, fn p ->
+               String.contains?(p, "target_ref") and String.contains?(p, inspect("@nope"))
+             end)
+    end
+
+    test "a source_ref/target_ref that isn't self, self.parent, fanout(<edge>) or an @<attr> path is a load error",
+         %{tmp_dir: dir} do
+      write_dependency_bundle!(dir, "@from", "widgets.widget")
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+
+      assert Enum.any?(problems, fn p ->
+               String.contains?(p, "target_ref") and
+                 String.contains?(p, inspect("widgets.widget")) and
+                 String.contains?(p, "not a recognized locator")
+             end)
+    end
   end
 end

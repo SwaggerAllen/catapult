@@ -550,16 +550,17 @@ a closed vocabulary:
   the identical "there is only one, so naming it is moot" shape
   `self.parent` has for a fixed parent, applied here to a fixed pool
   size instead of a fixed relationship.
-- **an explicit path** (`@<attr>` or a dotted element path, the same
-  shape a bare `declared_in` already uses) — the endpoint's id is read
-  off that path, relative to `declared_in`'s own terminal element. For
-  the six same-tier `dependency` instances this form exists for, both
-  endpoints are explicit and both read off that same terminal element —
-  there is no other endpoint's locator to be relative to, since neither
-  side resolves structurally. The id is then looked up by identity the
-  same way a `reference` edge's trailing `@attr` already is. This is the
-  only form that needs a bundle-declared path rather than resolving
-  structurally, and it is required whenever neither `self`, `self.parent`,
+- **an explicit path** (`@<attr>`, naming an attribute on
+  `declared_in`'s own terminal element — the closed form; the resolver
+  implements exactly this and nothing wider) — the endpoint's id is
+  read off that attribute. For the six same-tier `dependency` instances
+  this form exists for, both endpoints are explicit and both read off
+  that same terminal element's own attributes — there is no other
+  endpoint's locator to be relative to, since neither side resolves
+  structurally. The id is then looked up by identity the same way a
+  `reference` edge's trailing `@attr` already is. This is the only form
+  that needs a bundle-declared path rather than resolving structurally,
+  and it is required whenever neither `self`, `self.parent`,
   `fanout(<edge>)` nor a `scope: singleton` endpoint applies — every
   same-tier `dependency` instance (`comp ↔ comp`, `subcomp ↔ subcomp`,
   and the rest): `sysarch.draft.dependencies.dep[]` shares no prefix with
@@ -567,7 +568,11 @@ a closed vocabulary:
   `requirements` (`per(requirements)`) rather than either endpoint, and
   neither `comp` nor `comp` again is `scope: singleton`, so both
   `source_ref: "@from"` and `target_ref: "@to"` must be declared
-  explicitly, naming the two attributes one `<dep>` element carries.
+  explicitly, naming the two attributes one `<dep>` element carries. A
+  `source_ref:`/`target_ref:` that isn't `self`, `self.parent`,
+  `fanout(<edge>)` or this `@<attr>` form — a dotted element path
+  included — is a load error naming the instance and the offending
+  value, not a silently-unresolved locator.
 
 The side not otherwise resolved defaults to the trailing `.@attr`
 segment of `declared_in`, when the instance has one, provided the
@@ -1418,9 +1423,14 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   own `declared_in` is a path-prefix of the citing instance's
   `declared_in` — an unknown edge name, or one whose `declared_in`
   isn't a prefix, is a load error naming both instances;
-- an explicit `source_ref:`/`target_ref:` path gets the identical
-  declared_in/schema cross-validation the ORC-232 block above runs,
-  against the schema of whichever tier's draft it resolves against;
+- a `source_ref:`/`target_ref:` naming anything other than `self`,
+  `self.parent`, `fanout(<edge>)` or the `@<attr>` explicit form (§4.2)
+  is a load error naming the instance and the offending value, not a
+  form the resolver silently fails to recognize at runtime;
+- an explicit `source_ref:`/`target_ref:` `@<attr>` path gets the
+  identical declared_in/schema cross-validation the ORC-232 block
+  above runs, against the schema of whichever tier's draft it resolves
+  against;
 - **a `fields:` or `produces:` entry's `draft.<path>` source gets the
   identical declared_in/schema cross-validation, against the tier's
   own draft schema** — the same walk the ORC-232 block above runs

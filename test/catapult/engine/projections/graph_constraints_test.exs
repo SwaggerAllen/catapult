@@ -71,6 +71,43 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
       assert violation.node_id == "comp1"
       assert violation.count == 2
     end
+
+    test "a max bound is checked eagerly even on a combined {min, max} bound whose min is undrained" do
+      node!("sysarch1", "sysarch", status: :drafted)
+      node!("comp1", "comp", status: :drafted, parent_node_id: "sysarch1")
+      node!("resp1", "resp", scope_key: %{"id" => "resp1"})
+      node!("resp2", "resp", scope_key: %{"id" => "resp2"})
+      edge!("fulfills", :reference, "comp1", "resp1")
+      edge!("fulfills", :reference, "comp1", "resp2")
+
+      chain =
+        chain(
+          [
+            %Tier{name: "sysarch", file: "f", scope: {:singleton}, draft: %{}},
+            %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}},
+            %Tier{name: "resp", file: "f", scope: {:child_of, "requirements"}}
+          ],
+          [
+            instance_edge("fulfills", "reference", %{
+              source: "comp",
+              target: "resp",
+              declared_in: "x",
+              cardinality: %{source: %{min: 1, max: 1}, target: %{min: 0, max: :unbounded}}
+            })
+          ]
+        )
+
+      # sysarch is drafted, not settled — comp is not drained, so the
+      # source side's `min: 1` half is not reportable yet. Its `max: 1`
+      # half is independently checkable now: comp1 already has two
+      # `fulfills` edges, over the ceiling regardless of drainage.
+      assert [violation] = GraphConstraints.violations(chain, "p1")
+      assert violation.kind == :cardinality
+      assert violation.side == :source
+      assert violation.node_id == "comp1"
+      assert violation.count == 2
+      assert violation.bound == %{min: 1, max: 1}
+    end
   end
 
   describe "cardinality — min bounds wait on drainage" do

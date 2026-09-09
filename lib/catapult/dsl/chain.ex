@@ -178,7 +178,9 @@ defmodule Catapult.Dsl.Chain do
 
   defp declared_in_schema_problems(dir, tiers, edges),
     do:
-      DeclaredInSchema.problems(dir, tiers, edges) ++ DeclaredInSchema.field_problems(dir, tiers)
+      DeclaredInSchema.problems(dir, tiers, edges) ++
+        DeclaredInSchema.field_problems(dir, tiers) ++
+        DeclaredInSchema.ref_problems(dir, tiers, edges)
 
   ## source_ref:/target_ref: (dsl-syntax.md §4.2, §13) — every
   ## `reference`/`dependency` instance whose source or target isn't the
@@ -207,27 +209,81 @@ defmodule Catapult.Dsl.Chain do
         explicit_source = instance.source_ref && EdgeLocator.parse(instance.source_ref)
         explicit_target = instance.target_ref && EdgeLocator.parse(instance.target_ref)
 
-        case EdgeLocator.resolve(
-               instance.source,
-               instance.target,
-               declaring_tier,
-               instance.declared_in,
-               trailing_attr,
-               explicit_source,
-               explicit_target,
-               %{edges: edges, tiers: tiers}
-             ) do
-          {:ok, _source, _target} ->
-            []
+        explicit_locator_form_problems(edge_name, "source_ref", instance.source_ref) ++
+          explicit_locator_form_problems(edge_name, "target_ref", instance.target_ref) ++
+          instance_resolution_problems(
+            edge_name,
+            instance,
+            edges,
+            tiers,
+            declaring_tier,
+            trailing_attr,
+            explicit_source,
+            explicit_target
+          )
+    end
+  end
 
-          {:error, sides} ->
-            [
-              "edge #{inspect(edge_name)}'s instance (source #{inspect(instance.source)}, " <>
-                "target #{inspect(instance.target)}, declared_in #{inspect(instance.declared_in)}) " <>
-                "cannot locate #{inspect(sides)} — declare an explicit source_ref:/target_ref: " <>
-                "(dsl-syntax.md §4.2)"
-            ]
-        end
+  # §4.2's explicit-path form is `@<attr>` only — the runtime resolver
+  # (`Catapult.Generation.Extraction.resolve_side/6`) implements
+  # exactly that form and nothing else, so a `source_ref:`/`target_ref:`
+  # that isn't `self`, `self.parent`, `fanout(<edge>)` or an `@<attr>`
+  # path would load clean and silently resolve to nothing at runtime —
+  # the same failure class ORC-236 exists to close.
+  defp explicit_locator_form_problems(_edge_name, _label, nil), do: []
+
+  defp explicit_locator_form_problems(edge_name, label, raw) do
+    case EdgeLocator.parse(raw) do
+      {:path, "@" <> attr} when attr != "" ->
+        []
+
+      :self ->
+        []
+
+      :self_parent ->
+        []
+
+      {:fanout, _edge} ->
+        []
+
+      _other ->
+        [
+          "edge #{inspect(edge_name)}'s instance's #{label} #{inspect(raw)} is not a recognized " <>
+            "locator — dsl-syntax.md §4.2's explicit form is an attribute path (@<attr>) only"
+        ]
+    end
+  end
+
+  defp instance_resolution_problems(
+         edge_name,
+         instance,
+         edges,
+         tiers,
+         declaring_tier,
+         trailing_attr,
+         explicit_source,
+         explicit_target
+       ) do
+    case EdgeLocator.resolve(
+           instance.source,
+           instance.target,
+           declaring_tier,
+           instance.declared_in,
+           trailing_attr,
+           explicit_source,
+           explicit_target,
+           %{edges: edges, tiers: tiers}
+         ) do
+      {:ok, _source, _target} ->
+        []
+
+      {:error, sides} ->
+        [
+          "edge #{inspect(edge_name)}'s instance (source #{inspect(instance.source)}, " <>
+            "target #{inspect(instance.target)}, declared_in #{inspect(instance.declared_in)}) " <>
+            "cannot locate #{inspect(sides)} — declare an explicit source_ref:/target_ref: " <>
+            "(dsl-syntax.md §4.2)"
+        ]
     end
   end
 

@@ -71,10 +71,10 @@ defmodule Catapult.Engine.Projections.GraphConstraints do
     for {edge_name, edge} <- edges,
         instance <- instances(edge),
         {side, tier_name, bound} <- cardinality_sides(instance),
-        bound_checkable?(chain, project_id, tier_name, bound),
+        bound_relevant?(bound),
         node <- Store.list_nodes(project_id, tier_name),
         count = edge_count(project_id, edge_name, side, node.id),
-        out_of_bounds?(count, bound) do
+        bound_violated?(chain, project_id, tier_name, bound, count) do
       %{
         kind: :cardinality,
         edge: edge_name,
@@ -95,24 +95,34 @@ defmodule Catapult.Engine.Projections.GraphConstraints do
     end
   end
 
-  # A `max` bound is checkable the moment it could be violated — no
-  # drainage wait. A `min` bound of zero is vacuously always satisfied
-  # and so never needs drainage either; a non-zero `min` waits on the
-  # bound side's own tier being `drained?/3` (moduledoc).
-  defp bound_checkable?(_chain, _project_id, _tier_name, %{min: 0, max: :unbounded}), do: false
-  defp bound_checkable?(_chain, _project_id, _tier_name, %{min: 0}), do: true
+  # `{min: 0, max: :unbounded}` can never be violated by any count, so
+  # it is skipped before a single node is even listed.
+  defp bound_relevant?(%{min: 0, max: :unbounded}), do: false
+  defp bound_relevant?(_bound), do: true
 
-  defp bound_checkable?(chain, project_id, tier_name, %{min: min}) when min > 0,
-    do: ReadyScopes.drained?(chain, project_id, tier_name)
+  # The `min` half and the `max` half are gated independently, per the
+  # moduledoc's own timing rule: `max` is checked unconditionally — a
+  # count that has already exceeded a ceiling stays exceeded regardless
+  # of what else is still pending — while `min` waits on the bound
+  # side's own tier being `drained?/3`. A combined `{min: 1, max: 1}`
+  # bound (nearly every fanout-mint target's shape) therefore reports
+  # its `max` half before the tier drains even though its `min` half
+  # does not.
+  defp bound_violated?(_chain, _project_id, _tier_name, %{max: max}, count)
+       when max != :unbounded and count > max,
+       do: true
+
+  defp bound_violated?(chain, project_id, tier_name, %{min: min}, count)
+       when min > 0 and count < min,
+       do: ReadyScopes.drained?(chain, project_id, tier_name)
+
+  defp bound_violated?(_chain, _project_id, _tier_name, _bound, _count), do: false
 
   defp edge_count(project_id, edge_name, :source, node_id),
     do: length(Store.edges_from(project_id, node_id, edge_name))
 
   defp edge_count(project_id, edge_name, :target, node_id),
     do: length(Store.edges_to(project_id, node_id, edge_name))
-
-  defp out_of_bounds?(count, %{min: min, max: :unbounded}), do: count < min
-  defp out_of_bounds?(count, %{min: min, max: max}), do: count < min or count > max
 
   ## -- graph_constraint ------------------------------------------------------
 
