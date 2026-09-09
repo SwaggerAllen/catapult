@@ -1081,6 +1081,43 @@ profiles.
   declining to guess in the first place: a wrong inference here fails
   silently (an empty walk that reads as "nothing to report" rather than
   "the bundle is broken"), which is worse than refusing to load.
+- **The ORC-232 declared_in/schema cross-validation widens to cover
+  `fields:`/`produces:` `draft.<path>` sources, which have the identical
+  defect already live in the shipped bundle** (ORC-236, design pass;
+  `dsl-syntax.md` §13). `mint.parent.<name>` reads a committing tier's
+  own `fields:`/`produces:` values by name (below), so those sources
+  get the same schema cross-check `declared_in` already gets — and
+  `Extraction.text/2`'s exact-string match (no `_`↔`-` normalization,
+  the same mechanism ORC-232's own entry names) has been failing
+  silently on **21 of the bundle's 24 `produces:` entries** since
+  before this ticket: `comparch.yaml`, `subcomparch.yaml`,
+  `screen_collarch.yaml`, `screen_subcomparch.yaml`,
+  `ui_subcomparch.yaml` and `ui_collarch.yaml` all declare `authored:
+  draft.technical_specification` / `draft.public_surface` / `draft
+  .private_surface` / `draft.failure_surface`, while their own schemas
+  (`comparch.xsd` and its five siblings) declare `<technical
+  -specification>`, `<public-surface>`, `<private-surface>` and
+  `<failure-surface>` — hyphenated. Only `draft.policies`, present on
+  the three `*arch`/`*collarch` tiers, happens to be a single word and
+  so resolves. A pre-existing defect, not one this ticket introduces:
+  the shipped toy-seed fixture (`test/catapult/generation/fixtures
+  /toy_seed/comparch.xml`) already carries the hyphenated element names
+  its own schema requires, so the chain the boundary suite exercises
+  today writes four of `comparch`'s five fragments as `nil` silently.
+  Named as a bundle-content decision for dev to carry out, in the same
+  change that adds the widened check: the six tiers' `produces:`
+  `authored:` values are corrected to the hyphenated spelling the
+  schemas already use — no schema or fixture edit needed for this half,
+  only the tier files reading them wrong. The spelling itself needs no
+  correction in `dsl-syntax.md` §3's `mint.parent.techspec` example or
+  this entry's own `subcomp.parent_techspec` one: `techspec`, the
+  fragment *kind* name and the `fields:` key alike, is a single word
+  and was never itself misspelled. What those examples name was empty
+  regardless — `comparch`'s own `techspec` fragment carried `nil`
+  until the `authored:` source beneath it is corrected, so
+  `mint.parent.techspec` was copying nothing across every tier that
+  reads it — the identical silent-empty-context failure mode this
+  ticket exists to close.
 - **`type: policy_application` is not this mechanism, and gains none of
   it.** Its two instances' `declared_in` (`policy.structural`,
   `policy.required`) names a marker on the minting instance element

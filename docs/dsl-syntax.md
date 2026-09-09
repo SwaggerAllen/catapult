@@ -1375,6 +1375,14 @@ ORC-236 entry):
 - an explicit `source_ref:`/`target_ref:` path gets the identical
   declared_in/schema cross-validation the ORC-232 block above runs,
   against the schema of whichever tier's draft it resolves against;
+- **a `fields:` or `produces:` entry's `draft.<path>` source gets the
+  identical declared_in/schema cross-validation, against the tier's
+  own draft schema** — the same walk the ORC-232 block above runs
+  against a `declared_in` path, now also run against this second class
+  of `draft.<path>` value. A segment spelled wrong against the schema
+  that owns it is a load error naming the tier, the field or fragment
+  kind, and the offending segment, the identical two-outcome shape
+  (resolved-and-wrong vs. unresolvable) the ORC-232 block already uses;
 - a `mint.parent.<name>` field source's `<name>` must name one of the
   committing tier's own `fields:` entries or one of its own `produces:`
   fragment kinds — the same cross-reference discipline a context walk's

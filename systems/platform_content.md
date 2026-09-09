@@ -1510,26 +1510,41 @@ loader tickets carry `system:core_dsl`.
   .techspec`); its `project_policies_summary` field's value becomes
   `mint.parent.policies_summary`, naming a `policies_summary` field
   this same change adds to `sysarch.yaml` (`fields: policies_summary:
-  draft.policies_summary`) — `sysarch` declared no such field before,
-  and `comp`'s own field has nothing else to name. Three more sites
-  carry that same addition, since a field naming nothing to read is as
-  inert as the ones this ticket exists to fix: `bundles/default/schemas
-  /sysarch.xsd`'s `<sysarch>` sequence gains a `policies-summary`
-  element alongside `introduction`/`techspec`/`components`/`policies`/
-  `dependencies`; `bundles/default/prompts/sysarch.md.liquid` gains the
-  instruction to produce it; and `test/catapult/generation/fixtures
-  /toy_seed/sysarch.xml` gains the element so the toy chain's own
-  fixture stays valid against the widened schema. `subcomp.yaml`,
-  `ui_subcomp.yaml` and `screen_subcomp.yaml`'s five `parent_*` fields'
-  values each become `mint.parent.<fragment kind>` (`parent_techspec:
+  draft.policies-summary`, hyphenated to match the schema element
+  below — `Extraction.text/2` matches a path segment against a schema
+  element by exact string equality with no `_`↔`-` normalization, the
+  same rule `systems/core_dsl.md`'s ORC-232 entry states for
+  `declared_in`, now also checked for `fields:`/`produces:` at load
+  time per that same system's widened ORC-236 entry) — `sysarch`
+  declared no such field before, and `comp`'s own field has nothing
+  else to name. Three more sites carry that same addition, since a
+  field naming nothing to read is as inert as the ones this ticket
+  exists to fix: `bundles/default/schemas/sysarch.xsd`'s `<sysarch>`
+  sequence gains a `policies-summary` element alongside
+  `introduction`/`techspec`/`components`/`policies`/`dependencies`;
+  `bundles/default/prompts/sysarch.md.liquid` gains the instruction to
+  produce it; and `test/catapult/generation/fixtures/toy_seed
+  /sysarch.xml` gains the element so the toy chain's own fixture stays
+  valid against the widened schema. `subcomp.yaml`, `ui_subcomp.yaml`
+  and `screen_subcomp.yaml`'s five `parent_*` fields' values each
+  become `mint.parent.<fragment kind>` (`parent_techspec:
   mint.parent.techspec`, and so on for the other four), each naming the
   fragment kind `comparch.yaml`/`ui_collarch.yaml`/
-  `screen_collarch.yaml`'s own `produces:` already writes under that
-  same name. Every other `mint.<name>` field on these four tiers, and
-  every `mint.<name>` field on `resp`/`policy`/`screen`/`screen_coll`/
-  `ui_coll`/`journey`/`vocab`, is row-local and stays exactly as
-  written — this entry touches only the fields the ticket's own audit
-  found could never have been row-local in the first place.
+  `screen_collarch.yaml`'s own `produces:` is *declared* to write under
+  that same name. Four of those five fragments' own `authored:` sources
+  are themselves misspelled against their schema, independently of this
+  bullet's own mechanism (`systems/core_dsl.md`'s ORC-236 entry on the
+  widened declared_in/schema check) — a pre-existing defect, not one
+  this ticket introduces — so `mint.parent.techspec`/`pubapi`/`privapi`/
+  `failure_surface` each name an empty fragment until the six tiers'
+  `authored:` paths are corrected in this same change; the mechanism
+  this bullet specifies has nothing to copy while the values underneath
+  it are silently empty. Every other
+  `mint.<name>` field on these four tiers, and every `mint.<name>`
+  field on `resp`/`policy`/`screen`/`screen_coll`/`ui_coll`/`journey`/
+  `vocab`, is row-local and stays exactly as written — this entry
+  touches only the fields the ticket's own audit found could never have
+  been row-local in the first place.
 
 ## Initial vs target
 
