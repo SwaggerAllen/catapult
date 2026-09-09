@@ -2866,7 +2866,7 @@ a subset of the same host port this doc already claims, not a
 parallel one this ticket invents. The handler logic for that slice —
 OIDC validation, run correlation, context/result payloads — lives
 under this doc's own file map; **what serves it does not**
-(`systems/foundation.md`'s design review finding): the endpoint rides
+(`systems/foundation.md`'s dispatch-facing endpoint entry): the endpoint rides
 a second path on foundation's existing health listener, reached
 through an `api_surface/0` declaration rather than a router of this
 system's own, because the general composed router waits for
