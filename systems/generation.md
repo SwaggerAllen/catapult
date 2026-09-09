@@ -64,22 +64,20 @@ and validation logic and must not fork it.
   *and* `self_sourced_path`/`self_sourced_attr_path` requiring
   `declared_in`'s own leading segment to equal that same `tier_name`
   — before extracting it at all, and the first of the two is
-  **type-independent**. `Extraction`'s own moduledoc frames the gap it
-  leaves as "a `declared_in` path whose leading tier differs from the
-  tier being committed," naming only the second condition, when the
-  first already excludes a whole further class on its own: for an
-  instance whose `source` names a join-target node type — one that
-  never commits a `DraftCommitted` under its own name at all — no
-  choice of `tier_name` can satisfy `source == tier_name`, so the
-  instance is unextractable regardless of where `declared_in` points
-  or what the edge's type is. The two conditions coincide in
+  **type-independent**: for an instance whose `source` names a
+  join-target node type — one that never commits a `DraftCommitted`
+  under its own name at all — no choice of `tier_name` can satisfy
+  `source == tier_name`, so the instance is unextractable regardless
+  of where `declared_in` points or what the edge's type is. That class
+  is easy to miss because the two conditions coincide in
   `bundles/default` for every `<arch> → ref` citation — a tier names
   itself as both the edge's `source` and `declared_in`'s leading
-  segment — which is exactly why that shape reads as "the" shape and
-  the join-target-`source` class went unnamed. Sixteen `reference`/
-  `fulfills` instances exist in `bundles/default`, and seven fall into
-  the unnamed class, each because its `source` names a join-target
-  node type: `fulfills comp → resp`
+  segment — and `Extraction`'s own moduledoc names only the second
+  condition ("a `declared_in` path whose leading tier differs from the
+  tier being committed"). Sixteen `reference`/`fulfills` instances
+  exist in `bundles/default`, and seven fall into the
+  join-target-`source` class, each because its `source` names a
+  join-target node type: `fulfills comp → resp`
   (`source: comp`, declared in `sysarch`), `fulfills screen_coll →
   screen` (`source: screen_coll`, declared in `frontend_sysarch`),
   `reference journey → screen` (`source: journey`, declared in
@@ -88,7 +86,7 @@ and validation logic and must not fork it.
   `reference screen_coll → journey` (`source: screen_coll`, declared
   in `screen_collarch`), and `navigation`'s own `screen → screen`
   (`source: screen`, declared in `screens` — `screens` never commits
-  under the name `screen`, the identical unnamed-class shape the other
+  under the name `screen`, the identical shape the other
   six have). Only the nine `<arch> → ref` instances
   (`comparch`, `subcomparch`, `impl_backend`, `ui_collarch`,
   `ui_subcomparch`, `impl_ui`, `screen_collarch`, `screen_subcomparch`,
@@ -111,7 +109,7 @@ and validation logic and must not fork it.
   entry their own `*subcomparch`/`*collarch` counterpart declares
   (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
   `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
-  the same emptiness reaches them too — and now `comparch`'s and
+  the same emptiness reaches them too — and `comparch`'s and
   `screen_collarch`'s own `fulfills` walks, and `frontend_sysarch`'s own
   `calls`/`renders`/`uses_shapes` walks, too) resolves to `[]` and
   stays vacuously satisfied regardless of tier ordering.
@@ -132,25 +130,22 @@ and validation logic and must not fork it.
   own comments), never extracted from any committing tier's draft body
   at all.
 
-  ORC-235 is tier ordering; this is extraction coverage, and it is a
-  ticket of its own. **Closing it takes two separate mechanisms, not
-  one:**
+  Extraction coverage is a separate concern from tier ordering
+  (ORC-235's own subject), and **closing it takes two separate
+  mechanisms, not one:**
 
   - Reading an edge instance declared by a tier that is not its own
-    `source` — the harder case `Extraction`'s own moduledoc already
-    names, needing per-edge-type knowledge of which child element
+    `source` — the harder case `Extraction`'s own moduledoc names,
+    needing per-edge-type knowledge of which child element
     names source vs. target that the generic self-sourced navigator
     cannot infer. This is what the ten `dependency` instances and the
-    seven `reference`/`fulfills` instances above both need, and it is
-    also what relocating `uses_shapes`/`calls`/`renders` to
+    seven `reference`/`fulfills` instances above both need, and
+    `uses_shapes`/`calls`/`renders` need it whether declared in
     `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
-    ORC-235 entry, below) still needs afterward: their `source` is
-    `ui_coll`/`screen_coll` whether declared in `ui_collarch`/
-    `screen_collarch` or in `frontend_sysarch`, and neither tier name
-    is the edge's `source` either way, so `instance.source ==
-    tier_name` fails identically before and after the relocation.
-    These three are not "correctly declared
-    and inert until extraction adds a type" — no relocation makes them
+    ORC-235 entry, below) or in `ui_collarch`/`screen_collarch`: their
+    `source` is `ui_coll`/`screen_coll` either way, and neither tier
+    name is the edge's `source`, so `instance.source == tier_name`
+    fails identically in both placements. No relocation makes them
     extractable, because the gate they fail is never edge-type.
   - Synthesizing an edge instance at fanout-mint time from a marker the
     minting draft itself carries, with no `declared_in` path to
@@ -158,21 +153,18 @@ and validation logic and must not fork it.
     instead, since their `declared_in` names no tier's draft body for
     any navigator to read.
 
-  Recorded here so that ticket is filed against the two gates it
-  actually has to cross, not one.
-
 - **The two gates ORC-235's own entry named above are both crossed
-  here** (ORC-236, design pass). `Extraction.mints/4` gains the
-  `fields:` computation `systems/engine.md`'s ORC-236 entry describes
+  here** (ORC-236). `Extraction.mints/4` computes the
+  `fields:` `systems/engine.md`'s ORC-236 entry describes
   (row-local `mint.<name>` off the fanout instance element already in
   scope, parent-inherited `mint.parent.<name>` off the committing
   tier's own `fields`/`produces` values, both already local by the time
-  `mints:` is built); `Extraction.references/5` gains the
-  `source_ref:`/`target_ref:` locator resolution `docs/dsl-syntax.md`
-  §4.2 and `systems/core_dsl.md`'s ORC-236 entry describe, covering
-  every `dependency` and `reference`/`fulfills` instance the
-  source-identity gate previously excluded; and `Extraction.mints/4`
-  (not `references/5`) additionally reads `policy_application`'s two
+  `mints:` is built); `Extraction.references/5` resolves the
+  `source_ref:`/`target_ref:` locators `docs/dsl-syntax.md`
+  §4.2 and `systems/core_dsl.md`'s ORC-236 entry describe, which is
+  what reaches every `dependency` and `reference`/`fulfills` instance
+  the source-identity gate alone excludes; and `Extraction.mints/4`
+  (not `references/5`) also reads `policy_application`'s two
   markers off the same fanout instance element it already walks,
   emitting them as declared-edge entries alongside the ordinary mint —
   no second navigator, since the marker and the mint share one root
@@ -182,64 +174,61 @@ and validation logic and must not fork it.
 - **A `supplied`-generator mint is a write `CommitPath` never sees.**
   `systems/core_dsl.md`'s ORC-236 entry places `design_system`'s mint
   at the scaffold-time raft write, not at a swept dispatch — concretely,
-  this is a new write path beside `CommitPath.commit_draft/3`, invoked
+  a write path beside `CommitPath.commit_draft/3`, invoked
   once from wherever the raft's `design_system`-tagged document is
   pinned (the intake/provisioning surface, `systems/delivery.md`'s
   own), that calls `Store.mint_node/1` directly with the pinned
   document's content as the node's `fields`, no `DraftCommitted` and no
   `Extraction` navigation involved at all — there is no draft body to
   navigate, only a document already known in full. `Sweeper
-  .dispatchable?/1` needs no change: a `supplied`-generator tier with no
-  `draft:` already fails its `draft: draft when not is_nil(draft)`
+  .dispatchable?/1` carries no clause for it: a `supplied`-generator
+  tier with no `draft:` fails its `draft: draft when not is_nil(draft)`
   clause, exactly like every join-target tier.
 - **`ref` retires from the swept, `generator: "llm"` dispatch set, and
   the fixture-coverage count (below) corrects with it, in the same
-  change.** `ref`'s new `scope: reference`/`generator: reference`
+  change.** `ref`'s `scope: reference`/`generator: reference`
   (`docs/dsl-syntax.md` §3.1, §3.2) carries no `draft:`, so
-  `Sweeper.dispatchable?/1` no longer matches it on either of its two
-  clauses, and `ref_review` retires outright alongside it — nothing
+  `Sweeper.dispatchable?/1` matches it on neither of its two
+  clauses, and `ref_review` goes with it — nothing
   commits a draft for it to review. `ref.md.liquid` and `ref_review`'s
-  own review prompt retire with the tiers that dispatched them;
-  `schemas/ref.xsd` retires because nothing validates a body against it
-  anymore — a supplied/reference body is content the write path already
+  own review prompt go with the tiers that dispatched them;
+  `schemas/ref.xsd` goes because nothing validates a body against it
+  — a supplied/reference body is content the write path already
   produced in whatever shape it produced it, not a generated draft this
   system's grammar-validation gate has anything to check. `reference
   .<name>`'s own resolution site is whichever write path creates the
   node — the identical placement `design_system`'s `supplied` content
   takes above: a write outside the chain, beside `CommitPath
   .commit_draft/3` rather than inside it, that sets a node's `fields`
-  directly from its own payload rather than through `Extraction`. Not a
-  new site this ticket adds — the one `supplied` already established,
-  read a second time for a different generator kind.
+  directly from its own payload rather than through `Extraction`.
 - **A context walk's own `projection` now decides what `render_node/2`
   emits, closing the over-supply this ticket's audit found.**
-  `ContextAssembly.render_node/2` currently ignores the walk's parsed
-  `:handle`/`{:fragments, kind}` distinction and emits every one of the
-  target tier's `handle_fields` and every one of its `handle_fragments`
-  regardless of which the walk asked for — harmless only because
-  nothing in `bundles/default` reads the difference today. `render_node/2`
-  gains the walk's own `projection` as an argument: a `:handle`-typed
-  walk emits `handle_fields` only (fragments key present but empty,
-  matching today's map shape so no template needs to change); a
+  `ContextAssembly.render_node/2` takes the walk's own `projection` as
+  an argument: a `:handle`-typed walk emits `handle_fields` only
+  (fragments key present but empty, so the map shape is the same for
+  both projections and no template needs to change); a
   `{:fragments, kind}`-typed walk emits that one fragment's content
-  under `fragments`, and `handle_fields` empty. This is what makes
+  under `fragments`, and `handle_fields` empty. Emitting every one of
+  the target tier's `handle_fields` and every one of its
+  `handle_fragments` regardless of which the walk asked for is harmless
+  only while nothing in `bundles/default` reads the difference, and
+  the projection is what makes
   `systems/platform_content.md`'s own layering guarantee ("a UI
   collection reads backend shapes, never calls") a fact about what a
   prompt actually receives rather than only about what the loaded
-  bundle happens to declare — the gap this ticket's own audit named.
-  `:synthesis` needs no clause: it retired from the projection
-  vocabulary in the same change (`docs/dsl-syntax.md` §7,
+  bundle happens to declare.
+  `:synthesis` needs no clause: it is not in the projection
+  vocabulary (`docs/dsl-syntax.md` §7,
   `systems/core_dsl.md`'s ORC-236 entry), so `render_node/2`'s
   projection match is total over `:handle`/`{:fragments, kind}` with
   nothing left unhandled.
 - **Cardinality/graph_constraint evaluation is engine's, not this
   system's — recorded here only as a boundary.** `systems/engine.md`'s
-  ORC-236 entry places the check at `drained?/1`-gated projection time,
-  surfaced as a reported finding; nothing in `CommitPath` or
-  `Extraction` changes to support it; the check runs against the
-  committed edge/node state those two modules already produce, on
-  whatever schedule the sweeper (or a dedicated projection-time pass)
-  invokes it.
+  ORC-236 entry owns the check (`drained?/1`-gated projection time,
+  surfaced as a reported finding); `CommitPath` and `Extraction` carry
+  nothing for it, because it runs against the committed edge/node
+  state those two modules already produce, on whatever schedule the
+  sweeper (or a dedicated projection-time pass) invokes it.
 
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
@@ -1249,15 +1238,12 @@ and validation logic and must not fork it.
   (`systems/platform_content.md`'s ORC-232 entry: `frontend-sysarch`,
   `screen-collarch`, `screen-subcomparch`, `ui-collarch` and
   `ui-subcomparch` were the bundle's only underscored root_tags,
-  standardized to match the rest). **22 generation tiers, not 23, and
-  20 distinct root_tags, not 21: `ref` carried the `reference` root_tag
-  alone, and both retire together at ORC-236**
-  (`docs/v5-design-decisions.md` §4.5) once `ref` stops dispatching
-  through the chain — `ref_review` retires with it, one fewer of the
-  eighteen review tiers sharing the collapsed `review` key, which is
-  why the key count drops by exactly one (`ref`'s own) rather than two:
-  a review tier's retirement changes which tiers share `review`, never
-  the key itself.
+  standardized to match the rest). `ref` is outside both counts: it
+  dispatches nothing through the chain (`docs/v5-design-decisions.md`
+  §4.5), and it carried the `reference` root_tag alone, so the key set
+  has no `reference` entry — while `ref_review`'s absence removes no
+  key, because a review tier changes only which tiers share the
+  collapsed `review` key, never the key itself.
 
   A missing key is not a gap the live suite tolerates by exercising a
   narrower chain — the entry above keys the lookup by `root_tag`
