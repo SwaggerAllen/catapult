@@ -244,7 +244,7 @@ defmodule Catapult.Engine.ReducerTest do
       assert draft.status == :approved
     end
 
-    test "discard marks the draft discarded without approving the node" do
+    test "discard marks the draft discarded and resets the node to :absent" do
       project_id = "discard-project"
 
       Reducer.apply(
@@ -271,7 +271,11 @@ defmodule Catapult.Engine.ReducerTest do
       )
 
       assert Store.get_draft(project_id, "d1").status == :discarded
-      assert Store.get_node(project_id, "n1").status == :drafted
+
+      node = Store.get_node(project_id, "n1")
+      assert node.status == :absent
+      assert node.current_draft_id == nil
+      assert node.body_sha == nil
     end
   end
 

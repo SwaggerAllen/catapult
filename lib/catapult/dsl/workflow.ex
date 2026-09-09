@@ -387,6 +387,33 @@ defmodule Catapult.Dsl.Workflow do
     do: Type.group_at(type, target_index) != gate_group
 
   @doc """
+  Whether approving `gate_name` on a ticket of type `type_name` leaves
+  that gate's own citing sub-array — `throwback_target_details/3`'s own
+  `leaves_group` computation, read forward instead of backward
+  (§15.10, ORC-229). `false` while another `review:` entry in the same
+  group still sits ahead of this gate in the array, so only the
+  group's own last resolving gate reads `true`; `true` throughout when
+  the gate cites no sub-array at all, since there is then no group
+  left to still be inside. `false` when `type_name` does not resolve
+  or does not cite `gate_name` — a caller that has paired a gate with
+  the wrong type, the identical reading `throwback_targets/3` gives.
+  """
+  @spec approve_leaves_group?(t(), String.t(), String.t()) :: boolean()
+  def approve_leaves_group?(%__MODULE__{} = workflow, type_name, gate_name)
+      when is_binary(type_name) and is_binary(gate_name) do
+    case citation(workflow, type_name, gate_name) do
+      {type, index} ->
+        case Type.group_at(type, index) do
+          nil -> true
+          gate_group -> Type.group_at(type, index + 1) != gate_group
+        end
+
+      nil ->
+        false
+    end
+  end
+
+  @doc """
   Where a decline at `gate_name` lands by default for a ticket of type
   `type_name` (§15.10): the gate's own declared `throwback:` when it
   names one, otherwise the derived default — the citing sub-array's own

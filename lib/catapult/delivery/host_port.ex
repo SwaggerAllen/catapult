@@ -30,14 +30,17 @@ defmodule Catapult.Delivery.HostPort do
 
   **ORC-216: `reset_repo/2` reports the ref it produced.** It returns
   `{:ok, ref}` rather than bare `:ok` — the default branch's head
-  commit SHA after the last file in `files` lands, in `HostPort
-  .Actions`, and a synthesized one in `HostPort.Fake`
-  (`systems/delivery.md`'s ORC-216 entry). Provisioning a test project
-  is the first caller with anywhere to put a ref: `Catapult.Delivery
-  .intake_raft/2` takes one explicitly rather than defaulting to
-  whatever the default branch happens to be, and the fixture files
-  `reset_repo/2` just wrote are the only source of a ref guaranteed to
-  postdate them.
+  commit SHA once `files` lands, in `HostPort.Actions`, and a
+  synthesized one in `HostPort.Fake` (`systems/delivery.md`'s ORC-216
+  entry). Provisioning a test project is the first caller with
+  anywhere to put a ref: `Catapult.Delivery.intake_raft/2` takes one
+  explicitly rather than defaulting to whatever the default branch
+  happens to be, and the fixture files `reset_repo/2` just wrote are
+  the only source of a ref guaranteed to postdate them. ORC-228
+  (`systems/delivery.md`'s ORC-228 entry) changes what produces
+  `HostPort.Actions`' sha — a single Git Data commit rather than a
+  head re-read after the last per-file PUT — without touching this
+  contract: `{:ok, ref}` in, `{:ok, ref}` out, either way.
 
   **ORC-31: the rest of Phase 4's operation vocabulary** —
   feature-lifecycle PR management and decline harvesting
@@ -76,10 +79,13 @@ defmodule Catapult.Delivery.HostPort do
   which is wrong for pushing a committed draft's body onto a feature
   branch (`systems/delivery.md`'s ORC-33 entry).
 
-  - `commit_files/4` — the same per-file Contents-API shape
-    `reset_repo/2` already established (read the blob sha if the file
-    exists, PUT with it if so), generalized with an explicit `branch:`
-    ref and a caller-supplied commit message.
+  - `commit_files/4` — a per-file Contents-API shape (read the blob
+    sha if the file exists, PUT with it if so): `reset_repo/2`'s own
+    shape too, until ORC-228 moved that operation onto a single Git
+    Data commit (`systems/delivery.md`'s ORC-228 entry).
+    `commit_files/4` keeps the per-file shape — its calls never grow
+    with a fixture set the way `reset_repo/2`'s did — generalized with
+    an explicit `branch:` ref and a caller-supplied commit message.
   - `update_pr_body/3` — a PATCH `HostPort` has never needed before
     now because nothing before ORC-33 edits a PR after opening it. The
     PR body is regenerated whole on every push, never appended to
@@ -109,7 +115,8 @@ defmodule Catapult.Delivery.HostPort do
           scope_key: map(),
           root_tag: String.t(),
           rendered_prompt: String.t(),
-          credential_names: [String.t()]
+          credential_names: [String.t()],
+          stub_mode: boolean()
         }
 
   @type files :: %{String.t() => String.t()}

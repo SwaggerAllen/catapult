@@ -167,27 +167,104 @@ defmodule Catapult.Delivery.Store do
     )
   end
 
+  @doc """
+  Every dispatch run for `project_id`, any tier, oldest first — the
+  provisioning surface's own enumerating read (ORC-225,
+  `systems/delivery.md`'s ORC-225 entry: the live suite's completion
+  check needs every run a dispatch window produced, not one tier's).
+  `terminal_dispatch_status/2`'s own five keys (`status`, `outcome`,
+  `credential_used`, `node_id`, `body_sha`) plus the two facts a
+  single-tier caller already knows without asking and an enumerating
+  caller does not (`tier`, `root_tag`), and `run_key` — the row's own
+  primary key (`insert_dispatch_run/1`'s own doc: "`attrs.id` is the
+  plane-minted run_key"), absent from `terminal_dispatch_status/2`'s
+  shape because that read is already scoped to one run and never has
+  to distinguish it from a sibling; an enumerating caller needs it to
+  tell whether the run set it observed has changed between two polls.
+  The same rows `dispatch_runs_for_flow/2` already gives one `flow_id`
+  at a time, minus the `flow_id` filter.
+
+  `duration_ms` is ORC-230's own addition — `DateTime.diff/3` between
+  the row's `updated_at` and `inserted_at`, in milliseconds
+  (`systems/delivery.md`'s ORC-230 entry): dispatch-to-terminal, not
+  per-phase, since `updated_at` bumps on every status transition and a
+  per-phase figure would need columns this ticket does not add. It is
+  what turns a flaky boundary run into something measurable rather
+  than something re-run by hand.
+  """
+  @spec dispatch_runs_for_project(binary()) :: [map()]
+  def dispatch_runs_for_project(project_id) do
+    DispatchRun
+    |> where([r], r.project_id == ^project_id)
+    |> order_by([r], asc: r.inserted_at)
+    |> Repo.all()
+    |> Enum.map(fn run ->
+      %{
+        run_key: run.id,
+        tier: run.tier,
+        root_tag: run.root_tag,
+        status: run.status,
+        outcome: run.outcome,
+        credential_used: run.credential_used,
+        node_id: run.node_id,
+        body_sha: node_body_sha(project_id, run.node_id),
+        duration_ms: DateTime.diff(run.updated_at, run.inserted_at, :millisecond)
+      }
+    end)
+  end
+
+  @doc """
+  Every `{tier, scope_key}` pair `project_id` currently has an
+  in-flight (non-terminal, `status in [:dispatched, :context_fetched]`)
+  dispatch run for — `Provisioning.runs/2`'s own `remaining`
+  computation (`systems/delivery.md`'s ORC-230 entry): a node still
+  `:absent` while its own dispatch is running reads ready per
+  `ReadyScopes.ready/3` exactly as it did before the dispatch fired, so
+  `remaining` has to know which ready-looking scopes are already
+  spoken for rather than counting the same piece of outstanding work
+  twice — once as "ready" and once as "running".
+  """
+  @spec in_flight_scope_keys(binary()) :: MapSet.t({String.t(), map()})
+  def in_flight_scope_keys(project_id) do
+    DispatchRun
+    |> where([r], r.project_id == ^project_id and r.status in [:dispatched, :context_fetched])
+    |> select([r], {r.tier, r.scope_key})
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
   ## Test project lifecycle (ORC-216, systems/delivery.md)
 
   @doc """
-  Mints `project_id` as the one active test project, atomically
-  releasing whichever was active before — "at most one active, by
-  construction of the mint operation, not a checked constraint"
-  (`systems/delivery.md`'s ORC-216 entry): both halves land in one
-  transaction, so no window exists where two rows read `:active` at
-  once.
+  Mints `project_id` as the one active-or-provisioning test project,
+  atomically releasing whichever was active or still provisioning
+  before — "at most one active-or-provisioning, by construction of the
+  mint operation, not a checked constraint" (`systems/delivery.md`'s
+  ORC-216 entry): both halves land in one transaction, so no window
+  exists where two rows read `:active` at once, and none where a row a
+  crashed provisioning attempt stranded at `:provisioning` survives a
+  fresh mint unreleased.
+
+  The new row starts `:provisioning`, not `:active` — ORC-224,
+  `systems/delivery.md`'s companion entry: a project is not safe to
+  sweep until `activate_test_project/1` promotes it, once whatever
+  called this has finished writing it.
+
+  `stub_mode` (ORC-223) is a per-project opt-in, independent of
+  test-project status — defaults `true`, the toy-chain's own unchanged
+  behavior; the Phase-5 proof run passes `false` explicitly.
   """
-  @spec mint_test_project(binary()) :: Project.t()
-  def mint_test_project(project_id) do
+  @spec mint_test_project(binary(), boolean()) :: Project.t()
+  def mint_test_project(project_id, stub_mode \\ true) do
     {:ok, project} =
       Repo.transaction(fn ->
         Repo.update_all(
-          from(p in Project, where: p.test_project_state == :active),
+          from(p in Project, where: p.test_project_state in [:active, :provisioning]),
           set: [test_project_state: :released]
         )
 
         %Project{project_id: project_id}
-        |> Ecto.Changeset.change(%{test_project_state: :active})
+        |> Ecto.Changeset.change(%{test_project_state: :provisioning, stub_mode: stub_mode})
         |> Repo.insert!()
       end)
 
@@ -195,16 +272,45 @@ defmodule Catapult.Delivery.Store do
   end
 
   @doc """
+  Promotes `project_id` from `:provisioning` to `:active` — ORC-224,
+  `systems/delivery.md`'s companion entry: `Provisioning.provision/1`
+  calls this once `reset_and_intake/2` returns `{:ok, ref}`, the point
+  a test project is finally safe to sweep. Matches `project_id` **and**
+  `test_project_state == :provisioning`, never `project_id` alone, the
+  same transition-names-its-source-state guard `release_test_project/1`
+  already carries: a retried or duplicated call finds the row already
+  `:released` or `:deleted` and no-ops rather than reviving a terminal
+  project.
+  """
+  @spec activate_test_project(binary()) :: :ok
+  def activate_test_project(project_id) do
+    Repo.update_all(
+      from(p in Project,
+        where: p.project_id == ^project_id and p.test_project_state == :provisioning
+      ),
+      set: [test_project_state: :active]
+    )
+
+    :ok
+  end
+
+  @doc """
   Releases `project_id` — held for a debugging session, never swept
   again, until the next `delete_test_project/1`. A no-op if
-  `project_id` is not currently `:active` (idempotent — a caller
-  racing its own retry, or releasing a project already released,
-  costs nothing).
+  `project_id` is not currently `:active` or `:provisioning`
+  (idempotent — a caller racing its own retry, or releasing a project
+  already released, costs nothing). `:provisioning` joins the matched
+  set under ORC-224 (`systems/delivery.md`'s companion entry): a
+  project that fails to reset or intake is released from whichever
+  state `provision/1`'s own failure branch catches it in, and every
+  such failure now happens before promotion to `:active`.
   """
   @spec release_test_project(binary()) :: :ok
   def release_test_project(project_id) do
     Repo.update_all(
-      from(p in Project, where: p.project_id == ^project_id and p.test_project_state == :active),
+      from(p in Project,
+        where: p.project_id == ^project_id and p.test_project_state in [:active, :provisioning]
+      ),
       set: [test_project_state: :released]
     )
 
@@ -252,10 +358,12 @@ defmodule Catapult.Delivery.Store do
   @doc """
   Whether `Catapult.Generation.Sweeper` may dispatch for `project_id` —
   `true` for an ordinary project (no row here at all) and for a test
-  project whose recorded state is `:active`; `false` for `:released`
-  or `:deleted` (`systems/generation.md`'s ORC-216 entry). A read, not
-  sweeper state: this store stays the one state of record for the
-  lifecycle.
+  project whose recorded state is `:active`; `false` for
+  `:provisioning`, `:released` or `:deleted` (`systems/generation.md`'s
+  ORC-216 and ORC-224 entries — `:provisioning` added by ORC-224, a
+  test project reads unsweepable from the moment it is minted, not
+  only once released or deleted). A read, not sweeper state: this
+  store stays the one state of record for the lifecycle.
   """
   @spec sweepable_project?(binary()) :: boolean()
   def sweepable_project?(project_id) do
@@ -264,6 +372,44 @@ defmodule Catapult.Delivery.Store do
       %Project{test_project_state: :active} -> true
       %Project{} -> false
     end
+  end
+
+  @doc """
+  Whether `project_id`'s dispatches should skip the model (ORC-223,
+  `systems/generation.md`'s ORC-223 entry) — a per-project opt-in read
+  off the column, never off row presence. `false` for a project with
+  no `delivery_projects` row at all: the deliberate mirror of
+  `sweepable_project?/1`'s own no-row answer, `true` — the two
+  predicates read the same absence in opposite directions, since an
+  unbound project is trivially sweepable but must never dispatch
+  stubbed.
+  """
+  @spec stub_mode?(binary()) :: boolean()
+  def stub_mode?(project_id) do
+    case Repo.get(Project, project_id) do
+      nil -> false
+      %Project{stub_mode: stub_mode} -> stub_mode
+    end
+  end
+
+  @doc """
+  Whether a non-terminal dispatch already exists for this exact
+  `(project_id, tier, scope_key)`, dispatched at or after `cutoff` —
+  the in-flight guard's own query (ORC-223, `systems/generation.md`'s
+  companion entry: `DispatchWorker`'s fourth re-validation). Age, not
+  held state, is what frees a wedged scope: a matching row older than
+  `cutoff` answers `false` regardless of its status, with nothing
+  writing to it to make that happen.
+  """
+  @spec in_flight_dispatch?(binary(), String.t(), map(), DateTime.t()) :: boolean()
+  def in_flight_dispatch?(project_id, tier, scope_key, cutoff) do
+    DispatchRun
+    |> where(
+      [r],
+      r.project_id == ^project_id and r.tier == ^tier and r.scope_key == ^scope_key and
+        r.status in [:dispatched, :context_fetched] and r.inserted_at >= ^cutoff
+    )
+    |> Repo.exists?()
   end
 
   ## Draft bodies (the review-tier `draft` variable's own cache — see the owning migration)

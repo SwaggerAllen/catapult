@@ -97,7 +97,8 @@ defmodule Catapult.Generation.ContextAssembly do
          scope_key: node.scope_key,
          root_tag: root_tag(tier),
          rendered_prompt: rendered,
-         credential_names: credential_names
+         credential_names: credential_names,
+         stub_mode: Delivery.stub_mode?(project_id)
        }}
     end
   end

@@ -1,8 +1,10 @@
 # Refs are wired into comparch and below only. Attached via
 # the attach_reference write tool, which inserts a
 # <reference target="ref_id"/> row (v4's own mechanism, carried
-# forward) — the loader doesn't check declared_in shape (§13 leaves
-# that to the engine), but the row is what each instance names. Not
+# forward) — the loader checks each declared_in segment's spelling
+# against its own tier's schema (§13, ORC-232), but not that any row
+# actually exists in a committed body, which stays the engine's, at
+# commit time. Not
 # among this ticket's own five named edges (fulfills, dependency,
 # domain_parent, decomposition, policy_application) — ref attachment
 # is none of those: not a mint (decomposition), not a comp-fulfills-
@@ -39,7 +41,7 @@ instances:
 
   - source: impl_backend
     target: ref
-    declared_in: impl_backend.draft.implementation.references.reference[].@target
+    declared_in: impl_backend.draft.references.reference[].@target
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -65,7 +67,7 @@ instances:
 
   - source: impl_ui
     target: ref
-    declared_in: impl_ui.draft.implementation.references.reference[].@target
+    declared_in: impl_ui.draft.references.reference[].@target
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -86,7 +88,7 @@ instances:
 
   - source: impl_screen
     target: ref
-    declared_in: impl_screen.draft.implementation.references.reference[].@target
+    declared_in: impl_screen.draft.references.reference[].@target
     cardinality:
       source: { min: 0 }
       target: { min: 0 }

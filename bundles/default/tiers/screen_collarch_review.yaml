@@ -17,7 +17,7 @@ context:
   - self.parent.dependency -> screen_coll.handle.fragments[failure_surface]
   - self.parent.renders -> ui_coll.handle.fragments[pubapi]
   - self.parent.calls -> comp.handle.fragments[pubapi]
-  - self.parent.reference -> journey.handle
+  - all.journey.handle
   - self.reference -> ref.handle
   - all.vocab.handle
 delivery:

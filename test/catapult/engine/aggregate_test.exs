@@ -6,12 +6,14 @@ defmodule Catapult.Engine.AggregateTest do
   alias Catapult.Engine.Commands.ApproveGate
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.DeclineGate
+  alias Catapult.Engine.Commands.DiscardDraft
   alias Catapult.Engine.Commands.OpenFlow
   alias Catapult.Engine.Commands.PostComment
   alias Catapult.Engine.Commands.ResumeFlow
   alias Catapult.Engine.Events.CommentPosted
   alias Catapult.Engine.Events.DraftApproved
   alias Catapult.Engine.Events.DraftCommitted
+  alias Catapult.Engine.Events.DraftDiscarded
   alias Catapult.Engine.Events.FlowOpened
   alias Catapult.Engine.Events.FlowResumed
   alias Catapult.Engine.Events.GateApproved
@@ -90,9 +92,60 @@ defmodule Catapult.Engine.AggregateTest do
   end
 
   describe "ApproveDraft" do
-    test "produces DraftApproved" do
+    test "produces DraftApproved when the draft is the node's own pending one" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: "d1", body_sha: "sha1"}}}
       cmd = %ApproveDraft{project_id: "p1", node_id: "n1", draft_id: "d1"}
-      assert %DraftApproved{node_id: "n1", draft_id: "d1"} = Aggregate.execute(%Aggregate{}, cmd)
+      assert %DraftApproved{node_id: "n1", draft_id: "d1"} = Aggregate.execute(agg, cmd)
+    end
+
+    # The defect ORC-229 closes the identical way ORC-114 closed it on
+    # `ApproveGate`/`DeclineGate`: a replayed or racing dispatch against
+    # a node already moved past this draft is a rejection, not a second
+    # event.
+    test "rejects an approval against a draft that is no longer the node's pending one" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: "d2", body_sha: "sha2"}}}
+      cmd = %ApproveDraft{project_id: "p1", node_id: "n1", draft_id: "d1"}
+
+      assert {:error, {:engine_stale_draft_resolution, node_id: "n1", current: "d2", got: "d1"}} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "rejects an approval against a node this project has never committed" do
+      cmd = %ApproveDraft{project_id: "p1", node_id: "no-such-node", draft_id: "d1"}
+
+      assert {:error,
+              {:engine_stale_draft_resolution, node_id: "no-such-node", current: nil, got: "d1"}} =
+               Aggregate.execute(%Aggregate{}, cmd)
+    end
+
+    # A node with no pending draft carries `pending_draft_id: nil` —
+    # `nil == nil` must never read as a match, or a stray `draft_id: nil`
+    # dispatch against an already-resolved node would approve nothing
+    # into an event nobody can act on.
+    test "rejects a draft_id of nil even against a node with no pending draft" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: nil, body_sha: "sha1"}}}
+      cmd = %ApproveDraft{project_id: "p1", node_id: "n1", draft_id: nil}
+
+      assert {:error, {:engine_stale_draft_resolution, node_id: "n1", current: nil, got: nil}} =
+               Aggregate.execute(agg, cmd)
+    end
+  end
+
+  describe "DiscardDraft" do
+    test "produces DraftDiscarded when the draft is the node's own pending one" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: "d1", body_sha: "sha1"}}}
+      cmd = %DiscardDraft{project_id: "p1", node_id: "n1", draft_id: "d1", reason: "wrong shape"}
+
+      assert %DraftDiscarded{node_id: "n1", draft_id: "d1", reason: "wrong shape"} =
+               Aggregate.execute(agg, cmd)
+    end
+
+    test "rejects a discard against a draft that is no longer the node's pending one" do
+      agg = %Aggregate{nodes: %{"n1" => %{pending_draft_id: "d2", body_sha: "sha2"}}}
+      cmd = %DiscardDraft{project_id: "p1", node_id: "n1", draft_id: "d1"}
+
+      assert {:error, {:engine_stale_draft_resolution, node_id: "n1", current: "d2", got: "d1"}} =
+               Aggregate.execute(agg, cmd)
     end
   end
 

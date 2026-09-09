@@ -888,6 +888,72 @@ profiles.
   depends on it: a `design_system` node mints and holds content
   whether or not anything declares a dependency on it.
 
+- **A `declared_in` path's element and attribute segments join the
+  cross-references the loader already checks at load time**
+  (ORC-232, `dsl-syntax.md` §13, sharpening this system's own
+  "cross-references" bullet above). §13's own enumeration of what
+  "every cross-reference resolves" already covers — edge endpoints,
+  fragment kinds, prompt/schema paths, predicate names — named no
+  check of a `declared_in` path's own segments against the schema of
+  the tier it reads, and six wrong segments sat undetected across nine
+  occurrences in the shipped bundle as a result
+  (`systems/platform_content.md`'s ORC-232 entry: every one matched
+  nothing in a committed body, silently, because
+  `Extraction.descend/2` resolves a segment by exact string equality
+  with no normalization). The loader now resolves a `declared_in`
+  path's leading segment to the tier it names, reads that tier's own
+  `draft.grammar` schema, and walks the remaining segments against it
+  the same way `Extraction.descend/2` walks them against a committed
+  body — refusing to load when a segment names no element or
+  attribute the schema declares under that exact spelling, naming the
+  edge, the instance and the offending segment.
+
+  **The walk follows a `type="Name"` reference into a complexType
+  declared in the same schema file exactly as it follows an inline
+  content model — this bundle's ordinary shape, not an edge case.**
+  A tier's root element declares its own sequence inline
+  (`frontend_sysarch.xsd:78`, `comparch.xsd:182`, `ui_collarch.xsd:120`,
+  `screen_collarch.xsd:115`), but the children in that sequence carry
+  their content as named complexTypes rather than inlining it
+  (`frontend_sysarch.xsd`'s `<ui-dependencies type="Dependencies">`,
+  `ui_collarch.xsd`'s `<primitives type="Primitives">`, and so on). So
+  a path's first element segment — the one directly under `draft` —
+  resolves against the root's own inline sequence, and every segment
+  past it sits behind a `type=` reference. Treating a same-file
+  reference as unresolvable would leave the check able to validate
+  that first segment and nothing deeper, since that is how nearly
+  every multi-segment path in this bundle is shaped.
+
+  **Two failure modes, kept apart.** A segment the check can resolve —
+  whether inline or by following a same-file `type=` reference — and
+  finds wrong is the class above — a load error. A segment the check
+  cannot resolve at all, because the schema reaches it through a
+  construct the check does not model (`xs:group`, `xs:extension`, a
+  type defined in a schema the tier's own file imports rather than
+  declares), is not an error: the check's own coverage gap is not the
+  bundle author's defect, so an unresolvable segment passes through
+  unverified rather than blocking the load. Only a segment the check
+  positively resolves and finds wrong is this defect's class.
+
+  **Coverage, as a checkable claim: the check as specified here catches
+  all nine of this ticket's own `declared_in` defects, not eight.**
+  Eight sit one segment under their tier's root element, inside that
+  element's own inline content model, and need no `type=` resolution
+  to validate. The ninth — `ui_coll → design_system`'s `design-system`
+  segment, reached only by following `primitives`'s `type="Primitives"`
+  reference — is the one instance that does, which is exactly why the
+  same-file `type=` walk above belongs in this check rather than
+  waiting for a later ticket: without it, this entry's own mechanism
+  would not have caught the defect this ticket exists to fix.
+
+  **Attribute segments are checked identically to element segments,
+  not carved out.** `Extraction.attribute/2` resolves a trailing
+  `.@attr` segment by the same exact-string comparison
+  `Extraction.descend/2` uses for an element segment, so a typo in
+  either position fails identically at runtime; the check reads both
+  off the same schema walk rather than modeling elements and leaving
+  attributes unchecked.
+
 ## Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

@@ -1,0 +1,12 @@
+<screen-subcomparch>
+  <technical-specification>A single LiveView process rendering the link list, subscribing to link_admin's own PubSub topic for live updates.</technical-specification>
+  <public-surface>Mounts at /links; no function calls beyond LiveView's own callbacks.</public-surface>
+  <private-surface>Internal assigns for the current link set and any pending retire confirmation.</private-surface>
+  <processes>
+    <process name="link_list_live_process">
+      <category>local</category>
+      <purpose>One process per connected owner viewing their link list.</purpose>
+    </process>
+  </processes>
+  <dependencies/>
+</screen-subcomparch>

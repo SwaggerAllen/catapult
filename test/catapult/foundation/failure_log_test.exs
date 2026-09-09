@@ -19,8 +19,8 @@ defmodule Catapult.Foundation.FailureLogTest do
     {:ok, name: name}
   end
 
-  defp stop_metadata(status, path) do
-    %{conn: %Plug.Conn{status: status, request_path: path}}
+  defp stop_metadata(status, path, resp_body \\ nil) do
+    %{conn: %Plug.Conn{status: status, request_path: path, resp_body: resp_body}}
   end
 
   defp error_rendered_metadata(status, path) do
@@ -127,6 +127,99 @@ defmodule Catapult.Foundation.FailureLogTest do
     )
 
     assert length(FailureLog.list(name)) == 2
+  end
+
+  # The reason a deliberate 5xx gives is in its body and nowhere else:
+  # it never raises, so there is no trace, and App Platform replaces an
+  # upstream 502's body before any caller sees it.
+  test ":stop records the response body, which is where a deliberate 5xx says why", %{name: name} do
+    Logger.metadata(request_id: "req-body")
+
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(502, "/dispatch/test-project", ~s({"error":"{:reset_failed, 403}"})),
+      name
+    )
+
+    assert [%{status: 502, body: ~s({"error":"{:reset_failed, 403}"})}] = FailureLog.list(name)
+  after
+    Logger.metadata(request_id: nil)
+  end
+
+  test ":stop accepts an iodata body, which is what resp_body holds", %{name: name} do
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(500, "/x", ["one", ?-, ["two"]]),
+      name
+    )
+
+    assert [%{body: "one-two"}] = FailureLog.list(name)
+  end
+
+  test "an oversized body is truncated rather than held whole", %{name: name} do
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(500, "/x", String.duplicate("a", 9_000)),
+      name
+    )
+
+    assert [%{body: body}] = FailureLog.list(name)
+    assert byte_size(body) == 2_048
+  end
+
+  # A body cut mid-codepoint would make `Jason.encode!` raise in
+  # `Catapult.Foundation.Failures.list/1` and take the whole read
+  # surface down — so an invalid binary is dropped, not stored.
+  test "a body that is not valid UTF-8 is dropped rather than stored", %{name: name} do
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(500, "/x", <<0xFF, 0xFE>>),
+      name
+    )
+
+    assert [%{body: nil}] = FailureLog.list(name)
+  end
+
+  test "truncation never splits a codepoint", %{name: name} do
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(500, "/x", String.duplicate("é", 4_000)),
+      name
+    )
+
+    assert [%{body: body}] = FailureLog.list(name)
+    assert String.valid?(body)
+    assert Jason.encode!(%{body: body})
+  end
+
+  test "error_rendered has no body, and a later :stop supplies one", %{name: name} do
+    Logger.metadata(request_id: "req-enrich")
+
+    FailureLog.handle_event(
+      [:phoenix, :error_rendered],
+      %{duration: 0},
+      error_rendered_metadata(500, "/x"),
+      name
+    )
+
+    assert [%{body: nil}] = FailureLog.list(name)
+
+    FailureLog.handle_event(
+      [:phoenix, :endpoint, :stop],
+      %{duration: 0},
+      stop_metadata(500, "/x", "the body"),
+      name
+    )
+
+    assert [%{body: "the body", stacktrace: stacktrace}] = FailureLog.list(name)
+    assert stacktrace =~ "boom"
+  after
+    Logger.metadata(request_id: nil)
   end
 
   test "the buffer drops the oldest past 50 records", %{name: name} do

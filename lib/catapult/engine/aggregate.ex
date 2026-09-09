@@ -189,23 +189,35 @@ defmodule Catapult.Engine.Aggregate do
     end
   end
 
-  def execute(%__MODULE__{}, %ApproveDraft{} = cmd) do
-    %DraftApproved{
-      project_id: cmd.project_id,
-      node_id: cmd.node_id,
-      draft_id: cmd.draft_id,
-      actor_id: cmd.actor_id
-    }
+  # Compare-and-swap at the draft grain (ORC-229, v5 §7.16), the
+  # identical gap ORC-114 found and closed on `ApproveGate`/
+  # `DeclineGate` above: found live once `Catapult.Delivery
+  # .DraftResolution` gained a reason to dispatch either command, since
+  # a process manager's own `handle/2` can itself be replayed. A
+  # duplicate or stale dispatch against a node already moved past this
+  # draft (approved, discarded, or superseded by a fresh commit) is now
+  # a rejection, not a second event.
+  def execute(%__MODULE__{nodes: nodes}, %ApproveDraft{} = cmd) do
+    with :ok <- reject_if_stale_draft(nodes, cmd.node_id, cmd.draft_id) do
+      %DraftApproved{
+        project_id: cmd.project_id,
+        node_id: cmd.node_id,
+        draft_id: cmd.draft_id,
+        actor_id: cmd.actor_id
+      }
+    end
   end
 
-  def execute(%__MODULE__{}, %DiscardDraft{} = cmd) do
-    %DraftDiscarded{
-      project_id: cmd.project_id,
-      node_id: cmd.node_id,
-      draft_id: cmd.draft_id,
-      actor_id: cmd.actor_id,
-      reason: cmd.reason
-    }
+  def execute(%__MODULE__{nodes: nodes}, %DiscardDraft{} = cmd) do
+    with :ok <- reject_if_stale_draft(nodes, cmd.node_id, cmd.draft_id) do
+      %DraftDiscarded{
+        project_id: cmd.project_id,
+        node_id: cmd.node_id,
+        draft_id: cmd.draft_id,
+        actor_id: cmd.actor_id,
+        reason: cmd.reason
+      }
+    end
   end
 
   def execute(%__MODULE__{}, %WriteReview{} = cmd) do
@@ -578,6 +590,22 @@ defmodule Catapult.Engine.Aggregate do
 
       nil ->
         {:error, {:engine_stale_gate_resolution, node_id: node_id, current: nil, got: body_sha}}
+    end
+  end
+
+  ## ApproveDraft/DiscardDraft's shared compare-and-swap helper (ORC-229) — see their own `execute/2` clauses above.
+
+  defp reject_if_stale_draft(nodes, node_id, draft_id) do
+    case Map.get(nodes, node_id) do
+      %{pending_draft_id: pending} when not is_nil(pending) and pending == draft_id ->
+        :ok
+
+      %{pending_draft_id: current} ->
+        {:error,
+         {:engine_stale_draft_resolution, node_id: node_id, current: current, got: draft_id}}
+
+      nil ->
+        {:error, {:engine_stale_draft_resolution, node_id: node_id, current: nil, got: draft_id}}
     end
   end
 

@@ -4,7 +4,8 @@ The remaining **human** steps (build-plan Phase 2), one-time and
 attended. Everything code-shaped already lives in the repo:
 
 - `Dockerfile` + `Catapult.Release.migrate` (the deploy artifacts;
-  the migrate release task is the PRE_DEPLOY job)
+  the image's own start command runs the migrator ahead of `start`,
+  and the `CMD` comment carries why it is not a PRE_DEPLOY job)
 - `pipeline.config.json` — tracker ids, the state mapping (read live
   from the team), actors (author = controlplane, the sanctioned
   solo-workspace exception), gates, preview, agents, and the live
@@ -164,26 +165,38 @@ The facts a future session needs, recorded as facts:
   consumers share**: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
   event store's own Postgrex pool (`ENGINE_EVENT_STORE_POOL_SIZE`),
   and one connection each for Oban's and the event store's
-  notification listeners. Two full instances are live at once during
-  a rolling deploy, so the ceiling is a *cutover* number:
+  notification listeners. Each of those is per *container*, and two
+  containers of the service are live at once during a rolling deploy,
+  so the ceiling is a *cutover* number across the whole service:
 
-      peak = 2 × (both pools + 2)
+      peak = 2 × containers × (both pools + 2)
 
-  The PRE_DEPLOY migrator's own two land before the new instance
-  starts, overlapping only the instance being replaced, so they are
-  never the peak. Keep the peak under **19**, leaving the cluster's
+  **The service runs one container.** That count multiplies the
+  entire budget rather than being a capacity knob turnable on its
+  own: it reached two once, which put the peak at 32 against this
+  22-connection cluster and had Postgres refusing connections while
+  the sizing below still read as correct, because a formula carrying
+  no term for it makes a second container look free. Raise it only by
+  dividing the pools by the same factor.
+
+  The migrator's own two close before the service opens its pools —
+  it runs first in the same container's start command — overlapping
+  only the container being replaced, so they are never the peak.
+  Keep the peak under **19**, leaving the cluster's
   maintenance reserve alone — the Overview graph is the authority on
   both the limit and live usage, and beats this arithmetic if they
   disagree.
-- **Set on the instance: `FOUNDATION_POOL_SIZE=4`,
-  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 16. Deliberately
-  asymmetric: the Repo serves the projector's writes, Oban's workers
-  as queues land, the health check and the scheduler's readiness
-  sweep, while the event store's pool serves appends and subscription
-  reads that are low-concurrency in a plane this size. An even 3/3 is
-  the same peak with the headroom in the quieter place. **4/4 is 20
-  and 5/5 is 24** — the second is over the raw limit, and the first
-  leaves nothing for a reserve.
+- **Set on the instance: `FOUNDATION_POOL_SIZE=2`,
+  `ENGINE_EVENT_STORE_POOL_SIZE=2`** — peak 12 at one container, and
+  also what the next bullet's code defaults carry, so unsetting both
+  is a no-op. **3/3 and 4/2 are both 16, 4/4 is 20, 5/5 is 24** — the
+  last is over the raw limit and the one before it leaves nothing for
+  a reserve. Headroom, when there is any to spend, goes to the Repo
+  rather than the event store's pool: the Repo serves the projector's
+  writes, Oban's workers as queues land, the health check and the
+  scheduler's readiness sweep, while the event store's pool serves
+  appends and subscription reads that are low-concurrency in a plane
+  this size.
 - **Both default to `2` in code**, so a deploy is correct with neither
   variable set. That matters more than it looks: a first attempt sized
   them from the environment alone and left the code defaults at 10,
@@ -207,10 +220,16 @@ The facts a future session needs, recorded as facts:
   - **Actions: Read and write** —
     `POST …/actions/workflows/{file}/dispatches` (`dispatch_run/1`).
   - **Contents: Read and write** — `GET`/`PUT …/contents/{path}`
-    (`reset_repo/2`, `commit_files/4`, `read_directory/3`),
-    `GET …/git/ref/heads/{ref}` and `POST …/git/refs`
-    (`create_branch/3`), `POST …/merges` (`merge_forward/3`),
-    `PUT …/pulls/{n}/merge` (`merge_pr/3`).
+    (`reset_repo/2`'s workflow-file write, `commit_files/4`,
+    `read_directory/3`), `GET …/git/ref/heads/{ref}` and
+    `POST …/git/refs` (`create_branch/3`), `POST …/merges`
+    (`merge_forward/3`), `PUT …/pulls/{n}/merge` (`merge_pr/3`) —
+    joined by `reset_repo/2`'s own Git Data calls (ORC-228): the same
+    `GET …/git/ref/heads/{ref}` `create_branch/3` already uses,
+    `GET …/git/commits/{sha}`, `POST …/git/trees`, `POST …/git/commits`
+    and `PATCH …/git/refs/heads/{branch}`. GitHub lists all four Git
+    Data write endpoints under Contents alone — the workflow file never
+    touches this path, so nothing here needs the Workflows scope below.
   - **Workflows: Read and write** — the same `PUT …/contents/{path}`
     when the path is under `.github/workflows/`, which
     `reset_repo/2`'s fixture write always includes (it pushes the
@@ -269,7 +288,14 @@ The facts a future session needs, recorded as facts:
   provisioning surface's bearer token, so the two have to agree or
   every live run fails at the first request with a 401.
 - **Autodeploy is ON and must stay on** — reconcile's merge to main
-  is the deploy trigger; the migrate job runs PRE_DEPLOY.
+  is the deploy trigger. Migrations run inside the deploy: the
+  image's `CMD` runs `Catapult.Release.migrate` and only then
+  `start`, so a failed migration exits the container, the health
+  check never answers, and the deploy fails with the previous one
+  still serving. **The component's Run Command stays blank** — a
+  value there replaces the `CMD`, migrator included. There is no
+  job component, and none should be added: a job carries its own
+  copy of every required variable, and the copy is what goes stale.
 - The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
   scope** — deploy detection is a single GET.
 
@@ -307,7 +333,7 @@ from tracker/host as signals before resuming authority).
 - **`SwaggerAllen/catapult-test` (the bound fixture repo — a
   *different* repository, its own Actions secrets) needs its own
   model credentials, the ones `catapult-dispatch.yml`'s `run-agent`
-  step reads (`test/catapult/generation/fixtures/toy_seed
+  step reads (`test/catapult/generation/fixtures
   /catapult-dispatch.yml`).** Actions secrets do not inherit across
   repos, and this repo's own `CLAUDE_CODE_OAUTH_TOKEN`/
   `ANTHROPIC_API_KEY` above (the ones this project's own agent jobs

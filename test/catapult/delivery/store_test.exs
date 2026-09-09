@@ -278,6 +278,95 @@ defmodule Catapult.Delivery.StoreTest do
     end
   end
 
+  describe "dispatch_runs_for_project/1" do
+    test "every run for a project, any tier, oldest first, run_key/tier/root_tag and body_sha" do
+      EngineStore.upsert_node(%{
+        id: "n1",
+        project_id: "p1",
+        tier: "comp",
+        scope_key: %{},
+        status: :drafted,
+        fields: %{},
+        body_sha: "sha-of-comp"
+      })
+
+      run1_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run1_key,
+        project_id: "p1",
+        node_id: "n1",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comparch",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      run2_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run2_key,
+        project_id: "p1",
+        node_id: "n2",
+        tier: "review",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "review",
+        rendered_prompt: "hello again",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      # Completed after the first run — still surfaced as this project's
+      # own second (oldest-first) row, with the terminal shape
+      # `terminal_dispatch_status/2` already reads for a single tier.
+      Store.complete_dispatch_run(run2_key, :completed, :success, "claude_code_oauth_token")
+
+      # A different project's own run never bleeds in.
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: "p2",
+        node_id: "n3",
+        tier: "comp",
+        scope_key: %{},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comparch",
+        rendered_prompt: "unrelated",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      assert [
+               %{
+                 run_key: ^run1_key,
+                 tier: "comp",
+                 root_tag: "comparch",
+                 status: :dispatched,
+                 outcome: nil,
+                 credential_used: nil,
+                 node_id: "n1",
+                 body_sha: "sha-of-comp"
+               },
+               %{
+                 run_key: ^run2_key,
+                 tier: "review",
+                 root_tag: "review",
+                 status: :completed,
+                 outcome: :success,
+                 credential_used: "claude_code_oauth_token",
+                 node_id: "n2",
+                 # n2 was never drafted — no engine node, so no body_sha,
+                 # the same no-node-yet answer `terminal_dispatch_status/2`
+                 # already gives via the shared `node_body_sha/2` helper.
+                 body_sha: nil
+               }
+             ] = Store.dispatch_runs_for_project("p1")
+    end
+  end
+
   describe "list_bound_project_ids/0" do
     test "every project id ever bound to a repo" do
       Store.put_project_binding("bound-1", "acme", "widgets")
@@ -351,18 +440,48 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.sweepable_project?("no-such-project") == true
     end
 
-    test "mint_test_project/1 mints active, and releases whichever was active before" do
-      first = Store.mint_test_project("tp1")
-      assert first.test_project_state == :active
+    test "mint_test_project/2 mints provisioning, unsweepable until activated (ORC-224)" do
+      minted = Store.mint_test_project("tp1")
+      assert minted.test_project_state == :provisioning
+      assert Store.sweepable_project?("tp1") == false
+
+      assert Store.activate_test_project("tp1") == :ok
+      assert Store.sweepable_project?("tp1") == true
+    end
+
+    test "mint_test_project/2 releases whichever was active or still provisioning before" do
+      Store.mint_test_project("tp1")
+      Store.activate_test_project("tp1")
       assert Store.sweepable_project?("tp1") == true
 
+      # tp2 minted straight to :provisioning, so not sweepable yet either.
       second = Store.mint_test_project("tp2")
-      assert second.test_project_state == :active
-      assert Store.sweepable_project?("tp2") == true
+      assert second.test_project_state == :provisioning
+      assert Store.sweepable_project?("tp2") == false
 
-      # Minting a second active project released the first.
+      # Minting tp2 released tp1, even though tp1 was active.
       assert Store.sweepable_project?("tp1") == false
       assert "tp1" in Store.list_released_test_projects()
+    end
+
+    test "mint_test_project/2 reclaims a row a crashed provisioning attempt stranded at :provisioning" do
+      Store.mint_test_project("tp-stranded")
+      # Never activated or released — the shape a raised failure inside
+      # `reset_and_intake/2` leaves behind (this doc's own moduledoc).
+
+      Store.mint_test_project("tp-fresh")
+      assert "tp-stranded" in Store.list_released_test_projects()
+    end
+
+    test "activate_test_project/1 only promotes a currently-provisioning row, never a released one" do
+      Store.mint_test_project("tp-act")
+      Store.release_test_project("tp-act")
+      assert Store.sweepable_project?("tp-act") == false
+
+      # A retried/duplicated activate call must not resurrect a
+      # terminal-for-now row a concurrent release already moved past.
+      assert Store.activate_test_project("tp-act") == :ok
+      assert Store.sweepable_project?("tp-act") == false
     end
 
     test "release_test_project/1 is idempotent and a no-op on an unminted project" do
@@ -372,6 +491,12 @@ defmodule Catapult.Delivery.StoreTest do
       assert Store.release_test_project("tp3") == :ok
       assert Store.release_test_project("tp3") == :ok
       assert Store.sweepable_project?("tp3") == false
+    end
+
+    test "release_test_project/1 releases a still-provisioning project too (ORC-224)" do
+      Store.mint_test_project("tp-release-provisioning")
+      assert Store.release_test_project("tp-release-provisioning") == :ok
+      assert "tp-release-provisioning" in Store.list_released_test_projects()
     end
 
     test "delete_test_project/1 purges delivery-owned rows and tombstones the project" do
@@ -466,6 +591,105 @@ defmodule Catapult.Delivery.StoreTest do
       end
 
       assert Store.sweepable_project?("tp5") == false
+    end
+  end
+
+  describe "stub_mode (ORC-223)" do
+    test "an ordinary project (no row at all) is never stub mode" do
+      assert Store.stub_mode?("no-such-project") == false
+    end
+
+    test "mint_test_project/2 defaults to stub mode true" do
+      Store.mint_test_project("tp-stub-default")
+      assert Store.stub_mode?("tp-stub-default") == true
+    end
+
+    test "mint_test_project/2 persists an explicit stub_mode" do
+      Store.mint_test_project("tp-stub-false", false)
+      assert Store.stub_mode?("tp-stub-false") == false
+    end
+  end
+
+  describe "in_flight_dispatch?/4 (ORC-223)" do
+    defp seed_dispatch_run(project_id, tier, scope_key) do
+      Store.insert_dispatch_run(%{
+        id: Ecto.UUID.generate(),
+        project_id: project_id,
+        node_id: "n1",
+        tier: tier,
+        scope_key: scope_key,
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+    end
+
+    test "false with no dispatch run at all" do
+      refute Store.in_flight_dispatch?("no-such-project", "vocab", %{}, ~U[2020-01-01 00:00:00Z])
+    end
+
+    test "true for a non-terminal run at or after the cutoff" do
+      seed_dispatch_run("p-inflight", "vocab", %{"id" => "auth"})
+
+      assert Store.in_flight_dispatch?(
+               "p-inflight",
+               "vocab",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+    end
+
+    test "false once the run completes" do
+      run_key = Ecto.UUID.generate()
+
+      Store.insert_dispatch_run(%{
+        id: run_key,
+        project_id: "p-done",
+        node_id: "n1",
+        tier: "vocab",
+        scope_key: %{"id" => "auth"},
+        repo_owner: "acme",
+        repo_name: "widgets",
+        root_tag: "comp",
+        rendered_prompt: "hello",
+        credential_sent: ["claude_code_oauth_token"]
+      })
+
+      Store.complete_dispatch_run(run_key, :completed, :success, "claude_code_oauth_token")
+
+      refute Store.in_flight_dispatch?(
+               "p-done",
+               "vocab",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+    end
+
+    test "false once the row ages past the cutoff" do
+      seed_dispatch_run("p-stale", "vocab", %{"id" => "auth"})
+
+      future_cutoff = DateTime.add(DateTime.utc_now(), 3600, :second)
+      refute Store.in_flight_dispatch?("p-stale", "vocab", %{"id" => "auth"}, future_cutoff)
+    end
+
+    test "neither a different scope_key nor a different tier bleeds in" do
+      seed_dispatch_run("p-scoped", "vocab", %{"id" => "auth"})
+
+      refute Store.in_flight_dispatch?(
+               "p-scoped",
+               "vocab",
+               %{"id" => "other"},
+               ~U[2020-01-01 00:00:00Z]
+             )
+
+      refute Store.in_flight_dispatch?(
+               "p-scoped",
+               "sysarch",
+               %{"id" => "auth"},
+               ~U[2020-01-01 00:00:00Z]
+             )
     end
   end
 end

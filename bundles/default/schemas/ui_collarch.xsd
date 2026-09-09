@@ -10,10 +10,14 @@
   resp (v5 §5.4), so there is nothing for a subcomponent to claim a
   slice of; `<responsibilities>` is free prose instead, the same shape
   subcomparch.xsd already uses for a leaf with no further decomposition
-  target. `<dependencies>` carries `uses_shapes` targets (backend comp
-  ids, types/handle shapes only — never calls, v5 §5.4) rather than
-  sibling comp ids; `<primitives>` carries the `dependency` edge's own
-  `ui_coll -> design_system` instance.
+  target. `<primitives>` carries the `dependency` edge's own
+  `ui_coll -> design_system` instance. No `<dependencies>` element:
+  `uses_shapes` (backend comp ids, types/handle shapes only — never
+  calls, v5 §5.4) declares in `frontend_sysarch`'s own draft, not
+  here, since the minting pass is the one naming a UI collection's
+  backend dependencies (ORC-235, systems/platform_content.md) — this
+  tier still *reads* `uses_shapes` (context:, below), it no longer
+  writes it.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
@@ -26,16 +30,6 @@
   <xs:complexType name="Operations">
     <xs:sequence>
       <xs:element name="operation" type="xs:string" minOccurs="3" maxOccurs="6"/>
-    </xs:sequence>
-  </xs:complexType>
-
-  <xs:complexType name="Dependencies">
-    <xs:sequence>
-      <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="to" type="xs:string" use="required"/>
-        </xs:complexType>
-      </xs:element>
     </xs:sequence>
   </xs:complexType>
 
@@ -117,7 +111,7 @@
     </xs:sequence>
   </xs:complexType>
 
-  <xs:element name="ui_collarch">
+  <xs:element name="ui-collarch">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>
@@ -125,7 +119,6 @@
         <xs:element name="private-surface" type="xs:string"/>
         <xs:element name="failure-surface" type="xs:string"/>
         <xs:element name="policies" type="xs:string"/>
-        <xs:element name="dependencies" type="Dependencies"/>
         <xs:element name="primitives" type="Primitives"/>
         <xs:element name="subcomponents" type="Subcomponents"/>
         <xs:element name="sub-dependencies" type="SubDependencies"/>

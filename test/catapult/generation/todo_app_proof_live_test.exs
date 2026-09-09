@@ -27,10 +27,11 @@ defmodule Catapult.Generation.TodoAppProofLiveTest do
   **Why this test stops at provisioning, and touches neither polling
   nor release.** The proof's own middle is the author reviewing and
   declining through `document-review` across hours or days, which no
-  bounded test spans (`docs/build-plan.md`'s own words) — unlike
-  `ToySeedChainLiveTest`, which dispatches exactly one tier and can
-  afford to poll a single run to a terminal status inside one test's
-  deadline. This test's job ends at "the project is minted, bound, and
+  bounded test spans (`docs/build-plan.md`'s own words) — reason enough
+  on its own, needing no contrast to `ToySeedChainLiveTest`'s own poll
+  shape, which since ORC-230 walks the toy raft's full downward
+  cascade with no round cap or fixed tier to compare against. This
+  test's job ends at "the project is minted, bound, and
   the raft is intaking" — the deployed sweeper picks it up from there
   the same way it picks up any freshly bound project
   (`Catapult.Generation.Sweeper`'s ORC-216 entry), with no engine row
@@ -73,13 +74,18 @@ defmodule Catapult.Generation.TodoAppProofLiveTest do
     provisioned =
       Req.post!(base <> "/dispatch/test-project",
         headers: headers,
-        json: %{files: TodoAppSeed.reset_files()},
+        json: %{files: TodoAppSeed.reset_files(), stub_mode: false},
         retry: false,
         receive_timeout: @request_timeout,
         connect_options: [timeout: @request_timeout]
       )
 
-    assert provisioned.status == 200
+    # Same reason as toy_seed_chain_live_test.exs: the body and headers
+    # are the only evidence a failed run leaves here.
+    assert provisioned.status == 200,
+           "provisioning answered #{provisioned.status}: body #{inspect(provisioned.body)}, " <>
+             "headers #{inspect(provisioned.headers)}"
+
     assert %{"project_id" => project_id, "ref" => ref} = provisioned.body
     assert is_binary(project_id) and project_id != ""
     assert is_binary(ref) and ref != ""

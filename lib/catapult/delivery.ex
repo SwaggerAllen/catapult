@@ -90,7 +90,7 @@ defmodule Catapult.Delivery do
        version: "v1", audience: :partner},
       {{:report_result, 2}, :post, "/dispatch/report/:run_key",
        version: "v1", audience: :partner},
-      # ORC-216: the provisioning surface — a third, fourth and fifth
+      # ORC-216: the provisioning surface — a third through seventh
       # path on this one listener, `:internal` audience since these
       # are reached only by the milestone boundary's own live-suite
       # job, bearer-authenticated rather than OIDC
@@ -100,7 +100,16 @@ defmodule Catapult.Delivery do
       {{:release_test_project, 2}, :post, "/dispatch/test-project/:project_id/release",
        version: "v1", audience: :internal},
       {{:test_project_dispatch_status, 3}, :get,
-       "/dispatch/test-project/:project_id/status/:tier", version: "v1", audience: :internal}
+       "/dispatch/test-project/:project_id/status/:tier", version: "v1", audience: :internal},
+      # ORC-225: the enumerating sibling of the status route above —
+      # every dispatch run for a project rather than one tier's.
+      {{:test_project_dispatch_runs, 2}, :get, "/dispatch/test-project/:project_id/runs",
+       version: "v1", audience: :internal},
+      # ORC-230: the unattended run's own actor — approves every
+      # `:drafted` node so a live suite with no human in it can walk
+      # past a gate (`Catapult.Delivery.Provisioning`'s own moduledoc).
+      {{:test_project_approve_drafts, 2}, :post,
+       "/dispatch/test-project/:project_id/approve-drafts", version: "v1", audience: :internal}
     ]
   end
 
@@ -121,7 +130,12 @@ defmodule Catapult.Delivery do
       # Same placement and the same reason as its siblings above: a
       # Commanded subscription is consumed once, in order, cluster-wide
       # (`Catapult.Delivery.FeaturePublisher`'s own moduledoc, ORC-33).
-      {:delivery_feature_publisher, :singleton}
+      {:delivery_feature_publisher, :singleton},
+      # `:singleton` for the same stronger reason `delivery_container_
+      # lifecycle` above carries: this one writes too, back into
+      # `Catapult.Engine.Aggregate` (`Catapult.Delivery.DraftResolution`'s
+      # own moduledoc, ORC-229).
+      {:delivery_draft_resolution, :singleton}
     ]
   end
 
@@ -145,7 +159,8 @@ defmodule Catapult.Delivery do
       {Catapult.Delivery.Oidc.Strategy, []},
       Catapult.Delivery.FeatureLifecycle,
       Catapult.Delivery.ContainerLifecycle,
-      Catapult.Delivery.FeaturePublisher
+      Catapult.Delivery.FeaturePublisher,
+      Catapult.Delivery.DraftResolution
     ]
   end
 
@@ -242,6 +257,24 @@ defmodule Catapult.Delivery do
   @spec sweepable_project?(binary()) :: boolean()
   def sweepable_project?(project_id), do: Store.sweepable_project?(project_id)
 
+  @doc """
+  Whether `project_id`'s dispatches should skip the model — the
+  per-project stub-mode opt-in's own read (`Catapult.Delivery.Store
+  .stub_mode?/1`, ORC-223).
+  """
+  @spec stub_mode?(binary()) :: boolean()
+  def stub_mode?(project_id), do: Store.stub_mode?(project_id)
+
+  @doc """
+  Whether a dispatch is already in flight for this exact
+  `(project_id, tier, scope_key)` at or after `cutoff` —
+  `Catapult.Generation.DispatchWorker`'s fourth re-validation
+  (`Catapult.Delivery.Store.in_flight_dispatch?/4`, ORC-223).
+  """
+  @spec in_flight_dispatch?(binary(), String.t(), map(), DateTime.t()) :: boolean()
+  def in_flight_dispatch?(project_id, tier, scope_key, cutoff),
+    do: Store.in_flight_dispatch?(project_id, tier, scope_key, cutoff)
+
   @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Dispatch.fetch_context/2`."
   @spec fetch_context(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   defexport(fetch_context(conn, run_key), do: Dispatch.fetch_context(conn, run_key))
@@ -262,5 +295,17 @@ defmodule Catapult.Delivery do
   @spec test_project_dispatch_status(Plug.Conn.t(), binary(), String.t()) :: Plug.Conn.t()
   defexport(test_project_dispatch_status(conn, project_id, tier),
     do: Provisioning.status(conn, project_id, tier)
+  )
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.runs/2`."
+  @spec test_project_dispatch_runs(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  defexport(test_project_dispatch_runs(conn, project_id),
+    do: Provisioning.runs(conn, project_id)
+  )
+
+  @doc "Boundary export backing the `api_surface/0` declaration above — see `Catapult.Delivery.Provisioning.approve_drafts/2`."
+  @spec test_project_approve_drafts(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  defexport(test_project_approve_drafts(conn, project_id),
+    do: Provisioning.approve_drafts(conn, project_id)
   )
 end

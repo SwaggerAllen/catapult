@@ -62,10 +62,19 @@ generating as scope-runs inside one ticket.
   accept a dispatch to it at all, and no role in this pipeline has a
   route to author a file inside a *different* repository — that repo
   is out of every agent's reach by construction, not by refusal. So
-  the plane writes it there instead: the toy seed's per-role input
-  documents and `.github/workflows/catapult-dispatch.yml` live as
-  fixtures in *this* repo, reviewed like any other file, and `reset`
-  overwrites the bound repo's contents from them. `HostPort` gains
+  the plane writes it there instead: a seed's per-role input
+  documents and the workflow file it pushes to
+  `.github/workflows/catapult-dispatch.yml` live as fixtures in
+  *this* repo, reviewed like any other file, and `reset` overwrites
+  the bound repo's contents from them. **The workflow file is one
+  fixture shared by every seed**, at
+  `test/catapult/generation/fixtures/catapult-dispatch.yml` rather
+  than inside either raft's own directory beside it: `Catapult
+  .ToySeed.reset_files/0` and `Catapult.TodoAppSeed.reset_files/0`
+  push the same file to the same path in the same bound repo, so a
+  per-seed copy would leave whichever seed provisioned last silently
+  deciding which harness that repo carried (the fixture's own header
+  records this). `HostPort` gains
   this as a second callback alongside `dispatch_run/1`, and the fake
   implements it too, so the offline chain test exercises the same
   reset path rather than a live-only mechanism — the same "fake is
@@ -91,115 +100,126 @@ generating as scope-runs inside one ticket.
   doesn't owe it.
 - **The raft is pinned as a copy in this system's own store, discovered
   from a registered directory in the bound repo, and never read again
-  after intake** (ORC-107, v5 §1.1). A registered path and a pinned copy
-  are two different jobs, not one choice: a registered path is how
-  intake *finds* the raft; a pinned copy is what a render-time walk
-  actually reads. Both are needed, because only a copy survives the
-  source file being deleted — a content hash or a bare commit-SHA pin
-  does not, once the commit that introduced the file is no longer the
-  one a later read would resolve the path against, and authors delete
-  input docs.
+  after intake** (ORC-107, v5 §1.1). Two different candidate answers
+  looked like alternatives at ticket-open (`docs/toy-seed/<role>.md`'s
+  own existing fixture shape read equally well as "the storage is a
+  registered path" or "the storage is a cache") and turn out to be two
+  different jobs, not one choice: a registered path is how intake
+  *finds* the raft; a pinned copy is what a render-time walk actually
+  reads. Both are needed, because only a copy survives the source file
+  being deleted — a content hash or a bare commit-SHA pin does not,
+  once the commit that introduced the file is no longer the one a
+  later read would resolve the path against, and authors delete input
+  docs.
 
   **Storage**: `Catapult.Delivery.Store.InputDocument` (new,
   `delivery_input_documents`), the same shape `DraftBody` already
   established for the identical problem one tier over — a Liquid
-  variable needs a stable string and the thing underneath is allowed to
-  keep moving. Keyed `(project_id, role, filename)`; `content` is the
-  verbatim copy a walk reads; `source_ref` is the commit SHA intake read
-  it at, carried for provenance only and never dereferenced again —
-  resolving a later walk *from* `source_ref` would be exactly the live
-  re-read v5 §1.1 refuses, just one hop removed. Exposed at the boundary
-  the same way `get_draft_body/2`/ `put_draft_body/4` are:
-  `Catapult.Delivery.get_input_documents/2` (a role's pinned documents),
-  `Catapult.Delivery.get_raft/1` (every pinned document, for the
-  wildcard), `Catapult.Delivery .pin_input_documents/3` (intake's own
-  write, below).
+  variable needs a stable string and the thing underneath is allowed
+  to keep moving. Keyed `(project_id, role, filename)`; `content` is
+  the verbatim copy a walk reads; `source_ref` is the commit SHA
+  intake read it at, carried for provenance only and never
+  dereferenced again — resolving a later walk *from* `source_ref`
+  would be exactly the live re-read v5 §1.1 refuses, just one hop
+  removed. Exposed at the boundary the same way `get_draft_body/2`/
+  `put_draft_body/4` are: `Catapult.Delivery.get_input_documents/2`
+  (a role's pinned documents), `Catapult.Delivery.get_raft/1` (every
+  pinned document, for the wildcard), `Catapult.Delivery
+  .pin_input_documents/3` (intake's own write, below).
 
   **Discovery**: a fixed platform-wide path, `docs/raft/` in the bound
   repo — not a per-project setting, on the same footing `reset_repo`'s
   own workflow-dispatch file already stands on (a bound repo carries
-  fixed plane-required paths; nothing here makes this one configurable
-  that wasn't already). Every file directly under it is one input
-  document, and the filename minus its extension is the role tag — no
-  manifest, no per-role declaration anywhere, which is `dsl-syntax.md`
-  §7's "the mechanism has no closed registry to violate" carried into
-  storage rather than contradicted by it: a project tagging a document
-  is a project naming a file.
+  fixed plane-required paths; nothing here makes this one
+  configurable that wasn't already). Every file directly under it is
+  one input document, and the filename minus its extension is the
+  role tag — no manifest, no per-role declaration anywhere, which is
+  `dsl-syntax.md` §7's "the mechanism has no closed registry to
+  violate" carried into storage rather than contradicted by it: a
+  project tagging a document is a project naming a file.
 
-  **An extension-stem collision under one role is legal and ordered.**
-  `InputDocument`'s key — `(project_id, role, filename)` — stores more
-  than one filename per role; nothing about the schema forces
-  one-to-one. Discovery bounds what "sharing a role" can actually mean,
-  though: filename-stem-is-role means the only way two files land under
-  one role is the same stem with a different extension —
-  `project_doc.md` and `project_doc.txt` both tagging `project_doc` —
-  never an arbitrary number of unrelated documents filed under one tag
-  by any naming a person would choose. In practice a project keeps one
-  file per role; the rule is narrower than general per-role multiplicity
-  — only that the extension-stem collision is not rejected, merged, or
-  deduplicated, since nothing about it is wrong. Both read paths query
-  rather than promise an order, though, and both feed a
-  concatenated-string render (`systems/generation.md`'s entry):
-  `get_input_documents/2` returns every row pinned under the role for
-  `input.<role>`, `get_raft/1` returns every row pinned under the
-  project for the `raft` wildcard (`dsl-syntax.md` §9), and an
-  unspecified order on either would let two renders of the same frozen
-  pin disagree — the exact instability the freeze in v5 §1.1 exists to
-  prevent. Both queries carry **`ORDER BY filename`**: it costs nothing
-  (the row count sharing a role is one in the overwhelmingly common
-  case) and makes the render reproducible. The toy seed fixture
-  (`test/support/toy_seed.ex`) files its role docs under `docs/raft/`,
-  the same convention.
+  **An extension-stem collision under one role is legal and
+  ordered, and this pass decides that rather than parking it.**
+  `InputDocument`'s key — `(project_id, role, filename)` — already
+  stores more than one filename per role; nothing about the schema
+  forces one-to-one. Discovery bounds what "sharing a role" can
+  actually mean, though: filename-stem-is-role means the only way
+  two files land under one role is the same stem with a different
+  extension — `project_doc.md` and `project_doc.txt` both tagging
+  `project_doc` — never an arbitrary number of unrelated documents
+  filed under one tag by any naming a person would choose. In
+  practice a project keeps one file per role; what this pass decides
+  is narrower than general per-role multiplicity — only that the
+  extension-stem collision is not rejected, merged, or deduplicated,
+  since nothing about it is wrong. Both read paths query rather than
+  promise an order, though, and both feed a concatenated-string render
+  (`systems/generation.md`'s entry): `get_input_documents/2` returns
+  every row pinned under the role for `input.<role>`, `get_raft/1`
+  returns every row pinned under the project for the `raft` wildcard
+  (`dsl-syntax.md` §9), and an unspecified order on either would let
+  two renders of the same frozen pin disagree — the exact instability
+  the freeze in v5 §1.1 exists to prevent. Both queries carry
+  **`ORDER BY filename`**: it costs nothing (the row count sharing a
+  role is one in the overwhelmingly common case) and makes the render
+  reproducible.
+  The toy seed's existing fixture directory (`docs/toy-seed/<role>.md`,
+  `test/support/toy_seed.ex`) predates this convention under a name
+  chosen for that one fixture; reconciling it to `docs/raft/` is
+  dev's to do alongside the rest of this ticket's implementation, not
+  a rename this pass makes on its own.
 
   **Reading it**: `HostPort` gains a fourth read-shaped operation,
-  `read_directory/3` (`project_id`, `ref`, `path`) :: `{:ok, %{filename
-  => content}}`, landing in `HostPort.Actions` and `HostPort.Fake` in
-  the same change — the rule every operation on this port already
-  follows. Unlike `reset_repo/2`'s own default-branch-only shape (the
-  defect ORC-33 already found and fixed for a different operation),
-  `read_directory/3` takes an explicit `ref`: intake pins against a
-  commit a caller names, not whatever the default branch happens to be
-  the moment it runs.
+  `read_directory/3` (`project_id`, `ref`, `path`) ::
+  `{:ok, %{filename => content}}`, landing in `HostPort.Actions` and
+  `HostPort.Fake` in the same change — the rule every operation on
+  this port already follows. Unlike `reset_repo/2`'s own
+  default-branch-only shape (the defect ORC-33 already found and
+  fixed for a different operation), `read_directory/3` takes an
+  explicit `ref`: intake pins against a commit a caller names, not
+  whatever the default branch happens to be the moment it runs.
 
   **The intake pass**: one function, called at most once per project —
   given a `project_id` and a `ref`, it calls `read_directory/3` against
   the registered path and writes every file it gets back through
-  `pin_input_documents/3`. "At most once" is the entire mechanism behind
-  v5 §1.1's "frozen at intake": there is exactly one legal call, so
-  there is no second read to diverge from the first. What decides *when*
-  that call happens — a project's creation or scaffold flow — sits
-  outside intake: a caller already holding a `project_id` and a `ref` is
+  `pin_input_documents/3`. "At most once" is not a convention this
+  pass follows, it is the entire mechanism behind v5 §1.1's "frozen at
+  intake": there is exactly one legal call, so there is no second read
+  to diverge from the first. What decides *when* that call happens —
+  a project's creation or scaffold flow — is out of this ticket's
+  scope; a caller already holding a `project_id` and a `ref` is
   assumed, the same boundary Phase 5's own exit criterion draws
   (scaffolding its seed raft, whatever it is, needs exactly those two
   facts supplied, regardless of how a real project's author eventually
   supplies them).
 
-  **The raft is read from the bound repo and nowhere else** — never a
-  dashboard upload or a second config channel for pasted-in prose. The
-  toy seed fixture and `reset_repo`'s own existing shape already commit
-  this repo to "the bound repo is where fixture content lives, the raft
-  included"; a second intake channel would fork that convention for no
-  reader that needs both. This also matches `docs/non-goals.md`'s "no
-  absorption of existing codebases" entry, whose mocks carve-out already
-  names the shape a raft document takes — **seed evidence and pinned
-  artifacts**, read once and never absorbed — one level more general
-  than mocks alone.
+  **Ruled out**: reading the raft from anywhere other than the bound
+  repo — a dashboard upload, a second config channel for pasted-in
+  prose. The toy seed fixture and `reset_repo`'s own existing shape
+  already commit this repo to "the bound repo is where fixture
+  content lives, the raft included"; a second intake channel would
+  fork that convention for no reader that needs both. This also
+  matches `docs/non-goals.md`'s "no absorption of existing codebases"
+  entry, whose mocks carve-out already names the shape a raft document
+  takes — **seed evidence and pinned artifacts**, read once and never
+  absorbed — one level more general than mocks alone.
 
-  **The frozen-edit notice is narrower here than v5 §1.1 describes, and
-  the gap is Phase 7's.** §1.1's Triage notice needs something to *file
-  a ticket* the moment a diff lands under a registered input path — the
-  base-check sweep — and ticket-filing is Phase 7's: the same
-  validation-loop/reconciliation machinery `ticket.<source>` itself
-  waits on (v5 §7.11). The base-check sweep, on any of its three
-  triggers — the out-of-band-bug half, the doc-reconciliation half
-  (`docs/v5-design-decisions.md` §7.3's entry points), and this one — is
-  Phase 7's. What intake supplies toward it is the one fact a sweep
-  would otherwise have nowhere to get: the registered raft path,
-  recorded per project by intake (above), is already the thing "a diff
-  under a registered input path" means — the sweep reads that fact
-  rather than re-deriving it. Filing the notice itself rides Phase 7's
-  reconciliation machinery alongside the sweep's other two triggers,
-  rather than a bespoke ticket-filer built now and rehomed later.
+  **The frozen-edit notice is narrower here than v5 §1.1 describes,
+  and the gap is named rather than built around.** §1.1's Triage
+  notice needs something to *file a ticket* the moment a diff lands
+  under a registered input path — the base-check sweep — and
+  ticket-filing is Phase 7's: the same validation-loop/reconciliation
+  machinery `ticket.<source>` itself waits on (v5 §7.11). No code in
+  this repo builds any base-check sweep yet, for any of its three
+  triggers — not the out-of-band-bug half, not the doc-reconciliation
+  half (`docs/v5-design-decisions.md` §7.3's entry points, both still
+  prose), and not this one. What this ticket delivers toward it is the
+  one fact a Phase-7 sweep would otherwise have nowhere to get: the
+  registered raft path, recorded per project by intake (above), is
+  already the thing "a diff under a registered input path" means —
+  the sweep reads that fact rather than re-deriving it. Filing the
+  notice itself rides Phase 7's reconciliation machinery alongside the
+  sweep's other two triggers, rather than a bespoke ticket-filer built
+  now and rehomed later.
 - **Ticket state is a projection; the event log is the authority**
   (v5 §7.1). Unchanged by owning the tracker — if anything sharpened,
   since the surface and the authority now agree. Human actions arrive
@@ -250,131 +270,164 @@ generating as scope-runs inside one ticket.
   before then.
 - **No boundary ticket, generalized: containers and the project alike
   carry their own progress — but the project is not a container**
-  (ORC-105; `docs/v5-design-decisions.md` §7.8; `docs/dsl-syntax.md`
-  §15.6-§15.9). A container's or a project's status is which of its
-  declared queues is current; a queue is a derived query, never a stored
-  bucket, so there is no per-queue pending set for this system to own
-  the way `ready_scopes` is engine's. Two relations this system
-  dispatches against: a queue's `flow:` target resolves against a
-  work-item-type registry shared by container and plain-type
-  declarations alike (`docs/dsl-syntax.md` §15.2) — no new dispatch
-  mechanism whichever it resolves to, a `retro` or `setup` ticket
-  opening a flow instance exactly like any other type, `setup`
+  (ORC-105, design pass, superseding both ORC-103's own unmerged
+  milestone-only version of this entry and this same ticket's own two
+  earlier, since-reversed drafts — one that folded the project into
+  the container shape, one that gave every queue entry a `flow:`/
+  `opens:` pair; `docs/v5-design-decisions.md` §7.8; `docs/
+  dsl-syntax.md` §15.6-§15.9). A container's or a project's status is
+  which of its declared queues is current; a queue is a derived query,
+  never a stored bucket, so there is no per-queue pending set for this
+  system to own the way `ready_scopes` is engine's. Two relations this
+  system dispatches against, both new: a queue's `flow:` target
+  resolves against a work-item-type registry shared by container and
+  plain-type declarations alike (`docs/dsl-syntax.md` §15.2, unified
+  further at the fourth pass below) — no new
+  dispatch mechanism whichever it resolves to, a `retro` or `setup`
+  ticket opening a flow instance exactly like any other type, `setup`
   dispatching as its own anchor entry, first in the newly minted
   container's own sequence, never a value carried on the parent's
-  dispatching entry, so the two never need to be the same declaration; a
-  queue's `blocks:` relation to a sibling queue in the same declaration
-  guards *entry into* that sibling while the blocking queue carries
-  unresolved work items, checked once at the transition rather than held
-  continuously (the entry-guard bullet below) — one relation the
+  dispatching entry, so the two never need to be the same declaration;
+  a queue's `blocks:` relation to a sibling queue in the same
+  declaration guards *entry into* that sibling while the blocking queue
+  carries unresolved work items, checked once at the transition rather
+  than held continuously (corrected to this reading at the design
+  review below) — the general form of what used to be
+  a single hard-coded boundary-blocking rule, now one relation the
   dispatcher reads wherever a workflow bundle declares it, milestone
-  `main`→`retro` included, rather than a single hard-coded
-  boundary-blocking rule. **The pause has no separate mechanism to
+  `main`→`retro` included. **The pause has no separate mechanism to
   build**: an `Urgent` ticket dispatches regardless of which queue a
   container or the project currently sits in
   (`docs/v5-design-decisions.md` §7.3, §7.10), which falls out of
   ordinary priority dispatch rather than needing a ticket-carried flag
-  against its milestone. Storage for "which queue a given container or
-  the project is currently at" is
-  `engine_containers.current_queue`/`current_queue_sequence`
-  (`lib/catapult/engine/store/container.ex`); the `blocks:`-aware
-  dispatcher is `Catapult.Delivery.ContainerLifecycle` (below); and the
-  declaration-graph acyclicity check that bounds nesting
-  (`docs/dsl-syntax.md` §13) is
-  `Catapult.Dsl.Workflow.declaration_graph_problems/1`,
-  skeleton-agnostic (ORC-148). `setup`/`retro` fold directly into
-  `milestone`'s own array as inline agent-balled entries, with no
-  separate scan step (ORC-148, below). The `:live`-gates-`retro`
-  interlock (§2.8) needs a `:live`-verdict signal this system does not
-  carry and the maintenance watcher this doc's own Initial-vs-target
-  section files to Phase 7, and stays Target (Phase 7), unticketed.
+  against its milestone the way ORC-103's draft required. Of the rest
+  this entry named, three are built (ORC-175, design pass, checked
+  against the tree): storage for "which queue a given container or the
+  project is currently at" is `engine_containers.current_queue`/
+  `current_queue_sequence` (`lib/catapult/engine/store/container.ex`);
+  the `blocks:`-aware dispatcher is `Catapult.Delivery
+  .ContainerLifecycle` (below); and the declaration-graph acyclicity
+  check that bounds nesting (`docs/dsl-syntax.md` §13) is
+  `Catapult.Dsl.Workflow.declaration_graph_problems/1`, already
+  skeleton-agnostic per ORC-148. "The scan/setup/retro machinery
+  itself" is superseded rather than built as this entry originally
+  framed it: `setup`/`retro` fold directly into `milestone`'s own
+  array as inline agent-balled entries, with no separate scan step
+  (ORC-148, below). The `:live`-gates-`retro` interlock (§2.8) is the
+  one item here still unbuilt — no `:live`-verdict signal exists
+  anywhere in this system yet, and it needs the maintenance watcher
+  this doc's own Initial-vs-target section still files to Phase 7 —
+  and stays Target (Phase 7), unticketed.
 - **Mint is not activation, and this system's dispatcher is the one
-  that has to hold the two apart** (ORC-105; `docs/dsl-syntax.md` §15.8;
-  `docs/v5-design-decisions.md` §7.8). A container instance can exist —
-  created by business logic or a person, accepting groomed work into its
-  own future queues — before its parent's own position ever reaches it;
-  only reaching it makes it *active*, and only becoming active runs its
-  `setup` entry's `flow:`. Mint and activation are held apart for the
-  case this system explicitly wants: grooming next milestone's `prep`
-  during this milestone's own `main`, which a single mint-and-start
-  event ("dispatch mints one instance and starts that instance at its
-  own `setup` entry") cannot express. The storage distinguishing
-  "instances that exist" from "the instance that is current" is
-  `Catapult.Delivery.ContainerLifecycle`'s own `state` field (`:minted |
-  :active | :closed`), and a gate's throwback is a human's
+  that has to hold the two apart** (ORC-105's fourth pass, design
+  pass; `docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md`
+  §7.8). A container instance can exist — created by business logic or
+  a person, accepting groomed work into its own future queues — before
+  its parent's own position ever reaches it; only reaching it makes it
+  *active*, and only becoming active runs its `setup` entry's `flow:`.
+  Two earlier framings of this same record had mint and activation as
+  one event ("dispatch mints one instance and starts that instance at
+  its own `setup` entry"; "minted one at a time as the prior one
+  closes") and both are wrong for the case this system explicitly
+  wants: grooming next milestone's `prep` during this milestone's own
+  `main`. What this system owns is built (ORC-175, design pass,
+  checked against the tree): the storage distinguishing "instances
+  that exist" from "the instance that is current" is
+  `Catapult.Delivery.ContainerLifecycle`'s own `state` field
+  (`:minted | :active | :closed`), and a gate's throwback is a human's
   `AdvanceContainerQueue` with `reason: :throwback`, checked against
-  `ContainerLifecycle.Sequence.earlier?/4` — the live half of the check
-  the loader can only make statically. A container's anchor entries
-  carry gates — gates and environments are declared on containers
-  (`docs/dsl-syntax.md` §15.2, §15.4, §15.8) — so a gate's own throwback
-  is a way a container's position moves backward; a queue un-resolving
-  when its population refills is not one (the `blocks:` contradiction
-  bullet below). A milestone sign-off gate between `main` and `retro`
-  can throw back to `main`, and this system's dispatcher honors that
-  path exactly this way.
+  `ContainerLifecycle.Sequence.earlier?/4` — the live half of the
+  check the loader can only make statically. **This bullet originally read a
+  container's position as moving backward two ways, the second being
+  a gate's own throwback — a fifth-pass correction**, not a
+  fourth-pass fact: the fourth pass's own "a container's anchor
+  entries carry no gates, so they have no `throwback:` to borrow"
+  stopped being true the moment gates and environments widened onto
+  containers in the same pass that wrote it (`docs/dsl-syntax.md`
+  §15.2, §15.4, §15.8). **The first of the two — a queue un-resolving
+  when its population refills — is retired at ORC-148's third design
+  review**; see that bullet below rather than treating it as this
+  system's target behavior. A milestone sign-off gate between `main`
+  and `retro` can throw back to `main` today, and this system's
+  dispatcher honors that path exactly this way.
 - **A fifth ORC-105 pass gave the dispatcher a cardinality bound to
   respect and closed a hole in the loader's own acyclicity check that
-  this system's dispatcher would otherwise have inherited**
-  (`docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
-  §7.8). A cardinality bound on a queue — `milestone`'s `setup` and
-  `retro` queues declared `singleton: true` — is not something the
-  loader can check (a queue's population is live ticket state) and is
-  therefore this system's own dispatcher's job; what the bound means is
-  the bullet below (at most one work item ever assigned, never "admitted
-  and files `Blocked`"), and `singleton:` itself is retired at ORC-148
-  (below). Separately, the declaration-graph acyclicity check (above)
-  treats a skeleton-less type — the project included — as a graph node,
-  not only a `container`-skeleton type: a node set limited to
-  `container`-skeleton types excludes the exact edge a project/container
-  cycle runs on (`milestone.main` → `flow: project`, `project.build-out`
-  → `flow: milestone`) and lets that cycle through.
+  this system's dispatcher would otherwise have inherited** (design
+  pass; `docs/dsl-syntax.md` §15.6-§15.7; `docs/v5-design-decisions.md`
+  §7.8). `milestone`'s `setup` and `retro` queues are declared
+  `singleton: true` — bounded, this system's fifth-pass reading held,
+  to 0 or 1 unresolved at a time — which is not something the loader
+  can check (a queue's population is live ticket state) and is
+  therefore this system's own dispatcher's job. **This reading was
+  wrong, corrected at the sixth pass below** — see that bullet rather
+  than treating "admitted and files `Blocked`" as this system's
+  target behavior. Separately, the declaration-graph acyclicity check
+  (above) now has to treat a skeleton-less type — the project
+  included — as a graph node, not only a `container`-skeleton type:
+  the fourth pass's narrower node set excluded the exact edge a
+  project/container cycle runs on (`milestone.main` → `flow: project`,
+  `project.build-out` → `flow: milestone`), so a loader built against
+  the fourth pass's own record would have let that cycle through.
+  Built, checked against the tree (ORC-175, design pass):
   `Catapult.Dsl.Workflow.declaration_graph_nodes/1` is explicitly
-  skeleton-agnostic (ORC-148), so a project/container cycle on that edge
-  is caught by `DslGraph.acyclic?/1`. Nothing in this system's own
-  dispatch logic changes shape from the acyclicity check — it is about
+  skeleton-agnostic (ORC-148), so a project/container cycle on that
+  edge is caught by `DslGraph.acyclic?/1` against the corrected node
+  set, not the superseded one. Nothing in this system's own dispatch
+  logic changes shape from the acyclicity correction — it is about
   what the loader accepts before this system ever sees a bundle.
 - **A sixth ORC-105 pass corrected the fifth pass's own singleton
   reading and gave this system's dispatcher a fact to check that the
   loader cannot: which type a fresh project actually starts from**
-  (`docs/dsl-syntax.md` §2, §13, §15.6-§15.7;
-  `docs/v5-design-decisions.md` §7.8). `singleton:` bounds a queue to at
+  (design pass; `docs/dsl-syntax.md` §2, §13, §15.6-§15.7; `docs/
+  v5-design-decisions.md` §7.8). `singleton:` bounds a queue to at
   most one work item **ever assigned**, not 0-or-1 unresolved at any
   moment — a queue whose sole work item has reached `terminal` is
-  *closed*, not empty-with-room, so this system's dispatcher must reject
-  a second assignment outright rather than admit it and file `Blocked`,
-  once one work item has ever been assigned to a singleton queue. The
-  distinction is behavior, not wording: "admit and file `Blocked`" and
-  "reject outright" dispatch differently on the same input. Separately,
+  *closed*, not empty-with-room, so this system's dispatcher must
+  reject a second assignment outright rather than admit it and file
+  `Blocked`, once one work item has ever been assigned to a singleton
+  queue. This is a real behavior change from the fifth pass's own
+  record, not a rewording: "admit and file `Blocked`" and "reject
+  outright" dispatch differently on the same input. Separately,
   `entry:` on a workflow bundle's own `bundle.yaml` names the type
   onboarding dispatches a fresh project from — this system reads it
   rather than inferring a starting point from which declaration looks
-  project-shaped, an inference the loader never checks. The
-  singleton-lifetime rejection is retired with `singleton:` itself
-  (ORC-148, below). The `entry:` read is load time's —
-  `Catapult.Dsl.Manifest` reads it off `bundle.yaml` and
-  `Workflow.entry_problems/2` validates it resolves to a
-  declaration-graph root; dispatching a fresh project from it is the
-  onboarding path, Target (Phase 7), unticketed.
+  project-shaped, the identical inference this record's own earlier
+  passes leaned on informally without the loader ever having checked
+  it. Neither correction changes this system's shape, only what its
+  dispatcher and its onboarding path each read and enforce. Checked
+  against the tree (ORC-175, design pass): the singleton-lifetime
+  rejection this paragraph describes is retired rather than built,
+  superseded before either half shipped (ORC-148, below). The `entry:`
+  read is built at load time — `Catapult.Dsl.Manifest` reads it off
+  `bundle.yaml` and `Workflow.entry_problems/2` validates it resolves
+  to a declaration-graph root — but nothing yet dispatches a fresh
+  project from it; wiring an onboarding path to that read stays Target
+  (Phase 7), unticketed.
 - **ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and names,
   without yet answering, whether a container instance can be a
   dispatch target in its own right** (`docs/dsl-syntax.md` §15.4,
   §15.10; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19; answered at
-  ORC-148, below). The dispatcher's own throwback handling resolves
-  every decline's *legality* the same way, regardless of declaration —
-  checked against "earlier in the citing type's own effective sequence"
-  (identical to how the dispatcher already has to honor a
-  Blocked-return); a gate's declared `throwback:` bounds nothing here —
-  `DeclineGate` enforces no allow-list, so a bounded allow-list at the
-  command edge would rest on an enforcement that isn't real. What a
-  gate's declared `throwback:` supplies is a *landing point*, a single
-  optional status: the dispatcher reads it when the gate names one, and
-  falls back otherwise to the citing sub-array's own earliest entry as
-  the one-click default — its own leading `pending`, when the sub-array
-  has one (every generation-shaped sub-array does, `docs/dsl-syntax.md`
-  §13's tightened check), its own non-review-shaped agent-balled entry
-  directly otherwise — either way computed from the loaded workflow
-  bundle at throwback time, never stored. This is the same shape `flow:`
+  ORC-148, below). The dispatcher's own
+  throwback handling resolves every decline's *legality* the same way,
+  regardless of declaration — checked against "earlier in the citing
+  type's own effective sequence" (identical to how the dispatcher
+  already has to honor a Blocked-return); a gate's declared
+  `throwback:` bounds nothing here (second design review; the first
+  pass's reading, that it stayed a bounded allow-list the command edge
+  enforced, rested on a `DeclineGate` enforcement claim that isn't
+  real). What a gate's declared `throwback:` still supplies is a
+  *landing point* (third design review, narrowing the field to a
+  single optional status rather than retiring it): the dispatcher reads
+  it when the gate names one, and falls back otherwise to the citing
+  sub-array's own earliest entry as the one-click default — its own
+  leading `pending`, when the sub-array has one (every
+  generation-shaped sub-array does, `docs/dsl-syntax.md` §13's
+  tightened check), its own non-review-shaped agent-balled entry
+  directly otherwise (a design-review correction, fourth pass, from
+  resolving to that entry unconditionally) — either way computed from
+  the loaded workflow bundle at throwback time, never stored. This is
+  the same shape `flow:`
   resolution and the singleton-lifetime check above already take (read
   the bundle, don't cache a derived fact). A gate sitting first in its
   own sub-array, or in no sub-array at all, has no earlier entry there
@@ -384,37 +437,41 @@ generating as scope-runs inside one ticket.
 
   **This system's own open question — can a container instance be an
   agent dispatch target at all? — is answered at ORC-148: yes, on the
-  identical footing as a ticket instance.** Dispatching from a work item
-  with a queue and one without were never different operations, only
-  different status flows attached to the same mechanism
-  (`docs/dsl-syntax.md` §15.2, `docs/v5-design-decisions.md` §7.8) — the
-  queue was never what made something a dispatch target, so this system
-  does not need a container-shaped answer distinct from the
-  ticket-shaped one it already has. Concretely, with `setup` and `retro`
-  inline (ORC-148, below), a container-owned dispatch identity means:
-  pointing ORC-9's executor at the container instance's own branch and
-  PR when the dispatch subject is a container rather than a ticket;
-  giving a container instance file-map paths of its own for the mutex
-  mapping to key against, the identical shape a ticket's paths already
-  take; and keying `DispatchRun` on the container instance's id in that
-  case rather than assuming a ticket id. `setup`/`retro` do not dispatch
-  that way: `Catapult.Delivery.ContainerLifecycle.open_inline/3` mints a
+  identical footing as a ticket instance.** Dispatching from a work
+  item with a queue and one without were never different operations,
+  only different status flows attached to the same mechanism
+  (`docs/dsl-syntax.md` §15.2, `docs/v5-design-decisions.md` §7.8) —
+  the queue was never what made something a dispatch target, so this
+  system does not need a container-shaped answer distinct from the
+  ticket-shaped one it already has. Concretely, once `setup` and
+  `retro` fold inline (built at ORC-148, below) this system's own
+  Target build must still: point ORC-9's executor at the container
+  instance's own branch and PR when the dispatch subject is a container
+  rather than a ticket; give a container instance file-map paths of its
+  own for the mutex mapping to key against, the identical shape a
+  ticket's paths already take; and key `DispatchRun` on the container
+  instance's id in that case rather than assuming a ticket id.
+  **Neither ORC-104 nor ORC-148 built any of the three** (ORC-175,
+  design pass): `setup`/`retro` dispatch today
+  (`Catapult.Delivery.ContainerLifecycle.open_inline/3`) by minting a
   synthetic per-entry flow (`ContainerLifecycle.Ids.work_item_id/3`,
   keyed on `project_id`/`container_id`/queue, not the container's own
-  id) routed through the ordinary ticket-shaped
-  branch/PR/file-map/`DispatchRun` path — sufficient for what
-  dispatches, since each inline entry gets its own PR rather than
-  needing to share the container's, but not a container-owned identity:
-  `lib/catapult/delivery/dispatch.ex`'s `HostPort.request` carries no
-  branch or file-map field, and `store/dispatch_run.ex` keys on
-  `flow_id`, never a container id. With `retro` `milestone`'s own inline
-  entry rather than a population of unresolved child tickets, `main`'s
-  `blocks: [retro]` (§15.7) means `retro` cannot be *entered* while
-  `main`'s own queue still carries unresolved work — the identical
-  entry-guard test §15.7 states generally (the entry-guard bullet
-  below), applied to a guarded entry that is not itself a queue. Target
-  (Phase 7), unticketed: a container-owned dispatch identity — not the
-  per-entry synthetic flow — when one is actually needed.
+  id) and routing it through the ordinary ticket-shaped branch/PR/
+  file-map/`DispatchRun` path instead — functionally sufficient for
+  what dispatches today, since each inline entry gets its own PR
+  rather than needing to share the container's, but not what this
+  paragraph describes. `lib/catapult/delivery/dispatch.ex`'s
+  `HostPort.request` still carries no branch or file-map field, and
+  `store/dispatch_run.ex` keys on `flow_id`, never a container id. It
+  also resolves what `main`'s `blocks: [retro]` (§15.7) means once
+  `retro` is `milestone`'s own inline entry rather than a population of
+  unresolved child tickets: `retro` cannot be *entered* while `main`'s
+  own queue still carries unresolved work — the identical entry-guard
+  test §15.7 states generally (corrected to this reading at the design
+  review below), applied to a guarded entry that is not itself a
+  queue. Target (Phase 7), unticketed: revisit when a container-owned
+  dispatch identity — not today's per-entry synthetic flow — is
+  actually needed.
 - **ORC-148 (design pass) retires `singleton:` and the fold that
   motivated it, closing the open question the two bullets above left
   standing** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.7, §15.10;
@@ -434,93 +491,117 @@ generating as scope-runs inside one ticket.
   smaller Target list, not a larger one, since folding removes the
   separately-dispatched child the old shape needed a bound for.
 - **A design review on ORC-148 changed the shape of this system's own
-  `blocks:`-aware dispatcher work, filed above** (`docs/dsl-syntax.md`
-  §13, §15.1, §15.7; `docs/v5-design-decisions.md` §7.8). `blocks:` is
-  an entry guard, checked once, at the transition into the entry it
-  guards, never rechecked against the same occupancy — not a standing
+  `blocks:`-aware dispatcher work, filed above**
+  (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
+  §7.8). The three bullets above described `blocks:` as a standing
   hold this system's dispatcher recomputes for as long as the guarded
-  entry carries unresolved work. Concretely, this system's dispatcher
-  evaluates a `blocks:` condition exactly once, at the moment a
-  container's position would advance into the guarded entry — never as a
-  periodic or event-driven recheck against an already-active entry,
-  which would let a queue refilling mid-`retro` pull the container back
-  out of it. **What the guard is not — a standing recheck against an
-  entry already entered — is a separate question from how the dispatcher
-  decides when to attempt the entry in the first place.**
-  `ContainerLifecycle` (the process manager named below) is an ordinary
-  event-subscribed process manager, not a poll loop: it re-evaluates a
-  guarded entry's eligibility on every engine event that could change
-  the answer — most often, a work item the blocking queue counted
-  resolving out of it — and the moment a `blocks:` condition reads
-  clear, it is this same dispatcher, not a human action, that issues the
-  advance command. A container never sits fully unblocked waiting to be
-  asked forward; "checked once, at the transition" is what each of those
-  event-triggered attempts does, not a claim that the dispatcher looks
-  only a single time over the container's whole life. Separately,
-  reaching `terminal` carries a guard this system's dispatcher enforces
-  unconditionally, regardless of implementation — every one of a
-  container's own queues holding no unresolved work — never narrower
-  than whatever `blocks:` relations a bundle happened to author, so a
-  queue nobody named in any `blocks:` list still cannot be closed over
-  on the way to `terminal`. Neither guard is a loader check
-  (`docs/dsl-syntax.md` §13 is unaffected). The entry guard lives in
-  `Catapult.Delivery.ContainerLifecycle`: `forward_or_open/3` returns
-  `[]` on `{:held, _holders}`. The terminal guard is enforced at
-  `close/2`, the bullet below.
+  entry carries unresolved work — wrong, corrected in place above and
+  restated here because it changes what this system builds: `blocks:`
+  is an entry guard, checked once, at the transition into the entry it
+  guards, never rechecked against the same occupancy. Concretely, this
+  system's dispatcher evaluates a `blocks:` condition exactly once, at
+  the moment a container's position would advance into the guarded
+  entry — never as a periodic or event-driven recheck against an
+  already-active entry, which is what let a queue refilling mid-`retro`
+  pull the container back out of it under the retired reading. **This
+  states what the guard is not — a standing recheck against an entry
+  already entered — not how the dispatcher decides when to attempt the
+  entry in the first place, which a further design review found this
+  bullet left unanswered.** `ContainerLifecycle` (the process manager
+  named below) is an ordinary event-subscribed process manager, not a
+  poll loop: it re-evaluates a guarded entry's eligibility on every
+  engine event that could change the answer — most often, a work item
+  the blocking queue counted resolving out of it — and the moment a
+  `blocks:` condition reads clear, it is this same dispatcher, not a
+  human action, that issues the advance command. A container never
+  sits fully unblocked waiting to be asked forward; "checked once, at
+  the transition" is what each of those event-triggered attempts does,
+  not a claim that the dispatcher looks only a single time over the
+  container's whole life.
+  Separately, reaching `terminal` gains a guard this system's dispatcher
+  must enforce unconditionally — every one of a container's own queues
+  holding no unresolved work — never narrower than whatever `blocks:`
+  relations a bundle happened to author, so a queue nobody named in any
+  `blocks:` list still cannot be closed over on the way to `terminal`.
+  Neither correction adds a loader check (`docs/dsl-syntax.md` §13 is
+  unaffected by the second one, and the first is a semantics correction
+  to a check that already existed). The entry guard is built, in
+  `Catapult.Delivery.ContainerLifecycle` (ORC-175, design pass, checked
+  against the tree): `forward_or_open/3` returns `[]` on
+  `{:held, _holders}`. The terminal guard is a rule this system's
+  dispatcher must enforce regardless of implementation: every one of a
+  container's own queues holds no unresolved work before `terminal`,
+  unconditionally, never narrower than whatever `blocks:` relations a
+  bundle happened to author. Its present enforcement is incidental to
+  the same backward-move mechanism the bullet below settles
+  (`next_commands/2`) — ORC-177's reconciliation
+  covers this guard's implementation too, not only the backward move.
 - **A third design review on ORC-148 found the `blocks:` inversion
   above left a contradiction standing: a container's position still
   moved backward on a queue refilling, restated rather than removed
   — and a fourth found the third's own fix over-corrected**
   (`docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md` §7.8).
-  **This system's dispatcher never moves a container's position backward
-  because a queue refilled** — a queue un-resolving as a cause of
-  backward movement is the identical defect the bullet above retires
-  from `blocks:` itself, one level up. **What moves position backward is
-  a step's own outcome — a decline, whether a `critique` entry's own
-  agent run issues it (landing back on the generation entry it pairs
-  with) or a human issues it at a gate (landing per its declared or
-  derived `throwback:`) — or an explicit author transition** —
-  concretely, returning a milestone from `retro` to `main`, which
-  `ContainerLifecycle` never performs on its own. "An authored
-  transition" alone rules out more than it means to: a `critique`
+  §15.8's own "two ways a container's position moves backward" kept a
+  queue un-resolving as one of them, un-gated — the identical defect
+  the bullet above retired from `blocks:` itself, reappearing one
+  level up. **Retired: this system's dispatcher never moves a
+  container's position backward because a queue refilled.** The third
+  review's own replacement named the surviving cause "an authored
+  transition," which rules out more than it means to: a `critique`
   entry's own decline is automatic, with no author in it, and
   `docs/v5-design-decisions.md` §7.19 requires it be structurally
-  identical to a human decline at a gate. Forward advance into a
-  guard-cleared entry stays this system's dispatcher's to make
-  automatically, the moment the guard reads clear (the bullet above); a
-  decline's backward move is likewise this system's dispatcher's to
-  apply the moment it is issued, agent or human; the `retro` → `main`
-  return alone is the author's own action, taken once `retro`'s own
-  sub-array — its agent step and the human gates around it — has run to
-  completion, not the instant `retro`'s output lands back in `main` and
-  un-resolves it. This is also what keeps the `terminal` guard two
-  bullets up reachable at all: the shipped `milestone`'s only throwback
-  to `main` is `milestone-signoff`, sequenced *before* `retro`
-  (`dsl-syntax.md` §15.10), so absent this manual return `retro` filing
-  work into `main` would leave `cleanup`/`terminal` blocked with no
-  declared path back. The sites this rule reaches (ORC-177):
-  `Catapult.Delivery.ContainerLifecycle`'s `next_commands/2` performs no
-  queue-population pre-check (below); `container_queues.ex`'s resolution
-  condition 1 cites this rule directly; and, in
-  `container_queue_advanced.ex`, both the moduledoc and the `reason`
-  type are `:resolved | :throwback` — no `:repopulated`, and no
-  justification for a resolved queue un-resolving. A third `reason`
-  value, for the explicit author transition, is that mechanism's own
-  vocabulary to add once it is built. `container_lifecycle_test.exs`
-  asserts against what replaces the walk, below.
+  identical to a human decline at a gate. **What moves position
+  backward is a step's own outcome — a decline, whether a `critique`
+  entry's own agent run issues it (landing back on the generation
+  entry it pairs with) or a human issues it at a gate (landing per its
+  declared or derived `throwback:`) — or an explicit author
+  transition** — concretely, returning a milestone from `retro` to
+  `main`, which `ContainerLifecycle` never performs on its own. Forward
+  advance into a guard-cleared entry stays this system's dispatcher's
+  to make automatically, the moment the guard reads clear (the bullet
+  above, unaffected); a decline's backward move is likewise this
+  system's dispatcher's to apply the moment it is issued, agent or
+  human; the `retro` → `main` return alone is the author's own action,
+  taken once `retro`'s own sub-array — its agent step and the human
+  gates around it — has run to completion, not the instant `retro`'s
+  output lands back in `main` and un-resolves it. This is also what
+  keeps the `terminal` guard two bullets up reachable at all: the
+  shipped `milestone`'s only throwback to `main` is `milestone-signoff`,
+  sequenced *before* `retro` (`dsl-syntax.md` §15.10), so absent this
+  manual return `retro` filing work into `main` would leave
+  `cleanup`/`terminal` blocked with no declared path back.
+  **Done, checked against the tree — ORC-177 (design pass; dev pass
+  merged `27e0bff`).** The reconciliation the fourth-review correction
+  above named landed across every site the retired reading reached:
+  `Catapult.Delivery.ContainerLifecycle`'s `next_commands/2` no longer
+  performs the retired pre-check (below); `container_queues.ex`'s
+  resolution condition 1 cites the retirement directly rather than the
+  reading it predated; and, in `container_queue_advanced.ex`, both the
+  moduledoc and the `reason` type narrow to `:resolved | :throwback` —
+  `:repopulated` is retired from each, and the moduledoc no longer
+  gives a resolved queue un-resolving as this reason's own
+  justification for existing. A third `reason` value, for the explicit
+  author transition the fourth-review correction above names, is that
+  mechanism's own vocabulary to add once it is built, not anticipated
+  here. `container_lifecycle_test.exs`'s two tests that had asserted
+  `reason: :repopulated` as the correct outcome were rewritten against
+  whatever replaces the walk, below.
 
-  **What replaces the walk** (`docs/dsl-syntax.md` §15.7, §15.8): two
-  questions, both closed by record already settled rather than by new
-  mechanism.
+  **What replaces the walk, so "whatever replaces it" above is no
+  longer open.** Two questions, both closed by record already settled
+  rather than by new mechanism (`docs/dsl-syntax.md` §15.7, §15.8).
 
   Position needs no re-derivation, because there is nothing left to
-  derive: §15.8 retires position being a function of queue population at
-  all. `next_commands/2` carries no `earliest_unresolved/4` pre-check
-  and dispatches straight to `forward_or_open/3` on every event. A
-  container's position sits wherever the last forward advance or one of
-  the two backward-move causes (a step's own decline; the author's
-  `retro` → `main` return) left it, and an earlier queue's population
-  refilling changes nothing about it.
+  derive: §15.8's own third statement already retired position being a
+  function of queue population at all. `next_commands/2` drops its
+  `earliest_unresolved/4` pre-check outright — deleted, not repurposed
+  — and dispatches straight to `forward_or_open/3` on every event. A
+  container's position sits wherever the last forward advance or one
+  of the two remaining backward-move causes (a step's own decline; the
+  author's `retro` → `main` return) left it, and an earlier queue's
+  population refilling changes nothing about it. That is the whole
+  answer: it doesn't re-derive, and needing it to was the retired
+  behavior.
 
   The terminal guard is enforced at `close/2`, as a second precondition
   beside the one it already carries, every finding adjudicated — the
@@ -528,27 +609,30 @@ generating as scope-runs inside one ticket.
   whether it happens. Before proposing composition or dispatching
   `CloseContainer`, the dispatcher checks every `{:queue, entry}`
   `Sequence.steps/2` returns for which `Status.queue_shaped?/1` holds —
-  every entry carrying a `flow:`, whether it nests a child container or
-  holds ordinary ticket work, which is every declared queue proper —
-  against `ContainerQueues.resolution/3`. Any that answers `:open` or
-  `{:held, _}` refuses the close exactly the way an unadjudicated
-  finding already does: logged, `[]` returned, re-evaluated on the next
-  relevant event rather than polled. The check runs over the type's
-  whole declared array, never scoped to entries behind `current` — the
-  concrete shape of §15.7's "unconditional, reaches every queue-shaped
-  anchor... whether or not any of them is also named in some other
-  entry's `blocks:`": a queue long past `current` and named in no
-  `blocks:` list is checked identically to one immediately behind it.
-  `setup` and `retro` — the non-queue-shaped, `flow:`-less inline
-  dispatch points `Status.queue_shaped?/1` already excludes — need no
-  place in this check: `ContainerQueues.admits?/3` bounds each to at
-  most one assignment ever, so once resolved neither can un-resolve,
-  which is exactly why §15.7's own guard text names "every queue-shaped
-  anchor" rather than every positioned entry.
+  every entry carrying a `flow:`, whether it nests a child
+  container or holds ordinary ticket work, which is every declared
+  queue proper — against `ContainerQueues.resolution/3`. Any that
+  answers `:open` or `{:held, _}` refuses the close exactly the way an
+  unadjudicated finding already does: logged, `[]` returned,
+  re-evaluated on the next relevant event rather than polled. The
+  check runs over the type's whole declared array, never scoped to
+  entries behind `current` — the concrete shape of §15.7's "unconditional,
+  reaches every queue-shaped anchor... whether or not any of them is
+  also named in some other entry's `blocks:`": a queue long past
+  `current` and named in no `blocks:` list is checked identically to
+  one immediately behind it. `setup` and `retro` — the non-queue-shaped,
+  `flow:`-less inline dispatch points `Status.queue_shaped?/1` already
+  excludes — need no place in this check: `ContainerQueues.admits?/3`
+  bounds each to at most one assignment ever, so once resolved neither
+  can un-resolve, which is exactly why §15.7's own guard text names
+  "every queue-shaped anchor" rather than every positioned entry.
 
   No new loader check, no new event, no new command: a precondition on
   an existing dispatch, the identical shape the finding-adjudication
-  check already is.
+  check already is. `container_queues.ex`'s condition 1,
+  `container_queue_advanced.ex`'s moduledoc and `reason` type, and the
+  two `container_lifecycle_test.exs` tests named above are corrected
+  against this replacement, not against a placeholder for it.
 - **ORC-31 (design pass) extends the Host port's operation vocabulary
   for feature-lifecycle PR management and decline harvesting** —
   branch, PR-open, merge-forward, merge, review-comment read, marker-
@@ -577,33 +661,40 @@ generating as scope-runs inside one ticket.
 - **Author-review correction: harvesting classification filters by
   author identity, not by endpoint alone — a revision to §7.4's
   classification mechanism for the GitHub-PR surface, not an
-  application of it** (ORC-31). "Arrived via the review-comment
-  endpoint" is not sufficient to call a comment human, and treating it
-  so is not §7.4 holding unchanged: §7.4's rule covers *any* machine,
-  because its premise is that machines mark, while endpoint-of-origin
-  covers only *our* machine. Every third-party actor with review access
-  — a GitHub App, a linter, a review bot, Claude Code's own inline
-  review comments — posts through the identical review-comment endpoint
-  a human uses; under endpoint-alone classification those harvest as
-  human declines and thread into regeneration as author feedback,
-  silently. **The rule:** review-comment read filters its results by
-  author identity before anything is treated as harvestable —
-  `performed_via_github_app` is reliable for GitHub-App-authored
-  comments, `user.type == "Bot"` is reliable for bot accounts, and
-  either excludes a comment from the human bucket. **Residual, named
-  rather than hidden:** a bot authenticating with a human's personal
-  access token is indistinguishable from that human at the API; nothing
-  here closes that gap, and no fix is known. Author identity is the
-  strongest of the three mechanisms (markers, endpoint-alone,
-  author-identity) because it needs no third party to cooperate with a
-  convention it has never heard of — but it is a revision of §7.4's text
-  ("anything unmarked... is human feedback") for the surface where we
-  don't own the store, not a restatement of it. Markers are unchanged
-  for *our* own machine (marker-comment write); author-identity
-  filtering is what stands in for "unmarked" on the review-comment side.
-  §7.4 carries this mechanism, its reason and its residual directly;
-  this bullet is the fuller argument the doc text points back to, not a
-  second place the decision was made.
+  application of it** (ORC-31, design pass, second draft). The first
+  draft treated "arrived via the review-comment endpoint" as
+  sufficient to call a comment human, and presented that as §7.4
+  holding unchanged. It doesn't hold as written: §7.4's rule covers
+  *any* machine, because its premise is that machines mark, while
+  endpoint-of-origin covers only *our* machine. Every third-party
+  actor with review access — a GitHub App, a linter, a review bot,
+  Claude Code's own inline review comments — posts through the
+  identical review-comment endpoint a human uses; under
+  endpoint-alone classification those harvest as human declines and
+  thread into regeneration as author feedback, silently. **Revision:**
+  review-comment read filters its results by author identity before
+  anything is treated as harvestable — `performed_via_github_app` is
+  reliable for GitHub-App-authored comments, `user.type == "Bot"` is
+  reliable for bot accounts, and either excludes a comment from the
+  human bucket. **Residual, named rather than hidden:** a bot
+  authenticating with a human's personal access token is
+  indistinguishable from that human at the API; nothing here closes
+  that gap, and no fix is known. This is the strongest of the three
+  mechanisms considered (markers, endpoint-alone, author-identity)
+  because it needs no third party to cooperate with a convention it
+  has never heard of — but it is a revision of §7.4's text ("anything
+  unmarked... is human feedback") for the surface where we don't own
+  the store, not a restatement of it. Markers are unchanged for *our*
+  own machine (marker-comment write); author-identity filtering is
+  what now stands in for "unmarked" on the review-comment side.
+  **Placement correction (ORC-31, design pass, second author review):**
+  the first draft of this correction recorded the revision here only,
+  leaving `docs/v5-design-decisions.md` §7.4 still reading the
+  superseded marker-only sentence — the source of truth disagreeing
+  with the system doc about which rule is live. §7.4 now carries this
+  mechanism, its reason and its residual directly; this bullet is the
+  fuller argument the doc text points back to, not a second place the
+  decision was made.
 - **List-shaped read operations page to exhaustion; neither asserts a
   bound it hasn't measured** (ORC-31, design pass, author-review
   correction). `review-comment read` and `check-status read` are both
@@ -624,43 +715,48 @@ generating as scope-runs inside one ticket.
   one turns out to be needed, is a dispatch-budget decision (v5
   §7.12.1), not a silent truncation here.
 - **The marker vocabulary is a typed module, scoped to GitHub PR
-  comments only** (ORC-31; extends the marker-retirement bullet above
-  rather than reopening it). `HostPort.Marker` (naming follows
-  `HostPort.Actions`/`HostPort.Fake`'s own pattern) holds a closed enum
-  of kinds, each with a render function producing the exact comment body
-  and a parse function reading one back — `{:ok, {kind, payload}} |
-  :not_a_marker` — so no call site builds a marker string by
-  interpolation and no call site greps a comment body for a substring.
-  **`parse/1`'s caller: marker-comment write's own idempotency check.**
-  Before posting a new bounce, the plane lists the PR's existing
-  issue-level comments and parses each with this function to check
-  whether the scope-violation marker for this gate decline is already
-  there, so a re-triggered decline path (a retry, a resumed pass)
-  doesn't post a second `Ready for rework` comment. This is a read of
-  the plane's own issue-level comments and is not the harvesting read —
-  `parse/1` never sees a line-anchored review comment, and harvesting's
-  classification (the correction above) never calls it. Phase 4 needs
-  exactly one kind to start: the scope-violation bounce already named in
-  §7.5 ("a plane-authored marker comment naming the paths, `Ready for
-  rework`"). Later kinds — §7.11's findings marker, §7.14's bug-intake
-  sequence stamp — join the same closed enum when their phase needs
-  them; they are not invented ad hoc at whichever call site first wants
-  one. This module governs the write side only. **The read side needs no
-  parser of its own only because the plane never authors a line-anchored
-  review comment — an invariant to keep, not a free property.** Today
-  that premise holds because no plane operation posts a line-anchored
-  comment at all, which is what makes the property cost nothing rather
-  than something enforced. If a later ticket adds one — a review-thread
-  reply is an obvious want when declining a decline — that comment would
-  arrive through the same review-comment endpoint the harvesting read
-  otherwise treats as candidate human feedback, and it would harvest as
-  feedback on its own author's comment with nothing here to catch it.
-  Should that operation ever land, harvesting's read side needs the same
-  author-identity filter the correction above puts on review-comment
-  read generally — excluding the plane's own GitHub identity alongside
-  third-party bots and Apps — not a return to string-parsing. "Unmarked"
-  means: arrived as a review comment, and not filtered out by the
-  author-identity check above — never simply "arrived as a review
+  comments only** (ORC-31, design pass; extends the marker-retirement
+  bullet above rather than reopening it). `HostPort.Marker` (naming
+  follows `HostPort.Actions`/`HostPort.Fake`'s own pattern) holds a
+  closed enum of kinds, each with a render function producing the
+  exact comment body and a parse function reading one back —
+  `{:ok, {kind, payload}} | :not_a_marker` — so no call site builds a
+  marker string by interpolation and no call site greps a comment
+  body for a substring. **`parse/1`'s named caller (ORC-31, design
+  pass, author-review addition): marker-comment write's own
+  idempotency check.** Before posting a new bounce, the plane lists
+  the PR's existing issue-level comments and parses each with this
+  function to check whether the scope-violation marker for this gate
+  decline is already there, so a re-triggered decline path (a retry,
+  a resumed pass) doesn't post a second `Ready for rework` comment.
+  This is a read of the plane's own issue-level comments and is not
+  the harvesting read — `parse/1` never sees a line-anchored review
+  comment, and harvesting's classification (the correction above)
+  never calls it. Phase 4 needs exactly one kind to start: the
+  scope-violation bounce already named in §7.5 ("a plane-authored
+  marker comment naming the paths, `Ready for rework`"). Later kinds
+  — §7.11's findings marker, §7.14's bug-intake sequence stamp — join
+  the same closed enum when their phase needs them; they are not
+  invented ad hoc at whichever call site first wants one. This module
+  governs the write side only. **The read side needs no parser of its
+  own only because the plane never authors a line-anchored review
+  comment — an invariant to keep, not a free property, and it is
+  recorded here so the next pass sees it before it breaks it** (ORC-31,
+  design pass, author-review addition). Today that premise holds
+  because no plane operation posts a line-anchored comment at all,
+  which is what makes the property cost nothing rather than something
+  enforced. If a later ticket adds one — a review-thread reply is an
+  obvious want when declining a decline — that comment would arrive
+  through the same review-comment endpoint the harvesting read
+  otherwise treats as candidate human feedback, and it would harvest
+  as feedback on its own author's comment with nothing here to catch
+  it. Should that operation ever land, harvesting's read side needs
+  the same author-identity filter the correction above puts on
+  review-comment read generally — excluding the plane's own GitHub
+  identity alongside third-party bots and Apps — not a return to
+  string-parsing. Until then, "unmarked" means: arrived as a review
+  comment, and not filtered out by the author-identity check above —
+  not, as the first draft had it, simply "arrived as a review
   comment."
 - **The Fake's forge state lives in a per-test supervised process, not
   a Store table** (ORC-31). `dispatch_run` is not the precedent it
@@ -770,98 +866,111 @@ generating as scope-runs inside one ticket.
   the two axes' consumers read alike.
 - **Reachability, settled: `checks` is this phase's last reachable
   position; `merge`, `deploy`, `validating` and `terminal` arrive with
-  Phase 7** (ORC-32; `dsl-syntax.md` §15.1). The kinds themselves are
-  never in question — `Catapult.Dsl.SystemStatus`'s closed table fixes
-  them all up front, so nothing here adds or removes one. What is open
-  is which of them this process manager's own callbacks ever route a
-  ticket into. `merge`/`deploy` are reconciliation and publish outcomes
-  and `validating` is §7.11's post-deploy repair loop, which needs a
-  deploy, which needs `merge` — each sits behind the child
-  lifecycle/mutex/dispatch/reconciliation machinery that is Phase 7's.
-  So this process manager's `interested?`/`handle` pair is total over
+  Phase 7** (ORC-32, design pass, closing this ticket's own open
+  question; restated here against the vocabulary as it now stands —
+  `fanout` retired and the queue/pending rename and `:boundary`
+  retirement both landed, `dsl-syntax.md` §15.1). The kinds themselves
+  are never in question — `Catapult.Dsl.SystemStatus`'s closed table
+  fixes them all up front, so nothing here adds or removes one. What
+  is open is which of them this process manager's own callbacks ever
+  route a ticket into. `merge`/`deploy` are reconciliation and
+  publish outcomes and `validating` is §7.11's post-deploy repair
+  loop, which needs a deploy, which needs `merge` — each sits behind
+  the child lifecycle/mutex/dispatch/reconciliation machinery this
+  ticket's own scope names as Phase 7's, not this one's. So this
+  process manager's `interested?`/`handle` pair is total over
   `pending → generation → [critique] → [gate] → … → checks` and
-  *recognizes* the later kinds without ever driving a ticket into them —
-  a bundle declaring gates or environments after `deploy` still loads
-  and validates today (§13), unaffected. A ticket reaching `checks` sits
-  there under this phase; what moves it again is Phase 7's own
-  dispatcher.
+  *recognizes* the later kinds without ever driving a ticket into them
+  — a bundle declaring gates or environments after `deploy` still
+  loads and validates today (§13), unaffected. A ticket reaching
+  `checks` sits there under this phase; what moves it again is Phase
+  7's own dispatcher.
 
   **`checks` can recur, once per generation-shaped sub-array
   (`dsl-syntax.md` §15.1, §15.11) — the boundary is the last such
   occurrence in the type's own array that precedes the array's own
-  `merge` entry, not the first** (ORC-182). The shipped single-phase
-  `feature.yaml` never exercised the difference — one `checks`, so first
-  and last coincide — which is what let
+  `merge` entry, not the first** (ORC-182, design pass). The shipped
+  single-phase `feature.yaml` never exercised the difference — one
+  `checks`, so first and last coincide — which is what let
   `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2`'s own
   `take_through_boundary/1` anchor on the first occurrence and still
   read correct. The multi-phase case is `dsl-syntax.md` §15.2's own
-  `feature.yaml` worked example (three `checks`, one per
+  revised `feature.yaml` worked example (three `checks`, one per
   design/architecture/implementation sub-array — the same count this
-  doc's own ORC-155 entry, below, names for that same declaration);
-  §15.11's `component.yaml` is not it — that example carries only two
-  `checks` (architecture and implementation) and no `design` sub-array
-  at all, since §15.11's own prose rules `design` out there: `design`
-  and `product-review` are feature-only. Every one of §15.2's earlier
-  `checks`/`critique`/gate cycles is ordinary reachable board structure,
-  not Phase 7 machinery — only what follows the *final* `checks` (that
-  sub-array's own `critique`, the type's trailing `reconcile`, `merge`,
-  `deploy`, `terminal`) sits behind it. Anchoring on the first
-  occurrence instead silently drops every position after it, however
-  many phases and gates that is — not live against the shipped bundle
-  today, so nothing has rendered wrong yet, but a landmine the moment a
-  bundle ships §15.2's documented shape. `take_through_boundary/1` finds
-  the *last* index carrying `{:kind, :checks}` ahead of `merge`, not the
-  first.
+  doc's own ORC-155 entry, below, already names for that same
+  declaration), corrected here from a design-review pass that first
+  attributed it to §15.11's `component.yaml` instead: that example
+  carries only two `checks` (architecture and implementation) and no
+  `design` sub-array at all — §15.11's own prose is what rules `design`
+  out there, since `design` and `product-review` are feature-only.
+  Every one of §15.2's earlier `checks`/`critique`/gate cycles is
+  ordinary reachable board structure, not Phase 7 machinery — only
+  what follows the *final* `checks` (that sub-array's own `critique`,
+  the type's trailing `reconcile`, `merge`, `deploy`, `terminal`) sits
+  behind it. Anchoring on the first occurrence instead silently drops
+  every position after it, however many phases and gates that is —
+  not live against the shipped bundle today, so nothing has rendered
+  wrong yet, but a landmine the moment a bundle ships §15.2's
+  documented shape. Dev's diff against this record:
+  `take_through_boundary/1` finds the *last* index carrying `{:kind,
+  :checks}` ahead of `merge`, not the first.
 
-  **The last-occurrence boundary exposes a second gap, in
-  `Projection.passable?/2`.** `passable?/2` has exactly two clauses —
-  `kind in [:pending, :generation, :critique]`, and a gate — and
-  `resting/3` never tests the sequence's own last entry, which is the
-  only reason a first-occurrence `checks` (always last, on the shipped
-  bundle) has never hit the missing clause: the first-occurrence anchor
-  was load-bearing for this too. Moving the boundary to the last
-  occurrence makes every earlier `checks` — and, on §15.2's shape,
-  `design`, `architecture`, `implementation`, and every `reconcile`
-  ahead of the final `checks` — a *non-last* position `resting/3` does
-  test, raising `FunctionClauseError` out of a clause list never asked
-  to answer for them. The rule:
+  **That move exposes a second gap, in `Projection.passable?/2`,
+  closed here rather than left for dev to guess at** (design review).
+  `passable?/2` has exactly two clauses — `kind in [:pending,
+  :generation, :critique]`, and a gate — and `resting/3` never tests
+  the sequence's own last entry, which is the only reason a
+  first-occurrence `checks` (always last, on the shipped bundle) has
+  never hit the missing clause: `take_through_boundary/1`'s
+  first-occurrence anchor was load-bearing for this too, unrecorded
+  until now. Moving the boundary to the last occurrence makes every
+  earlier `checks` — and, on §15.2's shape, `design`, `architecture`,
+  `implementation`, and every `reconcile` ahead of the final `checks`
+  — a *non-last* position `resting/3` does test, raising
+  `FunctionClauseError` out of a clause list never asked to answer for
+  them. Two answers were coherent and this record picks one rather
+  than leaving both open:
 
   - `design`, `architecture` and `implementation` are generation-shaped
     the identical way `generation` already is (`dsl-syntax.md` §13,
     §15.1) and this projection draws no distinction between the four
-    anywhere else (`Sequence.to_position/1` maps all of them through the
-    same `{:kind, atom}` shape) — the existing clause's `kind in [...]`
-    list widens to name all four, not `generation` alone.
-  - `checks` and `reconcile` stay unpassable **at every occurrence, not
-    only the last.** This projection has no event reporting a checks
-    run's own outcome or a reconcile's own join independently of a fresh
-    `DraftCommitted`/`RunFailed` (`FeatureLifecycle`'s own `interested?`
-    list, which is the whole of what this process manager observes), so
-    nothing here can tell an intermediate `checks` or `reconcile` apart
-    from the boundary one the paragraph above already covers.
-    `passable?/2` gains a catch-all clause answering `false` for every
-    kind not named in the bullet above, and every `checks`/`reconcile`
-    occurrence renders and rests exactly like the boundary always has.
-    Consequence: a ticket resting at a non-final `checks` or `reconcile`
-    does not advance into that phase's own `critique`/gates under
-    today's event vocabulary — real on §15.2's documented shape, not on
-    the shipped bundle. A signal for an intermediate checks or reconcile
-    outcome is new Phase 4 advancement behaviour this projection does
-    not carry.
+    anywhere else (`Sequence.to_position/1` maps all of them through
+    the same `{:kind, atom}` shape) — the existing clause's `kind in
+    [...]` list widens to name all four, not `generation` alone.
+  - `checks` and `reconcile` stay unpassable **at every occurrence,
+    not only the last.** This projection has no event reporting a
+    checks run's own outcome or a reconcile's own join independently
+    of a fresh `DraftCommitted`/`RunFailed` (`FeatureLifecycle`'s own
+    `interested?` list, which is the whole of what this process
+    manager observes), so nothing here can tell an intermediate
+    `checks` or `reconcile` apart from the boundary one the paragraph
+    above already covers. `passable?/2` gains a catch-all clause
+    answering `false` for every kind not named in the bullet above,
+    and every `checks`/`reconcile` occurrence renders and rests
+    exactly like the boundary always has. Consequence, named rather
+    than left to be found as a stuck board card: a ticket resting at a
+    non-final `checks` or `reconcile` does not advance into that
+    phase's own `critique`/gates under today's event vocabulary —
+    real on §15.2's documented shape, not on the shipped bundle.
+    Giving this phase a signal for an intermediate checks or reconcile
+    outcome is new Phase 4 advancement behaviour; it is unbuilt, and
+    designing it is not this ticket's scope.
 
-  **A third gap, in `resting/3` itself: the last entry is excluded by
-  index, not by value.** Walking `Sequence.positions/2`'s list with
-  `Enum.find(positions, last, &(&1 != last and not passable?(&1,
-  state)))` excludes the sequence's own last entry by comparing
-  *values*, not index. Once `{:kind, :checks}` legitimately recurs
-  (above), every earlier occurrence shares that value with `last` and
-  the `!= last` guard excludes all of them alongside the true final one
-  — silently, since `passable?/2` is never even called on them — so the
-  walk sails straight past every non-final `checks` instead of resting
-  there, contradicting "every checks/reconcile occurrence renders and
-  rests exactly like the boundary always has" above. `resting/3` pairs
-  each position with its index and excludes by `index != last_index`
-  instead of by value.
+  **A third gap, in `resting/3` itself, surfaced only once the first
+  two were fixed and tested against a recurring boundary kind** (dev
+  pass, not caught by design review): `resting/3` found "not yet
+  passable" by walking `Sequence.positions/2`'s list with `Enum.find
+  (positions, last, &(&1 != last and not passable?(&1, state)))` —
+  excluding the sequence's own last entry by comparing *values*, not
+  index. Once `{:kind, :checks}` legitimately recurs (this record's own
+  first bullet, above), every earlier occurrence shares that value with
+  `last` and the `!= last` guard excludes all of them alongside the
+  true final one — silently, since `passable?/2` is never even called
+  on them. The walk sails straight past every non-final `checks`
+  instead of resting there, contradicting "every checks/reconcile
+  occurrence renders and rests exactly like the boundary always has"
+  two paragraphs above. Fixed by pairing each position with its index
+  and excluding by `index != last_index` instead of by value.
 - **The label owner, settled: the work surface renders; this
   projection never does** (ORC-32, design pass, closing this ticket's
   other open question). The projection carries exactly what
@@ -918,206 +1027,253 @@ generating as scope-runs inside one ticket.
   callbacks are read as an application of it rather than a fresh
   design.
 - **What advancing past a gate on a human's word dispatches to stays
-  open, unchanged by this ticket** (ORC-32). v5 §7.16 names this open —
-  "Approval is a status... the mechanism is a later increment, and a
-  sizeable one" — and the process manager above needs no answer to it:
-  it covers the transitions engine's own events already drive (dispatch,
-  commit, skip-on-no-diff). Which aggregate a human's sign-off command
-  validates against under §7.16's optimistic concurrency is
-  `Catapult.Engine.Aggregate` — `ApproveGate`/`DeclineGate`,
-  `systems/engine.md`'s own entry (ORC-34). What stays open, as
-  `systems/engine.md`'s own §7.16 bullet leaves it (a workflow gate is
-  declared delivery-bundle vocabulary, not an engine node, so what it
-  pins is delivery's to design when workflow gates land — this doc's
-  Phase 7): what a *passed* gate pins (§7.16's own still-open item), and
-  which node(s) a gate spanning more than Phase 4's single pre-gate
-  `generation` status would validate against. ORC-34 needed neither to
-  close the mechanism it built. That is engine's own file-map territory,
-  and this doc does not reinterpret engine's "a project has one
-  aggregate, not two" to settle it — the citation keeps §7.16 open on
-  its own terms, without a second, narrower reading of a rule recorded
-  in another system's file.
+  open, unchanged by this ticket** (ORC-32, design pass). v5 §7.16
+  already names this open — "Approval is a status... the mechanism is
+  a later increment, and a sizeable one" — and this ticket's own scope
+  ends at Building without needing to close it: the process manager
+  above covers the transitions engine's own events already drive
+  (dispatch, commit, skip-on-no-diff). Which aggregate a human's
+  sign-off command validates against under §7.16's optimistic
+  concurrency is left exactly where `systems/engine.md`'s own §7.16
+  bullet already leaves it: "a workflow gate is declared
+  delivery-bundle vocabulary, not an engine node, so what it pins is
+  delivery's to design when workflow gates land
+  (`systems/delivery.md`'s Phase 7)... not this ticket's to answer."
+  That is engine's own file-map territory, and this doc does not
+  reinterpret engine's "a project has one aggregate, not two" to
+  settle it — the citation above already keeps §7.16 open on its own
+  terms, without needing a second, narrower reading of a rule
+  recorded in another system's file.
+
+  **Amended at ORC-34: the aggregate question above is answered; the
+  general §7.16 question it sits beside is not.** `Catapult.Engine
+  .Aggregate` is what a human's sign-off command validates against —
+  `ApproveGate`/`DeclineGate`, `systems/engine.md`'s own new entry —
+  settling the narrow half this bullet named. What stays exactly as
+  open as this bullet already left it: what a *passed* gate pins
+  (§7.16's own still-open item), and which node(s) a gate spanning more
+  than Phase 4's single pre-gate `generation` status would validate
+  against. ORC-34 needed neither to close the mechanism it built.
+
+  **Amended further at ORC-229: what advancing past a gate dispatches
+  to now includes an engine-side consequence, sized to exactly Phase
+  4's own scope.** `ApproveDraft`/`DiscardDraft` (`systems/engine.md`'s
+  own new entry, `Catapult.Delivery.DraftResolution` below) is the
+  "later increment, and a sizeable one" v5 §7.16 named for turning a
+  passed gate into an engine-recognized approval. It does not touch
+  what stays open above: what a passed gate pins is exactly as
+  unresolved as ORC-34 left it, and which node(s) a gate spanning more
+  than one pre-gate `generation` status would validate against is
+  still exactly Phase 4's own single-node mapping, unchanged.
 
 - **The storage question the three entries above leave open is
   engine's, not this system's — corrected here rather than left to
-  read as a contradiction** (ORC-104; `systems/engine.md`'s own entry).
-  The storage distinguishing "instances that exist" from "the instance
-  that is current" is not a second store this system keeps: a container
+  read as a contradiction** (ORC-104, design pass;
+  `systems/engine.md`'s own new entry). "What this system owns, not
+  yet built: the storage distinguishing 'instances that exist' from
+  'the instance that is current'" read, at the sixth ORC-105 pass, as
+  a second store this system would keep. It is not: a container
   instance's mint, its activation and every move of its current queue
-  are original protocol facts with nowhere else to be authoritative, and
-  `systems/engine.md`'s "a project has one aggregate, not two" already
-  settles where an original fact about a project lands —
+  are original protocol facts with nowhere else to be authoritative,
+  and `systems/engine.md`'s "a project has one aggregate, not two"
+  already settles where an original fact about a project lands —
   `Catapult.Engine.Aggregate`, the same one every chain-axis event
-  already writes to, never a second aggregate or a delivery-owned table
-  standing in for one. What this system owns is the *dispatcher* —
-  deciding when a queue has emptied of unresolved work, when a `blocks:`
-  sibling has cleared, and when the container's own position reaches an
-  inline agent-balled entry (`retro`/`setup`, ORC-148) and it may be
-  dispatched — and issuing the resulting command into engine's
-  aggregate; engine validates and records it, and its projection is what
-  this system's dispatcher reads back, keeping no second copy of its
-  own. This system's own store keeps nothing about container position
-  that engine's projection doesn't already hold.
+  already writes to, never a second aggregate or a delivery-owned
+  table standing in for one. What this system owns is the *dispatcher*
+  — deciding when a queue has emptied of unresolved work, when a
+  `blocks:` sibling has cleared, and when the container's own position
+  reaches an inline agent-balled entry (`retro`/`setup`, ORC-148) and
+  it may be dispatched — and
+  issuing the resulting command into engine's aggregate; engine
+  validates and records it, and its new projection is what this
+  system's dispatcher reads back, keeping no second copy of its own.
+  This is a real correction to what the sixth pass wrote, not a
+  rewording: this system's own store keeps nothing about container
+  position that engine's projection doesn't already hold.
 
 - **The dispatcher is a new process manager, `Catapult
   .Delivery.ContainerLifecycle`, built beside `FeatureLifecycle` on the
   identical `application: Catapult.Engine.Application`-subscribed
   shape — and the first of this system's process managers that writes
-  back, not only reads** (ORC-104). Every other process manager this
-  system ships (`FeatureLifecycle`, ORC-32) only projects engine's
-  events into this system's own read models; this one also issues
-  commands into `Catapult.Engine.Aggregate` once its own dispatch
-  conditions are met — the split `systems/engine.md`'s entry states from
-  the other side.
+  back, not only reads** (ORC-104, design pass). Every process manager
+  this system has shipped so far (`FeatureLifecycle`, ORC-32) only
+  projects engine's events into this system's own read models; this
+  one also issues commands into `Catapult.Engine.Aggregate` once its
+  own dispatch conditions are met — the split `systems/engine.md`'s new
+  entry states from the other side.
 
-  **It dispatches through `Catapult.Engine.Router` itself rather than
-  returning commands for Commanded to route.** A process manager
-  ordinarily returns commands and its `application:` routes them; that
-  is not available here, because `Catapult.Engine.Application`
-  deliberately does not compose the router (keeping it off the
-  compile-connected graph — that module's own moduledoc carries the
-  reason). A returned command is therefore an *unregistered* command and
-  Commanded stops the manager. Two consequences are load-bearing rather
-  than incidental, for every process manager that writes back: the
-  dispatch must be `consistency: :eventual`, since a strongly consistent
-  dispatch from inside a strongly consistent handler waits for that
-  handler to catch up with itself; and a rejected command must be
-  absorbed rather than fatal, because the rejections this design
-  produces on purpose — a stale `from_queue` losing its
-  compare-and-swap, a re-mint of an instance that already exists — are
-  the manager re-deriving a decision already made, and Commanded's
-  default is to stop on them. The convergence loop is the resulting
-  events coming back around to the same manager. Dispatch stays uniform
-  per `dsl-syntax.md` §15.7: whatever a queue's resolved `flow:` turns
-  out to be, this process manager treats identically — a
-  `ticket`-skeleton resolution opens an ordinary flow instance through
-  the existing `OpenFlow` path (unchanged, still driven only by
-  `ready_scopes` on the chain-axis side), a `container`-skeleton or
-  skeleton-less resolution issues a mint command instead — never
-  branching on anything the queue entry itself declares, only on what
-  the resolved declaration contains. `retro` and `setup` are not
-  special-cased here either: each is an ordinary declared queue entry
-  whose `flow:` names an ordinary chain-bundle flow, dispatched the same
-  way any other queue's `flow:` is (`docs/v5-design-decisions.md` §7.8).
+  **Amended at the dev pass: it dispatches through
+  `Catapult.Engine.Router` itself rather than returning commands for
+  Commanded to route.** A process manager ordinarily returns commands
+  and its `application:` routes them; that is not available here,
+  because `Catapult.Engine.Application` deliberately does not compose
+  the router (keeping it off the compile-connected graph — that
+  module's own moduledoc carries the reason). A returned command is
+  therefore an *unregistered* command and Commanded stops the manager.
+  Two consequences are load-bearing rather than incidental, and are
+  recorded here so the next process manager that writes back does not
+  rediscover them: the dispatch must be `consistency: :eventual`, since
+  a strongly consistent dispatch from inside a strongly consistent
+  handler waits for that handler to catch up with itself; and a
+  rejected command must be absorbed rather than fatal, because the
+  rejections this design produces on purpose — a stale `from_queue`
+  losing its compare-and-swap, a re-mint of an instance that already
+  exists — are the manager re-deriving a decision already made, and
+  Commanded's default is to stop on them. The convergence loop is the
+  resulting events coming back around to the same manager. Dispatch stays uniform per
+  `dsl-syntax.md` §15.7: whatever a queue's resolved `flow:` turns out
+  to be, this process manager treats identically — a `ticket`-skeleton
+  resolution opens an ordinary flow instance through the existing
+  `OpenFlow` path (unchanged, still driven only by `ready_scopes` on
+  the chain-axis side), a `container`-skeleton or skeleton-less
+  resolution issues a mint command instead — never branching on
+  anything the queue entry itself declares, only on what the resolved
+  declaration contains. `retro` and `setup` are not special-cased here
+  either: each is an ordinary declared queue entry whose `flow:` names
+  an ordinary chain-bundle flow, dispatched the same way any other
+  queue's `flow:` is (`docs/v5-design-decisions.md` §7.8).
 
 - **A process manager's own persisted state is bound by the identical
   JSON round trip its events already are — settled as a standing rule,
-  not just fixed on the one instance that crashed** (ORC-120, bug).
-  `Commanded.ProcessManagers.ProcessManagerInstance` calls
+  not just fixed on the one instance that crashed** (ORC-120, bug,
+  design pass). `Commanded.ProcessManagers.ProcessManagerInstance` calls
   `persist_state/2` after every handled event, unconditionally, which
   serializes the manager's own struct through the identical
   `Commanded.Serialization.JsonSerializer` `config/*.exs` already names
-  for the event store — the same encoder every event struct here already
-  carries `@derive Jason.Encoder` for, and the same one
-  `Catapult.Engine.Events.FlowResumed`'s own moduledoc already documents
-  refusing a bare `Sequence.position()` tuple over, for the reason
-  recorded there: `Jason` has no `Encoder` for a raw tuple, so a struct
-  carrying one crashes real persistence on the first write, not on `mix
-  test` — the suite's `InMemory` adapter (`config/test.exs`) never
-  round-trips state through JSON at all, so this class of defect is
-  invisible to the default suite by construction, on any process
+  for the event store — the same encoder every event struct here
+  already carries `@derive Jason.Encoder` for, and the same one
+  `Catapult.Engine.Events.FlowResumed`'s own moduledoc already
+  documents refusing a bare `Sequence.position()` tuple over, for the
+  reason recorded there: `Jason` has no `Encoder` for a raw tuple, so a
+  struct carrying one crashes real persistence on the first write, not
+  on `mix test` — the suite's `InMemory` adapter (`config/test.exs`)
+  never round-trips state through JSON at all, so this class of defect
+  is invisible to the default suite by construction, on any process
   manager, indefinitely. `Catapult.Delivery.FeatureLifecycle` is the
-  instance that crashed (no `@derive Jason.Encoder` on either itself or
-  its nested `Projection`, and `Projection`'s
+  instance this ticket found broken (no `@derive Jason.Encoder` on
+  either itself or its nested `Projection`, and `Projection`'s
   `blocked_from`/`pinned_to`/`passed` all carry or key on raw
-  `Sequence.position()` tuples), and
-  `Catapult.Delivery.ContainerLifecycle` (ORC-104, above) is a second
-  instance of the same rule, carrying no `@derive Jason.Encoder` either;
-  both are fixed under the one rule. `ContainerLifecycle` differs from
-  `FeatureLifecycle` on both halves of the fix, which is why both are
-  worth stating rather than assuming the same shape twice:
-    * **Encode:** the missing `@derive Jason.Encoder`, and nothing more.
-      `type_name` and `queue` are both `String.t() | nil` — no
+  `Sequence.position()` tuples), but the rule is general and already
+  has a second instance in the identical repository state, found
+  reading this ticket's own scope rather than by a separate look:
+  `Catapult.Delivery.ContainerLifecycle` (ORC-104, above) carries no
+  `@derive Jason.Encoder` either. **Both instances are this ticket's
+  scope, not one filed and one fixed** — the two passes that found
+  `ContainerLifecycle` each declined to touch it on the correct
+  instinct that a ticket named `FeatureLifecycle` only, and the author
+  then widened the ticket itself rather than leaving a second ticket to
+  ship against a rule this doc had already written down one module
+  over. `ContainerLifecycle` differs from `FeatureLifecycle` on both
+  halves of the fix, which is why both are worth stating rather than
+  assuming the same shape twice:
+    * **Encode:** the missing `@derive Jason.Encoder`, and nothing
+      more. `type_name` and `queue` are both `String.t() | nil` — no
       `Sequence.position()`-shaped field anywhere on this struct — so
       none of `blocked_from`/`pinned_to`/`passed`'s flattening work
       applies here.
-    * **Decode:** a `JsonDecoder` implementation is still required, for
-      a different reason than `FeatureLifecycle`'s. `state` is an atom
-      (`:minted | :active | :closed`); `Jason` encodes `:minted` to
-      `"minted"`, and `struct(module, data)` restores it as that bare
-      string, in violation of the struct's own `@type` — the same
-      reification gap named below for `FeatureLifecycle.projection`,
-      turned on the atom next door.
+    * **Decode:** a `JsonDecoder` implementation is still required,
+      for a different reason than `FeatureLifecycle`'s. `state` is an
+      atom (`:minted | :active | :closed`); `Jason` encodes `:minted`
+      to `"minted"`, and `struct(module, data)` restores it as that
+      bare string, in violation of the struct's own `@type` — the same
+      reification gap named above for `FeatureLifecycle.projection`,
+      just not previously turned on the atom next door.
     * **Latent, not live:** no `apply/2` or `handle/2` clause in
       `ContainerLifecycle` matches on `state:` — every head is
-      `%__MODULE__{} = pm`, and the field is written but never matched
-      (the one `state:` match in the file is on
+      `%__MODULE__{} = pm`, and the field is written but never
+      matched (the one `state:` match in the file is on
       `Catapult.Engine.Store.Container`, a database row, a different
-      struct). The drift is dormant today and goes live the first time a
-      clause is added that matches on it — the reason to close it now
-      rather than after it bites, and also why it is not itself gating.
-  **The fix extends existing precedent rather than inventing a second
-  one**: `FlowResumed` already answers a bare position field by
-  flattening it to the two-nullable-strings shape `position_columns/1`
-  (this doc's own store columns) already uses; `FeatureLifecycle`'s
-  `blocked_from` and `pinned_to` take the same flattening. `passed` is
-  the case the existing precedent doesn't cover: a JSON object's keys
-  are always strings, so a map *keyed* on a position — not merely
-  carrying one — cannot round-trip as a JSON object at all, flattened or
-  not, and becomes a list of flattened `{position, signature}` records
-  instead. Restoring either struct from a snapshot also needs a
+      struct). The drift is dormant today and goes live the first time
+      a clause is added that matches on it — the reason to close it
+      now rather than after it bites, and also why it is not itself
+      gating.
+  **The fix extends existing precedent rather than inventing a
+  second one**:
+  `FlowResumed` already answers a bare position field by flattening it
+  to the two-nullable-strings shape `position_columns/1` (this doc's
+  own store columns) already uses; `FeatureLifecycle`'s `blocked_from`
+  and `pinned_to` take the same flattening. `passed` breaks new ground
+  the existing precedent doesn't cover, and is named here so the next
+  pass doesn't relitigate it: a JSON object's keys are always strings,
+  so a map *keyed* on a position — not merely carrying one — cannot
+  round-trip as a JSON object at all, flattened or not, and becomes a
+  list of flattened `{position, signature}` records instead. Restoring
+  either struct from a snapshot also needs a
   `Commanded.Serialization.JsonDecoder` implementation, which no event
   here has needed before now: `JsonSerializer.deserialize/2` calls
   `struct(module, data)` and only *then* the decoder protocol, so a
   nested struct field (`FeatureLifecycle.projection`) lands as a bare
   atom-keyed map, never reified, unless the protocol does it — the gap
   every event here has avoided simply by nesting no struct and needing
-  no atom reconstructed.
+  no atom reconstructed. The decision is the shape; writing the
+  encoder, the decoder and the flattening is dev's, same as always.
 
-  **Both `Commanded` internals this entry rests on are confirmed against
-  source** (deps are vendored in this checkout).
+  **Both `Commanded` internals this entry rests on are confirmed
+  against source, not restated on faith** (design review had flagged
+  them as unread — deps are in fact vendored in this checkout).
   `ProcessManagerInstance`'s event-handling clause calls
   `persist_state(event_number, state)` unconditionally on every
   successful `mutate_state/2` — no flag, no opt-out
   (`deps/commanded/lib/commanded/process_managers/process_manager_instance.ex:257`).
-  And `JsonSerializer.deserialize/2` really does build the struct before
-  the decoder protocol runs, not after: `Jason.decode!/2 |>
+  And `JsonSerializer.deserialize/2` really does build the struct
+  before the decoder protocol runs, not after: `Jason.decode!/2 |>
   to_struct(type) |> JsonDecoder.decode()`, where `to_struct/2` is
   `struct(struct, data)`
   (`deps/commanded/lib/commanded/serialization/json_serializer.ex:33-41`).
+  Both claims hold exactly as this entry and the ticket's own
+  description already state them.
 
 - **Every carried finding leaves adjudicated, enforced as the
   container's own close — not a check keyed to the queue name `retro`,
-  and not a separate check bolted on afterward** (ORC-104, ORC-148).
-  `retro` is an ordinary agent-balled entry directly in `milestone`'s
-  own array (`dsl-syntax.md` §15.1-§15.2, §15.10) — dispatched against
-  the milestone container instance itself, a legal dispatch target on
-  the identical footing as a ticket (`v5-design-decisions.md` §7.8) —
-  never a separately minted ticket or a `flow:` of its own. Its
-  dispatched run reads the findings this milestone carried and, for
-  each, either opens it under its own key (an ordinary flow instance,
-  through the same uniform dispatch above) or writes a decline with its
-  reason — a new engine event, `FindingAdjudicated`, on the milestone
-  container instance's own aggregate. The container does not advance
-  past `retro` while any finding it carries lacks one of those two
-  outcomes — because an unadjudicated finding is exactly that,
-  unresolved work this container is still holding — but the check is
-  attached to the container's own close, not to a queue recognized by
-  the name `retro`: naming the queue would mean the dispatcher branching
-  on the word `retro`, which is the implicit anchor meaning
-  `dsl-syntax.md` §15.2 refuses ("nothing in the loader branches on any
-  of the three words") and which §15.9's admission rule is written to
-  keep out of plane logic. Attaching it to the close says the same thing
-  about the same container without asking the grammar for a magic word,
-  and says it about *every* container — including one whose author
-  declared no backward-looking entry at all, which a `retro`-named check
-  would have let close over its findings silently. This is not a
-  `blocks:` relation either way (`dsl-syntax.md` §15.7's `blocks:` is an
-  entry guard, checked once at transition): nothing gates *entry into*
-  `retro` on its own findings, since the findings are what `retro`
-  itself produces and adjudicates after it has already begun. **In the
-  shipped `milestone` type, `retro` is followed by `proposals-read`,
-  then `cleanup`, `deploy` and `terminal` — no `checks`, `reconcile` or
-  `merge` at all** (ORC-155). A checks/reconcile/merge sequence after
-  `retro` would close a gap real only while `retro` merged something of
-  its own, and it does not: `retro` produces no code, pushing its
-  findings to `cleanup` rather than merging a docs-pruning draft
-  directly, so there is nothing for `checks`/`reconcile`/`merge` to
-  check, join or land. The finding-adjudication close gate sits on
-  `retro` itself, ahead of whatever follows it, never on `cleanup`;
-  `setup` has the identical shape: both agent steps drop the same three
-  entries for the same reason, `setup` gaining a `kickoff-review` gate
-  in their place (`dsl-syntax.md` §15.2, §15.12).
+  and not a separate check bolted on afterward** (ORC-104, design pass;
+  corrected to this shape at ORC-148's fold and its own design review,
+  which retired the singleton-ticket `retro` this bullet originally
+  described). `retro` is an ordinary agent-balled entry directly in
+  `milestone`'s own array (`dsl-syntax.md` §15.1-§15.2, §15.10) —
+  dispatched against the milestone container instance itself, a legal
+  dispatch target on the identical footing as a ticket
+  (`v5-design-decisions.md` §7.8) — never a separately minted ticket or
+  a `flow:` of its own. Its dispatched run reads the findings this
+  milestone carried and, for each, either opens it under its own key
+  (an ordinary flow instance, through the same uniform dispatch above)
+  or writes a decline with its reason — a new engine event,
+  `FindingAdjudicated`, on the milestone container instance's own
+  aggregate. The container does not advance past `retro` while any
+  finding it carries lacks one of those two outcomes — because an
+  unadjudicated finding is exactly that, unresolved work this container
+  is still holding — but the check is attached to the container's own
+  close, not to a queue recognized by the name `retro`: naming the
+  queue would mean the dispatcher branching on the word `retro`, which
+  is the implicit anchor meaning `dsl-syntax.md` §15.2 spent four
+  passes removing ("nothing in the loader branches on any of the three
+  words") and which §15.9's admission rule is written to keep out of
+  plane logic. Attaching it to the close says the same thing about the
+  same container without asking the grammar for a magic word, and says
+  it about *every* container — including one whose author declared no
+  backward-looking entry at all, which a `retro`-named check would have
+  let close over its findings silently. This is not a `blocks:`
+  relation either way (`dsl-syntax.md` §15.7's `blocks:` is an entry
+  guard, checked once at transition, ORC-148 design review): nothing
+  gates *entry into* `retro` on its own findings, since the findings
+  are what `retro` itself produces and adjudicates after it has already
+  begun. **In the shipped `milestone` type, `retro` is followed by
+  `proposals-read`, then `cleanup`, `deploy` and `terminal` — no
+  `checks`, `reconcile` or `merge` at all, a correction at ORC-155 to
+  what this bullet said before it.** `retro` used to be followed by the
+  identical checks/reconcile/merge/deploy sequence `setup` was also
+  followed by (`reconcile` named at ORC-151; before that, the sequence
+  read `checks`, `merge` and `deploy`, with the same reconciling
+  judgment carried inside `merge` rather than named separately) — but
+  that sequence closed a gap real only while `retro` merged something
+  of its own. ORC-155 removes the gap along with its premise: `retro`
+  produces no code, pushing its findings to `cleanup` rather than
+  merging a docs-pruning draft directly, so there is nothing left for
+  `checks`/`reconcile`/`merge` to check, join or land. The
+  finding-adjudication close gate above is unaffected by any of this —
+  it sits on `retro` itself, ahead of whatever follows it, never on
+  `cleanup` — and neither is `setup`'s own identical shape: both agent
+  steps drop the same three entries for the same reason, `setup` gaining
+  a `kickoff-review` gate in their place (`dsl-syntax.md` §15.2, §15.12).
 
 - **The aggregated flag set flips through the ordinary
   intent → idempotent effect → observed completion discipline (§7.1),
@@ -1182,16 +1338,19 @@ generating as scope-runs inside one ticket.
   body onto a feature branch that is very much not the default branch
   needs a real branch parameter, so this ticket adds two callbacks to
   `HostPort` rather than reusing that one: `commit_files(project_id,
-  branch, files, message)` — the same per-file Contents-API shape
-  `reset_repo/2` already established (read the blob sha if the file
-  exists, PUT with it if so), generalized with an explicit `branch:`
-  ref and a caller-supplied commit message, since `"catapult: reset
-  fixture"` is `reset_repo/2`'s own message and wrong for everything
-  else — and `update_pr_body(project_id, pr_number, body)`, a PATCH
-  `HostPort` has never needed before now because nothing before this
-  ticket edits a PR after opening it. Both land in `HostPort.Actions`
-  and `HostPort.Fake` together, the same rule every earlier operation
-  on this port already follows.
+  branch, files, message)` — a per-file Contents-API shape (read the
+  blob sha if the file exists, PUT with it if so): `reset_repo/2`'s own
+  shape too, until ORC-228's design pass moved it onto a single Git
+  Data commit (this doc's ORC-228 entry below); `commit_files/4` keeps
+  the per-file shape, since every call today pushes exactly one file
+  and its round-trip count never grows — generalized with an explicit
+  `branch:` ref and a caller-supplied commit message, since `"catapult:
+  reset fixture"` is `reset_repo/2`'s own message and wrong for
+  everything else — and `update_pr_body(project_id, pr_number,
+  body)`, a PATCH `HostPort` has never needed before now because
+  nothing before this ticket edits a PR after opening it. Both land in
+  `HostPort.Actions` and `HostPort.Fake` together, the same rule every
+  earlier operation on this port already follows.
 
 - **The write side is a new process manager, `Catapult.Delivery
   .FeaturePublisher`, not a wing bolted onto `FeatureLifecycle`.** Both
@@ -1268,8 +1427,10 @@ generating as scope-runs inside one ticket.
   (`delivery_artifact_pushes`, keyed `(project_id, node_id)`) records
   `tier`, `scope_key`, `path`, `body_sha` and `pushed_at` once
   `commit_files/4` returns `:ok`. The Contents API is idempotent per
-  path regardless (the same blob-sha-then-PUT shape `reset_repo/2`
-  already relies on), so a lost row costs a redundant PUT, never a
+  path regardless (the same blob-sha-then-PUT shape `commit_files/4`
+  still uses — ORC-228 moves `reset_repo/2` off this shape onto a
+  single Git Data commit, `commit_files/4`'s own single-file calls
+  left as they were), so a lost row costs a redundant PUT, never a
   wrong one — the row exists to skip the call, not to guarantee the
   correctness of one that runs twice.
 
@@ -1334,22 +1495,27 @@ generating as scope-runs inside one ticket.
 
 - **Two consequences of the correction above, named rather than left
   for the next pass to guess at (ORC-33, design pass, author
-  review).** First: **ORC-31's author-identity filter is not orphaned by
-  the split — it is early.** The doc/code split settles *which surface*
-  each artifact kind reviews on; it does not retire either surface's own
-  machinery. The filter's consumer is line-anchored *code* review, which
-  arrives with child PRs in Phase 7, not with the prose-only feature PR
-  — read alone, "the PR is not the review surface" would suggest the
-  filter has no consumer. The filter and its residual (a
-  PAT-authenticated bot indistinguishable from the human it
-  authenticates as) stay exactly as recorded above, waiting on Phase 7
-  rather than dead. Second: **`ORC-34` ("Harvest declines from PR review
-  into regeneration feedback") is scoped by the split.** Phase 4's
-  declines are prose declines, read from the native review surface
-  (`docs/ui-spec.md`, once UI v1 builds it) rather than from PR review
-  comments — the PR-harvesting half its title names is the code path,
-  and arrives later with the same Phase-7 child PRs the first
-  consequence names.
+  review).** First: **ORC-31's author-identity filter is not
+  orphaned by this correction — it is early.** The doc/code split
+  settles *which surface* each artifact kind reviews on; it does not
+  retire either surface's own machinery. The filter's consumer is
+  line-anchored *code* review, which arrives with child PRs in Phase
+  7, not with this ticket's prose-only feature PR — reading "the PR
+  is not the review surface" alone, without this line, invites a
+  later pass to conclude the filter has no consumer and remove it.
+  The filter and its residual (a PAT-authenticated bot indistinguishable
+  from the human it authenticates as) stay exactly as recorded above,
+  waiting on Phase 7 rather than dead. Second: **`ORC-34` ("Harvest
+  declines from PR review into regeneration feedback"), which this
+  ticket blocks, inherits a scope fact its own record doesn't carry
+  yet.** Under the split, Phase 4's declines are prose declines,
+  read from the native review surface (`docs/ui-spec.md`, once UI v1
+  builds it) rather than from PR review comments — the PR-harvesting
+  half its title names is the code path, and arrives later with the
+  same Phase-7 child PRs the first consequence names. Neither point
+  changes anything this ticket itself builds; both are recorded here
+  because this correction is where the gap between the two first
+  becomes visible.
 - **The ordering fact the correction above states in passing is worth
   its own line: Phase 4's gates are unreadable by a human until
   ORC-75 (UI v1) ships the native review screen** (ORC-33, design
@@ -1391,23 +1557,28 @@ generating as scope-runs inside one ticket.
 
 - **Design review threw the first draft back: it kept no second copy
   of the mechanism in name while building one in fact, and it deferred
-  the write path this scope actually needs.** This system keeps no
-  `Catapult.Delivery.Store.FeedbackBucket` — no cache of comments beside
-  `CommentPosted` on `Catapult.Engine.Aggregate`: such a cache is a
-  second engine projection whatever it is called, and its writer
-  (whatever reacts to a decline) races the timer-driven sweeper that
-  reads readiness, reopening the very silent-blank ambiguity the
-  mechanism exists to close. The decline trigger arrives as a command
-  like any other author action and is validated the same way, in this
-  scope rather than as §7.16's later increment: `docs/ui-spec.md` §2
-  rule 2 refuses `document-review` (ORC-75) inventing a comment or a
-  decline command the protocol doesn't have, so ORC-75 cannot design its
-  screen until this vocabulary exists. The full mechanism —
-  `CommentPosted`, `CommentFeedback`, `ApproveGate`/`DeclineGate`,
-  `GateComments`, all four log-derived, none of them a second store — is
-  recorded once, in `systems/engine.md`'s own entries, since that is
-  where the aggregate, the commands and the event log they read all
-  already live; this doc points at it rather than restating it.
+  the write path this scope actually needs.** The first draft put
+  `CommentPosted` on `Catapult.Engine.Aggregate` and then wrote
+  `Catapult.Delivery.Store.FeedbackBucket`, a cache this doc's own text
+  called "not a second engine projection" while being exactly that —
+  and a cache whose writer (whatever reacts to a decline) races the
+  timer-driven sweeper that reads readiness, reopening the very
+  silent-blank ambiguity the ticket exists to close. Separately, this
+  ticket's own scope paragraph opens with "the decline trigger,
+  arriving as a command like any other author action and validated the
+  same way" — deferred once, on the reasoning that §7.16's gate
+  sign-off command was a later increment. It isn't, here: `docs/
+  ui-spec.md` §2 rule 2 refuses `document-review` (ORC-75) inventing a
+  comment or a decline command the protocol doesn't have, and neither
+  exists before this pass, so ORC-75 cannot design its screen until
+  this ticket lands the vocabulary. Everything below is corrected
+  against both findings. The full mechanism — `CommentPosted`,
+  `CommentFeedback`, `ApproveGate`/`DeclineGate`, `GateComments`, all
+  four log-derived, none of them a second store — is recorded once, in
+  `systems/engine.md`'s own new entries, since that is where the
+  aggregate, the commands and the event log they read all already
+  live; this doc points at it rather than restating it, which is the
+  discipline the first draft's own text claimed and didn't follow.
 
 - **This system's job is the two reads and the one write the
   mechanism above doesn't itself perform: rendering, and moving a
@@ -1442,26 +1613,80 @@ generating as scope-runs inside one ticket.
   the aggregate side `systems/engine.md` settles and amended into that
   bullet above.
 
+- **Draft approval/discard is a second write-side process manager, not
+  a third `FeatureLifecycle` clause** (ORC-229, design pass, closing
+  `systems/engine.md`'s own "nothing dispatches `ApproveDraft`/
+  `DiscardDraft`" gap from this side). `FeatureLifecycle` dispatches no
+  commands, ever — projection only, behaviorally, precisely so a fault
+  in a *write* triggered off engine's events never risks the read model
+  every status column and every gate already depends on — and
+  dispatching `ApproveDraft`/`DiscardDraft` back into the engine on
+  `GateApproved`/`GateDeclined` is exactly such a write, with the
+  identical replay hazard `FeaturePublisher`'s own split already exists
+  to avoid: a process manager's `handle/2` re-runs on every rebuild,
+  and a second write-triggering handler on the instance that already
+  owns the read model is the wrong instinct to build on even though
+  `systems/engine.md`'s own new compare-and-swap makes a replayed
+  dispatch a rejection rather than a duplicate event.
+  `Catapult.Delivery.DraftResolution` is the new process manager:
+  identical subscription and identification shape to
+  `FeatureLifecycle`/`FeaturePublisher` (`application: Catapult.Engine
+  .Application`, `project_id <> ":" <> flow_id`, ORC-87) — and,
+  because neither `GateApproved` nor `GateDeclined` carries a node id,
+  and `Catapult.Engine.Store.Flow` has no node column to look one up
+  from, a third `interested?` clause on `FlowOpened`, identical in
+  shape to `FeatureLifecycle`'s own, starts each instance holding
+  `entry_node_id` in its own state rather than deriving a node from the
+  resolving event. `handle/2` for `GateApproved`/`GateDeclined` then
+  calls `Catapult.Engine.Store.get_node(pm.project_id,
+  pm.entry_node_id)` — not to find the node, which the held state
+  already names, but to read `Node.current_draft_id`, the value that
+  becomes the resulting `ApproveDraft`/`DiscardDraft`'s own `draft_id`;
+  `systems/engine.md`'s own new compare-and-swap is what makes
+  populating a command from a projection read safe rather than a race.
+  Nothing this process manager decides is read off `FeatureLifecycle`'s
+  own projection, for the identical resilience reason `FeaturePublisher`
+  doesn't read it either: a stalled sibling must not stall this one.
+
+  **Whether a `GateApproved` approves the draft is computed
+  independently of `FeatureLifecycle`'s own status advance, from the
+  same loaded `Catapult.Dsl.Workflow.t()`, not read off it.**
+  `FeatureLifecycle`'s "advances the ticket to the next entry in its
+  type's own `statuses:` array after the gate's position" (above) and
+  `DraftResolution`'s "does that next entry leave this gate's own
+  citing sub-array" are the same lookup read twice by two independent
+  handlers of the same event, deliberately — the two-computations-of-
+  one-fact shape this doc otherwise avoids is the price of the
+  identical decoupling `FeatureLifecycle`/`FeaturePublisher` already
+  pay for `flow_name`/entry-tier resolution, not a new exception.
+  `systems/engine.md`'s own new entry has the group-exit rule and the
+  discard-resets-to-absent fix; this system's only job is deciding
+  *when* to fire, off vocabulary this system already threads through
+  for the gate-advance mechanism beside it.
+
 - **A decline with no comments is refused before it becomes an event,
-  by the aggregate, not by a screen** (ORC-34). A screen failing
-  validation would put a protocol invariant in the view layer, which
-  this doc's own point-of-action rule rules out for every other command
-  on a surface we own (this doc, above: "the rejection lands at the
-  point of action"), and `docs/ui-spec.md` §2 rule 1 says the same thing
-  from the screen's own side ("no screen is a second write path").
-  `Catapult.Engine.Commands.DeclineGate` is what rejects it —
-  `systems/engine.md`'s own entry has the check (the aggregate's own
-  per-gate comment-count state, not a projection read such as
-  `GateComments.any_since_last_resolution?/2`, since the aggregate's own
-  purity floor forbids `execute/2` reading the log). A real comment is
-  required rather than a free-text override: `docs/ui-spec.md` §3.2
-  already specs `document-review`'s throwback action with a target and
-  nothing else, no reason field, so requiring a comment rather than
-  inventing one is the simpler fix and the one the screen already
-  assumes. Whatever screen ORC-75 builds surfaces that rejection
-  synchronously — the same compare-and-swap conflict rendering
-  `docs/ui-spec.md` §3.1 already specs for a stale transition — but does
-  not perform the check itself.
+  by the aggregate, not by a screen** (ORC-34, design pass,
+  design-review correction). The first draft answered the ticket's own
+  "decline with no comments" open question by having "the UI" fail
+  validation — which puts a protocol invariant in the view layer this
+  doc's own point-of-action rule already rules out for every other
+  command on a surface we own (this doc, above: "the rejection lands at
+  the point of action"), and `docs/ui-spec.md` §2 rule 1 says the same
+  thing from the screen's own side ("no screen is a second write
+  path"). `Catapult.Engine.Commands.DeclineGate` is what actually
+  rejects it — `systems/engine.md`'s own new entry has the check (the
+  aggregate's own per-gate comment-count state, not a projection read —
+  the fourth design-review correction relocated it there off
+  `GateComments.any_since_last_resolution?/2`, since the aggregate's
+  own purity floor forbids `execute/2` reading the log) and the reason a
+  free-text override was rejected in favor of requiring a real comment:
+  `docs/ui-spec.md` §3.2 already specs `document-review`'s throwback
+  action with a target and nothing else, no reason field, so requiring
+  a comment rather than inventing one is the simpler fix and the one
+  the screen this ticket answers to already assumes. Whatever screen
+  ORC-75 builds surfaces that rejection synchronously — the same
+  compare-and-swap conflict rendering `docs/ui-spec.md` §3.1 already
+  specs for a stale transition — but does not perform the check itself.
 
 - **Cross-scope comment routing is named, not built — nothing in
   Phase 4 exercises it yet** (ORC-34, design pass). v5 §7.4's
@@ -1524,174 +1749,195 @@ generating as scope-runs inside one ticket.
 - **ORC-151 (design pass) retires the one named exception
   `inline_dispatch_point?/1` has carried since ORC-148, by removing
   what made it necessary** (`docs/dsl-syntax.md` §15.1, §15.11;
-  `docs/v5-design-decisions.md` §7.5, §7.19). `merge`'s own `ball` is
-  `plane`, not `agent` — the mechanical join into the parent branch,
-  effected by the plane once the `reconcile` kind approves, barring a
-  conflict — so `merge` is outside the agent-balled set this function
-  filters over entirely. `inline_dispatch_point?/1` is "agent-balled and
-  not review-shaped": a `status != "merge"` clause beside `not
-  queue_shaped? and non_critique_agent_step?` has nothing to do, since
-  `merge` is not a candidate the first two clauses would admit. A module
-  whose moduledoc asserts it branches on no status name cannot carry one
-  name check, and the fix is a grammar change rather than a code-only
-  one, because the exception was never this system's to invent: `merge`
-  was agent-balled without being a dispatch point only because one kind
-  was doing two jobs (`docs/v5-design-decisions.md` §7.19).
-  **Reconciliation itself is Phase 7's.** `reconcile` is agent-balled
-  and dispatches like any other inline or chain-tier agent-balled entry
-  — this system's existing uniform dispatch
-  (`ContainerLifecycle.open_for/3`'s `cond`, and the ordinary
-  `ready_scopes` path for a chain-tier `reconcile` on a ticket) needs no
-  new branch to carry it, the loader recognizes the kind
-  (`systems/core_dsl.md`'s own ORC-151 entry), and
-  `bundles/default-flow`'s `feature.yaml` and `seed.yaml` both declare
-  `reconcile` — but what a `reconcile` agent run actually reads, writes
-  and approves, and the mechanical merge effect `merge`'s own `plane`
-  ball implies, are Phase 7's, the same boundary every gate-mechanism
-  entry above draws.
+  `docs/v5-design-decisions.md` §7.5, §7.19). `merge`'s own `ball`
+  changes from `agent` to `plane` — the mechanical join into the
+  parent branch, effected by the plane once the new `reconcile` kind
+  approves, barring a conflict — so `merge` leaves the agent-balled set
+  this function filters over entirely. `inline_dispatch_point?/1`'s
+  `not queue_shaped? and non_critique_agent_step? and status !=
+  "merge"` simplifies to "agent-balled and not review-shaped": the
+  `status != "merge"` clause has nothing left to do, since `merge`
+  is no longer a candidate the first two clauses would admit. This is
+  the correction ORC-148's own dev pass named against itself — a
+  module whose moduledoc asserts it branches on no status name,
+  carrying one name check — closed by a grammar change rather than a
+  code-only fix, because the exception was never this system's to
+  invent: `merge` was agent-balled without being a dispatch point only
+  because one kind was doing two jobs (`docs/v5-design-decisions.md`
+  §7.19). **Reconciliation itself is not this pass's to build.**
+  `reconcile` is agent-balled and dispatches like any other inline or
+  chain-tier agent-balled entry — this system's existing uniform
+  dispatch (`ContainerLifecycle.open_for/3`'s `cond`, and the ordinary
+  `ready_scopes` path for a chain-tier `reconcile` on a ticket) needs
+  no new branch to carry it, once the loader recognizes the kind — but
+  what a `reconcile` agent run actually reads, writes and approves, and
+  the mechanical merge effect `merge`'s own `plane` ball now implies,
+  are Phase 7's, the same boundary every gate-mechanism entry above
+  already draws. The loader changes named in `systems/core_dsl.md`'s
+  own ORC-151 entry have landed, and `bundles/default-flow`'s
+  `feature.yaml` and `seed.yaml` both declare `reconcile` against them.
 
 - **A third design review on this same ticket adds two facts this
   system's own dispatcher will carry, past what the pass above scoped
   as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
   `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
-  architecture's own fan-out (sysarch/comparch/subcomparch) spawns a
-  ticket per tree level, the identical spawn rule this system states for
-  a feature's component and subcomponent children (above, "children
-  spawn when the plan node names them, not at a status transition"),
-  recursed one level further (`v5-design-decisions.md` §7.15 states the
-  same rule). Second, a non-root instance's own `merge` is triggered by
-  its parent, not by its own dispatch: entering `reconcile` is a
-  precondition gated on every blocking child's own subflow having
-  finished (`v5-design-decisions.md` §7.2's child-blocks-parent, read on
-  entry rather than only on completion), and reaching it is what fires
-  the mechanical merge for every child now ready — the identical
-  `plane`-balled merge effect named above, triggered from the parent's
-  transition rather than the child's own.
-  `Catapult.Delivery.ContainerLifecycle`'s own entry guard (its
-  `blocks:` handling, ORC-148, above) is the nearest existing shape a
-  dispatcher implementation extends, not a new concept this system
-  invents; `fanout`'s retirement (`dsl-syntax.md` §15.1) removes a
-  status `Catapult.Delivery.FeatureLifecycle.Sequence` described as
-  vestigial, needing no further mechanism here since nothing ever
-  dispatched from it. The tree-spawn recursion into architecture and the
-  parent-triggered merge cascade are both Phase 7's.
+  architecture's own fan-out (sysarch/comparch/subcomparch) now spawns
+  a ticket per tree level, the identical spawn rule this system already
+  states for a feature's component and subcomponent children (above,
+  "children spawn when the plan node names them, not at a status
+  transition") — recursed one level further than this doc's own spawn
+  discussion had needed to say so explicitly before now; a stale
+  restatement of the pre-amendment "at `Building`" rule this same
+  review found at `v5-design-decisions.md` §7.15 is corrected there,
+  not here. Second, a non-root instance's
+  own `merge` is triggered by its parent, not by its own dispatch:
+  entering `reconcile` is a precondition gated on every blocking
+  child's own subflow having finished (`v5-design-decisions.md` §7.2's
+  child-blocks-parent, read on entry rather than only on completion),
+  and reaching it is what fires the mechanical merge for every child
+  now ready — the identical `plane`-balled merge effect named above,
+  triggered from the parent's transition rather than the child's own.
+  `Catapult.Delivery.ContainerLifecycle`'s own precedent for an
+  entry-guard (its `blocks:` inversion, ORC-148, above) is the nearest
+  existing shape a dispatcher implementation would extend, not a new
+  concept this system invents; `fanout`'s own retirement (`dsl-syntax.md`
+  §15.1) removes the status `Catapult.Delivery.FeatureLifecycle.Sequence`
+  already described as vestigial, needing no further mechanism here
+  since nothing ever dispatched from it. **Not built as part of this
+  pass:**
+  the tree-spawn recursion into architecture, and the parent-triggered
+  merge cascade, both Phase 7's alongside everything the pass above
+  already deferred.
 
 - **A fourth design review on this same ticket names two facts this
   system's own dispatcher will carry that the third pass's own worked
   example got wrong, past what either pass scoped as "not this pass's
   to build"** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.11;
   `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
-  architecture's own fan-out spawns run a second, distinct type from the
-  feature ticket itself, not the feature's own array at a deeper tree
-  position** — the feature ticket dispatches through
-  `types/feature.yaml` (design → architecture → implementation → merge,
-  one instance ever); a comparch or subcomparch ticket dispatches
-  through a second declared type with no `design` phase of its own,
-  recurring per tree level (`v5-design-decisions.md` §7.6's "Child"
-  lifecycle). This system's own type-registry lookup (above, "the loaded
-  workflow is a parameter, never resolved") already resolves whichever
-  type a spawn names, so a spawned child naming a *different* type from
+  architecture's own fan-out spawns run a second, distinct type from
+  the feature ticket itself, not the feature's own array at a deeper
+  tree position** — the feature ticket dispatches through
+  `types/feature.yaml` (design → architecture → implementation →
+  merge, one instance ever); a comparch or subcomparch ticket
+  dispatches through a second declared type with no `design` phase of
+  its own, recurring per tree level, `v5-design-decisions.md` §7.6's
+  "Child" lifecycle correctly read for the first time. This system's
+  own type-registry lookup (above, "the loaded workflow is a
+  parameter, never resolved") already resolves whichever type a spawn
+  names, so the fact that a spawned child names a *different* type from
   its parent's own is not a new capability this system needs to grow —
-  it is a fact about which type a spawn cites, `bundles/**` content.
-  Second, **`implementation` is a real dispatch phase, a kind of its own
-  in the fixed vocabulary alongside `design` and `architecture`**
-  (`dsl-syntax.md` §15.1) — a ticket's own code generation dispatches at
-  `status: implementation` the identical way its own architecture phase
-  dispatches at `status: architecture`, both inline agent-balled entries
-  this process manager's existing uniform dispatch already reaches,
-  needing no new branch once the loader recognizes the kind, which it
-  does — `implementation` sits in `SystemStatus`'s own union. The
-  tree-spawn recursion and parent-triggered merge cascade named above,
-  spawning a second type rather than a depth-filtered instance of one,
-  are Phase 7's: this system's dispatcher reaches them through the same
-  uniform dispatch once that phase builds them.
+  it is a fact about which type a spawn cites, `bundles/**` content
+  against this record. Second, **`implementation` is now a real
+  dispatch phase, not the vestigial `checks` occurrence the earlier
+  finding at "Reachability, settled" (above, ORC-32) named before
+  `design`/`architecture`/`implementation` joined the fixed vocabulary
+  as kinds of their own** (`dsl-syntax.md` §15.1) — a ticket's own
+  code generation dispatches at `status: implementation` the identical
+  way its own architecture phase dispatches at `status: architecture`,
+  both inline agent-balled entries this process manager's existing
+  uniform dispatch already reaches, needing no new branch once the
+  loader recognizes the kind, which it does — `implementation` sits in
+  `SystemStatus`'s own union. The tree-spawn recursion and
+  parent-triggered merge cascade named above, now spawning a second
+  type rather than a depth-filtered instance of one, are Phase 7's:
+  this system's dispatcher reaches them through the same uniform
+  dispatch once that phase builds them.
 
 - **ORC-155 (design pass) gives `Sequence.resolve_position/3` a
   disjointness check it has been trusting rather than enforcing, and
   gives every `position()` a namespaced identity beyond kind or gate
   name alone** (`dsl-syntax.md` §13, §15.1, §15.4, §15.12;
-  `v5-design-decisions.md` §7.19). `resolve_position/3`'s own doc states
-  plainly why membership in `workflow.gates` alone has always been
-  enough to tell a gate from a status: "a gate name is never also a
-  declared status kind (the two live in disjoint vocabularies)." That
-  holds only while a status's whole identity is a platform-fixed kind no
-  bundle can author; ORC-155 lets a bundle name a `status:` entry, and
-  nothing else stops that name colliding with a declared gate. Left
-  unchecked, a collision resolves to `{:gate, name}` unconditionally and
-  a name matching neither raises inside `String.to_existing_atom` — both
-  on the throwback path, both invisible until a decline actually fires.
-  The load-time check `dsl-syntax.md` §15.12 adds closes this the same
-  way every other gap in this class closes, at load rather than at the
-  first decline that exercises it.
+  `v5-design-decisions.md` §7.19). `resolve_position/3`'s own doc
+  states plainly why membership in `workflow.gates` alone has always
+  been enough to tell a gate from a status: "a gate name is never also
+  a declared status kind (the two live in disjoint vocabularies)." That
+  was true only because a status's whole identity was a platform-fixed
+  kind no bundle could author; ORC-155 lets a bundle name a `status:`
+  entry, and nothing before this pass stopped that name colliding with
+  a declared gate. Left unchecked, a collision resolves to `{:gate,
+  name}` unconditionally and a name matching neither raises inside
+  `String.to_existing_atom` — both on the throwback path, both
+  invisible until a decline actually fires. The load-time check
+  `dsl-syntax.md` §15.12 adds closes this the same way every other gap
+  in this class closes, at load rather than at the first decline that
+  exercises it.
 
   **Separately, and for the reason `CatapultWeb.Live.Positions`' own
-  moduledoc already gives** — a card, a rail entry, a `throwback:` and a
-  `blocks:` reference all name a position that may recur (three
+  moduledoc already gives** — a card, a rail entry, a `throwback:` and
+  a `blocks:` reference all name a position that may recur (three
   `pending`, three `checks`, two `reconcile` in `dsl-syntax.md` §15.2's
-  `types/feature.yaml` worked example alone) — **a bare `position()` is
-  not a sufficient identity on its own.** `<anchor>.<name>` (§15.12) is
-  the qualified form; this system's own `status_kind`/`status_gate`
-  projection columns (`Store.tickets_for_project/1`) are unaffected in
-  shape — a gate's name was always its whole identity, and a status's
-  kind is still what every downstream branch here reads — and gain a
-  `name` column beside `status_kind`, read for display and reference
-  resolution only, never atomized. `Positions.key/1`'s own round-trip
-  encoding needs the qualifying anchor to stay a *stable* encoding once
-  two occurrences of one kind can appear in the same effective sequence,
-  which is what ORC-116 needs (`docs/ui-spec.md` §2 rule 2: that ticket
-  cannot introduce the vocabulary it needs to render subflows as
-  groupings, only consume what this one defines). `resolve_position/3`'s
-  own disjointness check and the namespace/uniqueness checks are
-  `lib/catapult/dsl/**`'s (core_dsl's, above); the projection column,
-  and `Positions`' own encoding, are this system's and dashboard's.
+  `types/feature.yaml` worked example alone) —
+  **a bare `position()` is no longer a sufficient identity on its own.**
+  `<anchor>.<name>` (§15.12) is the qualified form; this system's own
+  `status_kind`/`status_gate` projection columns
+  (`Store.tickets_for_project/1`) are unaffected in shape — a gate's
+  name was always its whole identity, and a status's kind is still what
+  every downstream branch here reads — and gain a `name` column beside
+  `status_kind`, read for display and reference resolution only,
+  never atomized. `Positions.key/1`'s own round-trip encoding needs the
+  qualifying anchor to stay a *stable* encoding once two occurrences of
+  one kind can appear in the same effective sequence, which ORC-116
+  is why this matters now rather than later (`docs/ui-spec.md` §2 rule
+  2: that ticket cannot introduce the vocabulary it needs to render
+  subflows as groupings, only consume what this one defines). **Not
+  built as part of this pass:** `resolve_position/3`'s own disjointness
+  check and the namespace/uniqueness checks are `lib/catapult/dsl/**`'s
+  (core_dsl's diff, above); the projection column, and `Positions`'
+  own encoding change, are this system's and dashboard's, both dev's
+  diff against this record, not design's.
 
 - **ORC-116 widens to give `ContainerLifecycle.Sequence` the identical
   namespace awareness the entry above gave this system's ticket-axis
-  positions** (`docs/dsl-syntax.md` §15.2, §15.12) — the container axis
-  has the identical gap, and the shipped bundle only dodges it.
-  Resolving a position with `Enum.find_index/2` against the bare name
+  positions** (`docs/dsl-syntax.md` §15.2, §15.12) — a design review on
+  this ticket found the container axis had the identical gap and no
+  fix, only a bundle shaped to dodge it. Before this fix,
+  `Sequence.next_step/3` and `Sequence.earlier?/4` each resolved a
+  position with `Enum.find_index/2` against the bare name
   `Sequence.name/1` returns — a `status:`'s own `status`, a `review:`'s
-  own gate name — with no anchor concept at all makes two occurrences of
-  one kind in a single container's array not merely unlabeled the way a
-  bare ticket-axis `position()` is; they are **indistinguishable to the
-  lookup itself**, which resolves to whichever comes first.
+  own gate name — with no anchor concept at all, so two occurrences of
+  one kind in a single container's array were not merely unlabeled the
+  way a bare ticket-axis `position()` was before ORC-155; they were
+  **indistinguishable to the lookup itself**, which resolved to
+  whichever came first.
 
   **The fix mirrors the ticket-axis one rather than inventing a second
   mechanism, and the data it needs is on `Type`, not on `Status`.**
   `%Catapult.Dsl.Type{}` already carries `groups: [Range.t()]` — one
-  `Range` per sub-array, over `statuses` — beside `statuses` itself (its
-  own moduledoc: "`groups` holds one `Range` per sub-array over that
-  sequence"); a group has no identity of its own beyond that span and
-  the anchor sitting inside it (§15.10). A `steps/2` reading only
-  `%Type{statuses: statuses}` drops `groups` on the pattern match — the
-  field is not missing, it is discarded. `groups` is read alongside
-  `statuses` to resolve a qualified `<anchor>.<name>` identity the same
-  way the loader does; `next_step/3`, `step/3` and `earlier?/4` compare
-  against that qualified identity instead of the bare name `name/1`
-  returns, and a caller naming an unambiguous (non-recurring) position
-  resolves exactly as before.
+  `Range` per sub-array, over `statuses` — beside `statuses` itself
+  (its own moduledoc: "`groups` holds one `Range` per sub-array over
+  that sequence"); a group has no identity of its own beyond that span
+  and the anchor sitting inside it (§15.10). `steps/2` reads only
+  `%Type{statuses: statuses}` today and drops `groups` on the pattern
+  match — the field is not missing, it is discarded. The fix reads
+  `groups` alongside `statuses` to resolve a qualified `<anchor>.<name>`
+  identity the same way the loader does; `next_step/3`, `step/3` and
+  `earlier?/4` compare against that qualified identity instead of the
+  bare name `name/1` returns today, and a caller naming an unambiguous
+  (non-recurring) position keeps resolving exactly as before.
 
   **One hazard the fix has to hold, not create: `groups`' ranges index
   into `statuses`, and `steps/2`'s output does not share that
   indexing.** `to_step/1` returns `nil` for an `environment:` entry and
   `steps/2` rejects every `nil`, so a step's position in `steps/2`'s
   output is only the same as its index in `statuses` when no
-  `environment:` entry sits ahead of it. §15.10 admits an `environment:`
-  wherever a `review:` is legal — inside a sub-array, not only after one
-  — so a fix that walks `groups`' `Range`s against `statuses` directly
-  (never against the filtered `steps/2` list) holds regardless; one that
-  reuses `steps/2`'s existing index space would break silently, off by
-  one, the day a bundle puts an `environment:` ahead of a group. Latent
-  today only because `bundles/default-flow/types/milestone.yaml` puts
-  its `environment: prod` after both sub-arrays.
+  `environment:` entry sits ahead of it. §15.10 admits an
+  `environment:` wherever a `review:` is legal — inside a sub-array,
+  not only after one — so a fix that walks `groups`' `Range`s against
+  `statuses` directly (never against the filtered `steps/2` list) holds
+  regardless; one that reuses `steps/2`'s existing index space would
+  break silently, off by one, the day a bundle puts an `environment:`
+  ahead of a group. Latent today only because
+  `bundles/default-flow/types/milestone.yaml` puts its `environment:
+  prod` after both sub-arrays — worth recording here rather than left
+  for the dev pass writing the fix to rediscover.
 
   **The qualified lookup resolves against `Type`'s own data, not
   `Status`'s.** `ContainerLifecycle.Sequence.next_step/3`, `step/3` and
-  `earlier?/4` resolve against `identified_steps/2`'s
-  namespace-qualified identity — `type.statuses`, walked at its own true
-  index and paired with `Type.namespaced_positions/1`'s own `canonical`
-  field, never `steps/2`'s already-filtered list. A bare, ambiguous
-  argument resolves to nothing rather than to the wrong occurrence.
+  `earlier?/4` resolve against `identified_steps/2`'s namespace-qualified
+  identity — `type.statuses`, walked at its own true index and paired
+  with `Type.namespaced_positions/1`'s own `canonical` field, never
+  `steps/2`'s already-filtered list. A bare, ambiguous argument resolves
+  to nothing rather than to the wrong occurrence.
   `sequence_test.exs`'s "a bare name recurring across two sub-arrays"
   describe block exercises the lookup directly, against a synthetic
   recurring-name fixture, since no shipped bundle recurs a name after
@@ -1803,65 +2049,70 @@ generating as scope-runs inside one ticket.
   with `flow_name: entry.status` — the entry's own literal name, since
   an inline entry carries no `flow:` for `flow_name` to resolve through
   a declared type instead (that function's own moduledoc comment).
-  `FeatureLifecycle` subscribes to every `FlowOpened` uniformly, with no
-  filter for a container-owned or inline-dispatched flow, and hands that
-  same `flow_name` to `Sequence.positions/2` to place it. Resolving a
-  name against `workflow.types` alone cannot place these — `setup` and
-  `retro` never resolve there, by ORC-148's own design — so every
-  setup/retro flow would project with `status_kind`/`status_gate` both
-  `nil`: not a crash, `warn_unplaceable/3`'s own log line firing
-  instead, but a real loss, since `screens/board.md` renders
-  `Sequence.positions/2` as a card's own lane set and
-  `Store.tickets_for_project/1` lists every open flow with no type
-  filter at all, so a setup/retro card reaches the board with no lane to
-  sit in. **Neither `setup` nor `retro` ever runs its own
-  `checks`/`reconcile`/`merge`/`deploy` (the "Every carried finding
-  leaves adjudicated…" entry above, at ORC-155: "both agent steps drop
-  the same three entries for the same reason"), so there is no
-  deploy-bound progression to place — only the two positions that are
-  real for either flow, `pending` and its own agent-balled kind.**
+  `FeatureLifecycle` subscribes to every `FlowOpened` uniformly, with
+  no filter for a container-owned or inline-dispatched flow, and hands
+  that same `flow_name` to `Sequence.positions/2` to place it. Before
+  this pass, `positions/2` only ever resolved a name against
+  `workflow.types`; `setup` and `retro` never will resolve there again,
+  by ORC-148's own design, so every setup/retro flow projected with
+  `status_kind`/`status_gate` both `nil` — not a crash,
+  `warn_unplaceable/3`'s own log line firing instead, but a real loss:
+  `screens/board.md` renders `Sequence.positions/2` as a card's own
+  lane set, and `Store.tickets_for_project/1` lists every open flow
+  with no type filter at all, so a setup/retro card reached the board
+  with no lane to sit in. **The title this ticket arrived under
+  overstates what was lost — "generation-to-deploy" — worth correcting
+  rather than carrying forward: the "Every carried finding leaves
+  adjudicated…" entry above already settles, at ORC-155, that neither
+  `setup` nor `retro` ever runs its own `checks`/`reconcile`/`merge`/
+  `deploy` at all ("both agent steps drop the same three entries for
+  the same reason"). There was never a deploy-bound progression to
+  place; what this pass restores is placement in the two positions that
+  were ever real for either flow, `pending` and its own agent-balled
+  kind.**
 
-  **The placement is the discipline
-  `ContainerLifecycle.inline_dispatch_point?/1` already keeps, extended
-  to this module rather than duplicated by name.** `positions/2`, when
-  `flow_name` fails to resolve in `workflow.types`, asks whether
-  `flow_name` itself names one of the closed system-status kinds
-  `Status.non_review_shaped_agent_step?/1` admits
-  (`SystemStatus.agent_balled?/1` and not
+  **The fix is the discipline `ContainerLifecycle.inline_dispatch_point?/1`
+  already keeps, extended to this module rather than duplicated by
+  name.** `positions/2`, when `flow_name` fails to resolve in
+  `workflow.types`, now asks whether `flow_name` itself names one of
+  the closed system-status kinds `Status.non_review_shaped_agent_step?/1`
+  admits (`SystemStatus.agent_balled?/1` and not
   `SystemStatus.review_shaped?/1`) — the identical test that already
   decides whether `ContainerLifecycle` opens this flow inline in the
   first place, read directly rather than re-derived. If so, the flow's
-  own effective sequence is fixed rather than resolved from any declared
-  array: `[{:kind, :pending}, {:kind, <kind>}]` — the same "immediately
-  preceded by its own pending, as that entry's sub-array head" shape
-  §15.1 already gives every generation-shaped entry — and nothing after
-  it, for the reason named above: an inline dispatch point has no
-  `checks`/`reconcile`/`merge`/`deploy` position to place it at. **A
-  `flow_name` naming neither a declared type nor one of these closed
-  kinds is still the authoring bug `warn_unplaceable/3` describes** — a
-  chain's `ticket:` face citing a label no declared type actually
-  carries — and is still logged; the warning's trigger is narrowed
-  rather than removed, since it was a false positive for exactly these
-  two flows and no others.
+  own effective sequence is fixed rather than resolved from any
+  declared array: `[{:kind, :pending}, {:kind, <kind>}]` — the same
+  "immediately preceded by its own pending, as that entry's sub-array
+  head" shape §15.1 already gives every generation-shaped entry — and
+  nothing after it, for the reason named above: an inline dispatch
+  point has no `checks`/`reconcile`/`merge`/`deploy` position to place
+  it at. **A `flow_name` naming neither a declared type nor one of
+  these closed kinds is still the authoring bug `warn_unplaceable/3`
+  describes** — a chain's `ticket:` face citing a label no declared
+  type actually carries — and keeps logging it; this pass narrows the
+  warning's trigger rather than removing it, since it was a false
+  positive for exactly these two flows and no others.
 
-  **Why the fixed sequence is exactly two entries and never more:**
-  `Projection.resting/3`'s own `Enum.find/3` never calls `passable?/2`
-  on the *last* position in the list it walks — `&(&1 != last and not
-  passable?(&1, state))` short-circuits before evaluating the right side
-  once `&1 == last` — which is the only reason a kind `passable?/2` has
-  no clause for (`:setup` and `:retro`, and for that matter
-  `:design`/`:architecture`/`:implementation`/`:checks`/
-  `:reconcile`/`:merge`/`:deploy` — `passable?/2`'s two clauses cover
-  only `:pending`/`:generation`/`:critique` and any `{:gate, _}`) is
-  never reached. The two-entry list keeps the inline kind last by
-  construction; a version that appended anything after it would hand
-  `passable?/2` a `{:kind, :setup}` in a non-last position and crash the
-  first time that flow's `commit_signature` is set. **`passable?/2`'s
-  own missing clauses for the other named generation/review-shaped kinds
-  are latent rather than live** — no shipped type gives `feature.yaml` a
-  second, non-terminal generation-shaped visit, and they are reachable
-  only once one does; they stand as a project finding against
-  `systems/delivery.md`'s own file map.
+  **Why the fixed sequence is exactly two entries and never more, not
+  a detail to lose in translation:** `Projection.resting/3`'s own
+  `Enum.find/3` never calls `passable?/2` on the *last* position in the
+  list it walks — `&(&1 != last and not passable?(&1, state))`
+  short-circuits before evaluating the right side once `&1 == last` —
+  which is the only reason a kind `passable?/2` has no clause for
+  (`:setup` and `:retro`, and for that matter `:design`/`:architecture`/
+  `:implementation`/`:checks`/`:reconcile`/`:merge`/`:deploy` —
+  `passable?/2`'s two clauses cover only `:pending`/`:generation`/
+  `:critique` and any `{:gate, _}`) is never reached. This fix's
+  two-entry list keeps the inline kind last by construction; a version
+  that appended anything after it would hand `passable?/2` a
+  `{:kind, :setup}` in a non-last position and crash the first time
+  that flow's `commit_signature` is set. **`passable?/2`'s own missing
+  clauses for the four other named generation/review-shaped kinds are
+  not this pass's to fix** — latent rather than live, since no shipped
+  type gives `feature.yaml` a second, non-terminal generation-shaped
+  visit yet, and reachable only once one does; filed as a project
+  finding against `systems/delivery.md`'s own file map rather than
+  fixed here, since nothing this ticket touches exercises them.
 
   `Sequence.positions/2` and `warn_unplaceable/3`'s narrowed trigger
   both carry this.
@@ -1991,24 +2242,38 @@ generating as scope-runs inside one ticket.
   project-scoped sweep re-deriving or missing the same rule.
   `delivery_projects` (new; `Catapult.Delivery.Store.Project`) is the
   record — `project_id` primary key, `test_project_state` nullable
-  (`:active | :released | :deleted`). A project is a test project iff
-  the field is set; nothing here adds a second `kind` column to say so
-  a second way, because the one bit the nullable field carries is the
-  whole of what "is this a test project" means today, and a project no
-  test flow ever minted gets no row here at all rather than a row
-  reading some `:ordinary` placeholder no code reads yet.
+  (`:provisioning | :active | :released | :deleted`). A project is a
+  test project iff the field is set; nothing here adds a second `kind`
+  column to say so a second way, because the one bit the nullable
+  field carries is the whole of what "is this a test project" means
+  today, and a project no test flow ever minted gets no row here at
+  all rather than a row reading some `:ordinary` placeholder no code
+  reads yet.
 
-  **At most one active, by construction of the mint operation, not a
-  checked constraint.** `Store.mint_test_project/1` performs both
-  halves of "provisioning a new one releases whichever was active" —
-  flip every currently-`:active` row to `:released`, insert the new
-  row `:active` — before either half is visible to a second reader, so
-  no window exists where two rows read `:active` at once. No unique
-  partial index enforces this: nothing but the boundary's own
-  milestone-cadence live suite calls this operation, and it never
-  calls it twice without the prior call's release/delete cycle having
-  already run, so a concurrent second mint is not a case this system
-  defends against.
+  **This record widens by one column under ORC-223: `stub_mode`
+  (boolean, not null, default `true`)** — whether a test project is a
+  test project and whether its dispatches skip the model are two
+  different questions, and collapsing them into one (ORC-223's own
+  first draft did, off this field's presence alone) would stub the
+  Phase-5 proof run along with the toy chain. `systems/generation.md`'s
+  ORC-223 entry states the policy this column exists to carry and who
+  sets it to what.
+
+  **At most one active-or-provisioning, by construction of the mint
+  operation, not a checked constraint.** `Store.mint_test_project/2`
+  performs both halves of "provisioning a new one releases whichever
+  was active or still provisioning" — flip every row currently
+  `:active` or `:provisioning` to `:released`, insert the new row
+  `:provisioning` (promoted to `:active` only once `reset_and_intake
+  /2` succeeds — ORC-224, below) — before either half is visible to a
+  second reader, so no window exists where two rows read `:active` at
+  once, and none where a row a crashed provisioning attempt stranded
+  at `:provisioning` survives a fresh mint unreleased (ORC-224, below,
+  states the failure shape this reclaims). No unique partial index
+  enforces this: nothing but the boundary's own milestone-cadence live
+  suite calls this operation, and it never calls it twice without the
+  prior call's release/delete cycle having already run, so a
+  concurrent second mint is not a case this system defends against.
 
   **`:deleted` is terminal and the row survives it.** Deleting a test
   project purges every row keyed by this `project_id` in every
@@ -2035,54 +2300,72 @@ generating as scope-runs inside one ticket.
   substitute for it — is where engine's own purge belongs, alongside
   the product-facing flow neither this ticket nor that design is.
 - **One authenticated provisioning surface, three operations, a
-  bearer secret rather than OIDC** (ORC-216). Provision (mint a test
-  project, bind it to `catapult-test`, reset the bound repo's fixture
-  content, intake the raft at the ref reset produced — below), release,
-  and a read of a scope's most recent dispatch run — all three behind
-  one new secret, `DELIVERY_PROVISIONING_TOKEN`, declared exactly like
-  `DELIVERY_GITHUB_TOKEN` above (no default, `secret: true`, so a build
-  missing it fails at boot naming it, and `SETUP.md`'s required-env
-  manifest gains the line) and compared constant-time
-  (`Plug.Crypto.secure_compare/2`, a dependency this tree already
-  carries via `:plug`).
+  bearer secret rather than OIDC** (ORC-216, design pass). Provision
+  (mint a test project, bind it to `catapult-test`, reset the bound
+  repo's fixture content, intake the raft at the ref reset produced —
+  below), release, and a read of a scope's most recent dispatch run —
+  all three behind one new secret, `DELIVERY_PROVISIONING_TOKEN`,
+  declared exactly like `DELIVERY_GITHUB_TOKEN` above (no default,
+  `secret: true`, so a build missing it fails at boot naming it, and
+  `SETUP.md`'s required-env manifest gains the line) and compared
+  constant-time (`Plug.Crypto.secure_compare/2`, a dependency this
+  tree already carries via `:plug`).
 
-  **Not the dispatch-facing OIDC verification** (v5 §7.12.1, this doc's
-  ORC-9 entry). `Oidc.verify/4` answers one question — does this token's
-  `repository` claim match *the repo a specific dispatch run was sent
-  to*, read off that run's own correlation record
-  (`Dispatch.fetch_context/2`'s own `run.repo_owner`/`run.repo_name`) —
-  and every one of its inputs comes from a `DispatchRun` row that does
-  not exist yet at the moment a live-suite job asks to provision one.
-  Making it answer the different question a provisioning call actually
-  asks — is this token the plane's own CI, calling from
-  `SwaggerAllen/catapult` rather than any bound project's repo — needs a
-  second expected-identity source (a plane-level "our own repo" config
-  value nothing today holds) and drops the `run_id` half of the check
-  entirely, since there is no run yet to match one against: a second
-  verification path wearing the first one's name, not a reuse of it. And
-  OIDC's actual argument for existing — no secret rides dispatch inputs
-  handed to arbitrary, ephemeral runner identities across the internet
-  (v5 §7.12.1) — does not transfer to a surface reachable only from this
-  repo's own scheduled job, firing at most once a milestone. A declared
-  secret is the smaller addition: one more line in `SETUP.md`'s
-  required-env manifest, checked the same way `DELIVERY_GITHUB_TOKEN`
-  already is, against no new plane-level identity concept.
+  **Considered and left out of ORC-223's scope: a fourth operation
+  enumerating test projects.** All three existing operations take the
+  `project_id` an operator is trying to discover in the first place, so
+  finding the currently-active one during the incident this ticket
+  responds to meant grepping the runtime log for `sweepable_project?/1`'s
+  own query — a real operator hole, raised on this ticket's own review
+  thread. It stays open rather than folded in here: ORC-223's own scope
+  is the redispatch-loop safety property and the two mechanisms that
+  make the live suite runnable without leaking, and a list/enumerate
+  operation is orthogonal to both — nothing above depends on it existing
+  or is harder to build for its absence. Left for a ticket of its own.
+
+  **Considered and rejected: reusing the dispatch-facing OIDC
+  verification** (v5 §7.12.1, this doc's ORC-9 entry). `Oidc.verify/4`
+  answers one question — does this token's `repository` claim match
+  *the repo a specific dispatch run was sent to*, read off that run's
+  own correlation record (`Dispatch.fetch_context/2`'s own
+  `run.repo_owner`/`run.repo_name`) — and every one of its inputs
+  comes from a `DispatchRun` row that does not exist yet at the moment
+  a live-suite job asks to provision one. Making it answer the
+  different question a provisioning call actually asks — is this
+  token the plane's own CI, calling from `SwaggerAllen/catapult`
+  rather than any bound project's repo — needs a second
+  expected-identity source (a plane-level "our own repo" config value
+  nothing today holds) and drops the `run_id` half of the check
+  entirely, since there is no run yet to match one against. That is a
+  second verification path wearing the first one's name, not a reuse
+  of it, and OIDC's actual argument for existing — no secret rides
+  dispatch inputs handed to arbitrary, ephemeral runner identities
+  across the internet (v5 §7.12.1) — does not transfer to a surface
+  reachable only from this repo's own scheduled job, firing at most
+  once a milestone. A declared secret is the smaller addition: one
+  more line in `SETUP.md`'s required-env manifest, checked the same
+  way `DELIVERY_GITHUB_TOKEN` already is, against no new plane-level
+  identity concept.
 
   These three routes register through `api_surface/0` exactly like
   `fetch_context/2` and `report_result/2` do, and reach the world
-  through the identical `Catapult.Foundation.DispatchPlug` path dispatch
-  (`systems/foundation.md`) — a third, fourth and fifth path on the one
-  listener, alongside `fetch_context/2` and `report_result/2`, not a
-  second listener.
+  through the identical `Catapult.Foundation.DispatchPlug` path
+  dispatch (`systems/foundation.md`) — a third, fourth and fifth path
+  on the one listener, alongside `fetch_context/2` and
+  `report_result/2`, not a second listener.
 - **`reset_repo/2` widens to report the ref it produced** (ORC-216,
   design pass; `HostPort`, `HostPort.Actions` and `HostPort.Fake` in
   the same change, per this doc's own standing rule on this port). It
   returns `{:ok, ref}` rather than bare `:ok` — the default branch's
-  head commit SHA after the last file in `files` lands, in `HostPort
+  head commit SHA once `files` lands, in `HostPort
   .Actions`, and a synthesized one in `HostPort.Fake`, the identical
   `"fake-sha-..."` shape `Forge`'s own `head_sha/1` already generates
   for a branch head — `reset_repo/2`'s own Fake implementation is a
-  no-op today (it only logs) and gains this much and no more.
+  no-op today (it only logs) and gains this much and no more. ORC-228
+  (below) changes what produces the real adapter's sha — a single Git
+  Data commit rather than a head re-read after the last per-file PUT —
+  without touching this contract: `{:ok, ref}` in, `{:ok, ref}` out,
+  either way.
   Provisioning is the first caller with anywhere to put a ref:
   `intake_raft/2` takes one explicitly rather than defaulting to
   "whatever the default branch happens to be" (`HostPort`'s own
@@ -2117,34 +2400,593 @@ generating as scope-runs inside one ticket.
   variable, whose previous-body pair serves `document-review`'s
   per-sentence diff (ORC-114) — a different column entirely from the
   one the terminal-status read above surfaces.
-- **How far the toy chain runs before release is a cost question this
-  pass names rather than answers** (ORC-216, design pass — one of this
-  ticket's own open questions, deliberately left open rather than
-  forced). The live suite's own test releases its project the moment
-  it observes the dispatched run's terminal status — synchronously, in
-  the same request cycle that ends the bounded wait
-  (`systems/foundation.md`'s polling exception) — which bounds the
-  race against the sweeper's own next tick
-  (`GENERATION_SWEEP_INTERVAL_MS`, default `10000`,
-  `lib/catapult/generation.ex`) to whatever a real dispatched run's
-  own wall-clock time leaves before that tick fires, not to anything
-  this ticket engineers. No cap is added to the sweeper for this: a
-  released project stops being swept the instant its state flips, at
-  both sites that can dispatch one (`systems/generation.md`'s ORC-216
-  entry — `Sweeper.sweep_project/2` upstream of the tier walk, and
-  `DispatchWorker.perform/1`'s own re-validation, since a job already
-  enqueued on the tick before release would otherwise dispatch after
-  it), and building a narrower "dispatch exactly one scope" mode would
-  be new dispatch mechanism this ticket's own scope refuses — "let the
-  sweeper dispatch the ready scope" reuses `Catapult.Generation
-  .Sweeper` unmodified. What this does cost — whether a live run's own
-  latency reliably beats one sweep interval, and what a
-  second scope becoming ready and dispatching before release would
-  actually spend — is unmeasured, the same way the subscription
-  credential's own ceiling behavior is (`systems/generation.md`'s own
-  entry): the first live run this mechanism ever dispatches settles it,
-  and until then this is a stated assumption rather than a documented
-  shape.
+- **How far the toy chain runs before release is settled: quiescence on
+  a project-wide run enumeration, not a depth cap** (ORC-216 named this
+  cost question and left it open; ORC-225 answers it, off the same
+  run-26 incident `systems/generation.md`'s fixture-coverage and
+  typed-failure entries close — run 26 was green with four of its five
+  dispatched runs red, because nothing asserted on the other four).
+  `Provisioning` gains a fourth read beside `provision/1`, `release/2`
+  and `status/3`: `Provisioning.runs(conn, project_id)`, reachable at
+  `GET /dispatch/test-project/:project_id/runs`, backed by a new
+  `Store.dispatch_runs_for_project/1` — every `DispatchRun` row for
+  `project_id`, any tier, oldest first, the same shape
+  `dispatch_runs_for_flow/2` already gives one `flow_id`'s rows, minus
+  the `flow_id` filter. Each row normalizes exactly like `status/3`'s
+  own single-tier read (`status`, `outcome`, `credential_used`,
+  `node_id`, `body_sha`) plus the two fields a single-tier caller
+  already knows without asking and an enumerating caller does not:
+  `tier` and `root_tag`.
+
+  A read gains no route by existing — the route needs four sites: the
+  `Provisioning` function and the `Store` query above, plus a
+  `defexport` and an `api_surface/0` entry, named here. `Catapult
+  .Delivery` gains a **sixth** `defexport` overall: it already carries
+  five today — `fetch_context/2`, `report_result/2`,
+  `provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3` — all backing `api_surface/0`
+  entries.
+  `test_project_dispatch_runs/2` delegates to `Provisioning.runs/2` in
+  the same shape its three provisioning-family siblings already take
+  (`provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3`, each a `defexport` with a `@doc`
+  pointing at the `api_surface/0` declaration it backs), because
+  `Catapult.Foundation.DispatchPlug` dispatches by `apply(entry.component,
+  name, [conn | params])` and only reaches a boundary export, never a
+  plain function. `Catapult.Delivery.api_surface/0` gains the matching
+  sixth entry, `{{:test_project_dispatch_runs, 2}, :get,
+  "/dispatch/test-project/:project_id/runs", version: "v1", audience:
+  :internal}` — the same `:internal` audience its three provisioning
+  siblings carry, reached only by the milestone boundary's own
+  live-suite job — and that function's own comment ("a third, fourth and
+  fifth path on this one listener") widens to "a third through sixth
+  path" in the same change, since it names a count that drifts the
+  moment a route lands without it. `DispatchPlug` itself takes no edit:
+  it matches every declared route generically off `api_surface/0`'s own
+  list, so a new path costs a declaration and an export and nothing in
+  the plug.
+
+  The live test polls this read on its existing `@poll_interval`,
+  alongside the terminal-status poll it already runs, until it reports
+  no outstanding work.
+
+  **`remaining` widens the read at ORC-230, from "have these runs
+  finished" to "is there anything left to do".** A fixed poll count, or
+  a bare check that the run-id set has stopped changing, both answer
+  that question wrong the same way: a node that has become ready but
+  has not yet been dispatched carries no `DispatchRun` row for either
+  check to see, so it reads identically to "nothing left." `runs/2`'s
+  response widens from a bare array to `%{runs: [...], remaining:
+  integer}`, where `remaining` is the plane's own current answer, read
+  at the moment of the call, off **both** readiness reads
+  `Catapult.Generation.Sweeper` itself dispatches from
+  (`sweep_tiers/2`, `lib/catapult/generation/sweeper.ex`) rather than
+  one of the two: `Catapult.Engine.Projections.ReadyScopes.ready/3`
+  (generation-tier readiness — the context-walk rule) **and**
+  `ReadyScopes.ready_review/3` (review-tier readiness — "the reviewed
+  tier's current draft has no review yet," a separate rule no
+  generation-side filter covers), each joined against
+  `Store.list_nodes/2` for nodes with no terminal `DispatchRun` yet,
+  plus any run already in flight, summed. Naming only `ready/3` would
+  read `remaining` as zero while a review round the sweeper is about to
+  fire sits invisible to it — the identical race quiescence existed to
+  hedge, reintroduced through the read meant to remove it. Zero across
+  both means nothing is dispatchable on either axis and nothing is
+  running — a fact read directly off plane state, the thing a green run
+  of this test now depends on.
+
+  **`Catapult.Generation.Quiescence` loses its only caller and retires
+  in the same change.** Its quiet-since arithmetic
+  (`test/support/quiescence.ex`) hedged exactly the race `remaining ==
+  0` now reads directly — a sweep tick that fired but had not yet
+  produced a visible row — by waiting out a margin instead of seeing
+  the ready node itself. `ToySeedChainLiveTest` (the loop this test's
+  own entry rewrites, `systems/generation.md`) was its only caller;
+  once that loop polls `remaining` instead, nothing calls
+  `next_quiet_since/5` or `outcome/4` anywhere in the tree. A module
+  kept alive with no caller is exactly the shape ORC-229 and ORC-231
+  each independently found and named as a defect elsewhere in this
+  milestone, not a precedent to repeat by leaving this one standing:
+  dev deletes `test/support/quiescence.ex` and
+  `test/catapult/generation/quiescence_test.exs` in the same change
+  that wires `remaining` in, rather than carrying tested arithmetic
+  nothing calls.
+
+  **Per-run duration comes free of the same widening.**
+  `Store.DispatchRun` already carries `timestamps(type:
+  :utc_datetime_usec, updated_at: :updated_at)`; `normalize_run/1`
+  reads neither field today. Each run in the widened response gains
+  `duration_ms` — `DateTime.diff/3` between `updated_at` and
+  `inserted_at`, in milliseconds. That is dispatch-to-terminal, not
+  per-phase, since `updated_at` bumps on every status transition and a
+  per-phase figure would need columns this ticket does not add; it is
+  what turns a flaky boundary run into something measurable rather than
+  something re-run by hand — `systems/generation.md`'s entry is where
+  that measurement gets used.
+
+  Once `remaining` reaches zero, the test asserts every run observed so
+  far individually (`outcome == success`, a non-empty
+  `credential_used`, a non-nil `body_sha`) — the same three assertions
+  `@entry_tier` alone carried before, closing exactly the gap run 26
+  exposed, where four red runs and one green one read as a green suite
+  because nothing polled the other four. `systems/generation.md`'s
+  ORC-230 entry states what the test does once `remaining` first
+  reaches zero: call `approve_drafts/2` and keep going, rather than
+  stop.
+
+  No new dispatch mechanism, unchanged from ORC-216's own refusal: this
+  reuses `Catapult.Generation.Sweeper` exactly as it runs today — "let
+  the sweeper dispatch whatever is ready" is still the whole mechanism,
+  and a narrower "dispatch exactly one scope" mode is still not built,
+  for this or any other caller.
+
+  **Amended at ORC-230: an external actor exists now, so this no longer
+  terminates on its own.** Before this ticket, no external actor ever
+  resolved a gate in an unattended run, so `ApproveDraft` — dispatched
+  only by `Catapult.Delivery.DraftResolution` in reaction to a human's
+  `GateApproved` (`systems/engine.md`'s ORC-229 entry) — never fired
+  either, and every tier whose readiness runs through a
+  `self.parent`-style walk requiring `:approved` (most of
+  `bundles/default/tiers/*.yaml`) stayed permanently unready — the
+  sweeper alone ever reached the tiers whose full `context:` resolves
+  vacuously regardless of any node's approval status, a fixed and small
+  set. That is no longer the rule: `Provisioning.approve_drafts/2`,
+  below, dispatches `ApproveDraft` directly, bypassing
+  `DraftResolution`'s own `GateApproved` reaction entirely rather than
+  triggering it, so a toy-seed project's quiescence is now bounded only
+  by however deep the raft's own downward-cascade graph goes, not by an
+  approval that never comes. `systems/generation.md`'s own entry states
+  what the live suite's poll loop does with that reach: the boundary
+  suite (tag `:live`) walks all of it, every run — there is no
+  shallower suite and no round cap, the position design review settled
+  on over a round-capped alternative an earlier draft of this ticket
+  proposed.
+- **`Provisioning.approve_drafts/2` is the external actor an unattended
+  run needs, dispatching `ApproveDraft` directly rather than through a
+  ticket's own gate** (ORC-230, design pass — the other half of
+  ORC-229's mechanism; corrected on this same pass's own resumption,
+  replacing a ticket-gate design that cannot run against a toy-seed
+  project, named below). Reachable at `POST
+  /dispatch/test-project/:project_id/approve-drafts`, it loads the
+  chain the same way `Catapult.Generation.Sweeper`,
+  `Catapult.Generation.DispatchWorker` and `Catapult.Generation
+  .CommitPath` already do — `Dsl.load(Config.fetch!(:generation,
+  :bundles_root))` (`sweeper.ex:79`, `dispatch_worker.ex:56`,
+  `commit_path.ex:158`), reading the configured bundles root rather
+  than a literal path this operation would otherwise have to invent
+  — and for every tier in it calls `Store.list_nodes/2`
+  — the identical per-tier read `Sweeper` and this doc's own widened
+  `remaining` (above) already make — collecting every node whose
+  `status` is `:drafted`. For each, it dispatches
+  `Catapult.Engine.Commands.ApproveDraft{project_id, node_id: node.id,
+  draft_id: node.current_draft_id, actor_id: "live-suite"}` and returns
+  the count it approved, so a caller can tell "something moved" from
+  "nothing left to approve."
+
+  **Why not the ticket path this decision first reached for.** This
+  entry originally had `approve_gates/2` read
+  `Store.tickets_for_project/1` and dispatch
+  `Catapult.Engine.Commands.ApproveGate` against each open ticket's
+  gate — mirroring `document_review_live.ex`'s own "approve" handler as
+  closely as an unattended caller could. That mirrors the wrong half.
+  `tickets_for_project/1` reads `EngineFlow` rows, and the only place
+  shipped code ever dispatches `Catapult.Engine.Commands.OpenFlow` is
+  `Catapult.Delivery.ContainerLifecycle.open_inline/3` — reachable only
+  from a *workflow-bundle* container reaching a non-queue-shaped,
+  non-review-shaped array entry (`docs/dsl-syntax.md` §15.7). Nothing
+  in `lib/catapult/generation/**` ever dispatches `OpenFlow` or
+  `MintContainer` for a chain-axis node, and a toy-seed project intakes
+  no workflow-bundle content at all, so `tickets_for_project/1` returns
+  nothing for it, on every poll, forever — `ApproveGate` itself
+  requires a `flow_id` valid against the loaded `Catapult.Dsl.Workflow
+  .t()` (its own moduledoc), so there is no ticket to open one against,
+  even by construction. Wiring a flow to open per chain-axis node
+  needing review is real work of its own — `ApproveGate`'s own
+  moduledoc already names "the general node(s)-per-gate mapping" as
+  "Phase 7's" — and building it as a side effect of an
+  unattended-approval actor would be a second, larger ticket wearing
+  this one's name. `ApproveDraft` needs no flow at all: its own
+  aggregate clause (`Catapult.Engine.Aggregate`) is a bare
+  compare-and-swap on `current_draft_id`, the identical command
+  `test/catapult/generation/toy_seed_chain_test.exs` already dispatches
+  directly, offline, to drive its own non-live walk today. Reaching for
+  it here keeps the "test scaffolding, not product semantics" framing
+  this ticket's own description already draws around the actor — an
+  unattended caller resolving a real ticket's real gate was never the
+  claim, only that something has to approve nodes for the walk to
+  proceed.
+
+  **The two-approve-calls-per-ticket nuance the ticket-gate design
+  carried, and the assertion built on it, do not survive this
+  correction** — `systems/generation.md`'s entry states what replaces
+  both: with no ticket and no gate, one call against a drafted node is
+  itself the approval, not a step toward one.
+
+  **What this leaves unexercised.** ORC-229's own mechanism —
+  `GateApproved` reacting through `Catapult.Delivery.DraftResolution`
+  into `ApproveDraft` (`systems/engine.md`'s ORC-229 entry) — is the
+  path a real human approval takes, and `approve_drafts/2` does not
+  go through it: it dispatches `ApproveDraft` straight from the
+  boundary surface, the same bare compare-and-swap
+  `toy_seed_chain_test.exs` already drives offline. So the boundary
+  suite proves the chain cascades correctly once nodes reach
+  `:approved`, and proves nothing about `DraftResolution` itself —
+  that reaction stays covered only by whatever exercises a real
+  ticket's gate, which a toy-seed project, carrying no workflow-bundle
+  content, cannot be the subject of. Closing that gap needs a
+  chain-axis node that can carry a flow, which is Phase 7's mapping
+  (`ApproveGate`'s own moduledoc), not this ticket's.
+
+  **`actor_id` is a literal, not a call to `CatapultWeb.Live
+  .Actor.id/0`.** That module's own moduledoc scopes it to "every write
+  dispatched from this system's screens" — a stand-in for Phase 4's one
+  human author until identity exists. `approve_drafts/2` dispatches
+  from a boundary surface no screen renders, and reusing `"author"`
+  here would erase the one distinction this ticket exists to keep
+  visible: that an unattended run approved its own drafts. `"live-suite"`
+  is declared in `Catapult.Delivery.Provisioning` itself — the one call
+  site a later automated caller extends rather than duplicates.
+
+  **Approves; never discards.** An unattended walk only ever needs to
+  advance — this actor's job is keeping the walk moving, not judging
+  output, so it never dispatches `DiscardDraft`. A ticket teaching the
+  live suite to exercise a discard path is free to add one; this
+  operation doesn't build the half it doesn't use.
+
+  **Reaching for a stubbed review score instead of unconditional
+  approval was considered and rejected.** `docs/dsl-syntax.md` §15.10
+  parks threshold-based gating as "not bundle content"
+  (`docs/v5-design-decisions.md` §7.19); driving `ApproveDraft` off
+  `WriteReview`'s own `score` would unpark that decision as a side
+  effect of making a test run, rather than through a design of its
+  own. `approve_drafts/2` reads no review body and no score — it
+  approves every node it finds `:drafted`, unconditionally, so the
+  parked decision stays parked.
+
+  **Not gated on `stub_mode`.** `stub_mode` (the entry above) is a
+  per-*dispatch* input deciding whether a runner calls a model; whether
+  a draft gets approved is a plane-side write this operation performs
+  on its caller's own schedule, regardless of any individual dispatch's
+  `stub_mode` — so no flag threads the two together, and a live suite
+  one day driving a real, non-stub dispatch through this same operation
+  costs nothing extra to support.
+
+  `Catapult.Delivery` gains a **seventh** `defexport`: it already
+  carries six today — `fetch_context/2`, `report_result/2`,
+  `provision_test_project/1`, `release_test_project/2`,
+  `test_project_dispatch_status/3`, `test_project_dispatch_runs/2` —
+  each backing an `api_surface/0` entry the identical way.
+  `test_project_approve_drafts/2` delegates to `Provisioning
+  .approve_drafts/2`, and `api_surface/0` gains the matching
+  `{{:test_project_approve_drafts, 2}, :post,
+  "/dispatch/test-project/:project_id/approve-drafts", version: "v1",
+  audience: :internal}` entry — the same `:internal` audience its four
+  provisioning siblings carry, and the fifth operation behind
+  `DELIVERY_PROVISIONING_TOKEN` (ORC-216's own entry above). That
+  entry's own comment ("a third through sixth path") widens to "a third
+  through seventh path" in the same change, for the identical reason
+  the ORC-225 entry above already gives for keeping it in sync — and
+  the identical phrase sits a second, uncited place: `Provisioning`'s
+  own moduledoc states "a third through sixth path on the one listener"
+  too. Both widen together; naming only `Catapult.Delivery`'s comment
+  is how the moduledoc's copy goes stale while the named one gets
+  fixed.
+
+  **The suite polls this surface; a push transport is a named
+  follow-up, not this ticket's.** The machinery is half-built already:
+  `Catapult.Engine.Topics` rides `Commanded.PubSub` with a per-project
+  `engine:ready_scopes:<id>` topic, and `Phoenix.PubSub` is already
+  started (`application.ex`). Three grades, smallest first: a long-poll
+  (`?since=<cursor>&wait=`, the request process subscribes and blocks
+  in `receive` — same route, same bearer auth, degrading to today's
+  behavior when the wait budget expires); SSE over a chunked response;
+  or a second websocket, since the endpoint declares only `socket
+  "/live", Phoenix.LiveView.Socket` today. Which grade fits turns on
+  how long App Platform's edge holds an idle HTTP response open, which
+  is unmeasured — answering it is a design of its own, not a side
+  effect of widening `remaining`.
+- **The in-flight guard's query lives on `Store`, beside the table it
+  reads** (ORC-223 — `systems/generation.md`'s companion entry states
+  why the guard exists and how its cutoff was chosen). No new column
+  and no new table: `delivery_dispatch_runs` already carries
+  everything the check needs (`project_id`, `tier`, `scope_key`,
+  `status`, `inserted_at`). `Store.in_flight_dispatch?/4` takes
+  `project_id`, `tier`, `scope_key` and a cutoff timestamp the caller
+  computes — `DispatchWorker`'s own `Config.fetch!(:generation,
+  :clock)` — and passes in as plain data, the same shape every other
+  cross-boundary `Store` call here already takes (ids and values in,
+  never a module), and answers whether a row matching all
+  three with `status` in `:dispatched`/`:context_fetched` and
+  `inserted_at` at or after that cutoff exists.
+  `Catapult.Delivery.in_flight_dispatch?/4` is the boundary export
+  `DispatchWorker` actually calls. A new index,
+  `(project_id, tier, scope_key, status)`, is what keeps the lookup as
+  cheap as `get_node_by_scope/3`'s own on `engine_nodes` — the existing
+  `(project_id, node_id)` index on this table doesn't cover it, since
+  the guard runs before a node id is ever resolved.
+- **`HostPort.request` gains `stub_mode`, threaded straight through to
+  the dispatch input — no new operation** (ORC-223,
+  `systems/generation.md`'s companion entry states the policy).
+  `ContextAssembly.build/4` sets it from `Catapult.Delivery
+  .stub_mode?/1`, the boundary export over the new per-project
+  `stub_mode` column above; `HostPort.Actions.dispatch_run/1` sends it
+  as the `workflow_dispatch` input's third field, stringified exactly
+  like `credential_order` already is (GitHub's own inputs are strings
+  regardless of the workflow's declared `type:`). Fixture push gets the
+  same treatment `reset_repo/2`'s `files` map already gives every other
+  pushed path: `ToySeed.reset_files/0` pushes each fixture's *content*
+  under a repo-relative path keyed by that fixture's own `root_tag` —
+  not its checked-in filename, which `systems/generation.md`'s companion
+  entry gives the full mapping and naming rule for, rather than a count
+  repeated here to drift out of sync with it — under a namespace this
+  entry names so dev has no path to invent —
+  `.catapult-stub/<root_tag>.xml` — chosen for being unambiguously not
+  under `docs/raft/**`, the one directory `read_directory/3` ever walks.
+- **A test project is unsweepable from the moment it is minted, not
+  only once released or deleted — closing the window `provision/1`
+  left open between minting a row and finishing the writes that
+  describe it** (ORC-224, design pass). Live-suite run 25 dispatched
+  four times against `SwaggerAllen/catapult-test` one to two seconds
+  before the fixed harness (ORC-223, PR #144) reached the repo:
+  `Store.mint_test_project/2` set `test_project_state: :active` before
+  a single fixture file was written, `sweepable_project?/1` reads
+  `:active` as sweepable, and `Catapult.Generation.Sweeper` ticks on a
+  fixed interval with no knowledge of `reset_and_intake/2`'s own
+  progress — so any tick landing inside that write (one Contents-API
+  `PUT` per entry in the caller's `files` map,
+  `HostPort.Actions.put_all_files/2` — seventeen of them for
+  `ToySeed.reset_files/0`'s own map: nine `.catapult-stub/*.xml`, the
+  workflow file, seven `docs/raft/*.md`; eight for
+  `Catapult.TodoAppSeed.reset_files/0`'s) dispatches against a repo
+  that is only partly written, whichever piece hasn't landed yet: the
+  workflow file, a stub, or the raft.
+
+  `test_project_state` gains a fourth value, `:provisioning` —
+  "minted, not yet safe to dispatch against." `mint_test_project/2`
+  sets it instead of `:active`; `provision/1` calls a new
+  `Store.activate_test_project/1` once `reset_and_intake/2` returns
+  `{:ok, ref}` — the same point it already returns the 200 response
+  from (this module's own moduledoc). `activate_test_project/1`
+  matches `project_id` **and** `test_project_state == :provisioning`,
+  never `project_id` alone: a transition names the state it transitions
+  *from*, the same guard shape `release_test_project/1` already carries
+  for the same reason, so a retried or duplicated `provision/1` call
+  finds the row already `:released` or `:deleted` and no-ops rather
+  than reviving a terminal project. (Belt-and-braces, since the entry
+  above records that this operation is never called concurrently
+  against the same row: matching `project_id` alone would also resurrect
+  a row a concurrent mint had already flipped to `:released`, which is
+  the same hazard the "no window where two rows read `:active` at once"
+  invariant above exists to keep to one writer at a time — but not the
+  scenario this guard is here for.) `sweepable_project?/1` answers
+  `false` for
+  `:provisioning` exactly as it already does for `:released` and
+  `:deleted` (`systems/generation.md`'s companion entry states the
+  policy); the no-row default is unchanged (`true` — an ordinary,
+  non-test project) — the new value is a row, not an absence, so the
+  reading it protects never sees it.
+
+  **Two widenings, not one, because `reset_and_intake/2` fails in two
+  shapes and one caller only catches one of them.** A returned
+  `{:error, reason}` still runs `provision/1`'s existing failure
+  branch, which calls `release_test_project/1` unconditionally on the
+  row it just minted (this doc's own entry above: "a project that
+  fails to reset or intake is released rather than left dangling
+  `:active`") — before this entry that call matched only an `:active`
+  row, and every such failure now happens before promotion, so
+  `release_test_project/1` widens its matched state set to `[:active,
+  :provisioning]`. A *raised* failure — `reset_and_intake/2`'s last
+  step, `Store.pin_input_documents/3`, is `Repo.insert!/1` in a loop
+  over the raft, and a `DBConnection.ConnectionError` there propagates
+  straight out of `provision/1` past that branch entirely, a measured
+  failure mode on this cluster rather than a hypothetical one — leaves
+  the row at `:provisioning` with no caller left to release it.
+  Nothing catches that shape at the call site, so the reclaim has to
+  happen off two later `provision/1` calls rather than one: this
+  doc's own "at most one active-or-provisioning" entry above already
+  states `mint_test_project/2`'s own pre-mint update flips a stranded
+  `:provisioning` row to `:released` exactly as it already flips a
+  stranded `:active` one, but that flip is part of the *next* call's
+  own mint, which `provision/1` runs *after* that call's own reclaim
+  step — so the stranded row still reads `:provisioning`, invisible
+  to `list_released_test_projects/0`, when that reclaim step runs,
+  and only becomes `:released` once that call's mint flips it. It is
+  the call *after that* whose reclaim step
+  (`list_released_test_projects/0` → `delete_test_project/1`, run
+  before that call's own mint) deletes it — self-healing over two
+  calls rather than the one an ordinary missed release takes, since
+  an ordinary release happens out of band rather than off a mint's
+  own pre-mint sweep. Neither widening alone covers both shapes;
+  `delete_test_project/1` needs no matching change of its own, since
+  it already transitions
+  `delivery_projects`'s own row to `:deleted` unconditionally on
+  `project_id` alone, filtering on no current state, `:provisioning`
+  included.
+
+  **Reusing `:released` for this state is rejected**, for two reasons
+  this doc's own `list_released_test_projects/0` and
+  `release_test_project/1` already give the shape of: a `:provisioning`
+  row reading `:released` would let a concurrent `provision/1` call's
+  reclaim step (`list_released_test_projects/0` → `delete_test_project
+  /1`) delete the project out from under its own in-flight reset, and
+  `release_test_project/1`'s own no-op-outside-`:active` guard would
+  silently stop the failure path above from working the moment
+  `:active` stopped being the state a fresh mint starts in.
+
+  **Five more sites state today's three-value set in prose and take
+  the same amendment, named rather than left for the next pass to find
+  piecemeal**: `Catapult.Delivery.Store.Project`'s moduledoc (the
+  `:active`/`:released`/`:deleted` enumeration, stated above its own
+  `Ecto.Enum, values:` list), `Store.sweepable_project?/1`'s `@doc`
+  (the same enumeration), `Store.release_test_project/1`'s `@doc`
+  ("a no-op if `project_id` is not currently `:active`"),
+  `Store.mint_test_project/2`'s `@doc` (its own "at most one active"
+  statement, whose mechanism this entry's companion above changes),
+  and `Catapult.Generation.Sweeper`'s moduledoc ("a released or
+  deleted test project").
+- **`reset_repo/2`'s fixture write moves off one commit per file onto
+  GitHub's Git Data API — two commits per reset and a fixed call
+  count, whatever the file count** (ORC-228, design pass).
+  `HostPort.Actions.put_all_files/2`'s `Enum.reduce_while` PUT loop — a
+  blob-sha read plus a `PUT …/contents/{path}` per entry in `files`,
+  one commit each — is 60 round trips at ORC-225's own 30-file fixture
+  set, and `ToySeedChainLiveTest`'s provisioning POST timed out inside
+  it (run 27, `33994472868`, on `ee1843d`): per-file cost measured flat
+  at ~0.9s across two live-suite runs (0.88s/file at 17 files, run 26;
+  0.93s/file at 30, run 27), so the write alone crossed
+  `@request_timeout`'s 30s once the file count did what ORC-225 sized
+  it to. `put_all_files/2` now issues seven calls total, independent of
+  the file count, in this order: the workflow file's existing blob-sha
+  `GET …/contents/{path}` and its `PUT …/contents/{path}` land first,
+  exactly as today, so `.github/workflows/catapult-dispatch.yml`'s
+  commit becomes the branch's head before anything below reads it;
+  `fetch_ref_sha/2` (already there, reused rather than duplicated)
+  then reads that head **commit** sha; `GET …/git/commits/{sha}`
+  dereferences it to its **tree** sha, since `POST …/git/trees`'s own
+  `base_tree` parameter is documented to take a tree object's sha, not
+  a commit's. GitHub's create-tree reference states what happens when
+  `base_tree` is *omitted* (a new tree built from only the entries
+  given, every other path read as deleted) but says nothing about what
+  it does with a commit sha handed to that parameter instead, and that
+  case hasn't been measured here. The dereference is one cheap call
+  against either unmeasured outcome — a rejected 422, or a tree
+  silently missing every file this reset doesn't name — so it is taken
+  rather than gambled on; `POST …/git/trees` with that tree sha as
+  `base_tree` and every non-workflow entry in `files` inline (`path`,
+  `mode: "100644"`, `type: "blob"`, `content`) — `base_tree` overwrites
+  the named paths and deletes nothing else, the identical semantics
+  the per-file loop already had; `POST …/git/commits` against the new
+  tree with the workflow file's commit as parent; `PATCH
+  …/git/refs/heads/{branch}` moves the branch to this new commit — the
+  actual last write of the seven, and the one `reset_repo/2` reports.
+  Its contract is unchanged: `{:ok, ref}`, now this ref-update call's
+  own resulting commit sha rather than a second `fetch_ref_sha/2` read
+  after the last PUT lands (this doc's own ORC-216 entry above,
+  amended in this same change: the sha's *source* changes, the
+  contract it reports does not) — and because that commit's parent is
+  the workflow file's own commit, this sha is the branch's actual head
+  once all seven calls land, matching the ORC-216 contract rather than
+  trailing it by one commit.
+
+  **The workflow file stays on today's Contents PUT, unconditionally —
+  this needs no measurement, because run 27 already is one.**
+  `ToySeed.reset_files/0` writes
+  `.github/workflows/catapult-dispatch.yml` into the same map as
+  everything else, and `SETUP.md` §2 already records that GitHub
+  refuses a `PUT …/contents/{path}` under `.github/workflows/` to a
+  token holding Contents without Workflows — `DELIVERY_GITHUB_TOKEN`
+  holds both, so that specific refusal never reaches this token, and
+  its Contents PUT against that path succeeds today: run 27's own
+  commit history (`SwaggerAllen/catapult-test`) has it landing at
+  2026-09-05 21:59:08, on this token, on this repo. Whether GitHub's
+  Git Data `PATCH …/git/refs` applies the same workflow-scope check a
+  Contents PUT does is therefore beside the point: nothing here needs
+  that fact, because the Contents PUT that already runs today is
+  proven to work and costs two of the seven calls above (a blob-sha
+  `GET …/contents/{path}` plus the `PUT`) regardless of what the tree
+  write does. The rule is unconditional rather than branching on an
+  unmeasured GitHub behavior: every file **except** the workflow file
+  rides the tree commit; the workflow file always rides its existing
+  Contents PUT, issued *before* the tree write rather than after, so
+  the tree commit — which the ref update, last of the seven calls,
+  moves the branch to — is the branch's actual head and the sha
+  `reset_repo/2` returns, rather than the workflow commit trailing
+  behind it. No probe against `catapult-test` is needed before
+  shipping this, and none is deferred to the implementing pass.
+
+  **`@request_timeout` stays at 30s in both live tests**
+  (`toy_seed_chain_live_test.exs`, `todo_app_proof_live_test.exs`). The
+  write cost that grew with the fixture list is gone — seven calls,
+  fixed, replace what was 60 at 30 files — and the remaining sequential
+  cost in `provision/1` is one of those seven (`fetch_ref_sha/2`, reused
+  rather than duplicated) plus `read_directory/3` against `docs/raft`
+  (1 + one per role doc, 7 today), bounded by the role list ORC-225
+  didn't touch, not the fixture list it did.
+
+  **`commit_files/4` does not move to the Git Data shape.** Its one
+  caller, `FeaturePublishWorker`, pushes a single `%{path => body}` map
+  per call (`feature_publish_worker.ex:193`) — the per-file loop it
+  runs today already costs one round trip per call, not one per
+  fixture set, so nothing here times out and nothing here grows with
+  `@root_tag_fixtures`. Moving it anyway buys no live-suite headroom
+  and widens this ticket's diff past its own argument, which is a
+  write-count problem `reset_repo/2` alone has. It keeps its per-file
+  Contents-API shape (read the blob sha, PUT with it) — its own shape
+  now, not `reset_repo/2`'s to share, since the two diverge here for
+  the first time.
+
+  Two different sentences go stale here, not one, and they take
+  different corrections. **Five sites state the shared per-file write
+  shape** — "blob-sha-then-PUT", or "the same per-file Contents-API
+  shape `reset_repo/2` already established" — **and take the same
+  correction, named rather than left for the next pass to find
+  piecemeal**: `HostPort.Actions.reset_repo/2`'s own `@doc`;
+  `HostPort.Actions.commit_files/4`'s own `@doc` (both sentences —
+  "the same per-file shape `reset_repo/2` uses" and "the same
+  idempotent-retry shape `reset_repo/2` already follows"); this doc's
+  ORC-33 entry above ("the same per-file Contents-API shape
+  `reset_repo/2` already established"), amended in this same change;
+  this doc's `ArtifactPush` entry above ("the same blob-sha-then-PUT
+  shape `reset_repo/2` already relies on"), amended in this same
+  change; and `lib/catapult/delivery/host_port.ex`'s own ORC-33
+  paragraph, which restates the identical "same per-file Contents-API
+  shape `reset_repo/2` already established" sentence a third time —
+  this ticket's own citation list named six sites in total and missed
+  this one.
+
+  **Two more sites state a different sentence — the ref's *source*,
+  not the write shape — and take a narrower correction of their own:**
+  this doc's own ORC-216 entry above and
+  `lib/catapult/delivery/host_port.ex:31-35`'s own ORC-216 paragraph,
+  which restates the identical sentence a second time, both read "the
+  default branch's head commit SHA once `files` lands" — under one
+  tree commit, with the workflow file's own commit ahead of it, there
+  is no longer a last file landing, only a final ref update. These two
+  are the pair the ticket's own six-site list actually drew from to
+  reach "seven" for the *shape* correction above — a different fact,
+  named here on its own rather than folded silently into that count.
+
+  **Concurrent per-file writes are ruled out, not just left
+  unchosen — on an inferred rather than a measured GitHub behavior,
+  named as such rather than dressed as settled fact.** `Task
+  .async_stream` over the existing PUT loop was the smaller diff and
+  would have left `reset_repo/2`'s contract untouched, but every
+  Contents-API PUT against a branch computes its parent from that
+  branch's current head at request time — concurrent writes to the
+  same branch race on that parent rather than serializing, so the
+  loop's own "one file's failure does not roll back an earlier one"
+  guarantee becomes "some subset of files lands, order unspecified,"
+  which is worse than the timeout it would fix. No probe against
+  `catapult-test` was run to confirm GitHub actually behaves this way
+  under concurrent PUTs to one branch rather than serializing them
+  server-side — the same caliber of unmeasured claim the workflow-file
+  question above was. It gets no probe because none would change the
+  conclusion: even if GitHub does serialize concurrent PUTs safely,
+  that safety isn't documented, and a mechanism this system depends on
+  needing GitHub to hold an undocumented guarantee is itself the
+  defect concurrency would introduce. A single tree-and-commit write
+  needs no such guarantee: every file's blob is independent,
+  content-addressed into one tree, built and committed as one object
+  graph before the ref ever moves.
+
+  **`HostPort` and `HostPort.Fake` are confirmed unaffected, not
+  assumed to be.** This port's standing rule is that every *operation*
+  lands in `HostPort`, `HostPort.Actions` and `HostPort.Fake` together
+  (this doc's Reading-it and ORC-31 entries) — it binds when an
+  operation is added, and this change adds none: `reset_repo/2`'s
+  callback signature and its `{:ok, ref}` contract are exactly what
+  they were. `HostPort.Fake.reset_repo/2` already synthesizes its ref
+  through `Forge.head_sha/1` and reaches no network (ORC-216's own
+  entry above), so it has nothing to change either way.
+
+  **`SETUP.md` §2's derived-scope bullets for `DELIVERY_GITHUB_TOKEN`
+  name endpoints, not intent.** Its Contents-permission bullet lists
+  `GET …/git/commits/{sha}`, `POST …/git/trees` and `POST …/git/commits`
+  beside the `GET …/git/ref/heads/{ref}` and `POST …/git/refs` entries
+  already there, and `PATCH …/git/refs/heads/{branch}` joins the same
+  bullet — Contents alone, since the workflow file never touches the
+  Git Data path and so needs nothing beyond the Contents scope this
+  token already holds.
 
 ## Initial vs target
 
@@ -2192,7 +3034,7 @@ a subset of the same host port this doc already claims, not a
 parallel one this ticket invents. The handler logic for that slice —
 OIDC validation, run correlation, context/result payloads — lives
 under this doc's own file map; **what serves it does not**
-(`systems/foundation.md`'s dispatch-facing endpoint entry): the endpoint rides
+(`systems/foundation.md`'s design review finding): the endpoint rides
 a second path on foundation's existing health listener, reached
 through an `api_surface/0` declaration rather than a router of this
 system's own, because the general composed router waits for
