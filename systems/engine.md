@@ -514,57 +514,53 @@ them.
 
   **`drained?` delivers the ordering half of the Scope section's
   purpose, not the reading-real-APIs half.** The Scope section above
-  states
-  the point of ordering `frontend_sysarch` after the backend as letting
-  "the front-end family read real component APIs on its first pass
-  rather than a shape it has to guess at." `drained?` delivers the
+  states the point of ordering `frontend_sysarch` after the backend as
+  letting "the front-end family read real component APIs on its first
+  pass rather than a shape it has to guess at." `drained?` delivers the
   ordering half — `frontend_sysarch` does not dispatch before
-  `sysarch` is approved — but not the reading-real-APIs half, for two
-  reasons: `frontend_sysarch`'s `all.comp.handle` and
-  `ui_collarch`'s `self.parent.uses_shapes -> comp.handle
-  .fragments[pubapi]` wait, via `settled?`, only on the `comp` node's
-  own minting `sysarch` — never on `comparch`, the tier that actually
-  writes the `pubapi` fragment `uses_shapes` reads (the `.fragments
-  [kind]` provenance gap noted above); and
-  `uses_shapes`/`calls` resolve to `[]` regardless once relocated,
-  because relocating a `dependency` edge's declaration does not change
-  whether its `source` tier can ever commit it (`systems/generation.md`'s
-  ORC-235 entry) — **closed at ORC-236, below**: `source_ref:`/
-  `target_ref:` extracts every `dependency` instance regardless of which
-  tier `declared_in` names, `uses_shapes`/`calls` included, so this walk
-  no longer resolves to `[]` for want of extraction. One gap stands
-  between here and the ticket's own stated purpose now, not two — a
-  same-tier `.fragments[kind]` provenance carve-out in `settled?`,
-  unclosed by ORC-236 and not attempted there (its own scope is
-  extraction and mint-time values, not readiness's mint-ancestry-vs-
-  fragment-authorship distinction).
+  `sysarch` is approved — but not the reading-real-APIs half:
+  `frontend_sysarch`'s `all.comp.handle` and `ui_collarch`'s
+  `self.parent.uses_shapes -> comp.handle.fragments[pubapi]` wait, via
+  `settled?`, only on the `comp` node's own minting `sysarch` — never
+  on `comparch`, the tier that actually writes the `pubapi` fragment
+  `uses_shapes` reads (the `.fragments[kind]` provenance gap noted
+  above). The walk itself does resolve: `source_ref:`/`target_ref:`
+  extraction (`systems/generation.md`'s ORC-235 entry,
+  `systems/core_dsl.md`'s ORC-236 entry) extracts every `dependency`
+  instance regardless of which tier `declared_in` names,
+  `uses_shapes`/`calls` included, so relocating a `dependency` edge's
+  declaration does not leave it resolving to `[]` for want of
+  extraction. The one gap between `drained?` and the Scope section's
+  stated purpose is a same-tier `.fragments[kind]` provenance carve-out
+  in `settled?` — readiness's mint-ancestry-vs-fragment-authorship
+  distinction, not an extraction or mint-time-value question.
 
 - **A minted node's `fields` are written at mint time, copied from the
   mint entry unchanged — the identical "copy, never derive" shape
-  ORC-117 already established for `status`** (ORC-236, design pass).
-  `apply_mint/2` already threads `mint.status` from
-  `Extraction.mints/4`'s own entry onto `Store.mint_node/1` without the
-  reducer deriving anything; the mint entry now also carries `fields:`
-  — every `mint.<name>`/`mint.parent.<name>` value `Extraction.mints/4`
+  ORC-117 already established for `status`** (ORC-236).
+  `apply_mint/2` threads `mint.status` from `Extraction.mints/4`'s own
+  entry onto `Store.mint_node/1` without the reducer deriving anything;
+  the mint entry also carries `fields:` — every
+  `mint.<name>`/`mint.parent.<name>` value `Extraction.mints/4`
   resolved at the command edge (`docs/dsl-syntax.md` §3,
   `systems/core_dsl.md`'s ORC-236 entry) — and `apply_mint/2` copies it
-  onto the same call, alongside `status`. No new reducer branch and no
-  new purity-floor exposure: the values are already computed,
+  onto the same call, alongside `status`. No reducer branch derives
+  them and the purity floor is not exposed: the values are computed,
   purity-floor-clean, before the event is dispatched, the same
-  guarantee `mint.status` already relies on.
+  guarantee `mint.status` relies on.
 - **`settled?/2`'s `generator: supplied` clause widens to
   `generator: reference`, unconditionally, for the identical reason**
-  (ORC-236, design pass, extending ORC-235's own three-way match,
-  above). A `supplied` node is settled the moment it exists because
-  nothing upstream in the generation chain produced it and could still
-  revise it; a `reference` node (`ref`, the tier `dsl-syntax.md` §3.1's
-  new scope kind exists for) has the identical property for a different
-  reason — its content is written once, by a write path outside the
-  chain, with no draft anywhere in its history to be unapproved. Both
-  clauses now read "settled unconditionally, the moment the node
-  exists," keyed on the tier's own generator declaration rather than on
-  `parent_node_id == nil`, unchanged from ORC-235's own reasoning for
-  keeping the check declaration-keyed. This is what makes a
+  (ORC-236; the three-way match above). A `supplied` node is settled
+  the moment it exists because nothing upstream in the generation chain
+  produced it and could still revise it; a `reference` node (`ref`, the
+  tier `dsl-syntax.md` §3.1's `reference` scope kind exists for) has
+  the identical property for a different reason — its content is
+  written once, by a write path outside the chain, with no draft
+  anywhere in its history to be unapproved. Both clauses read "settled
+  unconditionally, the moment the node exists," keyed on the tier's own
+  generator declaration rather than on `parent_node_id == nil`, for the
+  reason the three-way match above keeps the check declaration-keyed.
+  This is what makes a
   `self.reference -> ref.handle` walk (`docs/dsl-syntax.md` §3.3's own
   worked example) resolvable at all: a `ref` node has no draft anywhere
   in its history, so there is no approval for `settled?` to wait on —
@@ -575,23 +571,22 @@ them.
   once the edge's own bound side is drained — except a `max` bound,
   which needs no such gate and is evaluated as soon as it can be
   violated — and a violation is a reported, non-blocking finding —
-  never a retried draft and never a blocking gate** (ORC-236, design
-  pass). `dsl-syntax.md`
-  §13's own opening line already places this at "projection time," not
-  load time; what it left unstated is which moment of projection time,
-  and the ticket's own warning is exactly the failure a naive answer
-  ("check on every `DraftCommitted`") produces: `fulfills`'s
+  never a retried draft and never a blocking gate** (ORC-236).
+  `dsl-syntax.md` §13 places this at "projection time," not load time;
+  which moment of projection time is the load-bearing part, because
+  the naive answer ("check on every `DraftCommitted`") produces exactly
+  this failure: `fulfills`'s
   `source: {min: 1}` ("every comp fulfills ≥1 resp") reads as violated
   on every comp that hasn't drafted its `fulfills` edge yet, which is
   every comp for some nonzero span of the chain's own run — a check
   that fires on every intermediate state is not a check, it is noise
-  indistinguishable from a real defect. The fix reuses the mechanism
-  this system already built to tell "not yet" from "never": a `{min,
-  max}` bound on one side of an edge instance is evaluated only once
-  that side's own tier is `drained?/1` (above) — the identical
-  "has everything that could ever exist already committed and settled"
-  question `all.<tier>` readiness already answers, asked here of a
-  cardinality bound instead of a context walk. `max` bounds need no
+  indistinguishable from a real defect. The gate is the mechanism this
+  system uses to tell "not yet" from "never": a `{min, max}` bound on
+  one side of an edge instance is evaluated only once that side's own
+  tier is `drained?/1` (above) — the identical "has everything that
+  could ever exist already committed and settled" question `all.<tier>`
+  readiness answers, asked here of a cardinality bound instead of a
+  context walk. `max` bounds need no
   such gate (a count that has already exceeded a ceiling stays
   exceeded; checking early costs nothing) and are evaluated as soon as
   they can be violated, `min` bounds and `graph_constraint: acyclic`/
@@ -612,48 +607,47 @@ them.
   Surfaced as a finding a human resolves, the same shape a policy
   enforcement gap already takes (`docs/v5-design-decisions.md` §4.5's
   "enforcement gaps are plane-filed tickets, instantly visible") rather
-  than as a new blocking state this system's readiness graph would have
-  to reason about. This system gains no new node status and no new gate
-  for it — the finding's own surface (a ticket, a dashboard entry, or
+  than as a blocking state this system's readiness graph would have to
+  reason about. This system has no node status and no gate for it —
+  the finding's own surface (a ticket, a dashboard entry, or
   reuse of an existing structured-signal channel) is generation's/
   delivery's to build against this timing rule, not a new engine
   primitive.
 - **A declared edge now resolves to the node it names, closing the
   chain this ticket's own audit found empty — from two independent
   directions, not one fix gating the other.** Every `<arch> → ref`
-  citation was already extracted before this ticket (`systems/generation
-  .md`'s ORC-235 entry: nine instances satisfy the source-identity gate
-  today); what made every one of them resolve to nothing was `ref`'s own
-  broken `scope_key` (above) — `ref`'s `scope: reference` correction
-  alone is what makes `resolve_target/3`'s `Store.get_node_by_scope
-  (project_id, target_tier, %{"id" => value})` lookup succeed for all
-  nine, since a `ref` node's `scope_key` is now `%{"id" => <the id the
-  write path assigned>}`, the exact shape a `<reference target="...">`
-  citation already looks up, rather than the single flat `%{}` every
-  node of a `scope: singleton` tier shares. Separately,
+  citation is extracted (`systems/generation.md`'s ORC-235 entry: nine
+  instances satisfy the source-identity gate); what resolves them is
+  `ref`'s `scope: reference` (above) — a `ref` node's `scope_key` is
+  `%{"id" => <the id the write path assigned>}`, the exact shape a
+  `<reference target="...">` citation looks up, so
+  `resolve_target/3`'s `Store.get_node_by_scope(project_id,
+  target_tier, %{"id" => value})` lookup succeeds for all nine. Under
+  `scope: singleton`, `ref`'s `scope_key` was the single flat `%{}`
+  every node of a `scope: singleton` tier shares, and every one of the
+  nine extracted citations resolved to nothing. Separately,
   `source_ref:`/`target_ref:` extraction
-  (`systems/core_dsl.md`'s ORC-236 entry) makes the seventeen `dependency`
-  and non-`ref` `reference`/`fulfills` instances extractable for the
-  first time. Sixteen of their targets (`comp`, `resp`, `journey`,
-  `screen`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll`,
-  `screen_subcomp`) already carry a correctly id-shaped `scope_key` from
-  their own ordinary fanout mint, so those sixteen resolve by the same
-  `%{"id" => value}` lookup the moment they're extracted, with no
-  dependency on the `ref` fix at all. The seventeenth, `ui_coll →
+  (`systems/core_dsl.md`'s ORC-236 entry) extracts the seventeen
+  `dependency` and non-`ref` `reference`/`fulfills` instances. Sixteen
+  of their targets (`comp`, `resp`, `journey`, `screen`, `subcomp`,
+  `ui_coll`, `ui_subcomp`, `screen_coll`, `screen_subcomp`) carry a
+  correctly id-shaped `scope_key` from their own ordinary fanout mint,
+  so those sixteen resolve by the same `%{"id" => value}` lookup the
+  moment they are extracted, with no dependency on `ref`'s scope at
+  all. The seventeenth, `ui_coll →
   design_system`, does not: `design_system` is `scope: singleton`, not
   fanout-minted, and its one node's `scope_key` is the flat `%{}` every
   `scope: singleton` tier shares — an id lookup against it can never
   match. That instance resolves through the `scope: singleton` endpoint
-  locator instead (`docs/dsl-syntax.md` §4.2), which is what makes
-  `resolve_target/3` gain a second clause: a `scope: singleton` target
+  locator instead (`docs/dsl-syntax.md` §4.2), which is
+  `resolve_target/3`'s second clause: a `scope: singleton` target
   resolves by `Store.get_node_by_scope(project_id, target_tier, %{})`,
   no id involved, selected by the tier's own declared scope rather than
-  by an attribute value. `Extraction.references/5` changes too, for the
-  reason `systems/generation.md`'s own entry gives — it gains the
-  `source_ref:`/`target_ref:` locator resolution itself, not only
-  better-shaped inputs. `apply_declared_edge/2` alone is unchanged: it
-  applies whichever edge list it is handed, and does no locating of its
-  own either before this ticket or after.
+  by an attribute value. `Extraction.references/5` carries the
+  `source_ref:`/`target_ref:` locator resolution itself
+  (`systems/generation.md`), not only better-shaped inputs.
+  `apply_declared_edge/2` applies whichever edge list it is handed and
+  does no locating of its own.
 
 - **A fanned-out child cannot leave its parent's workflow-axis
   sub-array, and this is a consequence of readiness already gating,
