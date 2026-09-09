@@ -41,21 +41,20 @@ and validation logic and must not fork it.
   generation means an autoscaling worker pool pulling from the
   queue — generation never moves in-plane.
 - **`Extraction.mints/4` decides a minted node's initial status, not
-  only its identity** (ORC-117, design pass). Building a mint entry
+  only its identity** (ORC-117). Building a mint entry
   already means resolving the target tier's own declaration out of
-  `chain`; that same lookup now also reads whether the target
+  `chain`; that same lookup also reads whether the target
   declares a `draft:` block and carries the answer on the entry
   (`:approved` for a join target, `:absent` otherwise), rather than
   the reducer inferring it from bundle content it isn't supposed to
   read. The decision this answers to — what a join target's status
   means — is `systems/engine.md`'s; this entry only records that the
-  computation sits here rather than being rediscovered as a surprise
-  in that ticket's diff. The value written here is necessary but not
+  computation sits here. The value written here is necessary but not
   sufficient: readiness also asks whether the node that minted a join
   target is itself settled, recursively (`systems/engine.md`).
 - **The gate `Extraction` applies is source-identity, not `edge.type`
   — and it cuts out more than the `dependency`/`policy_application`
-  family** (ORC-235, design pass).
+  family** (ORC-235).
   `Catapult.Generation.CommitPath.commit_draft/3` feeds `mints:` from
   `Extraction.mints/4` (`edge.type == "fanout"`) and `edges:` from
   `Extraction.references/5` (`edge.type == "reference"`, which also
@@ -106,14 +105,13 @@ and validation logic and must not fork it.
   entry their own `*subcomparch`/`*collarch` counterpart declares
   (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
   `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
-  the same emptiness reaches them too — and now `comparch`'s and
+  the same emptiness reaches them too — and `comparch`'s and
   `screen_collarch`'s own `fulfills` walks too) resolves to `[]` and
   stays vacuously satisfied regardless of tier ordering.
-  `systems/platform_content.md`'s ORC-232 entry already found and
-  recorded the `subcomp↔subcomp` instance of this as live and broken;
-  this entry generalizes it to every instance the same
-  `source`-identity gate excludes, not only the ones typed
-  `dependency`.
+  `systems/platform_content.md`'s ORC-232 entry records the
+  `subcomp↔subcomp` instance of this as live and broken; the same
+  `source`-identity gate excludes every instance above, not only the
+  ones typed `dependency`.
 
   The two `type: policy_application` instances
   (`bundles/default/edges/policy_application.yaml:24,35`) are a third
@@ -127,9 +125,9 @@ and validation logic and must not fork it.
   own comments), never extracted from any committing tier's draft body
   at all.
 
-  Out of ORC-235's own scope (that ticket is tier ordering, this is
-  extraction coverage) and not fixed here. **What the follow-on ticket
-  actually has to build is two separate mechanisms, not one:**
+  ORC-235 is tier ordering; this is extraction coverage, and it is a
+  ticket of its own. **Closing it takes two separate mechanisms, not
+  one:**
 
   - Reading an edge instance declared by a tier that is not its own
     `source` — the harder case `Extraction`'s own moduledoc already
@@ -141,10 +139,10 @@ and validation logic and must not fork it.
     `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
     ORC-235 entry, below) still needs afterward: their `source` is
     `ui_coll`/`screen_coll` whether declared in `ui_collarch`/
-    `screen_collarch` (before this ticket) or in `frontend_sysarch`
-    (after it), and neither tier name is the edge's `source` either
-    way, so `instance.source == tier_name` fails identically before
-    and after the relocation. These three are not "correctly declared
+    `screen_collarch` or in `frontend_sysarch`, and neither tier name
+    is the edge's `source` either way, so `instance.source ==
+    tier_name` fails identically before and after the relocation.
+    These three are not "correctly declared
     and inert until extraction adds a type" — no relocation makes them
     extractable, because the gate they fail is never edge-type.
   - Synthesizing an edge instance at fanout-mint time from a marker the
@@ -152,9 +150,6 @@ and validation logic and must not fork it.
     navigate at all — what both `policy_application` instances need
     instead, since their `declared_in` names no tier's draft body for
     any navigator to read.
-
-  Recorded here so that ticket is filed against the two gates it
-  actually has to cross, not one.
 
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
@@ -176,17 +171,15 @@ and validation logic and must not fork it.
   tokens over the dispatch channel. **Rendered context never
   contains bindings or credentials.**
 - **The endpoint's listener is foundation's, not a second one this
-  system stands up** (design review finding, ORC-9): `systems
+  system stands up** (ORC-9): `systems
   /foundation.md` records where context-fetch and result-report are
   actually served — a second path on the existing health listener,
   composed from generation's and delivery's `api_surface/0`
   declarations, ahead of the general router that will eventually
-  absorb them — and why it isn't dashboard's router yet. This ticket
-  carries `system:foundation` alongside `system:generation` and
-  `system:delivery` for exactly that reason: the handler logic (OIDC
-  validation, run correlation, context/result payloads) stays here and
-  in delivery's file map; foundation owns only the listener it answers
-  on.
+  absorb them — and why it isn't dashboard's router yet. The handler
+  logic (OIDC validation, run correlation, context/result payloads)
+  stays here and in delivery's file map; foundation owns only the
+  listener it answers on.
 - **Run-result reporting is that same authenticated callback, not a
   marker comment** (ORC-9's open question, resolved): the
   result-report call reuses the identical OIDC bearer settled in the
@@ -201,55 +194,50 @@ and validation logic and must not fork it.
   whose cadence the plane doesn't own — but a result report is
   plane-to-plane over a channel the plane owns both ends of, so the
   marker's reason for existing doesn't transfer here.
-- **Catapult owns its generation runner harness, built here** (ORC-215,
-  reversing this entry's own prior reading of ORC-9's open question).
-  The prior text read v5 §1.2's third reason — "one execution path...
-  extended rather than duplicated" — as a mandate to consume
-  orchestration's own harness as a pinned dependency, and read
-  `docs/non-goals.md`'s no-self-bootstrap entry as supporting that.
-  Neither does: §1.2's reason is proven-*pattern*, not proven-*code*
-  (sharpened there, ORC-215), and no-self-bootstrap is about consuming
-  the shared components (`components/**`) as an ordinary library user
-  — a different question from which repo authors a `workflow_dispatch`
-  file this repo already pushes into a bound project's own repo
-  (`systems/delivery.md`'s ORC-10 entry). Orchestration builds
-  Catapult; it participates in none of Catapult's own mechanisms, this
-  one included.
+- **Catapult owns its generation runner harness, built here** (ORC-215).
+  v5 §1.2's third reason — "one execution path... extended rather
+  than duplicated" — is no mandate to consume orchestration's own
+  harness as a pinned dependency, and `docs/non-goals.md`'s
+  no-self-bootstrap entry does not support one: §1.2's reason is
+  proven-*pattern*, not proven-*code*, and no-self-bootstrap is about
+  consuming the shared components (`components/**`) as an ordinary
+  library user — a different question from which repo authors a
+  `workflow_dispatch` file this repo already pushes into a bound
+  project's own repo (`systems/delivery.md`'s ORC-10 entry).
+  Orchestration builds Catapult; it participates in none of Catapult's
+  own mechanisms, this one included.
 
-  The contract is unchanged (v5 §7.12.1: fetch rendered context, run
-  agent, commit, report) and so is the seam: the run-agent step is the
-  only implementation-specific piece, so a second agent implementation
-  is a bindings entry, never a rewrite of the steps around it (the
-  entry below settles which one).
+  The contract is v5 §7.12.1's (fetch rendered context, run agent,
+  commit, report) and so is the seam: the run-agent step is the only
+  implementation-specific piece, so a second agent implementation is a
+  bindings entry, never a rewrite of the steps around it (the entry
+  below settles which one).
 
   **Where the run-agent step's code lives: inline in the dispatched
   workflow content, the same fixture-content mechanism `reset_repo/2`
-  already pushes into a bound repo** (`systems/delivery.md`'s ORC-10
-  entry) — no new mechanism, the placeholder step is filled in place.
-  Two alternatives, ruled out rather than merely unconsidered: a
-  composite action under this repo's own `.github/actions/**`,
-  referenced cross-repo from every bound project's workflow (`uses:
-  <this repo>/…@ref`), would tie every dispatched run forever to this
-  repo's own git history instead of to the reviewed commit its own
-  bound-repo workflow file already pins — the mirror image of the
-  coupling §1.2's sharpened reason just closed off, one hop later —
-  and `.github/actions/**` has no owner in this repo today
+  pushes into a bound repo** (`systems/delivery.md`'s ORC-10 entry) —
+  no new mechanism. A composite action under this repo's own
+  `.github/actions/**`, referenced cross-repo from every bound
+  project's workflow (`uses: <this repo>/…@ref`), would tie every
+  dispatched run forever to this repo's own git history instead of to
+  the reviewed commit its own bound-repo workflow file already pins —
+  the mirror image of the coupling §1.2's reason closes off, one hop
+  later — and `.github/actions/**` has no owner in this repo
   (`systems/README.md`'s unowned-paths list doesn't carry it), so
   creating one is the author's call, not a ticket's. A script fetched
-  from the plane at run time was the other candidate, also ruled out:
-  it would give the plane a live code-serving role beyond its two
-  settled dispatch endpoints (context-fetch, result-report), a new
-  authenticated surface bought for no protocol gain, and it ties an
-  in-flight run's behavior to whatever the plane's *current* deploy
-  happens to serve rather than to the commit its own workflow file
-  pinned when the run started.
+  from the plane at run time would give the plane a live code-serving
+  role beyond its two settled dispatch endpoints (context-fetch,
+  result-report), a new authenticated surface bought for no protocol
+  gain, and it ties an in-flight run's behavior to whatever the
+  plane's *current* deploy happens to serve rather than to the commit
+  its own workflow file pinned when the run started.
 
-  **The classified outcome vocabulary is not new** —
-  `Catapult.Delivery.ResultHandler`'s `payload().status` is already
-  the closed `:success | :limit_class_failure | :other_failure` union,
-  and `Catapult.Generation.CommitPath`/`Catapult.Delivery.Dispatch`
-  already branch on it; what was missing is how the harness computes
-  which one applies. `claude -p --output-format json`'s terminal
+  **The classified outcome vocabulary is
+  `Catapult.Delivery.ResultHandler`'s** — `payload().status` is the
+  closed `:success | :limit_class_failure | :other_failure` union, and
+  `Catapult.Generation.CommitPath`/`Catapult.Delivery.Dispatch` branch
+  on it; the harness computes which one applies. `claude -p
+  --output-format json`'s terminal
   `result` object's `subtype` (`success`, `error_during_execution`,
   `error_max_turns`, `error_max_budget_usd`,
   `error_max_structured_output_retries`) does not itself carry that
@@ -267,7 +255,7 @@ and validation logic and must not fork it.
   wording.
 
   Classification is two-stage and precedence-ordered, not a flat
-  three-way split, and the harness already implements it in that
+  three-way split, and the harness implements it in that
   order: a terminal `result` event whose `subtype` is `success`
   reports `success` regardless of anything seen earlier in the
   stream — a run that retried past a `rate_limit`
@@ -293,7 +281,7 @@ and validation logic and must not fork it.
   rather than triggering a failover that would mask a configuration
   problem needing a fix, not a workaround. `model_not_found` and
   `invalid_request` are request-shaped, not usage-shaped, and join
-  `other_failure` for the same reason `invalid_request` already did.
+  `other_failure` for that reason.
 
   `other_failure` stays undifferentiated by design, not by gap: the
   terminal `result` object also carries `stop_reason`, and
@@ -321,40 +309,34 @@ and validation logic and must not fork it.
   an `other_failure` on the subscription credential whose `result`
   names a usage limit is this rule's failure mode, and reads as one.
 
-  **No failover retires today, not on a future date** (this same
-  entry's prior text already named the day: "the adapter starts
-  sending the tunable's full ordered pair instead of its head — a
-  one-line change... because the contract was already built for two").
-  That day is this ticket: `HostPort.request`'s `credential_name`
-  widens to the bindings tunable's full ordered pair
-  (`systems/delivery.md`'s own entry), and `Actions.dispatch_run/1`
-  sends it whole.
+  **Failover is live, not deferred to a future date**:
+  `HostPort.request`'s `credential_name` is the bindings tunable's
+  full ordered pair, not its head (`systems/delivery.md`'s own entry),
+  and `Actions.dispatch_run/1` sends it whole — the contract was built
+  for two.
 - **The bindings entry is `:generation`, one kind in the same kind →
   runtime map v5 §7.10 already describes for ticket-delivery agent
-  kinds** (design, dev, reconcile, validation, retro, setup — none
-  built yet, Phase 7), not a second, generation-only mechanism:
-  Catapult's own chain has exactly one kind today, and reusing the one
+  kinds** (design, dev, reconcile, validation, retro, setup — Phase
+  7), not a second, generation-only mechanism:
+  Catapult's own chain has exactly one kind, and reusing the one
   map is what makes "supporting a second agent implementation is a new
   bindings entry and zero protocol or bundle change" (v5 §7.10) literal
   rather than aspirational the moment Phase 7 lands its own kinds
   beside this one. Per-tier executor-profile routing (model, effort,
-  harness requirements) stays Target, unchanged by this entry — this
-  ticket picks one runtime for every generation dispatch project-wide,
-  never per tier.
+  harness requirements) stays Target — one runtime serves every
+  generation dispatch project-wide, never per tier.
 
   `Catapult.Generation.cast_credential_order/1`'s closed two-name set
   (`claude_code_oauth_token`, `anthropic_api_key`) is Claude-Code-
-  specific and moves to bindings, keyed by whichever runtime is bound
+  specific and lives in bindings, keyed by whichever runtime is bound
   to the `:generation` kind — a second implementation's own credential
   names arrive as a new bindings entry, never a rewrite of this
-  validator. The general bindings-as-plane-entities store (v5 §7.10)
-  still doesn't exist and this ticket doesn't build it: the
-  credential-order and kind→runtime tunables keep the
-  "accepted-for-now" env-var-config shape `Catapult.Generation`'s own
-  `config/0` already uses for exactly this reason, reorganized to be
+  validator. Until the general bindings-as-plane-entities store
+  (v5 §7.10) exists, the credential-order and kind→runtime tunables
+  carry the "accepted-for-now" env-var-config shape
+  `Catapult.Generation`'s own `config/0` uses for exactly this reason,
   keyed by implementation rather than hardcoded to Claude Code's two
-  names — a fact that holds however long the real store takes to
-  land, not a placeholder timed to this ticket.
+  names — a fact that holds however long the real store takes to land.
 - **Model credentials are a pair with limit-class failover** (v5
   §7.12.1): the runner harness accepts `ANTHROPIC_API_KEY` and/or
   `CLAUDE_CODE_OAUTH_TOKEN` — customer-side secrets the plane never
@@ -384,13 +366,12 @@ and validation logic and must not fork it.
   named reason (§7.15), never a further retry: the readiness query
   cannot distinguish "will succeed next window" from "never fits in a
   window," so the executor answers that with a query, not a counter —
-  **the count is derived from the log, never held** (design review
-  finding, ORC-9, resolving the apparent conflict with the invariant
-  just stated). Every limit-class run failure is its own event, on the
-  scope's node, in generation's own `events/0` (a new entry this
-  ticket adds), landing in the same per-project stream engine's
-  `draft_committed` already writes to — one aggregate per project, not
-  one per system. The derivation walks the log backward from now to
+  **the count is derived from the log, never held** (ORC-9). Every
+  limit-class run failure is its own event, on the scope's node, in
+  generation's own `events/0`, landing in the same per-project stream
+  engine's `draft_committed` already writes to — one aggregate per
+  project, not one per system. The derivation walks the log backward
+  from now to
   the node's most recent `draft_committed` (or the log's start, if
   none), counting limit-class failure events since. `Blocked` fires
   once that count repeats past one. This satisfies the invariant
@@ -400,8 +381,8 @@ and validation logic and must not fork it.
   plane's log, the same place every other derived answer in this
   system already lives (`systems/engine.md`'s "no in-memory
   pending-set" doctrine, one layer down), not in a table row or an
-  Oban attempt counter. The rejected alternative is concrete enough to
-  name the reason it's wrong: an Oban attempt count is scoped to one
+  Oban attempt counter. An Oban attempt counter is the wrong home for
+  a concrete reason: an Oban attempt count is scoped to one
   job, and the uniqueness key that turns a re-announced ready scope
   into one dispatch (above) is held only for the scope's in-flight
   window — once that window closes, a redispatch is a *new* job
@@ -431,14 +412,13 @@ and validation logic and must not fork it.
   `draft`: neither is review-tier-only (`docs/dsl-syntax.md` §9/§3.3,
   which also carries their rendered shapes).
 
-  Two decisions this entry deliberately does not restate, because each
-  is recorded where it would be edited: `since_sequence` is
-  caller-supplied rather than computed inside `execute/2`
-  (`Catapult.Engine.Commands.DeclineGate`, on this system's purity
-  floor), and the reset boundary is neither `DraftCommitted` nor a
-  position in the resolution sequence — `CommentFeedback`'s own
-  moduledoc names both rejected alternatives, their failure modes, and
-  the shipped bundle that breaks the second.
+  Two decisions are recorded where they would be edited rather than
+  here: `since_sequence` is caller-supplied rather than computed
+  inside `execute/2` (`Catapult.Engine.Commands.DeclineGate`, on this
+  system's purity floor), and the reset boundary is neither
+  `DraftCommitted` nor a position in the resolution sequence —
+  `CommentFeedback`'s own moduledoc names both alternatives, their
+  failure modes, and the shipped bundle that breaks the second.
 
 - **`ContextAssembly` renders an `input.<role>`/`input.*` entry from a
   second, direct read of delivery — never through the node-collection
@@ -489,8 +469,8 @@ and validation logic and must not fork it.
   ORC-34 entry), then a second dispatch through the same fake reading
   the regenerated context back.
 
-  The ticket names the assertion most likely to be quietly skipped,
-  and it is bucketing, not occurrence: the test must post its comment
+  The assertion most likely to be quietly skipped is bucketing, not
+  occurrence: the test must post its comment
   against one named node, decline that node's gate, and assert that
   the *regenerated context for that node* —
   `ContextAssembly.build_variables/5`'s `feedback` entry — carries the
@@ -500,13 +480,12 @@ and validation logic and must not fork it.
   (`systems/engine.md`); a test asserting only "regeneration happened"
   cannot tell that fold apart from one bucketed by project or by gate
   — which is exactly the class of bug this same fold's history already
-  produced once (the position-based `since_sequence` inference that
-  broke the moment a workflow declared more than one gate, corrected
-  on a third design-review pass in that file). Two nodes, one
+  produced once (the position-based `since_sequence` inference broke
+  the moment a workflow declared more than one gate). Two nodes, one
   declined, is the cheapest fixture that makes the two hypotheses
-  disagree, and the reasoning is orchestration's own, restated here
-  because it applies: assert the thing that would go wrong, not a
-  side effect every wrong implementation produces too.
+  disagree, and the reasoning is orchestration's own: assert the thing
+  that would go wrong, not a side effect every wrong implementation
+  produces too.
 
   The `:live` variant extends `Catapult.Generation.ToySeedChainLiveTest`
   under the tag and the ORC-29 non-asks this file already binds it
@@ -521,9 +500,8 @@ and validation logic and must not fork it.
   worse than an empty gate, because it reports as coverage).
 
 - **A test must be able to assert that a generated tier's rendered
-  prompt reflects an `input.<role>` document, offline** (ORC-107,
-  reversing what this entry recorded before intake existed — see the
-  entry above for the mechanism). `ContextResolver.resolve/2` now
+  prompt reflects an `input.<role>` document, offline** (ORC-107 —
+  see the entry above for the mechanism). `ContextResolver.resolve/2`
   returns `{:ok, []}` for every `input.*` walk (`systems/engine.md`'s
   entry), and `ContextAssembly` reads the pinned document straight off
   `Catapult.Delivery` for the variable itself rather than through that
@@ -539,14 +517,13 @@ and validation logic and must not fork it.
 
   The toy seed's per-role input documents (`test/support/toy_seed.ex`)
   are what such a test reads once intake pins them: real seed
-  evidence, not a prop, and no longer inert. What the toy seed already
+  evidence, not a prop. What the toy seed already
   proves — the graph-native chain, `self`/`self.parent`/`all.*` walks,
   every tier reachable from `comparch` down through `impl`, at least
   one instance of every edge type, which is the whole of what
-  `ContextResolver` resolves — needs no input-role content and is
-  unchanged by this entry; the input-role assertion above is additive
-  coverage for the path that was previously unreachable, not a
-  replacement for it.
+  `ContextResolver` resolves — needs no input-role content; the
+  input-role assertion above is additive coverage for the direct-read
+  path, not a replacement for it.
 
 - **The sweeper honours the test-project lifecycle, at both sites
   that can dispatch** (`systems/delivery.md`'s ORC-216 entry).
@@ -554,36 +531,32 @@ and validation logic and must not fork it.
   .sweepable_project?/1` answers `false` for, checked once per project
   per tick rather than scope-by-scope after the fact: a released or
   deleted test project's whole tier loop is skipped outright, upstream
-  of the tier walk. That alone leaves a gap open: a job already
-  enqueued on the tick before a project releases would otherwise
-  dispatch after it, since `DispatchWorker.perform/1`'s own
-  re-validation checks only `still_ready` and `not_blocked` today
-  (`DispatchWorker`'s own moduledoc, §7.1's validate-or-revert
-  discipline). `sweepable_project?/1` becomes a third check there,
-  run alongside those two, closing it. `sweepable_project?/1` answers
-  `true` for a project id naming no row in `delivery_projects` at all
-  (an ordinary, non-test project — none exist yet, and the predicate
-  is written to hold once one does) and for a test project whose
+  of the tier walk. That alone would leave a gap: a job already
+  enqueued on the tick before a project releases would dispatch after
+  it if `DispatchWorker.perform/1`'s own re-validation checked only
+  `still_ready` and `not_blocked` (`DispatchWorker`'s own moduledoc,
+  §7.1's validate-or-revert discipline). `sweepable_project?/1` is a
+  third check there, run alongside those two. `sweepable_project?/1`
+  answers `true` for a project id naming no row in `delivery_projects`
+  at all (an ordinary, non-test project) and for a test project whose
   recorded state is `:active`; `false` for `:provisioning`, `:released`
-  or `:deleted` (`:provisioning` added by ORC-224, below — a test
-  project reads unsweepable from the moment it is minted, not only
-  once released or deleted).
+  or `:deleted` (ORC-224, below: a test project reads unsweepable from
+  the moment it is minted, not only once released or deleted).
   This is a read, not new sweeper state — neither process holds any
   memory of what it last enqueued, and `Catapult.Delivery` stays the
   one state of record for the lifecycle.
 
-  **A dev-pass discovery, named here rather than left implicit: the
-  sweep's own project enumeration has to widen too, or a freshly
-  provisioned test project is never swept at all.** `Sweeper.sweep/0`
-  walked exactly `Catapult.Engine.Store.list_project_ids/0` — every
-  project id with a node, a flow or an active bundle version — and a
-  project the provisioning surface has only just minted, bound and
-  intake-pinned has none of the three until its first tier ever
-  drafts. `feature_expansion`'s own singleton candidate is
+  **The sweep's own project enumeration has to reach a project bound
+  but not yet drafting, or a freshly provisioned test project is never
+  swept at all.** `Catapult.Engine.Store.list_project_ids/0` alone —
+  every project id with a node, a flow or an active bundle version —
+  misses a project the provisioning surface has only just minted,
+  bound and intake-pinned, which has none of the three until its first
+  tier ever drafts. `feature_expansion`'s own singleton candidate is
   organically ready the moment a project id exists at all (this
-  file's own ORC-107 entry), so the missing piece was never
-  readiness — it was that the sweep never asked the question for a
-  project id it had not yet heard of. `Sweeper.sweep/0` now walks the
+  file's own ORC-107 entry), so readiness is never the missing piece —
+  a sweep walking only that list never asks the question for a
+  project id it has not yet heard of. `Sweeper.sweep/0` walks the
   union of `Store.list_project_ids/0` and `Catapult.Delivery
   .list_bound_project_ids/0` (every project id ever bound to a repo —
   no dispatch happens without one regardless): Generation already
@@ -602,15 +575,15 @@ and validation logic and must not fork it.
   runs on `SwaggerAllen/catapult-test` in twenty minutes actually was,
   and every one of them slipped past all three because each looked
   ready, unblocked and sweepable on its own terms every time it was
-  re-checked. `DispatchWorker.perform/1` gains a fourth check, placed
+  re-checked. `DispatchWorker.perform/1`'s fourth check is placed
   first — it needs nothing `still_ready/4` and `not_blocked/3` resolve
   a node to answer, only the job's own `project_id`/`tier`/`scope_key`
   args: skip if `delivery_dispatch_runs` already holds a
   **non-terminal** row (`status` in `:dispatched`/`:context_fetched`)
   for this `(project_id, tier, scope_key)`, dispatched within the last
-  `dispatch_stale_after_ms` — a new `tunable`, the same
+  `dispatch_stale_after_ms` — a `tunable`, the same
   accepted-for-now config-constant shape `sweep_interval_ms` above
-  already carries (`GENERATION_DISPATCH_STALE_AFTER_MS`, default
+  carries (`GENERATION_DISPATCH_STALE_AFTER_MS`, default
   `10800000` — three hours). The query itself is delivery's own
   (`systems/delivery.md`'s companion entry states the mechanism); this
   entry states the policy.
@@ -630,8 +603,8 @@ and validation logic and must not fork it.
 
   **The cutoff, argued rather than picked.** The harness's own
   worst-case wall clock for a *legitimate* run is bounded, not
-  open-ended, once this ticket's other two parts land. The run-agent
-  step tries up to two credentials, each bounded at the existing 1800s
+  open-ended. The run-agent
+  step tries up to two credentials, each bounded at the 1800s
   subprocess timeout (`catapult-dispatch.yml`); a credential that
   itself hits that timeout reports `other_failure` and does not fail
   over (the harness's own exception handler `break`s rather than
@@ -644,21 +617,20 @@ and validation logic and must not fork it.
   ceiling with room for GitHub's own queue/startup delay before the job
   even begins running, not a second independent guess.
 - **The harness's own report step bounds its grammar-retry loop and
-  always reaches terminal** (ORC-223, making good on
-  `Dispatch.simulate_result/2`'s own comment that "a further
-  `report_result/2` call for the same `run_key` is expected next" — a
-  promise the harness never actually kept until now). Only a
-  `:success` report that the grammar rejects stays in flight
+  always reaches terminal** (ORC-223; this is the "further
+  `report_result/2` call for the same `run_key`" that
+  `Dispatch.simulate_result/2`'s own comment says "is expected next").
+  Only a `:success` report that the grammar rejects stays in flight
   (`Catapult.Delivery.Dispatch`'s own `mark_failure/3` clauses — a
-  `:limit_class_failure`/`:other_failure` report always completes
-  today, unaffected by this entry); the four reasons `report_result/2`
+  `:limit_class_failure`/`:other_failure` report always completes);
+  the four reasons `report_result/2`
   answers 422 for are exactly the grammar-class failures named in
   `Catapult.Delivery.Dispatch`'s `status_for/1` (`schema_invalid`,
   `malformed_xml`, `root_tag_mismatch`, `schema_not_found`), and none
   of the others (`missing_bearer`, `run_not_found`, a repository/run-id
   mismatch) is fixable by asking the agent to resubmit — the harness
-  does not retry those, and a run that fails one of them still ends
-  non-terminal exactly as today, which is what the in-flight guard
+  does not retry those, and a run that fails one of them ends
+  non-terminal, which is what the in-flight guard
   above exists to bound regardless of cause.
 
   On a 422 whose body decodes to one of the four grammar reasons, the
@@ -668,16 +640,16 @@ and validation logic and must not fork it.
   prompt plus the decoded error appended as a corrective turn — and
   reports again. Bounded at two such retries (three submission attempts
   total): enough for a shape mistake to self-correct without turning
-  one rejected report into the open-ended loop this same ticket exists
-  to close. Exhausting the bound reports `other_failure` with
+  one rejected report into an open-ended loop. Exhausting the bound
+  reports `other_failure` with
   `reason: "grammar_retries_exhausted"`, the same shape every other
   classified outcome already reports in — no new status on
   `DispatchRun`, no new branch in `Dispatch.simulate_result/2`, because
-  `other_failure` was already a terminal report before this entry.
+  `other_failure` is already a terminal report.
 - **Stub mode is a per-dispatch workflow input, tied to test-project
   state — never a repository variable on the fixture repo** (ORC-223,
-  author's decision). The alternative — a `vars.STUB_MODE` set once on
-  `SwaggerAllen/catapult-test` — is out-of-band state the plane doesn't
+  author's decision). A `vars.STUB_MODE` set once on
+  `SwaggerAllen/catapult-test` is out-of-band state the plane doesn't
   control per dispatch: it would apply to every future dispatch to that
   repo regardless of which run needs it, and reading it back to know
   whether a given run *was* stubbed would mean a second source of truth
@@ -687,22 +659,21 @@ and validation logic and must not fork it.
   per-dispatch, visible in the run's own log.
 
   **`stub_mode` is a per-project opt-in, not a fact of being a test
-  project** (design review correction — the first draft of this entry
-  read it off `delivery_projects` row existence alone, which would have
-  stubbed every test-project dispatch unconditionally, Waypoint's
+  project**: read off `delivery_projects` row existence alone, it
+  would stub every test-project dispatch unconditionally, Waypoint's
   Phase-5 proof run included, defeating the one proof
-  `docs/build-plan.md`'s Phase 5 exit criterion needs to run for real).
+  `docs/build-plan.md`'s Phase 5 exit criterion needs to run for real.
   Test-project status and stub status are two different questions —
   "is this project reclaimable by the milestone cadence" and "should
-  its dispatches skip the model" — and the lifecycle record now answers
+  its dispatches skip the model" — and the lifecycle record answers
   both, as two independent fields rather than one collapsed into the
-  other: `delivery_projects` gains `stub_mode` (boolean, not null,
+  other: `delivery_projects` carries `stub_mode` (boolean, not null,
   default `true` at the column). `POST /dispatch/test-project` (the
   provisioning surface's mint operation, above) takes an optional
   `stub_mode` field in its JSON body and `Store.mint_test_project/1`
-  widens to accept and persist it; omitting it keeps today's toy-chain
-  behavior unchanged. `ToySeedChainLiveTest` sends no such field and
-  gets stub dispatches by the column default, exactly as it does today;
+  accepts and persists it; omitting it takes the column default.
+  `ToySeedChainLiveTest` sends no such field and
+  gets stub dispatches by the column default;
   `TodoAppProofLiveTest` sends `stub_mode: false` and its dispatches run
   the real model. `Catapult.Delivery.stub_mode?/1` reads this column,
   not row presence — and, for a project id holding no `delivery_projects`
@@ -712,10 +683,7 @@ and validation logic and must not fork it.
   they answer point opposite ways on it — an unbound project is
   trivially sweepable (nothing exempts it) and must never dispatch
   stubbed (nothing opts it in), so the same absence reads as `true` on
-  one and `false` on the other. Worth stating rather than leaving
-  implicit, since row presence is exactly the reading the first draft
-  of this entry got wrong in the other direction (the correction
-  above).
+  one and `false` on the other.
 
   When set, the harness skips "Install Claude Code" and "Run the
   agent" entirely and reports the fixture matching the context
@@ -725,15 +693,14 @@ and validation logic and must not fork it.
   `DispatchRun.credential_used`; no enum to widen). **Keyed by
   `root_tag`, not by tier**, because `ContextAssembly.root_tag/1`
   already collapses every reviewed tier's root_tag to the literal
-  `"review"` — the nine fixtures already checked into
+  `"review"` — the nine fixtures checked into
   `test/catapult/generation/fixtures/toy_seed/` (one per generation
   tier the toy chain exercises, plus the one shared
   `review_approve.xml`) carry the right content but not, for five of
   the nine, a filename matching the `root_tag` they need to be looked
-  up by (design review correction — the first draft of this entry
-  claimed otherwise, and a dev pass told so would have pushed them
-  under their existing names and missed the lookup on exactly the tier
-  `ToySeedChainLiveTest` dispatches first). The mapping, checked against
+  up by — pushed under their checked-in names, they would miss the
+  lookup on exactly the tier `ToySeedChainLiveTest` dispatches first.
+  The mapping, checked against
   each tier's own `root_tag:` in `bundles/default/tiers/*.yaml` and
   each fixture's own root element:
 
@@ -763,17 +730,17 @@ and validation logic and must not fork it.
   applies a second time inside `impl`, not only across the review
   tiers.
 
-  **The harness gains a checkout step it does not have today, or the
-  fixture above is unreachable** (design review finding, ORC-223).
-  `catapult-dispatch.yml`'s recorded steps — mint an OIDC token, fetch
-  the rendered context, install Claude Code, run the agent, report the
-  result — never check out the bound repo, so nothing on the runner's
-  filesystem holds the `.catapult-stub/<root_tag>.xml` content
-  `ToySeed.reset_files/0` just pushed there: a stub-mode run's own
-  report step would be reading an empty workspace. Author's decision:
-  the harness runs `actions/checkout` against the repo the workflow is
-  already executing in, as a new step positioned **before** "Fetch the
-  rendered context" — early enough that the fixture is on disk before
+  **The harness has a checkout step, or the fixture above is
+  unreachable** (ORC-223). `catapult-dispatch.yml`'s other steps —
+  mint an OIDC token, fetch the rendered context, install Claude Code,
+  run the agent, report the result — never check out the bound repo,
+  so without one nothing on the runner's filesystem holds the
+  `.catapult-stub/<root_tag>.xml` content `ToySeed.reset_files/0`
+  pushed there: a stub-mode run's own report step would be reading an
+  empty workspace. Author's decision: the harness runs
+  `actions/checkout` against the repo the workflow is already
+  executing in, as a step positioned **before** "Fetch the rendered
+  context" — early enough that the fixture is on disk before
   "Report the result" reads it, and ahead of the fetch because
   `actions/checkout` cleans the workspace before checking out (its own
   `clean` input, default true): placed after the fetch it deletes the
@@ -793,54 +760,48 @@ and validation logic and must not fork it.
   committed the fixture to, so there is no second writer for this step
   to race.
 
-  **Considered and rejected: returning the stub body inside the context
-  response instead of pushing it to the repo**, which would have
-  removed the fixture push, this checkout step and the
-  `.catapult-stub/` namespace together. Rejected because the checkout
-  is not a cost stub mode introduces — a real run needs one regardless
-  — so a checkout-free retrieval path built for stub mode alone would
-  leave two mechanisms doing the one thing the harness needs on every
-  dispatch, stubbed or not.
+  **The stub body is pushed to the repo, not returned inside the
+  context response.** Returning it would remove the fixture push, this
+  checkout step and the `.catapult-stub/` namespace together, but the
+  checkout is not a cost stub mode introduces — a real run needs one
+  regardless — so a checkout-free retrieval path built for stub mode
+  alone would leave two mechanisms doing the one thing the harness
+  needs on every dispatch, stubbed or not.
 
-  This is what the poll-deadline entry below means by "a checkout plus
-  a report call": until this entry, that phrase named a step the
-  recorded workflow did not actually have.
+  This checkout is what the poll-deadline entry below means by "a
+  checkout plus a report call".
 - **`ToySeedChainLiveTest`'s poll deadline has to fit inside ExUnit's
   own per-test timeout, and today it doesn't** (ORC-223, widened by
-  ORC-225 — `systems/delivery.md`'s quiescence entry states what the
-  test now waits for). `@poll_deadline` was `:timer.minutes(15)`; the
-  test carried no `@tag timeout:`, so ExUnit's own default (60s) killed
-  the test process first, on every run, before the deadline it wrote
-  for itself ever had a chance to fire — the timeout observed in
-  live-suite run 23. `after release!(...)` never ran on that kill,
+  ORC-225 and ORC-230 — `systems/delivery.md`'s quiescence entry
+  states what the test waits for). A `@poll_deadline` of
+  `:timer.minutes(15)` with no `@tag timeout:` let ExUnit's own default
+  (60s) kill the test process first, on every run, before the deadline
+  it wrote for itself ever had a chance to fire — the timeout observed
+  in live-suite run 23. `after release!(...)` never ran on that kill,
   which is the reason the incident's test project stayed `:active`
   after the suite had already given up. Two figures need setting
-  together, not one, and ORC-225 resets both again for a wider reason
-  than ORC-223's own: under the stub-mode default this same entry
-  restores above, a dispatched run skips the two steps ("Install Claude
-  Code", "Run the agent") that the 15-minute figure was sized for, and
-  reaches terminal in however long a GitHub-hosted runner takes to
-  queue, start and run a checkout plus a report call — order of tens of
-  seconds, not minutes, for one dispatch. ORC-225 widens what the test
-  waits for from "one dispatch reaches terminal" to "the run set reaches
-  quiescence" (`systems/delivery.md`'s entry — a quiet-since duration
-  exceeding one full `GENERATION_SWEEP_INTERVAL_MS` tick plus a
-  `@poll_interval` margin for that tick's own dispatch to land as a
-  visible row, not a fixed poll count), each round
-  bounded by one dispatch's own tens-of-seconds runner latency plus up
-  to one `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
-  `@poll_interval` (5s) row-visibility margin, for the sweeper to notice
-  the round before it, with the 15-second quiescence window charged once
-  per round. Under ORC-225 alone this cost up to two sequential rounds
-  — a tick-0 draft round and the review round it unblocks — because
-  nothing resolved the gate the second round left open. ORC-230 (below)
-  widens the round count past two and drops the 15-second quiescence
-  tail from the arithmetic entirely: once an actor exists to approve
-  drafts, the suite has no reason to stop at two rounds rather than
-  however many the raft's downward cascade actually takes, and once
-  `remaining` (`systems/delivery.md`'s entry) reads readiness directly,
-  `Catapult.Generation.Quiescence`'s own quiet-since margin has nothing
-  left to hedge and retires with it. `TodoAppProofLiveTest` is
+  together, not one, and the per-dispatch cost they are sized from is
+  small: under the stub-mode default above, a dispatched run skips the
+  two steps ("Install Claude Code", "Run the agent") that a 15-minute
+  figure would be sized for, and reaches terminal in however long a
+  GitHub-hosted runner takes to queue, start and run a checkout plus a
+  report call — order of tens of seconds, not minutes, for one
+  dispatch. What the test waits for is not "one dispatch reaches
+  terminal" but the run set reaching `remaining: 0`
+  (`systems/delivery.md`'s entry — the plane's own readiness read, not
+  a fixed poll count), each round bounded by one dispatch's own
+  tens-of-seconds runner latency plus up to one
+  `GENERATION_SWEEP_INTERVAL_MS` (default `10000`) tick, plus the
+  `@poll_interval` (5s) row-visibility margin, for the sweeper to
+  notice the round before it. The round count is not capped: with an
+  actor to approve drafts (ORC-230, below), the suite has no reason to
+  stop at two rounds — a tick-0 draft round and the review round it
+  unblocks, which is where a walk with nothing resolving the gate the
+  second round leaves open stalls — rather than however many the
+  raft's downward cascade actually takes. And because `remaining`
+  reads readiness directly, no quiet-since margin is charged per
+  round: `Catapult.Generation.Quiescence`'s quiet-since arithmetic had
+  nothing left to hedge and is retired. `TodoAppProofLiveTest` is
   unaffected: it dispatches with `stub_mode: false` and does not poll.
 - **ORC-230 gives the boundary suite an actor, and the whole walk runs
   on every boundary — there is no shallower suite.** `ToySeedChainLiveTest`
@@ -856,20 +817,18 @@ and validation logic and must not fork it.
   to production as the toy chain gets without a model in the loop, so it
   runs the whole chain agentless, and a real-model run confirms the
   production case separately and strictly afterward — sequencing the
-  two within one boundary run is its own design, not this ticket's
+  two within one boundary run is its own design
   (`systems/delivery.md`'s ORC-216 entry is why they cannot run
   concurrently regardless: at most one `:active` test project). A round
   cap, or a second, shallower test beside a full-walk one, would be
-  sizing the every-milestone suite to a depth nobody has measured —
-  the position design review rejected in favor of this one.
+  sizing the every-milestone suite to a depth nobody has measured.
 
 - **The assertion is that an approval produced a new dispatch, which a
   bare approval count cannot tell you.** `approve_drafts/2` dispatches
-  `ApproveDraft` directly (`systems/delivery.md`'s corrected entry — it
-  no longer goes through a ticket's gate at all), so unlike the
-  ticket-gate design this replaces, one reported approval already means
-  one node crossed into `:approved`; there is no second call needed
-  per node. What still isn't proof on its own is that the approval
+  `ApproveDraft` directly (`systems/delivery.md`'s entry — it goes
+  through no ticket's gate), so one reported approval means one node
+  crossed into `:approved`; there is no second call needed per node.
+  What isn't proof on its own is that the approval
   *did* anything: a leaf tier's own approval unblocks nothing further
   downstream. So the suite tracks `run_key`s rather than the approval
   count alone: every `runs/2` poll is diffed against the previous one,
@@ -923,41 +882,37 @@ and validation logic and must not fork it.
   waves the suite must wait through, not how much work each wait
   costs.
 
-  **ORC-235 landed the sequential-per-branch reading this derivation
-  already used, and no walk in the raft costs more than this floor
-  already prices.** `comp` mints at `sysarch`'s `DraftCommitted`
-  (`CommitPath`'s own private `commit_draft/3` calls
+  **Under `settled?`/`drained?` (ORC-235), no walk in the raft costs
+  more than this floor prices.** `comp` mints at `sysarch`'s
+  `DraftCommitted` (`CommitPath`'s own private `commit_draft/3` calls
   `Extraction.mints/4` at commit time, before `sysarch`'s own review or
-  approval), but `comparch`'s `self.parent.handle` walk onto it no
-  longer reads that mint-time `:approved` bare: `settled?/2`
+  approval), but `comparch`'s `self.parent.handle` walk onto it does
+  not read that mint-time `:approved` bare: `settled?/2`
   (`systems/engine.md`'s ORC-235 entry) resolves a join target by
   deferring to its minting parent, so `comp` is `settled?` only once
-  `sysarch` itself is approved — exactly the wait this entry's
-  "a tier reached through a `draft:`-carrying ancestor waits for that
-  ancestor's own approval, not merely its draft" reading already
-  costs. Tracing every walk in the raft against `settled?`/`drained?`
-  finds no site where the derived graph waits on more than that:
-  `frontend_sysarch`'s new `all.comp.handle`
+  `sysarch` itself is approved — exactly the wait this entry costs for
+  a tier reached through a `draft:`-carrying ancestor: that ancestor's
+  own approval, not merely its draft. Tracing every walk in the raft
+  against `settled?`/`drained?` finds no site where the derived graph
+  waits on more than that: `frontend_sysarch`'s `all.comp.handle`
   (`systems/platform_content.md`'s ORC-235 entry) reduces, via
   `drained?(comp)`'s own recursion through `sysarch`, to the identical
   `sysarch`-approved condition `all.sysarch.handle` already required,
-  so the front-end and back-end branches still land on the same wave
-  rather than one gating the other — the "run alongside each other"
-  claim below holds under the landed mechanism, not only the reading
-  this entry assumed before it landed. Nor is there a second, stronger
-  mechanism left to price separately: `systems/engine.md`'s own
-  ORC-235 entry rejects a declared tier sequence and derives order
-  purely from `context:` walks, so "no parallelism between tiers" is
-  exactly the per-tier, per-walk waiting `settled?`/`drained?` already
-  produce — never a blanket ordering over tiers with no read
-  relationship between them, which is what would have been needed to
-  exceed this floor. The same reasoning is why `non_goals`, `ref` and
-  `vocab` still cost nothing added here: `drained?(vocab)` now requires
-  every existing vocab entry `settled?` rather than reading an empty
-  list as vacuously satisfied, but vocab's own draft-and-review (2
-  waves) lands well before `comparch`'s walk onto `all.vocab.handle` is
-  first checked (15-plus minutes in), so the wait this fix adds is
-  already spent by the time anything asks for it.
+  so the front-end and back-end branches land on the same wave rather
+  than one gating the other — the "run alongside each other" claim
+  below holds. Nor is there a second, stronger mechanism to price
+  separately: `systems/engine.md`'s own ORC-235 entry rejects a
+  declared tier sequence and derives order purely from `context:`
+  walks, so "no parallelism between tiers" is exactly the per-tier,
+  per-walk waiting `settled?`/`drained?` produce — never a blanket
+  ordering over tiers with no read relationship between them, which is
+  what would be needed to exceed this floor. The same reasoning is why
+  `non_goals`, `ref` and `vocab` cost nothing added here:
+  `drained?(vocab)` requires every existing vocab entry `settled?`
+  rather than reading an empty list as vacuously satisfied, but vocab's
+  own draft-and-review (2 waves) lands well before `comparch`'s walk
+  onto `all.vocab.handle` is first checked (15-plus minutes in), so
+  that wait is already spent by the time anything asks for it.
 
   A single dispatch wave (a tier's own draft, or its review) costs the
   ORC-225 entry's own per-wave ceiling — one dispatch's tens-of-seconds
@@ -1033,7 +988,7 @@ and validation logic and must not fork it.
   do not add on top of each other — but fragment-authorship, a third
   relationship distinct from mint-ancestry and approval-ancestry, does
   not move the count everywhere it applies the same way, and it applies
-  twice more above, past the one place this entry already checked it.
+  in three places above, not one.
 
   At the `ui_collarch`/`screen_collarch` step, it happens not to move
   the count. `ui_collarch` walks `self.parent.uses_shapes -> comp
@@ -1070,21 +1025,21 @@ and validation logic and must not fork it.
   empty `pubapi` fragment — precisely the class of failure a full walk
   exists to surface, so the wave count above prices it as sequential.
 
-  **That wait is priced, not enforced, by the mechanism as landed.**
+  **That wait is priced, not enforced.**
   `impl_backend`'s `self.parent.dependency ->
   subcomp.handle.fragments[pubapi]` (`impl_ui`'s and `impl_screen`'s
   own reads are the identical shape one tier over) is the same
   `subcomp↔subcomp` `dependency` walk `subcomparch`'s own context
-  entry already is, and this entry's extraction-gate finding above
-  already covers it: no `dependency` instance is extracted regardless
-  of which tier's context declares the walk, so it resolves to `[]`
-  and is vacuously satisfied whether or not `subcomparch` has run.
-  Today `impl_backend`/`impl_ui`/`impl_screen` are actually ready the
-  same wave as their `*subcomparch`/`*collarch` sibling — once
+  entry already is, and the extraction-gate entry above covers it: no
+  `dependency` instance is extracted regardless of which tier's
+  context declares the walk, so it resolves to `[]` and is vacuously
+  satisfied whether or not `subcomparch` has run.
+  `impl_backend`/`impl_ui`/`impl_screen` are therefore ready the same
+  wave as their `*subcomparch`/`*collarch` sibling — once
   `subcomp`/`ui_subcomp`/`screen_subcomp` is `settled?`, i.e. once
   `comparch`/`ui_collarch`/`screen_collarch` is approved — not one wave
   after it. Pricing them as sequential anyway does not undercount: it
-  charges a wait the graph does not yet enforce, which only widens this
+  charges a wait the graph does not enforce, which only widens this
   floor's own margin, and it stays priced this way on purpose, since
   closing the extraction gap would reintroduce the wait for real and a
   floor that assumed otherwise would need re-deriving the moment it
@@ -1093,66 +1048,60 @@ and validation logic and must not fork it.
   The front end's 8 waves is the longer of the two branches and is
   what the walk actually waits on after `sysarch`'s approval. The
   floor to `remaining == 0` is 15 (the three approval-gated rounds)
-  plus 12 (the front-end branch) — 27 minutes, not 24 — before the
+  plus 12 (the front-end branch) — 27 minutes — before the
   breadth headroom below is added on top.
 
-  The unmeasured breadth this entry already names (several tiers'
+  The unmeasured breadth named above (several tiers'
   worth of siblings queueing behind Oban's `generation_dispatch`
   concurrency of 5, and whatever GitHub Actions' own runner queue adds
   under load) is still the headroom a depth-based floor alone would not
-  cover, and nothing about the corrected floor changes that headroom's
-  own size — it stays the 6 minutes the prior figure carried, and it
+  cover. It is 6 minutes, and it
   belongs on top of the 27-minute floor rather than folded into it: a
   floor that spends the headroom on waves instead leaves nothing for
   the breadth it exists to cover, and a passing walk plausibly
-  `flunk`s on a tight, unexplained timeout. `@poll_deadline` widens to
+  `flunk`s on a tight, unexplained timeout. `@poll_deadline` is
   `:timer.minutes(33)` — the 27-minute floor plus the 6-minute headroom
   — and `@tag timeout: :timer.minutes(35)`, wider still so the
   assertion failure path (a real `flunk/1`) is what ends the test on a
   genuine timeout, never ExUnit's own kill, for the identical
-  `after`-block reason ORC-225's own entry above already gives.
+  `after`-block reason the poll-deadline entry above gives.
 
-  What changes on top of the number is the failure path: a `flunk/1`
+  On top of the number, the failure path: a `flunk/1`
   on timeout reports the tier set that ran, every node
   `Store.list_nodes/2` still shows `:drafted` project-wide, how many
   `approve_drafts/2` calls fired and how many approvals each reported,
-  and the per-run `duration_ms` `systems/delivery.md`'s widened `runs/2`
-  now carries — enough to tell a genuinely stuck graph from a slow one
+  and the per-run `duration_ms` `systems/delivery.md`'s `runs/2`
+  carries — enough to tell a genuinely stuck graph from a slow one
   without re-running it by hand, and the thing that stands against the
   pressure a tight, unexplained timeout creates to shorten the suite
   back down.
 
 - **A full walk is the first exercise of `@root_tag_fixtures`'s
-  previously-unreached stubs.** Nothing before ORC-230 dispatched past
-  two rounds, so most of the fixtures ORC-225 built existed for tiers
-  no run had ever reached. A `ToySeedChainLiveTest` run that reaches
-  `remaining == 0` with zero approvals pending is the first observed
-  evidence that the `root_tag`s the toy raft's downward cascade
-  actually reaches resolve against their stubs, rather than an
-  assumed one.
+  previously-unreached stubs.** A walk capped at two rounds leaves
+  most of `@root_tag_fixtures` unreached by any run. A
+  `ToySeedChainLiveTest` run that reaches `remaining == 0` with zero
+  approvals pending is observed evidence that the `root_tag`s the toy
+  raft's downward cascade actually reaches resolve against their
+  stubs, rather than an assumed one.
 
 - **Two stale moduledocs are corrected in the same change**, both
   design-owned prose sitting in dev-owned test files, so design records
   the finished shape here and dev writes it.
-  `test/catapult/generation/todo_app_proof_live_test.exs`'s own
-  comparison sentence — "unlike `ToySeedChainLiveTest`, which dispatches
-  exactly one tier and can afford to poll a single run to a terminal
-  status inside one test's deadline" — was already false under ORC-225
-  and is doubly so now: there is no round count left to compare against,
-  since `ToySeedChainLiveTest` walks the raft's full downward cascade
-  with no cap. The sentence drops the comparison rather than restating
-  it with a new number — `TodoAppProofLiveTest` stops at provisioning
-  because its own middle spans hours or days of human review, which is
-  reason enough on its own and needs no contrast to the other test's
-  poll shape. `test/catapult/generation/toy_seed_chain_live_test.exs`'s
-  own "What this proves for real" paragraph names `feature_expansion`
-  alone as the dispatch this test proves, a claim its very next
-  paragraph already supersedes even before this ticket. It states
-  instead that this test proves a full downward-cascade walk of the toy
-  raft against real GitHub Actions runs — `feature_expansion` as the
-  walk's first dispatch, `Provisioning.approve_drafts/2` approving every
-  drafted node the walk produces, and the tier set the run actually
-  reached, not a fixed one, as what a passing run demonstrates.
+  `test/catapult/generation/todo_app_proof_live_test.exs`'s moduledoc
+  draws no comparison to `ToySeedChainLiveTest`'s round count or poll
+  shape — there is no round count to compare against, since
+  `ToySeedChainLiveTest` walks the raft's full downward cascade with
+  no cap — and says instead that `TodoAppProofLiveTest` stops at
+  provisioning because its own middle spans hours or days of human
+  review, which is reason enough on its own.
+  `test/catapult/generation/toy_seed_chain_live_test.exs`'s own "What
+  this proves for real" paragraph states that this test proves a full
+  downward-cascade walk of the toy raft against real GitHub Actions
+  runs — `feature_expansion` as the walk's first dispatch, never
+  `feature_expansion` alone, `Provisioning.approve_drafts/2` approving
+  every drafted node the walk produces, and the tier set the run
+  actually reached, not a fixed one, as what a passing run
+  demonstrates.
 
 - **A dispatch can beat provisioning itself, not only beat a release**
   (ORC-224 — `systems/delivery.md`'s companion entry states the
@@ -1174,18 +1123,17 @@ and validation logic and must not fork it.
   report step with
   `FileNotFoundError: context.json`, one to two seconds before the fix
   reached the repo. `sweepable_project?/1`'s own body
-  (`Catapult.Delivery.Store.sweepable_project?/1`) is already a
+  (`Catapult.Delivery.Store.sweepable_project?/1`) is a
   catch-all — `%Project{test_project_state: :active} -> true`,
   `%Project{} -> false` — so a `:provisioning` row falls to the
-  `false` clause with no edit to the function; the only code this
-  needs is `:provisioning` joining the schema's own `Ecto.Enum,
-  values:` list (`systems/delivery.md`'s entry above already covers
-  this, and without it the row fails to load regardless). That is
-  also why neither sweep site needed a second fix: both
+  `false` clause; the only code the guard needs is `:provisioning` in
+  the schema's own `Ecto.Enum, values:` list (`systems/delivery.md`'s
+  entry above covers this, and without it the row fails to load
+  regardless). Neither sweep site needs a check of its own: both
   `Sweeper.sweep_project/2` and `DispatchWorker`'s own
-  `still_sweepable/1` re-validation already read `sweepable_project?/1`
-  rather than holding a cached readiness bit, so widening the schema's
-  value list is the whole of it.
+  `still_sweepable/1` re-validation read `sweepable_project?/1`
+  rather than holding a cached readiness bit, so the schema's value
+  list is the whole of it.
 - **Fixture coverage is total across `@root_tag_fixtures`'s key set:
   every root_tag a dispatchable tier can produce, not only the
   root_tags one toy-chain run happens to exercise** (ORC-225 — live-suite
@@ -1214,12 +1162,12 @@ and validation logic and must not fork it.
   standardized to match the rest).
 
   A missing key is not a gap the live suite tolerates by exercising a
-  narrower chain — the entry above already keys the lookup by `root_tag`
+  narrower chain — the entry above keys the lookup by `root_tag`
   rather than by tier precisely so one fixture serves every tier sharing
   a root_tag, and that same collapse means a single missing key fails
   every tier that shares it, not just one.
 
-  Each fixture this map is still missing is a hand-authored XML document
+  Each fixture is a hand-authored XML document
   whose root element is its `root_tag` and which validates against the
   schema its own tier's `grammar:` names in `bundles/default/schemas/
   *.xsd` — not an empty placeholder, since the plane validates a
@@ -1239,21 +1187,20 @@ and validation logic and must not fork it.
   with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →
   `bug_fix_plan.xml`, `downward_propagation_plan.yaml` →
   `downward_propagation_plan.xml`, and so on for the rest) — a filename
-  namespace that tracks the bundle's own tier names, which is why it was
-  never made to equal the differently-punctuated `root_tag` namespace in
-  the first place; `@root_tag_fixtures`'s value side is exactly what
+  namespace that tracks the bundle's own tier names, which is why it
+  does not equal the differently-punctuated `root_tag` namespace;
+  `@root_tag_fixtures`'s value side is exactly what
   translates between the two. For the two collapsed `root_tag`s —
   `implementation` (`impl_backend.yaml`, `impl_screen.yaml`,
   `impl_ui.yaml` all declare it) and `review` (all eighteen `*_review
   .yaml` tiers declare it) — no single tier basename applies, so the
   filename names the `root_tag` rather than any one owning tier:
-  `impl.xml` and `review_approve.xml`, the two names already checked in,
-  are read as exactly that rather than as derived from a tier that does
-  not exist.
+  `impl.xml` and `review_approve.xml` are read as exactly that rather
+  than as derived from a tier that does not exist.
 - **The "Read the stub fixture" step must itself produce a typed
   `outcome.json` when the fixture is missing, not fall through to
   "Report the result"'s own generic fallback** (ORC-225, the same run
-  26 incident above). Today the step's `open()` call has no guard: a
+  26 incident above). With no guard on the step's `open()` call, a
   missing `.catapult-stub/<root_tag>.xml` raises, the step's `python3`
   process dies before writing anything, and "Report the result" (`if:
   always()`) runs anyway, finds no `outcome.json`, and reports
@@ -1274,11 +1221,11 @@ and validation logic and must not fork it.
   beyond `limit_class_failure` versus everything else — so the
   distinction lives in the `reason` string, which is free text already,
   rather than in a fourth enum value with a migration behind it.
-  "Report the result"'s own fallback keeps its present meaning after
-  this change rather than gaining a new one: once the read step cannot
-  fail past this point without writing something, "no outcome.json"
-  means what it always claimed to — the body-producing step (real or
-  stubbed) crashed somewhere the harness gave it no chance to report.
+  "Report the result"'s own fallback keeps one meaning rather than
+  gaining a second: since the read step cannot fail past this point
+  without writing something, "no outcome.json" means what it claims
+  to — the body-producing step (real or stubbed) crashed somewhere the
+  harness gave it no chance to report.
 
 ## Initial vs target
 
