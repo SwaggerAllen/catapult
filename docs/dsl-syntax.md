@@ -309,8 +309,8 @@ same "no committed body to project a scalar from" gap `mint.<name>`
 closes for a join-target tier, closed here by naming the write path's
 own payload instead.
 
-**The word `reference` now names five distinct slots in this grammar,
-and none is a variant of another** (ORC-236), the identical
+**The word `reference` names five distinct slots in this grammar, and
+none is a variant of another** (ORC-236), the identical
 disambiguation §7 below draws for `.synthesis`: `type: reference` is a
 member of the edge-type closed set (§4); `edge: reference`
 (`bundles/default/edges/reference.yaml`) is a bundle-authored edge
@@ -1445,6 +1445,10 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   cross-checked against anything, the identical unvalidated posture a
   bare `mint.<name>` has, since the write path's payload shape has no
   schema this loader holds;
+- a `reference`-scope tier declaring `produces:` (§3) is a load error —
+  the scope has no committed draft, the identical reason it declares no
+  `draft:`, so a fragment's `authored:` value would have nothing to
+  project from;
 - an `all.<tier>` walk (§7.2) may not target a `reference`-scope tier —
   an indefinite, write-path-created pool has no point at which "no
   further node will ever appear" becomes true, so there is no answer

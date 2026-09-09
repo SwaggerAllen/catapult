@@ -359,9 +359,11 @@ loader tickets carry `system:core_dsl`.
   plausible first taker), is that consumer's own future design pass,
   the same way the through-responsibility grain above got its own pass
   rather than landing with policy's introduction.
-- **`mint.<name>` is the field source for every join-target tier**
-  (`comp`, `subcomp`, `resp`, `policy`, and the mint-time identity
-  fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in
+- **`mint.<name>` and `mint.parent.<name>` together are the field
+  source for every join-target tier** (`comp`, `subcomp`, `resp`,
+  `policy`, and the mint-time identity fields on `vocab`) — a given
+  field on a given tier uses one or the other, never both, per the
+  split below. `docs/dsl-syntax.md` §3 gains the convention in
   this ticket's diff, closing the gap `seed-docs/README.md` flagged:
   a tier with no `draft:` still needs a field source, and `mint.<name>`
   names the minting fanout edge's `declared_in:` row — the row-local
