@@ -23,19 +23,19 @@ infrastructure persistence (Oban, EventStore, and any library that
 manages its own tables — reserved prefixes, migrations shipped here,
 reached only through their APIs per v5 §2.4).
 
-## Standing decisions
+## #1 Standing decisions
 
-- **Root artifacts are generated glue** (v5 §2.7): the supervisor
+- **#2 Root artifacts are generated glue** (v5 §2.7): the supervisor
   composes `children/0` from component declarations; the router (in
   dashboard's web layer) composes the same way. A ticket editing
   root files by hand means the composition mechanism is missing a
   feature.
-- **One Repo.** Stores own schemas and queries, never connections
+- **#3 One Repo.** Stores own schemas and queries, never connections
   (v5 §2.4). Infra tables live under reserved prefixes; the audit's
   single-owner check enumerates against this doc's registry.
-- **Topology starts `single`** (v5 §2.5 split); the placement
+- **#4 Topology starts `single`** (v5 §2.5 split); the placement
   discipline is honored from the first process regardless.
-- **The build's shape lives in `config/*.exs`; the instance's shape
+- **#5 The build's shape lives in `config/*.exs`; the instance's shape
   comes from the environment** (ORC-4). The line is drawn explicitly,
   because without it everything found in `config/` gets moved behind
   the config layer wholesale. On the build side and staying
@@ -57,31 +57,26 @@ reached only through their APIs per v5 §2.4).
   `username`/`hostname` keys: one declaration, one shape for
   `Repo.init/2` to merge, and dev exercising the same cast the
   deployment does.
-
-  **Two of the three carry foundation's slug — `FOUNDATION_POOL_SIZE`
-  and `FOUNDATION_HEALTH_PORT`, not `POOL_SIZE` and `HEALTH_PORT`**
-  (ORC-4). The substrate's rule is that a name off the slug spine is
-  legal only with `external: true`, and that the flag confers nothing
-  — "an `external: true` on a name nobody else imposes is a lie a
-  reviewer can see". Only `DATABASE_URL` is imposed: App Platform
-  injects it under a name we do not choose. Marking the other two
-  external to keep a bare spelling would falsify that argument on the
-  check's only three subjects. Neither is set on the reference
-  instance, both carry their defaults (`10`, `8080`), and `SETUP.md`
-  §2 names the spelling for the override. The rule: `external: true`
-  marks names the world imposes, never names we chose and would rather
+- **#6 Two of the three carry foundation's slug — `FOUNDATION_POOL_SIZE`
+  and `FOUNDATION_HEALTH_PORT`, not `POOL_SIZE` and `HEALTH_PORT`** (ORC-4).
+  The substrate's rule is that a name off the slug spine is legal only with
+  `external: true`, and that the flag confers nothing — "an `external: true`
+  on a name nobody else imposes is a lie a reviewer can see". Only
+  `DATABASE_URL` is imposed: App Platform injects it under a name we do not
+  choose. Marking the other two external to keep a bare spelling would
+  falsify that argument on the check's only three subjects. Neither is set
+  on the reference instance, both carry their defaults (`10`, `8080`), and
+  `SETUP.md` §2 names the spelling for the override. The rule: `external:
+  true` marks names the world imposes, never names we chose and would rather
   not re-type.
-
-  **The test build reads its database URL through the static source
-  too.** The harness switch this list protects is
-  `pool: Ecto.Adapters.SQL.Sandbox`, and it stays in
-  `config/test.exs`. The connection parameters stay there as well —
-  built from the same `PG*` variables CI provides — but in
-  `DATABASE_URL` shape, because Ecto's URL parsing *replaces* the
-  discrete keys rather than merging with them, so a build setting both
-  would have one of them silently win. One shape in every environment
-  is what makes `Repo.init/2` the same code everywhere.
-- **`runtime.exs` stops reading the environment.** It is the file the
+- **#7 The test build reads its database URL through the static source
+  too.** The harness switch this list protects is `pool:
+  Ecto.Adapters.SQL.Sandbox`, and it stays in `config/test.exs`. The
+  connection parameters stay there as well — built from the same `PG*`
+  variables CI provides — but in `DATABASE_URL` shape, because Ecto's URL
+  parsing *replaces* the discrete keys rather than merging with them, so a
+  build setting both would have one of them silently win.
+- **#8 `runtime.exs` stops reading the environment.** It is the file the
   substrate's whole config layer is an argument against: today it
   fetches three variables and hand-parses one of them, and it reports
   exactly one problem per boot because each way of failing there
@@ -91,261 +86,105 @@ reached only through their APIs per v5 §2.4).
   on `DATABASE_URL`, which is where they get to fail by name and
   alongside everything else that is wrong. The file keeps only what
   `import Config` is for.
-- **TLS verification to the managed database is `verify_none`,
-  deliberately, and this bullet — not the cast's docstring — is now
-  its record** (ORC-83). `cast_database_url/1` strips the platform's
-  injected `sslmode=require` (Ecto's URL parser rejects the query
-  param as an option) and configures `ssl: [verify: :verify_none]`
-  rather than `verify_peer` against a pinned CA. The standing decision
-  is provider-neutral, because a systems doc is the wrong altitude for
-  any one provider's topology to be the reasoning: **`verify_none`
-  holds only where the operator controls the network path end to end;
-  anywhere else, pin a CA and use `verify_peer`.** Which operator,
-  which network, and why that control holds for this deployment today
-  are `SETUP.md` §2's facts, not this doc's to restate — the gap
-  `verify_none` accepts is real regardless (a compromised or
-  misconfigured resolver on the path is exactly what `verify_peer`
-  would catch and `verify_none` does not), and end-to-end operator
-  control is what makes that gap survivable rather than open. Backlog,
-  not gating: nothing in `docs/build-plan.md`, the engine milestone
-  (Phase 3) included, depends on verified TLS to the database.
-
-  **The record is here rather than in the docstring because a
-  docstring cannot re-surface itself.** The maintenance lane
-  (`docs/v5-design-decisions.md` §7.10) is a plane-side watcher over
-  hex advisories, `mix hex.outdated`, and GitHub security advisories —
-  it has no way to see a `verify_none` literal in application code, so
-  a docstring deferring the pinning to that lane re-surfaces nothing on
-  its own. ORC-83 exists because a tech-debt scan caught exactly that:
-  a self-reported deferral with no tracked record. A docstring is prose
-  a reader has to already be looking at; this doc is what anyone
-  touching `cast_database_url/1` reads on the way in. Revisit
-  condition: the moment `DATABASE_URL` (or a successor) resolves over a
-  path the operator does not control end to end (`SETUP.md` §2 is
-  where that stops being true, if it ever does), at which point the
-  cast pins a CA and switches to `verify_peer`, and this bullet is what
-  that ticket argues with.
-- **Library configuration is assembled, never re-declared.** Ecto and
-  Oban read application env by their own contract and will keep doing
-  it; the config layer feeds them rather than fighting them, so
-  `Catapult.Repo.init/2` merges url and pool size in from the
-  accessor and Oban's options are composed the same way when
-  `oban_queues/0` starts contributing. `DATABASE_URL` does not stay in
-  `runtime.exs` on the grounds that Ecto wants app env anyway: that
-  keeps a second reader of the environment alive, and one reader is
-  the whole point. One reader, one report, and the libraries get their
-  keyword lists.
-- **If the plane ever needs a config source of its own, it belongs to
+- **#9 TLS verification to the managed database is `verify_none`,
+  deliberately, and this bullet — not the cast's docstring — is now its
+  record** (ORC-83). `cast_database_url/1` strips the platform's injected
+  `sslmode=require` (Ecto's URL parser rejects the query param as an option)
+  and configures `ssl: [verify: :verify_none]` rather than `verify_peer`
+  against a pinned CA. The standing decision is provider-neutral, because a
+  systems doc is the wrong altitude for any one provider's topology to be
+  the reasoning: **`verify_none` holds only where the operator controls the
+  network path end to end; anywhere else, pin a CA and use `verify_peer`.**
+- **#10 Library configuration is assembled, never re-declared.** Ecto and
+  Oban read application env by their own contract and will keep doing it;
+  the config layer feeds them rather than fighting them, so
+  `Catapult.Repo.init/2` merges url and pool size in from the accessor and
+  Oban's options are composed the same way when `oban_queues/0` starts
+  contributing.
+- **#11 If the plane ever needs a config source of its own, it belongs to
   foundation** — `lib/catapult/config/`, added to this doc's file map
   in the same change. Not needed today and deliberately not created
   speculatively: the plane runs substrate's shipped environment
   source, which is how that source stays exercised
   (`systems/substrate.md`).
-- **The roster and the source selection live in `Catapult.Boot`, and
-  every entry point goes through it** (ORC-4). Root glue in v5 §2.7's
-  sense, and its own module rather than functions on
-  `Catapult.Application` for a reason implementation found: the
-  application is not the only entry point. `Catapult.Release.migrate/0`
-  runs under `eval` with the app loaded but not started, and mix's ecto
-  tasks call `Catapult.Repo.init/2` after `app.config` — both need
-  configuration and neither boots a supervision tree. Hanging the load
-  off `Catapult.Application` would put `Repo → Application → Foundation
-  → Repo` in the module graph, and `mix xref graph --format cycles
-  --fail-above 0` is a hard gate (conventions §2). The load being
-  idempotent is what lets three entry points ask for it without
-  arranging who goes first; load-once (`systems/substrate.md`) is what
-  makes that safe rather than lucky.
-- **Boundary's strict external mode arms now, against one boundary,
-  rather than later against all of them** (ORC-21). v5 §2.14 promotes
-  the adapter conventions to compile grade — only `Store`
-  subcomponents on Ecto, only the outbox wrapper on Oban's insert
-  surface, only adapters on Req, no model-call library anywhere in
-  plane code. Every one of those is a rule *about a sub-boundary*, and
-  the tree has exactly one boundary today (`lib/catapult.ex`, `deps:
-  []`), so none of them can be stated yet. What can be stated is the
-  mode, in the root `mix.exs`, which makes the coarse boundary declare
-  the external applications it actually calls. That is a one-line diff
-  and a short list right now, and it is N boundaries at once at any
-  later moment — worse, every carve-out between now and then would
-  land a boundary that has never been checked, so the retrofit grows
-  with exactly the work it is supposed to constrain. Arming the mode
-  is therefore not the same ticket as arming any of the four rules:
-  the rules arrive with the boundaries they constrain, in those
-  systems' tickets, and this decision is what makes each of them a
-  `deps:` line instead of a migration.
-
-  **The arming is `check: [apps: [...]]`, not `type: :strict`, and
-  the reason is a Boundary defect rather than a preference.** Strict
-  additionally requires naming implicit boundaries *inside*
-  `:catapult_substrate`, and Boundary's cached view
-  (`Boundary.Mix.View.refresh/2`) drops a **path dep's** boundaries on
-  every incremental compile and rebuilds them only from loaded
-  applications — which the cache-hit path never loads. Measured, not
-  inferred: `mix compile --force` is clean and the very next `mix
-  compile` reports all fifteen substrate calls as forbidden, so the
-  second compile in any CI job fails on state rather than on code
-  (`mix credo` compiles before `mix compile --warnings-as-errors` in
-  `ci.yml`, so this is the ordinary path and not a corner). The app
-  list is checked identically and stably, and the four rules still
-  arrive as `deps:` lines on the boundaries they constrain. What is
-  lost is the one thing strict adds beyond the list: a *newly added*
-  dependency is unchecked until it is named, and naming it is a §2.8
-  decision in the diff that adds it — review rather than a gate —
-  which is the gap the audit check below reports. Revisit condition:
-  Boundary loading a path dep's applications on the cache-hit path, at
-  which point `type: :strict` is a one-line change that deletes this
-  list *and* renders that check inert on its own terms.
-
-  **The list is the whole of what a `:prod` build can reach and
-  Boundary can restrain, and `Catapult.Audit.BoundaryApps` reports the
-  gap** (ORC-50; `systems/substrate.md` holds the check's subject, its
-  three derived exclusions and its census). A list of only the four
-  rules' applications plus the HTTP listener — `:ecto`, `:ecto_sql`,
-  `:oban`, `:plug`, `:plug_cowboy`, `:req` — prices an omission that
-  gets noticed, and nothing noticed it: that list was short of six
-  applications the plane's own build resolves (`:db_connection`,
-  `:decimal`, `:jason`, `:mime`, `:plug_crypto`, `:postgrex`) from the
-  day it was written, each of them silently exempt rather than
-  partially checked. Two measurements decide the shape and both are
-  cheap to re-run: naming all eleven costs **zero** forbidden
-  references, because the plane calls none of them today — the
-  expensive version of this ticket is the one the engine would have
-  filed — and naming `:catapult_substrate` costs twelve and a red
-  build, which is the path-dep defect above reproduced through the
-  list instead of through strict, so the path dep is excluded by
-  derivation rather than by a name anyone writes.
-
-  **The list is written, never derived** (ORC-50). Computing the
-  closure inside `boundary/0` at project-config time is the tempting
-  one-line version — nothing left to forget — and it fails on three
-  counts, in increasing weight. It runs on every mix invocation
-  including `deps.get`, before the compiled `.app` files the closure
-  reads exist. It is plane-local, so a generated project — whose
-  `mix.exs` comes from `bundles/default` and whose list drifts
-  the same way — inherits nothing. And it deletes the artifact review
-  acts on: the list is the one place a human reads which applications
-  are constrained, and a derivation bug would narrow it silently and
-  in the permissive direction, which is the failure this ticket was
-  filed about wearing the fix's clothes. The check is the half that
-  has to be loud; the declaration is the half that has to be readable,
-  and they are different halves on purpose.
-
-  **What it does not cover, so the gap is not mistaken for coverage:**
-  Boundary documents that calls to `:elixir`, `:boundary` and pure
-  Erlang applications cannot be restrained, so `:httpc` reaching a
-  model provider from plane code compiles clean under the check.
-  Conventions §11 is a compile error for every Elixir client *the app
-  list names*, and for the Erlang ones it is the plane-owned transport
-  ban the bullet below decides (ORC-52) — not an audit check in
-  substrate, whose platform set carries no `:httpc` or model-call
-  rule; a paragraph headed "so the gap is not mistaken for coverage"
-  is the last place to manufacture coverage. The plane is where that
-  residue matters most, because it is the tree §11 is written about.
-  The claim has three homes and all three change together: this
-  paragraph, `systems/substrate.md`'s enforcement roster, and
+- **#12 The roster and the source selection live in `Catapult.Boot`, and
+  every entry point goes through it** (ORC-4).
+- **#13 Boundary's strict external mode arms now, against one boundary,
+  rather than later against all of them** (ORC-21). v5 §2.14 promotes the
+  adapter conventions to compile grade — only `Store` subcomponents on Ecto,
+  only the outbox wrapper on Oban's insert surface, only adapters on Req, no
+  model-call library anywhere in plane code. Every one of those is a rule
+  *about a sub-boundary*, and the tree has exactly one boundary today
+  (`lib/catapult.ex`, `deps: []`), so none of them can be stated yet. What
+  can be stated is the mode, in the root `mix.exs`, which makes the coarse
+  boundary declare the external applications it actually calls.
+- **#14 The arming is `check: [apps: [...]]`, not `type: :strict`, and the
+  reason is a Boundary defect rather than a preference.**
+- **#15 The list is the whole of what a `:prod` build can reach and
+  Boundary can restrain, and `Catapult.Audit.BoundaryApps` reports the gap**
+  (ORC-50; `systems/substrate.md` holds the check's subject, its three
+  derived exclusions and its census).
+- **#16 The list is written, never derived** (ORC-50).
+- **#17 What it does not cover, so the gap is not mistaken for coverage:**
+  Boundary documents that calls to `:elixir`, `:boundary` and pure Erlang
+  applications cannot be restrained, so `:httpc` reaching a model provider
+  from plane code compiles clean under the check. Conventions §11 is a
+  compile error for every Elixir client *the app list names*, and for the
+  Erlang ones it is the plane-owned transport ban the bullet below decides
+  (ORC-52) — not an audit check in substrate, whose platform set carries no
+  `:httpc` or model-call rule; a paragraph headed "so the gap is not
+  mistaken for coverage" is the last place to manufacture coverage. The
+  plane is where that residue matters most, because it is the tree §11 is
+  written about. The claim has three homes and all three change together:
+  this paragraph, `systems/substrate.md`'s enforcement roster, and
   `lib/catapult.ex`'s moduledoc — which is an unowned path
-  (`systems/README.md`) and so belongs to the change that corrects the
-  other two rather than to a system.
-- **The Erlang residue is a plane-owned `policies/0` check that bans
+  (`systems/README.md`) and so belongs to the change that corrects the other
+  two rather than to a system.
+- **#18 The Erlang residue is a plane-owned `policies/0` check that bans
   the transport, and it arms now while it is green** (ORC-52). Three
   decisions — what, where, when — behind the refusal that makes them
   possible, which comes first.
-
-  **A check that finds a *model call* cannot be built at the grade
-  the audit runs at, so it is not what gets built.** At AST grade the
-  call is
-  `:httpc.request(:post, {url, headers, type, body}, [], [])` — whether
-  `url` reaches a model provider is data, decided at runtime and
-  normally read from configuration. Recognising a provider hostname in
-  a literal would catch a spelling nobody writes and report clean on
-  every real instance of the thing it is named after: a check that
-  passed without checking anything, which is the class ORC-37 was filed
-  about and the class this ticket is filed about. Following `url` back
-  to its binding is the dataflow inference this repo has refused twice
-  already, in the secret-taint case and the computed-config-key case
-  (`systems/substrate.md`, "What a check may infer"), each time for
-  the same reason — a shallow analysis reported as a guarantee.
-
-  **The decidable rule is one level out: no plane module calls a pure
-  Erlang HTTP client.** The module in `:httpc.request/4` is a literal
-  atom in the source, so the ban is exact at the grade the audit
-  already runs at, needs no inference, and has the same shape as
+- **#19 The decidable rule is one level out: no plane module calls a pure
+  Erlang HTTP client.** The module in `:httpc.request/4` is a literal atom
+  in the source, so the ban is exact at the grade the audit already runs at,
+  needs no inference, and has the same shape as
   `Catapult.Audit.Checks.WallClock` — a remote call on a literal module
-  atom, plus the `apply(:httpc, :request, _)` spelling, which is
-  literal atoms too. A computed module is out of reach and is not
-  chased, for the reason above. The ban is deliberately *broader* than
-  §11: it catches every unbounded egress by that route rather than only
-  the model-shaped one, which is v5 §2.2's every-HTTP-usage-inside-a-
-  registered-adapter rule arriving for the applications the compiler
-  cannot see. The banned set is named *modules*, and the asymmetry with
-  `mix.exs` is worth spelling rather than glossing: a call site names a
-  module, so this is a module list where the compiler's side is an
-  application list — `:httpc` and `:inets` (the OTP client and the
-  application whose `start/0` arms it), `:hackney`, `:gun`, `:ibrowse`.
-  Beyond the grade they are the same list split by what the compiler
-  can restrain: both author-visible, both extended by reviewed diff,
-  neither inferred. The entry's required `policy:` string is where the
+  atom, plus the `apply(:httpc, :request, _)` spelling, which is literal
+  atoms too. A computed module is out of reach and is not chased, for the
+  reason above. The ban is deliberately *broader* than §11: it catches every
+  unbounded egress by that route rather than only the model-shaped one,
+  which is v5 §2.2's every-HTTP-usage-inside-a- registered-adapter rule
+  arriving for the applications the compiler cannot see. The banned set is
+  named *modules*, and the asymmetry with `mix.exs` is worth spelling rather
+  than glossing: a call site names a module, so this is a module list where
+  the compiler's side is an application list — `:httpc` and `:inets` (the
+  OTP client and the application whose `start/0` arms it), `:hackney`,
+  `:gun`, `:ibrowse`. Beyond the grade they are the same list split by what
+  the compiler can restrain: both author-visible, both extended by reviewed
+  diff, neither inferred. The entry's required `policy:` string is where the
   rule is stated in prose, so the report cites the rule rather than the
-  module. The escape rides `Catapult.Audit.Source` like every other
-  check at this grade (`# catapult:allow erlang_http`) and has no
-  sanctioned use in this tree today — a tag covering no violation is
-  itself reported, so an unused one prunes itself.
-
-  **The transport layer stays off the list** — `:gen_tcp`, `:ssl`,
-  `:socket` and friends. The obvious objection to banning named HTTP
-  clients is that a determined module can open a socket and write the
-  request bytes itself; the objection is correct and does not change
-  the answer. Those applications are what Postgres, the clustering
-  transport and every other legitimate connection ride on, so banning
-  them means an escape tag at every real call site, and a ban escaped
-  everywhere is a ban nobody reads. The trade is asymmetric in the
-  direction that decides it: a plane module reaching a provider
-  through `:httpc` is a mistake somebody makes, while one hand-rolling
-  HTTP over `:gen_tcp` is a deliberate evasion, and no check in this
-  repo is built to stop an author who is trying. The named list grows
-  by reviewed diff when a real client is missing from it; that is a
-  different move from descending a layer.
-
-  **It is plane code**, at `Catapult.Foundation.Policies.ErlangHttp`,
+  module. The escape rides `Catapult.Audit.Source` like every other check at
+  this grade (`# catapult:allow erlang_http`) and has no sanctioned use in
+  this tree today — a tag covering no violation is itself reported, so an
+  unused one prunes itself.
+- **#20 The transport layer stays off the list** — `:gen_tcp`, `:ssl`,
+  `:socket` and friends.
+- **#21 It is plane code**, at `Catapult.Foundation.Policies.ErlangHttp`,
   registered through foundation's `policies/0` against the
-  working-directory-rooted scope every registered check takes. It may
-  not be a substrate platform check and may not live there under
-  another name: that set is inherited by every project that runs the
-  audit at all, and generated projects *do* make model calls — through
-  the LLM adapter, which is conventions §11's other bullet — so a
-  shipped egress ban would fail the audit of a project doing what the
-  platform told it to. Being AGPL plane code is exactly what makes
-  holding Catapult's own policy correct here, the same way
-  `catapult.audit.all` is the sanctioned home for knowing this repo's
-  layout (`systems/substrate.md`).
-
-  **Now, rather than at a milestone where it has something to catch.**
-  Phase 4 and Phase 6 are the obvious later homes, and both are wrong
-  for one mechanical reason: `:inets` ships with OTP, so `:httpc`
-  requires no dependency and will never appear in a `mix.exs` or
-  `mix.lock` diff. There is no arming moment for anyone to notice —
-  which is *why* it is the residue, and why "wait until it has a
-  subject" is waiting for a signal that cannot arrive. The rest is
-  ORC-21's own argument for arming the app list against one boundary,
-  one level in: the run is green today, so the diff is a module and a
-  registration rather than a cleanup, and every plane module written
-  between now and Phase 6 would otherwise land unchecked. The system's
-  own precedent agrees from the other side — the live suite already
-  rejected `:httpc` on its merits ("HTTP client: Req" below), so this
-  codifies a decision foundation has made once already instead of
-  anticipating one. Revisit condition: none for the arming. The
-  *list* is expected to grow, and growing it is the reviewed diff the
-  mirror-image argument above asks for.
-- **The root project's compile-connected cap is 0 and is armed as a
-  gate line** (ORC-21). Measured here rather than assumed: `mix xref
-  graph --format stats` reports 0 compile dependencies across the seven
-  tracked files, and `--label compile-connected --fail-above 0` exits
-  0. The number's home is `qualityGates`, not this repo's code, for the
-  reason `systems/substrate.md` argues — a cap a ticket can edit is a
-  cap the ticket that breaks it will edit. Recorded here because the
-  value is a fact about *this* project's tree, and the day it stops
-  being 0 the diff that raised it should have to say so.
-- **The plane declares a licensing policy rather than staying inert**
+  working-directory-rooted scope every registered check takes. It may not be
+  a substrate platform check and may not live there under another name: that
+  set is inherited by every project that runs the audit at all, and
+  generated projects *do* make model calls — through the LLM adapter, which
+  is conventions §11's other bullet — so a shipped egress ban would fail the
+  audit of a project doing what the platform told it to.
+- **#22 The root project's compile-connected cap is 0 and is armed as a
+  gate line** (ORC-21). Measured here rather than assumed: `mix xref graph
+  --format stats` reports 0 compile dependencies across the seven tracked
+  files, and `--label compile-connected --fail-above 0` exits 0. The
+  number's home is `qualityGates`, not this repo's code, for the reason
+  `systems/substrate.md` argues — a cap a ticket can edit is a cap the
+  ticket that breaks it will edit.
+- **#23 The plane declares a licensing policy rather than staying inert**
   (ORC-51). Two declarations and no new mechanism: `licensing: [allow:
   ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]` in
   the root `mix.exs`, and `licensing/0` on `Catapult.Foundation`
@@ -354,70 +193,13 @@ reached only through their APIs per v5 §2.4).
   dependency closure stays unchecked exactly as `LICENSING.md`'s table
   says it should — the engine's `commanded` and `eventstore` are
   unchecked either way, and correctly.
-
-  Measured on this tree rather than reasoned, because "nothing
-  changes in the closure" is the whole point and a claim worth
-  checking: before, `licensing: inert — this project states no
-  licensing policy, so nothing was checked`; after, `licensing:
-  unchecked against 6 identifiers — no subject arms a dependency check
-  (Catapult.Foundation :service "AGPL-3.0-only")`. The verdict acquires
-  a subject and a reason somebody asserted, in place of a sentence
-  about the absence of one.
-
-  **The half that is worth a ticket is the other one.**
-  `Catapult.Audit.License` never reaches `undeclared_problems/1` while
-  a project is inert, so today the missing declaration is not reported
-  either — the check and its own precondition are both dark. Measured:
-  with the policy stated and `licensing/0` deleted again, the audit
-  fails with *"Catapult.Foundation declares no licensing/0, so this
-  project's policy cannot place it"*. Stating the policy is therefore
-  what makes every plane component the engine adds state its class in
-  the diff that adds it, instead of a retrofit sweep across seven
-  systems later — the retrofit `LICENSING.md`'s declaration model is
-  most exposed to, since a class nobody was asked for is a class
-  somebody guesses.
-
-  Both edits are one commit, and not because of an ordering hazard:
-  the `mix.exs` line alone fails the audit on the undeclared component,
-  and `licensing/0` alone changes nothing while the project is inert.
-  It is one decision landing in two files, one of which (`mix.exs`) is
-  unowned by construction (`systems/README.md`).
-
-  **`:service`, not `:internal`.** The plane is reached over a network
-  by people who are not its operator — the hosted tier is the product —
-  which is the case `:service` exists to name and the reason
-  `LICENSING.md` chose AGPL over plain GPL in the first place.
-  `:internal` is the class whose entire meaning is that nothing
-  triggers, and asserting it about the one program AGPL §13 was picked
-  for would be a false declaration made in public, which is precisely
-  the failure the declaration model trades a path rule for.
-- **The plane's `allow:` list is Catapult's five plus its own
+- **#24 The plane's `allow:` list is Catapult's five plus its own
   identifier, and the five are not decoration** (ORC-51). The list has
   to contain `AGPL-3.0-only` or `bucket/2` reads the subject as
   unplaceable and reports it: the self-check and the bucket rule are
   one rule, which is what `systems/substrate.md` means by a project's
   list containing its own license even where nothing is checked.
-
-  The other five hold although no dependency in this tree is measured
-  against them today, and the measurement is what holds them. The list
-  is consulted the instant any subject in
-  this project arms the check, and against the six identifiers above
-  the plane's whole closure produces exactly **one** problem —
-  `cowboy_telemetry`, which declares `["Apache 2.0"]` and is the
-  near-miss `systems/substrate.md` already names. Against
-  `["AGPL-3.0-only"]` alone it produces one per dependency. A list that
-  is correct only for as long as it is unused is a policy that gets
-  written under time pressure, inside the diff that first needed it and
-  for reasons that diff supplies.
-
-  **The seam this leaves.** `AGPL-3.0-only` is on the list, so if
-  this project's check ever armed for the *proprietary-`:service`*
-  reason — AGPL §13 obliging an offer
-  of source to our own users — an AGPL dependency would pass a check
-  whose entire reason is that it must not. That is one-list-per-project
-  behaving exactly as recorded (`systems/substrate.md`), and the guard
-  is the decision below rather than a second list keyed by class.
-- **Every subject in the root project is `:service` under
+- **#25 Every subject in the root project is `:service` under
   `AGPL-3.0-only`; a subject that is not belongs in another mix
   project** (ORC-51). This is what keeps the seam above closed — the
   plane states one policy because the plane is one class — and it is a
@@ -425,37 +207,13 @@ reached only through their APIs per v5 §2.4).
   engine, delivery, generation, registry, dashboard, core_dsl and
   harness each declare `[distribution: :service, license:
   "AGPL-3.0-only"]` when they land, and the audit is what asks.
-
-  The two things that would break it already have somewhere else to be.
-  Anything **conveyed** — a published package, code generated into a
-  customer's tree — is Apache-2.0 under `components/**` or `bundles/**`
-  (`LICENSING.md`), and `components/*` are their own mix projects with
-  their own lockfiles and their own `allow:` lists. A hosted-tier
-  proprietary `:service` component under `LicenseRef-*` is its own mix
-  project too, for the reason `systems/substrate.md` records:
-  dependencies
-  are a mix project's fact, and a project needing two policies needs
-  two dependency trees. So the day something in the plane's own tree
-  wants a different class is the day it is not in the plane's own tree.
-- **ORC-74 and v5 §3.5 are in view, and neither moves this** (ORC-51).
+- **#26 ORC-74 and v5 §3.5 are in view, and neither moves this** (ORC-51).
   §3.5 adoption forks a *component* into a customer's graph and tree,
   which is legitimate precisely because `components/**` is Apache-2.0;
   the plane is not a component and its own classification is untouched.
   What the adjacency changes is what the dark ladder costs, not what
   the answer is.
-
-  ORC-74 would teach `Catapult.Audit.License` to resolve a **git**
-  dependency's terms from its own `licensing/0`, since a git dep has no
-  `hex_metadata.config`. Foundation's declaration is correct under both
-  readings — the terms this code carries are `AGPL-3.0-only` whether
-  the reader is this project's own audit or a consumer resolving a
-  git dep — so the two tickets are order-independent and this one adds
-  no second spelling for that resolver to disagree with. The coincidence
-  is what makes the ordering free, though, not an argument that the two
-  facts are the same fact: nobody git-deps the plane, so the plane's
-  declaration is never itself a resolution subject, and a component
-  that *is* one would want reading in ORC-74's terms rather than these.
-- **The dispatch-facing host port endpoint is a second path on the
+- **#27 The dispatch-facing host port endpoint is a second path on the
   existing health listener, not a new listener — and not
   `api_surface/0`'s general composed router either, yet** (ORC-9).
   `Catapult.HealthEndpoint` serves `/health` and nothing else, and
@@ -487,87 +245,36 @@ reached only through their APIs per v5 §2.4).
   generically, this listener's hand-wiring is what gets deleted, not
   the registration underneath it.
 
-  **What "absorbs `api_surface/0` generically" means** (ORC-35).
-  `DispatchPlug` is *data-driven*: it reads the same aggregated
-  `api_surface/0` table the composer already builds
-  (`systems/substrate.md`'s "the roster is one table"), matches
-  `{verb, path}` against it at request time exactly the way
-  route-identity collision-checking already does (`{version, verb,
-  path}` with every `:param` segment equal to every other), and
-  dispatches with `apply(module, function, [conn, params])` — a
-  runtime call through an atom pulled from a list, the same shape
-  `Catapult.Component.Composer` already uses to call `children/0` and
-  every other registry callback on a module it never `alias`es or
-  `require`s. Neither hand-matched `path_info` clauses (`["health" |
-  _]`, `["dispatch", "context", run_key]`, ...) nor literal router
-  macros calling each target module by name: the first is hardcoded
-  clauses standing in for a lookup over a table that already exists,
-  the second is the macro coupling the compile-connected cap forbids.
-  No new compile-time edge, because nothing about this differs in
-  kind from what the composer already does today at zero
-  compile-connected cost. `/health` dispatches the same way, as one
-  more entry through the same table rather than a hardcoded first
-  clause. The plug is still not a macro-composed router calling target
-  modules directly, for the same reason the hand-wiring above is not.
-
-  This does not, on its own, get `docs/ui-spec.md`'s dashboard screens
-  on screen. Those need LiveView sockets — a `Phoenix.Endpoint` and a
-  `Phoenix.Router` with `live/2` routes — and unlike `api_surface/0`'s
-  boundary-export routes, dashboard's own screens are wholly this
-  system's: no other component needs to declare a LiveView route, so
-  there is no cross-component registry to design here, only an
-  ordinary router naming `event-log`, `explain-why` and whatever v1
-  adds directly (`systems/dashboard.md`). **That router holds the
-  `compile-connected --fail-above 0` line, measured rather than
-  predicted.** Phoenix is a dependency of this tree
-  (`systems/dashboard.md`'s placement bullet has the detail), and the
-  scratch probe ORC-32 established for exactly this kind of question —
-  compile it, uncommitted, read the gate, discard it — has been run: a
-  router carrying
-
-  ```elixir
-  scope "/", CatapultWeb do
-    pipe_through(:browser)
-    live("/event-log/:project_id", ProbeLive, :index)
-    live("/explain-why/:project_id", ProbeLive, :show)
-  end
-  ```
-
-  compiles with `mix xref graph --label compile-connected
-  --fail-above 0` exiting 0 — the graph is empty — and `mix xref graph
-  --label compile --source lib/catapult_web/probe_router.ex` shows the
-  router with no outgoing compile edges at all, including none to
-  either `live/2` target module. The mechanism: `live/2` stores its
-  target as data the dispatcher reads at runtime, the same shape
-  `DispatchPlug` uses over `api_surface/0` above, not the
-  `CompositeRouter.router/1`-reading-`__registered_commands__/0` shape
-  that trips the ratchet. No `Module.concat/1` escape is needed for
-  the dashboard router, the same way ORC-32 found none needed for its
-  process manager. A real router that fails to hold `--fail-above 0`
-  is a finding back to the author, never a self-authorized raise of
-  the number (conventions §2: the cap lives nowhere a ticket can
-  reach) — the ordinary backstop it is everywhere else.
-
-  **The probe measures the ratchet and nothing else.** It carried no
-  `Phoenix.Endpoint` and no boundary declaration, and compiled
-  reporting `CatapultWeb.ProbeRouter is not included in any boundary`.
-  The ratchet result is about the router's own compile edges and holds
-  regardless of that gap, but how `lib/catapult_web/**`'s modules
-  register with the boundary compiler is a separate question this
-  measurement does not answer — and `mix compile
-  --warnings-as-errors` has the boundary compiler in its set, so that
-  is a gate of its own, not a loose end the ratchet covers.
-
   This is why `systems/generation.md` and `systems/delivery.md` both
   carry `system:foundation` alongside their own labels: this doc's
   mapped `application.ex`/`health_endpoint.ex` is where the change
   lands, and an undeclared touch is a mutex nobody took.
-
-  **`SETUP.md` §2 and the README name the paths this listener serves,
-  and they change with it**: `docs/non-goals.md`'s "no second home for
-  the reference instance's live facts" entry is what a stale "`/health`
-  is the only served path" in either would violate, one document over.
-- **A bounded, volatile last-N-failures buffer, fed by telemetry
+- **#28 What "absorbs `api_surface/0` generically" means** (ORC-35).
+  `DispatchPlug` is *data-driven*: it reads the same aggregated
+  `api_surface/0` table the composer already builds
+  (`systems/substrate.md`'s "the roster is one table"), matches `{verb,
+  path}` against it at request time exactly the way route-identity
+  collision-checking already does (`{version, verb, path}` with every
+  `:param` segment equal to every other), and dispatches with `apply(module,
+  function, [conn, params])` — a runtime call through an atom pulled from a
+  list, the same shape `Catapult.Component.Composer` already uses to call
+  `children/0` and every other registry callback on a module it never
+  `alias`es or `require`s. Neither hand-matched `path_info` clauses
+  (`["health" | _]`, `["dispatch", "context", run_key]`, ...) nor literal
+  router macros calling each target module by name: the first is hardcoded
+  clauses standing in for a lookup over a table that already exists, the
+  second is the macro coupling the compile-connected cap forbids. No new
+  compile-time edge, because nothing about this differs in kind from what
+  the composer already does today at zero compile-connected cost. `/health`
+  dispatches the same way, as one more entry through the same table rather
+  than a hardcoded first clause. The plug is still not a macro-composed
+  router calling target modules directly, for the same reason the
+  hand-wiring above is not.
+- **#29 `SETUP.md` §2 and the README name the paths this listener serves,
+  and they change with it**: `docs/non-goals.md`'s "no second home for the
+  reference instance's live facts" entry is what a stale "`/health` is the
+  only served path" in either would violate, one document over.
+- **#30 A bounded, volatile last-N-failures buffer, fed by telemetry
   `CatapultWeb.Endpoint` already emits** (ORC-218). The
   reference instance answering 500 on every screen and on the
   provisioning surface for a day left nothing behind but App
@@ -576,170 +283,87 @@ reached only through their APIs per v5 §2.4).
   fix is a small in-process record, not a backend: `systems
   /observability.md`'s own ORC-218 entry is the rule this bullet's
   mechanism satisfies.
-
-  **Fed off two hooks that already exist, measured rather than
-  added — one for completeness, one for the trace.**
-  `CatapultWeb.Endpoint`'s `render_errors:` config (`config/config.exs`)
-  arms `Phoenix.Endpoint.RenderErrors`, which wraps this listener's
-  entire `call/2` in a rescue and executes `:telemetry.execute([:phoenix,
+- **#31 Fed off two hooks that already exist, measured rather than added —
+  one for completeness, one for the trace.** `CatapultWeb.Endpoint`'s
+  `render_errors:` config (`config/config.exs`) arms
+  `Phoenix.Endpoint.RenderErrors`, which wraps this listener's entire
+  `call/2` in a rescue and executes `:telemetry.execute([:phoenix,
   :error_rendered], %{duration: _}, %{conn:, status:, kind:, reason:,
   stacktrace:, log:})` before re-raising (verified against `deps/phoenix
   /lib/phoenix/endpoint/render_errors.ex`) — the exception and its stack
-  trace, for anything that raises. But a 5xx that never raises never
-  reaches that event (below), so the buffer's actual feed is the plug
-  already ahead of it in the same file: `plug Plug.Telemetry,
-  event_prefix: [:phoenix, :endpoint]`, whose `[:phoenix, :endpoint,
-  :stop]` fires immediately before the response is sent on a conn that
-  still carries the callback it registered, carrying the final `conn` —
-  status included — whatever produced that status (verified against
-  `deps/plug/lib/plug/telemetry.ex`; the "still carries the callback"
-  qualifier is not decorative — the paragraph below names the one path
-  where it doesn't).
-  `Catapult.Foundation.FailureLog` attaches to both, and **whichever
-  fires first for a given request creates the record; the other, if it
-  fires at all, enriches the existing one rather than pushing a
-  second** — correlated by the request id `plug Plug.RequestId` —
-  already the plug ahead of `Plug.Telemetry` in the same file — writes
-  to `Logger.metadata()` for every request regardless of whether
-  `:assign_as` is set (verified against `deps/plug/lib/plug
-  /request_id.ex`): both handlers run inside the request's own process,
-  so both read the identical id back off `Logger.metadata()`, with no
-  new plug and no conn threading added to reach it. A created record
-  carries the request path and a `DateTime` from `Catapult.Clock` (no
-  bare `DateTime.utc_now`); whichever event supplies a stack trace
-  attaches it, and `:stop` additionally attaches the response body,
-  capped. **The body is what a deliberate 5xx has instead of a trace.**
-  `Catapult.Delivery.Provisioning`'s 502 answers `{"error": inspect(
-  reason)}` and never raises, and App Platform replaces the body of an
-  upstream 502 with its own error page, so that reason reaches no
-  caller and exists nowhere else; five live-suite runs were read as an
-  infrastructure fault on that basis. Only `:stop` can supply it —
-  `Plug.Telemetry` fires from a `register_before_send` callback, and
-  `Plug.Conn.send_resp/1` runs those callbacks before handing the body
-  to the adapter, then replaces `resp_body` with whatever that adapter
-  returns (verified against `deps/plug/lib/plug/conn.ex`). Under
-  `Plug.Cowboy` that return is `nil` (verified against
-  `deps/plug_cowboy/lib/plug/cowboy/conn.ex`), so the callback is the
-  only point where the body is readable at all — and the trap is that
-  `Plug.Test`'s adapter returns the body instead, so a test reading
-  `conn.resp_body` after the fact proves nothing about production.
-  `:error_rendered` fires before the error response is built and has no
-  body to give. Neither a `:logger` handler nor a fresh `Plug
-  .ErrorHandler` feeds it: both would duplicate the rescue-and-classify
-  `render_errors.ex` already performs for the raising half, and neither
-  sees a response that never raised at all.
-
-  **Order is not fixed, because for one path `:stop` never fires at
-  all, so "`:stop` is always the record" would silently drop that
-  path's trace.** `Plug.Builder`'s generated
-  `call/2` wraps its plug chain in no `try` of its own (verified against
-  `deps/plug/lib/plug/builder.ex`), so a raise inside a function plug —
-  `plug :dispatch_plug`, which runs `Catapult.Foundation.DispatchPlug`'s
-  `apply/3` dispatch — propagates unwrapped past every later plug in
-  `CatapultWeb.Endpoint`'s own list, including `Plug.Telemetry`'s
-  `register_before_send`. `Phoenix.Endpoint.__before_compile__`'s
-  generated `call/2` catches it on its bare `catch kind, reason ->`
-  clause rather than the `rescue e in Plug.Conn.WrapperError ->` one
-  (verified against `deps/phoenix/lib/phoenix/endpoint.ex`) — that
-  clause only fires for a raise `CatapultWeb.Router` itself wrapped, and
-  a raise inside a function plug ahead of the router never reaches it —
-  and that bare clause hands `Phoenix.Endpoint.RenderErrors.__catch__/5`
-  the `conn` bound before the pipeline ran, not the one `Plug.Telemetry`
-  registered its callback on. `[:phoenix, :endpoint, :stop]` fires on
-  `register_before_send` callbacks attached to the conn that's actually
-  sent; a callback registered on a conn nothing downstream ever sends is
-  simply never invoked, so `:stop` does not fire for this path at all —
-  not late, not without a trace, not at all. `:error_rendered` is fired
-  from `__catch__` itself, unconditionally, so it is this path's only
-  event and has to be able to create the record alone. A raise the
-  router itself wraps (`Plug.Conn.WrapperError`, verified against `deps
-  /phoenix/lib/phoenix/router.ex`) carries the piped conn from inside
-  the router's own dispatch — by then already carrying `Plug.Telemetry`'s
-  callback, registered earlier in the same pipeline — so `:stop` still
-  fires there once `RenderErrors` sends the rendered response;
-  wherever both events fire, `:stop` arrives first and `:error_rendered`
-  enriches it.
-
-  **The predicate is "left this listener with `conn.status >= 500`,"
+  trace, for anything that raises. But a 5xx that never raises never reaches
+  that event (below), so the buffer's actual feed is the plug already ahead
+  of it in the same file: `plug Plug.Telemetry, event_prefix: [:phoenix,
+  :endpoint]`, whose `[:phoenix, :endpoint, :stop]` fires immediately before
+  the response is sent on a conn that still carries the callback it
+  registered, carrying the final `conn` — status included — whatever
+  produced that status (verified against `deps/plug/lib/plug/telemetry.ex`;
+  the "still carries the callback" qualifier is not decorative — the
+  paragraph below names the one path where it doesn't).
+  `Catapult.Foundation.FailureLog` attaches to both, and **whichever fires
+  first for a given request creates the record; the other, if it fires at
+  all, enriches the existing one rather than pushing a second** — correlated
+  by the request id `plug Plug.RequestId` — already the plug ahead of
+  `Plug.Telemetry` in the same file — writes to `Logger.metadata()` for
+  every request regardless of whether `:assign_as` is set (verified against
+  `deps/plug/lib/plug /request_id.ex`): both handlers run inside the
+  request's own process, so both read the identical id back off
+  `Logger.metadata()`, with no new plug and no conn threading added to reach
+  it. A created record carries the request path and a `DateTime` from
+  `Catapult.Clock` (no bare `DateTime.utc_now`); whichever event supplies a
+  stack trace attaches it, and `:stop` additionally attaches the response
+  body, capped. **The body is what a deliberate 5xx has instead of a
+  trace.**
+- **#32 Order is not fixed, because for one path `:stop` never fires at
+  all, so "`:stop` is always the record" would silently drop that path's
+  trace.**
+- **#33 The predicate is "left this listener with `conn.status >= 500`,"
   not a grep for how it got there.**
-  `Catapult.Delivery.Provisioning.provision/1` answers a `502` when
-  reset or intake fails (`lib/catapult/delivery/provisioning.ex:82`,
-  `error_response/3` calling `send_resp` directly, nothing raised) —
-  exactly the provisioning failure this ticket's own incident names,
-  and one a grep for raise-shaped call sites (`put_status(5`,
-  `send_resp(5`, `:internal_server_error`) missed by construction,
-  because it isn't shaped like the thing the grep was looking for.
-  Naming three strings as a stand-in for "nothing else produces a 5xx"
-  was the mistake the grep made; `conn.status >= 500` at the point a
-  response leaves the listener is the actual predicate. This
-  provisioning 502 never raises, so it is unaffected by the gap the
-  paragraph above names — `:endpoint, :stop` fires for it exactly as
-  described — and a future deliberate, non-raising 5xx is fed the same
-  way this one is, with no diff required to widen anything.
-
-  **Scoped to this listener's own requests, not every process crash.**
-  An Oban worker or an unrelated supervised process crashing is not
-  fed here: Oban already has its own execution lifecycle (retries,
-  `discarded`) for the first, and the ticket's own argument is about an
-  HTTP-facing incident (every screen, the provisioning surface) — the
-  same boundary `CatapultWeb.Endpoint` already draws. Widening the feed
-  to arbitrary process crashes is a different, unasked decision, not a
-  narrower reading of this one.
-
-  **The buffer is plane code under `lib/catapult/foundation/`, not the
+- **#34 Scoped to this listener's own requests, not every process crash.**
+  An Oban worker or an unrelated supervised process crashing is not fed
+  here: Oban already has its own execution lifecycle (retries, `discarded`)
+  for the first, and the ticket's own argument is about an HTTP-facing
+  incident (every screen, the provisioning surface) — the same boundary
+  `CatapultWeb.Endpoint` already draws.
+- **#35 The buffer is plane code under `lib/catapult/foundation/`, not the
   observability component, because its audience is this instance's own
   operator** — the same class of concern `/health` and `DispatchPlug`
-  already are, not a capability a generated project inherits by
-  adopting a shared component. A generated project wanting the
-  identical read surface is a separate, unasked product decision;
-  nothing here presumes it. `Catapult.Foundation.FailureLog` is a
-  `processes/0` entry like any other (`{:foundation_failure_log,
-  :singleton}`), holding the last **50** records — small and stated.
-  It declares no `max_heap_size:` guardrail, not a default one: there
-  is no default to fall back on, since `Catapult.Guardrails` applies
-  only what a `processes/0` entry names — `enforceable/0` is
-  `[:max_heap_size]` alone, and an entry naming nothing gets nothing
-  applied (verified against `components/substrate/lib/catapult
-  /guardrails.ex`) — and 50 small records bounded in count is not the
-  case this ticket's incident argues needs one. Oldest record drops
-  first once the 51st arrives.
+  already are, not a capability a generated project inherits by adopting a
+  shared component. A generated project wanting the identical read surface
+  is a separate, unasked product decision; nothing here presumes it.
+  `Catapult.Foundation.FailureLog` is a `processes/0` entry like any other
+  (`{:foundation_failure_log, :singleton}`), holding the last **50** records
+  — small and stated. It declares no `max_heap_size:` guardrail, not a
+  default one: there is no default to fall back on, since
+  `Catapult.Guardrails` applies only what a `processes/0` entry names —
+  `enforceable/0` is `[:max_heap_size]` alone, and an entry naming nothing
+  gets nothing applied (verified against `components/substrate/lib/catapult
+  /guardrails.ex`) — and 50 small records bounded in count is not the case
+  this ticket's incident argues needs one. Oldest record drops first once
+  the 51st arrives.
+- **#36 One read surface beside `/health`: `GET /failures`, registered
+  through `api_surface/0` on `Catapult.Foundation` exactly like delivery's
+  provisioning routes, `version: "v1", audience: :internal`** — reached
+  through the identical `Catapult.Foundation.DispatchPlug` path dispatch
+  (this doc's ORC-9/ORC-35 entries above), a sixth path on the one listener
+  rather than a new one. Bearer-authenticated, constant-time
+  (`Plug.Crypto.secure_compare/2`), against a secret of foundation's own:
+  **a new `FOUNDATION_OPERATOR_TOKEN`, declared in
+  `Catapult.Foundation.config/0` exactly like `endpoint_secret_key_base`
+  above (`secret: true`, no default), not a reuse of
+  `DELIVERY_PROVISIONING_TOKEN`.**
+- **#37 The phone-readable half is a dispatch-only GitHub Actions
+  workflow, and it is author-owned** (invariants, above): the same shape
+  `catapult-test-project.yml` already has — a `workflow_dispatch` job that
+  curls `GET /failures` with the bearer token and prints the JSON to the
+  run's own log, readable from the Actions tab on a phone with no other
+  tooling. The route above is what it curls.
+- **#38 No dashboard screen.** A route is what "readable from a phone
+  within a minute" needs, and a rendered screen over the identical data is a
+  later convenience with no argument for it yet — not a refusal, just
+  nothing this argument asks for.
 
-  **One read surface beside `/health`: `GET /failures`, registered
-  through `api_surface/0` on `Catapult.Foundation` exactly like
-  delivery's provisioning routes, `version: "v1", audience: :internal`**
-  — reached through the identical `Catapult.Foundation.DispatchPlug`
-  path dispatch (this doc's ORC-9/ORC-35 entries above), a sixth path on
-  the one listener rather than a new one. Bearer-authenticated,
-  constant-time (`Plug.Crypto.secure_compare/2`), against a secret of
-  foundation's own: **a new
-  `FOUNDATION_OPERATOR_TOKEN`, declared in `Catapult.Foundation.config/0`
-  exactly like `endpoint_secret_key_base` above (`secret: true`, no
-  default), not a reuse of `DELIVERY_PROVISIONING_TOKEN`.** Reusing it
-  would be one fewer required-env line, and it is refused on the same
-  argument that rules out `POOL_SIZE`/`HEALTH_PORT` above: the
-  provisioning token's name says delivery, because it is delivery's own
-  secret for delivery's own surface, and gating an unrelated
-  foundation-owned route on it would be exactly the kind of name a
-  reviewer can see is wrong the moment the two surfaces' owners diverge.
-  Foundation already declares its own secrets by its own slug; this is
-  one more. `FOUNDATION_OPERATOR_TOKEN` has its own entry in
-  `SETUP.md` §2's required-env manifest, beside
-  `DELIVERY_PROVISIONING_TOKEN`'s.
-
-  **The phone-readable half is a dispatch-only GitHub Actions
-  workflow, and it is author-owned** (invariants, above): the same
-  shape `catapult-test-project.yml` already has — a
-  `workflow_dispatch` job that curls `GET /failures` with the bearer
-  token and prints the JSON to the run's own log, readable from the
-  Actions tab on a phone with no other tooling. The route above is what it
-  curls.
-
-  **No dashboard screen.** A route is what "readable from a phone
-  within a minute" needs, and a rendered screen over the
-  identical data is a later convenience with no argument for it yet —
-  not a refusal, just nothing this argument asks for.
-
-## The live suite
+## #39 The live suite
 
 The health endpoint is served from here, so the repo's first
 `:live` test is foundation's: one smoke test of the reference
@@ -830,7 +454,7 @@ A red here is a statement about the reference instance — down,
 unhealthy, or serving an unstamped build — not about whatever merged
 last; §9 already routes it to a milestone blocker.
 
-## Initial vs target
+## #40 Initial vs target
 
 Initial (Phase 1): application skeleton, Repo, config through the
 substrate's config layer (ORC-4 — "via Vapor" as written here; see
@@ -839,6 +463,6 @@ migrations for Oban. Target: EventStore migrations (with
 engine), release tasks for seeds + migrations, DOKS manifests
 adjacent (Phase 7).
 
-## Depends on
+## #41 Depends on
 
 substrate.
