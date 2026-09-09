@@ -39,6 +39,7 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
     <xs:element name="comparch">
       <xs:complexType>
         <xs:sequence>
+          <xs:element name="name" type="xs:string" minOccurs="0"/>
           <xs:element name="widgets" type="Widgets"/>
           <xs:element name="primitives" type="Primitives"/>
           <xs:element name="grown" type="Grown"/>

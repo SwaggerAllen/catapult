@@ -27,11 +27,11 @@ Responsibility catalog (each with a name and role paragraph):
 - `{{ resp.id }}` — {{ resp.name }}: {{ resp.summary }}
 {% endfor %}
 
-Your output is a single `<sysarch>` block containing four sections in
+Your output is a single `<sysarch>` block containing five sections in
 a fixed order: a project-level technical specification, the top-level
-component list, top-level policies, and dependency edges between
-components. The block is parsed and validated — structural errors are
-fed back to you on retry.
+component list, top-level policies, a one-paragraph policies summary,
+and dependency edges between components. The block is parsed and
+validated — structural errors are fed back to you on retry.
 
 # Output format
 
@@ -46,8 +46,8 @@ model) can refer back to it to stay anchored in your initial framing
 instead of restarting from scratch.
 
 After `<introduction>`, emit exactly one `<sysarch>` block with these
-four children in this order: `<techspec>`, `<components>`,
-`<policies>`, `<dependencies>`. Example:
+five children in this order: `<techspec>`, `<components>`,
+`<policies>`, `<policies-summary>`, `<dependencies>`. Example:
 
     <introduction>
       The responsibility set cleanly partitions into three
@@ -123,6 +123,7 @@ four children in this order: `<techspec>`, `<components>`,
           <rationale>Every mutation to domain state must go through the central reducer so the event log is the single source of truth. Direct ORM writes bypass replay and break rebuild-from-log.</rationale>
         </policy>
       </policies>
+      <policies-summary>Billing and telemetry are the two cross-cutting commitments: every domain write goes through the central reducer, and every LLM call records its cost and latency.</policies-summary>
       <dependencies>
         <dep from="billing" to="foundation"/>
       </dependencies>
@@ -133,7 +134,7 @@ four children in this order: `<techspec>`, `<components>`,
 ## Structure
 
 * Emit **exactly one** `<sysarch>` root block. Nothing before, nothing after.
-* The four children **must appear in this order**: `<techspec>` → `<components>` → `<policies>` → `<dependencies>`. Out-of-order sections are a structural error.
+* The five children **must appear in this order**: `<techspec>` → `<components>` → `<policies>` → `<policies-summary>` → `<dependencies>`. Out-of-order sections are a structural error.
 * No unknown top-level children under `<sysarch>`.
 
 ## Techspec
@@ -191,6 +192,10 @@ four children in this order: `<techspec>`, `<components>`,
 * `<rationale>` is a paragraph explaining why the policy exists. Carries real weight — the LLM applying policies later reads this to decide which components the policy actually applies to.
 * `<revisit-condition>` is optional. Include it only when this policy is an **argued deferral** — a decision explicitly postponed rather than ruled out — and state the condition under which it should be revisited: "never, argued" (the deferral is permanent, with the argument in `<rationale>`) or a concrete "not until X" condition. Omit it for an ordinary policy.
 
+## Policies summary
+
+* `<policies-summary>` is **one required paragraph** (2-4 sentences) naming the project's cross-cutting commitments in prose — every component mints this verbatim as its own `project_policies_summary` field, so downstream comparch passes read it as ambient context without re-deriving it from `<policies>`. If `<policies>` is empty, say so plainly ("no project-wide cross-cutting policies; obligations are local to each component's own responsibilities") rather than omitting the block — it is always present, never optional.
+
 ## Dependencies
 
 * Each `<dep from="..." to="..."/>` uses local aliases on both sides. Both aliases must be declared in `<components>`.
@@ -229,7 +234,7 @@ four children in this order: `<techspec>`, `<components>`,
 * **Every component the feedback doesn't mention must round-trip unchanged.** Same alias, same `<name>`, same `<purpose>`, same `<owned-invariants>` (verbatim text), same `<primary-operations>` (verbatim text), same `<responsibilities>` block. Do **not** re-litigate purpose phrasing, invariant phrasing, or operation phrasing on components the author isn't asking you to touch — those handles are already grounded in downstream prompts and rewriting them creates drift the author didn't ask for.
 * **Aliases are stable identifiers.** A component's `alias` attribute is its identity key. Renaming an alias mints a fresh component id and orphans the prior comparch + subcomparch + impl nodes under it. Only change an alias when the author explicitly asks for it; default to preserving every alias as-is.
 * **The `<techspec>` block's seven labeled children are the project's commitment surface.** Downstream comparches read this verbatim to decide their internal subcomponent decomposition. Touch a `<runtime>` / `<persistence>` / `<write-path>` / `<concurrency>` / `<testing>` / `<deploy>` / `<technologies>` block only when the feedback asks you to. Preserve the other six verbatim.
-* **Policies are sticky.** Each `<policy>` is a load-bearing project-wide commitment; downstream tiers read the `<trigger>` + `<required>`/`<structural/>` + `<rationale>` to decide policy applications. Don't add, drop, or rewrite policies the feedback isn't pointed at.
+* **Policies are sticky.** Each `<policy>` is a load-bearing project-wide commitment; downstream tiers read the `<trigger>` + `<required>`/`<structural/>` + `<rationale>` to decide policy applications. Don't add, drop, or rewrite policies the feedback isn't pointed at. Update `<policies-summary>` only when the policy set itself changes — a rewording of one `<rationale>` doesn't require touching it.
 * **Dependency edges are sticky in both directions.** The dependency DAG must stay acyclic. If the feedback adds a component, you may need to add deps from/to the new component to keep coverage; but don't reshuffle deps among components the feedback isn't touching. The acyclicity check fires on the whole graph — accidental edge-rewrites between unrelated components can introduce cycles that fail the validator.
 * **The foundation marker is unique.** Exactly one component carries `<foundation/>`. Don't move it unless the feedback explicitly redesigns the foundation slot.
 
@@ -258,5 +263,5 @@ human-readable lineage record; small mods don't need a new chapter.
 * Rewriting every component's `<purpose>` to "improve handle quality" while the feedback only asked you to add a new policy. The other purposes were already good handles; rewriting them adds noise and creates downstream-drift work the author didn't ask for.
 * Re-allocating responsibilities across components in response to a feedback item that only asked for a name change. Resp ownership is sysarch's load-bearing decision; resp-shuffling is its own architectural decision and shouldn't ride in on an unrelated edit.
 * Adding "while we're here" tweaks to the techspec, policies, or dep graph that the feedback didn't ask for. The author batched the feedback they want; if they wanted more they'd have asked.
-* Reordering the four children inside `<sysarch>`, or reordering components alphabetically without being asked. The current order encodes the author's reading flow.
+* Reordering the five children inside `<sysarch>`, or reordering components alphabetically without being asked. The current order encodes the author's reading flow.
 {% endif %}

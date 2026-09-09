@@ -31,44 +31,44 @@ defmodule Catapult.Generation.ToySeedChainTest do
   (`systems/generation.md`'s ORC-107 entry) checks the rendered
   `feature_expansion` prompt carries `project_doc`'s own pinned text.
 
-  Three more implementation gaps, each verified by hand against
-  `Catapult.Generation.Extraction` before being worked around rather
-  than assumed:
+  **ORC-236 closes the two extraction gaps this file used to route
+  around by hand-seeding.** `fulfills` (authored inside `sysarch`'s own
+  draft, declaring `comp` as its edge source), `dependency` (comp<->comp
+  and subcomp<->subcomp, both declared a level above the tier they
+  connect) and `policy_application` (a mint-time marker, not a second
+  draft) all extract for real now, via `Catapult.Dsl.EdgeLocator`'s
+  five-locator resolution (dsl-syntax.md §4.2) — this test no longer
+  seeds any of the three; it asserts they land from the toy seed's own
+  fixture content instead (`sysarch.xml`'s own `<dep>`/`<resp>`/
+  `<required>` elements, `comparch.xml`'s own `<structural/>` policy and
+  `<reference target="ref"/>`). `ref` itself is `scope: reference`/
+  `generator: reference` now (`docs/v5-design-decisions.md` §4.5,
+  ORC-236): purely tool-authored, no draft, no dispatch — this test
+  creates it the same way any write path outside the chain would,
+  directly via `Store.mint_node/1`, before `comparch` commits and cites
+  it for real.
 
-    * **Fanout mint identity.** `Extraction.mints/4`'s own moduledoc
-      documents that a minted instance's identity resolves via an
-      `id`/`alias` attribute fallback verified only for `sysarch`'s
-      `<component alias="...">` — `resp` (from `<responsibility>`, no
-      id/alias), `vocab` (from `<term>`, no id/alias) and `policy`
-      (from `<policy>`, no id/alias) mint with a `nil` scope-key value
-      instead. `comp` and `subcomp` mint for real here (both instance
-      shapes carry `alias`); `resp`/`vocab`/`policy` are minted by this
-      test directly via `Store.mint_node/1` + `Store.insert_edge/1` —
-      the exact fanout edge a working extraction would have written —
-      mirroring `Catapult.Generation.IntegrationTest`'s own precedent
-      for `vocab` (ORC-9).
-    * **Third-tier-authored edges.** `fulfills` (authored inside
-      `sysarch`'s own draft, declaring `comp` as its edge source) and
-      `dependency`/`policy_application` (`Extraction`'s own moduledoc
-      names these two by example) all fail the same
-      `instance.source == tier_name` filter — none is extracted from
-      *any* draft today. Seeded directly, same shape as above.
-    * **`ref`'s scope-key.** `ref` is `scope: singleton`, so a real
-      dispatch commits it with `scope_key: %{}` — but `reference`-type
-      edge resolution hardcodes a `%{"id" => value}` lookup
-      (`Catapult.Generation.CommitPath.resolve_target/3`), which a
-      singleton's `%{}` never matches. `ref` still drafts and validates
-      for real; the one `reference` edge instance is seeded the same
-      way as the mints above.
+  **One gap remains, unfixed by ORC-236 and out of its stated scope**
+  (`Extraction`'s own moduledoc): a minted instance's identity resolves
+  via an `id`/`alias` attribute fallback verified only for `sysarch`'s
+  `<component alias="...">` — `resp` (from `<responsibility>`, no
+  id/alias), `vocab` (from `<term>`, no id/alias), `policy` (from
+  `<policy>`, no id/alias) and `screen` (from `<screen>`, no id/alias
+  either) mint with a `nil` identity value instead. `comp` and
+  `subcomp` mint for real here (both instance shapes carry `alias`);
+  `resp`/`vocab`/`policy`/`screen`/`journey` are minted by this test
+  directly via `Store.mint_node/1` + `Store.insert_edge/1` — the exact
+  fanout edge a working extraction would have written — mirroring
+  `Catapult.Generation.IntegrationTest`'s own precedent for `vocab`
+  (ORC-9). A same-tier `dependency`/`reference` locator whose sibling's
+  identity is one of these broken ones resolves `nil` rather than a
+  dangling id pointed at a node the real mint will never produce
+  (`Catapult.Generation.Extraction.resolve_sibling/6`) — checked here
+  by the toy seed's own `screens.xml` fixture, which declares a real
+  `<navigation>` block between two identity-broken screens: the edge is
+  silently dropped, not a crash, and asserted absent below.
 
-  None of these four are fixed here — `systems/generation.md`'s ORC-10
-  entry and this ticket's own `Touches:` line both keep this ticket to
-  `test/`, fixtures and `docs/`, and `Extraction`/`CommitPath` are
-  ORC-9's already-reviewed work. Each is a real, load-bearing gap
-  either way — recorded here, not quietly routed around, and named in
-  this ticket's hand-back.
-
-  **A fifth gap, unlike the four above, is what this pass fixes
+  **A fifth gap, unlike the two above, is what this pass fixes
   (ORC-117).** A join-target tier (no `draft:` — `comp`/`subcomp`/
   `resp`/`policy`) has no commit path of its own, so nothing could
   ever move it off whatever status it minted at; minted at `:absent`
@@ -78,13 +78,13 @@ defmodule Catapult.Generation.ToySeedChainTest do
   test used to fabricate the missing approval three ways — `resp` by a
   bare `Store.approve_node/2` loop, `comp`/`subcomp` by dispatching
   `ApproveDraft` against an `Ecto.UUID.generate()` draft id that named
-  no real draft. `Extraction.mints/4` and `Catapult.Engine.Reducer
+  no real draft. `Extraction.mints/6` and `Catapult.Engine.Reducer
   .apply_mint/2` now mint a join target straight to `:approved`
   (`systems/engine.md`'s ORC-117 entry), so none of the three is
   needed: `comp` and `subcomp` arrive approved through the same real
   extraction path as before, and `seed_mint!`'s `status:` argument
-  (below) mirrors that same rule for the two joins this test still
-  seeds by hand.
+  (below) mirrors that same rule for the joins this test still seeds
+  by hand.
 
   **What mint-time approval changes about "one ready scope."** Before
   this fix, only an explicitly-approved comp/subcomp let its `per(X)`
@@ -133,7 +133,6 @@ defmodule Catapult.Generation.ToySeedChainTest do
   @subcomparch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/subcomparch.xml"))
   @impl_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/impl.xml"))
   @vocab_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/vocab.xml"))
-  @ref_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/ref.xml"))
   @approve_review_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/review_approve.xml"))
 
   setup do
@@ -248,13 +247,24 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    `link_admin` is real and equally ready, and is used only to
     #    give `dependency`/`fulfills` a second real node to point at
     #    (richness, not depth) — see `ready_matching!/4` below. --
+    # `fulfills` (comp -> resp, declared inside sysarch's own draft) and
+    # `dependency` (comp <-> comp, declared a level above the tier it
+    # connects) both extract for real now, off the exact `sysarch.xml`
+    # content seed_edge! used to stand in for: `redirector`'s own
+    # `<resp id="redirect_resolution"/>`, `link_admin`'s own
+    # `<resp id="link_creation"/>`, and `<dep from="link_admin"
+    # to="redirector"/>` (`Catapult.Dsl.EdgeLocator`, dsl-syntax.md
+    # §4.2) — asserted below rather than fabricated.
     redirector = fetch_node!(project_id, "comp", %{"id" => "redirector"})
     link_admin = fetch_node!(project_id, "comp", %{"id" => "link_admin"})
 
-    seed_edge!(project_id, "fulfills", :reference, redirector.id, resp_redirect.id)
-    seed_edge!(project_id, "fulfills", :reference, link_admin.id, resp_link.id)
-    seed_edge!(project_id, "dependency", :dependency, link_admin.id, redirector.id)
-
+    # -- policy: sysarch's own mint (decomposition), seeded — `policy`'s
+    #    identity extraction is the same documented gap as resp/vocab
+    #    (see moduledoc): the sysarch draft's own `<policy>` element
+    #    mints organically too, but with a broken (`nil`) identity, so
+    #    this test still seeds a properly-identified stand-in and its
+    #    `policy_application` edge rather than assert against the
+    #    organic, unaddressable one. --
     policy =
       seed_mint!(
         project_id,
@@ -267,10 +277,27 @@ defmodule Catapult.Generation.ToySeedChainTest do
 
     seed_edge!(project_id, "policy_application", :policy_application, policy.id, resp_redirect.id)
 
-    # -- ref: context is empty, so ReadyScopes selects it unconditionally --
-    ref = ready_one!(chain, project_id, "ref")
-    ref = commit!(chain, project_id, "ref", ref, @ref_body)
-    approve_real!(project_id, ref.id, ref.current_draft_id)
+    # -- ref: `scope: reference`/`generator: reference` (ORC-236) — no
+    #    draft, no dispatch, created directly the way any write path
+    #    outside the chain would (`docs/v5-design-decisions.md` §4.5) —
+    #    `id: "ref"` matches `comparch.xml`'s own `<reference
+    #    target="ref"/>` so the real `reference` edge extraction below
+    #    resolves it, rather than seeding that edge by hand. Settled
+    #    unconditionally the moment it exists (`ReadyScopes.settled?/3`'s
+    #    `generator: "reference"` clause), so nothing here approves it. --
+    ref =
+      Store.mint_node(%{
+        id: "ref:ref",
+        project_id: project_id,
+        tier: "ref",
+        scope_key: %{"id" => "ref"},
+        status: :approved,
+        fields: %{
+          "title" => "No blocking calls in the redirect path",
+          "body" =>
+            "The redirect path must never issue a blocking call — see sysarch's own policy of the same name."
+        }
+      })
 
     # -- vocab: feature_expansion's own mint, seeded — see moduledoc --
     seed_mint!(project_id, "vocab", "short_code", fe.id, "decomposition")
@@ -288,20 +315,15 @@ defmodule Catapult.Generation.ToySeedChainTest do
     review!(chain, project_id, "comparch_review", comparch, @approve_review_body)
     approve_real!(project_id, comparch.id, comparch.current_draft_id)
 
-    # `reference`: comparch's own draft named `target="ref"`, but ref's
-    # singleton scope-key defeats the real lookup (see moduledoc) —
-    # seeded directly, standing in for what a matching lookup would
-    # have written from that exact draft content.
-    seed_edge!(project_id, "reference", :reference, comparch.id, ref.id)
-
     # -- subcomp: comparch's own mint, real extraction (`alias` again) —
     #    both arrive already `:approved`, same reasoning as `comp` above.
     #    `cache_layer` gets the same "richness, not depth" treatment as
-    #    `link_admin`. --
+    #    `link_admin`. `subcomp <-> subcomp` dependency (`cache_layer`
+    #    depends on `lookup_engine`) and `reference` (comparch's own
+    #    `target="ref"`) both extract for real too, off `comparch.xml`'s
+    #    own `<sub-dependencies>`/`<references>` content. --
     lookup_engine = fetch_node!(project_id, "subcomp", %{"id" => "lookup_engine"})
     cache_layer = fetch_node!(project_id, "subcomp", %{"id" => "cache_layer"})
-
-    seed_edge!(project_id, "dependency", :dependency, cache_layer.id, lookup_engine.id)
 
     # -- subcomparch: per(subcomp) — both subcomps are ready; pick
     #    `lookup_engine`'s scope deliberately, same reasoning as comparch. --
@@ -317,11 +339,19 @@ defmodule Catapult.Generation.ToySeedChainTest do
     approve_real!(project_id, impl.id, impl.current_draft_id)
 
     # -- every generation-tier node committed for real drafted (then approved) --
-    for node <- [fe, req, sysarch, comparch, subcomparch, impl, vocab, ref] do
+    for node <- [fe, req, sysarch, comparch, subcomparch, impl, vocab] do
       committed = Store.get_node(project_id, node.id)
       assert committed.status == :approved
       assert is_binary(committed.body_sha)
     end
+
+    # -- ref: never drafted (scope: reference has no draft: at all,
+    #    ORC-236), settled unconditionally, its write-path payload
+    #    intact. --
+    committed_ref = Store.get_node(project_id, ref.id)
+    assert committed_ref.status == :approved
+    assert is_nil(committed_ref.body_sha)
+    assert committed_ref.fields["title"] == "No blocking calls in the redirect path"
 
     # -- every join-target node arrives `:approved` at mint, with no
     #    approval step of its own (ORC-117 — this loop is the guard: it

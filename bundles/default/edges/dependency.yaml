@@ -11,9 +11,19 @@
 edge: dependency
 type: dependency
 instances:
+  # These two, and the four sibling-scoped instances below, are the
+  # residual locator case (dsl-syntax.md §4.2): neither end is `self`,
+  # `self.parent`, a fanout element, nor a `scope: singleton` tier —
+  # `sysarch.draft.dependencies.dep[]` shares no prefix with
+  # `decomposition`'s own `comp` fanout locus, and `sysarch`'s own
+  # parent is `requirements`, neither endpoint — so both sides need an
+  # explicit locator naming the `<dep>` element's own attribute pair
+  # (`systems/platform_content.md`'s ORC-236 entry).
   - source: comp
     target: comp
     declared_in: sysarch.draft.dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -21,6 +31,8 @@ instances:
   - source: subcomp
     target: subcomp
     declared_in: comparch.draft.sub-dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -36,6 +48,8 @@ instances:
   - source: ui_coll
     target: ui_coll
     declared_in: frontend_sysarch.draft.ui-dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -43,6 +57,8 @@ instances:
   - source: ui_subcomp
     target: ui_subcomp
     declared_in: ui_collarch.draft.sub-dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -50,6 +66,8 @@ instances:
   - source: screen_coll
     target: screen_coll
     declared_in: frontend_sysarch.draft.screen-dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }
@@ -57,6 +75,8 @@ instances:
   - source: screen_subcomp
     target: screen_subcomp
     declared_in: screen_collarch.draft.sub-dependencies.dep[]
+    source_ref: "@from"
+    target_ref: "@to"
     cardinality:
       source: { min: 0 }
       target: { min: 0 }

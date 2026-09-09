@@ -38,12 +38,21 @@ defmodule Catapult.Engine.Events.DraftCommitted do
           scope_key: map(),
           edge_name: String.t(),
           edge_type: :fanout,
-          status: :absent | :approved
+          status: :absent | :approved,
+          fields: map()
         }
 
+  @typedoc """
+  `source_node_id` is optional — absent means "the committing node
+  itself", the ordinary self-sourced shape; a `policy_application`
+  marker or a locator-resolved `fanout(<edge>)`/`self.parent` endpoint
+  (dsl-syntax.md §4.2, `systems/core_dsl.md`'s ORC-236 entry) names a
+  different node as its own source and supplies it explicitly.
+  """
   @type declared_edge :: %{
           edge_name: String.t(),
           type: :reference | :dependency | :policy_application,
+          source_node_id: binary() | nil,
           target_node_id: binary()
         }
 

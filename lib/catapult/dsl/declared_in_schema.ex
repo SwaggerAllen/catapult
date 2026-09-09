@@ -59,6 +59,53 @@ defmodule Catapult.Dsl.DeclaredInSchema do
     end
   end
 
+  @doc """
+  Every `fields:`/`produces:` `"draft." <> path` source's segments,
+  checked against the *declaring* tier's own schema — the identical
+  widening `systems/core_dsl.md`'s ORC-236 entry describes: a
+  `mint.parent.<name>` field reads a committing tier's own already-
+  computed `fields:`/`produces:` value by name, so a segment spelled
+  wrong against that tier's own schema is exactly the same silent-nil
+  failure mode a wrong `declared_in` segment already was (ORC-232).
+  """
+  @spec field_problems(String.t(), %{String.t() => Catapult.Dsl.Tier.t()}) :: [String.t()]
+  def field_problems(dir, tiers) do
+    for {tier_name, %{draft: %{grammar: grammar}} = tier} <- tiers,
+        {label, name, "draft." <> path} <- field_and_produces_sources(tier),
+        problem <- path_problem(dir, grammar, path, tier_name, label, name) do
+      problem
+    end
+  end
+
+  defp field_and_produces_sources(%{fields: fields, produces: produces}) do
+    Enum.map(fields, fn {name, source} -> {"fields", name, source} end) ++
+      Enum.map(produces, fn %{kind: kind, authored: authored} -> {"produces", kind, authored} end)
+  end
+
+  defp path_problem(dir, grammar, path, tier_name, label, name) do
+    segments = String.split(path, ".")
+    {element_segments, attr} = split_attr(segments)
+
+    with {:ok, schema_path} <- resolve_grammar(dir, grammar),
+         {:ok, schema} <- parse_schema(schema_path) do
+      case walk(schema, Enum.map(element_segments, &repeat_tag/1), attr) do
+        :ok ->
+          []
+
+        {:not_found, kind, found_name} ->
+          [
+            "tier #{inspect(tier_name)}'s #{label} #{inspect(name)} names #{kind} " <>
+              "#{inspect(found_name)}, which its own schema (#{grammar}) does not declare"
+          ]
+
+        :unresolvable ->
+          []
+      end
+    else
+      _other -> []
+    end
+  end
+
   defp instance_problems(dir, tiers, edge_name, %{declared_in: declared_in} = _instance) do
     with {:ok, tier_name, segments, attr} <- parse_path(declared_in),
          {:ok, grammar} <- tier_grammar(tiers, tier_name),

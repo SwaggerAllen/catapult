@@ -20,7 +20,9 @@ defmodule Catapult.Generation.SweeperTest do
 
   use Catapult.DataCase, async: false
 
+  alias Catapult.Delivery
   alias Catapult.Delivery.Store, as: DeliveryStore
+  alias Catapult.Engine.Store
   alias Catapult.Generation.Sweeper
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -74,6 +76,37 @@ defmodule Catapult.Generation.SweeperTest do
 
     assert %{status: :completed} =
              DeliveryStore.terminal_dispatch_status(project_id, "feature_expansion")
+  end
+
+  test "a generator: supplied tier mints from its own pinned input document, once, idempotently" do
+    project_id = "sweep-supplied-#{System.unique_integer([:positive])}"
+
+    DeliveryStore.mint_test_project(project_id)
+    DeliveryStore.put_project_binding(project_id, "SwaggerAllen", "catapult-test")
+    assert DeliveryStore.activate_test_project(project_id) == :ok
+
+    assert Store.get_node_by_scope(project_id, "design_system", %{}) == nil
+
+    {:ok, pid} = start_supervised({Sweeper, name: __MODULE__})
+    tick!(pid)
+
+    # No design_system document pinned yet — nothing mints.
+    assert Store.get_node_by_scope(project_id, "design_system", %{}) == nil
+
+    Delivery.pin_input_documents(project_id, "main", %{
+      "design_system.md" => "Buttons are pill-shaped; the palette is warm neutrals."
+    })
+
+    tick!(pid)
+
+    assert %{id: "design_system", status: :approved} =
+             Store.get_node_by_scope(project_id, "design_system", %{})
+
+    # A second tick against the same pinned document is a no-op, not a
+    # second write — `Store.mint_node/1`'s own idempotency is what
+    # makes "mints at most one, never revisited" true here.
+    tick!(pid)
+    assert Store.get_node_by_scope(project_id, "design_system", %{}).id == "design_system"
   end
 
   # Sends `:tick` and blocks until the GenServer has processed it —
