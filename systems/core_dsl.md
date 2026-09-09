@@ -1090,16 +1090,21 @@ profiles.
   `Extraction.text/2`'s exact-string match (no `_`↔`-` normalization,
   the same mechanism ORC-232's own entry names) has been failing
   silently on **21 of the bundle's 24 `produces:` entries** since
-  before this ticket: `comparch.yaml`, `subcomparch.yaml`,
-  `screen_collarch.yaml`, `screen_subcomparch.yaml`,
-  `ui_subcomparch.yaml` and `ui_collarch.yaml` all declare `authored:
+  before this ticket: `comparch.yaml`, `screen_collarch.yaml` and
+  `ui_collarch.yaml` each declare all four of `authored:
   draft.technical_specification` / `draft.public_surface` / `draft
-  .private_surface` / `draft.failure_surface`, while their own schemas
-  (`comparch.xsd` and its five siblings) declare `<technical
-  -specification>`, `<public-surface>`, `<private-surface>` and
-  `<failure-surface>` — hyphenated. Only `draft.policies`, present on
-  the three `*arch`/`*collarch` tiers, happens to be a single word and
-  so resolves. A pre-existing defect, not one this ticket introduces:
+  .private_surface` / `draft.failure_surface` (four apiece), while
+  `subcomparch.yaml`, `screen_subcomparch.yaml` and
+  `ui_subcomparch.yaml` each declare three of the four — `technical
+  _specification` / `public_surface` / `private_surface`, since that
+  family produces no `failure_surface` fragment at all (three apiece)
+  — for 3×4 + 3×3 = 21. Their own schemas (`comparch.xsd` and its five
+  siblings) declare `<technical-specification>`, `<public-surface>`,
+  `<private-surface>` and `<failure-surface>` — hyphenated. Only
+  `draft.policies`, present on `comparch`, `screen_collarch` and
+  `ui_collarch` alone (the other three declare no `policies` fragment
+  either), happens to be a single word and so resolves. A pre-existing
+  defect, not one this ticket introduces:
   the shipped toy-seed fixture (`test/catapult/generation/fixtures
   /toy_seed/comparch.xml`) already carries the hyphenated element names
   its own schema requires, so the chain the boundary suite exercises

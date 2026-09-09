@@ -157,15 +157,18 @@ project scalars from, but it still needs a field source the way any
 other tier does — a comp minting `kind` from the sysarch row that
 named it, a subcomp minting `name` from the comparch row that named
 it. `mint.<name>` names that source: the value the minting fanout
-edge's `declared_in:` row carried for this node, or (when the value
-is inherited rather than row-local — a comp copying its grandparent
-sysarch's project-wide techspec, one hop further than a single context
-walk can reach, §7 below) a plain copy made at the same mint moment
-from the minting instance's own handle. Both are engine-side
-resolution, exactly as unvalidated at load time as a `draft.<name>`
-path already is (§13 checks cross-references, not path semantics);
-naming the convention here is so two bundle authors, or one bundle
-read twice, agree on what a join-target tier's `fields:` values mean.
+edge's `declared_in:` row carried for this node, read off the minting
+instance element itself — the row-local form. The other case this
+convention covers — a value inherited from the committing tier rather
+than row-local to the minting instance, one hop further than a single
+context walk can reach (§7 below) — has its own name and its own
+load-time check, below: `mint.parent.<name>`. The row-local form
+stays unvalidated at load time: nothing cross-checks a bare
+`mint.<name>`'s `<name>` against the minting instance element's own
+attributes, the way §13 now cross-checks both a `draft.<path>` source
+and `mint.parent.<name>` (ORC-236); naming the convention here is so
+two bundle authors, or one bundle read twice, agree on what a
+join-target tier's `fields:` values mean.
 
 **`mint.parent.<name>` is that second, inherited case, spelled rather
 than left for a reader to infer from context** (ORC-236). It never
@@ -187,6 +190,21 @@ already local values the committing tier's own extraction pass holds
 before `mints:` is even built, so `mint.parent.<name>` costs no new
 navigation, only a second place already-computed values are read from.
 A bare `mint.<name>` stays the row-local form above, unchanged.
+
+**`authored.<name>` is the fourth and last field-source form, legal
+only on a `scope: authored` tier's `fields:`** (ORC-236). None of
+`draft.<path>`, `mint.<name>` or `mint.parent.<name>` apply: an
+`authored`-scope node has no committed draft to project a scalar
+from, no minting fanout instance to read a row off, and no committing
+parent tier, since it is created directly by a write path outside the
+chain (§3.1, §3.2). `authored.<name>` names a key the write path's own
+payload supplies directly for that node at the moment it is written —
+`ref`'s `title: authored.title` and `body: authored.body` name the two
+keys its write path is expected to carry. Engine-side resolution,
+unvalidated at load time for the same reason a bare `mint.<name>` is:
+there is no schema to check `<name>` against, since the payload shape
+is the write tool's to define when it is built, not this tier
+declaration's.
 
 **`argument` is a reserved `fields:` name on a flow's entry tier — the
 human-readable case for the work, v5 §7.2 — read by the work surface,
@@ -277,7 +295,11 @@ draft anywhere in between — ORC-236, ref's new shape,
 precisely where `design_system` and `ref` differ: one pinned document,
 frozen at intake, versus an indefinite, ongoing stream of write-path
 creations with no intake tie at all — sourced differently, gated
-differently, and legal only paired with `scope: authored` (§3.1).
+differently, and legal only paired with `scope: authored` (§3.1). Its
+`fields:` source is `authored.<name>` (§3), not `draft.<path>` — the
+same "no committed body to project a scalar from" gap `mint.<name>`
+closes for a join-target tier, closed here by naming the write path's
+own payload instead.
 
 ### 3.3 Review tiers — `reviews: <tier>`
 
@@ -384,9 +406,11 @@ planning node's correspondence to the specific scaffold node it is
 currently planning for, §3.1, is the motivating case) at the same
 moment `mint.<name>` field values are (§3). `declared_in` stays a
 required, human-readable string on a synthesis edge — naming what the
-engine computes, not where it reads — for the same reason `policy`'s
-mint-time fields do (§3's closed note): unvalidated at load time
-exactly as a body path already is, but not therefore meaningless.
+engine computes, not where it reads — for the same reason a bare
+`mint.<name>`'s `<name>` needs none either (§3): there is no body and
+no minting instance element for a load-time check to walk against,
+since the engine computes the value itself rather than reading it
+from either. Unvalidated at load time, but not therefore meaningless.
 
 **v5 rule:** navigation edges (product tier, screen→screen) are
 cyclic-legal reference edges and **must never appear in a readiness-
@@ -1357,9 +1381,9 @@ Added with `declared_in`/schema cross-validation (ORC-232,
   element segments, off the same schema walk — never modeled as
   elements-only with attributes left unchecked.
 
-Added with `source_ref:`/`target_ref:`, `mint.parent.<name>` and the
-`authored` scope/generator pair (ORC-236, `systems/core_dsl.md`'s
-ORC-236 entry):
+Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
+`authored.<name>` and the `authored` scope/generator pair (ORC-236,
+`systems/core_dsl.md`'s ORC-236 entry):
 
 - an edge instance whose `source` or `target` differs from the
   committing tier's own name, and does not structurally resolve as
@@ -1392,6 +1416,12 @@ ORC-236 entry):
   only paired with each other — a tier declaring one without the other
   is a load error naming the mismatch, since neither shape exists on
   its own;
+- an `authored.<name>` field source (§3) is a load error on any tier
+  not `scope: authored` — the form exists because that scope has no
+  committed draft and no minting instance to read from, so it means
+  nothing anywhere else. `<name>` itself is not cross-checked against
+  anything, the identical unvalidated posture a bare `mint.<name>` has,
+  since the write path's payload shape has no schema this loader holds;
 - an `all.<tier>` walk (§7.2) may not target an `authored`-scope tier —
   an indefinite, write-path-created pool has no point at which "no
   further node will ever appear" becomes true, so there is no answer

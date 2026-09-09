@@ -368,8 +368,14 @@ loader tickets carry `system:core_dsl`.
   inherited from a grandparent one hop further than a single walk
   reaches — `comp`'s `project_techspec`/`project_policies_summary`
   copied from `sysarch` at the same mint moment — a plain copy made at
-  mint time). Both are engine-side resolution, unvalidated at load
-  time exactly as `draft.<name>` already is.
+  mint time). The row-local form stays unvalidated at load time —
+  nothing cross-checks a bare `mint.<name>`'s `<name>` against the
+  minting instance element's own attributes. The inherited form later
+  gained its own name and its own load-time check, `mint.parent.<name>`,
+  cross-checked against the committing tier's own `fields:`/`produces:`
+  entries — the same widening that also brought a `draft.<path>` source
+  under schema cross-validation (ORC-236, `docs/dsl-syntax.md` §3, §13),
+  so neither reads as "unvalidated exactly like the other" any longer.
 
 - **Five flows ship, not six** (ORC-84): `feature_request`, `refactor`,
   `bug_fix`, `downward_propagation`, `upward_propagation`. `plan_change`
@@ -1435,10 +1441,14 @@ loader tickets carry `system:core_dsl`.
   dispatch to phase, since nothing dispatches it. `draft: {root_tag:
   reference, grammar: schemas/ref.xsd}` retires outright: a
   write-path-authored node has no draft to validate against a grammar.
-  `fields:` keeps `title`/`body`, sourced from whatever the write path
-  supplies directly rather than from `draft.title`/`draft.body` — the
-  write path's own payload shape is the write tool's to define when it
-  is built, not this tier declaration's. `ref_review.yaml` retires in
+  `fields:` keeps `title`/`body`, resourced to `authored.title` and
+  `authored.body` — the fourth field-source form this ticket adds
+  (`docs/dsl-syntax.md` §3), legal only on a `scope: authored` tier,
+  naming a key the write path's own payload supplies directly rather
+  than a `draft.title`/`draft.body` this tier no longer has a draft to
+  hold. The payload shape itself is still the write tool's to define
+  when it is built, not this tier declaration's — only the key names
+  are fixed here. `ref_review.yaml` retires in
   full: nothing commits a draft for it to review. `prompts/ref.md
   .liquid` and `schemas/ref.xsd` retire with the fields that named
   them; `systems/generation.md`'s own `@root_tag_fixtures` entry
