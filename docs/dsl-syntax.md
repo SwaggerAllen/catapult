@@ -165,7 +165,7 @@ context walk can reach (§7 below) — has its own name and its own
 load-time check, below: `mint.parent.<name>`. The row-local form
 stays unvalidated at load time: nothing cross-checks a bare
 `mint.<name>`'s `<name>` against the minting instance element's own
-attributes, the way §13 now cross-checks both a `draft.<path>` source
+attributes, the way §13 cross-checks both a `draft.<path>` source
 and `mint.parent.<name>` (ORC-236); naming the convention here is so
 two bundle authors, or one bundle read twice, agree on what a
 join-target tier's `fields:` values mean.
@@ -191,20 +191,22 @@ before `mints:` is even built, so `mint.parent.<name>` costs no new
 navigation, only a second place already-computed values are read from.
 A bare `mint.<name>` stays the row-local form above, unchanged.
 
-**`authored.<name>` is the fourth and last field-source form, legal
-only on a `scope: authored` tier's `fields:`** (ORC-236). None of
-`draft.<path>`, `mint.<name>` or `mint.parent.<name>` apply: an
-`authored`-scope node has no committed draft to project a scalar
+**`reference.<name>` is the fourth and last field-source form, legal
+only on a `scope: reference` tier's `fields:`** (ORC-236). None of
+`draft.<path>`, `mint.<name>` or `mint.parent.<name>` apply: a
+`reference`-scope node has no committed draft to project a scalar
 from, no minting fanout instance to read a row off, and no committing
 parent tier, since it is created directly by a write path outside the
-chain (§3.1, §3.2). `authored.<name>` names a key the write path's own
+chain (§3.1, §3.2). `reference.<name>` names a key the write path's own
 payload supplies directly for that node at the moment it is written —
-`ref`'s `title: authored.title` and `body: authored.body` name the two
+`ref`'s `title: reference.title` and `body: reference.body` name the two
 keys its write path is expected to carry. Engine-side resolution,
 unvalidated at load time for the same reason a bare `mint.<name>` is:
 there is no schema to check `<name>` against, since the payload shape
 is the write tool's to define when it is built, not this tier
-declaration's.
+declaration's. A `reference`-scope tier declares no `produces:` either,
+for the identical reason it declares no `draft:`: there is no committed
+body for a fragment's `authored:` value to project from.
 
 **`argument` is a reserved `fields:` name on a flow's entry tier — the
 human-readable case for the work, v5 §7.2 — read by the work surface,
@@ -246,7 +248,7 @@ client family's own tier chain instead (v5 §5.1, §5.6).
   visited scaffold node, closing the gap a `per(X)` scope can't (a
   cascade visits nodes across several different tiers, and `per(X)`
   names exactly one).
-- **`authored`** — a flat, project-scoped pool of nodes created
+- **`reference`** — a flat, project-scoped pool of nodes created
   directly by a write path outside the chain, each identified by the
   `id` that write path assigns, never minted by a fanout edge and
   bound to no parent tier (ORC-236). The one shape none of the three
@@ -255,8 +257,14 @@ client family's own tier chain instead (v5 §5.1, §5.6).
   the sole tier at this scope today — has neither a fixed count nor a
   minting parent, only an indefinite stream of write-path creations
   (`docs/v5-design-decisions.md` §4.5). Legal only paired with
-  `generator: authored` (§3.2); the two exist for exactly one tier
-  shape and neither makes sense without the other.
+  `generator: reference` (§3.2); the two exist for exactly one tier
+  shape and neither makes sense without the other, and the pairing is
+  exclusive on purpose: refs are v5 §4.5's one deliberate escape hatch,
+  kept general rather than grown a type system of per-use variants, and
+  exclusivity is what stops a second bundle-defined escape-hatch shape
+  claiming this same pairing beside it. `generator: external` is not
+  such a shape — it is v5 §4.5's own sanctioned exception, already its
+  own mechanism rather than a ref variant (§3.2 below).
 
 **Delta from v4: the phased variants (`per(X) × phase`) are removed**
 with the phase machinery (v5 §6). There is no `phase` dimension.
@@ -283,23 +291,37 @@ review, no LLM call — the same "extracted, not authored twice" shape
 `external` uses for registry content, but sourced from the project's
 own frozen raft instead of the component registry, since there is no
 registry publishing versions of a user's own design system —
-`systems/core_dsl.md`'s entry), and **`authored`** (content is written
+`systems/core_dsl.md`'s entry), and **`reference`** (content is written
 directly by a write path outside the chain — no `source:`, no intake
 pin, no fixed content at all until the write happens; no `draft:`, no
 `prompt:`, no review, the identical "nothing here for an LLM to author
 or a human to gate a second time" shape `supplied` has, for a different
-reason: `supplied`'s content is already final at intake, `authored`'s
+reason: `supplied`'s content is already final at intake, `reference`'s
 content is final at the moment its own write lands, and neither has a
 draft anywhere in between — ORC-236, ref's new shape,
-`docs/v5-design-decisions.md` §4.5). `authored` differs from `supplied`
+`docs/v5-design-decisions.md` §4.5). `reference` differs from `supplied`
 precisely where `design_system` and `ref` differ: one pinned document,
 frozen at intake, versus an indefinite, ongoing stream of write-path
 creations with no intake tie at all — sourced differently, gated
-differently, and legal only paired with `scope: authored` (§3.1). Its
-`fields:` source is `authored.<name>` (§3), not `draft.<path>` — the
+differently, and legal only paired with `scope: reference` (§3.1). Its
+`fields:` source is `reference.<name>` (§3), not `draft.<path>` — the
 same "no committed body to project a scalar from" gap `mint.<name>`
 closes for a join-target tier, closed here by naming the write path's
 own payload instead.
+
+**The word `reference` now names five distinct slots in this grammar,
+and none is a variant of another** (ORC-236), the identical
+disambiguation §7 below draws for `.synthesis`: `type: reference` is a
+member of the edge-type closed set (§4); `edge: reference`
+(`bundles/default/edges/reference.yaml`) is a bundle-authored edge
+name, no more tied to the word than any other edge is to its own name;
+`scope: reference` (§3.1, above) is a tier's node-creation scope;
+`generator: reference` (just above) is a tier's content-generation
+kind; and `reference.<name>` (§3) is a field source. A tier can combine
+several — `ref` itself is `scope: reference`, `generator: reference`,
+with `fields:` sourced from `reference.<name>` — but the five are
+independent grammar positions, checked and read separately, and
+renaming or retiring one leaves the other four untouched.
 
 ### 3.3 Review tiers — `reviews: <tier>`
 
@@ -1382,7 +1404,7 @@ Added with `declared_in`/schema cross-validation (ORC-232,
   elements-only with attributes left unchecked.
 
 Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
-`authored.<name>` and the `authored` scope/generator pair (ORC-236,
+`reference.<name>` and the `reference` scope/generator pair (ORC-236,
 `systems/core_dsl.md`'s ORC-236 entry):
 
 - an edge instance whose `source` or `target` differs from the
@@ -1412,27 +1434,28 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   fragment kinds — the same cross-reference discipline a context walk's
   target tier already gets, applied to this second, engine-side-
   resolved source form (§3);
-- `scope: authored` and `generator: authored` (§3.1, §3.2) are legal
+- `scope: reference` and `generator: reference` (§3.1, §3.2) are legal
   only paired with each other — a tier declaring one without the other
   is a load error naming the mismatch, since neither shape exists on
   its own;
-- an `authored.<name>` field source (§3) is a load error on any tier
-  not `scope: authored` — the form exists because that scope has no
-  committed draft and no minting instance to read from, so it means
-  nothing anywhere else. `<name>` itself is not cross-checked against
-  anything, the identical unvalidated posture a bare `mint.<name>` has,
-  since the write path's payload shape has no schema this loader holds;
-- an `all.<tier>` walk (§7.2) may not target an `authored`-scope tier —
+- a `fields:` entry naming a `reference.<name>` source (§3) is a load
+  error on any tier not `scope: reference` — the form exists because
+  that scope has no committed draft and no minting instance to read
+  from, so it means nothing anywhere else. `<name>` itself is not
+  cross-checked against anything, the identical unvalidated posture a
+  bare `mint.<name>` has, since the write path's payload shape has no
+  schema this loader holds;
+- an `all.<tier>` walk (§7.2) may not target a `reference`-scope tier —
   an indefinite, write-path-created pool has no point at which "no
   further node will ever appear" becomes true, so there is no answer
   §7.2's own readiness reading could give; a load error naming the walk
   and the tier, rather than a readiness check with no correct result to
   return;
 - an edge instance's `cardinality` may not declare a non-zero `min` on
-  the side naming an `authored`-scope tier, for the identical reason as
+  the side naming a `reference`-scope tier, for the identical reason as
   the bullet above: `systems/engine.md`'s own ORC-236 entry evaluates a
-  `min` bound only once that side's tier is `drained?/1`, and an
-  `authored`-scope tier is never drained — a non-zero minimum there
+  `min` bound only once that side's tier is `drained?/1`, and a
+  `reference`-scope tier is never drained — a non-zero minimum there
   could never be honestly evaluated as satisfied or violated, only
   permanently pending. A load error naming the edge instance, the side,
   and the tier;

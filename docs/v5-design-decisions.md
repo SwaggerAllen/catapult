@@ -1290,9 +1290,9 @@ no lifecycle for the same reason it carries no per-use kind, below: it
 is an escape hatch for content that does not fit the
 draft→review→approve model this document describes for every
 generated tier, and forcing that model onto it would be a second
-mechanism wearing the first one's shape. A ref's scope is `authored`
+mechanism wearing the first one's shape. A ref's scope is `reference`
 (`docs/dsl-syntax.md` §3.1): `id` identity over a literal singleton
-would be meaningless, and `scope: authored` names exactly what a ref
+would be meaningless, and `scope: reference` names exactly what a ref
 is — a flat pool. Out-of-cycle
 iteration is re-authoring the node in place through the same write
 path that created it, surfaced through the staleness projection: a ref

@@ -196,16 +196,23 @@ and validation logic and must not fork it.
   clause, exactly like every join-target tier.
 - **`ref` retires from the swept, `generator: "llm"` dispatch set, and
   the fixture-coverage count (below) corrects with it, in the same
-  change.** `ref`'s new `scope: authored`/`generator: authored`
+  change.** `ref`'s new `scope: reference`/`generator: reference`
   (`docs/dsl-syntax.md` §3.1, §3.2) carries no `draft:`, so
   `Sweeper.dispatchable?/1` no longer matches it on either of its two
   clauses, and `ref_review` retires outright alongside it — nothing
   commits a draft for it to review. `ref.md.liquid` and `ref_review`'s
   own review prompt retire with the tiers that dispatched them;
   `schemas/ref.xsd` retires because nothing validates a body against it
-  anymore — a supplied/authored body is content the write path already
+  anymore — a supplied/reference body is content the write path already
   produced in whatever shape it produced it, not a generated draft this
-  system's grammar-validation gate has anything to check.
+  system's grammar-validation gate has anything to check. `reference
+  .<name>`'s own resolution site is whichever write path creates the
+  node — the identical placement `design_system`'s `supplied` content
+  takes above: a write outside the chain, beside `CommitPath
+  .commit_draft/3` rather than inside it, that sets a node's `fields`
+  directly from its own payload rather than through `Extraction`. Not a
+  new site this ticket adds — the one `supplied` already established,
+  read a second time for a different generator kind.
 - **A context walk's own `projection` now decides what `render_node/2`
   emits, closing the over-supply this ticket's audit found.**
   `ContextAssembly.render_node/2` currently ignores the walk's parsed

@@ -259,9 +259,9 @@ loader tickets carry `system:core_dsl`.
   above; three fanout instances into one flat pool is legal under the
   loader as implemented today, since `Catapult.Dsl.Tier`'s scope check
   only requires `child_of(X)` to name a *declared* tier, not the sole
-  edge targeting it); `ref` is `scope: authored`
+  edge targeting it); `ref` is `scope: reference`
   (`docs/dsl-syntax.md` §3.1, ORC-236): `id` identity over a literal
-  singleton would be meaningless, and `scope: authored` names exactly
+  singleton would be meaningless, and `scope: reference` names exactly
   what `ref` is — a flat pool that accretes via a write tool, never
   minted by a fanout edge at all.
   **`ref` may attach anywhere, any
@@ -364,18 +364,18 @@ loader tickets carry `system:core_dsl`.
   fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in
   this ticket's diff, closing the gap `seed-docs/README.md` flagged:
   a tier with no `draft:` still needs a field source, and `mint.<name>`
-  names the minting fanout edge's `declared_in:` row (or, for a value
-  inherited from a grandparent one hop further than a single walk
-  reaches — `comp`'s `project_techspec`/`project_policies_summary`
-  copied from `sysarch` at the same mint moment — a plain copy made at
-  mint time). The row-local form stays unvalidated at load time —
-  nothing cross-checks a bare `mint.<name>`'s `<name>` against the
-  minting instance element's own attributes. The inherited form later
-  gained its own name and its own load-time check, `mint.parent.<name>`,
+  names the minting fanout edge's `declared_in:` row — the row-local
+  form. The row-local form stays unvalidated at load time — nothing
+  cross-checks a bare `mint.<name>`'s `<name>` against the minting
+  instance element's own attributes. A second, inherited case — a value
+  copied from the committing tier's own already-computed `fields:`/
+  `produces:` entries rather than read off the minting instance element,
+  one hop further than a single walk reaches (`comp`'s
+  `project_techspec`/`project_policies_summary`, copied from `sysarch`
+  at the same mint moment) — has its own name, `mint.parent.<name>`,
   cross-checked against the committing tier's own `fields:`/`produces:`
   entries — the same widening that also brought a `draft.<path>` source
-  under schema cross-validation (ORC-236, `docs/dsl-syntax.md` §3, §13),
-  so neither reads as "unvalidated exactly like the other" any longer.
+  under schema cross-validation (ORC-236, `docs/dsl-syntax.md` §3, §13).
 
 - **Five flows ship, not six** (ORC-84): `feature_request`, `refactor`,
   `bug_fix`, `downward_propagation`, `upward_propagation`. `plan_change`
@@ -1435,15 +1435,15 @@ loader tickets carry `system:core_dsl`.
 - **`ref.yaml` sheds everything a generated tier needs and keeps
   nothing a generated tier doesn't** (ORC-236, design pass;
   `docs/v5-design-decisions.md` §4.5, `docs/dsl-syntax.md` §3.1, §3.2).
-  `scope: singleton` becomes `scope: authored`; `generator: llm`
-  becomes `generator: authored`, dropping `prompt: prompts/ref.md
+  `scope: singleton` becomes `scope: reference`; `generator: llm`
+  becomes `generator: reference`, dropping `prompt: prompts/ref.md
   .liquid` and the `delivery:` block along with it — there is no
   dispatch to phase, since nothing dispatches it. `draft: {root_tag:
   reference, grammar: schemas/ref.xsd}` retires outright: a
-  write-path-authored node has no draft to validate against a grammar.
-  `fields:` keeps `title`/`body`, resourced to `authored.title` and
-  `authored.body` — the fourth field-source form this ticket adds
-  (`docs/dsl-syntax.md` §3), legal only on a `scope: authored` tier,
+  write-path-created node has no draft to validate against a grammar.
+  `fields:` keeps `title`/`body`, resourced to `reference.title` and
+  `reference.body` — the fourth field-source form this ticket adds
+  (`docs/dsl-syntax.md` §3), legal only on a `scope: reference` tier,
   naming a key the write path's own payload supplies directly rather
   than a `draft.title`/`draft.body` this tier no longer has a draft to
   hold. The payload shape itself is still the write tool's to define

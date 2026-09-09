@@ -413,7 +413,7 @@ them.
   - `singleton` with a `generator: llm` draft dispatched through the
     chain itself — exactly the tiers that are both `scope: singleton`
     and `generator: llm` (`feature_expansion`, `non_goals`,
-    `frontend_sysarch`; `ref` is `scope: authored`, not `singleton`,
+    `frontend_sysarch`; `ref` is `scope: reference`, not `singleton`,
     below, so it is not in this bucket): `Sweeper.dispatchable?/1`
     matches each of the three on its `draft:`/`generator: "llm"` pair
     exactly like any other chain-dispatched tier, and the engine's
@@ -422,15 +422,15 @@ them.
     `(project_id, tier, scope_key)`): drained once its one node exists
     and is `settled?` — never vacuously, because such a tier's count is
     exactly one once the chain reaches it, never legitimately zero;
-  - `authored` (`ref` is `bundles/default`'s only instance, `docs
+  - `reference` (`ref` is `bundles/default`'s only instance, `docs
     /dsl-syntax.md` §3.1, ORC-236): never drained. An indefinite,
-    write-path-created pool cannot tell "no more will ever be authored"
+    write-path-created pool cannot tell "no more will ever be written"
     from "none exist yet" the way every branch above can — there is no
     upstream tier whose own exhaustion would settle the question, and
     no chain event marks the pool complete. Rather than leave that
     recursion hang the first time anything asks, `dsl-syntax.md` §13
     refuses two things at load time instead: an `all.<tier>` walk
-    targeting an `authored`-scope tier, and a non-zero cardinality `min`
+    targeting a `reference`-scope tier, and a non-zero cardinality `min`
     on the side of an edge instance that names one (below) — nothing in
     `bundles/default` needs either (every `ref` read is a named
     `reference`/`fulfills` citation resolved by id, never a population
@@ -491,8 +491,10 @@ them.
   for this recursion, whatever its own `drained?` branch decides. In
   `bundles/default` today the scope graph is finite because every
   `per(X)`/`child_of(X1..Xn)` chain eventually reaches one of the
-  bundle's five `singleton` tiers (`design_system`, `feature_expansion`,
-  `frontend_sysarch`, `non_goals`, `ref`), because the bundle's authors
+  bundle's four `singleton` tiers (`design_system`, `feature_expansion`,
+  `frontend_sysarch`, `non_goals` — `ref` is `scope: reference`, not
+  `singleton`, above, and no `per(X)`/`child_of(X1..Xn)` chain in
+  `bundles/default` names it as a parent), because the bundle's authors
   have kept the scope graph a DAG by convention — not because anything
   checks it. Closing that gap — extending `Chain.build`'s existing
   cycle detection to scope references alongside edge instances — is a
@@ -557,11 +559,11 @@ them.
   purity-floor-clean, before the event is dispatched, the same
   guarantee `mint.status` already relies on.
 - **`settled?/2`'s `generator: supplied` clause widens to
-  `generator: authored`, unconditionally, for the identical reason**
+  `generator: reference`, unconditionally, for the identical reason**
   (ORC-236, design pass, extending ORC-235's own three-way match,
   above). A `supplied` node is settled the moment it exists because
   nothing upstream in the generation chain produced it and could still
-  revise it; an `authored` node (`ref`, the tier `dsl-syntax.md` §3.1's
+  revise it; a `reference` node (`ref`, the tier `dsl-syntax.md` §3.1's
   new scope kind exists for) has the identical property for a different
   reason — its content is written once, by a write path outside the
   chain, with no draft anywhere in its history to be unapproved. Both
@@ -572,7 +574,7 @@ them.
   `self.reference -> ref.handle` walk (`docs/dsl-syntax.md` §3.3's own
   worked example) resolvable at all: a `ref` node has no draft anywhere
   in its history, so there is no approval for `settled?` to wait on —
-  it has to read the node's `generator: authored` declaration and say
+  it has to read the node's `generator: reference` declaration and say
   "settled" the moment the node exists, the same way it already reads
   `generator: supplied` for `design_system`.
 - **Cardinality and instance-level `graph_constraint` are evaluated
@@ -626,7 +628,7 @@ them.
   citation was already extracted before this ticket (`systems/generation
   .md`'s ORC-235 entry: nine instances satisfy the source-identity gate
   today); what made every one of them resolve to nothing was `ref`'s own
-  broken `scope_key` (above) — `ref`'s `scope: authored` correction
+  broken `scope_key` (above) — `ref`'s `scope: reference` correction
   alone is what makes `resolve_target/3`'s `Store.get_node_by_scope
   (project_id, target_tier, %{"id" => value})` lookup succeed for all
   nine, since a `ref` node's `scope_key` is now `%{"id" => <the id the
