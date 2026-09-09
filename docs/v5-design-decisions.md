@@ -1282,20 +1282,30 @@ the refs/policies design pass).
 **Refs** — project-local supplemental content (runbooks, style
 guides, implementation guides, app prompt text, user-supplied mocks
 kept as delivery-time visual guidance — anything the graph
-should hold that no dedicated tier models): singleton pool, `id`
-identity, full draft→review→approve lifecycle, attached via
-reference edges, consumed comparch-and-below. Out-of-cycle iteration
-is re-approval + staleness, and staleness *hints, never cascades*:
-a ref edit surfaces its consumers in the staleness
-projection (§7.11 — stale is derived, never stored; no node is
-flagged); regeneration is chosen, not triggered, and choosing it
-means filing a ticket. **Refs are the one deliberate escape hatch,
-and stay general on purpose**: no per-use kinds, no special-case
-lifecycles — an escape hatch that accretes special cases becomes N
-more mechanisms. A ref type system is future design, taken up when
-real usage shows what types would need to mean. (External components
-are the sanctioned exception, and are by now their own mechanism
-rather than a ref variant.)
+should hold that no dedicated tier models): a flat, project-scoped
+pool, `id` identity, attached via reference edges, consumed
+comparch-and-below. **Refs are purely tool-authored: content
+supplied, no draft, no review, no approval** (ORC-236) — a ref carries
+no lifecycle for the same reason it carries no per-use kind, below: it
+is an escape hatch for content that does not fit the
+draft→review→approve model this document describes for every
+generated tier, and forcing that model onto it would be a second
+mechanism wearing the first one's shape. A ref's scope is `reference`
+(`docs/dsl-syntax.md` §3.1): `id` identity over a literal singleton
+would be meaningless, and `scope: reference` names exactly what a ref
+is — a flat pool. Out-of-cycle
+iteration is re-authoring the node in place through the same write
+path that created it, surfaced through the staleness projection: a ref
+edit surfaces its consumers (§7.11 — stale is derived, never stored; no
+node is flagged), and staleness *hints, never cascades* — acting on a
+stale consumer is chosen, not triggered, and choosing it means filing a
+ticket. **Refs
+are the one deliberate escape hatch, and stay general on purpose**: no
+per-use kinds, no special-case lifecycles — an escape hatch that
+accretes special cases becomes N more mechanisms. A ref type system is
+future design, taken up when real usage shows what types would need to
+mean. (External components are the sanctioned exception, and are by
+now their own mechanism rather than a ref variant.)
 
 **Policies** (siege's "invariants," orchestration's "standing
 decisions," v4's policy tier — one concept, one name now) are

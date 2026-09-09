@@ -77,25 +77,31 @@ and validation logic and must not fork it.
   `bundles/default` for every `<arch> → ref` citation — a tier names
   itself as both the edge's `source` and `declared_in`'s leading
   segment — which is exactly why that shape reads as "the" shape and
-  the join-target-`source` class went unnamed. Fifteen `reference`/
-  `fulfills` instances exist in `bundles/default`, and six fall into
+  the join-target-`source` class went unnamed. Sixteen `reference`/
+  `fulfills` instances exist in `bundles/default`, and seven fall into
   the unnamed class, each because its `source` names a join-target
   node type: `fulfills comp → resp`
   (`source: comp`, declared in `sysarch`), `fulfills screen_coll →
   screen` (`source: screen_coll`, declared in `frontend_sysarch`),
   `reference journey → screen` (`source: journey`, declared in
   `screens`), `reference resp → journey` and `reference resp →
-  screen` (`source: resp`, both declared in `requirements`), and
+  screen` (`source: resp`, both declared in `requirements`),
   `reference screen_coll → journey` (`source: screen_coll`, declared
-  in `screen_collarch`). Only the nine `<arch> → ref` instances
+  in `screen_collarch`), and `navigation`'s own `screen → screen`
+  (`source: screen`, declared in `screens` — `screens` never commits
+  under the name `screen`, the identical unnamed-class shape the other
+  six have). Only the nine `<arch> → ref` instances
   (`comparch`, `subcomparch`, `impl_backend`, `ui_collarch`,
   `ui_subcomparch`, `impl_ui`, `screen_collarch`, `screen_subcomparch`,
   `impl_screen`) satisfy both conditions and are extracted.
 
-  Every `type: dependency` instance `bundles/default` declares — seven
+  Every `type: dependency` instance `bundles/default` declares — ten
   in total: `comp↔comp`, `subcomp↔subcomp`, `ui_coll↔ui_coll`,
   `ui_subcomp↔ui_subcomp`, `screen_coll↔screen_coll`,
-  `screen_subcomp↔screen_subcomp` and `ui_coll → design_system` — fails
+  `screen_subcomp↔screen_subcomp`, `ui_coll → design_system`, and
+  `calls`/`renders`/`uses_shapes` (three more, declared in
+  `frontend_sysarch`'s own draft rather than `screen_coll`'s or
+  `ui_coll`'s) — fails
   the identical `source`-identity gate, for the identical reason: none
   of `comp`, `subcomp`, `ui_coll`, `ui_subcomp`, `screen_coll` or
   `screen_subcomp` ever commits a `DraftCommitted` of its own. So every
@@ -107,7 +113,8 @@ and validation logic and must not fork it.
   (`self.parent.dependency -> subcomp.handle.fragments[pubapi]` and the
   `ui_subcomp`/`screen_subcomp` equivalents), not a different one, so
   the same emptiness reaches them too — and now `comparch`'s and
-  `screen_collarch`'s own `fulfills` walks too) resolves to `[]` and
+  `screen_collarch`'s own `fulfills` walks, and `frontend_sysarch`'s own
+  `calls`/`renders`/`uses_shapes` walks, too) resolves to `[]` and
   stays vacuously satisfied regardless of tier ordering.
   `systems/platform_content.md`'s ORC-232 entry already found and
   recorded the `subcomp↔subcomp` instance of this as live and broken;
@@ -135,8 +142,8 @@ and validation logic and must not fork it.
     `source` — the harder case `Extraction`'s own moduledoc already
     names, needing per-edge-type knowledge of which child element
     names source vs. target that the generic self-sourced navigator
-    cannot infer. This is what the seven `dependency` instances and the
-    six `reference`/`fulfills` instances above both need, and it is
+    cannot infer. This is what the ten `dependency` instances and the
+    seven `reference`/`fulfills` instances above both need, and it is
     also what relocating `uses_shapes`/`calls`/`renders` to
     `frontend_sysarch`'s own draft (`systems/platform_content.md`'s
     ORC-235 entry, below) still needs afterward: their `source` is
@@ -155,6 +162,86 @@ and validation logic and must not fork it.
 
   Recorded here so that ticket is filed against the two gates it
   actually has to cross, not one.
+
+- **The two gates ORC-235's own entry named above are both crossed
+  here** (ORC-236, design pass). `Extraction.mints/4` gains the
+  `fields:` computation `systems/engine.md`'s ORC-236 entry describes
+  (row-local `mint.<name>` off the fanout instance element already in
+  scope, parent-inherited `mint.parent.<name>` off the committing
+  tier's own `fields`/`produces` values, both already local by the time
+  `mints:` is built); `Extraction.references/5` gains the
+  `source_ref:`/`target_ref:` locator resolution `docs/dsl-syntax.md`
+  §4.2 and `systems/core_dsl.md`'s ORC-236 entry describe, covering
+  every `dependency` and `reference`/`fulfills` instance the
+  source-identity gate previously excluded; and `Extraction.mints/4`
+  (not `references/5`) additionally reads `policy_application`'s two
+  markers off the same fanout instance element it already walks,
+  emitting them as declared-edge entries alongside the ordinary mint —
+  no second navigator, since the marker and the mint share one root
+  element by construction. `CommitPath.commit_draft/3` threads all
+  three through `CommitDraft`'s existing `mints:`/`edges:` fields; no
+  new command, no new event.
+- **A `supplied`-generator mint is a write `CommitPath` never sees.**
+  `systems/core_dsl.md`'s ORC-236 entry places `design_system`'s mint
+  at the scaffold-time raft write, not at a swept dispatch — concretely,
+  this is a new write path beside `CommitPath.commit_draft/3`, invoked
+  once from wherever the raft's `design_system`-tagged document is
+  pinned (the intake/provisioning surface, `systems/delivery.md`'s
+  own), that calls `Store.mint_node/1` directly with the pinned
+  document's content as the node's `fields`, no `DraftCommitted` and no
+  `Extraction` navigation involved at all — there is no draft body to
+  navigate, only a document already known in full. `Sweeper
+  .dispatchable?/1` needs no change: a `supplied`-generator tier with no
+  `draft:` already fails its `draft: draft when not is_nil(draft)`
+  clause, exactly like every join-target tier.
+- **`ref` retires from the swept, `generator: "llm"` dispatch set, and
+  the fixture-coverage count (below) corrects with it, in the same
+  change.** `ref`'s new `scope: reference`/`generator: reference`
+  (`docs/dsl-syntax.md` §3.1, §3.2) carries no `draft:`, so
+  `Sweeper.dispatchable?/1` no longer matches it on either of its two
+  clauses, and `ref_review` retires outright alongside it — nothing
+  commits a draft for it to review. `ref.md.liquid` and `ref_review`'s
+  own review prompt retire with the tiers that dispatched them;
+  `schemas/ref.xsd` retires because nothing validates a body against it
+  anymore — a supplied/reference body is content the write path already
+  produced in whatever shape it produced it, not a generated draft this
+  system's grammar-validation gate has anything to check. `reference
+  .<name>`'s own resolution site is whichever write path creates the
+  node — the identical placement `design_system`'s `supplied` content
+  takes above: a write outside the chain, beside `CommitPath
+  .commit_draft/3` rather than inside it, that sets a node's `fields`
+  directly from its own payload rather than through `Extraction`. Not a
+  new site this ticket adds — the one `supplied` already established,
+  read a second time for a different generator kind.
+- **A context walk's own `projection` now decides what `render_node/2`
+  emits, closing the over-supply this ticket's audit found.**
+  `ContextAssembly.render_node/2` currently ignores the walk's parsed
+  `:handle`/`{:fragments, kind}` distinction and emits every one of the
+  target tier's `handle_fields` and every one of its `handle_fragments`
+  regardless of which the walk asked for — harmless only because
+  nothing in `bundles/default` reads the difference today. `render_node/2`
+  gains the walk's own `projection` as an argument: a `:handle`-typed
+  walk emits `handle_fields` only (fragments key present but empty,
+  matching today's map shape so no template needs to change); a
+  `{:fragments, kind}`-typed walk emits that one fragment's content
+  under `fragments`, and `handle_fields` empty. This is what makes
+  `systems/platform_content.md`'s own layering guarantee ("a UI
+  collection reads backend shapes, never calls") a fact about what a
+  prompt actually receives rather than only about what the loaded
+  bundle happens to declare — the gap this ticket's own audit named.
+  `:synthesis` needs no clause: it retired from the projection
+  vocabulary in the same change (`docs/dsl-syntax.md` §7,
+  `systems/core_dsl.md`'s ORC-236 entry), so `render_node/2`'s
+  projection match is total over `:handle`/`{:fragments, kind}` with
+  nothing left unhandled.
+- **Cardinality/graph_constraint evaluation is engine's, not this
+  system's — recorded here only as a boundary.** `systems/engine.md`'s
+  ORC-236 entry places the check at `drained?/1`-gated projection time,
+  surfaced as a reported finding; nothing in `CommitPath` or
+  `Extraction` changes to support it; the check runs against the
+  committed edge/node state those two modules already produce, on
+  whatever schedule the sweeper (or a dedicated projection-time pass)
+  invokes it.
 
 - **The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
@@ -1195,14 +1282,14 @@ and validation logic and must not fork it.
   expose this one: four of its five dispatched runs died on a bare
   `FileNotFoundError: .catapult-stub/<root_tag>.xml`, one per root_tag
   `Catapult.ToySeed.@root_tag_fixtures` had never been given). The map's
-  key set is exactly the 22 values `ContextAssembly.root_tag/1` can
+  key set is exactly the 21 values `ContextAssembly.root_tag/1` can
   return across every dispatchable tier in `bundles/default/tiers/*.yaml`
-  — the 21 distinct `draft.root_tag`s the 23 generation tiers declare
+  — the 20 distinct `draft.root_tag`s the 22 generation tiers declare
   (the three `impl_*` tiers collapsing to the one `implementation`),
   plus the single literal `"review"` every review tier collapses to:
   `bug-fix-plan`, `comparch`, `feature-expansion`, `feature-request-plan`,
   `frontend-sysarch`, `implementation`, `journeys`, `non-goals`,
-  `propagation-plan`, `reference`, `refactor-plan`, `requirements`,
+  `propagation-plan`, `refactor-plan`, `requirements`,
   `review`, `screen-collarch`, `screen-subcomparch`, `screens`,
   `subcomparch`, `sysarch`, `ui-collarch`, `ui-subcomparch`,
   `upward-propagation-plan`, `vocab-entry` — every multi-word entry
@@ -1211,7 +1298,15 @@ and validation logic and must not fork it.
   (`systems/platform_content.md`'s ORC-232 entry: `frontend-sysarch`,
   `screen-collarch`, `screen-subcomparch`, `ui-collarch` and
   `ui-subcomparch` were the bundle's only underscored root_tags,
-  standardized to match the rest).
+  standardized to match the rest). **22 generation tiers, not 23, and
+  20 distinct root_tags, not 21: `ref` carried the `reference` root_tag
+  alone, and both retire together at ORC-236**
+  (`docs/v5-design-decisions.md` §4.5) once `ref` stops dispatching
+  through the chain — `ref_review` retires with it, one fewer of the
+  eighteen review tiers sharing the collapsed `review` key, which is
+  why the key count drops by exactly one (`ref`'s own) rather than two:
+  a review tier's retirement changes which tiers share `review`, never
+  the key itself.
 
   A missing key is not a gap the live suite tolerates by exercising a
   narrower chain — the entry above already keys the lookup by `root_tag`
@@ -1228,12 +1323,12 @@ and validation logic and must not fork it.
   it to regardless of who produces the body.
 
   The filename convention has two cases, not one, because a `root_tag`
-  is not always owned by a single tier: of the 21 distinct generation
-  `root_tag`s, twenty are declared by exactly one tier and the
-  twenty-first, `implementation`, is collapsed across the three
-  `impl_*` tiers — twenty single-tier `root_tag`s and two collapsed
-  ones (`implementation`, plus the eighteen review tiers' shared
-  `review`). For the twenty
+  is not always owned by a single tier: of the 20 distinct generation
+  `root_tag`s, nineteen are declared by exactly one tier and the
+  twentieth, `implementation`, is collapsed across the three
+  `impl_*` tiers — nineteen single-tier `root_tag`s and two collapsed
+  ones (`implementation`, plus the seventeen review tiers' shared
+  `review`). For the nineteen
   `root_tag`s each declared by exactly one tier, the filename is that
   tier's own bundle YAML basename
   with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →
@@ -1244,7 +1339,7 @@ and validation logic and must not fork it.
   the first place; `@root_tag_fixtures`'s value side is exactly what
   translates between the two. For the two collapsed `root_tag`s —
   `implementation` (`impl_backend.yaml`, `impl_screen.yaml`,
-  `impl_ui.yaml` all declare it) and `review` (all eighteen `*_review
+  `impl_ui.yaml` all declare it) and `review` (all seventeen `*_review
   .yaml` tiers declare it) — no single tier basename applies, so the
   filename names the `root_tag` rather than any one owning tier:
   `impl.xml` and `review_approve.xml`, the two names already checked in,

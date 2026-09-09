@@ -59,6 +59,112 @@ defmodule Catapult.Dsl.DeclaredInSchema do
     end
   end
 
+  @doc """
+  Every `fields:`/`produces:` `"draft." <> path` source's segments,
+  checked against the *declaring* tier's own schema — the identical
+  widening `systems/core_dsl.md`'s ORC-236 entry describes: a
+  `mint.parent.<name>` field reads a committing tier's own already-
+  computed `fields:`/`produces:` value by name, so a segment spelled
+  wrong against that tier's own schema is exactly the same silent-nil
+  failure mode a wrong `declared_in` segment already was (ORC-232).
+  """
+  @spec field_problems(String.t(), %{String.t() => Catapult.Dsl.Tier.t()}) :: [String.t()]
+  def field_problems(dir, tiers) do
+    for {tier_name, %{draft: %{grammar: grammar}} = tier} <- tiers,
+        {label, name, "draft." <> path} <- field_and_produces_sources(tier),
+        problem <- path_problem(dir, grammar, path, tier_name, label, name) do
+      problem
+    end
+  end
+
+  @doc """
+  Every explicit `source_ref:`/`target_ref:` `@<attr>` locator's
+  attribute, checked against the schema of whichever tier's draft
+  `declared_in` resolves against (dsl-syntax.md §13's ORC-236 entry) —
+  the identical cross-validation the block above runs for `declared_in`
+  itself, now also run for the attribute name an explicit ref reads off
+  that same terminal element. `self`/`self.parent`/`fanout(<edge>)`
+  locators are structural, not schema paths, and are not this check's;
+  `Catapult.Dsl.Chain`'s own locator-form check is what rejects
+  anything that isn't one of those three or an `@<attr>` path.
+  """
+  @spec ref_problems(String.t(), %{String.t() => Catapult.Dsl.Tier.t()}, %{
+          String.t() => Catapult.Dsl.Edge.t()
+        }) :: [String.t()]
+  def ref_problems(dir, tiers, edges) do
+    for {edge_name, edge} <- edges,
+        edge.type in ["reference", "dependency"],
+        instance <- edge.instances,
+        {label, attr} <- explicit_ref_attrs(instance),
+        problem <- ref_attr_problem(dir, tiers, edge_name, instance.declared_in, label, attr) do
+      problem
+    end
+  end
+
+  defp explicit_ref_attrs(instance) do
+    [
+      {"source_ref", Map.get(instance, :source_ref)},
+      {"target_ref", Map.get(instance, :target_ref)}
+    ]
+    |> Enum.flat_map(fn
+      {label, "@" <> attr} when attr != "" -> [{label, attr}]
+      _other -> []
+    end)
+  end
+
+  defp ref_attr_problem(dir, tiers, edge_name, declared_in, label, attr) do
+    with {:ok, tier_name, segments, _declared_attr} <- parse_path(declared_in),
+         {:ok, grammar} <- tier_grammar(tiers, tier_name),
+         {:ok, schema_path} <- resolve_grammar(dir, grammar),
+         {:ok, schema} <- parse_schema(schema_path) do
+      case walk(schema, segments, attr) do
+        :ok ->
+          []
+
+        {:not_found, kind, name} ->
+          [
+            "edge #{inspect(edge_name)}'s instance's #{label} #{inspect("@" <> attr)} names " <>
+              "#{kind} #{inspect(name)}, which tier #{inspect(tier_name)}'s schema (#{grammar}) " <>
+              "does not declare"
+          ]
+
+        :unresolvable ->
+          []
+      end
+    else
+      _other -> []
+    end
+  end
+
+  defp field_and_produces_sources(%{fields: fields, produces: produces}) do
+    Enum.map(fields, fn {name, source} -> {"fields", name, source} end) ++
+      Enum.map(produces, fn %{kind: kind, authored: authored} -> {"produces", kind, authored} end)
+  end
+
+  defp path_problem(dir, grammar, path, tier_name, label, name) do
+    segments = String.split(path, ".")
+    {element_segments, attr} = split_attr(segments)
+
+    with {:ok, schema_path} <- resolve_grammar(dir, grammar),
+         {:ok, schema} <- parse_schema(schema_path) do
+      case walk(schema, Enum.map(element_segments, &repeat_tag/1), attr) do
+        :ok ->
+          []
+
+        {:not_found, kind, found_name} ->
+          [
+            "tier #{inspect(tier_name)}'s #{label} #{inspect(name)} names #{kind} " <>
+              "#{inspect(found_name)}, which its own schema (#{grammar}) does not declare"
+          ]
+
+        :unresolvable ->
+          []
+      end
+    else
+      _other -> []
+    end
+  end
+
   defp instance_problems(dir, tiers, edge_name, %{declared_in: declared_in} = _instance) do
     with {:ok, tier_name, segments, attr} <- parse_path(declared_in),
          {:ok, grammar} <- tier_grammar(tiers, tier_name),

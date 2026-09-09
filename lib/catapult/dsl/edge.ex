@@ -43,7 +43,9 @@ defmodule Catapult.Dsl.Edge do
           source: String.t(),
           target: String.t(),
           declared_in: String.t(),
-          cardinality: map()
+          cardinality: map(),
+          source_ref: String.t() | nil,
+          target_ref: String.t() | nil
         }
 
   @type t :: %__MODULE__{
@@ -61,7 +63,7 @@ defmodule Catapult.Dsl.Edge do
   @graph_constraints ~w(acyclic no_self_loop tree)
   @consistencies ~w(eventual transactional)
   @common_keys ~w(edge type graph_constraint consistency navigation constraint)
-  @instance_keys ~w(source target declared_in cardinality)
+  @instance_keys ~w(source target declared_in cardinality source_ref target_ref)
   @core_keys @common_keys ++ @instance_keys ++ ["instances"]
 
   @doc "Parses one edge declaration from its YAML map."
@@ -184,11 +186,23 @@ defmodule Catapult.Dsl.Edge do
     {target, target_problems} = Fields.require_string(raw, "target", where)
     {declared_in, declared_in_problems} = Fields.require_string(raw, "declared_in", where)
     {cardinality, cardinality_problems} = parse_cardinality(raw, where)
+    {source_ref, source_ref_problems} = Fields.optional_string(raw, "source_ref", where)
+    {target_ref, target_ref_problems} = Fields.optional_string(raw, "target_ref", where)
 
-    problems = source_problems ++ target_problems ++ declared_in_problems ++ cardinality_problems
+    problems =
+      source_problems ++
+        target_problems ++
+        declared_in_problems ++ cardinality_problems ++ source_ref_problems ++ target_ref_problems
 
     if problems == [] do
-      {%{source: source, target: target, declared_in: declared_in, cardinality: cardinality}, []}
+      {%{
+         source: source,
+         target: target,
+         declared_in: declared_in,
+         cardinality: cardinality,
+         source_ref: source_ref,
+         target_ref: target_ref
+       }, []}
     else
       {nil, problems}
     end

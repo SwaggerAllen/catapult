@@ -37,24 +37,25 @@ defmodule Catapult.ToySeed do
 
   # Every dispatchable tier's own `root_tag` => the fixture file that
   # carries it (ORC-223, widened to total coverage by ORC-225 —
-  # `systems/generation.md`'s ORC-225 entry): the 21 distinct
-  # `draft.root_tag`s the 23 generation tiers declare
+  # `systems/generation.md`'s ORC-225 entry): the 20 distinct
+  # `draft.root_tag`s the 22 generation tiers declare
   # (`bundles/default/tiers/*.yaml`), plus the single literal
   # `"review"` every review tier collapses to
-  # (`ContextAssembly.root_tag/1`) — 22 keys, not the nine ORC-223
-  # first landed.
+  # (`ContextAssembly.root_tag/1`) — 21 keys. `ref`'s own `reference`
+  # root_tag retired at ORC-236: `ref` no longer carries a `draft:` at
+  # all (`docs/v5-design-decisions.md` §4.5's tool-authored ref), so it
+  # is never dispatched and needs no stub.
   #
   # Keyed by `root_tag`, not by the fixture's own checked-in filename,
   # because the two namespaces were never made to agree. For the
-  # twenty `root_tag`s each declared by exactly one tier, the filename
+  # nineteen `root_tag`s each declared by exactly one tier, the filename
   # is that tier's own bundle YAML basename with `.xml` in place of
   # `.yaml` (`bug_fix_plan.yaml` => `bug_fix_plan.xml`), which is why
   # it differs from `root_tag` wherever a tier's own name uses
-  # underscores against a hyphenated `root_tag`, or a different word
-  # entirely (`ref.yaml`'s `root_tag: reference`). The two collapsed
+  # underscores against a hyphenated `root_tag`. The two collapsed
   # `root_tag`s — `implementation` (`impl_backend.yaml`,
   # `impl_screen.yaml`, `impl_ui.yaml` all declare it) and `review`
-  # (all eighteen `*_review.yaml` tiers declare it) — have no single
+  # (all seventeen `*_review.yaml` tiers declare it) — have no single
   # owning tier to name a basename from, so the filename names the
   # `root_tag` instead: `impl.xml` and `review_approve.xml`.
   @root_tag_fixtures %{
@@ -67,7 +68,6 @@ defmodule Catapult.ToySeed do
     "journeys" => "journeys.xml",
     "non-goals" => "non_goals.xml",
     "propagation-plan" => "downward_propagation_plan.xml",
-    "reference" => "ref.xml",
     "refactor-plan" => "refactor_plan.xml",
     "requirements" => "requirements.xml",
     "review" => "review_approve.xml",

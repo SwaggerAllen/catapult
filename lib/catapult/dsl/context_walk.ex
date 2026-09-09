@@ -3,9 +3,11 @@ defmodule Catapult.Dsl.ContextWalk do
   Parses one `context:` entry (dsl-syntax.md §7): `self`, `self.parent`,
   a chain of `.<edge_name>` hops (each optionally reversed with a
   trailing `~`, §7.1) following declared edges, `-> <tier>.<projection>`
-  typing the target, `all.<tier>.<projection>` reading every declared
-  instance with no walker at all (§7.2), and the v5 additions
-  `input.<role>` / `input.*` / `ticket.<source>`.
+  typing the target (`.handle` or `.handle.fragments[<kind>]` —
+  `.synthesis` retired with no shipped consumer, ORC-236),
+  `all.<tier>.<projection>` reading every declared instance with no
+  walker at all (§7.2), and the v5 additions `input.<role>` / `input.*`
+  / `ticket.<source>`.
 
   Parsing only — whether a named edge, target tier, fragment kind or
   `ticket.*` source actually exists is a cross-reference the loader
@@ -31,8 +33,8 @@ defmodule Catapult.Dsl.ContextWalk do
             wildcard: false,
             ticket_source: nil
 
-  @typedoc "`:handle`, `:synthesis`, or `{:fragments, kind}`."
-  @type projection :: :handle | :synthesis | {:fragments, String.t()}
+  @typedoc "`:handle`, or `{:fragments, kind}` — `.synthesis` retired with no shipped consumer (dsl-syntax.md §7, ORC-236)."
+  @type projection :: :handle | {:fragments, String.t()}
 
   @typedoc "One `.<edge_name>` step; `reversed?` is the trailing `~` (§7.1)."
   @type hop :: %{edge: String.t(), reversed?: boolean()}
@@ -169,7 +171,6 @@ defmodule Catapult.Dsl.ContextWalk do
   end
 
   defp parse_projection(_raw, ["handle"]), do: {:ok, :handle}
-  defp parse_projection(_raw, ["synthesis"]), do: {:ok, :synthesis}
 
   defp parse_projection(raw, ["handle", fragments]) do
     case Regex.run(~r/\Afragments\[([a-z0-9_]+)\]\z/, fragments) do
@@ -185,7 +186,7 @@ defmodule Catapult.Dsl.ContextWalk do
   defp parse_projection(raw, other) do
     {:error,
      "context walk #{inspect(raw)}'s projection #{inspect(Enum.join(other, "."))} is not " <>
-       "handle, handle.fragments[<kind>], or synthesis"}
+       "handle or handle.fragments[<kind>]"}
   end
 
   defp parse_all(raw, rest, nil) do

@@ -24,9 +24,9 @@ defmodule Catapult.Dsl.ContextWalkTest do
                ContextWalk.parse("self.parent.handle.fragments[pubapi]")
     end
 
-    test "self.synthesis" do
-      assert {:ok, %ContextWalk{source: :self, parent: false, projection: :synthesis}} =
-               ContextWalk.parse("self.synthesis")
+    test "self.synthesis is retired — no shipped consumer, no implementation (ORC-236)" do
+      assert {:error, reason} = ContextWalk.parse("self.synthesis")
+      assert reason =~ "is not handle or handle.fragments[<kind>]"
     end
 
     test "self.parent.fulfills -> resp.handle walks an edge to a typed target" do

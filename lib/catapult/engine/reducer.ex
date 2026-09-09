@@ -246,7 +246,12 @@ defmodule Catapult.Engine.Reducer do
       tier: mint.tier,
       scope_key: mint.scope_key,
       parent_node_id: event.node_id,
-      status: mint.status
+      status: mint.status,
+      # Copy, never derive — the identical shape `status` already had
+      # (ORC-117): every `mint.<name>`/`mint.parent.<name>` value is
+      # already resolved by the command edge before this event is
+      # dispatched (`systems/engine.md`'s ORC-236 entry).
+      fields: Map.get(mint, :fields, %{})
     })
 
     Store.insert_edge(%{
@@ -259,13 +264,21 @@ defmodule Catapult.Engine.Reducer do
     })
   end
 
+  # `source_node_id` defaults to the committing node itself — every
+  # `references/6`-style self-sourced instance's own shape before this
+  # ticket — but a `policy_application` marker or a locator-resolved
+  # `fanout(<edge>)`/`self.parent` endpoint names a *different* node as
+  # its own source (`systems/core_dsl.md`'s ORC-236 entry), so the
+  # command edge supplies it explicitly there.
   defp apply_declared_edge(%DraftCommitted{} = event, edge) do
+    source_node_id = Map.get(edge, :source_node_id) || event.node_id
+
     Store.insert_edge(%{
-      id: edge_id(edge.edge_name, event.node_id, edge.target_node_id),
+      id: edge_id(edge.edge_name, source_node_id, edge.target_node_id),
       project_id: event.project_id,
       edge_name: edge.edge_name,
       type: edge.type,
-      source_node_id: event.node_id,
+      source_node_id: source_node_id,
       target_node_id: edge.target_node_id
     })
   end

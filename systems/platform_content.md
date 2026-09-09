@@ -259,11 +259,12 @@ loader tickets carry `system:core_dsl`.
   above; three fanout instances into one flat pool is legal under the
   loader as implemented today, since `Catapult.Dsl.Tier`'s scope check
   only requires `child_of(X)` to name a *declared* tier, not the sole
-  edge targeting it); `ref` is
-  `scope: singleton`, read the same loose way ("the pool", not "the
-  one node") since `identity: id` over a literal singleton would be
-  meaningless and refs are things that accrete via a write tool, never
-  minted by a fanout edge at all. **`ref` may attach anywhere, any
+  edge targeting it); `ref` is `scope: reference`
+  (`docs/dsl-syntax.md` §3.1, ORC-236): `id` identity over a literal
+  singleton would be meaningless, and `scope: reference` names exactly
+  what `ref` is — a flat pool that accretes via a write tool, never
+  minted by a fanout edge at all.
+  **`ref` may attach anywhere, any
   parent, any child** — an author decision loosening v4's "comparch
   and below" restriction to a general rule: no per-use kinds, no
   special-case lifecycles. This pass wires the attachment sites
@@ -358,17 +359,27 @@ loader tickets carry `system:core_dsl`.
   plausible first taker), is that consumer's own future design pass,
   the same way the through-responsibility grain above got its own pass
   rather than landing with policy's introduction.
-- **`mint.<name>` is the field source for every join-target tier**
-  (`comp`, `subcomp`, `resp`, `policy`, and the mint-time identity
-  fields on `vocab`) — `docs/dsl-syntax.md` §3 gains the convention in
-  this ticket's diff, closing the gap `seed-docs/README.md` flagged:
+- **`mint.<name>` and `mint.parent.<name>` together are the field
+  source for every join-target tier** — every `generator: synthesis`
+  tier, the predicate that finds them, plus the mint-time identity
+  fields on `vocab`, which is not a join target and carries a draft of
+  its own. A given field on a given tier uses one or the other, never
+  both, per the split below. `docs/dsl-syntax.md` §3 gains the
+  convention in this ticket's diff, closing the gap
+  `seed-docs/README.md` flagged:
   a tier with no `draft:` still needs a field source, and `mint.<name>`
-  names the minting fanout edge's `declared_in:` row (or, for a value
-  inherited from a grandparent one hop further than a single walk
-  reaches — `comp`'s `project_techspec`/`project_policies_summary`
-  copied from `sysarch` at the same mint moment — a plain copy made at
-  mint time). Both are engine-side resolution, unvalidated at load
-  time exactly as `draft.<name>` already is.
+  names the minting fanout edge's `declared_in:` row — the row-local
+  form. The row-local form stays unvalidated at load time — nothing
+  cross-checks a bare `mint.<name>`'s `<name>` against the minting
+  instance element's own attributes. A second, inherited case — a value
+  copied from the committing tier's own already-computed `fields:`/
+  `produces:` entries rather than read off the minting instance element,
+  one hop further than a single walk reaches (`comp`'s
+  `project_techspec`/`project_policies_summary`, copied from `sysarch`
+  at the same mint moment) — has its own name, `mint.parent.<name>`,
+  cross-checked against the committing tier's own `fields:`/`produces:`
+  entries — the same widening that also brought a `draft.<path>` source
+  under schema cross-validation (ORC-236, `docs/dsl-syntax.md` §3, §13).
 
 - **Five flows ship, not six** (ORC-84): `feature_request`, `refactor`,
   `bug_fix`, `downward_propagation`, `upward_propagation`. `plan_change`
@@ -1236,22 +1247,14 @@ loader tickets carry `system:core_dsl`.
   tier-ordering benefit is available to relocate it for: `design_system`
   is pinned at intake (v5 §1.1) and carries no draft of its own to wait
   on, so nothing about *when* the edge is declared changes whether the
-  content behind it is settled. It is also, today, moot regardless of
-  where it is declared: `ui_coll`'s `source` on this `dependency`
-  instance never itself commits a `DraftCommitted`, the same
-  source-identity gate `systems/generation.md`'s own ORC-235 entry
-  finds excludes every `dependency` instance in this bundle (not an
-  edge-type exclusion specifically), so the walk resolves to `[]` and
-  stays vacuously satisfied whether declared here or anywhere else.
-  Left as-is rather than patched for a problem that costs nothing
-  today; a future pass closing that extraction gap should apply the
-  same fix `screen_coll → journey` gets above — read the pool
-  (`all.design_system.handle`, at most one node, the same shape
-  `all.vocab.handle` already reads a flat pool by, and — since
-  `design_system` is `generator: supplied` — already `drained?`
-  unconditionally under `systems/engine.md`'s own rule) instead of the
-  collection's own not-yet-declared edge — rather than treat this as a
-  fresh problem.
+  content behind it is settled. **Closed at ORC-236**
+  (`docs/dsl-syntax.md` §4.2, `systems/core_dsl.md`'s ORC-236 entry):
+  `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
+  `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
+  `target_ref:` at all, so this instance extracts and resolves with no
+  bundle edit — a same-tier locator pair, since the edge's own
+  `{min: 0, max: 1}` cardinality is a fact about *this* `ui_coll`'s
+  dependency, which a project-wide pool read can't carry.
 
   **No `policy_application` instances for either family.** A UI or
   screen collection fulfills no `resp`, so the through-responsibility
@@ -1432,6 +1435,130 @@ loader tickets carry `system:core_dsl`.
   the dispatch harness reads the path the context response names, not
   a directory listing — but a reader of that repo should know the five
   underscored `.catapult-stub` entries are dead once this lands.
+
+- **`ref.yaml` sheds everything a generated tier needs and keeps
+  nothing a generated tier doesn't** (ORC-236, design pass;
+  `docs/v5-design-decisions.md` §4.5, `docs/dsl-syntax.md` §3.1, §3.2).
+  `scope: singleton` becomes `scope: reference`; `generator: llm`
+  becomes `generator: reference`, dropping `prompt: prompts/ref.md
+  .liquid` and the `delivery:` block along with it — there is no
+  dispatch to phase, since nothing dispatches it. `draft: {root_tag:
+  reference, grammar: schemas/ref.xsd}` retires outright: a
+  write-path-created node has no draft to validate against a grammar.
+  `fields:` keeps `title`/`body`, resourced to `reference.title` and
+  `reference.body` — the fourth field-source form this ticket adds
+  (`docs/dsl-syntax.md` §3), legal only on a `scope: reference` tier,
+  naming a key the write path's own payload supplies directly rather
+  than a `draft.title`/`draft.body` this tier no longer has a draft to
+  hold. The payload shape itself is still the write tool's to define
+  when it is built, not this tier declaration's — only the key names
+  are fixed here. `ref_review.yaml` retires in
+  full: nothing commits a draft for it to review. `prompts/ref.md
+  .liquid` and `schemas/ref.xsd` retire with the fields that named
+  them; `systems/generation.md`'s own `@root_tag_fixtures` entry
+  corrects in the same change (the `reference` root_tag and one review
+  tier both drop out of that count).
+- **Every third-party-declared edge instance gains `source_ref:`/
+  `target_ref:` where their `source`/`target` isn't the committing tier
+  itself** (ORC-236, design pass; `docs/dsl-syntax.md` §4.2,
+  `systems/core_dsl.md`'s ORC-236 entry). Seven `reference`/`fulfills`
+  instances and ten `dependency`-typed instances share this shape,
+  each enumerated below with its locator kind — the two edge files'
+  own instance count includes `navigation.yaml`'s `screen → screen`
+  (declared in `screens`'s draft, which never commits under the name
+  `screen`) and `calls`/`renders`/`uses_shapes` (three separate
+  `type: dependency` edges, not instances of the `dependency` edge
+  itself, each declared in `frontend_sysarch`'s own draft rather than
+  `screen_coll`'s or `ui_coll`'s). All seven `reference`-typed instances
+  resolve
+  structurally with no bundle edit at all: `fulfills`'s `comp → resp`
+  and `screen_coll → screen`, `reference`'s `resp → journey`,
+  `resp → screen`, and `navigation`'s `screen → screen` (its *source*
+  side) all take `source_ref: fanout(decomposition)` implicitly the
+  moment the loader finds `decomposition`'s own matching instance's
+  `declared_in` is a prefix of theirs; `reference`'s `journey → screen`
+  is the mirror shape on its target side, `target_ref:
+  fanout(decomposition)`; `reference`'s `screen_coll →
+  journey` takes `source_ref: self.parent`, also automatic
+  (`screen_collarch` is `per(screen_coll)`). Every side not resolved
+  structurally on its own instance defaults to the trailing `.@attr`
+  segment of `declared_in` (`docs/dsl-syntax.md` §4.2's widened
+  default) — which is what closes `navigation`'s own target side (its
+  `declared_in`'s trailing `.@to`, not a second `fanout(decomposition)`
+  locator: both sides resolving through the same fanout element would
+  make source and target the identical `<screen>` node on every
+  instance) and the *other* side of each of the remaining six with no
+  bundle edit either.
+
+  Of the ten `dependency`-typed instances, four resolve the identical
+  no-bundle-edit way: `calls`, `renders` and `uses_shapes` each take
+  `source_ref: fanout(decomposition)` (their `declared_in` shares
+  `frontend_sysarch`'s own `screen-collections.collection[]` or
+  `ui-collections.collection[]` prefix with `decomposition`'s own
+  `screen_coll`/`ui_coll` fanout instance) with their `target` (`comp`
+  for `calls`/`uses_shapes`, `ui_coll` for `renders`) defaulting off the
+  trailing attribute; `dependency.yaml`'s own `ui_coll → design_system`
+  takes `source_ref: self.parent` (`ui_collarch` is `per(ui_coll)`) and
+  needs no `target_ref:` at all, because `design_system` is
+  `scope: singleton` (`docs/dsl-syntax.md` §4.2's fourth locator kind) —
+  there is exactly one node to mean, so nothing needs pointing at.
+
+  The remaining six — `comp ↔ comp`, `subcomp ↔ subcomp`, `ui_coll ↔
+  ui_coll`, `ui_subcomp ↔ ui_subcomp`, `screen_coll ↔ screen_coll`,
+  `screen_subcomp ↔ screen_subcomp`, all in `dependency.yaml` — are the
+  residual case and need an explicit pair, since neither end is `self`,
+  `self.parent`, a fanout element, nor a `scope: singleton` tier:
+  `source_ref: "@from"`/`target_ref: "@to"`, naming whichever attribute
+  pair `bundles/default/schemas/*.xsd` actually gives each `<dep>`
+  element — checked against the schema at load time the same way any
+  other `declared_in` segment is (ORC-232's entry above). None of these
+  seven edge files' `source`/`target`/`declared_in`/`cardinality`
+  values change — only `source_ref:`/`target_ref:` are added, and only
+  to the six instances that need one.
+- **`comp`, `subcomp`, `ui_subcomp` and `screen_subcomp` gain
+  `mint.parent.<name>` values in place of `mint.<name>` on exactly the
+  fields that were never row-local** (ORC-236, design pass;
+  `docs/dsl-syntax.md` §3). `comp.yaml`'s `project_techspec` field's
+  value becomes `mint.parent.techspec`, naming `sysarch`'s own
+  `techspec` field (`sysarch.yaml`'s `fields: techspec: draft
+  .techspec`); its `project_policies_summary` field's value becomes
+  `mint.parent.policies_summary`, naming a `policies_summary` field
+  this same change adds to `sysarch.yaml` (`fields: policies_summary:
+  draft.policies-summary`, hyphenated to match the schema element
+  below — `Extraction.text/2` matches a path segment against a schema
+  element by exact string equality with no `_`↔`-` normalization, the
+  same rule `systems/core_dsl.md`'s ORC-232 entry states for
+  `declared_in`, now also checked for `fields:`/`produces:` at load
+  time per that same system's widened ORC-236 entry) — `sysarch`
+  declared no such field before, and `comp`'s own field has nothing
+  else to name. Three more sites carry that same addition, since a
+  field naming nothing to read is as inert as the ones this ticket
+  exists to fix: `bundles/default/schemas/sysarch.xsd`'s `<sysarch>`
+  sequence gains a `policies-summary` element alongside
+  `introduction`/`techspec`/`components`/`policies`/`dependencies`;
+  `bundles/default/prompts/sysarch.md.liquid` gains the instruction to
+  produce it; and `test/catapult/generation/fixtures/toy_seed
+  /sysarch.xml` gains the element so the toy chain's own fixture stays
+  valid against the widened schema. `subcomp.yaml`, `ui_subcomp.yaml`
+  and `screen_subcomp.yaml`'s five `parent_*` fields' values each
+  become `mint.parent.<fragment kind>` (`parent_techspec:
+  mint.parent.techspec`, and so on for the other four), each naming the
+  fragment kind `comparch.yaml`/`ui_collarch.yaml`/
+  `screen_collarch.yaml`'s own `produces:` is *declared* to write under
+  that same name. Four of those five fragments' own `authored:` sources
+  are themselves misspelled against their schema, independently of this
+  bullet's own mechanism (`systems/core_dsl.md`'s ORC-236 entry on the
+  widened declared_in/schema check) — a pre-existing defect, not one
+  this ticket introduces — so `mint.parent.techspec`/`pubapi`/`privapi`/
+  `failure_surface` each name an empty fragment until the six tiers'
+  `authored:` paths are corrected in this same change; the mechanism
+  this bullet specifies has nothing to copy while the values underneath
+  it are silently empty. Every other
+  `mint.<name>` field on these four tiers, and every `mint.<name>`
+  field on `resp`/`policy`/`screen`/`screen_coll`/`ui_coll`/`journey`/
+  `vocab`, is row-local and stays exactly as written — this entry
+  touches only the fields the ticket's own audit found could never have
+  been row-local in the first place.
 
 ## Initial vs target
 
