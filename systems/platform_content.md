@@ -360,11 +360,13 @@ loader tickets carry `system:core_dsl`.
   the same way the through-responsibility grain above got its own pass
   rather than landing with policy's introduction.
 - **`mint.<name>` and `mint.parent.<name>` together are the field
-  source for every join-target tier** (`comp`, `subcomp`, `resp`,
-  `policy`, and the mint-time identity fields on `vocab`) — a given
-  field on a given tier uses one or the other, never both, per the
-  split below. `docs/dsl-syntax.md` §3 gains the convention in
-  this ticket's diff, closing the gap `seed-docs/README.md` flagged:
+  source for every join-target tier** — every `generator: synthesis`
+  tier, the predicate that finds them, plus the mint-time identity
+  fields on `vocab`, which is not a join target and carries a draft of
+  its own. A given field on a given tier uses one or the other, never
+  both, per the split below. `docs/dsl-syntax.md` §3 gains the
+  convention in this ticket's diff, closing the gap
+  `seed-docs/README.md` flagged:
   a tier with no `draft:` still needs a field source, and `mint.<name>`
   names the minting fanout edge's `declared_in:` row — the row-local
   form. The row-local form stays unvalidated at load time — nothing
