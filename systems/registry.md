@@ -17,9 +17,9 @@ packs are git repos, forked and merged. What remains here is the set
 of artifacts the *plane computes* and neither git nor hex can produce
 — which is the upgrade flow's whole substance.
 
-## Standing decisions
+## #1 Standing decisions
 
-- **Git for distribution, public hex.pm for public publishing**
+- **#2 Git for distribution, public hex.pm for public publishing**
   (v5 §3.1) — not the mini_repo pattern. Hex's two unique
   capabilities — retirement signalling
   and diamond resolution — are for public code consumed by strangers;
@@ -31,19 +31,19 @@ of artifacts the *plane computes* and neither git nor hex can produce
   redirecting it: package *serving* leaves; everything below stays**,
   because handles, diffs and baselines are plane-computed artifacts
   with no home in either git or hex.
-- **The release train tests the set** — every release publishes all
+- **#3 The release train tests the set** — every release publishes all
   packages + handle artifacts together; "which auth works with which
   catapult" is permanently a non-question.
-- **Artifact kinds are named entries** (v5 §8): adding a kind is an
+- **#4 Artifact kinds are named entries** (v5 §8): adding a kind is an
   entry, not a debate. Current kinds: handle, handle-diff,
   release-artifact (later), harness-baseline, and **bundle-index** /
   **policy-pack-index** — pointers with provenance, not content,
   since the content is a git repo. `package` is retired with the
   mini_repo revision above; components resolve from git.
-- **Static-first**: v0 is artifacts behind a web server; the service
+- **#5 Static-first**: v0 is artifacts behind a web server; the service
   (handle-diff queries, release notifications) grows behind the same
   URLs. No consumer should be able to tell when the upgrade happens.
-- **Artifact identity includes origin registry, from the first
+- **#6 Artifact identity includes origin registry, from the first
   artifact** (v5 §8, hosted discipline): the parked hosted direction
   is per-org instance registries federated with a central community
   one, and origin-in-identity makes that federation a namespace
@@ -52,12 +52,12 @@ of artifacts the *plane computes* and neither git nor hex can produce
   outside artifact before its contribution terms exist — community
   content compiles into customer applications.
 
-## Initial vs target
+## #7 Initial vs target
 
 Initial (Phase 3-adjacent, as packages need publishing): static
 serving of substrate + llm. Target (Phase 7): the service — publish
 pipeline, handle extraction + diffing, per-release upgrade docs.
 
-## Depends on
+## #8 Depends on
 
 substrate. Consumes build artifacts from components/*.
