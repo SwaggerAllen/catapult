@@ -10,7 +10,7 @@ The inbox (`docs/ui-spec.md` §3.1), and the most important screen in this syste
 entry point, the thing an author opens first, and the screen the "boring and empty is legible"
 bar (J1) is written against.
 
-## Two tabs, because they are two questions
+## #1 Two tabs, because they are two questions
 
 - **Assigned** (default) — tickets assigned to *you*, directly. The delegation view. Assignment
   here is a rendering concern, not a dispatch one: the plane derives and writes tracker assignees
@@ -29,13 +29,9 @@ anywhere in this system yet (`systems/dashboard.md`'s own standing decision) —
 `Catapult.Engine.Commands.ApproveGate`'s own moduledoc places role authorization exactly where
 §7.16 already leaves grant evaluation, identity's, a Phase 7 component. Phase 4 has exactly one
 author, so there is no delegation to render and no role-holding to filter by yet: both tabs read
-every action-needed row across every project the actor has standing in, undifferentiated. The two
-tabs still exist as separate protocol questions — they will genuinely diverge the moment identity
-ships a real assignee and role-holder mapping — but building an interim owner or a fake filter now
-would be something for identity to replace rather than something it extends. The tab structure is
-the decision; the filtering is not this ticket's to fake.
+every action-needed row across every project the actor has standing in, undifferentiated.
 
-## The action-needed set is enumerated, and nothing else is emitted
+## #2 The action-needed set is enumerated, and nothing else is emitted
 
 Three kinds, fixed by protocol (v5 §7.10, §7.6, §7.3), each rendered as a row with the ticket, its
 project, and which kind it is:
@@ -55,37 +51,21 @@ project, and which kind it is:
 **In Phase 4, triage never actually appears.** `bundles/default-flow/types/*.yaml` declares six
 ticket types — feature, milestone, project, retro, seed, setup — and none of them is a
 machinery-filed shape (the enforcement/swap/maintenance filings §7.3 describes), so there is no
-protocol position today that resolves to a `triage` row: `MyQueueLive`'s `kind_for/1` never
-returns it. The kind stays in the fixed vocabulary above, and the storybook component still
-renders and exercises it, because it is protocol-real and the row shape needed proving ahead of a
-real source to drive it. This is a data-model absence, not a control withheld on this ticket's own
-narrow path — it clears the moment a machinery-filed type is declared, with no change needed here.
+protocol position today that resolves to a `triage` row: `MyQueueLive`'s `kind_for/1` never returns
+it. The kind stays in the fixed vocabulary above, and the storybook component still renders and
+exercises it, because it is protocol-real and the row shape needed proving ahead of a real source
+to drive it.
 
-There is no *decide* row and no generic "needs attention" bucket. A decision arrives as one of the
-three above or as a PR; a fourth action kind with nothing that emits it is a screen looking
-comprehensive, which `docs/ui-spec.md` §2's third rule refuses outright.
+There is no *decide* row and no generic "needs attention" bucket.
 
 **This screen issues no commands.** A queue row is a pointer: ticket, project, kind, and a link to
 the screen that holds the actual control — `document-review` or `ticket`, the same two screens
 `board`'s own cards now link into rather than dispatching from directly (`screens/board.md`,
-ORC-114). Collapsing that distinction — putting an approve button on a queue row — would make the
-row's state (what actions are legal, what the throwback targets are, what body a decline would be
-resolving against) something this screen has to track independently of the screen that actually
-renders it, for a screen whose whole job is triage-at-a-glance across every project the actor
-touches. Nothing in this system dispatches a gate command from a screen that isn't showing the
-body it resolves against; `my-queue` was never going to be the exception.
+ORC-114).
 
-## Cross-project, deliberately
+## #3 Cross-project, deliberately
 
-Every row names its project, and the list itself is not scoped to one. This is not an oversight
-against the rest of this system's per-project framing (`board`, `event-log`, `explain-why` are
-each explicitly single-project screens) — it is what the inbox *is*, stated already in the source
-of truth this screen implements rather than decided fresh here: v5 §7.10, on assignment, says it
-plainly — "at one human this degenerates correctly: 'My Issues' is exactly the cross-project list
-of tickets needing the author — the inbox property, with **no filtering**." A queue that made you
-pick a project before it would tell you what needs you defeats the property that names it: the
-whole reason `my-queue` outranks `board` as the daily entry point is that it is the one place that
-does not ask you to already know where to look.
+Every row names its project, and the list itself is not scoped to one.
 
 **A project switcher on this screen would be a second, worse `board`.** If a per-project filter is
 ever wanted here, it is a narrowing control over the same cross-project read, not a precondition
@@ -100,18 +80,16 @@ id — it issues one fully project-scoped read per project the actor has standin
 `board` makes for one project, run once per project instead of once) and merges the rows for
 display. No route resolves without a project id anywhere in this screen, and no query risks
 resolving against the wrong project's data; the cross-project property is in what the *screen*
-shows, assembled from reads that are each as project-scoped as `board`'s own. `systems/
-dashboard.md`'s own bullet carries this narrowing now, so this argument and that one stay in
-agreement rather than needing reconciling against each other by a future reader.
+shows, assembled from reads that are each as project-scoped as `board`'s own.
 
-## Empty is a real state
+## #4 Empty is a real state
 
 An empty queue is not a loading state or a degenerate case of a populated list — it means the
 machine has the ball, on every ticket in both tabs, which is the "boring" outcome this loop is
 supposed to produce most days. It links to `explain-why`, for the day it isn't boring and someone
 wants to know what the machine is waiting on.
 
-## Deferred beyond v1
+## #5 Deferred beyond v1
 
 Cut against this ticket's own narrow path (file, watch states move, review a diff, decline, see
 regeneration) rather than against anything ruled out on the merits — recorded here so a later pass
