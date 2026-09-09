@@ -40,11 +40,11 @@ context:
   - self.reference -> ref.handle
   - all.vocab.handle
 produces:
-  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
-  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
-  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical-specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public-surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private-surface }
   - fragment: { owner: self.parent, kind: policies, authored: draft.policies }
-  - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure_surface }
+  - fragment: { owner: self.parent, kind: failure_surface, authored: draft.failure-surface }
 delivery:
   phase: generation
   agent_step: design

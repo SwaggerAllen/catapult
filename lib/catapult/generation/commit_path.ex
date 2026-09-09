@@ -58,27 +58,59 @@ defmodule Catapult.Generation.CommitPath do
            ),
          {element, _rest} <- :xmerl_scan.string(String.to_charlist(payload.body)) do
       node = Store.get_node(payload.project_id, payload.node_id)
+      parent_node_id = node && node.parent_node_id
+
+      resolver = fn target_tier, value ->
+        resolve_target(payload.project_id, target_tier, value)
+      end
+
+      # A minted node's fields are set once, at mint time
+      # (`Reducer.apply_mint/2`); its own committed draft only ever adds
+      # `draft.<path>`-sourced values (`Extraction.fields/2` skips every
+      # other source), so merging rather than replacing is what keeps a
+      # tier that is both a mint target and a draft-committer (`vocab`,
+      # the one tier in `bundles/default` that is both) from losing its
+      # mint-set fields the moment its own draft commits
+      # (`systems/engine.md`'s ORC-236 entry).
+      own_fields =
+        Map.merge((node && node.fields) || %{}, Extraction.fields(element, tier.fields))
+
+      own_produces = Extraction.produces(element, tier.produces, parent_node_id)
+      own_produces_by_kind = Map.new(own_produces, &{&1.kind, &1.content})
+
+      mint_result =
+        Extraction.mints(
+          element,
+          payload.tier,
+          chain,
+          own_fields,
+          own_produces_by_kind,
+          parent_node_id,
+          resolver
+        )
 
       cmd = %CommitDraft{
         project_id: payload.project_id,
         node_id: payload.node_id,
         tier: payload.tier,
         scope_key: payload.scope_key,
-        parent_node_id: node && node.parent_node_id,
+        parent_node_id: parent_node_id,
         draft_id: Ecto.UUID.generate(),
         body_sha: body_sha(payload.body),
         committed_at: clock().utc_now(),
-        fields: Extraction.fields(element, tier.fields),
-        mints: Extraction.mints(element, payload.tier, edges(chain), chain),
+        fields: own_fields,
+        mints: mint_result.mints,
         edges:
-          Extraction.references(
-            element,
-            payload.tier,
-            edges(chain),
-            payload.project_id,
-            &resolve_target/3
-          ),
-        produces: Extraction.produces(element, tier.produces, node && node.parent_node_id)
+          mint_result.edges ++
+            Extraction.references(
+              element,
+              payload.tier,
+              chain,
+              payload.node_id,
+              parent_node_id,
+              resolver
+            ),
+        produces: own_produces
       }
 
       dispatch_and_cache(cmd, payload)
@@ -158,7 +190,6 @@ defmodule Catapult.Generation.CommitPath do
   defp load_bundle, do: Dsl.load(Config.fetch!(:generation, :bundles_root))
   defp bundles_root, do: Config.fetch!(:generation, :bundles_root) |> Path.join("bundles")
   defp clock, do: Config.fetch!(:generation, :clock)
-  defp edges(chain), do: Map.values(chain.edges)
   defp review_tier?(%{reviews: reviewed}), do: not is_nil(reviewed)
 
   defp fetch_tier(%{tiers: tiers}, tier_name) do
@@ -172,6 +203,17 @@ defmodule Catapult.Generation.CommitPath do
     case Store.get_node(project_id, node_id) do
       nil -> {:error, {:unknown_node, node_id}}
       node -> {:ok, node}
+    end
+  end
+
+  # `value` is `nil` for a `scope: singleton` endpoint (dsl-syntax.md
+  # §4.2's fourth locator kind) — there is exactly one node to mean, so
+  # the lookup carries no `"id"` key at all, matching that scope's own
+  # flat `%{}` scope_key (`ReadyScopes.candidates/3`).
+  defp resolve_target(project_id, target_tier, nil) do
+    case Store.get_node_by_scope(project_id, target_tier, %{}) do
+      nil -> nil
+      node -> node.id
     end
   end
 

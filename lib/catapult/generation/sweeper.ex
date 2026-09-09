@@ -36,6 +36,19 @@ defmodule Catapult.Generation.Sweeper do
   (`systems/generation.md`'s "executor-profile routing" is Target,
   not Initial).
 
+  **`generator: supplied` is a third case, mint rather than dispatch**
+  (ORC-236, `systems/core_dsl.md`'s ORC-236 entry): `design_system`
+  carries no `draft:` for `dispatchable?/1` to match at all, and its
+  content is already final the moment its pinned intake document
+  exists — there is nothing to render a prompt for and nothing an
+  agent run would ever be asked to author. `mint_supplied/2` below
+  is this tier's own write, beside the dispatch loop rather than
+  through it: `Store.mint_node/1`'s own idempotency (`on_conflict:
+  :nothing` on `{project_id, tier, scope_key}`) is what makes "mints
+  at most one, never revisited" true of a step that this sweep still
+  calls every tick — the second and every later call is a no-op
+  against the row the first one wrote.
+
   Oban's own job uniqueness — keyed on `{project_id, tier, scope_key}`,
   held for the scope's in-flight window — is what turns this sweep's
   liberal re-announcement into one dispatch per scope (v5 §7.15's
@@ -91,7 +104,37 @@ defmodule Catapult.Generation.Sweeper do
 
   defp sweep_project(chain, project_id) do
     if Delivery.sweepable_project?(project_id) do
+      mint_supplied(chain, project_id)
       sweep_tiers(chain, project_id)
+    end
+
+    :ok
+  end
+
+  # `generator: supplied` (dsl-syntax.md §3.2) mints straight from its
+  # own pinned `input.<role>` document — no draft, no dispatch. `role`
+  # rides `generator_opts` (`Catapult.Dsl.Tier.parse_generator_opts/3`'s
+  # own `supplied` clause already resolved and validated it against
+  # `source: input.<role>` at load time), so this reads it back rather
+  # than re-parsing `source:` a second time. A role with no pinned
+  # documents yet mints nothing this tick — the ordinary "not pinned
+  # yet" case, not an error.
+  defp mint_supplied(chain, project_id) do
+    for {tier_name, %{generator: "supplied", generator_opts: %{role: role}}} <- chain.tiers do
+      case Delivery.get_input_documents(project_id, role) do
+        [] ->
+          :ok
+
+        [_ | _] ->
+          Store.mint_node(%{
+            id: tier_name,
+            project_id: project_id,
+            tier: tier_name,
+            scope_key: %{},
+            status: :approved,
+            fields: %{}
+          })
+      end
     end
 
     :ok

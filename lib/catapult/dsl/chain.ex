@@ -11,6 +11,7 @@ defmodule Catapult.Dsl.Chain do
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Dsl.DeclaredInSchema
   alias Catapult.Dsl.Edge
+  alias Catapult.Dsl.EdgeLocator
   alias Catapult.Dsl.Flow
   alias Catapult.Dsl.Graph, as: DslGraph
   alias Catapult.Dsl.Manifest
@@ -165,6 +166,9 @@ defmodule Catapult.Dsl.Chain do
       edge_endpoint_problems(edges, tiers) ++
       edge_acyclicity_problems(edges) ++
       declared_in_schema_problems(dir, tiers, edges) ++
+      edge_locator_problems(edges, tiers) ++
+      cardinality_reference_problems(edges, tiers) ++
+      mint_parent_problems(edges, tiers) ++
       review_tier_problems(tiers) ++
       Enum.flat_map(tiers, fn {_name, tier} ->
         tier_reference_problems(tier, tiers, edges, fragments, registry)
@@ -173,7 +177,184 @@ defmodule Catapult.Dsl.Chain do
   end
 
   defp declared_in_schema_problems(dir, tiers, edges),
-    do: DeclaredInSchema.problems(dir, tiers, edges)
+    do:
+      DeclaredInSchema.problems(dir, tiers, edges) ++
+        DeclaredInSchema.field_problems(dir, tiers) ++
+        DeclaredInSchema.ref_problems(dir, tiers, edges)
+
+  ## source_ref:/target_ref: (dsl-syntax.md §4.2, §13) — every
+  ## `reference`/`dependency` instance whose source or target isn't the
+  ## tier `declared_in` names must locate that side one of five ways.
+  ## `fanout`/`policy_application` edges are not this mechanism
+  ## (`systems/core_dsl.md`'s ORC-236 entry): a fanout's source always
+  ## commits itself, and policy_application resolves its target off the
+  ## same mint-time marker `mint.<name>` already does.
+
+  defp edge_locator_problems(edges, tiers) do
+    for {edge_name, edge} <- edges,
+        edge.type in ["reference", "dependency"],
+        instance <- edge.instances,
+        problem <- instance_locator_problems(edge_name, instance, edges, tiers) do
+      problem
+    end
+  end
+
+  defp instance_locator_problems(edge_name, instance, edges, tiers) do
+    case declared_in_leading_tier(instance.declared_in) do
+      nil ->
+        []
+
+      declaring_tier ->
+        trailing_attr = declared_in_trailing_attr(instance.declared_in)
+        explicit_source = instance.source_ref && EdgeLocator.parse(instance.source_ref)
+        explicit_target = instance.target_ref && EdgeLocator.parse(instance.target_ref)
+
+        explicit_locator_form_problems(edge_name, "source_ref", instance.source_ref) ++
+          explicit_locator_form_problems(edge_name, "target_ref", instance.target_ref) ++
+          instance_resolution_problems(
+            edge_name,
+            instance,
+            edges,
+            tiers,
+            declaring_tier,
+            trailing_attr,
+            explicit_source,
+            explicit_target
+          )
+    end
+  end
+
+  # §4.2's explicit-path form is `@<attr>` only — the runtime resolver
+  # (`Catapult.Generation.Extraction.resolve_side/6`) implements
+  # exactly that form and nothing else, so a `source_ref:`/`target_ref:`
+  # that isn't `self`, `self.parent`, `fanout(<edge>)` or an `@<attr>`
+  # path would load clean and silently resolve to nothing at runtime —
+  # the same failure class ORC-236 exists to close.
+  defp explicit_locator_form_problems(_edge_name, _label, nil), do: []
+
+  defp explicit_locator_form_problems(edge_name, label, raw) do
+    case EdgeLocator.parse(raw) do
+      {:path, "@" <> attr} when attr != "" ->
+        []
+
+      :self ->
+        []
+
+      :self_parent ->
+        []
+
+      {:fanout, _edge} ->
+        []
+
+      _other ->
+        [
+          "edge #{inspect(edge_name)}'s instance's #{label} #{inspect(raw)} is not a recognized " <>
+            "locator — dsl-syntax.md §4.2's explicit form is an attribute path (@<attr>) only"
+        ]
+    end
+  end
+
+  defp instance_resolution_problems(
+         edge_name,
+         instance,
+         edges,
+         tiers,
+         declaring_tier,
+         trailing_attr,
+         explicit_source,
+         explicit_target
+       ) do
+    case EdgeLocator.resolve(
+           instance.source,
+           instance.target,
+           declaring_tier,
+           instance.declared_in,
+           trailing_attr,
+           explicit_source,
+           explicit_target,
+           %{edges: edges, tiers: tiers}
+         ) do
+      {:ok, _source, _target} ->
+        []
+
+      {:error, sides} ->
+        [
+          "edge #{inspect(edge_name)}'s instance (source #{inspect(instance.source)}, " <>
+            "target #{inspect(instance.target)}, declared_in #{inspect(instance.declared_in)}) " <>
+            "cannot locate #{inspect(sides)} — declare an explicit source_ref:/target_ref: " <>
+            "(dsl-syntax.md §4.2)"
+        ]
+    end
+  end
+
+  defp declared_in_leading_tier(declared_in) do
+    case String.split(declared_in, ".", parts: 2) do
+      [tier, "draft." <> _rest] -> tier
+      _other -> nil
+    end
+  end
+
+  defp declared_in_trailing_attr(declared_in) do
+    case declared_in |> String.split(".") |> List.last() do
+      "@" <> attr when attr != "" -> attr
+      _other -> nil
+    end
+  end
+
+  ## cardinality (§13, ORC-236): a non-zero `min` on the side naming a
+  ## `scope: reference` tier can never be honestly evaluated — that
+  ## tier is never `drained?` (systems/engine.md's own ORC-236 entry).
+
+  defp cardinality_reference_problems(edges, tiers) do
+    for {edge_name, edge} <- edges,
+        instance <- edge.instances,
+        {side, tier_name} <- [{:source, instance.source}, {:target, instance.target}],
+        reference_scope?(tier_name, tiers),
+        get_in(instance, [:cardinality, side, :min]) not in [nil, 0] do
+      "edge #{inspect(edge_name)}'s instance's cardinality declares a non-zero #{side} min " <>
+        "against #{inspect(tier_name)}, a scope: reference tier that is never drained " <>
+        "(dsl-syntax.md §13)"
+    end
+  end
+
+  defp reference_scope?(tier_name, tiers) do
+    match?({:ok, %Tier{scope: {:reference}}}, Map.fetch(tiers, tier_name))
+  end
+
+  ## mint.parent.<name> (§3, §13): `<name>` must name one of the
+  ## committing (fanout source) tier's own `fields:` entries or
+  ## `produces:` fragment kinds.
+
+  defp mint_parent_problems(edges, tiers) do
+    for {target_name, tier} <- tiers,
+        {field_name, "mint.parent." <> name} <- tier.fields,
+        source_name <- fanout_sources(edges, target_name),
+        not source_provides?(tiers, source_name, name) do
+      "tier #{inspect(target_name)}'s fields #{inspect(field_name)} names mint.parent.#{name}, " <>
+        "which #{inspect(source_name)} (its minting fanout source) declares in neither " <>
+        "fields: nor produces: (dsl-syntax.md §3)"
+    end
+  end
+
+  defp fanout_sources(edges, target_name) do
+    for {_name, edge} <- edges,
+        edge.type == "fanout",
+        instance <- edge.instances,
+        instance.target == target_name,
+        uniq: true do
+      instance.source
+    end
+  end
+
+  defp source_provides?(tiers, source_name, name) do
+    case Map.fetch(tiers, source_name) do
+      {:ok, %Tier{fields: fields, produces: produces}} ->
+        Map.has_key?(fields, name) or Enum.any?(produces, &(&1.kind == name))
+
+      :error ->
+        false
+    end
+  end
 
   defp scope_problems(tiers) do
     for {name, %{scope: {kind, ref}}} <- tiers,
@@ -388,7 +569,8 @@ defmodule Catapult.Dsl.Chain do
          _edges,
          _registry
        ) do
-    target_problem(target, tiers, walk, message_name)
+    target_problem(target, tiers, walk, message_name) ++
+      all_reference_scope_problem(target, tiers, walk, message_name)
   end
 
   defp context_entry_problems(
@@ -528,6 +710,22 @@ defmodule Catapult.Dsl.Chain do
       [
         "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} targets tier #{inspect(target)}, which is not declared"
       ]
+    end
+  end
+
+  # An `all.<tier>` walk against a `scope: reference` tier (dsl-syntax.md
+  # §7.2, §13, ORC-236): an indefinite, write-path-created pool has no
+  # point at which "no further node will ever appear" becomes true, so
+  # readiness has no correct answer to give.
+  defp all_reference_scope_problem(target, tiers, walk, message_name) do
+    if reference_scope?(target, tiers) do
+      [
+        "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} is an all.<tier> " <>
+          "walk targeting #{inspect(target)}, a scope: reference tier — never drained, so " <>
+          "readiness has no correct answer (dsl-syntax.md §13)"
+      ]
+    else
+      []
     end
   end
 

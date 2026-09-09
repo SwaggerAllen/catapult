@@ -50,7 +50,11 @@ defmodule Catapult.Dsl.Tier do
   ]
 
   @type scope ::
-          {:singleton} | {:per, String.t()} | {:child_of, String.t()} | {:cascade_visit}
+          {:singleton}
+          | {:per, String.t()}
+          | {:child_of, String.t()}
+          | {:cascade_visit}
+          | {:reference}
 
   @type t :: %__MODULE__{
           name: String.t(),
@@ -76,7 +80,7 @@ defmodule Catapult.Dsl.Tier do
         }
 
   @identities ~w(id alias name)
-  @generators ~w(llm git_commit synthesis webhook external template supplied)
+  @generators ~w(llm git_commit synthesis webhook external template supplied reference)
   @core_keys ~w(tier scope scope_filter identity fields handle draft generator prompt
                 executor context produces delivery enforcement source)
 
@@ -142,6 +146,9 @@ defmodule Catapult.Dsl.Tier do
     unknown = Fields.unknown_keys(raw, @core_keys, tier_where)
     extra = Map.drop(raw, @core_keys)
 
+    reference_problems = reference_scope_problems(scope, generator, draft, produces, tier_where)
+    field_source_problems = field_source_problems(scope, fields, tier_where)
+
     problems =
       name_problems ++
         scope_problems ++
@@ -157,6 +164,8 @@ defmodule Catapult.Dsl.Tier do
         produces_problems ++
         delivery_problems ++
         enforcement_problems ++
+        reference_problems ++
+        field_source_problems ++
         unknown
 
     if problems == [] do
@@ -239,7 +248,53 @@ defmodule Catapult.Dsl.Tier do
     end
   end
 
-  ## scope (§3.1) — singleton | per(X) | child_of(X) | cascade_visit
+  ## scope: reference / generator: reference (§3.1, §3.2) — legal only
+  ## paired with each other, and a reference-scope tier has no draft to
+  ## validate a body against or to write a fragment's `authored:` from.
+
+  defp reference_scope_problems({:reference}, generator, _draft, _produces, where)
+       when generator != "reference" do
+    [
+      "#{where} declares scope: reference with generator: #{inspect(generator)} — " <>
+        "scope: reference and generator: reference are legal only paired with each other"
+    ]
+  end
+
+  defp reference_scope_problems(scope, "reference", _draft, _produces, where)
+       when scope != {:reference} do
+    [
+      "#{where} declares generator: reference with scope #{inspect(scope)} — " <>
+        "scope: reference and generator: reference are legal only paired with each other"
+    ]
+  end
+
+  defp reference_scope_problems({:reference}, "reference", draft, produces, where) do
+    draft_problem =
+      if is_nil(draft),
+        do: [],
+        else: ["#{where} is scope: reference and may not declare draft: (no committed body)"]
+
+    produces_problem =
+      if produces == [],
+        do: [],
+        else: ["#{where} is scope: reference and may not declare produces: (no committed body)"]
+
+    draft_problem ++ produces_problem
+  end
+
+  defp reference_scope_problems(_scope, _generator, _draft, _produces, _where), do: []
+
+  # `reference.<name>` (dsl-syntax.md §3) is legal only on a
+  # `scope: reference` tier's own `fields:` — there is no committed
+  # draft and no minting instance anywhere else for it to mean.
+  defp field_source_problems(scope, fields, where) do
+    for {name, "reference." <> _rest} <- fields, scope != {:reference} do
+      "#{where}'s fields #{inspect(name)} names a reference.<name> source, legal only on a " <>
+        "scope: reference tier"
+    end
+  end
+
+  ## scope (§3.1) — singleton | per(X) | child_of(X) | reference | cascade_visit
 
   defp parse_scope(raw, where) do
     case Fields.require_string(raw, "scope", where) do
@@ -250,6 +305,7 @@ defmodule Catapult.Dsl.Tier do
 
   defp parse_scope_value("singleton", _where), do: {{:singleton}, []}
   defp parse_scope_value("cascade_visit", _where), do: {{:cascade_visit}, []}
+  defp parse_scope_value("reference", _where), do: {{:reference}, []}
 
   defp parse_scope_value(value, where) do
     case Regex.run(~r/\A(per|child_of)\(([a-z0-9_]+)\)\z/, value) do
@@ -262,7 +318,7 @@ defmodule Catapult.Dsl.Tier do
       nil ->
         {nil,
          [
-           "#{where} scope #{inspect(value)} is not singleton, per(<tier>), child_of(<tier>), or cascade_visit"
+           "#{where} scope #{inspect(value)} is not singleton, per(<tier>), child_of(<tier>), reference, or cascade_visit"
          ]}
     end
   end

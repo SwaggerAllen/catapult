@@ -52,6 +52,7 @@
       <rationale>A stable link is the entire value proposition - reassigning a code silently breaks every place it was ever shared.</rationale>
     </policy>
   </policies>
+  <policies-summary>One cross-cutting commitment: short codes are immutable once minted, enforced at redirect resolution.</policies-summary>
   <dependencies>
     <dep from="link_admin" to="redirector"/>
   </dependencies>

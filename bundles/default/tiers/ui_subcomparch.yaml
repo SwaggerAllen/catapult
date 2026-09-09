@@ -8,7 +8,7 @@ tier: ui_subcomparch
 scope: per(ui_subcomp)
 identity: id
 fields:
-  role_summary: draft.technical_specification
+  role_summary: draft.technical-specification
 handle:
   fields: [id, role_summary]
   fragments: []
@@ -23,9 +23,9 @@ context:
   - self.reference -> ref.handle
   - all.vocab.handle
 produces:
-  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical_specification }
-  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public_surface }
-  - fragment: { owner: self.parent, kind: privapi, authored: draft.private_surface }
+  - fragment: { owner: self.parent, kind: techspec, authored: draft.technical-specification }
+  - fragment: { owner: self.parent, kind: pubapi, authored: draft.public-surface }
+  - fragment: { owner: self.parent, kind: privapi, authored: draft.private-surface }
 delivery:
   phase: generation
   agent_step: design

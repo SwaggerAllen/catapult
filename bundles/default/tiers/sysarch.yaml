@@ -18,8 +18,9 @@ identity: id
 fields:
   intro: draft.introduction
   techspec: draft.techspec
+  policies_summary: draft.policies-summary
 handle:
-  fields: [id, intro, techspec]
+  fields: [id, intro, techspec, policies_summary]
   fragments: []
 draft:
   root_tag: sysarch

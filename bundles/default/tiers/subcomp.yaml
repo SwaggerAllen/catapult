@@ -16,11 +16,11 @@ fields:
   purpose: mint.purpose
   is_foundation: mint.is_foundation
   owns_summary: mint.owns_summary
-  parent_techspec: mint.parent_techspec
-  parent_pubapi: mint.parent_pubapi
-  parent_privapi: mint.parent_privapi
-  parent_policies_summary: mint.parent_policies_summary
-  parent_failure_surface: mint.parent_failure_surface
+  parent_techspec: mint.parent.techspec
+  parent_pubapi: mint.parent.pubapi
+  parent_privapi: mint.parent.privapi
+  parent_policies_summary: mint.parent.policies
+  parent_failure_surface: mint.parent.failure_surface
 handle:
   fields:
     [

@@ -24,9 +24,14 @@ defmodule Catapult.Generation.ExtractionTest do
              }
     end
 
-    test "skips mint.-sourced fields (join-target tiers, out of this module's scope)" do
+    test "skips mint./mint.parent./reference.-sourced fields (resolved elsewhere, not from a draft body)" do
       element = scan!("<sysarch/>")
-      assert Extraction.fields(element, %{"name" => "mint.name"}) == %{}
+
+      assert Extraction.fields(element, %{
+               "name" => "mint.name",
+               "parent" => "mint.parent.techspec",
+               "title" => "reference.title"
+             }) == %{}
     end
 
     test "a missing element resolves to nil rather than raising" do
@@ -35,7 +40,7 @@ defmodule Catapult.Generation.ExtractionTest do
     end
   end
 
-  describe "mints/4 (fanout, self-sourced)" do
+  describe "mints/6 (fanout, self-sourced)" do
     test "extracts one mint per fanout instance, using the alias attribute fallback for identity: id",
          %{
            chain: chain
@@ -50,20 +55,33 @@ defmodule Catapult.Generation.ExtractionTest do
         </sysarch>
         """)
 
-      mints = Extraction.mints(element, "sysarch", Map.values(chain.edges), chain)
+      result =
+        Extraction.mints(element, "sysarch", chain, %{}, %{}, "sysarch:1", fn _tier, _value ->
+          nil
+        end)
 
-      assert Enum.map(mints, & &1.node_id) |> Enum.sort() == ["comp:auth", "comp:billing"]
-      assert Enum.all?(mints, &(&1.tier == "comp" and &1.edge_type == :fanout))
-      assert Enum.find(mints, &(&1.node_id == "comp:auth")).scope_key == %{"id" => "auth"}
+      assert Enum.map(result.mints, & &1.node_id) |> Enum.sort() == ["comp:auth", "comp:billing"]
+      assert Enum.all?(result.mints, &(&1.tier == "comp" and &1.edge_type == :fanout))
+      assert Enum.find(result.mints, &(&1.node_id == "comp:auth")).scope_key == %{"id" => "auth"}
+
+      assert Enum.find(result.mints, &(&1.node_id == "comp:auth")).fields == %{
+               "name" => "Auth",
+               "purpose" => nil,
+               "is_foundation" => nil,
+               "project_techspec" => nil,
+               "project_policies_summary" => nil
+             }
     end
 
     test "a tier that mints nothing returns no mints", %{chain: chain} do
       element = scan!("<vocab-entry><definition>x</definition></vocab-entry>")
-      assert Extraction.mints(element, "vocab", Map.values(chain.edges), chain) == []
+
+      assert Extraction.mints(element, "vocab", chain, %{}, %{}, nil, fn _tier, _value -> nil end) ==
+               %{mints: [], edges: []}
     end
   end
 
-  describe "references/5 (reference, self-sourced attribute)" do
+  describe "references/6 (reference, self-sourced attribute)" do
     test "resolves each reference's target attribute via the resolver callback", %{chain: chain} do
       element =
         scan!("""
@@ -75,23 +93,22 @@ defmodule Catapult.Generation.ExtractionTest do
         </comparch>
         """)
 
-      resolve = fn _project_id, tier, value -> "#{tier}:#{value}" end
+      resolve = fn tier, value -> "#{tier}:#{value}" end
 
-      refs =
-        Extraction.references(element, "comparch", Map.values(chain.edges), "p1", resolve)
+      refs = Extraction.references(element, "comparch", chain, "comparch:1", nil, resolve)
 
       assert Enum.map(refs, & &1.target_node_id) |> Enum.sort() == ["ref:ref-1", "ref:ref-2"]
       assert Enum.all?(refs, &(&1.type == :reference and &1.edge_name == "reference"))
+      assert Enum.all?(refs, &(&1.source_node_id == "comparch:1"))
     end
 
     test "a reference whose target does not resolve is dropped, not errored", %{chain: chain} do
       element =
         scan!("<comparch><references><reference target=\"gone\"/></references></comparch>")
 
-      resolve = fn _project_id, _tier, _value -> nil end
+      resolve = fn _tier, _value -> nil end
 
-      assert Extraction.references(element, "comparch", Map.values(chain.edges), "p1", resolve) ==
-               []
+      assert Extraction.references(element, "comparch", chain, "comparch:1", nil, resolve) == []
     end
   end
 

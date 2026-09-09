@@ -197,7 +197,14 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     node.status == :approved
   end
 
-  defp tier_settled?(_chain, _project_id, %Tier{generator: "supplied"}, _node) do
+  # `generator: supplied`/`generator: reference` (design_system/ref):
+  # settled unconditionally, the moment the node exists — neither has a
+  # draft anywhere in its history to be unapproved, `supplied` because
+  # its content is already final at intake and `reference` because its
+  # content is final the moment its write path writes it
+  # (`systems/engine.md`'s ORC-236 entry).
+  defp tier_settled?(_chain, _project_id, %Tier{generator: generator}, _node)
+       when generator in ["supplied", "reference"] do
     true
   end
 
@@ -246,7 +253,15 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   # never trustworthy as a final population on its own; a `child_of(X)`
   # node's row appears at its parent's mint, so once every minting
   # source is exhausted the current row count is already final.
-  defp drained?(chain, project_id, tier_name) do
+  #
+  # Public: `Catapult.Engine.Projections.GraphConstraints` reuses this
+  # exact "has everything that could ever exist already committed and
+  # settled" question to gate a `min` cardinality bound the identical
+  # way `all.<tier>` readiness already does (`systems/engine.md`'s
+  # ORC-236 entry) — one recursion, not two independently maintained
+  # copies of it.
+  @spec drained?(Chain.t(), binary(), String.t()) :: boolean()
+  def drained?(chain, project_id, tier_name) do
     case Map.fetch(chain.tiers, tier_name) do
       {:ok, tier} -> tier_drained?(chain, project_id, tier)
       :error -> false
@@ -258,6 +273,18 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   # zero and its final count for this recursion to distinguish.
   defp tier_drained?(_chain, _project_id, %Tier{generator: "supplied", scope: {:singleton}}) do
     true
+  end
+
+  # `scope: reference` (`ref`, `docs/dsl-syntax.md` §3.1): never
+  # drained. An indefinite, write-path-created pool cannot tell "no
+  # more will ever be written" from "none exist yet" — dsl-syntax.md
+  # §13 refuses the two things that would ever ask this question at
+  # all (an `all.<tier>` walk against one, a non-zero cardinality `min`
+  # on one), so this branch is never actually reached in
+  # `bundles/default`, and returning `false` here is the honest answer
+  # rather than a guess (`systems/engine.md`'s ORC-236 entry).
+  defp tier_drained?(_chain, _project_id, %Tier{scope: {:reference}}) do
+    false
   end
 
   # A chain-dispatched singleton's count is exactly one once the chain

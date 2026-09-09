@@ -147,13 +147,14 @@ defmodule Catapult.Generation.ContextAssembly do
       generator_tier.context
       |> Enum.flat_map(fn walk ->
         case ContextResolver.resolve(walk, node) do
-          {:ok, targets} -> targets
+          {:ok, targets} -> Enum.map(targets, &{&1, walk.projection})
           {:error, :unsupported} -> []
         end
       end)
-      |> Enum.group_by(& &1.tier)
-      |> Map.new(fn {tier_name, nodes} ->
-        {tier_name, Enum.map(nodes, &render_node(chain, &1))}
+      |> Enum.group_by(fn {target, _projection} -> target.tier end)
+      |> Map.new(fn {tier_name, pairs} ->
+        {tier_name,
+         Enum.map(pairs, fn {target, projection} -> render_node(chain, target, projection) end)}
       end)
       |> Map.put("self", render_node(chain, node))
       |> input_variables(project_id, generator_tier.context)
@@ -231,26 +232,55 @@ defmodule Catapult.Generation.ContextAssembly do
     end
   end
 
-  defp render_node(chain, %Node{} = node) do
+  # The bare "self"/"draft" bindings are never resolved through a
+  # context walk's own projection — always the full node (both fields
+  # and fragments), unchanged from before this ticket.
+  defp render_node(chain, %Node{} = node), do: render_node(chain, node, :full)
+
+  # A context walk's own `projection` decides what this emits
+  # (dsl-syntax.md §7, `systems/generation.md`'s ORC-236 entry): a
+  # `:handle`-typed walk emits `handle_fields` only (`fragments` present
+  # but empty, the same map shape either way so no template needs a
+  # conditional); a `{:fragments, kind}`-typed walk emits that one
+  # fragment's content under `fragments` and no `handle_fields`; `:full`
+  # (the bare "self"/"draft" bindings above) emits both, the behavior
+  # every context-walk-resolved target had before this projection
+  # distinction existed.
+  defp render_node(chain, %Node{} = node, projection) do
     tier = Map.get(chain.tiers, node.tier)
     handle_fields = if tier, do: tier.handle_fields, else: []
     handle_fragments = if tier, do: tier.handle_fragments, else: []
 
     fields =
-      for name <- handle_fields, into: %{} do
-        {name, Map.get(node.fields || %{}, name)}
+      if projection == :handle or projection == :full do
+        for name <- handle_fields, into: %{} do
+          {name, Map.get(node.fields || %{}, name)}
+        end
+      else
+        %{}
       end
 
-    fragments =
-      for kind <- handle_fragments, into: %{} do
-        content = node.id |> Store.fragments(kind) |> Enum.map_join("\n\n", & &1.content)
-        {kind, content}
-      end
+    fragments = render_fragments(node, handle_fragments, projection)
 
     fields
     |> Map.put("id", NodeId.resolve(node))
     |> Map.put("fragments", fragments)
   end
+
+  defp render_fragments(_node, _handle_fragments, :handle), do: %{}
+
+  defp render_fragments(node, handle_fragments, :full) do
+    for kind <- handle_fragments, into: %{} do
+      {kind, fragment_content(node.id, kind)}
+    end
+  end
+
+  defp render_fragments(node, handle_fragments, {:fragments, kind}) do
+    if kind in handle_fragments, do: %{kind => fragment_content(node.id, kind)}, else: %{}
+  end
+
+  defp fragment_content(node_id, kind),
+    do: node_id |> Store.fragments(kind) |> Enum.map_join("\n\n", & &1.content)
 
   defp resolve_prompt(%Chain{name: bundle_name}, %{prompt: prompt}) when is_binary(prompt) do
     dir = Path.join(bundles_root(), bundle_name)
