@@ -578,9 +578,11 @@ them.
   "settled" the moment the node exists, the same way it already reads
   `generator: supplied` for `design_system`.
 - **Cardinality and instance-level `graph_constraint` are evaluated
-  once the edge's own bound side is drained, never eagerly, and a
-  violation is a reported, non-blocking finding — never a retried draft
-  and never a blocking gate** (ORC-236, design pass). `dsl-syntax.md`
+  once the edge's own bound side is drained — except a `max` bound,
+  which needs no such gate and is evaluated as soon as it can be
+  violated — and a violation is a reported, non-blocking finding —
+  never a retried draft and never a blocking gate** (ORC-236, design
+  pass). `dsl-syntax.md`
   §13's own opening line already places this at "projection time," not
   load time; what it left unstated is which moment of projection time,
   and the ticket's own warning is exactly the failure a naive answer
