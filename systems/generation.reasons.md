@@ -374,12 +374,38 @@ crashed somewhere the harness gave it no chance to report.
 ORC-225 (#48) checked that every root_tag has a fixture; it never checked that the
 fixture the plane would actually commit still satisfies its tier's own grammar, and
 `ToySeedChainTest`'s own name — "the toy seed generates and validates through every
-tier, offline against the fake" — was true of the ten fixtures it reads and false
-of the eleven it doesn't, with nothing in the suite saying so. A tier whose fixture and
-grammar diverge is otherwise invisible until a live run reaches it: `CommitPath
-.commit_draft/3` rejects the body before anything commits, so no `DraftCommitted`
-event fires, nothing downstream dispatches, and the run's only signal is silence
-until its deadline expires — 33 minutes to learn what an XSD validator answers in
-under a second offline. The frontend five were the ones a fixture change had never
-touched since ORC-232 first wrote them, so nobody had reason to suspect them before
-ORC-235 edited the grammars they validate against and left them behind.
+tier, offline against the fake" — was true only of the fixtures it read. A tier
+whose fixture and grammar diverge is otherwise invisible until a live run reaches
+it: `CommitPath.commit_draft/3` rejects the body before anything commits, so no
+`DraftCommitted` event fires, nothing downstream dispatches, and the run's only
+signal is silence until its deadline expires — 33 minutes to learn what an XSD
+validator answers in under a second offline.
+
+The frontend five are ORC-225's own fixtures (`713204a`); ORC-232 was the last
+pass to modify them, one PR before ORC-235 edited the grammars two of them
+validate against and left them behind. Between ORC-225 writing them and ORC-235
+breaking them, `ui_collarch` and `screen_collarch` had no execution history of any
+kind, offline or live: neither tier could dispatch before ORC-232 made
+`ui_coll`/`screen_coll` mintable at all, and the live suite's last green run
+before the incident, run 28 (`fee6210c`, ORC-228), predates that change. Run 29
+was the first live run that could ever reach either tier, and it reached them
+already broken — nobody had reason to suspect the fixtures, because nothing had
+ever run them.
+
+## #53
+
+Grammar conformance (#52) is necessary and not sufficient: `minOccurs="0"` lets a
+fixture validate while omitting content a downstream tier depends on to mint
+anything at all. `feature_expansion.xml` has carried no `<vocabulary>` block
+since ORC-225 wrote it, so `vocab`/`vocab_review` have never had a path to
+dispatch from this raft — a gap #48's existence check and #52's conformance check
+both pass cleanly, because an absent-but-optional element fails neither.
+`frontend_sysarch.xml`'s relocated loci (ORC-235) are the same shape one ticket
+later: the elements exist in the schema, `minOccurs="0"` again lets the fixture
+validate without them, and ORC-236's extraction for `renders`/`calls`/
+`uses_shapes` and the two same-tier `dependency` instances has run against a
+fixture that supplies none of it. Neither gap is a schema violation, so neither
+would have surfaced from #52's direct validation — only a full offline walk
+through `Extraction`/`Store` mints far enough to notice nothing came out the
+other end, which is why the two checks are separate mechanisms rather than one
+assertion doing both jobs.

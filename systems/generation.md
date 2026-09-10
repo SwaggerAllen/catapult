@@ -882,26 +882,39 @@ and validation logic and must not fork it.
   than in a fourth enum value with a migration behind it.
 
 - **#52 A fixture's conformance to its own tier's grammar is a default-suite
-  assertion, keyed by the same `@root_tag_fixtures` map #48 fixes coverage
-  against, not a fact only the live suite discovers.** #48 already states
-  conformance as a property of how a fixture is authored; nothing checked it.
-  `ToySeedChainTest` (`test/catapult/generation/toy_seed_chain_test.exs`) reads
-  10 of `@root_tag_fixtures`' 21 fixture files and drives their tiers through
-  `Extraction`/`Store`, offline against the fake — the frontend five
-  (`frontend-sysarch`, `ui-collarch`, `ui-subcomparch`, `screen-collarch`,
-  `screen-subcomparch`) and their reviews are not among them, so a grammar
-  change that leaves one of those fixtures behind still passes the default
-  suite. ORC-235 relocated `renders`, `calls` and
-  `uses_shapes` out of `ui_collarch.xsd`/`screen_collarch.xsd` and into
-  `frontend_sysarch`'s own draft without updating the two fixtures still
-  carrying the dropped elements, and the gap stood for a full PR before the
-  live suite (run 29) stalled mid-walk on both tiers at once, 1989 seconds into
-  a 33-minute deadline, with nothing downstream of either ever dispatching
-  (ORC-246). The offline chain test now drives every dispatchable root_tag —
-  the frontend five and their reviews included — against `@root_tag_fixtures`,
-  so the family the live suite alone used to cover has the same default-suite
-  floor as the rest, and a fixture drifting out of its own grammar fails in
-  seconds rather than at a milestone boundary.
+  assertion, checked directly and keyed by the same `@root_tag_fixtures` map
+  #48 keys existence against, not a fact only the live suite discovers.**
+  #48 already states conformance as a property of how a fixture is authored;
+  nothing checked it. Each of `@root_tag_fixtures`' 21 fixtures validates, in
+  the default suite, against the schema its own tier's `draft.grammar` names
+  — the same `Dsl.validate_draft/5` call `CommitPath.commit_draft/3` opens
+  with against a real reported body, run here as a standalone assertion over
+  the raft rather than folded into a full offline chain walk, so a fixture
+  that drifts out of its own grammar fails in seconds instead of at whatever
+  point a live run's dispatch order happens to reach it (ORC-235/ORC-246:
+  `ui_collarch.xml` and `screen_collarch.xml` both drifted this way when
+  ORC-235 relocated `renders`, `calls` and `uses_shapes` out of their
+  schemas, and the gap surfaced only when live run 29 stalled mid-walk on
+  both tiers at once).
+
+- **#53 The raft's coverage is total across content the chain can mint, not
+  only across which root_tags have a fixture** — the content counterpart of
+  #48, which covers only whether a root_tag has one. A fixture can satisfy
+  #52 and still supply nothing a downstream tier needs: grammar optionality
+  (`minOccurs="0"`) lets required-shaped content stay absent without failing
+  validation. `feature_expansion.xml` carries no `<vocabulary>` block, so
+  `vocab` and `vocab_review` have no `feature_expansion.draft.vocabulary
+  .term[]` instance to mint from and neither tier can ever dispatch from this
+  raft; `frontend_sysarch.xml` carries none of the `uses-shapes`/`renders`/
+  `calls` content ORC-235 relocated into that draft, and its
+  `<ui-dependencies>`/`<screen-dependencies>` are both empty, so those edges
+  and the two same-tier `dependency` instances extract nothing even once the
+  walk reaches them. `ToySeedChainTest` drives every entry in
+  `@root_tag_fixtures` — the frontend five and both review tiers included —
+  through `Extraction`/`Store` offline against the fake, and the raft's
+  content mints an instance of every edge and node a dispatchable draft can
+  produce, so a tier or an edge with nothing upstream to mint from fails
+  offline instead of at a live deadline.
 
 ## #50 Initial vs target
 
