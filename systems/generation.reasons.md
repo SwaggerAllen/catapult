@@ -368,3 +368,18 @@ single missing key fails every tier that shares it, not just one.
 since the read step cannot fail past this point without writing something, "no
 outcome.json" means what it claims to — the body-producing step (real or stubbed)
 crashed somewhere the harness gave it no chance to report.
+
+## #52
+
+ORC-225 (#48) checked that every root_tag has a fixture; it never checked that the
+fixture the plane would actually commit still satisfies its tier's own grammar, and
+`ToySeedChainTest`'s own name — "the toy seed generates and validates through every
+tier, offline against the fake" — was true of the ten fixtures it reads and false
+of the eleven it doesn't, with nothing in the suite saying so. A tier whose fixture and
+grammar diverge is otherwise invisible until a live run reaches it: `CommitPath
+.commit_draft/3` rejects the body before anything commits, so no `DraftCommitted`
+event fires, nothing downstream dispatches, and the run's only signal is silence
+until its deadline expires — 33 minutes to learn what an XSD validator answers in
+under a second offline. The frontend five were the ones a fixture change had never
+touched since ORC-232 first wrote them, so nobody had reason to suspect them before
+ORC-235 edited the grammars they validate against and left them behind.

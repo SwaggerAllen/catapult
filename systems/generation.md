@@ -881,6 +881,28 @@ and validation logic and must not fork it.
   so the distinction lives in the `reason` string, which is free text already, rather
   than in a fourth enum value with a migration behind it.
 
+- **#52 A fixture's conformance to its own tier's grammar is a default-suite
+  assertion, keyed by the same `@root_tag_fixtures` map #48 fixes coverage
+  against, not a fact only the live suite discovers.** #48 already states
+  conformance as a property of how a fixture is authored; nothing checked it.
+  `ToySeedChainTest` (`test/catapult/generation/toy_seed_chain_test.exs`) reads
+  10 of `@root_tag_fixtures`' 21 fixture files and drives their tiers through
+  `Extraction`/`Store`, offline against the fake — the frontend five
+  (`frontend-sysarch`, `ui-collarch`, `ui-subcomparch`, `screen-collarch`,
+  `screen-subcomparch`) and their reviews are not among them, so a grammar
+  change that leaves one of those fixtures behind still passes the default
+  suite. ORC-235 relocated `renders`, `calls` and
+  `uses_shapes` out of `ui_collarch.xsd`/`screen_collarch.xsd` and into
+  `frontend_sysarch`'s own draft without updating the two fixtures still
+  carrying the dropped elements, and the gap stood for a full PR before the
+  live suite (run 29) stalled mid-walk on both tiers at once, 1989 seconds into
+  a 33-minute deadline, with nothing downstream of either ever dispatching
+  (ORC-246). The offline chain test now drives every dispatchable root_tag —
+  the frontend five and their reviews included — against `@root_tag_fixtures`,
+  so the family the live suite alone used to cover has the same default-suite
+  floor as the rest, and a fixture drifting out of its own grammar fails in
+  seconds rather than at a milestone boundary.
+
 ## #50 Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,
