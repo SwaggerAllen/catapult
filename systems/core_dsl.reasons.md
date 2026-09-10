@@ -326,35 +326,66 @@ Found by `generation.md`'s own #53: a fixture-content pass for `vocab`,
 `resp`, `policy`, `journey` and `screen` minted every one of the five
 against its declared `identity: id`, and all five resolved to `nil`,
 because none of their mint elements — `<term>`, `<responsibility>`,
-`<policy>`, `<journey>`, `<screen>` — carries an `id` or `alias` attribute
-or child. Every tier in `bundles/default` declares `identity: id` today, and
-the two tiers whose mint elements lack even that (`comp`, `subcomp`) mint
-only because `identity_value/2`'s `id`-strategy fallback already tries
-`alias` — this is the vocabulary's first use outside that one hardcoded
-fallback, not a new mechanism for it.
+`<policy>` (minted from both `sysarch.xsd`'s and `comparch.xsd`'s own
+separate `Policy` complexType, plus `non_goals.xsd`'s `<candidate>` into
+the same pool), `<journey>`, `<screen>` — carries an `id` or `alias`
+attribute or child. Six tiers in `bundles/default` already resolve
+`identity: id` this way, not two: `comp`, `subcomp`, `ui_coll`,
+`screen_coll`, `ui_subcomp` and `screen_subcomp` each declare a required
+`alias` attribute on their mint element and carry no `id`, so all six
+reach `identity_value/2`'s `id`-strategy `alias` fallback rather than an
+`id` proper.
 
-`name` covers four of the five cleanly: `resp`, `policy` and `journey`
-carry a `<name>` child element and `vocab`'s own mint element, `<term>`,
-carries a required `name` attribute — `identity_value/2`'s
-attribute-then-text lookup already reads both shapes. `screen`'s mint
-element carries no `<name>` at all, only `<slug>`, so `identity: name`
-resolves to `nil` on `screen` the same way `identity: id` did. Renaming
-`<slug>` to `<name>` in `screens.xsd`, or adding a redundant `id`/`alias`
-attribute solely so `screen` could keep `identity: id`, were both live
-options and both rejected: `slug` is already the screen's identity
-everywhere else this system's content touches it —
-`docs/v5-design-decisions.md`'s "the slug spine", the `screen:<slug>` mutex
-label, and `journeys.xsd`'s own `<screen slug="...">` reference attribute,
-which already resolves a screen by that value informally. A rename would
-contradict established, shipped vocabulary to satisfy one loader list; a
-second attribute would carry a value nothing else in the bundle would ever
-read. Widening the loader's own list to match what the content already
-calls a screen's identity costs neither.
+Two shapes were live for the five newly-broken tiers: lean on the display
+text three of them already carry (`<term name="...">`,
+`<responsibility><name>`, `<policy><name>`, `<journey><name>`), or give
+every one of them the same `alias` attribute the six tiers above already
+carry. **Decided: `alias`.** The display text is not a safe identity for
+three of the four — `resp`'s name is enforced-unique
+(`requirements.md.liquid:191`, "No two atoms share a name"), but `vocab`'s
+explicitly is not (`feature_expansion.md.liquid:224`, "A project-level term
+and a feature-local term *can* share a name — scope disambiguates them"),
+`policy` mints from three independently-authored drafts (`sysarch`,
+`comparch`, `non_goals`) into one shared pool with no uniqueness rule
+stated in any of the three, and `journey` states none either. An
+`identity:` collision is not a validation error — it is two mints silently
+resolving to one `engine_nodes` row under the `(project_id, tier,
+scope_key)` unique index (ORC-87) — so text already known to collide, or
+never promised not to, was never a safe choice for three of the four.
+Every fanout-minted element instead takes the identical shape
+`<component>` already has (`sysarch.md.liquid:156`'s syntax and uniqueness
+instruction, copied to each new site): a required `alias` attribute,
+`^[a-z][a-z0-9_]{0,31}$`, unique within its own block.
 
-Uniqueness of a draft's own identity values (two terms named "invoice",
-say) is not a load-time question — a draft's content isn't visible to the
-loader, only its grammar is (`dsl-syntax.md` §13's load-time/projection-time
-split) — so it is not this rule's to check. It resolves at the same place
-every other identity collision already resolves: `engine_nodes`'s unique
-index on `(project_id, tier, scope_key)` (ORC-87, `systems/generation.md`'s
-#26) collapses two same-identity mints for one tier into one node.
+`screen` is the exception, and stays on the vocabulary widening rather than
+gaining an `alias`: its mint element carries no `<name>` at all, only
+`<slug>`, and `<slug>` is already the tier's identity everywhere else this
+system's content touches it — not a display label reused for the purpose,
+but a field authored as the identity from the start
+(`platform_content#64`). Renaming `<slug>` to `<name>` in `screens.xsd`, or
+giving `<screen>` a redundant `alias` nobody downstream would read, were
+both live options and both rejected: `slug` is already the screen's
+identity everywhere else this system's content touches it —
+`docs/v5-design-decisions.md` §2.1, "the slug spine", the `screen:<slug>`
+mutex label, and `journeys.xsd`'s own `<screen slug="...">` reference
+attribute, which already resolves a screen by that value informally. A
+rename would contradict established, shipped vocabulary to satisfy one
+loader list; a redundant attribute would carry a value nothing else in the
+bundle would ever read. Widening the loader's own list to match what the
+content already calls a screen's identity costs neither.
+
+Every other tier in `bundles/default` keeps `identity: id`. The six tiers
+above reach `alias` only through the `id`-strategy's hardcoded fallback,
+never declaring `alias` as the strategy itself. `vocab`, `resp`, `policy`
+and `journey` are the first tiers in `bundles/default` to declare
+`identity: alias` directly — the vocabulary's first use outside that one
+hardcoded fallback, not a second mechanism for it.
+
+Uniqueness of a draft's own identity values (two aliases both spelled
+"invoice", say) is not a load-time question — a draft's content isn't
+visible to the loader, only its grammar is (`dsl-syntax.md` §13's
+load-time/projection-time split) — so it is not this rule's to check. It
+resolves at the same place every other identity collision already
+resolves: `engine_nodes`'s unique index on `(project_id, tier, scope_key)`
+(ORC-87, `systems/generation.md`'s #26) collapses two same-identity mints
+for one tier into one node.

@@ -1122,23 +1122,57 @@ loader tickets carry `system:core_dsl`.
   is row-local and stays `mint.<name>` — `mint.parent.<name>` is only
   for the fields that could never have been row-local in the first
   place.
-- **#64 `vocab`, `resp`, `policy` and `journey` declare `identity: name`;
-  `screen` declares `identity: slug`** (ORC-246; `core_dsl#45` widens the
-  loader's vocabulary to make both legal). All five carried `identity: id`
-  — this bundle's blanket default, inherited rather than chosen — while
-  their mint elements (`<term>`, `<responsibility>`, `<policy>`, `<journey>`,
-  `<screen>`) carry neither an `id` nor an `alias`, so every mint resolved
-  to a `nil` `scope_key`. `<term>`'s required `name` attribute and
-  `<responsibility>`/`<policy>`/`<journey>`'s own `<name>` child element are
-  each already what a person reading the tier calls that row; `screen`'s is
-  `<slug>`, not `<name>` — `screens.xsd`'s own comment calls it "the spine",
-  it derives the `screen:<slug>` mutex label, and `journeys.xsd`'s
-  `<screen slug="...">` reference attribute already points at a screen by
-  it. Every other tier in `bundles/default` keeps `identity: id`, resolved
-  either directly or (`comp`, `subcomp`) through the `alias` fallback
-  `identity_value/2` already carries for that one strategy — this is not a
-  bundle-wide switch, only the five tiers whose mint element never had an
-  `id`/`alias` shape to resolve.
+- **#64 `vocab`, `resp`, `policy` and `journey` declare `identity: alias`,
+  gaining a required `alias` attribute on their mint element — the same
+  shape `comp`, `subcomp`, `ui_coll`, `screen_coll`, `ui_subcomp` and
+  `screen_subcomp` already carry; `screen` declares `identity: slug`,
+  resolved against the `<slug>` element it already has** (ORC-246;
+  `core_dsl#45` widens the loader's vocabulary to admit `slug` — `alias`
+  was already legal). All five carried `identity: id` — this bundle's
+  blanket default, inherited rather than chosen — while their mint
+  elements carried neither an `id` nor an `alias`, so every mint resolved
+  to a `nil` `scope_key`. `policy` mints from three loci, not one:
+  `sysarch.xsd`'s `Policy`, `comparch.xsd`'s own separate `Policy`
+  complexType, and `non_goals.xsd`'s `Candidate`, all landing in the one
+  `policy` pool — all three gain the attribute. `feature_expansion.xsd`'s
+  `Term`, `requirements.xsd`'s `Responsibility` and `journeys.xsd`'s
+  `Journey` each gain it too: six schema sites for five tiers.
+
+  Each gains the identical syntax and uniqueness instruction
+  `sysarch.md.liquid:156` already gives `<component>` — lowercase
+  letters/digits/underscores, `^[a-z][a-z0-9_]{0,31}$`, unique within its
+  own block — rather than reading `identity:` off the display text three
+  of the four already carry (`core_dsl#45`'s reasons entry has the
+  uniqueness argument against that: `resp`'s name is enforced-unique,
+  `vocab`'s explicitly isn't, and neither `policy` nor `journey` states
+  any). `journey` gains a second benefit from the same change: both
+  `screens.draft.screen[].journeys.journey[].@ref` (the `screen → journey`
+  edge) and `screen_collarch.draft.journeys.journey[].@ref` (the
+  `screen_coll → journey` edge) cite a journey today by
+  `<journey ref="...">`'s free-text argument sentence, and an alias gives
+  both `@ref` sites a stable key in the same change.
+
+  `screen` is not grouped with the other four: its mint element,
+  `<screen>`, carries no `<name>` at all, only `<slug>`, and `<slug>` is
+  already the tier's identity under an established name rather than a
+  display label reused for the purpose — it derives the `screen:<slug>`
+  mutex label (`v5` §2.1, "the slug spine"; `v5` §4.3's own grammar line,
+  "slug (the spine — derives the `screen:<slug>` mutex label…"), and
+  `journeys.xsd`'s own `<screen slug="...">` reference attribute already
+  points at a screen by it. `screens.md.liquid:128` states the same rule
+  to the authoring model ("**`<slug>` is the spine**"). Renaming `<slug>`
+  to `<name>`, or adding a redundant `alias` nobody downstream would read,
+  were both rejected in favor of widening the loader's own vocabulary to
+  admit the field `<screen>` already has.
+
+  Every other tier in `bundles/default` keeps `identity: id`. Six of them
+  — `comp`, `subcomp`, `ui_coll`, `screen_coll`, `ui_subcomp` and
+  `screen_subcomp` — resolve it through the `alias` fallback
+  `identity_value/2` carries for the `id` strategy specifically, never
+  declaring `alias` as the strategy itself. `vocab`, `resp`, `policy` and
+  `journey` are the first tiers in `bundles/default` to declare
+  `identity: alias` directly — the vocabulary's first use outside that one
+  hardcoded fallback, not a second mechanism for it.
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

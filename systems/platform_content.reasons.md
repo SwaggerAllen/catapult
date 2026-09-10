@@ -397,12 +397,30 @@ entries are dead.
 
 ## #64
 
-`core_dsl#45`'s own reason entry has the mechanism (why `identity_value/2`
-resolved to `nil` on all five) and the case for widening the vocabulary
-rather than changing a schema, `screen`'s included. This entry is the
-narrower, content-side fact: which of the two new values each of the five
-tiers takes, and why it's a 4-and-1 split rather than five tiers taking the
-same one. `screen` is not grouped with the other four because its mint
-element never carried a `<name>` in the first place — `screens.xsd` was
-authored against `slug` from the start (v5 §4.2, §4.3), not a tier that
-happened to lose a `<name>` element some other tier kept.
+`core_dsl#45`'s own reason entry has the mechanism — why `identity_value/2`
+resolved to `nil` on all five, and the uniqueness argument for `alias` over
+each tier's own display text. This entry is the narrower, content-side
+fact: which schema element each of the five tiers' alias lands on, and why
+`screen` is the one tier that splits off rather than taking the value the
+other four take.
+
+`policy` mints from three drafts into one pool — `sysarch.xsd`'s `Policy`,
+`comparch.xsd`'s own separate `Policy` complexType, and `non_goals.xsd`'s
+`Candidate` — so it is three schema sites for one tier, not one. `vocab`,
+`resp` and `journey` are each a single site (`feature_expansion.xsd`'s
+`Term`, `requirements.xsd`'s `Responsibility`, `journeys.xsd`'s `Journey`).
+Six sites, five tiers.
+
+`journey`'s alias has a second consumer already declared in the bundle:
+`screens.draft.screen[].journeys.journey[].@ref` and
+`screen_collarch.draft.journeys.journey[].@ref` both cite a journey by
+`<journey ref="...">`'s free-text argument sentence today, and that same
+attribute gets a stable value the moment `<journey>` carries an `alias`, at
+no extra cost.
+
+`screen` is not grouped with the other four because its mint element never
+carried a `<name>` in the first place — `screens.xsd` was authored against
+`slug` as the tier's identity from the start (v5 §2.1, "the slug spine";
+`bundles/default/prompts/screens.md.liquid:128`, "**`<slug>` is the
+spine**"), not a tier that happened to lose a `<name>` element some other
+tier kept.

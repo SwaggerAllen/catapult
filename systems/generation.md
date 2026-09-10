@@ -928,11 +928,13 @@ and validation logic and must not fork it.
   (every tier's setting in `bundles/default` today) resolves. Each mints
   with a `nil` identity instead. Fixing that is a vocabulary decision, not
   fixture content, and it is recorded where the vocabulary is declared:
-  `core_dsl#45` widens the loader's closed `identity:` set, and
-  `platform_content#64` assigns the four `id`-lacking tiers `identity: name`
-  and `screen` — whose natural identity field is spelled `slug`, not `name`
-  — `identity: slug`. This raft's fixture content for those five tiers is
-  authored against that widened vocabulary, not against the pre-existing
+  `core_dsl#45` widens the loader's closed `identity:` set to admit `slug`,
+  and `platform_content#64` assigns `vocab`/`resp`/`policy`/`journey`
+  `identity: alias` — each gaining a required `alias` attribute on its mint
+  element, the same shape six other tiers already carry — and assigns
+  `screen` `identity: slug`, resolved against the `<slug>` element it
+  already has. This raft's fixture content for those five tiers is
+  authored against that decision, not against the pre-existing
   `identity: id` default.
 
 ## #50 Initial vs target
