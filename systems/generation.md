@@ -160,7 +160,7 @@ and validation logic and must not fork it.
   projection match is total over `:handle`/`{:fragments, kind}` with
   nothing left unhandled.
 - **#13 Cardinality/graph_constraint evaluation is engine's, not this
-  system's — recorded here only as a boundary.** `systems/engine.md`'s
+  system's.** `systems/engine.md`'s
   ORC-236 entry owns the check (`drained?/1`-gated projection time,
   surfaced as a reported finding); `CommitPath` and `Extraction` carry
   nothing for it, because it runs against the committed edge/node
