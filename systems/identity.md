@@ -16,30 +16,30 @@ the platform-seeded defaults, and the **pluggable principal
 behaviour** that `@requires_permission` binds against. OIDC client
 (assent) as the enterprise tier; SAML deferred.
 
-## Standing decisions
+## #1 Standing decisions
 
-- **Platform-maintained, never generated-and-abandoned** (v5 §2.9's
+- **#2 Platform-maintained, never generated-and-abandoned** (v5 §2.9's
   argument against the phx.gen.auth model): one component, versioned,
   security patches propagate via the upgrade flow.
-- **Consumption is optional; the principal is pluggable** — projects
+- **#3 Consumption is optional; the principal is pluggable** — projects
   with domain-native identity (Haven's keypairs) consume this for
   the ops plane only and substitute their principal for domain
   surfaces.
-- **Permissions are code; roles are data** (v5 §2.9). This component
+- **#4 Permissions are code; roles are data** (v5 §2.9). This component
   stores grants and evaluates them; it never defines a project's
   permission atoms.
-- **Options are design-time** (v5 §3.4): `passwords`, `registration`,
+- **#5 Options are design-time** (v5 §3.4): `passwords`, `registration`,
   `tenancy`, `sso`, consent versions — each varies the resolved
   handle *and* the required-screen UI contract.
 
-## Initial vs target
+## #6 Initial vs target
 
 Initial (Phase 7; dashboard runs minimal auth until then): core auth
 + invites + superadmin + sessions, consumed by the dashboard. Target:
 full option portfolio, org/tenancy machinery, OIDC, UI contract
 published in the handle.
 
-## Depends on
+## #7 Depends on
 
 substrate. Dashboard is the internal consumer; target projects the
 external ones.

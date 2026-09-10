@@ -14,7 +14,7 @@ screen renders that report. **It does not recompute readiness** — the whole re
 pulled forward into Phase 3 beside the readiness logic itself was so that nothing downstream ever
 has a second opinion about what "blocked" means.
 
-## What it reads
+## #1 What it reads
 
 One node: a project, a tier, a scope key (ORC-87 — the route carries the project; there is no
 cross-project view here either). `explain/2` returns three facts, and the screen has a place for
@@ -37,7 +37,7 @@ each:
   "ready," see the review-tier caveat below, and not a claim that generation has actually fired
   (the scheduler's own dispatch is a later screen, out of this ticket's scope).
 
-## `:unsupported` is not an ordinary blocker
+## #2 `:unsupported` is not an ordinary blocker
 
 One source of walk — `ticket.<source>` — resolves `{:error, :unsupported}` rather than to real
 targets (`Catapult.Engine.Projections.ContextResolver`'s Initial scope; it belongs to v5 §7.11's
@@ -47,10 +47,7 @@ validation loop, Phase 7). `explain/2` folds that into a blocking entry carrying
 **No tier in `bundles/default` can put this row on screen today.** A `ticket.<source>` walk loads
 only if its source is a registered context source (`Catapult.Dsl.Chain`'s
 `Registry.context_source?/2` check), and no extension registers one yet — `chain.ex` rejects the
-walk at load rather than letting it reach `explain/2` unsupported. The section stays because
-Phase 7 is what registers the first one, and the visual treatment below is what that walk will
-need the moment it does; the storybook variation demonstrating it is illustrative for that reason,
-not a state reachable from this repo's own bundle content.
+walk at load rather than letting it reach `explain/2` unsupported.
 
 **Rendering that row the same way as an ordinary blocker is a lie by omission**, and the ticket
 that asked for this screen named the failure mode directly: it tells the operator to go approve
@@ -72,20 +69,18 @@ correct rendering of "a role with no documents never blocks readiness" (`dsl-syn
 nothing here has an "input roles aren't ready yet" row to accidentally show, because the row
 never existed to begin with.
 
-## The review-tier caveat
+## #3 The review-tier caveat
 
 A review tier has no `context:` of its own (`ReadyScopes`'s own moduledoc) — its readiness is "the
 reviewed tier's current draft has no review yet," a different and simpler rule `ready_review/3`
 answers, not `explain/2`. Calling `explain/2` on a review-tier node is legal and returns a report —
-`passes_scope_filter: true`, `blocking: []`, always, because there is no context to walk — and
-that report is **not** "this review tier is ready." This screen says so wherever it renders a
+`passes_scope_filter: true`, `blocking: []`, always, because there is no context to walk — and that
+report is **not** "this review tier is ready." This screen says so wherever it renders a
 review-tier node: an explicit caveat line rather than silence, because silence here reads as the
-same "nothing is blocking this" the ordinary empty state means, and for a review tier that would
-be a claim this screen has no way to back up. Whether an unreviewed draft is waiting is a fact
-this view does not have; a future pass may extend `explain/2`'s report or build a sibling query for
-it, but this ticket renders what exists.
+same "nothing is blocking this" the ordinary empty state means, and for a review tier that would be
+a claim this screen has no way to back up.
 
-## Navigation out
+## #4 Navigation out
 
 **The one link this screen offers is to `event-log`, project- and node-scoped.** J3 in
 `docs/ui-spec.md` is `explain-why` → `dispatch` → `run-transcript`; both of the latter are out of
@@ -93,7 +88,7 @@ this ticket's scope (`systems/dashboard.md`'s Initial-vs-target), so the only ne
 screen can honestly offer today is "see what has happened to this node so far" — which is
 `event-log`'s node filter, described there. No link is drawn to a screen that does not exist yet.
 
-## Non-goals
+## #5 Non-goals
 
 - No readiness recomputation in the view layer, ever — see above. A screen that walked the graph
   a second way to double-check `explain/2` would be the exact drift `ReadyScopes`'s own moduledoc

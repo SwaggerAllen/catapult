@@ -10,7 +10,7 @@ Swim lanes for one project (`docs/ui-spec.md` §3.1), the daily surface once `my
 you somewhere: not the entry point, but where "what's actually in flight, and where is it stuck"
 gets answered by looking rather than by asking.
 
-## Lanes are the workflow, read left to right
+## #1 Lanes are the workflow, read left to right
 
 A lane is one position in the ticket type's **effective sequence** — the declared `statuses:`
 array for that type, filtered by fan-out depth, order preserved (v5 §7.19;
@@ -27,7 +27,7 @@ degenerates the same way `my-queue`'s tabs do (`screens/my-queue.md`, `systems/d
 role-holder projection exists yet, so every gate lane is one you have standing in and the
 abbreviated view and the full one coincide until identity ships a real mapping.
 
-## Sub-arrays render as a bounded box around their own lanes
+## #2 Sub-arrays render as a bounded box around their own lanes
 
 A `statuses:` entry that is itself an array groups a contiguous run of lanes (`docs/dsl-syntax.md`
 §15.10, ORC-115) — `generation`, its critique, and the gates that review it, in the default bundle's
@@ -36,14 +36,10 @@ own `feature.yaml`. `board` renders that grouping visibly rather than flattening
 shared boundary, and one lane inside it carries a small badge marking it as where a throwback in
 this group lands by default. Which lane that is is not this screen's to say — it renders whatever
 `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group (`docs/dsl-syntax.md` §15.10 has
-the derivation), nothing here restates the rule that picks it. This is the whole
-point of grouping at all — a throwback's destination is only legible as *this is the loop you fell
-back into* when the loop is drawn, and a flattened board just shows a gate followed by an
-earlier-looking lane with no visual argument for why that lane is the one.
+the derivation), nothing here restates the rule that picks it.
 
 **A group carries no name of its own** (`docs/dsl-syntax.md` §15.10 — "no `name:`, no `id:`"), so
-the box itself is not labeled. The one fact worth surfacing is the default-landing badge, and it
-carries it; inventing a group title would be naming something the grammar deliberately doesn't.
+the box itself is not labeled.
 
 **A group is collapsible, and collapsed is the default — reversing this screen's own earlier
 stance.** A sub-array's width is bundle-authored and not bounded (`docs/dsl-syntax.md` §15.2's own
@@ -76,13 +72,7 @@ visible lane is whatever position its own sequence ends at, and it leaves the bo
 directly from there once its parent's `reconcile` merges it, with no `merge`/`deploy` lane of its
 own to pass through first.
 
-## Fan-out collapses, and collapsed is the default
-
-A feature ticket's children legitimately sit in several lanes at once — the feature might be at
-`Architecture review` while one component is already in `Implementation` and another hasn't started.
-Rendering every child as its own card would make the board answer "what are all the tickets"
-instead of its actual question, **which top-level tickets are in flight and what state their
-components are in.**
+## #3 Fan-out collapses, and collapsed is the default
 
 So a card is a top-level ticket, and within it, its in-flight children roll up by *their* lane —
 a small per-lane count or chip on the parent card, not a nested board. Expanding a card shows its
@@ -111,7 +101,7 @@ still collapses its own children the ordinary way — the two compose without co
 lives inside a card and the other around several lanes, so nothing on screen is ever ambiguous about
 which grouping it belongs to.
 
-## Child roll-up has no data source in Phase 4
+## #4 Child roll-up has no data source in Phase 4
 
 Everything above describes the shape the roll-up takes once there is data to roll up — a per-lane
 chip, a feature's card-level count across the component-type boundary. There is no data yet:
@@ -123,19 +113,7 @@ ticket's children" to run, so every card's roll-up renders as an honest `childre
 a nested board or an aggregate count: the current data model, not a choice this screen makes to
 hide anything (`systems/dashboard.md` carries the standing decision).
 
-The same missing fact costs more than the children list. "A group's own lane set, and the group
-itself, can differ between two tickets of the same type" (above) relies on knowing whether a
-*given instance* has children — a leaf never reaches `reconcile`, so a lane keyed only on type and
-depth cannot exclude it there. That is the identical relationship this section says is absent, so
-today a leaf card can sit in a `reconcile` lane it never reaches; the per-card exclusion rule reads
-as a design intent this data model cannot yet enforce, not as working behavior with a gap next to
-it (`systems/dashboard.md`'s ORC-129 entry has the detail).
-
-Not gating: the source is `docs/build-plan.md`'s Phase 7 two-grain machinery — spawn and child
-lifecycle, minting a child as its own addressable flow correlated to the parent that spawned it —
-and nothing ahead of Phase 7 depends on it landing first.
-
-## Blocked groups under the status that kicked it
+## #5 Blocked groups under the status that kicked it
 
 Not a lane of its own. `blocked_origin` (v5 §7.19, `FeatureLifecycle.Projection.blocked_origin/1`)
 names the position a ticket was standing at when a limit-class failure or a review throwback
@@ -144,16 +122,10 @@ log, so `from` is not bookkeeping here the way it is on a mirrored tracker. A bl
 in its origin lane with a flavor badge (`needs-review` / `needs-setup` / failure, v5 §7.6) instead
 of the lane's ordinary status chip.
 
-## Cards link to where pass-forward and pass-back are issued, rather than issuing them
+## #6 Cards link to where pass-forward and pass-back are issued, rather than issuing them
 
 `docs/ui-spec.md`'s "cards carry pass-forward and pass-back directly" is not what v1 builds, and
-this is a correction rather than a narrowing of something that worked. `ApproveGate`/`DeclineGate`
-gained a `body_sha` compare-and-swap at ORC-114 (`systems/engine.md`): the command carries the
-body the actor believes they are resolving against, and the aggregate rejects a mismatch. A card
-shows a ticket, not a body — there is nothing on it to read a real `body_sha` from. Filling the
-field from the projection's current value would make the compare pass unconditionally while the
-card *looked* guarded, which is worse than not offering the control: a guard that never rejects is
-indistinguishable, from the card, from no guard at all.
+this is a correction rather than a narrowing of something that worked.
 
 Every gate Phase 4's own `feature.yaml` declares reviews a prose artifact, so a card's
 pass-forward/pass-back is a link into `document-review` (or `ticket`, for the same reason
@@ -162,27 +134,12 @@ the identical move `ticket` already makes and for the identical reason. The card
 a gate is waiting and what it is, so the actor does not have to open the ticket to know there is
 something to do; it just does not dispatch from where it stands.
 
-**This was expected to resolve for real at ORC-116, and it does not** — checked here rather than
-assumed. `docs/dsl-syntax.md` §15.10 does give a passed gate's approval a structural node to pin
-*content identity* against, which answers §7.16's "what a passed gate pins." But that is a staleness
-question — "has what this gate approved changed" — answerable from a log join with no body view,
-and it is a different mechanism from the command-side `body_sha` compare a dispatch needs, which is
-"the body the actor believes they are resolving against" (`systems/engine.md`'s own distinction
-between the two; `systems/delivery.md`'s note that the staleness half is what §15.10 actually
-closed). A card still shows no body, so it still has nothing honest to supply on `ApproveGate`/
-`DeclineGate`'s own compare, whatever the node derivation settles — the interim named above does not
-end here. What the derivation *does* unlock is gate staleness display, `docs/ui-spec.md`'s own v2
-stage (§5), with the join itself still unbuilt (`systems/delivery.md`'s Phase 7). This is a v1 scope
-choice, not a defect, and it is recorded here rather than silently narrowed so a later pass building
-non-prose gates does not have to rediscover why the card lost the control `docs/ui-spec.md`
-describes for it.
-
-## Filters
+## #7 Filters
 
 `type` in v1. `docs/ui-spec.md` also names `label`, `milestone`, `mutex label` and `assignee`; all
 four are deferred (see below) rather than cut on the merits.
 
-## Deferred beyond v1
+## #8 Deferred beyond v1
 
 - **`label` filter — cut, and not on the same footing as the other three below.** `label`'s only
   namesake in the DSL is a chain bundle's own `ticket: labels:` (`docs/dsl-syntax.md` §6): authored

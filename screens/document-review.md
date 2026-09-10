@@ -9,32 +9,30 @@ paths:
 The design-gate action, at sentence granularity (`docs/ui-spec.md` §3.2): prose artifacts diff
 badly per line, and the review comments that matter anchor to a claim rather than to a line.
 
-## What this gate is reviewing
+## #1 What this gate is reviewing
 
 Whatever the chain produced at the step this gate follows, derived from position rather than
 looked up separately (v5 §7.18) — the same node the ticket's sequence rail names as "current."
 One artifact, one committed body at one `body_sha`; this screen never shows more than one tier's
 worth of prose at a time.
 
-## The sentence locator is unset in v1
+## #2 The sentence locator is unset in v1
 
-`Catapult.Engine.Commands.PostComment` carries a `locator` field, and it is nullable — final,
-merged ORC-34 (`systems/engine.md`) settles it as **always null in Phase 4**: "v1 (Phase 4's own)
-has no diff producing one yet," and per-sentence anchoring is `docs/ui-spec.md` §5's own v2 stage,
-not this ticket's. An earlier draft of this screen (drawn against ORC-34's own pre-review draft)
-committed to computing a real `{body_sha, sentence_index}` locator here and sending it on every
-comment; that draft was thrown back before merging; this screen does not build the thing it was
-thrown back for. **This screen posts every `PostComment` with `locator: nil`.** The sentence a
-comment was raised against is kept only as this render's own local grouping — which sentence a
-comment sits beside on screen — and is never sent to the aggregate and never round-trips: reload
-this screen and every comment on a node renders together, undifferentiated by sentence, which is
-exactly what `Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2` already folds
-(per-node, not per-span — "v5 §7.4's per-span bucket key degenerates to per-node today," in
-`systems/engine.md`'s own words). Per-sentence anchoring activates later **without a protocol
-change**: the field already exists on the command, unpopulated; a future pass teaches this screen
-to compute and send a real one, and nothing downstream has to change to read it.
+`Catapult.Engine.Commands.PostComment` carries a `locator` field, and it is nullable — final, merged
+ORC-34 (`systems/engine.md`) settles it as **always null in Phase 4**: "v1 (Phase 4's own) has no
+diff producing one yet," and per-sentence anchoring is `docs/ui-spec.md` §5's own v2 stage, not this
+ticket's. An earlier draft of this screen (drawn against ORC-34's own pre-review draft) committed to
+computing a real `{body_sha, sentence_index}` locator here and sending it on every comment; that
+draft was thrown back before merging; this screen does not build the thing it was thrown back for.
+**This screen posts every `PostComment` with `locator: nil`.** The sentence a comment was raised
+against is kept only as this render's own local grouping — which sentence a comment sits beside on
+screen — and is never sent to the aggregate and never round-trips: reload this screen and every
+comment on a node renders together, undifferentiated by sentence, which is exactly what
+`Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2` already folds (per-node, not
+per-span — "v5 §7.4's per-span bucket key degenerates to per-node today," in `systems/engine.md`'s
+own words).
 
-## The diff, per sentence
+## #3 The diff, per sentence
 
 The prior committed body — `Catapult.Delivery.Store.get_previous_draft_body/2`, `nil` on a first
 pass — and the current one, sentence-aligned: unchanged, added, and removed sentences marked as
@@ -46,7 +44,7 @@ comment raised against a sentence is protocol-anchored to it. A comment is offer
 sentence in the **current** body — there is no commenting on a removed sentence, since nothing
 downstream would ever have prose left to show it beside.
 
-## Approve or throw back
+## #4 Approve or throw back
 
 - **Approve** — `Catapult.Engine.Commands.ApproveGate{project_id, flow_id, gate, node_id, body_sha,
   actor_id}` → `GateApproved`. The gate passes; `Catapult.Delivery.FeatureLifecycle` advances the
@@ -114,23 +112,18 @@ that a gate is waiting and which role it routes to; when the position is a desig
 position Phase 4's own `feature.yaml` declares — its approve/throw-back controls are this screen's,
 not a duplicate pair rendered twice.
 
-## Stale marking does not ship in v1
+## #5 Stale marking does not ship in v1
 
-An earlier draft of this screen described deriving staleness — a passed gate whose artifact
-changed underneath it — at render time from whether the node's current `body_sha` matches what
-the gate's own approval event recorded. That draft was drawn against a shape the protocol does
-not have: `GateApproved`/`GateDeclined` carry no content identity, deliberately, and §7.16's "what
-a passed gate pins" is left open for Phase 7/ORC-115 by name (`systems/engine.md`'s own entry;
+An earlier draft of this screen described deriving staleness — a passed gate whose artifact changed
+underneath it — at render time from whether the node's current `body_sha` matches what the gate's
+own approval event recorded. That draft was drawn against a shape the protocol does not have:
+`GateApproved`/`GateDeclined` carry no content identity, deliberately, and §7.16's "what a passed
+gate pins" is left open for Phase 7/ORC-115 by name (`systems/engine.md`'s own entry;
 `systems/delivery.md`'s ORC-114 entry flags the mismatch directly and routes it here to resolve).
-Adding a stopgap `body_sha` to the gate events now would be the first thing ORC-115 deletes, so
-this screen does not build it. What v1 has instead — `Catapult.Delivery.Store
-.get_previous_draft_body/2`, one previous body rather than a log — answers "the diff" above, a
-narrower question ("what changed since the last pass") than "has what this gate approved
-changed," which needs a content pin this ticket does not have. Recorded here rather than
-silently dropped, since `docs/ui-spec.md` never named this mechanism and a reader diffing this
-screen against an earlier commit would otherwise have to guess whether the gap is an omission.
+Adding a stopgap `body_sha` to the gate events now would be the first thing ORC-115 deletes, so this
+screen does not build it.
 
-## Deferred beyond v1
+## #6 Deferred beyond v1
 
 - **Comment history across prior passes.** This screen shows the *current* pass's diff and lets
   you comment on it; it does not (yet) let you open a previous pass's diff and its comments side by

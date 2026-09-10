@@ -308,6 +308,18 @@ Each of these cost a wrong diagnosis before it was written down.
   and left a third, unnamed, stale in a file it had open. Name every
   site, or state the predicate that finds them — a partial list reads
   as a checklist rather than as an example.
+- **A rule carries an id, and its reason lives beside the doc.** In
+  `systems/*.md` and `screens/*.md` every h2-or-deeper heading and every
+  standing decision opens with `#n`; the reason is `## #n` in the doc's
+  `.reasons.md` sibling (conventions §12, orchestration's DESIGN §4).
+  Run `pipeline reasons delivery#17` before changing rule #17 of
+  `systems/delivery.md`; amend the entry in the same commit; a new rule
+  takes the highest id in the doc plus one; a retired rule loses its
+  line and its entry gains `retired:`. Cite a rule as `delivery#17` —
+  the audit resolves the id and the wording is free to change. The
+  record review is handed the entry behind every id a diff touches, and
+  a rule changed against its reason with the entry unamended is a
+  decline.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
   — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —

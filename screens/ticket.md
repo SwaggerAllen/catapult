@@ -9,12 +9,9 @@ paths:
 One ticket: the argument, where it sits in its effective sequence, and the one or two controls
 that move it from there (`docs/ui-spec.md` §3.1).
 
-## The argument, first
+## #1 The argument, first
 
-The human-readable case for the work (v5 §7.2) opens the screen, above the mechanics. Everything
-below is "what state is this in and what can I do about it" — the argument is "why does this
-ticket exist," and a reviewer deciding a gate needs the second question answered in the context of
-the first, not instead of it.
+The human-readable case for the work (v5 §7.2) opens the screen, above the mechanics.
 
 Rendered off `Catapult.Delivery.Store.tickets_for_project/1`'s own `argument` field (ORC-114) —
 `fields["argument"]` off the node at the flow's `entry_node_id`, the reserved `fields:` name
@@ -22,7 +19,7 @@ Rendered off `Catapult.Delivery.Store.tickets_for_project/1`'s own `argument` fi
 the same unset-is-empty behavior `prior_review` already has; a blank argument is rendered as
 such, not hidden.
 
-## Position in the effective sequence
+## #2 Position in the effective sequence
 
 Rendered as the same ordered list `board`'s lanes come from (`Catapult.Delivery.FeatureLifecycle
 .Sequence.positions/2`, v5 §7.19): every position up to this ticket's type's reachable boundary,
@@ -53,7 +50,7 @@ screen shows the resolved sequence for this ticket's own depth, not the full dec
 inapplicable entries grayed out. The distinction between "declared but not at this depth" and
 "declared and upcoming" is not this screen's to draw — depth already resolved it upstream.
 
-## The gate action
+## #3 The gate action
 
 Shown to every viewer in Phase 4, not filtered by role — no role-holder projection exists yet
 (identity is Phase 7, `Catapult.Engine.Commands.ApproveGate`'s own moduledoc defers authorization
@@ -79,15 +76,12 @@ resolution whose view is a body it has already moved past, the identical stale-v
 `PostComment` already had. This screen never issues either command itself (see below), so
 supplying that pair is `document-review`'s obligation, not this screen's.
 
-**Every gate Phase 4's own `feature.yaml` declares reviews a prose artifact, so in v1 this
-screen's own gate action is never the one issuing the command.** `screens/document-review.md`
-holds the actual approve/throw-back controls and the comment-count check `DeclineGate` enforces
-for a decline; this screen shows that a gate is waiting and which role it routes to (a bundle-
-declared string, `Catapult.Dsl.Gate.role`, not an actor — no viewer filtering yet, above), and
-links there rather than rendering a second, competing pair. The controls are named here because the command they dispatch
-is this ticket's own — the same `ApproveGate`/`DeclineGate` pair — and a future non-prose gate
-(Phase 7) would render them directly on this screen with no new mechanism, only a different
-destination for the click.
+**Every gate Phase 4's own `feature.yaml` declares reviews a prose artifact, so in v1 this screen's
+own gate action is never the one issuing the command.** `screens/document-review.md` holds the
+actual approve/throw-back controls and the comment-count check `DeclineGate` enforces for a decline;
+this screen shows that a gate is waiting and which role it routes to (a bundle- declared string,
+`Catapult.Dsl.Gate.role`, not an actor — no viewer filtering yet, above), and links there rather
+than rendering a second, competing pair.
 
 Both are commands under a real optimistic-concurrency compare, landed at ORC-114
 (`systems/engine.md`): a second writer racing the first on one still-open resolution is rejected
@@ -100,14 +94,10 @@ underneath the view — not an actor identity: neither error carries who made th
 same "name the value, not the actor" level of detail `AdvanceContainerQueue`'s own conflict already
 gives. Attributing the conflict to *who* is a follow-up read of the project's event stream for the
 gate's most recent `GateApproved`/`GateDeclined` (both carry `actor_id`) — the identical "read the
-log for a display fact" pattern `Catapult.Engine.Projections.GateComments`/`CommentFeedback`
-already establish, not a new mechanism, and not required for the conflict to render correctly. This
-is the concrete case `docs/ui-spec.md`'s R-less prose gestures at when it says owning the surface is
-what makes synchronous rejection possible at all: Linear cannot do this (v5 §7.16), and it is
-worth a test asserting the conflict renders rather than the stale action silently applying or
-silently failing.
+log for a display fact" pattern `Catapult.Engine.Projections.GateComments`/`CommentFeedback` already
+establish, not a new mechanism, and not required for the conflict to render correctly.
 
-## Blocked
+## #4 Blocked
 
 - the flavor label (`needs-review` / `needs-setup` / failure — v5 §7.6)
 - the origin status, read from the projection rather than a stamped comment (v5 §7.19 — "the
@@ -138,7 +128,7 @@ same bundle/projection-content split `gate`/`throwback_to` above already draw. A
 (someone else already resumed it, or a retry already landed) is rejected the same synchronous way
 as the gate action, reusing that conflict rendering rather than a third version of it.
 
-## Child roll-up
+## #5 Child roll-up
 
 A flat list of this ticket's children with their own current position — not a nested board, not
 the fan-out tree (`ticket-graph`'s job, and explicitly out of this ticket's scope). Each child
@@ -149,11 +139,9 @@ parent-flow reference — fan-out below a top-level ticket is a node/tier concep
 (`parent_node_id` on `Catapult.Engine.Store.Node` is doc-graph scope structure, not a
 ticket-delivery relationship), not a second flow instance — so this screen renders an honest empty
 list rather than a hidden or narrowed one (`systems/dashboard.md`'s standing decision;
-`screens/board.md`'s identical gap on its own roll-up). It waits on `docs/build-plan.md`'s Phase 7
-two-grain machinery (spawn, child lifecycle), and nothing ahead of Phase 7 depends on it landing
-first.
+`screens/board.md`'s identical gap on its own roll-up).
 
-## Linked PRs and runs
+## #6 Linked PRs and runs
 
 The PRs and agent runs this ticket's own work produced, as a plain list — a name, a status, and a
 link out to GitHub or `run-transcript`. `Catapult.Delivery.Store.get_feature_publication/2` gives
@@ -163,7 +151,7 @@ screen's own earlier draft had (`systems/delivery.md`'s ORC-114 entry). Not a gr
 timeline; the ordering question ("what happened when, relative to what") is `run-transcript` and
 `event-log`'s to answer, not this screen's to re-derive.
 
-## Deferred beyond v1
+## #7 Deferred beyond v1
 
 - **The swim-lane comment navigator, and R1/R2 entirely.** Named explicitly out of this ticket's
   scope (`docs/ui-spec.md` §3.1 marks the mechanism sketch-grade and stages it v2). This screen
