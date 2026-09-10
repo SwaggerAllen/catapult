@@ -319,3 +319,42 @@ dispatch/fixture-coverage totals (it has no `draft:` for
 `Sweeper.dispatchable?/1` to match, same as every join-target tier);
 `ref`'s absence from the swept set is `systems/generation.md`'s own ORC-236
 entry.
+
+## #45
+
+Found by `generation.md`'s own #53: a fixture-content pass for `vocab`,
+`resp`, `policy`, `journey` and `screen` minted every one of the five
+against its declared `identity: id`, and all five resolved to `nil`,
+because none of their mint elements — `<term>`, `<responsibility>`,
+`<policy>`, `<journey>`, `<screen>` — carries an `id` or `alias` attribute
+or child. Every tier in `bundles/default` declares `identity: id` today, and
+the two tiers whose mint elements lack even that (`comp`, `subcomp`) mint
+only because `identity_value/2`'s `id`-strategy fallback already tries
+`alias` — this is the vocabulary's first use outside that one hardcoded
+fallback, not a new mechanism for it.
+
+`name` covers four of the five cleanly: `resp`, `policy` and `journey`
+carry a `<name>` child element and `vocab`'s own mint element, `<term>`,
+carries a required `name` attribute — `identity_value/2`'s
+attribute-then-text lookup already reads both shapes. `screen`'s mint
+element carries no `<name>` at all, only `<slug>`, so `identity: name`
+resolves to `nil` on `screen` the same way `identity: id` did. Renaming
+`<slug>` to `<name>` in `screens.xsd`, or adding a redundant `id`/`alias`
+attribute solely so `screen` could keep `identity: id`, were both live
+options and both rejected: `slug` is already the screen's identity
+everywhere else this system's content touches it —
+`docs/v5-design-decisions.md`'s "the slug spine", the `screen:<slug>` mutex
+label, and `journeys.xsd`'s own `<screen slug="...">` reference attribute,
+which already resolves a screen by that value informally. A rename would
+contradict established, shipped vocabulary to satisfy one loader list; a
+second attribute would carry a value nothing else in the bundle would ever
+read. Widening the loader's own list to match what the content already
+calls a screen's identity costs neither.
+
+Uniqueness of a draft's own identity values (two terms named "invoice",
+say) is not a load-time question — a draft's content isn't visible to the
+loader, only its grammar is (`dsl-syntax.md` §13's load-time/projection-time
+split) — so it is not this rule's to check. It resolves at the same place
+every other identity collision already resolves: `engine_nodes`'s unique
+index on `(project_id, tier, scope_key)` (ORC-87, `systems/generation.md`'s
+#26) collapses two same-identity mints for one tier into one node.

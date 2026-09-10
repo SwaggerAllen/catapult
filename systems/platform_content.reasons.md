@@ -394,3 +394,15 @@ stay in the fixture repo indefinitely. Harmless — the dispatch harness
 reads the path the context response names, not a directory listing — but a
 reader of that repo should know the five underscored `.catapult-stub`
 entries are dead.
+
+## #64
+
+`core_dsl#45`'s own reason entry has the mechanism (why `identity_value/2`
+resolved to `nil` on all five) and the case for widening the vocabulary
+rather than changing a schema, `screen`'s included. This entry is the
+narrower, content-side fact: which of the two new values each of the five
+tiers takes, and why it's a 4-and-1 split rather than five tiers taking the
+same one. `screen` is not grouped with the other four because its mint
+element never carried a `<name>` in the first place — `screens.xsd` was
+authored against `slug` from the start (v5 §4.2, §4.3), not a tier that
+happened to lose a `<name>` element some other tier kept.

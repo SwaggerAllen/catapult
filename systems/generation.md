@@ -886,16 +886,20 @@ and validation logic and must not fork it.
   #48 keys existence against, not a fact only the live suite discovers.**
   #48 already states conformance as a property of how a fixture is authored;
   nothing checked it. Each of `@root_tag_fixtures`' 21 fixtures validates, in
-  the default suite, against the schema its own tier's `draft.grammar` names
-  — the same `Dsl.validate_draft/5` call `CommitPath.commit_draft/3` opens
-  with against a real reported body, run here as a standalone assertion over
-  the raft rather than folded into a full offline chain walk, so a fixture
-  that drifts out of its own grammar fails in seconds instead of at whatever
-  point a live run's dispatch order happens to reach it (ORC-235/ORC-246:
-  `ui_collarch.xml` and `screen_collarch.xml` both drifted this way when
-  ORC-235 relocated `renders`, `calls` and `uses_shapes` out of their
-  schemas, and the gap surfaced only when live run 29 stalled mid-walk on
-  both tiers at once).
+  the default suite, against the schema its own tier declares — `draft
+  .grammar` for a generation tier, the tier-root `grammar` a review tier
+  declares instead, since a review tier carries no `draft:` block at all
+  (`dsl-syntax.md` §3.3) — the same `Dsl.validate_draft/5` call
+  `CommitPath.commit_draft/3` opens with against a real reported body, run
+  here as a standalone assertion over the raft rather than folded into a
+  full offline chain walk, so a fixture that drifts out of its own grammar
+  fails in seconds instead of at whatever point a live run's dispatch order
+  happens to reach it (ORC-235/ORC-246: `ui_collarch.xml` and
+  `screen_collarch.xml` both drifted this way when ORC-235 relocated
+  `renders`, `calls` and `uses_shapes` out of their schemas, and the gap
+  surfaced only when live run 29 stalled mid-walk on both tiers at once).
+  All seventeen review tiers name the identical `schemas/review.xsd`, the
+  same collapse #48 already keys fixture existence by.
 
 - **#53 The raft's coverage is total across content the chain can mint, not
   only across which root_tags have a fixture** — the content counterpart of
@@ -910,11 +914,26 @@ and validation logic and must not fork it.
   `<ui-dependencies>`/`<screen-dependencies>` are both empty, so those edges
   and the two same-tier `dependency` instances extract nothing even once the
   walk reaches them. `ToySeedChainTest` drives every entry in
-  `@root_tag_fixtures` — the frontend five and both review tiers included —
-  through `Extraction`/`Store` offline against the fake, and the raft's
-  content mints an instance of every edge and node a dispatchable draft can
-  produce, so a tier or an edge with nothing upstream to mint from fails
-  offline instead of at a live deadline.
+  `@root_tag_fixtures` — the frontend five and the five reviews they carry
+  between them — through `Extraction`/`Store` offline against the fake, and
+  the raft's content mints an instance of every edge and node a dispatchable
+  draft can produce, so a tier or an edge with nothing upstream to mint from
+  fails offline instead of at a live deadline.
+
+  Minting the content above is not by itself sufficient: a minted node's
+  `scope_key` is its own identity value (`Extraction.identity_value/2`), and
+  five tiers this raft would newly exercise — `vocab`, `resp`, `policy`,
+  `journey` and `screen` — mint from an element carrying neither an `id`
+  attribute nor an `alias` attribute, the only two shapes `identity: id`
+  (every tier's setting in `bundles/default` today) resolves. Each mints
+  with a `nil` identity instead. Fixing that is a vocabulary decision, not
+  fixture content, and it is recorded where the vocabulary is declared:
+  `core_dsl#45` widens the loader's closed `identity:` set, and
+  `platform_content#64` assigns the four `id`-lacking tiers `identity: name`
+  and `screen` — whose natural identity field is spelled `slug`, not `name`
+  — `identity: slug`. This raft's fixture content for those five tiers is
+  authored against that widened vocabulary, not against the pre-existing
+  `identity: id` default.
 
 ## #50 Initial vs target
 

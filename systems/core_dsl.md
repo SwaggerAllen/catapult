@@ -816,6 +816,15 @@ profiles.
   word for a different thing and stays: `refactor_plan.yaml`,
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
+- **#45 The `identity:` vocabulary widens to `id | alias | name | slug`**
+  (ORC-246). `Catapult.Dsl.Tier`'s `@identities` is a loader-enforced closed
+  set (`Fields.require_one_of/4`), and `dsl-syntax.md` §3's own `identity:
+  id  # id | alias | name` comment states the same three values — both
+  widen together, in the same change, to the fourth. `Extraction
+  .identity_value/2` already resolves whichever field name `identity:`
+  names, against an instance element's matching attribute or child text; the
+  vocabulary is what the loader accepts as a legal value for that field
+  name, not a second mechanism `slug` has to be taught.
 
 ## #43 Initial vs target
 

@@ -109,7 +109,7 @@ any `handle:` or `produces:` must appear here.
 tier: comparch                    # unique within the loaded union
 scope: per(comp)                  # §3.1
 scope_filter: is_domain           # optional predicate (§8)
-identity: id                      # id | alias | name
+identity: id                      # id | alias | name | slug
 fields:                           # scalar projections of body content
   name: draft.name
   techspec: draft.techspec

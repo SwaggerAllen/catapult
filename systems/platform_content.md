@@ -1122,6 +1122,23 @@ loader tickets carry `system:core_dsl`.
   is row-local and stays `mint.<name>` — `mint.parent.<name>` is only
   for the fields that could never have been row-local in the first
   place.
+- **#64 `vocab`, `resp`, `policy` and `journey` declare `identity: name`;
+  `screen` declares `identity: slug`** (ORC-246; `core_dsl#45` widens the
+  loader's vocabulary to make both legal). All five carried `identity: id`
+  — this bundle's blanket default, inherited rather than chosen — while
+  their mint elements (`<term>`, `<responsibility>`, `<policy>`, `<journey>`,
+  `<screen>`) carry neither an `id` nor an `alias`, so every mint resolved
+  to a `nil` `scope_key`. `<term>`'s required `name` attribute and
+  `<responsibility>`/`<policy>`/`<journey>`'s own `<name>` child element are
+  each already what a person reading the tier calls that row; `screen`'s is
+  `<slug>`, not `<name>` — `screens.xsd`'s own comment calls it "the spine",
+  it derives the `screen:<slug>` mutex label, and `journeys.xsd`'s
+  `<screen slug="...">` reference attribute already points at a screen by
+  it. Every other tier in `bundles/default` keeps `identity: id`, resolved
+  either directly or (`comp`, `subcomp`) through the `alias` fallback
+  `identity_value/2` already carries for that one strategy — this is not a
+  bundle-wide switch, only the five tiers whose mint element never had an
+  `id`/`alias` shape to resolve.
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

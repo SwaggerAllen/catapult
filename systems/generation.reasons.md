@@ -409,3 +409,18 @@ would have surfaced from #52's direct validation — only a full offline walk
 through `Extraction`/`Store` mints far enough to notice nothing came out the
 other end, which is why the two checks are separate mechanisms rather than one
 assertion doing both jobs.
+
+A design review of this raft's own fixture-content plan found a third gap
+behind the first two: even once `feature_expansion.xml` carries a
+`<vocabulary><term name="...">` row, `vocab`'s `identity: id` setting
+resolves against it to `nil` — `Extraction.identity_value/2` tries an `id`
+attribute, then an `id` child element, then (for the `id` strategy
+specifically) an `alias` attribute, and `<term>` carries none of the three,
+only `name`. The same check against `resp`, `policy`, `journey` and
+`screen`'s own mint elements found the identical gap in four more tiers this
+raft would newly exercise — content satisfying #53 as first written would
+still mint five nodes with a `nil` `scope_key`, extraction-complete but not
+identity-complete. The fix is a vocabulary decision, not fixture content, so
+it is recorded and reasoned about where the vocabulary itself is declared
+and where the bundle decides which tier takes which value: `core_dsl#45`'s
+and `platform_content#64`'s own reasons entries.
