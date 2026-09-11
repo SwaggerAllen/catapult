@@ -1155,11 +1155,9 @@ loader tickets carry `system:core_dsl`.
   every `policy` mint to `nil` today — neither `Policy` shape carries
   an identity attribute for it to read) — this citation route is fully
   specified here but produces nothing citable until that identity
-  resolves to a real value, and the raft fixture that exercises
-  `<applies>` end to end belongs to ORC-246's own coverage work, not
-  this ticket's — named by ticket rather than by rule id, since
-  ORC-246's own numbering is still moving while both branches are
-  open. It is a third
+  resolves to a real value: raft coverage exercising `<applies>` end
+  to end is gated on `policy` carrying a resolvable identity, and
+  cannot exist before it does. It is a third
   `policy_application` instance — `source: policy`, `target: comp`,
   `declared_in: comparch.draft.policies.applies[]`, `source_ref:
   "@ref"`, `target_ref: self.parent`, `cardinality: source: { min: 0
