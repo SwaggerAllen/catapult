@@ -582,14 +582,19 @@ and the unresolved side (§13) — a silent `[]` is no longer a legal
 outcome of an edge the bundle declared with a non-zero `cardinality`
 minimum.
 
-`type: policy_application`'s two instances are not this mechanism.
-Their `declared_in` (`policy.structural`, `policy.required`) names a
-marker on the *minting* instance element itself, not a location in a
+Not every instance of every edge uses this mechanism: `type:
+policy_application`'s two mint-time-marker instances are not it. Their
+`declared_in` (`policy.structural`, `policy.required`) names a marker
+on the *minting* instance element itself, not a location in a
 committed draft body — `fields:`'s and `mint.parent.<name>`'s own
 engine-side resolution (§3) is the precedent, not a `source_ref:`
 locator: both are read at the same moment and off the same element a
 fanout mint already walks, never extracted from a committed draft
-under `references/5`'s own mechanism at all.
+under `references/5`'s own mechanism at all. An edge is free to mix
+the two: `policy_application`'s third instance, an ordinary citation
+of an already-minted policy by id, names a real `declared_in` path and
+resolves exactly the way every instance above does
+(`systems/platform_content.md#64`, `systems/generation.md#52`).
 
 ## 6. Flows
 

@@ -196,10 +196,15 @@ loader tickets carry `system:core_dsl`.
   (`policy_application`'s policy→comp instance, grammar siege has no
   counterpart for — its own `<policy>` element only ever names a resp
   id via `<required>`; the `<structural/>` marker in
-  `schemas/sysarch.xsd` and `schemas/comparch.xsd` is what a policy
-  declares instead, mutually exclusive with `<required>` by the
-  grammar's own `xs:choice`, never both). Both are instances of one
-  `policy_application` edge (dsl-syntax.md §4.1).
+  `schemas/comparch.xsd` is what a policy declares instead, mutually
+  exclusive with `<required>` by the grammar's own `xs:choice`, never
+  both — comparch-only: `sysarch`'s own `Policy` type carries no
+  `<structural/>` choice, since `sysarch`'s parent is `requirements`,
+  not a comp, and the instance's `self.parent` target has nothing to
+  resolve to there (#64). A third instance reaches the same comp grain
+  by citing an already-minted policy rather than minting a duplicate
+  (#64). All three are instances of one `policy_application` edge
+  (dsl-syntax.md §4.1).
   **The through-responsibility read is wired.** `comparch`'s one-hop
   context reads cannot reach the grain on their own; `dsl-syntax.md`
   §7.1's hop chains and reversed hops (`.<edge>~`) are the construct
@@ -1122,6 +1127,28 @@ loader tickets carry `system:core_dsl`.
   is row-local and stays `mint.<name>` — `mint.parent.<name>` is only
   for the fields that could never have been row-local in the first
   place.
+- **#64 `<structural/>` retires from `sysarch`'s grammar; `comparch`
+  gains `<applies ref="...">` to cite a policy instead of re-minting
+  it** (ORC-247). `schemas/sysarch.xsd`'s `Policy` type drops the
+  `<structural/>` branch of its `xs:choice` — a `sysarch`-drafted
+  policy is `<required>` or neither, never `<structural/>` — because a
+  policy genuinely about one component is that component's own
+  `comparch` pass to author, where `self.parent` (#15) is unambiguous;
+  `sysarch` has none to offer. `comparch`'s `<policies>` gains a
+  sibling to `<policy>`: zero or more `<applies ref="POLICY_ID">`,
+  citing an already-minted policy (`sysarch`-level, another
+  `comparch`'s, or a `non_goals`-distilled one) by id rather than
+  minting a second node with duplicate content. It is a third
+  `policy_application` instance — `source: policy`, `target: comp`,
+  `declared_in: comparch.draft.policies.applies[]`, `source_ref:
+  "@ref"`, `target_ref: self.parent`, `cardinality: source: { min: 0
+  }` (uncapped, unlike the mint-time instance's `max: 1` — one policy
+  may now be cited from many comps), `target: { min: 0 }` — read the
+  ordinary third-party-reference way, not through `Extraction.mints/4`'s
+  marker read (`systems/generation.md#52`). `sysarch.xsd` gains no
+  equivalent `<applies>`: applying an existing policy is inherently a
+  component-local act, the same reason `<structural/>` itself is
+  comparch-only above.
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

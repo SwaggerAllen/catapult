@@ -43,15 +43,18 @@ ordering. `systems/platform_content.md`'s ORC-232 entry records the
 `subcomp↔subcomp` instance of this as live and broken; the same `source`-identity
 gate excludes every instance above, not only the ones typed `dependency`.
 
-The two `type: policy_application` instances
-(`bundles/default/edges/policy_application.yaml:24,35`) are a third shape, not a
-second instance of the class above. Their `declared_in` values are
+Two of `type: policy_application`'s instances
+(`bundles/default/edges/policy_application.yaml`'s original pair) are a third
+shape, not a second instance of the class above. Their `declared_in` values are
 `policy.structural` and `policy.required` — not a `<tier>.draft....` path at all,
 so `self_sourced_path/2` has nothing to navigate: it returns `:skip` on the shape
 mismatch before `instance.source == tier_name` is even asked. Both are set at mint
 time off a marker the minting draft itself carries (a `<policy>` element's
 `<structural/>` vs. `<required>` child — that edge file's own comments), never
-extracted from any committing tier's draft body at all.
+extracted from any committing tier's draft body at all. ORC-247's third instance
+(`comparch.draft.policies.applies[]`) is not this shape — it names an ordinary
+`<tier>.draft....` path and joins the class above instead
+(`systems/generation.md#52`).
 
 ## #17
 

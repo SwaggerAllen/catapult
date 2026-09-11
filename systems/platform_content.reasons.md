@@ -394,3 +394,36 @@ stay in the fixture repo indefinitely. Harmless — the dispatch harness
 reads the path the context response names, not a directory listing — but a
 reader of that repo should know the five underscored `.catapult-stub`
 entries are dead.
+
+## #64
+
+Both halves surfaced while checking identity collisions for ORC-246
+(`policy`'s mint identity is real, `id`, so a duplicate mint is a
+collision candidate, not just redundant content) — neither problem is
+hypothetical.
+
+**The comp target.** `sysarch.xsd`'s `Policy` type carried the identical
+`xs:choice` `comparch.xsd`'s does, so a project-level `<policy>` could
+grammatically carry `<structural/>` and name a target nothing resolves —
+`policy_application`'s policy→comp instance's own comment already tried
+and failed to paper over this ("comparch's `self.parent` when
+comparch-minted; project-wide policies use the other instance instead,
+since a project-global policy declares neither instance" — self-defeating
+on inspection: a policy declaring neither instance is not using "the
+other instance" either). The grammar was already live and contradictory
+at the prompt level, not merely latent: `sysarch.md.liquid` told the model
+to reach for `<structural/>` on exactly the obligations ("an
+organization-wide naming convention, a project-wide dependency-hygiene
+rule") its very next bullet classified as universal-scope, neither grain
+("don't reduce to one component either") — one policy shape, two
+contradictory instructions four lines apart. Dropping `<structural/>`
+from `sysarch`'s grammar entirely removes the model's ability to reach
+for the wrong instruction rather than requiring a prose fix that a later
+prompt pass could re-introduce.
+
+**The duplicate mint.** The through-responsibility grain never had this
+problem: a comp inherits a resp-scoped policy transitively through
+`fulfills`, nothing to re-author. Only the comp-direct grain lacked an
+apply-without-mint path, so the fix is scoped to it alone — no citation
+route was added for the resp grain, since it would duplicate a
+reachability `fulfills` already gives for free.

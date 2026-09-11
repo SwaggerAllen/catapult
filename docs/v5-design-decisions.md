@@ -1311,7 +1311,14 @@ lifecycle to maintain. Two additions beyond v4:
   so it survives refactors, with components inheriting through
   `fulfills` (the `policy_application` type's reachability
   semantics); and direct component links for genuinely structural
-  policies.
+  policies, authored only where a component actually exists to link
+  to — a component's own architecture pass, never the project-level
+  one, whose own parent is a requirements node rather than a
+  component. Applying a policy at this direct grain doesn't require
+  minting it again: a component may cite an already-minted policy by
+  id instead of re-declaring it, so satisfying an existing structural
+  policy verbatim never means a second node with duplicate content
+  (`systems/platform_content.md#64`).
 
 **Enforcement gaps are plane-filed tickets, instantly visible.**
 When a policy node is approved, or an `applies_to` edge newly

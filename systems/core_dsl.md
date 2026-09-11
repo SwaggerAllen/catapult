@@ -780,18 +780,24 @@ profiles.
   _specification` / `public_surface` / `private_surface`, since that family
   produces no `failure_surface` fragment at all (three apiece) — for 3×4 +
   3×3 = 21.
-- **#39 `type: policy_application` is not this mechanism, and gains none of
-  it.** Its two instances' `declared_in` (`policy.structural`,
-  `policy.required`) names a marker on the minting instance element
-  itself, not a location in a *committed* draft body — there is no
-  `references/5`-style extraction to locate a non-`self` endpoint for,
-  because there is no second draft to read. It resolves the same way
-  `mint.<name>`/`mint.parent.<name>` already do: engine-side, at the
-  same moment and off the same element a fanout mint already walks.
-  ORC-235's own entry (`systems/generation.md`) names this and the
-  locator mechanism above as "two separate mechanisms, not one", and
-  they are kept apart in the grammar the same way they stay apart in
-  the extractor.
+- **#39 `type: policy_application`'s two mint-time-marker instances are
+  not this mechanism, and gain none of it.** Their `declared_in`
+  (`policy.structural`, `policy.required`) names a marker on the
+  minting instance element itself, not a location in a *committed*
+  draft body — there is no `references/5`-style extraction to locate a
+  non-`self` endpoint for, because there is no second draft to read.
+  Both resolve the same way `mint.<name>`/`mint.parent.<name>` already
+  do: engine-side, at the same moment and off the same element a
+  fanout mint already walks. ORC-235's own entry (`systems/generation
+  .md`) names this and the locator mechanism above as "two separate
+  mechanisms, not one", and they are kept apart in the grammar the
+  same way they stay apart in the extractor — but they are instances
+  of one edge, not a partition of it: `policy_application`'s third
+  instance (ORC-247, `systems/platform_content.md#64`) is an ordinary
+  citation of an already-minted policy, ungated by the mint-time
+  marker restriction this entry states, and takes the locator
+  mechanism above like any other third-party-declared instance
+  (`systems/generation.md#52`).
 - **#40 `mint.parent.<name>` names the inherited half of a join-target
   tier's `mint.<name>` field source, spelled rather than left implicit**
   (ORC-236; `dsl-syntax.md` §3).
