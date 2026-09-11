@@ -592,7 +592,7 @@ locator: both are read at the same moment and off the same element a
 fanout mint already walks, never extracted from a committed draft
 under `references/5`'s own mechanism at all. An edge is free to mix
 the two: `policy_application`'s third instance, an ordinary citation
-of an already-minted policy by id, names a real `declared_in` path and
+of an already-minted policy, names a real `declared_in` path and
 resolves exactly the way every instance above does
 (`systems/platform_content.md#64`, `systems/generation.md#52`).
 

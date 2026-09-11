@@ -1315,8 +1315,11 @@ lifecycle to maintain. Two additions beyond v4:
   to — a component's own architecture pass, never the project-level
   one, whose own parent is a requirements node rather than a
   component. Applying a policy at this direct grain doesn't require
-  minting it again: a component may cite an already-minted policy by
-  id instead of re-declaring it, so satisfying an existing structural
+  minting it again: a component may cite an already-minted policy —
+  one authored at the project level or distilled from non-goals,
+  never another component's own local policy, which belongs upstream
+  if more than one component needs it — by its declared identity
+  instead of re-declaring it, so satisfying an existing structural
   policy verbatim never means a second node with duplicate content
   (`systems/platform_content.md#64`).
 

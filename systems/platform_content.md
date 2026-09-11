@@ -241,8 +241,13 @@ loader tickets carry `system:core_dsl`.
   §4.5's promote-from-prose ladder and its enforcement-ticket machinery are
   unbuilt entirely, so a distilled non-goal carries none either — it is
   exactly as ungraded as every other policy this chain ships.
-- **#19 `all.policy` reads every scope indiscriminately, so the
-  project-global grain is not added to any scoped tier's context.**
+- **#19 `all.policy` reads every scope indiscriminately, so no tier
+  reads it to learn what already applies to it.** `comparch` is the one
+  exception (#64, ORC-247), and only for the opposite question: not
+  "what already binds me" — its two `policy_application~` hops answer
+  that — but "what may I newly cite," where an indiscriminate read is
+  the point, since every item it turns up is a candidate for an
+  explicit `<applies ref>`, never an implicit scope.
 - **#20 `mint.<name>` and `mint.parent.<name>` together are the field
   source for every join-target tier** — every `generator: synthesis`
   tier, the predicate that finds them, plus the mint-time identity
@@ -1136,9 +1141,25 @@ loader tickets carry `system:core_dsl`.
   `comparch` pass to author, where `self.parent` (#15) is unambiguous;
   `sysarch` has none to offer. `comparch`'s `<policies>` gains a
   sibling to `<policy>`: zero or more `<applies ref="POLICY_ID">`,
-  citing an already-minted policy (`sysarch`-level, another
-  `comparch`'s, or a `non_goals`-distilled one) by id rather than
-  minting a second node with duplicate content. It is a third
+  citing an already-minted policy — `sysarch`-level or
+  `non_goals`-distilled, never another `comparch`'s own local one —
+  by its declared identity, rather than minting a second node with
+  duplicate content. **A comparch does not see another comparch's
+  local policies at all**: a policy more than one component needs
+  belongs to `sysarch` or to `non_goals`, both minted before any
+  `comparch` runs, so a `ref` always names a node that already exists
+  at dispatch; a comparch-local `<policy>` is that component's own and
+  is never a citation target. `ref` names whatever `policy.yaml`
+  declares as the tier's identity (`id` today; ORC-246 replaces it with
+  a required `alias`, since `Extraction.identity_value/2` resolves
+  every `policy` mint to `nil` today — neither `Policy` shape carries
+  an identity attribute for it to read) — this citation route is fully
+  specified here but produces nothing citable until that identity
+  resolves to a real value, and the raft fixture that exercises
+  `<applies>` end to end belongs to ORC-246's own coverage work, not
+  this ticket's — named by ticket rather than by rule id, since
+  ORC-246's own numbering is still moving while both branches are
+  open. It is a third
   `policy_application` instance — `source: policy`, `target: comp`,
   `declared_in: comparch.draft.policies.applies[]`, `source_ref:
   "@ref"`, `target_ref: self.parent`, `cardinality: source: { min: 0
@@ -1158,6 +1179,28 @@ loader tickets carry `system:core_dsl`.
   others — and needs rewording to say so, the same correction #52
   makes to `Extraction`'s own moduledoc claim.
 
+  `comparch.yaml` gains the context read that makes the pool visible
+  at all: `all.policy.handle`, beside its two existing
+  `policy_application~` hops. The tier's own comment refuses exactly
+  this today — "`all.policy` would also return every resp- and
+  comp-scoped policy, which comparch must not see indiscriminately" —
+  written for a context where every policy a walk reached was assumed
+  to already apply. That assumption is what this ticket revises: an
+  item `all.policy` newly surfaces is a candidate for an explicit
+  `<applies ref>`, not an implicit scope, so seeing the whole flat pool
+  is no longer the thing the comment warned against — the
+  citable-versus-comparch-local distinction lives in the prompt's own
+  instruction (below), not in the walk. All three context entries
+  target `policy` and so combine into one collection
+  (`docs/dsl-syntax.md` §9): comparch's prompt renders one `policy`
+  list mixing grains already bound to this comp with every citable
+  candidate. Nothing on the handle distinguishes the two roles —
+  re-citing a policy already linked by mint time or by `fulfills`
+  produces a redundant, harmless second `policy_application` instance
+  rather than a schema violation, so keeping that from happening is
+  the prompt's own instruction to skip a policy the model recognizes
+  as already applying, not a mechanism this entry adds.
+
   Both prompts need a matching change, in the same pass that lands the
   schema and edge changes above. `sysarch.md.liquid` instructs the
   model toward `<structural/>` at four sites — the organization-wide/
@@ -1171,12 +1214,18 @@ loader tickets carry `system:core_dsl`.
   grammar now rejects, and every sysarch reaching the organization-wide
   case fails validation. `comparch.md.liquid` has the opposite gap: it
   documents `<policy>`'s own `<required>`/`<structural/>` choice but
-  says nothing about `<applies ref="POLICY_ID">`, so the new element is
-  inert until the prompt names it, says it cites an already-minted
-  policy's `id` (a sysarch-level one, another comparch's, or a
-  non_goals-distilled one) by reference rather than re-minting its
-  content, and says when to prefer citing over minting a fresh
-  `<policy>` — the duplicate-content case this entry exists to close.
+  says nothing about `<applies ref="POLICY_ID">`, and renders each
+  policy in context as trigger, `required` and rationale with no
+  identity at all — a value `ref` needs and the handle already carries
+  (`policy.yaml`'s `handle.fields` lists `id`). The prompt needs three
+  things in the same pass: render each policy's identity alongside its
+  trigger/rationale so there is a value to cite; instruct `<applies>`
+  to cite only a `sysarch`-level or `non_goals`-distilled policy, never
+  a policy read from this same context that is in fact another
+  component's own — if the obligation is shared with a sibling, it
+  isn't this comparch's to mint and belongs upstream in `sysarch`; and
+  say when to prefer citing over minting a fresh `<policy>` — the
+  duplicate-content case this entry exists to close.
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,

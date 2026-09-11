@@ -106,14 +106,21 @@ its consumers, unrelated to distillation.
 
 ## #19
 
-`comparch.yaml`'s own comment records why: `all.policy` is unfiltered by
-construction (dsl-syntax.md §7.2) and would return every resp- and
-comp-scoped policy too, indiscriminate noise next to the grains a tier
-already reads explicitly. A scope-filtered "only the unscoped grain" read
-has no expression in this DSL, and supplying one is a `core_dsl` question,
-not bundle content; a consumer that wants `all.policy`'s indiscriminate
-reading on its own merits (reconciliation, whose job is project-wide by
-nature, is the plausible first taker) wires it against its own need.
+`comparch.yaml`'s own comment recorded why it hadn't wired `all.policy`:
+unfiltered by construction (dsl-syntax.md §7.2), it would return every
+resp- and comp-scoped policy too, indiscriminate noise next to the grains
+the tier already read explicitly for "what already applies to me." A
+scope-filtered "only the unscoped grain" read has no expression in this
+DSL, and supplying one is a `core_dsl` question, not bundle content — a
+consumer wanting `all.policy`'s indiscriminate reading on its own merits
+wires it against its own need instead.
+
+ORC-247 is that predicted consumer. `comparch` wires `all.policy` for a
+different question than the one this entry originally guarded against:
+not "what already applies to me" — the two `policy_application~` hops
+still answer that — but "what may I newly cite," where indiscriminate is
+correct, since every item the read turns up is a candidate for an
+explicit `<applies ref>`, never an implicit scope (`#64`).
 
 ## #21
 
@@ -397,10 +404,16 @@ entries are dead.
 
 ## #64
 
-Both halves surfaced while checking identity collisions for ORC-246
-(`policy`'s mint identity is real, `id`, so a duplicate mint is a
-collision candidate, not just redundant content) — neither problem is
-hypothetical.
+Both halves surfaced while checking identity collisions for ORC-246 —
+and that check is what found `policy`'s declared identity (`id`) resolves
+to `nil` for every mint today: neither `sysarch.xsd`'s nor `comparch.xsd`'s
+`Policy` type carries an `id`/`alias` attribute for
+`Extraction.identity_value/2` to read. So a duplicate mint isn't a caught
+collision yet — it becomes one once ORC-246 gives `policy` a real identity
+(`alias`), and that is also the identity `<applies ref="...">` cites.
+Neither problem this entry fixes is hypothetical regardless of that gap:
+duplicate content and an unresolvable comp target are real today, whether
+or not identity happens to be enforced yet.
 
 **The comp target.** `sysarch.xsd`'s `Policy` type carried the identical
 `xs:choice` `comparch.xsd`'s does, so a project-level `<policy>` could
