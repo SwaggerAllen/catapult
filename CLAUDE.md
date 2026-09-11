@@ -310,11 +310,16 @@ Each of these cost a wrong diagnosis before it was written down.
   as a checklist rather than as an example.
 - **A rule carries an id, and its reason lives beside the doc.** In
   `systems/*.md` and `screens/*.md` every h2-or-deeper heading and every
-  standing decision opens with `#n`; the reason is `## #n` in the doc's
+  standing decision opens with an id — `#17` from the port or the
+  author, `#ORC-247-2` from a ticket's design pass, which mints one
+  above the highest it has minted in that doc, because two tickets
+  designed against one doc from the same main both mint "the highest
+  plus one"; the reason is `## <the same id>` in the doc's
   `.reasons.md` sibling (conventions §12, orchestration's DESIGN §4).
   Run `pipeline reasons delivery#17` before changing rule #17 of
   `systems/delivery.md`; amend the entry in the same commit; a new rule
-  takes the highest id in the doc plus one; a retired rule loses its
+  takes `<ticket>-<n>` (the author, a bare number one above the doc's
+  highest bare id); a retired rule loses its
   line and its entry gains `retired:`. Cite a rule as `delivery#17` —
   the audit resolves the id and the wording is free to change. The
   record review is handed the entry behind every id a diff touches, and
