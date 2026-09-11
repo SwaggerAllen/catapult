@@ -913,6 +913,20 @@ and validation logic and must not fork it.
   edge types the gate admits. One edge name, one `type:`, two
   extraction strategies chosen by the instance's own `declared_in`
   shape rather than by the edge's.
+
+  Widening the `references/5` gate needs a second site touched in the
+  same change: `Extraction.edge_type_atom/1`, the private two-clause
+  helper (`"reference"` → `:reference`, `"dependency"` → `:dependency`,
+  no catch-all) that turns a matched instance's edge-file `type:`
+  string into the atom `Store.Edge` persists, gains a third clause,
+  `"policy_application"` → `:policy_application` — `Store.Edge`'s own
+  enum already carries that value, so this is a clause, not a schema
+  change. Without it, the first citation instance `references/5`
+  extracts raises `FunctionClauseError` rather than persisting; the
+  existing mint-time path never reaches this helper at all, since
+  `policy_application_edges` builds `type: :policy_application`
+  directly, which is why a raft exercising only the mint-time pair
+  cannot surface the gap.
 ## #50 Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,

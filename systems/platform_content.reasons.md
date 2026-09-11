@@ -416,7 +416,7 @@ to reach for `<structural/>` on exactly the obligations ("an
 organization-wide naming convention, a project-wide dependency-hygiene
 rule") its very next bullet classified as universal-scope, neither grain
 ("don't reduce to one component either") — one policy shape, two
-contradictory instructions four lines apart. Dropping `<structural/>`
+contradictory instructions three lines apart. Dropping `<structural/>`
 from `sysarch`'s grammar entirely removes the model's ability to reach
 for the wrong instruction rather than requiring a prose fix that a later
 prompt pass could re-introduce.

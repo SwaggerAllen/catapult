@@ -1148,7 +1148,35 @@ loader tickets carry `system:core_dsl`.
   marker read (`systems/generation.md#52`). `sysarch.xsd` gains no
   equivalent `<applies>`: applying an existing policy is inherently a
   component-local act, the same reason `<structural/>` itself is
-  comparch-only above.
+  comparch-only above. The mint-time comp instance's own inline
+  comment (`policy_application.yaml`, "a policy scopes to at most one
+  comp directly") described the policy→comp *relation* while that
+  instance was its only producer; once the citation instance reaches
+  the same relation uncapped, the comment holds per-instance rather
+  than edge-wide — a policy still mints against at most one comp
+  directly, but may now additionally be cited from any number of
+  others — and needs rewording to say so, the same correction #52
+  makes to `Extraction`'s own moduledoc claim.
+
+  Both prompts need a matching change, in the same pass that lands the
+  schema and edge changes above. `sysarch.md.liquid` instructs the
+  model toward `<structural/>` at four sites — the organization-wide/
+  dependency-hygiene guidance naming it as the emit-instead choice, the
+  cardinality rule pairing it with `<required>`, the omission rule
+  listing it alongside `<required>` for universal-scope policies, and
+  the "policies are sticky" revision rule reading `<trigger>` +
+  `<required>`/`<structural/>` + `<rationale>` — every one of which
+  needs to stop naming `<structural/>` once the schema stops accepting
+  it from `sysarch`; left as-is, the prompt instructs a draft its own
+  grammar now rejects, and every sysarch reaching the organization-wide
+  case fails validation. `comparch.md.liquid` has the opposite gap: it
+  documents `<policy>`'s own `<required>`/`<structural/>` choice but
+  says nothing about `<applies ref="POLICY_ID">`, so the new element is
+  inert until the prompt names it, says it cites an already-minted
+  policy's `id` (a sysarch-level one, another comparch's, or a
+  non_goals-distilled one) by reference rather than re-minting its
+  content, and says when to prefer citing over minting a fresh
+  `<policy>` — the duplicate-content case this entry exists to close.
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
