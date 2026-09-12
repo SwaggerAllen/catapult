@@ -1274,8 +1274,8 @@ loader tickets carry `system:core_dsl`.
   not merge with it — an already-bound collection and a citable-
   candidate collection are different questions, and fusing them is
   exactly the shape `core_dsl.md#47` exists to stop
-  (`docs/dsl-syntax.md` §9) — so this entry becomes `all
-  .sysarch_policy.handle: citable_sysarch_policy`, keeping the two
+  (`docs/dsl-syntax.md` §9) — so this entry becomes `{walk: all
+  .sysarch_policy.handle, as: citable_sysarch_policy}`, keeping the two
   apart. `all.non_goals_policy.handle` needs no `as:`: it is the only entry
   landing on `non_goals_policy`, so its default name already stands
   alone. `comparch_review.yaml` takes the identical set, `as:` values
@@ -1352,19 +1352,29 @@ loader tickets carry `system:core_dsl`.
   name (now its entry's own declared name, `core_dsl.md#47`), not a
   template-chosen alias, and line 39's `{{ policy.required }}` reads a
   draft element, not a field the handle carries at all.
-- **#65 Three already-shipped context-entry collisions gain `as:`
-  (`core_dsl.md#47`), closing them the same way #64 closes
-  `comparch`'s own two `sysarch_policy` reads.** `comparch.yaml`/
-  `comparch_review.yaml`'s `self.parent.handle` becomes the single-key
-  mapping `self.parent.handle: parent` (`docs/dsl-syntax.md` §7's
-  `{<walk>: <name>}` shape) — this comp's own handle, answering a
+- **#65 Same-tier context-entry collisions across the whole `per(X)`
+  architecture-chain family gain `as:` (`core_dsl.md#47`), the same
+  fix #64 gives `comparch`'s own two `sysarch_policy` reads.** The
+  predicate: any tier whose `context:` declares
+  `self.parent.handle` alongside one or more `self.parent.dependency ->
+  <that tier's own scope parent tier>` reads — both land on the same
+  target tier by construction, since `self.parent`'s own tier *is*
+  that scope parent, so every such tier fused its own handle into its
+  own dependency collection before this entry. Twenty-two tier files
+  carry the shape: the four plan-family tiers below, and nine `per(X)`
+  architecture/impl tiers — `comparch` and the eight named below — each
+  with its own `_review` sibling.
+
+  **`comparch`/`comparch_review`** (this entry's original fix,
+  unchanged): `self.parent.handle` becomes `{walk: self.parent.handle,
+  as: parent}` — this comp's own handle, answering a
   different question than its dependencies do and previously fused
   into the same `comp` collection as both of them. `self.parent
   .dependency -> comp.handle.fragments[pubapi]` and `self.parent
   .dependency -> comp.handle.fragments[failure_surface]` both become
-  `<walk>: dependencies` — shared between the two on purpose, since
-  both name the identical dependency set under different projections
-  and are meant to combine;
+  `{walk: <walk>, as: dependencies}` — shared between the two on
+  purpose, since both name the identical dependency set under
+  different projections and are meant to combine;
   `core_dsl.md#47`'s per-node fold is what makes that combination
   correct instead of listing each dependency twice, once per fragment.
   `comparch.md.liquid`'s own `{{ parent }}` and `{% for dep in
@@ -1372,19 +1382,92 @@ loader tickets carry `system:core_dsl`.
   was written for the split before the grammar could express it
   (`core_dsl.reasons.md#47`).
 
+  **The plan family** (this entry's original fix, unchanged):
   `refactor_plan.yaml`, `feature_request_plan.yaml`,
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   each declare both `all.sysarch.handle` (every sysarch project-wide)
   and `self.plan_target -> sysarch.handle` (the one sysarch node this
   plan is written against, where the plan's own target is a sysarch)
-  — the second becomes `self.plan_target -> sysarch.handle:
-  plan_target_sysarch` in all four files,
+  — the second becomes `{walk: self.plan_target -> sysarch.handle, as:
+  plan_target_sysarch}` in all four files,
   keeping the plan's own single target out of the project-wide pool
   it was previously fused into. None of the four files' other
   `self.plan_target -> <tier>.handle` entries collide with anything —
   each names a tier no `all.<tier>` entry in the same file also
   targets — so `plan_target_sysarch` is the only new name any of the
   four needs.
+
+  **The eight remaining architecture/impl tiers and their review
+  siblings** — sixteen more files, named per each one's own shipped
+  `.md.liquid` prompt, not a uniform pair: `subcomparch`,
+  `screen_collarch`, `screen_subcomparch`, `ui_collarch`,
+  `ui_subcomparch`, `impl_backend`, `impl_screen`, `impl_ui`, each plus
+  its own `_review` (whose `context:` mirrors the reviewed tier's
+  verbatim, `docs/dsl-syntax.md` §3.3, checked at load time, §13 — so
+  naming the generation tier's rename below is naming the review
+  tier's too, with nothing further to decide). Every one of these
+  already ships a prompt written against a `parent` variable for its
+  own `self.parent.handle` — the identical pre-fix defect `comparch`
+  had, not a new one this entry introduces:
+
+  - `subcomparch`/`subcomparch_review`, `screen_subcomparch`/
+    `screen_subcomparch_review`, `ui_subcomparch`/
+    `ui_subcomparch_review`: `self.parent.handle` becomes `{walk: self
+    .parent.handle, as: parent}`; the tier's own single
+    `self.parent.dependency -> <subcomp-family tier>.handle
+    .fragments[pubapi]` read becomes `{walk: <walk>, as:
+    sibling_subs}` — the name `subcomparch.md.liquid`'s,
+    `screen_subcomparch.md.liquid`'s and `ui_subcomparch.md.liquid`'s
+    own `{% for sib in sibling_subs %}` already use.
+  - `impl_backend`/`impl_backend_review`, `impl_screen`/
+    `impl_screen_review`: `self.parent.handle` becomes `{walk: self
+    .parent.handle, as: parent}`; the dependency read becomes `{walk:
+    <walk>, as: dependencies}` — `impl.md.liquid` (`impl_backend`'s
+    own prompt file, named differently from its tier) and
+    `impl_screen.md.liquid`'s own `{% for dep in dependencies %}`.
+  - `impl_ui`/`impl_ui_review`: the identical rename — `parent` and
+    `dependencies` — for consistency with the other two `impl_*`
+    tiers, though `impl_ui.md.liquid` does not yet iterate a
+    dependency collection at all. The name is what keeps it from fusing
+    into `parent`; whether the prompt renders it is independent of
+    that and unaffected by this entry.
+  - `screen_collarch`/`screen_collarch_review`: `self.parent.handle`
+    becomes `{walk: self.parent.handle, as: parent}`; its own two
+    `self.parent.dependency -> screen_coll.handle.fragments[...]`
+    reads (`pubapi`, `failure_surface`) share `{walk: <walk>, as:
+    screen_deps}` — `screen_collarch.md.liquid` doesn't render this
+    collection today; its own `{% for dep in backend_deps %}` is the
+    *different*, already non-colliding `self.parent.calls ->
+    comp.handle.fragments[pubapi]` read. Same unrendered-but-safely-
+    named posture as `impl_ui` above.
+  - `ui_collarch`/`ui_collarch_review`: `self.parent.handle` becomes
+    `{walk: self.parent.handle, as: parent}`; its own two
+    `self.parent.dependency -> ui_coll.handle.fragments[...]` reads
+    share `{walk: <walk>, as: siblings}` — the name
+    `ui_collarch.md.liquid`'s own `{% for sib in siblings %}` already
+    uses. `ui_collarch`'s `self.parent.uses_shapes -> comp.handle
+    .fragments[pubapi]` and `self.parent.dependency -> design_system
+    .handle` reads each land alone on their own target tier already —
+    no collision, so no rename from this entry; that
+    `uses_shapes -> comp` read's own default name (`comp`) not
+    matching the prompt's own `backend_deps` loop is a naming mismatch
+    with no merge hazard behind it, the same class as `comparch`'s own
+    `fulfills`/`refs` reads against their prompt names — real in both
+    places, and outside `as:`'s own job of keeping distinct reads from
+    merging, since neither pair collides.
+
+  **Total: 24 same-variable collisions resolved or accounted for
+  across 22 tier files** — the four plan-tier pairs above, and the
+  nine `per(X)` architecture/impl tiers above with their review
+  siblings (eighteen files, `comparch`/`comparch_review` included),
+  every one now resolved with an `as:`. Two more collisions live inside
+  two of those same eighteen files and are deliberately left merged,
+  not counted again: `comparch`'s and `comparch_review`'s own
+  `self.parent.policy_application~ -> comparch_policy.handle` and
+  `self.parent.fulfills.policy_application~ -> comparch_policy.handle`
+  both answer "what already binds me" and neither declares its own
+  `as:` (`#64` above), so they combine on purpose the same way the old
+  blanket rule always did.
 
 ## #62 Initial vs target
 

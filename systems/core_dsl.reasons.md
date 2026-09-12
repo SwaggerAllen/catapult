@@ -373,7 +373,8 @@ strictly upstream of it — but the shape recurs wherever a
 
 ## #47
 
-Measured across three sites, not a policy-specific want. `comparch`
+Not a policy-specific want, and the shape recurs beyond the three
+examples that first surfaced it. `comparch`
 reads `self.parent.handle` and, twice, `self.parent.dependency ->
 comp.handle.fragments[...]` (once for `pubapi`, once for
 `failure_surface`) — three entries, one target tier, so before this
@@ -390,10 +391,19 @@ written against a variable-naming model the grammar never supplied.
 .sysarch.handle` and `self.plan_target -> sysarch.handle` both land on
 `sysarch`, fusing the single node a plan is written for into the pool
 of every sysarch project-wide. `comparch`'s two `sysarch_policy`
-reads (`systems/platform_content.md#64`) are the third case, and the
+reads (`systems/platform_content.md#64`) are a third case, and the
 one this ticket's own grain question surfaced it through: the citable
 pool (`all.sysarch_policy`) and "already bound to me"
 (`self.parent.fulfills.policy_application~ -> sysarch_policy.handle`)
 answer different questions and must not read as one collection to the
 prompt, or a model can no longer tell a policy it already carries from
 one it is free to cite afresh.
+
+The identical `self.parent.handle`-plus-own-tier-dependency shape is
+also live, unfixed, in every other `per(X)` architecture and impl
+tier's own shipped prompt — sixteen more files, eight generation tiers
+and their review siblings (`systems/platform_content.md#65` names
+each). The mechanism this entry adds was never a three-instance patch:
+it closes a defect class already present in every `per(X)` tier that
+both drafts its own handle and reads a dependency on its own kind,
+which the architecture-chain family does uniformly.

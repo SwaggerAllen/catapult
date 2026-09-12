@@ -871,9 +871,13 @@ profiles.
   multi-driver recursion, reachable only from a hand-built `Chain` a
   test constructs directly, never from anything `Chain.load/3` would
   accept.
-- **#46 An `all.<tier>` context walk is refused at load time when the
+- **#46 An `all.<tier>` context walk is refused at load time whenever
+  the target's population can never be recognized as final — the
   reading tier is, directly or transitively, one of the target tier's
-  own drivers** (ORC-247). `#45`'s driver derivation only guarantees a
+  own drivers, or the target tier is itself `cascade_visit`-scoped**
+  (ORC-247).
+
+  The driver case: `#45`'s driver derivation only guarantees a
   pool has one driver; it says nothing about whether the *reader* is
   that driver, and a tier can never treat its own pool's readiness as
   prior to its own — reading `all.<tier>` from inside that tier's own
@@ -885,36 +889,68 @@ profiles.
   and refuses to load a bundle where a tier's own `context:` names an
   `all.<tier>` walk landing back inside that closure, naming the
   reading tier, the target tier, and the driver path between them.
+
+  The `cascade_visit` case is the identical argument at the scope
+  itself rather than at the reader. `ReadyScopes.tier_drained?/3` has a
+  clause for every other scope shape — `supplied`+`singleton` (always
+  true), `reference` (always false, §13 already refuses the two walks
+  that would ever ask), `singleton`, `per(X)`, `child_of(X)` — and
+  falls through a catch-all `false` for anything else —
+  `cascade_visit` is the one declared scope shape left to reach that
+  catch-all: its population is engine-minted mid-flow-walk with no
+  fixed final count any clause tests against
+  (`systems/engine.md`'s own Initial-vs-target
+  line marks `cascade_visit` scheduling itself as not yet built), so
+  `all.<a cascade_visit tier>` would stall exactly like the
+  `reference`-scope walk §13 already refuses, with the identical
+  no-diagnostic shape. `Chain.load/3` refuses it at the same check,
+  naming the tier and the entry.
+
   `docs/dsl-syntax.md` §7.2's two legal `all.<tier>` cases — a
   driverless flat pool, a `cascade_visit` planning tier reading the
-  whole graph — both fall outside every closure by construction, so no
-  shipped tier changes. `test/catapult/dsl/loader_test.exs`'s
-  "dsl-syntax.md §7.2 — all.<tier>" section (`:1544` on `main`) gains
-  this check's own load error case alongside `#45`'s.
-- **#47 A context-walk entry may name its own prompt variable via
-  `as: <name>`, and two entries merge only when they share a variable
-  name, never merely because they land on the same tier** (ORC-247).
-  Before this entry, §9's variable name was always the target tier's
+  whole graph — both fall outside every closure and name no
+  `cascade_visit` target, so no shipped tier changes under either
+  clause. `test/catapult/dsl/loader_test.exs`'s "dsl-syntax.md §7.2 —
+  all.<tier>" section (`:1544` on `main`) gains both of this check's
+  own load error cases, alongside `#45`'s.
+- **#47 A context-walk entry may name its own prompt variable, and two
+  entries merge only when they share a variable name, never merely
+  because they land on the same tier** (ORC-247). Before this entry,
+  §9's variable name was always the target tier's
   name, so any two entries landing on the same tier merged whether or
   not that was the intent — a walking tier had no way to keep two such
   reads apart. A `context:` entry stays the bare walk string it always
-  was, or becomes a single-key mapping — `{<walk>: <name>}` — giving
-  that walk its own `as:` name; `Catapult.Dsl.ContextWalk.parse/1`
-  gains a second clause matching a one-entry map (alongside its
-  existing `is_binary(raw)` clause), parsing the key as the walk
+  was, or becomes a two-key mapping, `{walk: <walk>, as: <name>}`,
+  giving that walk its own name; `Catapult.Dsl.ContextWalk.parse/1`
+  gains a second clause matching a map carrying both keys (alongside
+  its existing `is_binary(raw)` clause), reading `walk` as the walk
   string exactly as before and setting a new `:as` field (default
-  `nil`) from the value. `as:`'s value becomes the entry's variable
+  `nil`) from `as`. `as`'s value becomes the entry's variable
   name where declared; the target tier's name remains the default, so
   a bundle landing on the old blanket merge on purpose writes nothing
-  new. `Catapult.Dsl.Chain.load/3` gains two checks: two entries in one
+  new.
+
+  Legal only on an entry that resolves against the graph. An
+  `input.<role>` or `input.*` entry's variable name is already fixed
+  (the role name; `raft`, §9), and two such entries never collide the
+  way two graph walks landing on one tier can — `ContextAssembly
+  .input_variables/2` resolves them by role name entirely outside the
+  grouping this entry rewrites, so an `as` on one would parse and then
+  be silently unreachable rather than mean anything. A mapping-form
+  entry naming `as` on an `input.<role>`/`input.*` walk is a load error
+  naming the entry, rather than a value nothing ever reads.
+
+  `Catapult.Dsl.Chain.load/3` gains three checks: two entries in one
   tier's `context:` sharing a variable name but naming different
   target tiers is a load error, naming the tier and the two
   conflicting entries — a merge only ever makes sense across entries
-  landing on the same tier; and an `as:` value matching a reserved
+  landing on the same tier; an `as` value matching a reserved
   prompt variable (`self`, `feedback`, `prior_review`, `draft`,
   `raft`, §9) is a load error naming the tier and the entry, since
   those five are supplied outside `context:` and a same-named entry
-  would silently collide with one. `ContextAssembly.build_variables/5`
+  would silently collide with one; and an `as` key on an
+  `input.<role>`/`input.*` entry is a load error naming the entry, for
+  the reason above. `ContextAssembly.build_variables/5`
   groups by the declared variable name rather than by each resolved
   node's own tier, and where two merged entries can name the identical
   node under different projections, the fold is per node id — one
@@ -922,8 +958,8 @@ profiles.
   projected fields — rather than one list entry per contributing walk
   (`core_dsl.reasons.md#47`). `test/catapult/dsl/loader_test.exs`'s
   "dsl-syntax.md §7.2 — all.<tier>" section (`:1544` on `main`) gains
-  both of this entry's own load error cases, alongside `#45`'s and
-  `#46`'s.
+  all three of this entry's own load error cases, alongside `#45`'s
+  and `#46`'s two.
 
 ## #43 Initial vs target
 

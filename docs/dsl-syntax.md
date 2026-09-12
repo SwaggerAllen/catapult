@@ -625,13 +625,14 @@ Anatomy: `self`, `self.parent`,
 `.<edge_name>` follows a declared edge, `-> <tier>.<projection>`
 types the target and names what to read — `.handle` or
 `.handle.fragments[<kind>]`. A `context:` entry is ordinarily the bare
-walk string; it may instead be a single-key mapping, `{<walk>:
-<name>}`, giving the walk its own `as: <name>` prompt variable rather
+walk string; it may instead be a two-key mapping, `{walk: <walk>, as:
+<name>}`, giving the walk its own `as` prompt variable rather
 than inheriting its target tier's name (§9, `systems/core_dsl.md#47`)
 — the walk string is unchanged either way, only which YAML shape
-carries it. Cardinality-many walks
-yield collections; readiness requires **all** targets ready.
-Context is the only readiness signal.
+carries it. `as` is legal only here — never on an `input.<role>`/
+`input.*` entry (§7.2), whose variable name is fixed already.
+Cardinality-many walks yield collections; readiness requires **all**
+targets ready. Context is the only readiness signal.
 
 **`.synthesis` retires from the projection vocabulary** (ORC-236): no
 tier in `bundles/default` ever declared a walk targeting it, and
@@ -704,13 +705,19 @@ parent (`vocab`; a project-global policy row, minted into
 `cascade_visit`-scoped planning
 tier that needs to see the whole component graph rather than one
 scoped slice of it (a `refactor` plan reasoning about which
-components a structural change touches). The tier named after `all.`
-must be declared, and it must not be a tier the *reading* tier itself
-drives, directly or transitively (`systems/core_dsl.md#46`) — a tier
+components a structural change touches) — the *reading* tier is
+`cascade_visit`-scoped in that second case, never the target. The tier
+named after `all.` must be declared; it must not itself be
+`cascade_visit`-scoped, since that scope's own population is
+engine-minted mid-flow-walk with no fixed final count, so it can never
+read as drained and the walk would stall permanently with no
+diagnostic (`systems/core_dsl.md#46`); and it must not be a tier the
+*reading* tier itself drives, directly or transitively
+(`systems/core_dsl.md#46`) — a tier
 can never treat its own pool's readiness as prior to its own, so that
-shape is a load error rather than a permanent stall with no
-diagnostic. Both are the entire cross-reference (§13) — unlike a
-self-hop's target, there is no walker to check either against.
+shape is a load error for the identical reason. All three are the
+entire cross-reference (§13) — unlike a
+self-hop's target, there is no walker to check any of them against.
 
 v5 additions:
 
@@ -804,7 +811,13 @@ it; `input.*`'s is the reserved word `raft`, joining
 `self`/`feedback`/`prior_review`/`draft` in the set of Liquid variable
 names a rendered prompt supplies outside a tier's own `context:` — not
 load-time-checked against a tier's own target-tier names any more than
-those are (§9's `draft` entry above). Both render as a **plain
+those are (§9's `draft` entry above), and neither name is `as`-able:
+an `input.<role>`/`input.*` entry's variable is fixed already, two such
+entries never collide the way two graph walks landing on one tier can,
+and `ContextAssembly.input_variables/2` resolves them by role name
+entirely outside the grouping an `as:` would otherwise join — a
+mapping-form entry naming `as` on one is a load error (§13,
+`systems/core_dsl.md#47`). Both render as a **plain
 string**, the pinned document(s) in scope concatenated — never a list
 of maps like every other context-walk variable — because an input
 document carries no `fields:`/`fragments:` handle to project; it is
@@ -1429,6 +1442,11 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   §7.2's own readiness reading could give; a load error naming the walk
   and the tier, rather than a readiness check with no correct result to
   return;
+- an `all.<tier>` walk (§7.2) may not target a tier that is itself
+  `cascade_visit`-scoped (`systems/core_dsl.md#46`) — that scope's
+  population is engine-minted mid-flow-walk with no fixed final count,
+  so it can never read as `drained?` any more than a `reference`-scope
+  tier can; a load error naming the walk and the tier;
 - an `all.<tier>` walk (§7.2) may not be declared on a tier that is,
   directly or transitively, one of the target tier's own drivers
   (`systems/core_dsl.md#46`) — the reading tier can never make its own
@@ -1456,7 +1474,12 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   `feedback`, `prior_review`, `draft`, `raft`, §9) is a load error
   naming the tier and the entry (`systems/core_dsl.md#47`) — those five
   are supplied outside `context:` entirely, and a same-named entry
-  would collide with one silently rather than merge with anything.
+  would collide with one silently rather than merge with anything;
+- an `as:` key on an `input.<role>`/`input.*` entry is a load error
+  naming the entry (`systems/core_dsl.md#47`) — that entry's variable
+  name is fixed already (§7.2) and resolves entirely outside the
+  grouping `as:` exists to disambiguate, so a declared `as:` there
+  would parse and then never be read.
 
 ## 14. Deliberately absent
 
