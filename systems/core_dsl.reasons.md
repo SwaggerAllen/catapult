@@ -325,12 +325,13 @@ entry.
 Measured, not hypothetical: `policy` being `child_of(sysarch)` with three
 actual fanout sources (`sysarch`, `comparch`, `non_goals`) is a permanent
 readiness deadlock the moment any of those three sources is itself
-downstream of the tier reading the pool. `comparch` wired `all.policy.handle`
-(this ticket's own first attempt, `systems/platform_content.md#64`) to reach
-the pool's project-level rows — but `comparch` is one of `policy`'s own three
-minting sources, and `ReadyScopes.tier_drained?`'s `child_of(X1..Xn)` clause
-requires every driver drained *and* every existing row at the tier settled
-before the tier itself reads as drained. A `comparch` node can only become
+downstream of the tier reading the pool. Wiring `comparch`'s context to
+`all.policy.handle` (`systems/platform_content.md#64`) to reach the pool's
+project-level rows fails exactly that way: `comparch` is one of `policy`'s
+own three minting sources, and `ReadyScopes.tier_drained?`'s
+`child_of(X1..Xn)` clause requires every driver drained *and* every
+existing row at the tier settled before the tier itself reads as drained.
+A `comparch` node can only become
 `settled?` once its own draft commits and is approved, and that draft can
 only commit once its context — including `all.policy` — is ready, which
 needs `policy` drained, which needs every `comparch` node (this one

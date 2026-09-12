@@ -1252,11 +1252,10 @@ loader tickets carry `system:core_dsl`.
   through-responsibility read this ticket's own worked example is
   built on (`docs/dsl-syntax.md` §7.1), now landing on `sysarch_policy`
   instead of `policy`. Two entries are new: `all.sysarch_policy.handle`
-  and `all.non_goals_policy.handle` — the citable pool, both safe
-  because each has exactly one driver and neither driver is downstream
-  of `comparch` (`core_dsl.md#43`'s own reasons entry), unlike the
-  single `all.policy.handle` this ticket first tried, which deadlocked
-  because `comparch` was one of `policy`'s own three drivers. The
+  and `all.non_goals_policy.handle` — the citable pool, both legal under
+  `core_dsl.md#43`: each has exactly one driver and neither driver is
+  downstream of `comparch`, which is what an `all.<tier>` walk requires
+  to drain (`core_dsl.md#43`'s own reasons entry). The
   `all.sysarch_policy.handle` entry lands on the same tier as the
   through-fulfills hop above, so the two merge (§9 again): the
   resulting `sysarch_policy` collection is every sysarch-level policy

@@ -441,22 +441,18 @@ apply-without-mint path, so the fix is scoped to it alone — no citation
 route was added for the resp grain, since it would duplicate a
 reachability `fulfills` already gives for free.
 
-**Why the citation route forced a tier split.** The first attempt at the
-citation route (`b723107`, reviewed clean, then reworked at `e77d426`
-against round 2's own findings) gave `comparch` the pool it needed to cite
-against with one context entry, `all.policy.handle`. That is the one
-`all.<tier>` read this bundle cannot make safely: `comparch` is one of
-`policy`'s own three `decomposition` sources (`sysarch`, `comparch`,
-`non_goals`), and `ReadyScopes.tier_drained?`'s `child_of` clause requires
-every source drained *and* every existing row at the tier settled before
-the tier reads as drained — so `drained?(policy)` requires every `comparch`
-node, this one included, to already be `:approved` before this comparch's
-own draft can even dispatch against a ready context. No comparch node ever
-satisfies its own precondition; `ready/3` never returns it, silently,
-found only once ORC-246's own collision check went looking (design review
-round 3, commit `66c6602`). `core_dsl.md#43` is the general fix — one
-source tier per fanout target, checked at load time — and this entry's own
-split is what makes `bundles/default` conform: `sysarch_policy`,
-`comparch_policy`, `non_goals_policy` in place of the shared `policy` tier,
-so the citable pool (`all.sysarch_policy`, `all.non_goals_policy`) never
-includes the reading tier's own driver.
+**Why the citation route forced a tier split.** Giving `comparch` the pool
+it needs to cite against with a single context entry, `all.policy.handle`,
+is not a read this bundle can make safely: `comparch` is one of `policy`'s
+own three `decomposition` sources (`sysarch`, `comparch`, `non_goals`), and
+`ReadyScopes.tier_drained?`'s `child_of` clause requires every source
+drained *and* every existing row at the tier settled before the tier reads
+as drained — so `drained?(policy)` requires every `comparch` node, this one
+included, to already be `:approved` before this comparch's own draft can
+even dispatch against a ready context. No comparch node ever satisfies its
+own precondition; `ready/3` never returns it, silently. `core_dsl.md#43` is
+the general fix — one source tier per fanout target, checked at load time
+— and this entry's own split is what makes `bundles/default` conform:
+`sysarch_policy`, `comparch_policy`, `non_goals_policy` in place of the
+shared `policy` tier, so the citable pool (`all.sysarch_policy`,
+`all.non_goals_policy`) never includes the reading tier's own driver.
