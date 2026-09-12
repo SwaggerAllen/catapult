@@ -450,7 +450,7 @@ drained *and* every existing row at the tier settled before the tier reads
 as drained — so `drained?(policy)` requires every `comparch` node, this one
 included, to already be `:approved` before this comparch's own draft can
 even dispatch against a ready context. No comparch node ever satisfies its
-own precondition; `ready/3` never returns it, silently. `core_dsl.md#43` is
+own precondition; `ready/3` never returns it, silently. `core_dsl.md#45` is
 the general fix — one source tier per fanout target, checked at load time
 — and this entry's own split is what makes `bundles/default` conform:
 `sysarch_policy`, `comparch_policy`, `non_goals_policy` in place of the

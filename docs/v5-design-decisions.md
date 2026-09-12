@@ -1257,7 +1257,7 @@ into the default bundle; this section records their v5 form. `policy`
 is a DSL-level tier *family* rather than one tier: `sysarch_policy`,
 `comparch_policy`, `non_goals_policy`, one per minting parent — a
 fanout target may be named by only one source tier
-(`systems/core_dsl.md#43`), and `policy` is what this repo's own
+(`systems/core_dsl.md#45`), and `policy` is what this repo's own
 default bundle split to conform (`systems/platform_content.md#15`,
 `#64`). The concept below is unchanged by which tier a given policy
 mints into.

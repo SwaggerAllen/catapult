@@ -33,7 +33,8 @@ possible" standing decision exists to prevent.
 
 The bullet above's premise — every minted child eventually earns `:approved` through `DraftApproved`
 — does not hold for exactly the tiers dsl-syntax.md §3 calls a **join-target tier** — one declared
-with no `draft:` block (`comp`, `subcomp`, `resp`, `sysarch_policy` in `bundles/default`, all `generator:
+with no `draft:` block (`comp`, `subcomp`, `resp`, `sysarch_policy`, `comparch_policy`,
+`non_goals_policy` in `bundles/default`, all `generator:
 synthesis` today, though the condition that matters is "no `draft:`," not the generator kind — see
 below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
 and `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{}, _)`) can never name it.

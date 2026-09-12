@@ -827,33 +827,111 @@ profiles.
   word for a different thing and stays: `refactor_plan.yaml`,
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
-- **#43 A fanout edge instance's target tier may be named as target by
+- **#45 A fanout edge instance's target tier may be named as target by
   at most one source tier — enforced at load time, not left a
   convention** (ORC-247). `scope: child_of(X)` names one tier, but
   nothing before this entry required the *loader* to agree: a `type:
   fanout` instance's `target` is checked only for being a declared
   tier (`Catapult.Dsl.Tier`'s own scope check), never for being the
-  only fanout instance naming that target. The loader now derives a
-  target tier's driver set the identical way
-  `Catapult.Engine.Projections.ReadyScopes`'s own `child_of_drivers/2`
-  already does — every `type: fanout` instance across `chain.edges`
-  whose `target` equals the tier — and refuses to load a bundle where
-  that set has more than one member, naming the tier and every
-  competing source. A `per(X)` tier needs no such check: its scope
-  already names its one parent directly, and nothing else can mint
-  into it. `child_of(X)` is the case with room to drift, because the
-  parent it names and the driver set the loader derives are two
-  separately-computed things that this check now forces to agree.
+  only fanout instance naming that target. The derivation lands on
+  `Catapult.Dsl.Chain` — the module that already owns `chain.edges`
+  and every other cross-reference check `dsl-syntax.md` §13 lists — as
+  a public `fanout_drivers/2`: every `type: fanout` instance across
+  `chain.edges` whose `target` equals the tier, uniqued by source.
+  `Chain.load/3` refuses to load a bundle where that set has more than
+  one member, naming the tier and every competing source. The
+  direction only runs one way: `Catapult.Engine.*` aliases
+  `Catapult.Dsl.*` throughout and never the reverse — the boundary
+  compiler and `mix xref graph --format cycles --fail-above 0` hold
+  it — so the loader cannot reach into
+  `Catapult.Engine.Projections.ReadyScopes` for this. Instead
+  `ReadyScopes.tier_drained?/3`'s own `child_of(X)` clause calls
+  `Chain.fanout_drivers/2` in place of the private recursion it kept
+  before this entry, one recursion rather than two independently
+  maintained copies of the same derivation — the identical discipline
+  `ReadyScopes`'s own `drained?/3` already keeps for
+  `GraphConstraints` (`systems/engine.md`'s ORC-236 entry). A `per(X)`
+  tier needs no such check: its scope already names its one parent
+  directly, and nothing else can mint into it. `child_of(X)` is the
+  case with room to drift, because the parent it names and the driver
+  set `Chain.fanout_drivers/2` derives are two separately-computed
+  things that this check now forces to agree.
   `systems/platform_content.md#15`/`#64` record the one bundle shape
   this check requires `bundles/default` to change to conform.
+  `test/catapult/dsl/loader_test.exs`'s "dsl-syntax.md §7.2 —
+  all.<tier>" section (`:1544` on `main`) gains this check's own load
+  error case, the same section §7.2's other two cases already live in.
+  `test/catapult/engine/projections/ready_scopes_test.exs`'s "a
+  child_of tier with several fanout sources is drained only once every
+  source is drained" (`:453-484` on `main`) builds a `Chain` struct
+  directly rather than through the loader, so it keeps passing — but
+  the shape it names in its own title is exactly what this entry makes
+  unloadable from a real bundle. It stays, retitled to say what it
+  actually exercises now: `ReadyScopes.tier_drained?/3`'s generic
+  multi-driver recursion, reachable only from a hand-built `Chain` a
+  test constructs directly, never from anything `Chain.load/3` would
+  accept.
+- **#46 An `all.<tier>` context walk is refused at load time when the
+  reading tier is, directly or transitively, one of the target tier's
+  own drivers** (ORC-247). `#45`'s driver derivation only guarantees a
+  pool has one driver; it says nothing about whether the *reader* is
+  that driver, and a tier can never treat its own pool's readiness as
+  prior to its own — reading `all.<tier>` from inside that tier's own
+  driver chain deadlocks by the identical argument `core_dsl.reasons
+  .md#45` traces for `comparch`/`all.policy`, one level of indirection
+  removed. `Catapult.Dsl.Chain.load/3` closes `#45`'s per-target driver
+  relation transitively over `chain.tiers`/`chain.edges` — a
+  `child_of(X)` tier's drivers, a `per(X)` tier's one parent, chained —
+  and refuses to load a bundle where a tier's own `context:` names an
+  `all.<tier>` walk landing back inside that closure, naming the
+  reading tier, the target tier, and the driver path between them.
+  `docs/dsl-syntax.md` §7.2's two legal `all.<tier>` cases — a
+  driverless flat pool, a `cascade_visit` planning tier reading the
+  whole graph — both fall outside every closure by construction, so no
+  shipped tier changes. `test/catapult/dsl/loader_test.exs`'s
+  "dsl-syntax.md §7.2 — all.<tier>" section (`:1544` on `main`) gains
+  this check's own load error case alongside `#45`'s.
+- **#47 A context-walk entry may name its own prompt variable via
+  `as: <name>`, and two entries merge only when they share a variable
+  name, never merely because they land on the same tier** (ORC-247).
+  Before this entry, §9's variable name was always the target tier's
+  name, so any two entries landing on the same tier merged whether or
+  not that was the intent — a walking tier had no way to keep two such
+  reads apart. A `context:` entry stays the bare walk string it always
+  was, or becomes a single-key mapping — `{<walk>: <name>}` — giving
+  that walk its own `as:` name; `Catapult.Dsl.ContextWalk.parse/1`
+  gains a second clause matching a one-entry map (alongside its
+  existing `is_binary(raw)` clause), parsing the key as the walk
+  string exactly as before and setting a new `:as` field (default
+  `nil`) from the value. `as:`'s value becomes the entry's variable
+  name where declared; the target tier's name remains the default, so
+  a bundle landing on the old blanket merge on purpose writes nothing
+  new. `Catapult.Dsl.Chain.load/3` gains two checks: two entries in one
+  tier's `context:` sharing a variable name but naming different
+  target tiers is a load error, naming the tier and the two
+  conflicting entries — a merge only ever makes sense across entries
+  landing on the same tier; and an `as:` value matching a reserved
+  prompt variable (`self`, `feedback`, `prior_review`, `draft`,
+  `raft`, §9) is a load error naming the tier and the entry, since
+  those five are supplied outside `context:` and a same-named entry
+  would silently collide with one. `ContextAssembly.build_variables/5`
+  groups by the declared variable name rather than by each resolved
+  node's own tier, and where two merged entries can name the identical
+  node under different projections, the fold is per node id — one
+  rendered map per node carrying every contributing entry's own
+  projected fields — rather than one list entry per contributing walk
+  (`core_dsl.reasons.md#47`). `test/catapult/dsl/loader_test.exs`'s
+  "dsl-syntax.md §7.2 — all.<tier>" section (`:1544` on `main`) gains
+  both of this entry's own load error cases, alongside `#45`'s and
+  `#46`'s.
 
-## #44 Initial vs target
+## #43 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
 set (delivery annotations arrive with delivery). Target: full
 extension registry with delivery + runtime dialects registered;
 bundle-diff support for the registry's handle machinery.
 
-## #45 Depends on
+## #44 Depends on
 
 substrate. Content it loads lives in platform_content.

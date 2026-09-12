@@ -234,7 +234,7 @@ client family's own tier chain instead (v5 §5.1, §5.6).
 - `per(X)` — one node per node of tier X. `self.parent` is that node.
 - `child_of(X)` — nodes minted by X's fanout edge. `X` is one tier,
   checked at load time: a `type: fanout` instance's target may be
-  named by only one source tier (`systems/core_dsl.md#43`), so the
+  named by only one source tier (`systems/core_dsl.md#45`), so the
   fanout edge that mints this tier's nodes has exactly one source to
   point at.
 - `cascade_visit` — one node per node a flow's own cascade walk visits
@@ -624,7 +624,12 @@ legal (v5 §7.11).
 Anatomy: `self`, `self.parent`,
 `.<edge_name>` follows a declared edge, `-> <tier>.<projection>`
 types the target and names what to read — `.handle` or
-`.handle.fragments[<kind>]`. Cardinality-many walks
+`.handle.fragments[<kind>]`. A `context:` entry is ordinarily the bare
+walk string; it may instead be a single-key mapping, `{<walk>:
+<name>}`, giving the walk its own `as: <name>` prompt variable rather
+than inheriting its target tier's name (§9, `systems/core_dsl.md#47`)
+— the walk string is unchanged either way, only which YAML shape
+carries it. Cardinality-many walks
 yield collections; readiness requires **all** targets ready.
 Context is the only readiness signal.
 
@@ -694,14 +699,18 @@ by any relationship — no `self`, no edge, no walker to arrive from.
 Two cases want this: a genuinely flat pool with no single owning
 parent (`vocab`; a project-global policy row, minted into
 `sysarch_policy` or `non_goals_policy` — v5 §4.5's first grain,
-`systems/core_dsl.md#43` — which by construction has no
+`systems/core_dsl.md#45` — which by construction has no
 `policy_application` edge for a graph walk to follow at all), and a
 `cascade_visit`-scoped planning
 tier that needs to see the whole component graph rather than one
 scoped slice of it (a `refactor` plan reasoning about which
 components a structural change touches). The tier named after `all.`
-must be declared; that is the entire cross-reference (§13) — unlike a
-self-hop's target, there is no walker to check it against.
+must be declared, and it must not be a tier the *reading* tier itself
+drives, directly or transitively (`systems/core_dsl.md#46`) — a tier
+can never treat its own pool's readiness as prior to its own, so that
+shape is a load error rather than a permanent stall with no
+diagnostic. Both are the entire cross-reference (§13) — unlike a
+self-hop's target, there is no walker to check either against.
 
 v5 additions:
 
@@ -780,10 +789,11 @@ which committed body the review applies to, since reading across
 drafts on purpose means a prompt can no longer assume it is the
 current one. Both render blank via Solid's own unset-is-empty behavior
 where nothing has been posted or reviewed yet. A variable's name is
-its target tier's name (`resp`, `sysarch_policy`, `comp`); an
-`all.<tier>` entry (§7.2) gets the same name as a self-hop entry
-landing on that
-tier.
+its own `as:` value where the entry declares one, its target tier's
+name otherwise (`resp`, `sysarch_policy`, `comp`,
+`systems/core_dsl.md#47`); an `all.<tier>` entry (§7.2) gets the same
+default name as a self-hop entry landing on that tier, unless either
+carries its own `as:`.
 
 **`input.<role>` and `input.*` are the one exception to that rule,
 because neither resolves against the graph at all**
@@ -804,15 +814,29 @@ convention `feedback`/`prior_review` use above) — never an error,
 which is §7's "a role with no documents... never blocks readiness"
 carried one layer further, into rendering.
 
-**Two or more context entries naming the same target tier combine
-into one collection for that tier's variable** rather than colliding —
-a tier can be reached more than one way (`comparch` reads its own
-already-minted `comparch_policy` rows through both a direct
-`policy_application~` hop and a `fulfills.policy_application~` hop —
-the same two-hop-reversed shape §7.1 walks through for
-`sysarch_policy`, landing here on the tier `comparch` itself mints
-into), and the prompt wants every policy already bound to this comp in
-one collection, not one variable per path that produced it. Shared
+**Two or more context entries sharing a variable name combine into
+one collection for that variable** rather than colliding — a tier can
+be reached more than one way (`comparch` reads its own already-minted
+`comparch_policy` rows through both a direct `policy_application~` hop
+and a `fulfills.policy_application~` hop — the same two-hop-reversed
+shape §7.1 walks through for `sysarch_policy`, landing here on the
+tier `comparch` itself mints into), and the prompt wants every policy
+already bound to this comp in one collection, not one variable per
+path that produced it — the two entries share no `as:`, so they share
+the default name and merge. Two entries merge because they **share a
+name**, never merely because they land on the same tier
+(`systems/core_dsl.md#47`): giving either its own `as:` keeps them
+apart, which is how a tier reads the same target tier for two
+different questions without the answers mixing (`comparch`'s own
+citable-policy-pool read and its already-applied-policy read both
+land on `sysarch_policy`, kept apart by `as:` —
+`systems/platform_content.md#64`). Where two merged entries can name
+the identical node under different projections (`comparch`'s own
+handle-plus-two-dependency-fragment reads before `as:` gave the
+handle its own name — `systems/core_dsl.reasons.md#47`), the merge
+folds by node id — one rendered entry per node, carrying every
+contributing walk's own projected fields — rather than one entry per
+contributing walk. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
 shared framing across each family's authored tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
@@ -915,7 +939,7 @@ kinds, prompt/schema paths, predicate names); scope expressions and
 generator types from the closed sets; type-level acyclicity over the
 edge-instance graph; a `type: fanout` instance's target tier named by
 at most one source tier across the whole edge set
-(`systems/core_dsl.md#43`); cardinality shapes well-formed;
+(`systems/core_dsl.md#45`); cardinality shapes well-formed;
 `delivery:` values validated against the protocol vocabulary;
 navigation edges absent from readiness walks. A bundle that loads is a
 bundle the engine can run; only instance-level constraints (dependency
@@ -1405,6 +1429,13 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   §7.2's own readiness reading could give; a load error naming the walk
   and the tier, rather than a readiness check with no correct result to
   return;
+- an `all.<tier>` walk (§7.2) may not be declared on a tier that is,
+  directly or transitively, one of the target tier's own drivers
+  (`systems/core_dsl.md#46`) — the reading tier can never make its own
+  pool `drained?` prior to its own settlement, so the same deadlock
+  `#45`'s driver-uniqueness check exists to prevent recurs one level
+  down; a load error naming the reading tier, the target tier, and the
+  driver path between them;
 - an edge instance's `cardinality` may not declare a non-zero `min` on
   the side naming a `reference`-scope tier, for the identical reason as
   the bullet above: `systems/engine.md`'s own ORC-236 entry evaluates a
@@ -1415,7 +1446,17 @@ Added with `source_ref:`/`target_ref:`, `mint.parent.<name>`,
   and the tier;
 - a walk whose projection is `.synthesis` is a load error (§7) — the
   form retired with no shipped consumer and no implementation on either
-  side of it.
+  side of it;
+- two context entries on one tier sharing a variable name — whether by
+  a shared default or a shared `as:` — but naming different target
+  tiers is a load error naming the tier and the two conflicting
+  entries (`systems/core_dsl.md#47`): a merge only ever makes sense
+  across entries landing on the same tier, never across two;
+- an `as:` value matching a reserved prompt variable (`self`,
+  `feedback`, `prior_review`, `draft`, `raft`, §9) is a load error
+  naming the tier and the entry (`systems/core_dsl.md#47`) — those five
+  are supplied outside `context:` entirely, and a same-named entry
+  would collide with one silently rather than merge with anything.
 
 ## 14. Deliberately absent
 

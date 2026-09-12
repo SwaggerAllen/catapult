@@ -268,10 +268,13 @@ them.
     driving-tier check above exists to catch, not a gap the clause
     forgets to answer;
   - `child_of(X)` (the one tier a `type: fanout` edge instance
-    targets — `chain.edges`, filtered to `type == "fanout"` and
-    `instance.target == tier`, gives the driver; `core_dsl.md#43`
-    is what makes that set a single tier rather than merely usually
-    one): drained once `X` is drained *and* every row already at
+    targets — `Catapult.Dsl.Chain.fanout_drivers/2` filters
+    `chain.edges` to `type == "fanout"` and `instance.target == tier`
+    to give the driver, and this projection's own `child_of(X)` clause
+    calls it rather than keeping a second copy of the same recursion;
+    `core_dsl.md#45` is what makes that set a single tier rather than
+    merely usually one): drained once `X` is drained *and* every row
+    already at
     `<tier>` is `settled?` — a fanout mint runs exactly once,
     synchronously with its source's own `DraftCommitted` (regeneration
     is chosen, not triggered, `docs/v5-design-decisions.md`), so once

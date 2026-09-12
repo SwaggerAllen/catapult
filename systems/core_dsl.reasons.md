@@ -320,7 +320,7 @@ dispatch/fixture-coverage totals (it has no `draft:` for
 `ref`'s absence from the swept set is `systems/generation.md`'s own ORC-236
 entry.
 
-## #43
+## #45
 
 Measured, not hypothetical: `policy` being `child_of(sysarch)` with three
 actual fanout sources (`sysarch`, `comparch`, `non_goals`) is a permanent
@@ -355,3 +355,45 @@ keeps `child_of(X)`'s declared parent and its actual driver set the same
 thing, so a bundle author can reason about which tiers are safe to
 `all.<tier>` from the scope declaration alone, without auditing
 `chain.edges` by hand.
+
+## #46
+
+The mechanism is `#45`'s own: `all.comparch_policy` from `comparch`
+would deadlock by the identical argument `all.policy` did before the
+split, because `#45` only guarantees a pool has one driver — it says
+nothing about whether the *reader* is that driver. Guaranteeing one
+driver alone leaves an `all.<tier>` walk exactly as unsafe as before
+whenever the walk is declared on the driver's own tier, so the check
+generalizes to what actually makes the walk safe: the reading tier is
+never, itself, upstream of the pool it reads. Nothing in
+`bundles/default` triggers the refusal today — `comparch`'s two
+citation reads land on `sysarch_policy`/`non_goals_policy`, both
+strictly upstream of it — but the shape recurs wherever a
+`child_of`/`per` chain exists, not only in the policy grain.
+
+## #47
+
+Measured across three sites, not a policy-specific want. `comparch`
+reads `self.parent.handle` and, twice, `self.parent.dependency ->
+comp.handle.fragments[...]` (once for `pubapi`, once for
+`failure_surface`) — three entries, one target tier, so before this
+entry all three merged: a component's own handle arriving in the same
+collection as its dependencies', and each dependency appearing twice
+over, once per fragment kind, since the old merge concatenated
+render results rather than folding by node id.
+`comparch.md.liquid` already renders `{{ parent }}` and `{% for dep in
+dependencies %}` as if the three were already apart — the prompt was
+written against a variable-naming model the grammar never supplied.
+`refactor_plan` and its three siblings
+(`feature_request_plan`/`upward_propagation_plan`/
+`downward_propagation_plan`) have the same shape one tier over: `all
+.sysarch.handle` and `self.plan_target -> sysarch.handle` both land on
+`sysarch`, fusing the single node a plan is written for into the pool
+of every sysarch project-wide. `comparch`'s two `sysarch_policy`
+reads (`systems/platform_content.md#64`) are the third case, and the
+one this ticket's own grain question surfaced it through: the citable
+pool (`all.sysarch_policy`) and "already bound to me"
+(`self.parent.fulfills.policy_application~ -> sysarch_policy.handle`)
+answer different questions and must not read as one collection to the
+prompt, or a model can no longer tell a policy it already carries from
+one it is free to cite afresh.

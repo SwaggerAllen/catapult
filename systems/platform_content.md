@@ -126,7 +126,7 @@ loader tickets carry `system:core_dsl`.
   through a `decomposition` instance — the identical mechanism the
   flat-pools entry below already documents for `sysarch`'s and
   `comparch`'s own `<policies>` blocks (each into its own sibling
-  pool, `#15`, `core_dsl.md#43`), not a new edge and not a new node
+  pool, `#15`, `core_dsl.md#45`), not a new edge and not a new node
   kind (this ticket's own governing constraint, echoing v5 §4.5: "a
   separate non-goal tier would be the policy tier with the sign
   flipped"). The flat-pools entry below carries what's new in the
@@ -165,11 +165,11 @@ loader tickets carry `system:core_dsl`.
   flagged candidate terms (name + scope, not a full definition — see
   the content-delta entry below). `policy` was one `child_of(sysarch)`
   tier fed by three `decomposition` mints (sysarch→policy,
-  comparch→policy, non_goals→policy); `core_dsl.md#43` now refuses a
+  comparch→policy, non_goals→policy); `core_dsl.md#45` now refuses a
   fanout target with more than one source tier at load time, and
   `policy` was the one shape in `bundles/default` that violated it —
   not a latent bug, a live readiness deadlock a `comparch` node hits
-  the moment it reads its own minting pool back (`core_dsl.md#43`'s
+  the moment it reads its own minting pool back (`core_dsl.md#45`'s
   own reasons entry). The fix is the split its own rule implies: three
   `generator: synthesis` tiers, each `child_of` its single minting
   parent — `sysarch_policy`, `comparch_policy`, `non_goals_policy` —
@@ -229,8 +229,10 @@ loader tickets carry `system:core_dsl`.
   grammar, not a boolean flag" posture the `xs:choice` above already takes
   for the other two grains.
 - **#17 The revisit-condition field is one optional, free-text element on
-  all three `Policy` shapes.** `bundles/default/tiers/policy.yaml`'s
-  `fields:`, both `<Policy>` complex types (`schemas/sysarch.xsd`,
+  all three `Policy` shapes.** `bundles/default/tiers/sysarch_policy
+  .yaml`'s, `comparch_policy.yaml`'s and `non_goals_policy.yaml`'s own
+  `fields:` (#15, #64 — one `policy.yaml` split three ways), both
+  `<Policy>` complex types (`schemas/sysarch.xsd`,
   `schemas/comparch.xsd`) and the distillation schema carry it — the first
   two for the general case v5 §4.5 states: any policy can be an argued
   deferral, not only a distilled one. "never, argued" and "not until X" are
@@ -253,14 +255,13 @@ loader tickets carry `system:core_dsl`.
   cite," where an indiscriminate read is the point, since every item
   either read turns up is a candidate for an explicit `<applies ref>`,
   never an implicit scope. `comparch` never declares `all
-  .comparch_policy`: `core_dsl.md#43` guarantees `comparch_policy` has
-  exactly one driver, but does not stop a bundle from reading a pool
-  back from its own single driver — that deadlock class is
-  `core_dsl.md#43`'s own reasons entry, still real for any tier that
-  declared such a read. Nothing in `bundles/default` does, because a
-  comparch-local policy is never a citation target regardless (#64),
-  so no reader ever has a reason to ask for it — the absence is a
-  content decision, not a load-time refusal.
+  .comparch_policy`, and could not load if it did: `comparch` is
+  `comparch_policy`'s own single driver, so `core_dsl.md#46` refuses
+  that walk at load time regardless of content intent. The content
+  reason runs the same direction anyway — a comparch-local policy is
+  never a citation target (#64), so no reader ever has a cause to ask
+  for it — which is why nothing in `bundles/default` exercises the
+  refusal.
 - **#20 `mint.<name>` and `mint.parent.<name>` together are the field
   source for every join-target tier** — every `generator: synthesis`
   tier, the predicate that finds them, plus the mint-time identity
@@ -869,7 +870,7 @@ loader tickets carry `system:core_dsl`.
   entries under one edge name — "the same source fanning out to several
   different target tiers," in dsl-syntax.md §4.1's own words, describing
   exactly this shape and already load-bearing. (The reverse — one target
-  fed by more than one source — is the shape `core_dsl.md#43` forbids;
+  fed by more than one source — is the shape `core_dsl.md#45` forbids;
   this entry is the orthogonal, still-legal direction.) `frontend_sysarch`
   carries two `decomposition` instances the identical way: `source:
   frontend_sysarch, target: ui_coll, declared_in:
@@ -1159,7 +1160,7 @@ loader tickets carry `system:core_dsl`.
   `comparch` pass to author, where `self.parent` (#15) is unambiguous;
   `sysarch` has none to offer.
 
-  **The tier split (#15, `core_dsl.md#43`).** `policy` was one
+  **The tier split (#15, `core_dsl.md#45`).** `policy` was one
   `child_of(sysarch)` tier fed by three `decomposition` mints; a
   single tier fed by more than one fanout source is now a load error,
   and `policy` was the one shape in `bundles/default` that had it.
@@ -1172,6 +1173,14 @@ loader tickets carry `system:core_dsl`.
   `fields`/`handle` unchanged; identity whatever `policy.yaml`
   declares — `id` today, `alias` under ORC-246) — three small,
   near-identical tier files where one stood before.
+  `test/catapult/dsl/loader_test.exs:1468` maps
+  `bundles/default/tiers/policy.yaml` in its own fixture and needs the
+  three split files in its place;
+  `test/catapult/generation/toy_seed_chain_test.exs:271`'s
+  `seed_mint!(project_id, "policy", "immutable_short_codes", sysarch
+  .id, "decomposition", :approved)` seeds the `sysarch`+`<required>`
+  raft example this ticket's own description names, and retargets to
+  `seed_mint!(project_id, "sysarch_policy", ...)`.
 
   **`policy_application` re-sources against the split tiers, and gains
   a source `comparch_policy` did not need before.** The edge keeps
@@ -1220,8 +1229,9 @@ loader tickets carry `system:core_dsl`.
   design.
 
   `ref` (the `<applies ref="POLICY_ID">` attribute) names whatever
-  `policy.yaml` declares as the identity of whichever tier the id
-  belongs to (`id` today; ORC-246 replaces it with a required `alias`,
+  the target tier — `sysarch_policy.yaml` or `non_goals_policy.yaml` —
+  declares as its own identity (`id` today; ORC-246 replaces it with a
+  required `alias`,
   since `Extraction.identity_value/2` resolves every policy mint to
   `nil` today — neither `Policy` shape carries an identity attribute
   for it to read). This citation route is fully specified here but
@@ -1247,39 +1257,69 @@ loader tickets carry `system:core_dsl`.
   structural mint) and `self.parent.fulfills.policy_application~ ->
   comparch_policy.handle` (this comp's own through-resp mint, the new
   third instance above — these two merge into one `comparch_policy`
-  collection, `docs/dsl-syntax.md` §9); `self.parent
-  .fulfills.policy_application~ -> sysarch_policy.handle` keeps the
-  through-responsibility read this ticket's own worked example is
-  built on (`docs/dsl-syntax.md` §7.1), now landing on `sysarch_policy`
-  instead of `policy`. Two entries are new: `all.sysarch_policy.handle`
-  and `all.non_goals_policy.handle` — the citable pool, both legal under
-  `core_dsl.md#43`: each has exactly one driver and neither driver is
-  downstream of `comparch`, which is what an `all.<tier>` walk requires
-  to drain (`core_dsl.md#43`'s own reasons entry). The
-  `all.sysarch_policy.handle` entry lands on the same tier as the
-  through-fulfills hop above, so the two merge (§9 again): the
-  resulting `sysarch_policy` collection is every sysarch-level policy
-  project-wide, a superset of "already bound to me through fulfills" —
-  re-citing one already bound writes no new row
-  (`Store.insert_edge/1`'s `on_conflict: :nothing` on
-  `(project_id, edge_name, source_node_id, target_node_id)`), so the
-  merge costs nothing and needs no dedup instruction of its own.
-  `comparch_review.yaml` takes the identical set, unchanged from its
-  own existing rule that a review tier's `context:` matches the
-  reviewed tier's (`docs/dsl-syntax.md` §3.3, §13). Both files' own
-  inline comments describing the old single-pool grain — the refusal
-  of `all.policy`, the two-grain walk explanation, `non_goals.yaml`'s
-  "mints straight into this same `policy` pool" — are rewritten in the
-  same pass, not merely amended beside the old text: the split changes
-  what the comment beside each read needs to say, the same instruction
-  `policy_application.yaml`'s own cardinality comment gets above.
+  collection, `docs/dsl-syntax.md` §9, since neither declares its own
+  `as:` and both answer the identical question, "what already binds
+  me"); `self.parent.fulfills.policy_application~ ->
+  sysarch_policy.handle` keeps the through-responsibility read this
+  ticket's own worked example is built on (`docs/dsl-syntax.md` §7.1),
+  now landing on `sysarch_policy` instead of `policy` and keeping that
+  default name — it answers the same "already binds me" question, one
+  tier over. Two entries are new, and both answer the opposite
+  question, "what may I newly cite": `all.sysarch_policy.handle` and
+  `all.non_goals_policy.handle`, both legal under `core_dsl.md#45`
+  (each has exactly one driver and neither driver is downstream of
+  `comparch`, which is what an `all.<tier>` walk requires to drain —
+  `core_dsl.md#45`'s own reasons entry). `all.sysarch_policy.handle`
+  lands on the same tier as the through-fulfills hop above but must
+  not merge with it — an already-bound collection and a citable-
+  candidate collection are different questions, and fusing them is
+  exactly the shape `core_dsl.md#47` exists to stop
+  (`docs/dsl-syntax.md` §9) — so this entry becomes `all
+  .sysarch_policy.handle: citable_sysarch_policy`, keeping the two
+  apart. `all.non_goals_policy.handle` needs no `as:`: it is the only entry
+  landing on `non_goals_policy`, so its default name already stands
+  alone. `comparch_review.yaml` takes the identical set, `as:` values
+  included, unchanged from its own existing rule that a review tier's
+  `context:` matches the reviewed tier's (`docs/dsl-syntax.md` §3.3,
+  §13). Both files' own inline comments describing the old single-pool
+  grain — the refusal of `all.policy`, the two-grain walk explanation,
+  `non_goals.yaml`'s "mints straight into this same `policy` pool" —
+  are rewritten in the same pass, not merely amended beside the old
+  text: the split changes what the comment beside each read needs to
+  say, the same instruction `policy_application.yaml`'s own
+  cardinality comment gets above. Three more files carry a comment
+  naming the single pool by that same old name and need the identical
+  rewrite, none of them touched by anything above: `resp.yaml`'s
+  "sysarch's `fulfills` edges and policy's `policy_application`
+  (through-responsibility instance) edges" names both mint-time
+  through-resp sources now that `comparch_policy` has its own —
+  "sysarch_policy's and comparch_policy's `policy_application`
+  (through-responsibility instances) edges"; `design_system.yaml`'s
+  "the same loose way as `ref`/`vocab`/`policy`: the pool, not
+  literally one node" becomes "...as `ref`/`vocab`/`sysarch_policy`/
+  `comparch_policy`/`non_goals_policy`", naming all three pools its
+  own `scope: singleton` is being likened to; `frontend_sysarch.yaml`'s
+  "the same no-owning-parent case `vocab`/`ref`/project-global
+  `policy`" becomes "...`vocab`/`ref`/`sysarch_policy`/
+  `non_goals_policy`" — matching #45's own already-corrected prose
+  above, since "project-global" was always this pair, content-wise: an
+  organization-wide policy (`sysarch_policy`) and a distilled
+  non-goal (`non_goals_policy`) both apply project-wide, where a
+  comparch-local policy (`comparch_policy`) never does regardless of
+  which pool happens to store it.
 
-  Nothing on any of the three handles distinguishes "already applies
-  to me" from "citable candidate" within a merged collection — true
-  before this split and unchanged by it: keeping the model from
-  re-citing what it recognizes as already bound is the prompt's own
-  instruction, not a mechanism this entry adds, and a redundant
-  citation is a no-op at the store layer regardless.
+  Which variable a policy arrives in is what now distinguishes
+  "already applies to me" (`comparch_policy`, `sysarch_policy`) from
+  "citable candidate" (`citable_sysarch_policy`, `non_goals_policy`) —
+  a structural fact the rendered prompt can check, rather than the
+  model recognizing an already-bound policy inside one merged list.
+  Getting that check wrong costs nothing at the data layer regardless:
+  a redundant citation is still a no-op at the store layer
+  (`Store.insert_edge/1`'s `on_conflict: :nothing` on
+  `(project_id, edge_name, source_node_id, target_node_id)`) — the
+  `as:` split is what gives the model, and a later reader of the
+  rendered prompt, the distinction for free, not a new correctness
+  requirement on top of it.
 
   Both prompts need a matching change, in the same pass that lands the
   schema and edge changes above. `sysarch.md.liquid` instructs the
@@ -1295,20 +1335,57 @@ loader tickets carry `system:core_dsl`.
   case fails validation. `comparch.md.liquid` needs four things in the
   same pass: render each policy's identity alongside its
   trigger/rationale so there is a value to cite (the handle already
-  carries it — `policy.yaml`'s `handle.fields` lists `id`); instruct
+  carries it — `sysarch_policy.yaml`'s and `non_goals_policy.yaml`'s
+  own `handle.fields` list `id`); instruct
   `<applies>` to cite only a `sysarch`-level or `non_goals`-distilled
   policy, never a policy read from this same context that is in fact
   another component's own — if the obligation is shared with a
   sibling, it isn't this comparch's to mint and belongs upstream in
   `sysarch`; say when to prefer citing over minting a fresh `<policy>`
   — the duplicate-content case this entry exists to close; and iterate
-  the three variables the split context now supplies
-  (`comparch_policy`, `sysarch_policy`, `non_goals_policy`) rather than
-  the single `applied_policies` line 38 names today — a name
-  `ContextAssembly` never supplied even before this split, since it
-  keys a variable by its resolved target tier's own name, not a
+  the four variables the split context now supplies
+  (`comparch_policy`, `sysarch_policy` for what already binds this
+  comp; `citable_sysarch_policy`, `non_goals_policy` for what it may
+  newly cite) rather than the single `applied_policies` line 38 names
+  today — a name `ContextAssembly` never supplied even before this
+  split, since it keys a variable by its resolved target tier's own
+  name (now its entry's own declared name, `core_dsl.md#47`), not a
   template-chosen alias, and line 39's `{{ policy.required }}` reads a
   draft element, not a field the handle carries at all.
+- **#65 Three already-shipped context-entry collisions gain `as:`
+  (`core_dsl.md#47`), closing them the same way #64 closes
+  `comparch`'s own two `sysarch_policy` reads.** `comparch.yaml`/
+  `comparch_review.yaml`'s `self.parent.handle` becomes the single-key
+  mapping `self.parent.handle: parent` (`docs/dsl-syntax.md` §7's
+  `{<walk>: <name>}` shape) — this comp's own handle, answering a
+  different question than its dependencies do and previously fused
+  into the same `comp` collection as both of them. `self.parent
+  .dependency -> comp.handle.fragments[pubapi]` and `self.parent
+  .dependency -> comp.handle.fragments[failure_surface]` both become
+  `<walk>: dependencies` — shared between the two on purpose, since
+  both name the identical dependency set under different projections
+  and are meant to combine;
+  `core_dsl.md#47`'s per-node fold is what makes that combination
+  correct instead of listing each dependency twice, once per fragment.
+  `comparch.md.liquid`'s own `{{ parent }}` and `{% for dep in
+  dependencies %}` already read against these two names — the template
+  was written for the split before the grammar could express it
+  (`core_dsl.reasons.md#47`).
+
+  `refactor_plan.yaml`, `feature_request_plan.yaml`,
+  `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
+  each declare both `all.sysarch.handle` (every sysarch project-wide)
+  and `self.plan_target -> sysarch.handle` (the one sysarch node this
+  plan is written against, where the plan's own target is a sysarch)
+  — the second becomes `self.plan_target -> sysarch.handle:
+  plan_target_sysarch` in all four files,
+  keeping the plan's own single target out of the project-wide pool
+  it was previously fused into. None of the four files' other
+  `self.plan_target -> <tier>.handle` entries collide with anything —
+  each names a tier no `all.<tier>` entry in the same file also
+  targets — so `plan_target_sysarch` is the only new name any of the
+  four needs.
+
 ## #62 Initial vs target
 
 Initial (Phase 3): default bundle's upstream tiers + ported prompts,
