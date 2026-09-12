@@ -35,7 +35,7 @@ or the author can settle.
 | 17 | Gates and environments | gates live; environments reserved with a live defect | mixed | gate = role + throwback; mark environments; fix or mark the sequence drop |
 | 18 | Two axes, no cross-reference | live | platform | keep; document the vocabulary leak as the trade |
 | 19 | XSD vs DSL for structural facts | live | — | paths stay in the DSL; cardinality moves to the XSD; evaluate `xs:appinfo` |
-| 20 | Where human gates live; gate granularity vs. axis decoupling | live, open | platform | author's call after the prototype; four options framed |
+| 20 | Where human gates live; the fixed status-name set | live grammar, reserved enforcement | platform (name set), engine (Phase 7 consumer) | keep the direction (tiers name statuses); free the names by the depth rule; retire the three reserved kinds |
 
 ## Entries
 
@@ -511,94 +511,107 @@ or the author can settle.
 - **Recommendation:** decide in the prototype; drop the cardinality
   duplication either way.
 
-### 20. Where human gates live, and the granularity the axis split buys
+### 20. Where human gates live, and the granularity the fixed name set costs
 
-Raised by the author during review of the matrix; not answered here.
-It is the largest open seam question in this table because it decides
-how much of the workflow axis exists at all.
+Raised by the author during review of the matrix; corrected against
+the code after a first framing got the mechanism wrong. Not answered
+here.
 
-- **The question.** The two axes are decoupled by a fixed vocabulary
-  of status kinds the chain can bind to (`delivery.phase`) and the
-  workflow can gate on. A human gate can therefore sit only at a kind
-  boundary (`design` → `architecture` → `implementation`), never
-  between two arbitrary tiers. Siege allowed a human review after any
-  tier. Under the current model a workflow author who wants a look at
-  `feature_expansion` before `journeys` and `screens` run cannot say
-  so; the human sees all three, objects to the first, and staleness
-  regenerates the other two. Is that limitation worth the
-  decoupling?
-- **What the decoupling buys, in the record's words.** v5 §7.18: one
-  organization's workflow spans chains that differ by target stack;
-  welding workflow to chain "forces a fork of the workflow per
-  stack". `docs/dsl-syntax.md` §14 lists "any cross-axis reference"
-  as deliberately absent for that reason; core_dsl#11 refuses a named
-  pass selector for the same reason.
-- **What it costs, in the record's words.** v5 §7.18 itself: "the
-  fixed vocabulary has to be rich enough to carry the gates people
-  actually want", which is why `design`/`architecture`/
-  `implementation` were added to the fixed table (core_dsl#23, #27)
-  and why ORC-179 still has the default's tiers unassigned to kinds.
-  The coupling returns through the vocabulary; it is just paid in
-  platform-fixed names instead of tier names. Every workflow
-  construct with live engine semantics (entries 15–17) is about the
-  ticket lifecycle and containers; the gate-placement machinery
-  (sub-arrays, derived throwback, derived gate scope, entry 16) is
-  the part that cost ~900 doc lines, and it exists to place a small
-  number of gates at kind boundaries.
-- **Options the seam pass should weigh.**
-  - *A. Keep the split, keep growing the kinds.* The current path.
-    Cost: every new gate position anyone wants is a platform
-    vocabulary change, and the default's kind-per-tier choice
-    (ORC-179) is still pending.
-  - *B. Couple the axes: a workflow gate may name a tier.* Per-tier
-    human review becomes one line. Cost: a workflow bundle is
-    specific to a chain's tier names, so an organization with two
-    stacks forks its workflow. The fixed kinds shrink to the plane
-    states (`pending`, `checks`, `reconcile`, `merge`, `deploy`,
-    `terminal`) and the container five; `design`/`architecture`/
-    `implementation` disappear.
-  - *C. A small declared interface: the chain names its checkpoints.*
-    A chain declares checkpoint names between tiers (or a tier
-    declares which checkpoint it precedes); a workflow gates on
-    checkpoint names; the loader checks across axes that every
-    checkpoint a workflow names exists in the paired chain. Coupling
-    by a declared list rather than by tier names, so a workflow is
-    portable across chains that declare the same checkpoints. This
-    is `delivery.phase` inverted: bundle-defined names instead of
-    platform-fixed ones. It argues with §14's absent cross-axis
-    reference, and the argument is that the reference is to an
-    interface the chain publishes, not to its internals.
-  - *D. Split by time, not by axis: generation-time human gates are
-    the chain's; delivery-time gates are the workflow's.* A tier can
-    already declare an LLM review (`reviews:`, `critique`); a human
-    gate at the same position is the same shape with a different
-    reviewer. Put it on the tier (`gate: product-review`, or a
-    review tier with `reviewer: human`). The workflow axis keeps
-    what has live semantics today: the ticket lifecycle from `checks`
-    onward, containers, queues, `blocks:`, environments. Cost: gate
-    policy for generation moves into the chain bundle, which v5 §7.16
-    calls organization policy; an organization with two stacks
-    states its generation gates twice.
-- **What each option does to the grammar.** A: nothing now, growth
-  later. B and D: the sub-array and derivation machinery (entry 16)
-  largely goes, because a gate between two tiers has an obvious
-  throwback (the tier before it) and an obvious scope (that tier).
-  C: the machinery goes the same way, plus one cross-axis load check
-  and one list per chain.
-- **What the prototype can test.** Write `default-flow` under each
-  of B, C and D against the single-file chain, with per-tier gates
-  where the author would actually want them in the product tier
-  (`feature_expansion`, `journeys`, `screens`), and compare: lines,
-  what a second stack would have to fork, and whether the three
-  never-authored kinds are still needed. Two of the four options are
-  cheap to write; A is the tree.
-- **Status:** live; the split is a recorded platform decision with
-  its reason intact, and this entry does not overturn it. It records
-  that the reason was bought with a granularity limit the record
-  concedes, and that three alternatives keep most of the benefit.
-- **Recommendation:** none yet; author's call, after the prototype.
-  If A stands, ORC-179's kind assignment is the next decision and
-  the contract should say plainly that gates sit at kind boundaries
-  only. If any of B–D is taken, v5 §7.16/§7.18, §14's absence list
-  and core_dsl#11 are amended in the same change, and the workflow
-  contract shrinks to the ticket lifecycle.
+- **What the tree does.** The coupling is unidirectional and it is
+  the chain that references the workflow: a tier's `delivery.phase`
+  names the status it generates in, and a workflow's `statuses:`
+  array never names a tier (`dsl-syntax.md` §11, v5 §7.10). A gate
+  sits after a status; its review set is whatever the chain produced
+  at that status. That is the intended shape, and it is what the
+  loader enforces. The only closure is the *name set*: `chain.ex:736`
+  requires `delivery.phase` to be one of `SystemStatus.kinds()`, and
+  `workflow.ex:679` requires a ticket-skeleton `status:` name to be
+  one of the same fixed kinds. So a gate can sit only after
+  `generation`, `design`, `architecture` or `implementation`, and
+  every tier that names the same kind is one batch. That is the
+  limitation the author observed: an objection at
+  `feature_expansion` regenerates `journeys` and `screens`, because
+  all three name `generation` and no finer position exists to gate
+  on.
+- **What the tree does not do yet.** Nothing at runtime reads
+  `delivery.phase` (matrix 1.2). The sweeper dispatches every ready
+  `llm` tier project-wide with no reference to any ticket's position
+  (`sweeper.ex:144`), `ReadyScopes` has no notion of a ticket or a
+  flow, and the feature lifecycle's resting position is projected
+  state that nothing in generation consults. So today no gate holds
+  any generation, at any granularity; a human gate is a resting
+  position on the board. The record says so: "there is no shipped
+  enforcement of a declared allow-list ... that command edge is
+  unbuilt (Phase 7)" (`dsl-syntax.md` 3013–3016), and the gate's join
+  to the chain "is `systems/delivery.md`'s Phase 7 work, declared
+  workflow gates being that phase's to build" (3145). The consumer
+  that Phase 7 builds is exactly the one `delivery.phase` is waiting
+  for: while a ticket rests at a generation-shaped position, the
+  tiers dispatchable for its flow are those whose `phase` names that
+  position. The matrix's `delivery:` row now says this.
+- **So the "bug" is two things, of different kinds.** The closed name
+  set is a loader restriction, two lines, cheap to lift. Gate
+  enforcement against dispatch is reserved Phase 7 work that the
+  record already owns. Lifting the first without the second changes
+  what the board shows and nothing about what runs.
+- **The option the first framing missed, and the one to take
+  seriously: keep the direction, unbound the names.** A ticket-
+  skeleton `status:` entry keeps its *kind* (the shapes the engine
+  branches on: generation-shaped, review-shaped, the plane states)
+  and gains a free *name*; a tier's `delivery.phase` names the
+  position, not the kind. No new grammar is needed: `name:` on a
+  status entry already exists (core_dsl#26, live, zero uses), so
+  `status: generation, name: features` followed by `review:
+  product-review` is legal syntax today, and `delivery: {phase:
+  features, ...}` is one relaxed check away. The fixed generation
+  kinds `design`/`architecture`/`implementation` (matrix 2.2,
+  reserved, never authored) become unnecessary: they were the fixed
+  table's way of admitting three named positions, and free names
+  admit any number. Sub-arrays and derived throwback (entry 16)
+  shrink for the same reason: a gate after a named position throws
+  back to that position.
+- **Composability under free names.** §11's "no compatibility
+  contract to check" and v5 §7.18 are the reason the set was closed.
+  Depth already shows the way through (v5 §7.19): a workflow's depth
+  against a chain that fans out less "applies at the levels that
+  exist, silently. It must *not* be a load error". The same rule for
+  names keeps composability: a tier whose `phase` names a position no
+  paired workflow declares runs at that position's kind, and the
+  finer gate simply does not apply. A workflow is then portable
+  across chains exactly to the degree it uses kind names, and
+  chain-specific exactly to the degree it uses fine names, which is
+  the author's choice per bundle rather than the platform's. Whether
+  the loader also warns on an unmatched fine name is a small call;
+  `load_axes/5` loads both bundles together, so it can.
+- **Options struck.** *Bidirectional coupling* (a workflow gate
+  naming a tier, alongside tiers naming statuses): out, by the
+  author's rule that the reference runs one way only. *A chain-
+  declared checkpoint list the workflow references*: the same idea as
+  free names with the direction reversed, so it is out for the same
+  reason. *Gates declared on the chain* (a tier carrying its own
+  human gate): also reverses the direction, and moves organization
+  policy into the chain bundle against v5 §7.16; out unless
+  `delivery.phase` is abandoned entirely, which nothing argues for.
+- **What remains to weigh.** Keep the fixed table (the tree; every
+  new gate position is a platform vocabulary change, and ORC-179's
+  kind-per-tier assignment is still pending) or free the names (two
+  loader lines now, the Phase 7 consumer unchanged in shape, the
+  three reserved kinds retired, entry 16's machinery reduced). The
+  second is the smaller grammar and the one the author says was the
+  intent.
+- **What the prototype can test.** Write `default-flow` with named
+  generation positions where the author would actually want gates in
+  the product tier (`feature_expansion`, `journeys`, `screens`) and
+  the chain's tiers naming them, and compare against the tree's
+  version: lines, whether any sub-array survives, and what a second
+  stack's workflow would have to change.
+- **Status:** live grammar, reserved enforcement; the axis split and
+  its direction stand. What this entry questions is only the closed
+  name set, and it records that the runtime half is Phase 7 either
+  way.
+- **Recommendation:** free the names, by the depth rule, in the
+  redesign; retire the three reserved kinds; amend `dsl-syntax.md`
+  §11's "no compatibility contract" to state the silent-fallback rule
+  and v5 §7.18/§7.19 to match; carry ORC-179 as "which position each
+  default tier names", which is the same decision with a better
+  answer available. Author's call.

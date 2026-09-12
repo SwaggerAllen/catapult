@@ -586,11 +586,15 @@ inventory and diffs it against the contract doc).
 - Which workflow derivations flip to declared fields (§4.4).
   Recommendation: decide from the prototype, not in the abstract.
 - The narrowed scope of the extension doctrine (§4.5).
-- Where human gates live, and whether the axis decoupling is worth
-  the granularity it costs (`seam-pass.md` entry 20): gates today sit
-  only at fixed kind boundaries, never between two arbitrary tiers,
-  so an objection at `feature_expansion` regenerates `journeys` and
-  `screens`. Four options are framed there; the prototype can write
-  three of them cheaply. This decides how much of the workflow axis
-  exists, so it precedes the workflow contract.
+- Whether to free the generation status names (`seam-pass.md` entry
+  20). The coupling is already unidirectional (a tier names the
+  status it generates in); the only closure is that both sides' names
+  come from the fixed kind table, which is why a gate cannot sit
+  between `feature_expansion` and `journeys`. Freeing the names by
+  the depth rule needs no new grammar (`name:` on a status entry
+  already exists), retires the three reserved kinds, and shrinks the
+  sub-array machinery. Separately, gate enforcement against dispatch
+  is Phase 7 work the record already owns; no gate holds any
+  generation today at any granularity. This decides how much of the
+  workflow axis exists, so it precedes the workflow contract.
 - The acceptance number for §4.8 (lines, or minutes to read).
