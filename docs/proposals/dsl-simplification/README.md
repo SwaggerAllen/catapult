@@ -17,13 +17,18 @@ The complaints are right, and the measurements say why:
   narrative (~1200), narration of engine mechanism (~770), a
   validation checklist that is 60% argument (§13, ~500), and worked
   examples that no longer match the shipped bundle (~380).
-- **About a third of the grammar has no reader.** The loader parses
-  and validates, in detail, constructs that no engine module reads
-  and that the default bundle does not use. The whole flow apparatus,
-  three of four predicate slots (and the fourth is never used), the
-  extension registry, five of eight generator types, and the
-  `executor`/`enforcement`/`delivery` annotations are declared
-  futures, not protocol and not implementation.
+- **About a third of the grammar has no reader yet, and the doc does
+  not say which third.** The loader parses and validates, in detail,
+  constructs that no engine module reads and that the default bundle
+  does not use: the whole flow apparatus, three of four predicate
+  slots (and the fourth is never used), the extension registry, five
+  of eight generator types, and the `executor`/`enforcement`/
+  `delivery` annotations. Most of these are intended and will be
+  built soon; flows are MVP, because without them nothing modifies
+  code after scaffolding. The defect is not that they exist. It is
+  that the doc describes them in the same voice as the live core, so
+  a reader cannot tell contract from intent, and defects hide in the
+  gap (ORC-236: "declared and none wired"; ORC-235; ORC-232).
 - **The default bundle is ten times larger than its information
   content.** Its 2692 YAML lines are 53% comment (the workflow bundle
   is 77% comment); the 17 review tiers are byte-identical copies of
@@ -45,22 +50,32 @@ The six-step plan is sound in its parts and wrong in its order and
 in one premise. Recommended changes, argued below:
 
 1. **Classify against the code, not the doc** (step 2). The
-   protocol/implementation cut is the wrong first cut; the cut that
-   removes the most is used/unused × read/unread.
-2. **Cut before you split** (steps 3–5). Deciding the target grammar
-   comes before writing documents about it; otherwise the split
-   produces five bloated documents and a second rewrite.
-3. **Rewrite, do not split** (step 4). The grammar is ~570 lines; a
+   protocol/implementation cut is the wrong first cut. Classify each
+   construct three ways: **live** (read by the engine), **reserved**
+   (intended, not yet read; stays in the grammar, marked as such,
+   with its intent stated so tickets can be cut against it and
+   implementers can hedge), or **questioned** (no reader and no
+   recorded intent). Only the last is a candidate for removal.
+2. **Add a seam pass** (new step). Before deciding the target
+   grammar, ask of every flexibility the DSL offers: what it enables,
+   what it costs, what constraint it puts on authors, whether that
+   constraint belongs at this level, and whether it is the engine's
+   requirement or the default bundle's habit. A first pass is in
+   `seam-pass.md`.
+3. **Decide before you split** (steps 3–5). The target grammar comes
+   before writing documents about it; otherwise the split produces
+   five bloated documents and a second rewrite.
+4. **Rewrite, do not split** (step 4). The grammar is ~570 lines; a
    fresh write from the inventory is smaller than the edit, and the
    existing text's duplication structure is the bloat generator.
-4. **Add the bundle to the plan.** The methodology has six steps
+5. **Add the bundle to the plan.** The methodology has six steps
    about the DSL and its docs and none about the default bundle,
    which is the artifact the size complaint is really about.
-5. **Prototype the single-file chain by hand before any doc work.**
+6. **Prototype the single-file chain by hand before any doc work.**
    It is the one experiment that answers the feasibility question
    ("is the DSL worth having, and can a small one express the
    default?") and it costs an afternoon.
-6. **Do the grammar redesign out of band; use the pipeline for the
+7. **Do the grammar redesign out of band; use the pipeline for the
    mechanical work that follows.**
 
 ## 2. What the measurements say
@@ -119,7 +134,9 @@ varies between files and therefore carries the design is roughly:
 Everything else is constant across a cluster or derivable from the
 tier name: `identity: id` in all 34 that carry it; `executor: {effort:
 max}` in all 10; `delivery:` a pure function of `generator` +
-`reviews`; `grammar: schemas/review.xsd` in all 17 review tiers;
+`reviews` in this bundle (it is the cross-axis binding point and
+stays as a key with a default; `seam-pass.md` entry 13); `grammar:
+schemas/review.xsd` in all 17 review tiers;
 prompt/grammar/root_tag paths matching the tier name in most files;
 all 17 review tiers' `context:` blocks byte-identical to their base
 tier's (65 duplicated lines, plus a 7–10 line header saying the same
@@ -132,14 +149,17 @@ gate depth, `name:` on a status, `<anchor>.<name>` references, the
 `design`/`architecture`/`implementation` kinds, `backlog`/`blocked`/
 `stubbed`/`validating`.
 
-### 2.3 What the engine reads
+### 2.3 What the engine reads today
 
 Source: report E. The loader has ~126 distinct problem templates
 across 6000 lines. Set against what any module outside `lib/catapult/
-dsl/` reads:
+dsl/` reads. This is a snapshot of the tree, not a verdict on what
+belongs in the grammar: the second list is mostly intended
+functionality that will be built (§4.3), and the point of separating
+it is so the contract doc can mark it, not so it can be removed.
 
-**Read at runtime (protocol, in the sense that a load rule has a
-matching runtime consumer):** tier `scope`, `identity`, `fields`
+**Read at runtime (live: a load rule has a matching runtime
+consumer):** tier `scope`, `identity`, `fields`
 (`draft.*`, `mint.*`, `mint.parent.*`), `handle`, `draft`, `generator`
 in `{llm, supplied, reference}`, `prompt`, `context` (including `~`,
 multi-hop, `all.<tier>`, both projections), `produces` with `owner:
@@ -167,9 +187,18 @@ write path); `produces` with `owner: self` (validated, then dropped
 at runtime); `GraphConstraints.violations/2` (no caller outside
 tests).
 
-That last list is the largest single simplification available, and
-it is invisible from inside the doc, because the doc describes each
-of these as though it ran.
+That last list is invisible from inside the doc, because the doc
+describes each of these in the same voice as the first list. Two
+things follow. The contract doc needs a status marker per construct
+(live / reserved) so a reader knows which rules the engine enforces
+today and which describe an intended consumer. And a reserved
+construct's grammar is provisional by nature: it was designed ahead
+of the module that will read it, and ORC-232/235/236 show that such
+grammar tends to be wrong in ways only the consumer reveals. So the
+simplification available on this list is in *shape* (a 21-row edge
+that is a 5-row table; five planning tiers of one template), not in
+existence, and its exact grammar should be re-settled by the ticket
+that builds its consumer, with the doc saying so.
 
 ### 2.4 What the record decided
 
@@ -193,9 +222,9 @@ survives the simplification:
 
 | Decision | Recorded at | Reason given | Survives? |
 |---|---|---|---|
-| Frozen core, growth by extension | v5 §9, core_dsl #2 | no dialect forks | Violated five times, used zero times. The reason is served better by "the core grows by reviewed grammar edits", which is what actually happens. |
+| Frozen core, growth by extension | v5 §9, core_dsl #2 | no dialect forks | Intended and reserved, but the rule as stated has been bypassed by every growth event. Narrow it to what an extension can actually hold (generator types, context sources, annotation namespaces) and state that scope kinds and walk grammar grow by reviewed core edits, which is what happens. |
 | Review is a tier (`reviews:`) | core_dsl #9, platform_content #25 | context must be load-checked equal | If the review is derived from the tier, equality holds by construction and the check is unnecessary. Reason dissolves. |
-| Named predicates, four slots | core_dsl #12, v5 §3.4 | avoid double parsing | Nothing evaluates three slots; the fourth is unused. Reason has no object. |
+| Named predicates, four slots | core_dsl #12, v5 §3.4 | avoid double parsing | Reserved: `completion` is needed by flows; the other three slots have no consumer planned that the record names. Keep the language, mark each slot's status, and let the flow work re-settle `completion`'s form. |
 | Closed generator set | v5 §6, §9 | closed vocabularies | Survives; the set shrinks to what has an executor. |
 | One `types/<name>.yaml` with inline `statuses:` | core_dsl #14 | position where it is read, no `after:` | Survives and is the precedent for doing the same on the chain axis. |
 | Fork, never layer | v5 §3.1, core_dsl #29 | git has a merge story, Hex does not | Survives untouched. |
@@ -233,28 +262,44 @@ not what an author writes.
 premise needs sharpening before it is useful. The doc contains at
 least five kinds of text (grammar, author-facing rule, mechanism
 narration, rationale/history, worked example), and the split that
-matters most is not among them: it is between constructs that have a
-reader and constructs that do not (§2.3). A protocol/implementation
-cut applied to the text will faithfully preserve, on the "protocol"
-side, a flow grammar nothing runs and a predicate language nothing
-evaluates. So classify each *construct* (not each paragraph) on
-three axes: used by the default bundle; read by the engine; carries
-a rule with a recorded reason. Reports D and E give the first two
-columns for every construct today. Then classify the *text* by which
-construct it serves. Also rename the split: "protocol" is taken in
-this repo; use **contract** (what a bundle must satisfy to load and
-run, the loader's rules) versus **mechanism** (how the plane
+matters most is not among them: it is between constructs the engine
+reads, constructs it is intended to read, and constructs nobody has
+claimed (§2.3). A protocol/implementation cut applied to the text
+will present, on the "protocol" side, a flow grammar and a predicate
+language in the same voice as the walks the engine runs on, and a
+reader cannot tell which rules bind today. So classify each
+*construct* (not each paragraph) as **live**, **reserved** or
+**questioned**, using three columns: used by the default bundle; read
+by the engine; intended by the record or the author. Reports D and E
+give the first two columns for every construct today; the third is
+the author's, with the record's "Initial vs target" sections and
+`build-plan.md` as the starting point. Then classify the *text* by
+which construct it serves. Also rename the split: "protocol" is taken
+in this repo; use **contract** (what a bundle must satisfy to load
+and run, the loader's rules) versus **mechanism** (how the plane
 processes a loaded bundle).
 
+**New step — the seam pass.** With the construct list in hand, ask of
+each flexibility the DSL offers: what does it let a bundle author
+vary; what does that cost in loader, engine, doc and bundle; what
+constraint does it place on authors; is that constraint the engine's
+requirement or the default bundle's habit; and is this the right
+level to impose it (grammar, XSD, prompt, engine code, binding)?
+This is the pass that decides whether the code/data seam is drawn in
+the right place, and it precedes the target grammar because it can
+move constructs across the seam in both directions. `seam-pass.md`
+is a first pass over the sixteen flexibilities the evidence names; it
+is a starting table for that step, not its conclusion.
+
 **Step 3 — evaluate how much simplifies away by isolating
-implementation.** The honest answer is: less than by cutting dead
-surface. Isolating mechanism from the doc removes ~770 lines of
-prose and changes no grammar. Removing what has no reader removes
-roughly a third of the grammar, a quarter of §13's checks (report C
-part 2 lists which checks vanish with which construct), the 317-line
-predicate parser, the flow loader, the extension registry, and the
-five planning tiers plus their edge and predicates from the bundle.
-Do that evaluation first; it is mechanical given the matrix.
+implementation.** The honest answer is: less than by the seam pass
+and the boilerplate cut. Isolating mechanism from the doc removes
+~770 lines of prose and changes no grammar. What removes grammar is
+the seam pass (constraints that turn out to be the default's habits,
+or that belong in an XSD or a default rather than a declaration) and
+the census (keys that take one value everywhere). What removes
+bundle lines is derivation of review tiers and defaults for the
+constant keys. Reserved constructs shrink in shape, not in number.
 
 **Step 4 — split into four or five shorter docs, contract and
 mechanism per bundle type.** Agree on the shape, disagree on the
@@ -328,18 +373,54 @@ or a bundle-level convention that every `llm` tier with a review
 prompt file has one). This reverses core_dsl #9 and platform_content
 #25 and dissolves their reason rather than contradicting it.
 
-### 4.3 Flows are a declared future and should leave v0
+### 4.3 Reserved constructs stay, marked, and shrink in shape
 
 Everything under `flows/`, the `cascade_visit` scope, the `synthesis`
 edge type, the five `*_plan` tiers, the 21-instance `plan_target`
 edge, `predicates.yaml` and the `completion` slot exist for a
-capability the engine does not have (report E: no consumer for any
-of it; `cascade_visit` yields no candidates). Four of the five "core
-growth events" core_dsl #8 records were for this. Removing it from
-the v0 grammar changes no runtime behaviour. The record does not
-forbid flows; it should say they are not in v0 and re-admit them
-with the engine work that needs them, designed against that engine
-rather than ahead of it.
+capability the engine does not have yet (report E: no consumer for
+any of it; `cascade_visit` yields no candidates). Flows are MVP
+regardless: without them nothing modifies code after scaffolding.
+The same holds, with less urgency, for the five generator types
+without executors, `enforcement:`, gate `escalation`, environment
+promotion, and the extension registry. Tickets will be cut against
+these, and implementers building neighbouring code need to see them
+to hedge. So they stay in the grammar.
+
+What changes is how they are carried:
+
+- **Marked.** Each construct in the contract doc carries a status:
+  live (the engine reads it; the rule names its consumer) or reserved
+  (intended; the rule names the intended consumer and the record
+  entry or build-plan phase that owns it). A reader building against
+  a reserved construct knows its exact form may move when its
+  consumer lands; a reader auditing the loader knows which checks
+  have a runtime counterpart.
+- **Stated by intent as well as grammar.** For a reserved construct
+  the intent is the durable part and the grammar is provisional.
+  The doc says what the construct is for and what the consumer will
+  need from it, then gives the current grammar. That is what a
+  ticket needs to be cut from and what a hedge is against.
+- **Simplified in shape, not removed.** Five planning tiers of one
+  template, a 21-row edge that is a 5-row table, a predicate file
+  with one form: the same intent in a fraction of the declaration is
+  a simplification that survives the consumer landing. The flows
+  entry in `seam-pass.md` asks whether the planning-tier shape is the engine's
+  requirement or the default's habit; that question is worth
+  settling before the flow engine is written, not after.
+- **Re-settled by the consumer's ticket.** The ticket that builds a
+  reserved construct's consumer owns the final grammar and amends the
+  contract doc in the same change. The record's "the tree will be
+  made to match the record" rule holds; what is added is that a
+  reserved rule announces it is ahead of the tree.
+
+The `.synthesis` projection is the precedent for the other
+direction: retired because no consumer existed and none was
+intended (core_dsl #42). "Questioned" constructs are the ones with
+neither a reader nor a recorded intent, and there are few:
+`scope_filter`, `cardinality.when`, `per_source`, edge `constraint`,
+`consistency`, the `name:` on a status entry, `lifetime: per_ticket`.
+Each needs one sentence from the author: intended, or not.
 
 ### 4.4 Prefer declared fields to narrated derivations on the workflow axis
 
@@ -355,15 +436,21 @@ consistency is cheaper to document, cheaper to read, and greppable.
 Revisit each derivation in core_dsl #17–#27 with that trade in view.
 Not all should flip; the ones whose derivation is a paragraph should.
 
-### 4.5 The extension registry is a seam nobody uses
+### 4.5 The extension registry is a seam nobody has used yet
 
 Dialects, the registry, the behaviour, `enforcement:`, `ticket.*`
 sources: fully built, zero registrations, and the doctrine it serves
-(core_dsl #2, frozen core) has been overridden by every growth event.
-Retire it from v0 and state the rule that actually holds: the core
-grows by a reviewed edit to the contract doc and the loader, in one
-change. That is simpler, true, and what the record's own "grammar
-changes are reviewed edits here first" line already says.
+(core_dsl #2, frozen core) has been bypassed by every growth event.
+It is reserved and stays. What needs correcting is the doctrine's
+scope: an extension can hold a generator type, a context source, an
+annotation namespace or an enforcement profile, because each is a
+thing with an executor behind it. It cannot hold a scope kind, a
+walk form or an edge locator, because those are grammar the core
+parser must know. State the rule that holds: the core grammar grows
+by a reviewed edit to the contract doc and the loader in one change;
+executors grow by extension. That is simpler, true, and what the
+record's own "grammar changes are reviewed edits here first" line
+already says.
 
 ### 4.6 Every rule stated once, with an id; §13 disappears
 
@@ -391,10 +478,13 @@ first list) is small, coherent and genuinely what the engine runs on;
 it is the walks, scopes, fields and the status sequence. That is
 "pipeline as data" in the sense v5 §7.10 already decided: shape in
 data, semantics in code. What made it feel like a DSL rather than
-data is the parts that tried to be a program: predicates, flows, the
-extension registry, and the derivation prose. Remove those and what
-remains is a graph file plus one small expression language (walks)
-that has real semantics. The condition is the one v5 §8 states:
+data is the parts that lean toward being a program (predicates,
+derivation rules) and the parts described as running before they
+run (flows, the registry). Mark the second group, shrink the first
+to what a consumer needs, and what remains is a graph file plus one
+small expression language (walks) that has real semantics, with a
+clearly fenced reserved section behind it. The condition is the one
+v5 §8 states:
 customization is the premise, and "if customizing requires learning
 YAML, that premise is half-delivered". The acceptance test for the
 whole effort is therefore not the grammar's size but whether a
@@ -421,44 +511,66 @@ inventory and diffs it against the contract doc).
    produced the current state.
 1. **Measure.** Done; `evidence/`. Refresh the numbers only if the
    tree moves.
-2. **Classify constructs, against the code.** One matrix: construct ×
-   {used by default bundle, read by engine, rule has a reason}.
-   Reports D and E are the first two columns. Everything no/no is
-   cut. Everything used/unread is a declared future: out of v0.
-   Everything unused/read stays only with an argument.
-3. **Decide the target grammar by prototype.** Hand-write
+2. **Classify constructs, against the code and the intent.** One
+   matrix: construct × {used by default bundle, read by engine,
+   intended}. Reports D and E are the first two columns; the third
+   is the author's. Read + anything = **live**. Unread + intended =
+   **reserved**: stays, marked, intent stated, shape simplified,
+   grammar re-settled by its consumer's ticket. Unread + unintended
+   = **questioned**: one sentence from the author decides.
+3. **Run the seam pass.** For each flexibility (start from
+   `seam-pass.md`): what it enables, what it costs, what it constrains,
+   whether the constraint is the engine's or the default's, and
+   whether this is the level to impose it. Outputs: constructs that
+   move across the seam (into XSD, into a default, into engine code,
+   or out of engine code into the grammar), and constraints that are
+   the default bundle's habits and should be dropped from the
+   contract. This is the step that decides whether the seam is
+   drawn in the right place.
+4. **Decide the target grammar by prototype.** Hand-write
    `bundles/default` as a single chain file and `bundles/default-flow`
-   as a single workflow file in the candidate grammar. Iterate on the
+   as a single workflow file in the candidate grammar, reserved
+   constructs included in their simplified shape. Iterate on the
    grammar until the files read well. This is where §4.2, §4.4 and
    the review-derivation question are settled, by looking at the
    result rather than by argument.
-4. **Write the contract docs fresh.** From the inventory and the
-   prototype, not from the existing text: `docs/dsl/bundle.md`
-   (layout, `catapult.yaml`, manifest, fork rule, deliberately absent),
-   `docs/dsl/chain.md`, `docs/dsl/workflow.md`, each with rule ids and
-   a `.reasons.md` sibling; examples by path into the bundle; no
-   checklist section. Target sizes: a few hundred lines each. Retire
+5. **Write the contract docs fresh.** From the inventory, the seam
+   pass and the prototype, not from the existing text: `docs/dsl/
+   bundle.md` (layout, `catapult.yaml`, manifest, fork rule,
+   deliberately absent), `docs/dsl/chain.md`, `docs/dsl/workflow.md`,
+   each with rule ids, a live/reserved marker per construct, the
+   intended consumer named on every reserved rule, and a `.reasons
+   .md` sibling; examples by path into the bundle; no checklist
+   section. Target sizes: a few hundred lines each. Retire
    `docs/dsl-syntax.md` and the `dsl-syntax.md` citation shorthand
    in the same change.
-5. **Amend the record.** v5 §6, §9, §3.4, §7.19 and the core_dsl and
+6. **Amend the record.** v5 §6, §9, §3.4, §7.19 and the core_dsl and
    platform_content standing decisions §2.4 names; add to `non-goals
-   .md` what was removed and why. Move mechanism narration from the
-   old spec into `systems/*.md` where it is not already there.
-6. **Implement, via the pipeline.** Loader: remove the parsers and
-   checks for cut constructs (no runtime behaviour changes, since
-   nothing read them), add the single-file loader. Bundle: replace
-   the tree with the prototype. Add the drift guard. Then the
-   ordinary coherence pass.
-7. **Hold to the acceptance test.** The default chain file is
-   readable in one sitting by someone who has not read the engine.
+   .md` anything the seam pass removed and why. Move mechanism
+   narration from the old spec into `systems/*.md` where it is not
+   already there. Give each reserved construct a home in the relevant
+   system doc's "Initial vs target" section so the build plan can
+   cut tickets against it.
+7. **Implement, via the pipeline.** Loader: remove parsers and checks
+   only for questioned constructs the author retired and for
+   constraints the seam pass moved elsewhere; keep reserved parsing;
+   add the single-file loader. Bundle: replace the tree with the
+   prototype. Add the drift guard. Then the ordinary coherence pass.
+8. **Hold to the acceptance test.** The default chain file is
+   readable in one sitting by someone who has not read the engine,
+   and a reader can tell from the contract doc alone which rules
+   bind today.
 
 ## 6. Decisions only the author can make
 
-- Whether flows leave v0 (§4.3) or stay as reserved grammar with no
-  loader support. Recommendation: leave.
+- The "intended" column of the construct matrix (§5 step 2), and one
+  sentence each on the questioned constructs §4.3 lists.
+- Whether the planning-tier shape for flows is the engine's
+  requirement or the default's habit (`seam-pass.md`, flows entry).
+  Settling it before the flow engine is written is cheaper than
+  after.
 - Whether reviews become a tier property (§4.2). Recommendation: yes.
 - Which workflow derivations flip to declared fields (§4.4).
   Recommendation: decide from the prototype, not in the abstract.
-- Whether the extension registry is retired or kept dormant (§4.5).
-  Recommendation: retire; re-admit with the first real extension.
+- The narrowed scope of the extension doctrine (§4.5).
 - The acceptance number for §4.8 (lines, or minutes to read).
