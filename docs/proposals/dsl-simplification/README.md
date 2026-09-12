@@ -576,8 +576,15 @@ inventory and diffs it against the contract doc).
 
 ## 6. Decisions only the author can make
 
-- The "intended" column of the construct matrix (§5 step 2), and one
-  sentence each on the questioned constructs §4.3 lists.
+- The "intended" column of the construct matrix (§5 step 2). The
+  questioned constructs are resolved in `questioned-rows.md` against
+  v4 and the author's answers; two corrections to the record fall
+  out of it (the "depth 0 is the rule" sentence, and `synthesis`
+  naming a join target rather than v4's aggregation).
+- Where reconciliation lives, and whether the ticket skeleton
+  restates the chain's fan-out (`seam-pass.md` entry 21): three
+  placements framed, the third deriving the generation → reconcile →
+  merge relation from the chain's fan-out declarations.
 - Whether the planning-tier shape for flows is the engine's
   requirement or the default's habit (`seam-pass.md`, flows entry).
   Settling it before the flow engine is written is cheaper than

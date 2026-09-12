@@ -50,7 +50,7 @@ tickets.md`).
 | `scope: child_of(X)` | 11 | ReadyScopes, EdgeLocator | ORC-247: X single-sourced (`core_dsl#45` on that branch) | live | seam 2 |
 | `scope: reference` | 1 (`ref`) | settled unconditionally, never drained | v5 §4.5 refs as the escape hatch | live, redundant with `generator: reference` | seam 2: fold into the generator |
 | `scope: cascade_visit` | 5 (plan tiers) | candidates always `[]` | flows, v5 §7 up/down walks; core_dsl#8 | reserved | consumer: flow engine (engine#69 target "flow instances") |
-| `scope_filter:` | 0 | evaluated by ReadyScopes → PredicateEvaluator | none found | questioned | the only evaluated predicate slot, and nothing uses it |
+| `scope_filter:` | 0 | evaluated by ReadyScopes → PredicateEvaluator | v4's three uses all served mechanisms v5 removed | retired | `questioned-rows.md`; the evaluator hook goes with it |
 | `identity: id \| alias \| name \| slug` | `id` 34 (→ `alias` 4, `slug` 1 under ORC-246) | Extraction `identity_field/2` | ORC-246 | live | seam 1: never default it |
 | `fields: draft.<path>` | 21 files | Extraction at commit | — | live | |
 | `fields: mint.<name>` | 11 files | Extraction `mints/7` | ORC-236 | live | |
@@ -62,18 +62,18 @@ tickets.md`).
 | `draft.root_tag` | 22 | CommitPath `validate_draft`, `generation_tier?` | — | live | derivable from tier name in 17/22 |
 | `draft.grammar` | 22 | CommitPath, DeclaredInSchema | — | live | derivable in 19/22 |
 | `generator: llm` | 39 | Sweeper dispatch | — | live | |
-| `generator: synthesis` | 10 | join-target gating (`draft` nil) | — | live | |
+| `generator: synthesis` | 10 | join-target gating (`draft` nil) | v5 §5.1 reused v4's aggregation name for join targets | live, rename | `questioned-rows.md`: call it `join` (or no generator); v4-style aggregation deferred until asked |
 | `generator: supplied` + `source: input.<role>` | 1 | Sweeper `mint_supplied` | core_dsl#30, #41 | live | seam 3: merge `reference` into it |
 | `generator: reference` | 1 | ReadyScopes settles it; no executor | v5 §4.5 | live-ish | seam 3 |
 | `generator: external` + `package:` / `options:` | 0 | no executor | v5 §3.2 (registry-resolved), registry#7 target Phase 7, v5 §9 | reserved | consumer: registry service, Phase 7 |
 | `generator: template` + `template:` | 0 | no executor | v5 §9 names it as a new generator type; nothing else | reserved, weak | consumer unnamed; **author** |
-| `generator: git_commit` + `code_repo_url:` / `path_from_handle:` | 0 | no executor | none found in v5 or systems | questioned | v4 carry-over? **author** |
-| `generator: webhook` | 0 | no executor | none found | questioned | **author** |
+| `generator: git_commit` + `code_repo_url:` / `path_from_handle:` | 0 | no executor | v4 A.10.4; author: repo commits, history and events as context and flow triggers | reserved | `questioned-rows.md`; consumer: flow engine / host port |
+| `generator: webhook` | 0 | no executor | v4 A.1.7; same author intent | reserved | `questioned-rows.md` |
 | `prompt:` | 39 | ContextAssembly (Solid) | — | live | existence checked at dispatch, not load |
 | `executor: {effort:}` | 10 (all `max`) | **no consumer** | v5 §7 "executor profile (model, effort, harness requirements)"; generation#50 target "executor-profile routing" | reserved | consumer: generation, target; default `max` meanwhile |
 | `context:` walks | 39 files, 165 entries | ReadyScopes, Staleness, ContextAssembly | — | live | see 1.5 |
 | `produces: {owner: self.parent, kind, authored}` | 6 files, 24 rows | Extraction `produces/3`, Reducer | — | live | seam 9: map form, owner implied |
-| `produces: {owner: self}` | 0 | validated, **dropped at runtime** (`:self_not_yet_known`) | none found | questioned | a load-legal form the engine discards; **author**: intended or a defect |
+| `produces: {owner: self}` | 0 | validated, **dropped at runtime** (`:self_not_yet_known`) | never in v4; every v4 `produces` is `self.parent` | retired | `questioned-rows.md` |
 | `delivery: {phase, agent_step}` | 39 (fully determined) | **no consumer**; the sweeper dispatches every ready tier project-wide with no reference to any ticket's position (`sweeper.ex:144`) | v5 §7 delivery annotations; delivery#123 target Phase 7 "delivery-DSL extension registered with core_dsl"; `dsl-syntax.md` 3013–3016, 3145 (gate enforcement is Phase 7); ORC-179 (position per tier deferred) | reserved | the cross-axis binding point, unidirectional (tiers name statuses): the Phase 7 consumer is dispatch gated by the ticket's resting position. `phase` is closed to `SystemStatus.kinds()` at `chain.ex:736`; seam 20 argues for freeing the names |
 | `enforcement: [...]` | 1 (`[]`) | **cannot load** (empty registry) | v5 §6 enforcement profiles (`codegen: restricted`, `purity: replay_floor`); v5 §2.9 | reserved | consumer: delivery Phase 7 (child reconcile gate) and the purity audit |
 | `reviews: <tier>` | 17 | ReadyScopes `ready_review`, ContextAssembly, CommitPath | core_dsl#9 | live | seam 10: derive |
@@ -95,12 +95,12 @@ tickets.md`).
 | `instances[]` | 6 files, 58 rows | Extraction, ReadyScopes | core_dsl#8 | live | |
 | `source_ref` / `target_ref` (`self`, `self.parent`, `fanout(e)`, `@attr`) | 6 (`@from`/`@to`) + `@ref` under ORC-247 | Extraction via EdgeLocator | ORC-236, core_dsl#37 | live | seam 5: convention could replace the keys |
 | `cardinality.{source,target}.{min,max}` | 62 rows | GraphConstraints evaluates, **no production caller**; non-blocking by design | v5 §7 "standard cardinality-many gate" (validation readiness), §13 `min` once `drained?` | reserved, weak | seam 6: every shipped value is an XSD fact or a type tautology; **author** |
-| `cardinality.when` | 0 | not evaluated | none found | questioned | **author** |
-| `cardinality.per_source` | 0 | stored | none found | questioned | **author** |
+| `cardinality.when` | 0 | not evaluated | v4 bundle §4.1 `has_foundation_child`; v4 A.2.8 rejects the commit with a typed error | reserved | consumer: projection-time content invariants; `questioned-rows.md` |
+| `cardinality.per_source` | 0 | stored | named once in v4, never used | retired | `questioned-rows.md` |
 | `graph_constraint: [acyclic, no_self_loop, tree]` | 1 | GraphConstraints, no caller; load checks type-level acyclicity | readiness needs dependency acyclic | reserved | seam 6: make it a rule of the type |
 | `consistency: eventual \| transactional` | 4 (all `eventual`) | stored, never read | v5 §2.6 (transactional edges handle the transaction version) | reserved | consumer: comparch grammar / codegen, Phase unnamed |
 | `navigation: true` | 1 | load-only (walk ban) | v5 §4.3 nav edges | live (load-only) | |
-| `constraint:` predicate | 0 | not evaluated | none found | questioned | **author** |
+| `constraint:` predicate | 0 | not evaluated | v4: domain/presentational endpoint condition, removed with that split | retired | sibling scoping is instance placement; `questioned-rows.md` |
 
 ### 1.4 Flows (`flows/<flow>/flow.yaml`)
 
@@ -138,9 +138,9 @@ tickets.md`).
 | Construct | Bundle | Engine | Intent | Class | Note |
 |---|---|---|---|---|---|
 | `predicates.yaml` named predicates | 5 | `Chain.resolve_predicate/2` from ReadyScopes | core_dsl#12 | live as plumbing | |
-| slot `scope_filter` | 0 | evaluated | none found | questioned | |
-| slot `cardinality.when` | 0 | not evaluated | none found | questioned | |
-| slot edge `constraint` | 0 | not evaluated | none found | questioned | |
+| slot `scope_filter` | 0 | evaluated | v4 needs removed | retired | |
+| slot `cardinality.when` | 0 | not evaluated | v4 §4.1 invariant | reserved | |
+| slot edge `constraint` | 0 | not evaluated | v4 domain/presentational only | retired | |
 | slot flow `completion` | 5 | not evaluated | flows | reserved | |
 | families: comparison, boolean, `has_edge`/`count`, `exists`, `all`/`any`, `reaches` | `all(... -> resolved)` only | PredicateEvaluator implements all; only reachable via `scope_filter` | v5 §3.4 closed predicate language, core_dsl#3 | reserved with the slots | the language survives only as long as one slot does |
 
@@ -172,7 +172,7 @@ tickets.md`).
 | entry `review:` | 5 | Sequences, DocumentReviewLive | — | live | |
 | entry `environment:` | 2 | **dropped by both Sequences** (`to_position`/`to_step` → nil) | v5 §7.19 environments; delivery Phase 7 | reserved, with a live defect | an author writes it and it vanishes; mark in the contract |
 | sub-array grouping | 3 | `Type.namespaced_positions`, `group_at`, `anchor_index`; `approve_leaves_group?` | core_dsl#17 | live | seam 16: prototype flat |
-| `name:` on a status entry | 0 | `Type` namespacing reads it | core_dsl#26 | live, unused | |
+| `name:` on a status entry | 0 | `Type` namespacing reads it | core_dsl#26; author: needed once several roles share review duties; reused by seam 20 | live | |
 | `<anchor>.<name>` references | 0 | Sequences resolve | core_dsl#26, ORC-171 | live, unused | dissolves with sub-arrays if seam 16 goes flat |
 | `flow:` on a population anchor | 10 | ContainerLifecycle `mint_child`, `nests?` | core_dsl#14 | live | |
 | `blocks:` | 1 | ContainerQueues `held_or_resolved` | core_dsl#27 | live | |
@@ -194,12 +194,12 @@ tickets.md`).
 |---|---|---|---|---|---|
 | `review` (gate name) | 5 | Sequences, DocumentReviewLive | — | live | |
 | `role` | 5 | `Positions.role/2` display only; `ApproveGate` does not check it | v5 §7 role bindings, `role_holders:` | live (display) / reserved (enforcement) | |
-| gate `depth` | 5 (all `0`) | **no consumer** | doc: "0 is the rule for a gate" | questioned | if 0 is the rule, the key has no value space; **author** |
+| gate `depth` | 5 (all `0`) | **no consumer** | v5 §7.19; author: scaffolding reviews the whole tree, a feature the system and component levels | live (key), reserved (enforcement, Phase 7) | `dsl-syntax.md` 2349's "0 is the rule" is wrong and goes; `questioned-rows.md` |
 | `throwback` | 5 | `Workflow.throwback_default/3`, DocumentReviewLive | core_dsl#19 | live | |
 | `escalation` | 5 (all `author`) | **no consumer** | v5 §7 escalation rules (bounce-twice → author) | reserved | consumer: delivery Phase 7; one value today |
 | `environment` name | 3 | existence check only | v5 §7.19 | reserved | |
 | `promote_from` | 2 | **no consumer** | v5 §7.19 promotion order | reserved | |
-| `lifetime: persistent \| per_ticket` | 3 / 0 | **no consumer** | v5 §7.19 | reserved | `per_ticket` never used; **author**: is it intended? |
+| `lifetime: persistent \| per_ticket` | 3 / 0 | **no consumer** | v5 §7.19; author: PR-specific environments, semantics free | reserved | `questioned-rows.md` |
 | environment `depth` | 3 (all `0`) | **no consumer** | v5 §7.19 | reserved | same question as gate depth |
 
 ## 3. Tally and the author's column
@@ -209,11 +209,14 @@ with their construct):
 
 | Class | Chain | Workflow | Total |
 |---|---|---|---|
-| live | 53 | 18 | 71 |
-| reserved | 28 | 9 | 37 |
-| questioned | 10 | 1 | 11 |
-| retired / out of scope | 3 | 0 | 3 |
+| live | 53 | 19 | 72 |
+| reserved | 32 | 9 | 41 |
+| questioned | 0 | 0 | 0 |
+| retired / out of scope | 9 | 0 | 9 |
 | rows | 94 | 28 | 122 |
+
+(After `questioned-rows.md`: the eleven questioned rows resolved to
+five retired, four reserved, two live.)
 
 The reserved rows group into five intended consumers, which is what
 the contract doc's markers should name:
@@ -237,22 +240,13 @@ the contract doc's markers should name:
    `graph_constraint` (readiness gating, weak), `generator: template`
    (named once in v5 §9, no consumer).
 
-The questioned rows, each needing one sentence (intended and for
-what, or not):
-
-| Construct | What the tree says |
-|---|---|
-| `scope_filter` | the only evaluated predicate slot; no bundle uses it; no record intent |
-| `cardinality.when` | never evaluated; no intent |
-| `cardinality.per_source` | stored; no intent |
-| edge `constraint` | never evaluated; no intent |
-| `generator: git_commit` (+ `code_repo_url`, `path_from_handle`) | no executor; not in v5; likely v4 carry-over |
-| `generator: webhook` | no executor; not in v5 |
-| `produces: {owner: self}` | loads, then discarded at runtime; either intended or a defect |
-| gate `depth` | doc says 0 is the rule; five files restate it |
-| `lifetime: per_ticket` | value never used; the key is reserved with environments |
-| `.synthesis` projection | already retired (core_dsl#42); keep the refusal or drop it |
-| `name:` on a status entry / `<anchor>.<name>` | live in code, zero uses; stands or falls with sub-arrays (seam 16) |
+The eleven questioned rows are resolved in `questioned-rows.md`,
+against the v4 corpus and the author's answers: five retired
+(`scope_filter`, `per_source`, edge `constraint`, `produces: {owner:
+self}`, the `.synthesis` projection), four reserved with their intent
+now recorded (`cardinality.when`, `git_commit`, `webhook`,
+`lifetime: per_ticket`), two live (gate `depth`, `name:` on a
+status). The class cells above carry the result.
 
 Three rows the tally counts as reserved but the seam pass argues
 should move rather than wait: `cardinality` (to the XSD, seam 6),

@@ -21,21 +21,22 @@ or the author can settle.
 | 3 | Generator types | 3 live, 5 reserved | engine | merge `reference` into `supplied`; mark the rest |
 | 4 | Typed edges bound to body paths | live (+`synthesis` reserved) | engine | instance is the unit; drop inline/instances duality |
 | 5 | Endpoint locators | live | engine (need), default (form) | convention over declaration for `@from`/`@to` |
-| 6 | Edge invariants: cardinality, graph_constraint, consistency, navigation, constraint | none read at runtime | default / XSD | cardinality to the XSD; acyclicity a per-type rule; question the rest |
+| 6 | Edge invariants: cardinality, graph_constraint, consistency, navigation, constraint | none read at runtime | default / XSD, except `when` (engine, reserved) | plain min/max to the XSD; acyclicity a per-type rule; `when` reserved for content invariants (v4 §4.1); `per_source` and `constraint` retire |
 | 7 | Context walks | live | engine | keep intact; it is the DSL's core. Variable naming is grammar (ORC-247): try `context:` as a name → walk map |
 | 8 | `handle:` narrowing | live | default (opinion) | default to all fields; declare only to narrow |
 | 9 | Fragments / `produces:` / vocabulary | live | engine (mechanism), default (owner, vocab) | map form; owner implied; vocab derived |
 | 10 | Review tiers | live | default (encoding) | derive from the tier |
-| 11 | Predicate language, four slots | 1 slot live (unused), 1 reserved, 2 questioned | none demonstrated | keep for `completion`; the used form is an engine invariant |
+| 11 | Predicate language, four slots | 2 slots retired, 2 reserved | v4 | keep for `cardinality.when` and `completion`; `scope_filter` and `constraint` retire |
 | 12 | Flows | reserved, MVP | engine (need), default (shape) | declare the varying part; derive the planning tier |
 | 13 | `delivery:` / `executor:` / `enforcement:` | delivery: live binding point; executor: live default; enforcement: reserved | engine / binding | keep delivery with a default; default executor; mark enforcement |
 | 14 | Extension registry and dialects | reserved | platform | narrow the doctrine to executors |
 | 15 | Workflow types, ordered statuses, skeletons, fixed kinds | live | mixed | name the runtime module behind each check; split authorable from plane kinds |
-| 16 | Sub-arrays, namespaces, derived throwback and gate scope | live | engine (need), default (encoding) | prototype flat + explicit; see what is lost |
-| 17 | Gates and environments | gates live; environments reserved with a live defect | mixed | gate = role + throwback; mark environments; fix or mark the sequence drop |
+| 16 | Sub-arrays, namespaces, derived throwback and gate scope | live | engine | keep (author); the skeleton is entry 21's question |
+| 17 | Gates and environments | gates live; environments reserved with a live defect | mixed | gate = role + depth + throwback; drop the "depth 0 is the rule" sentence; mark environments; fix or mark the sequence drop |
 | 18 | Two axes, no cross-reference | live | platform | keep; document the vocabulary leak as the trade |
 | 19 | XSD vs DSL for structural facts | live | — | paths stay in the DSL; cardinality moves to the XSD; evaluate `xs:appinfo` |
 | 20 | Where human gates live; the fixed status-name set | live grammar, reserved enforcement | platform (name set), engine (Phase 7 consumer) | keep the direction (tiers name statuses); free the names by the depth rule; retire the three reserved kinds |
+| 21 | Where reconciliation lives; whether the ticket skeleton restates the chain's fan-out | live, open | engine (fan-in is real), workflow (skeleton encodes it) | author's call; three placements framed |
 
 ## Entries
 
@@ -120,7 +121,13 @@ or the author can settle.
 - **Recommendation:** merge `reference` into `supplied` (one
   externally-sourced kind with a `source:`); mark the four reserved
   kinds with their intended consumer; move option keys into the
-  grammar table.
+  grammar table. Author's intent for `git_commit`/`webhook`, recorded
+  in `questioned-rows.md`: other sources act as generators so that
+  repository commits, history and events can be context and flow
+  triggers; none built in v0. Also rename the join-target generator:
+  v5 reused v4's `synthesis` (a computed aggregation body) for a
+  minted node with no body; call it `join` or let it be the absence
+  of a generator, which v4 A.1.1 already allowed.
 
 ### 4. Typed named edges bound to body paths
 
@@ -193,10 +200,18 @@ or the author can settle.
   already is; type invariants belong on the type; the rest is
   questioned.
 - **Status:** none live at runtime.
-- **Recommendation:** drop `cardinality` from the grammar and rely
-  on the XSD; make acyclicity a rule of the `dependency` type; keep
-  `navigation` as a type or flag since it has a reader; question
-  `consistency`, `constraint`, `cardinality.when`, `per_source`.
+- **Recommendation, corrected against v4** (`questioned-rows.md`):
+  the 62 plain `min`/`max` rows still move to the XSD and acyclicity
+  becomes a rule of the `dependency` type. But `cardinality.when` is
+  not an XSD fact: v4's default bundle used it for "foundation at
+  every level" (`count(decomposed_by(child) where child.is_foundation
+  == true) >= 1`), a cross-node invariant on what the agent minted,
+  rejected at commit with a typed error (v4 A.2.8). That mechanism is
+  reserved with that consumer, and the predicate language survives
+  for it. `per_source` and edge `constraint` retire (v4 never used
+  the first; the second served the removed domain/presentational
+  split). `navigation` stays since it has a reader; `consistency`
+  stays reserved (v5 §2.6).
 
 ### 7. Context walks
 
@@ -269,7 +284,8 @@ or the author can settle.
 - **Right level:** fine, over-declared.
 - **Status:** live.
 - **Recommendation:** `produces: {techspec: draft.technical-
-  specification, ...}` map form; owner implied (parent); vocabulary
+  specification, ...}` map form; owner implied (parent; `owner: self`
+  never existed in v4 and retires, `questioned-rows.md`); vocabulary
   derived from the union of `produces` keys; `handle.fragments`
   derived. Also the doc's fragments section (§5) is missing and its
   body is orphaned in §4.1 (A part 4); the rewrite gives it a home.
@@ -308,11 +324,16 @@ or the author can settle.
   bundle needs a *varying* condition. None does today.
 - **Status:** `scope_filter` live-unused; `completion` reserved with
   flows; `cardinality.when` and `constraint` questioned.
-- **Recommendation:** keep the language for `completion`, marked
-  reserved; when the flow engine lands, check whether completion is
-  a fixed rule or needs a predicate at all. The author decides the
-  two questioned slots. If all four end up fixed rules, the parser
-  goes with them.
+- **Recommendation, after `questioned-rows.md`:** `scope_filter` and
+  edge `constraint` retire (their v4 purposes were removed with the
+  mechanisms they served); `cardinality.when` is reserved for
+  projection-time content invariants; `completion` is reserved with
+  flows. v4 A.5.5 already had the platform detect flow completion
+  itself ("when the flow's own tiers' ready set is empty and every
+  base-schema scope the flow staled has been re-approved") with the
+  predicate as the final check, so the flow engine may find it needs
+  no predicate. The language stays for the two reserved slots; if
+  both become fixed rules, the parser goes with them.
 
 ### 12. Flows
 
@@ -437,11 +458,14 @@ or the author can settle.
 - **Right level:** an explicit field is one line and greppable; a
   derivation is a section. README §4.4.
 - **Status:** live.
-- **Recommendation:** prototype a flat `statuses:` array where every
-  gate declares `throwback:` and see what is lost. Known losses:
-  "approve leaves group" and position-derived gate scope (§15.11).
-  If those need a group, keep the sub-array and drop the
-  derivations; if not, drop both.
+- **Recommendation, per the author** (`questioned-rows.md`): keep
+  sub-arrays. They give the default throwback (if the derived default
+  is never used, the default was chosen wrong; fix it rather than
+  remove it), scope how far ahead of a parent a child may get, scope
+  reconcile and merge behaviour, and are the board's visual grouping;
+  a `group:` label would need a consecutiveness check the array gives
+  for free. The "prototype flat" suggestion is withdrawn. What
+  remains open is the ticket *skeleton*, taken up in entry 21.
 
 ### 17. Gates and environments
 
@@ -460,10 +484,16 @@ or the author can settle.
 - **Right level:** yes.
 - **Status:** gates live; `escalation` reserved; environments
   reserved with a defect.
-- **Recommendation:** gate = `{role, throwback}`; drop gate `depth`
-  if 0 is the rule; mark `escalation` and environments reserved with
-  their consumers; either fix the sequence drop or mark it in the
-  contract so an author is not surprised.
+- **Recommendation, corrected** (`questioned-rows.md`): gate =
+  `{role, depth, throwback}`. Depth is wanted: scaffolding's gates
+  review the whole tree, a feature's review the system and component
+  levels and catch the rest through the reconciled branch. The
+  sentence "Depth 0 is the rule for a gate" (`dsl-syntax.md` 2349,
+  ORC-92) contradicts v5 §7.19 and the author's intent, and does not
+  survive the rewrite. `lifetime: per_ticket` is reserved for
+  PR-specific environments. Mark `escalation` and environments
+  reserved with their consumers; either fix the sequence drop or mark
+  it in the contract so an author is not surprised.
 
 ### 18. Two axes, no cross-reference
 
@@ -615,3 +645,66 @@ here.
   and v5 §7.18/§7.19 to match; carry ORC-179 as "which position each
   default tier names", which is the same decision with a better
   answer available. Author's call.
+
+### 21. Where reconciliation lives, and whether the ticket skeleton restates the chain's fan-out
+
+Raised by the author with the `synthesis` question
+(`questioned-rows.md`). Not answered here.
+
+- **The question.** Fan-out is a chain fact: a `fanout` edge mints
+  children from a parent's draft. Fan-in is real regardless of what
+  is declared: v5 4231 says "the mechanical merge and the reconcile
+  agent's own read happen regardless, so a bundle declaring none
+  still gets a real, structurally present fan-in for gate-scope and
+  staleness derivation". Today the relation generation → fan-out →
+  reconcile → merge is encoded in the *workflow* axis, as the ticket
+  skeleton's backbone (`pending`, generation-shaped, `checks`,
+  `reconcile`, `merge`, `deploy`, `terminal`) with `reconcile`
+  required before `merge` and gate scope derived from position
+  relative to `reconcile` (§15.11). The author reads those relations
+  as implicit requirements of the fan-out feature itself, and is
+  unsure the skeleton is the right home for them.
+- **Three placements.**
+  - *Workflow-side, as today.* `reconcile` is a fixed agent-balled,
+    review-shaped kind; the skeleton relates it to generation and
+    merge; the chain may optionally attach a synthesis tier at that
+    position (v5 4231). Cost: the skeleton rules are the largest
+    single block of workflow load checks (report C #26–#29) and the
+    relation they encode is derivable from the chain's `fanout`
+    declarations; every chain that fans out needs the same backbone.
+  - *Chain-side, as a synthesis node.* The v4 shape: a tier whose
+    generator aggregates its children (`fanin`), readiness "all
+    children approved" falling out of the ordinary cardinality-many
+    walk (v4 A.2.5). Reconciliation becomes a generation tier with a
+    prompt; the workflow gates on its position like any other. Cost:
+    reintroduces the aggregation generator v5 dropped; the mechanical
+    merge is not a document and would still need a plane step.
+  - *Folded into the fan-out declaration.* The `fanout` edge (or the
+    tier it mints) declares its own fan-in: the reconcile prompt, the
+    merge behaviour, what a gate after it reviews. The workflow's
+    skeleton then shrinks to what is genuinely lifecycle (`pending`,
+    `checks`, `deploy`, `terminal`, the container five) and the
+    generation → reconcile → merge relation is derived from the
+    chain, in the direction entry 20 fixed (chain declares, workflow
+    gates on positions). Cost: the chain bundle carries a piece of
+    what v5 §7.16 calls organization policy (that a reconcile happens
+    and how), though arguably fan-in is structure, not policy.
+- **What each does to the grammar.** The first keeps §15.1's
+  backbone and §15.11 as they are. The second adds a generator and
+  removes nothing. The third removes `reconcile` and `merge` from the
+  authorable kinds, removes the merge-after-reconcile and
+  position-derived-scope rules, and adds a fan-in block to the
+  fan-out declaration; sub-arrays stay (entry 16) for gates, child-
+  lead scoping and grouping.
+- **What the prototype can test.** Write the default's fan-out
+  points (`sysarch → comp`, `comparch → subcomp`, the two frontend
+  families) under the third placement and see whether
+  `default-flow`'s `feature.yaml` still needs a skeleton at all, or
+  only a sequence of gates and lifecycle states.
+- **Status:** live; the fan-in is real and enforced today through the
+  skeleton. The question is placement.
+- **Recommendation:** none yet; author's call. If the third placement
+  is taken, `dsl-syntax.md` §15.1's backbone, §15.11, v5 §7.5/§7.16
+  and core_dsl#21/#22 are amended in the same change, and the
+  `synthesis` edge type's remaining use (flows' `plan_target`) is
+  re-examined with flows.
