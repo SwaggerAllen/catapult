@@ -586,4 +586,11 @@ inventory and diffs it against the contract doc).
 - Which workflow derivations flip to declared fields (§4.4).
   Recommendation: decide from the prototype, not in the abstract.
 - The narrowed scope of the extension doctrine (§4.5).
+- Where human gates live, and whether the axis decoupling is worth
+  the granularity it costs (`seam-pass.md` entry 20): gates today sit
+  only at fixed kind boundaries, never between two arbitrary tiers,
+  so an objection at `feature_expansion` regenerates `journeys` and
+  `screens`. Four options are framed there; the prototype can write
+  three of them cheaply. This decides how much of the workflow axis
+  exists, so it precedes the workflow contract.
 - The acceptance number for §4.8 (lines, or minutes to read).

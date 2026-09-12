@@ -35,6 +35,7 @@ or the author can settle.
 | 17 | Gates and environments | gates live; environments reserved with a live defect | mixed | gate = role + throwback; mark environments; fix or mark the sequence drop |
 | 18 | Two axes, no cross-reference | live | platform | keep; document the vocabulary leak as the trade |
 | 19 | XSD vs DSL for structural facts | live | — | paths stay in the DSL; cardinality moves to the XSD; evaluate `xs:appinfo` |
+| 20 | Where human gates live; gate granularity vs. axis decoupling | live, open | platform | author's call after the prototype; four options framed |
 
 ## Entries
 
@@ -509,3 +510,95 @@ or the author can settle.
 - **Status:** live.
 - **Recommendation:** decide in the prototype; drop the cardinality
   duplication either way.
+
+### 20. Where human gates live, and the granularity the axis split buys
+
+Raised by the author during review of the matrix; not answered here.
+It is the largest open seam question in this table because it decides
+how much of the workflow axis exists at all.
+
+- **The question.** The two axes are decoupled by a fixed vocabulary
+  of status kinds the chain can bind to (`delivery.phase`) and the
+  workflow can gate on. A human gate can therefore sit only at a kind
+  boundary (`design` → `architecture` → `implementation`), never
+  between two arbitrary tiers. Siege allowed a human review after any
+  tier. Under the current model a workflow author who wants a look at
+  `feature_expansion` before `journeys` and `screens` run cannot say
+  so; the human sees all three, objects to the first, and staleness
+  regenerates the other two. Is that limitation worth the
+  decoupling?
+- **What the decoupling buys, in the record's words.** v5 §7.18: one
+  organization's workflow spans chains that differ by target stack;
+  welding workflow to chain "forces a fork of the workflow per
+  stack". `docs/dsl-syntax.md` §14 lists "any cross-axis reference"
+  as deliberately absent for that reason; core_dsl#11 refuses a named
+  pass selector for the same reason.
+- **What it costs, in the record's words.** v5 §7.18 itself: "the
+  fixed vocabulary has to be rich enough to carry the gates people
+  actually want", which is why `design`/`architecture`/
+  `implementation` were added to the fixed table (core_dsl#23, #27)
+  and why ORC-179 still has the default's tiers unassigned to kinds.
+  The coupling returns through the vocabulary; it is just paid in
+  platform-fixed names instead of tier names. Every workflow
+  construct with live engine semantics (entries 15–17) is about the
+  ticket lifecycle and containers; the gate-placement machinery
+  (sub-arrays, derived throwback, derived gate scope, entry 16) is
+  the part that cost ~900 doc lines, and it exists to place a small
+  number of gates at kind boundaries.
+- **Options the seam pass should weigh.**
+  - *A. Keep the split, keep growing the kinds.* The current path.
+    Cost: every new gate position anyone wants is a platform
+    vocabulary change, and the default's kind-per-tier choice
+    (ORC-179) is still pending.
+  - *B. Couple the axes: a workflow gate may name a tier.* Per-tier
+    human review becomes one line. Cost: a workflow bundle is
+    specific to a chain's tier names, so an organization with two
+    stacks forks its workflow. The fixed kinds shrink to the plane
+    states (`pending`, `checks`, `reconcile`, `merge`, `deploy`,
+    `terminal`) and the container five; `design`/`architecture`/
+    `implementation` disappear.
+  - *C. A small declared interface: the chain names its checkpoints.*
+    A chain declares checkpoint names between tiers (or a tier
+    declares which checkpoint it precedes); a workflow gates on
+    checkpoint names; the loader checks across axes that every
+    checkpoint a workflow names exists in the paired chain. Coupling
+    by a declared list rather than by tier names, so a workflow is
+    portable across chains that declare the same checkpoints. This
+    is `delivery.phase` inverted: bundle-defined names instead of
+    platform-fixed ones. It argues with §14's absent cross-axis
+    reference, and the argument is that the reference is to an
+    interface the chain publishes, not to its internals.
+  - *D. Split by time, not by axis: generation-time human gates are
+    the chain's; delivery-time gates are the workflow's.* A tier can
+    already declare an LLM review (`reviews:`, `critique`); a human
+    gate at the same position is the same shape with a different
+    reviewer. Put it on the tier (`gate: product-review`, or a
+    review tier with `reviewer: human`). The workflow axis keeps
+    what has live semantics today: the ticket lifecycle from `checks`
+    onward, containers, queues, `blocks:`, environments. Cost: gate
+    policy for generation moves into the chain bundle, which v5 §7.16
+    calls organization policy; an organization with two stacks
+    states its generation gates twice.
+- **What each option does to the grammar.** A: nothing now, growth
+  later. B and D: the sub-array and derivation machinery (entry 16)
+  largely goes, because a gate between two tiers has an obvious
+  throwback (the tier before it) and an obvious scope (that tier).
+  C: the machinery goes the same way, plus one cross-axis load check
+  and one list per chain.
+- **What the prototype can test.** Write `default-flow` under each
+  of B, C and D against the single-file chain, with per-tier gates
+  where the author would actually want them in the product tier
+  (`feature_expansion`, `journeys`, `screens`), and compare: lines,
+  what a second stack would have to fork, and whether the three
+  never-authored kinds are still needed. Two of the four options are
+  cheap to write; A is the tree.
+- **Status:** live; the split is a recorded platform decision with
+  its reason intact, and this entry does not overturn it. It records
+  that the reason was bought with a granularity limit the record
+  concedes, and that three alternatives keep most of the benefit.
+- **Recommendation:** none yet; author's call, after the prototype.
+  If A stands, ORC-179's kind assignment is the next decision and
+  the contract should say plainly that gates sit at kind boundaries
+  only. If any of B–D is taken, v5 §7.16/§7.18, §14's absence list
+  and core_dsl#11 are amended in the same change, and the workflow
+  contract shrinks to the ticket lifecycle.
