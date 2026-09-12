@@ -780,24 +780,29 @@ profiles.
   _specification` / `public_surface` / `private_surface`, since that family
   produces no `failure_surface` fragment at all (three apiece) — for 3×4 +
   3×3 = 21.
-- **#39 `type: policy_application`'s two mint-time-marker instances are
-  not this mechanism, and gain none of it.** Their `declared_in`
+- **#39 `type: policy_application`'s mint-time-marker instances are not
+  this mechanism, and gain none of it.** Their `declared_in`
   (`policy.structural`, `policy.required`) names a marker on the
   minting instance element itself, not a location in a *committed*
   draft body — there is no `references/5`-style extraction to locate a
   non-`self` endpoint for, because there is no second draft to read.
-  Both resolve the same way `mint.<name>`/`mint.parent.<name>` already
-  do: engine-side, at the same moment and off the same element a
-  fanout mint already walks. ORC-235's own entry (`systems/generation
+  All of them resolve the same way `mint.<name>`/`mint.parent.<name>`
+  already do: engine-side, at the same moment and off the same element
+  a fanout mint already walks. ORC-235's own entry (`systems/generation
   .md`) names this and the locator mechanism above as "two separate
   mechanisms, not one", and they are kept apart in the grammar the
   same way they stay apart in the extractor — but they are instances
-  of one edge, not a partition of it: `policy_application`'s third
-  instance (ORC-247, `systems/platform_content.md#64`) is an ordinary
-  citation of an already-minted policy, ungated by the mint-time
-  marker restriction this entry states, and takes the locator
+  of one edge, not a partition of it: `policy_application`'s citation
+  instances (ORC-247, `systems/platform_content.md#64`) are ordinary
+  citations of an already-minted policy, ungated by the mint-time
+  marker restriction this entry states, and take the locator
   mechanism above like any other third-party-declared instance
-  (`systems/generation.md#52`).
+  (`systems/generation.md#52`). Which of the mint-time markers a given
+  source tier carries is not fixed edge-wide either — `sysarch_policy`
+  and `comparch_policy` (`systems/platform_content.md#64`'s split)
+  each mint rows that can carry either marker, so the edge now
+  declares one mint-time instance per (source tier, marker) pair that
+  is actually reachable, not one per marker.
 - **#40 `mint.parent.<name>` names the inherited half of a join-target
   tier's `mint.<name>` field source, spelled rather than left implicit**
   (ORC-236; `dsl-syntax.md` §3).
@@ -822,14 +827,33 @@ profiles.
   word for a different thing and stays: `refactor_plan.yaml`,
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
+- **#43 A fanout edge instance's target tier may be named as target by
+  at most one source tier — enforced at load time, not left a
+  convention** (ORC-247). `scope: child_of(X)` names one tier, but
+  nothing before this entry required the *loader* to agree: a `type:
+  fanout` instance's `target` is checked only for being a declared
+  tier (`Catapult.Dsl.Tier`'s own scope check), never for being the
+  only fanout instance naming that target. The loader now derives a
+  target tier's driver set the identical way
+  `Catapult.Engine.Projections.ReadyScopes`'s own `child_of_drivers/2`
+  already does — every `type: fanout` instance across `chain.edges`
+  whose `target` equals the tier — and refuses to load a bundle where
+  that set has more than one member, naming the tier and every
+  competing source. A `per(X)` tier needs no such check: its scope
+  already names its one parent directly, and nothing else can mint
+  into it. `child_of(X)` is the case with room to drift, because the
+  parent it names and the driver set the loader derives are two
+  separately-computed things that this check now forces to agree.
+  `systems/platform_content.md#15`/`#64` record the one bundle shape
+  this check requires `bundles/default` to change to conform.
 
-## #43 Initial vs target
+## #44 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
 set (delivery annotations arrive with delivery). Target: full
 extension registry with delivery + runtime dialects registered;
 bundle-diff support for the registry's handle machinery.
 
-## #44 Depends on
+## #45 Depends on
 
 substrate. Content it loads lives in platform_content.

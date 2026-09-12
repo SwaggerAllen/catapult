@@ -1253,7 +1253,14 @@ system; no second path, no full-API-component tier.
 ### 4.5 Supporting tiers: refs, app prompts, policies
 
 **The v4 supporting tiers (`ref`, `vocab`, `policy`) carry forward**
-into the default bundle; this section records their v5 form.
+into the default bundle; this section records their v5 form. `policy`
+is a DSL-level tier *family* rather than one tier: `sysarch_policy`,
+`comparch_policy`, `non_goals_policy`, one per minting parent — a
+fanout target may be named by only one source tier
+(`systems/core_dsl.md#43`), and `policy` is what this repo's own
+default bundle split to conform (`systems/platform_content.md#15`,
+`#64`). The concept below is unchanged by which tier a given policy
+mints into.
 
 **Refs** — project-local supplemental content (runbooks, style
 guides, implementation guides, app prompt text, user-supplied mocks

@@ -232,7 +232,11 @@ client family's own tier chain instead (v5 §5.1, §5.6).
 
 - `singleton` — one node per project.
 - `per(X)` — one node per node of tier X. `self.parent` is that node.
-- `child_of(X)` — nodes minted by X's fanout edge.
+- `child_of(X)` — nodes minted by X's fanout edge. `X` is one tier,
+  checked at load time: a `type: fanout` instance's target may be
+  named by only one source tier (`systems/core_dsl.md#43`), so the
+  fanout edge that mints this tier's nodes has exactly one source to
+  point at.
 - `cascade_visit` — one node per node a flow's own cascade walk visits
   (§6's `walk: downward_cascade` / `up_then_down`), minted by the
   engine as the walk proceeds rather than by a `child_of` fanout edge
@@ -583,17 +587,17 @@ outcome of an edge the bundle declared with a non-zero `cardinality`
 minimum.
 
 Not every instance of every edge uses this mechanism: `type:
-policy_application`'s two mint-time-marker instances are not it. Their
+policy_application`'s mint-time-marker instances are not it. Their
 `declared_in` (`policy.structural`, `policy.required`) names a marker
 on the *minting* instance element itself, not a location in a
 committed draft body — `fields:`'s and `mint.parent.<name>`'s own
 engine-side resolution (§3) is the precedent, not a `source_ref:`
-locator: both are read at the same moment and off the same element a
-fanout mint already walks, never extracted from a committed draft
-under `references/5`'s own mechanism at all. An edge is free to mix
-the two: `policy_application`'s third instance, an ordinary citation
-of an already-minted policy, names a real `declared_in` path and
-resolves exactly the way every instance above does
+locator: all of them are read at the same moment and off the same
+element a fanout mint already walks, never extracted from a committed
+draft under `references/5`'s own mechanism at all. An edge is free to
+mix the two: `policy_application`'s citation instances, ordinary
+citations of an already-minted policy, name a real `declared_in` path
+and resolve exactly the way every instance above does
 (`systems/platform_content.md#64`, `systems/generation.md#52`).
 
 ## 6. Flows
@@ -635,12 +639,14 @@ reasons: this is a projection, the target of a `-> <tier>.<kind>` walk,
 so the *edge* type `type: synthesis` (§4, an edge an engine-computed
 cascade-planning correspondence rides on) is a different slot in the
 grammar entirely, not a variant of this one; and `generator: synthesis`
-(§3.2, declared by ten tiers in `bundles/default`: `comp`, `journey`,
-`policy`, `resp`, `screen`, `screen_coll`, `screen_subcomp`, `subcomp`,
-`ui_coll`, `ui_subcomp`) names how a
+(§3.2, declared by twelve tiers in `bundles/default`: `comp`,
+`comparch_policy`, `journey`, `non_goals_policy`, `resp`, `screen`,
+`screen_coll`, `screen_subcomp`, `subcomp`, `sysarch_policy`,
+`ui_coll`, `ui_subcomp` — `systems/platform_content.md#15`'s split of
+the former single `policy` tier into three) names how a
 tier's own draft is produced, a third slot again — a tier declaring
 `generator: synthesis` says nothing about what any walk *targeting*
-that tier may project, and none of the ten is affected by this
+that tier may project, and none of the twelve is affected by this
 retirement.
 
 ### 7.1 Hop chains and reversal
@@ -648,20 +654,21 @@ retirement.
 **A walk may name more than one edge, and a hop may be reversed.** A
 grammar capping a walk at exactly one `.<edge_name>` before `->`
 cannot express a policy scoped **through a responsibility** — comp →
-resp (`.fulfills`) → policy (inbound `policy_application`) — since
-reaching it needs two hops and the second one runs against the edge's
-declared direction:
+resp (`.fulfills`) → sysarch_policy (inbound `policy_application`) —
+since reaching it needs two hops and the second one runs against the
+edge's declared direction:
 
 ```
-self.parent.fulfills.policy_application~ -> policy.handle
+self.parent.fulfills.policy_application~ -> sysarch_policy.handle
 ```
 
 Reads as: `self.parent` (the comp), `.fulfills` (forward — comp is
 `fulfills`'s declared `source`, land on the resp it names), then
 `.policy_application~` (**reversed** — the trailing `~` means the
 walker matches the edge's `target`, not its `source`, and the walk
-continues from whichever `source` instance matches: every policy
-whose `policy_application` instance targets this resp). Each hop is
+continues from whichever `source` instance matches: every
+sysarch-level policy whose `policy_application` instance targets this
+resp). Each hop is
 checked independently against the declared edge (or, for a
 multi-instance edge, against whichever instance actually matches —
 §4.1); a hop naming an edge with no instance on the required side is
@@ -685,9 +692,11 @@ context:
 Reads every declared instance of `<tier>` in the project, unfiltered
 by any relationship — no `self`, no edge, no walker to arrive from.
 Two cases want this: a genuinely flat pool with no single owning
-parent (`vocab`, a project-global `policy` — v5 §4.5's first
-grain, which by construction has no `policy_application` edge for a
-graph walk to follow at all), and a `cascade_visit`-scoped planning
+parent (`vocab`; a project-global policy row, minted into
+`sysarch_policy` or `non_goals_policy` — v5 §4.5's first grain,
+`systems/core_dsl.md#43` — which by construction has no
+`policy_application` edge for a graph walk to follow at all), and a
+`cascade_visit`-scoped planning
 tier that needs to see the whole component graph rather than one
 scoped slice of it (a `refactor` plan reasoning about which
 components a structural change touches). The tier named after `all.`
@@ -771,8 +780,9 @@ which committed body the review applies to, since reading across
 drafts on purpose means a prompt can no longer assume it is the
 current one. Both render blank via Solid's own unset-is-empty behavior
 where nothing has been posted or reviewed yet. A variable's name is
-its target tier's name (`resp`, `policy`, `comp`); an `all.<tier>`
-entry (§7.2) gets the same name as a self-hop entry landing on that
+its target tier's name (`resp`, `sysarch_policy`, `comp`); an
+`all.<tier>` entry (§7.2) gets the same name as a self-hop entry
+landing on that
 tier.
 
 **`input.<role>` and `input.*` are the one exception to that rule,
@@ -796,11 +806,13 @@ carried one layer further, into rendering.
 
 **Two or more context entries naming the same target tier combine
 into one collection for that tier's variable** rather than colliding —
-a tier can be reached more than one way (comparch reads `policy`
-through both a direct `policy_application~` hop and a
-`fulfills.policy_application~` hop, §7.1's worked example), and the
-prompt wants "every policy that applies to me," not one variable per
-path that produced it. Shared
+a tier can be reached more than one way (`comparch` reads its own
+already-minted `comparch_policy` rows through both a direct
+`policy_application~` hop and a `fulfills.policy_application~` hop —
+the same two-hop-reversed shape §7.1 walks through for
+`sysarch_policy`, landing here on the tier `comparch` itself mints
+into), and the prompt wants every policy already bound to this comp in
+one collection, not one variable per path that produced it. Shared
 content via `{% render "partials/<name>" %}` (v5 §6: one source for
 shared framing across each family's authored tiers). Generation and
 review templates for a tier receive identical context plus `draft` —
@@ -901,11 +913,13 @@ All-problems-at-once (orchestration's config style): unknown fields
 rejected; every cross-reference resolves (edge endpoints, fragment
 kinds, prompt/schema paths, predicate names); scope expressions and
 generator types from the closed sets; type-level acyclicity over the
-edge-instance graph; cardinality shapes well-formed; `delivery:`
-values validated against the protocol vocabulary; navigation edges
-absent from readiness walks. A bundle that loads is a bundle the
-engine can run; only instance-level constraints (dependency cycles,
-cardinality counts) wait for projection time.
+edge-instance graph; a `type: fanout` instance's target tier named by
+at most one source tier across the whole edge set
+(`systems/core_dsl.md#43`); cardinality shapes well-formed;
+`delivery:` values validated against the protocol vocabulary;
+navigation edges absent from readiness walks. A bundle that loads is a
+bundle the engine can run; only instance-level constraints (dependency
+cycles, cardinality counts) wait for projection time.
 
 Review tiers (§3.3, `docs/v5-design-decisions.md` §7.19):
 

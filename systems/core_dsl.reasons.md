@@ -319,3 +319,38 @@ dispatch/fixture-coverage totals (it has no `draft:` for
 `Sweeper.dispatchable?/1` to match, same as every join-target tier);
 `ref`'s absence from the swept set is `systems/generation.md`'s own ORC-236
 entry.
+
+## #43
+
+Measured, not hypothetical: `policy` being `child_of(sysarch)` with three
+actual fanout sources (`sysarch`, `comparch`, `non_goals`) is a permanent
+readiness deadlock the moment any of those three sources is itself
+downstream of the tier reading the pool. `comparch` wired `all.policy.handle`
+(this ticket's own first attempt, `systems/platform_content.md#64`) to reach
+the pool's project-level rows — but `comparch` is one of `policy`'s own three
+minting sources, and `ReadyScopes.tier_drained?`'s `child_of(X1..Xn)` clause
+requires every driver drained *and* every existing row at the tier settled
+before the tier itself reads as drained. A `comparch` node can only become
+`settled?` once its own draft commits and is approved, and that draft can
+only commit once its context — including `all.policy` — is ready, which
+needs `policy` drained, which needs every `comparch` node (this one
+included) already `:approved`. No `comparch` node ever satisfies its own
+precondition, so `ready/3` never returns it: not an error, not a slow
+convergence, a permanent stall with no diagnostic (`ReadyScopes`'s own
+`drained?`/`tier_drained?`, `lib/catapult/engine/projections
+/ready_scopes.ex`).
+
+The contrast that gives the rule its general form rather than a
+policy-specific patch: `comparch` already reads `all.vocab.handle` safely,
+because `vocab`'s one driver (`feature_expansion`) is strictly upstream of
+`comparch` and never depends on it. An `all.<tier>` read is only ever safe
+into a tier none of whose drivers sits downstream of the reader — and a
+`child_of(X)` tier whose driver set the loader never checked against its own
+declared parent is exactly the shape that can violate that unnoticed, since
+nothing before this entry stopped a second (or third) fanout instance from
+quietly widening the driver set past the one name `scope: child_of(X)`
+spells. Enforcing "one source tier per fanout target" at load time is what
+keeps `child_of(X)`'s declared parent and its actual driver set the same
+thing, so a bundle author can reason about which tiers are safe to
+`all.<tier>` from the scope declaration alone, without auditing
+`chain.edges` by hand.

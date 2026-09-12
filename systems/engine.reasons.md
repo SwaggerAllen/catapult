@@ -33,7 +33,7 @@ possible" standing decision exists to prevent.
 
 The bullet above's premise — every minted child eventually earns `:approved` through `DraftApproved`
 — does not hold for exactly the tiers dsl-syntax.md §3 calls a **join-target tier** — one declared
-with no `draft:` block (`comp`, `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
+with no `draft:` block (`comp`, `subcomp`, `resp`, `sysarch_policy` in `bundles/default`, all `generator:
 synthesis` today, though the condition that matters is "no `draft:`," not the generator kind — see
 below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
 and `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{}, _)`) can never name it.
@@ -68,9 +68,10 @@ declaration is already being read).
 ## #18
 
 That `Extraction.mints/4`'s `id`/`alias` identity fallback is verified only against `sysarch`'s own
-`<component alias="...">` shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise (the
-module's own comment on `identity_value/2`, and `test/catapult/generation/toy_seed_chain_test.exs`'s
-moduledoc, which is why that test seeds those three by hand) is a real but separate gap in *identity
+`<component alias="...">` shape, and mints `resp`/`vocab`/`policy` (now split into `sysarch_policy`/
+`comparch_policy`/`non_goals_policy`, `systems/platform_content.md#15`) a `nil` scope_key otherwise
+(the module's own comment on `identity_value/2`, and `test/catapult/generation/toy_seed_chain_test.exs`'s
+moduledoc, which is why that test seeds those by hand) is a real but separate gap in *identity
 extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/tiers/vocab.yaml`)
 declares a `draft:` block and is unaffected. And `Catapult.Engine .Projections.Staleness.stale?/2`'s
 early `:absent` clause ("not stale, merely not drafted") does not match a join target once it mints
@@ -138,10 +139,10 @@ an empty context — the failure ORC-235 opened against.
 
 ## #22
 
-In `bundles/default` today the scope graph is finite because every `per(X)`/`child_of(X1..Xn)` chain
+In `bundles/default` today the scope graph is finite because every `per(X)`/`child_of(X)` chain
 eventually reaches one of the bundle's four `singleton` tiers (`design_system`, `feature_expansion`,
 `frontend_sysarch`, `non_goals` — `ref` is `scope: reference`, not `singleton`, above, and no
-`per(X)`/`child_of(X1..Xn)` chain in `bundles/default` names it as a parent), because the bundle's
+`per(X)`/`child_of(X)` chain in `bundles/default` names it as a parent), because the bundle's
 authors have kept the scope graph a DAG by convention — not because anything checks it. Closing that
 gap — extending `Chain.build`'s existing cycle detection to scope references alongside edge
 instances — is a `core_dsl` loader change; `drained?`'s own correctness leans on a guarantee the

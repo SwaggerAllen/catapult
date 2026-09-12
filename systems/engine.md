@@ -159,9 +159,12 @@ them.
   `chain.tiers[instance.target].draft` in hand carries one more field on the entry it returns,
   threaded unchanged through `Catapult.Engine .Commands.CommitDraft`'s `mints:` and onto
   `DraftCommitted`'s own `mint()` type.
-- **#18 The same default reaches `policy`, and staleness needs no change.** `policy`
-  (`bundles/default/tiers/policy.yaml`) is `generator: synthesis` with no `draft:`, structurally
-  identical to `comp`/`subcomp`/`resp`, so it gets the identical mint-time `:approved`.
+- **#18 The same default reaches `policy`, and staleness needs no change.**
+  `sysarch_policy`/`comparch_policy`/`non_goals_policy`
+  (`systems/platform_content.md#15`'s split of the former single
+  `policy.yaml`) are each `generator: synthesis` with no `draft:`,
+  structurally identical to `comp`/`subcomp`/`resp`, so each gets the
+  identical mint-time `:approved`.
 
 - **#19 A node's readiness-effective status is resolved, not read bare —
   a join target defers to whichever node minted it, recursively**
@@ -216,7 +219,7 @@ them.
   drafted here yet." A tier's population is exhausted — call it `drained?/1`, the same naming register
   as `settled?/2` above — when no further node of that tier will ever appear *and* nothing that
   already exists is still pending. The recursion below folds over the same closed `scope:` vocabulary
-  `candidates/3` already switches on, but its two recursive branches (`per(X)`, `child_of(X1..Xn)`)
+  `candidates/3` already switches on, but its two recursive branches (`per(X)`, `child_of(X)`)
   test that definition differently, because the two node kinds come into existence at different
   points.
 
@@ -264,34 +267,36 @@ them.
     reads as not settled, the same "hasn't drafted yet" case the
     driving-tier check above exists to catch, not a gap the clause
     forgets to answer;
-  - `child_of(X1..Xn)` (every tier a `type: fanout` edge instance
+  - `child_of(X)` (the one tier a `type: fanout` edge instance
     targets — `chain.edges`, filtered to `type == "fanout"` and
-    `instance.target == tier`, already gives the source set, a purely
-    load-time-derivable list): drained once every `Xi` is drained
-    *and* every row already at `<tier>` is `settled?` — a fanout mint
-    runs exactly once, synchronously with its source's own
-    `DraftCommitted` (regeneration is chosen, not triggered,
-    `docs/v5-design-decisions.md`), so once every possible minting
-    source has committed and been approved, no further instance of
-    `<tier>` will ever appear and the current list is final, whatever
-    its length. The second conjunct costs nothing at the ten
-    `child_of` tiers that are join targets (`comp`, `subcomp`,
-    `journey`, `screen`, `resp`, `policy`, `ui_coll`, `ui_subcomp`,
-    `screen_coll`, `screen_subcomp`), whose rows are `:approved` from
-    mint and whose `settled?` already defers to the very `Xi` this
-    branch checks. It is load-bearing at the eleventh: `vocab` is the
-    one `child_of` tier in `bundles/default` carrying a `draft:` of
-    its own, so its rows mint `:absent` and stay pending until drafted
-    and approved — without the conjunct, `drained?(vocab)` would read
-    true the instant `feature_expansion` is approved and every vocab
-    entry is still undrafted, which is "no further node will appear"
-    without "nothing existing is still pending."
+    `instance.target == tier`, gives the driver; `core_dsl.md#43`
+    is what makes that set a single tier rather than merely usually
+    one): drained once `X` is drained *and* every row already at
+    `<tier>` is `settled?` — a fanout mint runs exactly once,
+    synchronously with its source's own `DraftCommitted` (regeneration
+    is chosen, not triggered, `docs/v5-design-decisions.md`), so once
+    the one possible minting source has committed and been approved,
+    no further instance of `<tier>` will ever appear and the current
+    list is final, whatever its length. The second conjunct costs
+    nothing at the twelve `child_of` tiers that are join targets
+    (`comp`, `comparch_policy`, `journey`, `non_goals_policy`, `resp`,
+    `screen`, `screen_coll`, `screen_subcomp`, `subcomp`,
+    `sysarch_policy`, `ui_coll`, `ui_subcomp`), whose rows are
+    `:approved` from mint and whose `settled?` already defers to the
+    very `X` this branch checks. It is load-bearing at the
+    thirteenth: `vocab` is the one `child_of` tier in `bundles/default`
+    carrying a `draft:` of its own, so its rows mint `:absent` and stay
+    pending until drafted and approved — without the conjunct,
+    `drained?(vocab)` would read true the instant `feature_expansion`
+    is approved and every vocab entry is still undrafted, which is "no
+    further node will appear" without "nothing existing is still
+    pending."
 - **#22 Termination is a property of `bundles/default`'s own scope graph today, not one the loader
-  enforces.** `per(X)`/`child_of(X1..Xn)` references are declared over tier *names*, not edge
+  enforces.** `per(X)`/`child_of(X)` references are declared over tier *names*, not edge
   instances: `Chain.build`'s acyclicity check (`lib/catapult/dsl/chain.ex`) walks `edges:` instances
   only, and `scope_problems/1` checks only that a scope names a tier the bundle actually declares —
   nothing at load time rejects a bundle declaring `A per(B)` and `B per(A)`, which would recurse
-  `drained?` forever the first time either tier's readiness is asked for. `per(X)`/`child_of(X1..Xn)`
+  `drained?` forever the first time either tier's readiness is asked for. `per(X)`/`child_of(X)`
   are the only cases that recurse at all — every `singleton` tier is a base case for this recursion,
   whatever its own `drained?` branch decides.
 - **#23 Order is derived from the graph `context:`/`scope:` declare, never from a declared tier

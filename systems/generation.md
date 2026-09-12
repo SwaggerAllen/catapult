@@ -86,11 +86,13 @@ and validation logic and must not fork it.
     extractable, because the gate they fail is never edge-type.
   - Synthesizing an edge instance at fanout-mint time from a marker the
     minting draft itself carries, with no `declared_in` path to
-    navigate at all — what two of `policy_application`'s three
-    instances need instead, since their `declared_in` names no tier's
-    draft body for any navigator to read. The third instead joins the
-    first bullet's own class (#52, below) — its `declared_in` is an
-    ordinary tier path, not a marker.
+    navigate at all — what `policy_application`'s mint-time instances
+    (one per (source tier, marker) pair a split source tier actually
+    reaches — `systems/platform_content.md#64`) need instead, since
+    their `declared_in` names no tier's draft body for any navigator
+    to read. `policy_application`'s citation instances instead join
+    the first bullet's own class (#52, below) — their `declared_in` is
+    an ordinary tier path, not a marker.
 
 - **#9 The two gates ORC-235's own entry named above are both crossed
   here** (ORC-236). `Extraction.mints/4` computes the
@@ -883,36 +885,49 @@ and validation logic and must not fork it.
   so the distinction lives in the `reason` string, which is free text already, rather
   than in a fourth enum value with a migration behind it.
 
-- **#52 `policy_application` gains a third instance whose `declared_in`
-  is an ordinary path, not a mint-time marker — `Extraction` dispatches
-  on the instance's own `declared_in` shape, not a second edge-level
-  `type:`** (ORC-247). `comparch`'s new `<applies ref="...">` citation
-  element (`systems/platform_content.md#64`) lets a component fulfil an
-  already-minted policy without re-minting it, so its `policy_application`
-  instance (`declared_in: comparch.draft.policies.applies[]`) names a
-  real location in a committed draft body — unlike the edge's two
-  mint-time-marker instances (`policy.structural`, `policy.required`)
-  `mints/4` reads off the minting element itself. `Extraction`'s own
-  moduledoc claim that `type: policy_application` "is not [the ordinary
-  locator] mechanism" no longer holds edge-wide once this instance
-  exists — it holds per-instance: an instance whose `declared_in` splits
-  into `policy.<marker>` stays the mint-time read (`mints/4`'s own
+- **#52 `policy_application` gains citation instances whose
+  `declared_in` is an ordinary path, not a mint-time marker —
+  `Extraction` dispatches on each instance's own `declared_in` shape,
+  not a second edge-level `type:`** (ORC-247). `comparch`'s new
+  `<applies ref="...">` citation element (`systems/platform_content
+  .md#64`) lets a component fulfil an already-minted policy without
+  re-minting it, so its `policy_application` instances (one per
+  citable source tier — `source: sysarch_policy` and `source:
+  non_goals_policy`, both `declared_in: comparch.draft.policies
+  .applies[]`) name a real location in a committed draft body —
+  unlike the edge's mint-time-marker instances (`policy.structural`,
+  `policy.required`, one per (source tier, marker) pair a split source
+  tier actually reaches) `mints/4` reads off the minting element
+  itself. `Extraction`'s own moduledoc claim that `type:
+  policy_application` "is not [the ordinary locator] mechanism" no
+  longer holds edge-wide once these instances exist — it holds
+  per-instance: an instance whose `declared_in` splits into
+  `policy.<marker>` stays the mint-time read (`mints/4`'s own
   `policy_application_edges` helper, filtered so it only ever matches
-  those two); an instance whose leading segment is a drafted tier
-  resolves the ordinary way, the identical `EdgeLocator` resolution
-  every other third-party-declared instance already takes
-  (`systems/core_dsl.md`'s ORC-236 entry). That resolution runs inside
-  `references/5` today, gated on `edge.type in ["reference",
-  "dependency"]` (#8, above) — a gate keyed on the *edge's* type, which
-  is `"policy_application"` here, not either of those. Widening that
-  gate to admit `edge.type == "policy_application"` is not widening it
-  to the marker instances too: `references/5`'s own leading-tier read
-  requires `declared_in` to split into `<tier>.draft.<path>`, a shape
-  `policy.structural` and `policy.required` never have (no `draft.`
-  segment at all), so both fall through untouched regardless of which
-  edge types the gate admits. One edge name, one `type:`, two
-  extraction strategies chosen by the instance's own `declared_in`
-  shape rather than by the edge's.
+  those); an instance whose leading segment is a drafted tier resolves
+  the ordinary way, the identical `EdgeLocator` resolution every other
+  third-party-declared instance already takes (`systems/core_dsl.md`'s
+  ORC-236 entry). That resolution runs inside `references/5` today,
+  gated on `edge.type in ["reference", "dependency"]` (#8, above) — a
+  gate keyed on the *edge's* type, which is `"policy_application"`
+  here, not either of those. Widening that gate to admit `edge.type ==
+  "policy_application"` is not widening it to the marker instances
+  too: `references/5`'s own leading-tier read requires `declared_in`
+  to split into `<tier>.draft.<path>`, a shape `policy.structural` and
+  `policy.required` never have (no `draft.` segment at all), so both
+  fall through untouched regardless of which edge types the gate
+  admits. One edge name, one `type:`, two extraction strategies chosen
+  by each instance's own `declared_in` shape rather than by the
+  edge's. Two citation instances sharing one `declared_in` path,
+  distinguished only by `source:`, is not a new case for `references/5`
+  to learn: an unresolved `@ref` value already resolves to no edge
+  rather than an error (`resolve_target`'s own nil-on-no-match,
+  `edge_entry`'s own reject-on-nil-side), the identical tolerance a
+  `source_ref:`/`target_ref:` explicit path already relies on — so
+  citing a `sysarch_policy` id against the `non_goals_policy`-sourced
+  instance (or vice versa) simply produces zero edges from that
+  instance, not a failure, and the other instance is the one that
+  resolves.
 
   Widening the `references/5` gate needs a second site touched in the
   same change: `Extraction.edge_type_atom/1`, the private two-clause
@@ -925,8 +940,8 @@ and validation logic and must not fork it.
   extracts raises `FunctionClauseError` rather than persisting; the
   existing mint-time path never reaches this helper at all, since
   `policy_application_edges` builds `type: :policy_application`
-  directly, which is why a raft exercising only the mint-time pair
-  cannot surface the gap.
+  directly, which is why a raft exercising only the mint-time
+  instances cannot surface the gap.
 ## #50 Initial vs target
 
 Initial (Phase 3): readiness-driven dispatch for the upstream tiers,
