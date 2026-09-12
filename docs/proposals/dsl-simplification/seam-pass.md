@@ -17,12 +17,12 @@ or the author can settle.
 | # | Flexibility | Status | Whose constraint | Recommendation |
 |---|---|---|---|---|
 | 1 | Arbitrary tier set, one file per tier | live | engine (shape), default (file layout, constant keys) | one file, tiers as a map, defaults for constant keys |
-| 2 | Scope kinds | live (+1 reserved) | engine, except `reference` scope | fold `reference` scope into the generator |
+| 2 | Scope kinds | live (+1 reserved) | engine, except `reference` scope | fold `reference` scope into the generator; `child_of(X)` single-sourced (ORC-247) |
 | 3 | Generator types | 3 live, 5 reserved | engine | merge `reference` into `supplied`; mark the rest |
 | 4 | Typed edges bound to body paths | live (+`synthesis` reserved) | engine | instance is the unit; drop inline/instances duality |
 | 5 | Endpoint locators | live | engine (need), default (form) | convention over declaration for `@from`/`@to` |
 | 6 | Edge invariants: cardinality, graph_constraint, consistency, navigation, constraint | none read at runtime | default / XSD | cardinality to the XSD; acyclicity a per-type rule; question the rest |
-| 7 | Context walks | live | engine | keep intact; it is the DSL's core |
+| 7 | Context walks | live | engine | keep intact; it is the DSL's core. Variable naming is grammar (ORC-247): try `context:` as a name → walk map |
 | 8 | `handle:` narrowing | live | default (opinion) | default to all fields; declare only to narrow |
 | 9 | Fragments / `produces:` / vocabulary | live | engine (mechanism), default (owner, vocab) | map form; owner implied; vocab derived |
 | 10 | Review tiers | live | default (encoding) | derive from the tier |
@@ -55,10 +55,14 @@ or the author can settle.
 - **Right level:** file granularity is a layout choice; constants
   are defaults.
 - **Status:** live.
-- **Recommendation:** one chain file with tiers as a map; `identity`,
-  `executor`, `delivery` default; `prompt`/`grammar`/`root_tag`
-  derived from the tier name unless overridden. This is the
-  single-file prototype (README §4.1).
+- **Recommendation:** one chain file with tiers as a map; `executor`
+  and `delivery` default; `prompt`/`grammar`/`root_tag` derived from
+  the tier name unless overridden. `identity` is **not** defaulted:
+  ORC-246 found the blanket `identity: id` hiding five tiers that
+  minted with no identity at all (`in-flight-tickets.md`), so it is
+  chosen per tier from the mint element's key, or declared on the
+  element itself (entry 19). This is the single-file prototype
+  (README §4.1).
 
 ### 2. Scope kinds
 
@@ -83,6 +87,15 @@ or the author can settle.
 - **Recommendation:** a tier whose generator is externally sourced
   (see 3) has no scope by rule; drop `scope: reference` and its five
   checks. Keep `cascade_visit` reserved, marked, with flows.
+- **Added by ORC-247:** `child_of(X)` is single-sourced; a fanout
+  target may be minted by only one source tier, checked at load
+  (`core_dsl#45` on that branch). This is the engine's requirement
+  under its readiness model: `drained?` is per tier, so a pool with
+  several drivers deadlocks any driver that reads it with `all.`. The
+  flat `policy` pool becomes a family of three same-shaped tiers. The
+  contract states the rule with that reason; the prototype tests
+  whether a family can be one declaration with several drivers, which
+  is the engine-side alternative and the author's call.
 
 ### 3. Generator types
 
@@ -130,7 +143,10 @@ or the author can settle.
 - **Status:** live (+`synthesis` reserved).
 - **Recommendation:** the instance is the unit; an edge name groups
   instances of one type. Drop the inline form and the exclusivity
-  check.
+  check. ORC-247 confirms the shape: `policy_application` now mixes
+  mint-time-marker instances and ordinary-locator instances under one
+  name, and disambiguates two instances sharing a `declared_in` by
+  `source:` alone (`core_dsl#39` amended on that branch).
 
 ### 5. Endpoint locators (`source_ref` / `target_ref`)
 
@@ -150,7 +166,10 @@ or the author can settle.
 - **Status:** live.
 - **Recommendation:** derive `self`/`self.parent` as today; make
   `@from`/`@to` the convention for same-tier rows; keep the explicit
-  keys only if a case the convention cannot express appears.
+  keys only if a case the convention cannot express appears. ORC-247
+  adds `@ref` on `<applies ref>` citation rows: a second use of the
+  attribute locator, and the same convention (a row's `ref` names the
+  far end) covers it.
 
 ### 6. Edge invariants: cardinality, `graph_constraint`, `consistency`, `navigation`, `constraint`
 
@@ -198,6 +217,22 @@ or the author can settle.
   `-> comp.handle` is the exception; and the `input.<role>` set is a
   platform vocabulary admitted by census (A part 4) and should be
   declared once, not inferred from which tier reads it.
+- **Amended by ORC-247.** How a walk is named in the prompt is part
+  of the walk's grammar, not a derivation. §9's "one variable per
+  target tier, same-tier walks merge" fused distinct reads in nine
+  tiers and their reviews (eighteen sites) and nobody saw it until
+  round 5 of an unrelated ticket. The branch adds an `as:` name per
+  entry, a merge-by-name rule, and reserved-name and cross-tier
+  collision errors (`core_dsl#47`), with the `as:` form still open.
+  The prototype should try the stronger shape: `context:` as a map
+  from variable name to a walk or list of walks. Naming becomes
+  mandatory, the merge rule disappears (a name with two walks merges
+  by construction), the collision errors reduce to key uniqueness and
+  a short reserved list, and the `as:` form question dissolves. Also
+  from that ticket: `all.<tier>` is refused when the reader is in the
+  target's driver closure (`core_dsl#46`), a readiness deadlock class
+  that is the engine's requirement; `cascade_visit` targets are a
+  third never-drains case, which the flows reserved entry cites.
 
 ### 8. `handle:` narrowing
 

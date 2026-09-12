@@ -5,7 +5,10 @@ A proposal, not part of the record. Nothing in `docs/`, `systems/`, or
 sequences them. The measurements it rests on are in `evidence/`
 (seven reports, each scoped to one source so that no single pass had
 to hold the whole spec in view). Numbers in this memo come from those
-reports and are approximate where the reports say so.
+reports and are approximate where the reports say so. `seam-pass.md`
+is the first draft of the seam step; `in-flight-tickets.md` folds in
+the two DSL tickets that were in design when this was written
+(ORC-246, ORC-247) and says where each of their decisions lands.
 
 ## 1. Verdict in brief
 
@@ -246,6 +249,13 @@ is that mint fields, six edges, supplied tiers and walk projections
 were "all declared and none is wired". Two whole tickets (ORC-187,
 ORC-200) are coherence sweeps of the record against itself. The
 retros contain no reflection on any of this; they are ticket lists.
+
+The pattern was running while this memo was written. ORC-247 was
+filed as a content bug in the `policy` grain and, over five design
+rounds, acquired three new load rules, a new walk-naming form, a
+rewrite of how walks bind to prompt variables, and a tier split, with
+two record-review declines for narrating its own rounds. Each step
+was locally right. `in-flight-tickets.md` has the detail.
 
 ## 3. The six steps, evaluated
 
@@ -541,7 +551,10 @@ inventory and diffs it against the contract doc).
    each with rule ids, a live/reserved marker per construct, the
    intended consumer named on every reserved rule, and a `.reasons
    .md` sibling; examples by path into the bundle; no checklist
-   section. Target sizes: a few hundred lines each. Retire
+   section. Ids follow the scheme PR #161 lands: the redesign is
+   author-minted, so its rules take bare numbers, and a ticket that
+   later amends a contract doc mints `#ORC-n-m`. The in-flight
+   tickets' rules that survive the redesign keep their ids. Target sizes: a few hundred lines each. Retire
    `docs/dsl-syntax.md` and the `dsl-syntax.md` citation shorthand
    in the same change.
 6. **Amend the record.** v5 §6, §9, §3.4, §7.19 and the core_dsl and
