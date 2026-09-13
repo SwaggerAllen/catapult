@@ -6,9 +6,13 @@ sequences them. The measurements it rests on are in `evidence/`
 (seven reports, each scoped to one source so that no single pass had
 to hold the whole spec in view). Numbers in this memo come from those
 reports and are approximate where the reports say so. `seam-pass.md`
-is the first draft of the seam step; `in-flight-tickets.md` folds in
-the two DSL tickets that were in design when this was written
-(ORC-246, ORC-247) and says where each of their decisions lands.
+is the first draft of the seam step and `seam-decisions.md` its
+execution (every construct assigned a level, every load rule
+classified by its runtime consumer, the target key set);
+`classification-matrix.md` and `questioned-rows.md` are step 2;
+`in-flight-tickets.md` folds in the two DSL tickets that were in
+design when this was written (ORC-246, ORC-247) and says where each
+of their decisions lands.
 
 ## 1. Verdict in brief
 

@@ -141,12 +141,159 @@ all.
 
 Report C's 69 load-time checks, plus the chain checks `chain.ex`
 implements that C does not list, each classified by whether a
-runtime module depends on it. Written from two passes over the
-tree, one per axis (`evidence/seam-rules-chain.md`,
-`evidence/seam-rules-workflow.md`); this section is the summary and
-the decisions.
+runtime module depends on it. Two passes over the tree, one per axis
+(`evidence/seam-rules-chain.md`, `evidence/seam-rules-workflow.md`),
+each naming the module and function that misbehaves without the
+rule, how, and the weaker form that suffices. Counts are from the
+tables, recounted:
 
-(Filled in from those passes below.)
+| Class | Chain (42 rows) | Workflow (44 rows) | Meaning |
+|---|---|---|---|
+| ENGINE | 20 | 6 | a runtime module misbehaves without it |
+| LOADER-ONLY | 17 | 11 | keeps a loader derivation consistent; nothing downstream reads it, or the runtime tolerates the violation |
+| HABIT | 2 | 18 | no reader; a convention or design opinion; a violating bundle loads and runs |
+| NEGATIVE | 3 | 9 | a "no check exists" sentence or a derivation, not a rule |
+
+### 2.1 What the engine actually requires
+
+**Chain.** The live core is exactly what §1 kept. Edge endpoints must
+name declared tiers (an undeclared target mints nodes no walk can
+settle). `scope` must be one of the closed kinds (`ReadyScopes
+.candidates/3` has one clause per kind and raises otherwise). Type-
+level acyclicity is required **over `fanout` instances only**:
+`tier_drained?` recurses driver chains with no visited set, so a
+fanout cycle exhausts the stack, while `reference`/`dependency`
+cycles are harmless to every runtime reader. The ORC-232/236
+mirrors (`declared_in` and `draft.*` paths resolve in the XSD;
+locator forms; `mint.parent` names a provided field) are engine-
+required as stated, because they are the same `EdgeLocator` and
+navigation the commit path runs, and the failure mode is a silent
+`nil`. `all.<tier>` must name a declared tier and must not target a
+reference-scope tier (permanent unreadiness). Walk hops must name a
+declared edge with the walker on the right side, else readiness is
+vacuously true and the prompt variable is silently missing. The
+projection set is closed because `render_fragments/3`'s clause heads
+are the set. Cardinality bounds must be integers where present.
+
+Three rules are **weaker than stated** in the contract: `scope_filter`
+is the only predicate slot with an evaluator (retired anyway); a
+`scope: reference` tier must merely never be dispatchable, the
+pairing itself is opinion (retired anyway); `-> <tier>` on a `self`
+walk is a type annotation the runtime never consults. One rule is
+**stronger than stated**: `produces` owner must be `self.parent`,
+not "`self` or `self.parent`" (retired to the map form, owner
+implied).
+
+**Workflow.** Six rules, and three of them in a weaker form than the
+contract states:
+
+- Every `status:` kind must be an existing atom
+  (`FeatureLifecycle.Sequence.to_position/1` calls
+  `String.to_existing_atom` on the kind and crashes the process
+  manager otherwise). It atomizes `status`, never `name`, so **free
+  names are safe under the `status: <kind>, name: <free>` spelling**
+  and the closed set is a set of kinds. This settles §4.b.
+- A population anchor carries `flow:` (`Status.queue_shaped?` is what
+  `ContainerQueues.admits?`, `unresolved_queues` and `Composition`
+  branch on; without it a queue silently becomes a one-shot slot).
+  The "absent elsewhere" half is tolerated.
+- The declaration graph is acyclic and no type nests itself
+  (`ContainerLifecycle.open_for/3` mints an unbounded ladder of
+  containers otherwise).
+- Every sub-array has **at least one** non-review-shaped agent-balled
+  entry (`Type.namespaced_positions/1` raises on zero, and every
+  runtime reader on both axes and both LiveViews goes through it).
+  "Exactly one" is the contract's; the second anchor is tolerated.
+- Names are unique within a namespace (two entries with one
+  qualified name make the container dispatcher loop forever between
+  them).
+- No gate name equals any status name, bare or qualified (the gate
+  lookup precedes namespace resolution; a collision pins a ticket at
+  a gate it is not at).
+
+### 2.2 What is loader-only, and what happens to it
+
+Chain loader-only rules fall with the constructs §1 retired or
+derived: the fragment vocabulary checks (derived from `produces`), the
+review-tier rules including context equality (gone with review tiers;
+`ContextAssembly` already recomputes the reviewed tier's context and
+never reads the review tier's), the reference-scope rules (gone with
+`scope: reference`), `enforcement`/`ticket.*` registrations
+(reserved markers), the `extends` refusal (one line). Duplicate-name
+and scope-target checks stay as ordinary referential checks.
+
+Workflow loader-only rules: `throwback:` earlier-than (kept; it is
+re-derived at the command edge, so the declaration is only a
+default), `skeleton` membership, sub-array flatness, name-ambiguity
+(kept with sub-arrays). Two are worth naming because the runtime
+disagrees with the loader: `blocks:` is resolved by namespace at
+load and matched by **bare kind** at runtime (`ContainerQueues` holds
+on every occurrence of a recurring kind, which is the case the loader
+refuses); and `entry:` has no reader anywhere outside the loader.
+
+### 2.3 What is habit, and leaves the contract
+
+Chain: `delivery.phase`/`agent_step` membership in the fixed
+vocabulary (nothing reads `Tier.delivery`; replaced by free names
+with the depth rule, seam 20). The navigation-edge walk ban has no
+runtime reader either, but it is a platform design rule with a
+recorded reason (v5 §4.3), not the default's habit; it stays as a
+stated rule.
+
+Workflow, eighteen rows, of which the ones that matter:
+
+- **Both skeleton backbones** (`setup, prep, main, retro, cleanup,
+  terminal`; `pending, generation…, checks, merge, deploy,
+  terminal`). `ContainerLifecycle` iterates the declared array and
+  closes at `terminal` *or* end of array; `FeatureLifecycle.Sequence`
+  reads `checks` and `merge` only as a reachability boundary and
+  tolerates their absence. Nothing reads `setup`/`prep`/`main`/
+  `retro`/`cleanup` by name; `Composition` takes the first
+  queue-shaped entry.
+- **`merge` preceded by `reconcile`.** `reconcile` has no runtime
+  reader at all.
+- **`pending` immediately before each generation-shaped entry, and
+  before `deploy`.** Nothing dispatches on `pending`; the projection
+  auto-passes it; the fallback reads whether a group starts with one
+  and tolerates absence.
+- **`critique` adjacent to its generation entry.** No module positions
+  on `critique`; the projection auto-passes it wherever it sits.
+- The unknown-field rule and its four restatements, `depth:` shape
+  (kept as plain typing), escalation shape, the two opt-in checks,
+  the naming-discipline rule, the runtime-dialect refusal, and the
+  explicit-`throwback:` requirement for an ungrouped review, which
+  the loader never implemented.
+
+This is the finding that bears on seam 21: **the ticket skeleton's
+backbone and the generation → reconcile → merge relation are pure
+contract today.** No runtime module enforces or reads them; the ~130
+lines of §13 that state them (report C #26–#29) and the ~760 lines
+of §15.1–§15.3 that explain them constrain authors without
+constraining the engine. Whatever placement §4.c chooses, the rules
+as written are the default bundle's shape stated as law, and the
+contract should carry only the six rules in §2.1 plus whatever the
+chosen placement genuinely needs.
+
+### 2.4 Gaps the passes surfaced
+
+Not rules, but things the contract claims or the runtime assumes that
+the other side does not honour. Each is a ticket or a contract
+sentence, and the redesign should not repeat the claim:
+
+- `prompt:` and `draft.grammar` paths are never resolved at load
+  (§13 says they are); a missing prompt is an Oban retry loop at
+  dispatch. §1 makes existence a load check.
+- `per(X)` scope chains are recursed by `tier_drained?` but never
+  cycle-checked.
+- A review tier's `context:` is dead at runtime (moot once reviews
+  are tier properties).
+- Every `ticket.<source>` walk blocks readiness unconditionally,
+  registered or not (moot while reserved; the marker should say so).
+- `blocks:` namespace semantics differ between loader and runtime
+  (§2.2).
+- `entry:` is validated three ways and read by nothing.
+- The `throwback:`-required rule for ungrouped reviews is in the
+  contract and not in the loader.
 
 ## 3. The target key set
 
@@ -229,9 +376,11 @@ define, with no construct the engine reads removed.
   the mint element in the XSD (`xs:appinfo`), which makes the schema
   the single source for "which attribute is the key" (seam 19). The
   prototype writes both and the author picks.
-- **b. The `status:` spelling for free names.** `status: generation,
-  name: features` (existing keys) or `features: generation` (map
-  form). One spelling; the contract states it.
+- **b. The `status:` spelling for free names.** Settled by §2.1 in
+  favour of the existing keys, `status: generation, name: features`:
+  the runtime atomizes `status` and never `name`, so the kind stays a
+  closed atom set and the name is a free string with no code change.
+  The map form would need the same guarantee re-established.
 - **c. Where reconciliation lives** (seam 21), and with it whether
   `skeleton:` survives as more than `ticket | container`, and whether
   `reconcile`/`merge` stay authorable kinds.
