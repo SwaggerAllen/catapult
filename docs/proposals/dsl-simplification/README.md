@@ -585,10 +585,13 @@ inventory and diffs it against the contract doc).
   v4 and the author's answers; two corrections to the record fall
   out of it (the "depth 0 is the rule" sentence, and `synthesis`
   naming a join target rather than v4's aggregation).
-- Where reconciliation lives, and whether the ticket skeleton
-  restates the chain's fan-out (`seam-pass.md` entry 21): three
-  placements framed, the third deriving the generation → reconcile →
-  merge relation from the chain's fan-out declarations.
+- The container backbone: require all five members, or only their
+  order when present (`seam-decisions.md` §2.B.7). Reconciliation
+  itself stays a workflow position (§2.C.2): Phase 7's one-PR-per-
+  child merge needs it, with gates before and after.
+- Whether a cross-axis load-time *warning* is acceptable
+  (`seam-decisions.md` §2.C.3), given that §14 forbids cross-axis
+  reference for the sake of errors, not warnings.
 - Whether the planning-tier shape for flows is the engine's
   requirement or the default's habit (`seam-pass.md`, flows entry).
   Settling it before the flow engine is written is cheaper than
@@ -597,15 +600,13 @@ inventory and diffs it against the contract doc).
 - Which workflow derivations flip to declared fields (§4.4).
   Recommendation: decide from the prototype, not in the abstract.
 - The narrowed scope of the extension doctrine (§4.5).
-- Whether to free the generation status names (`seam-pass.md` entry
-  20). The coupling is already unidirectional (a tier names the
-  status it generates in); the only closure is that both sides' names
-  come from the fixed kind table, which is why a gate cannot sit
-  between `feature_expansion` and `journeys`. Freeing the names by
-  the depth rule needs no new grammar (`name:` on a status entry
-  already exists), retires the three reserved kinds, and shrinks the
-  sub-array machinery. Separately, gate enforcement against dispatch
-  is Phase 7 work the record already owns; no gate holds any
-  generation today at any granularity. This decides how much of the
-  workflow axis exists, so it precedes the workflow contract.
+- Whether to free the generation status names (`seam-decisions.md`
+  §1.3, §2.C.1). Open. The coupling is already unidirectional and the
+  only closure is the fixed kind table, which is why a gate cannot
+  sit between `feature_expansion` and `journeys`. Against freeing:
+  bundles exist for community-scale sharing and the fixed kinds are
+  the vocabulary a shared workflow can rely on. For: per-tier gates,
+  and the depth rule already lets a workflow degrade silently. The
+  middle (kinds shared, fine names opt-in and degrading to kinds) is
+  recommended with the condition that would change it stated.
 - The acceptance number for §4.8 (lines, or minutes to read).

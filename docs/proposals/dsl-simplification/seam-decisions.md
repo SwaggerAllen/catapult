@@ -1,305 +1,481 @@
-# The seam pass — decisions
+# The seam pass — recommended changes, each with its argument
 
-README §5 step 3, executed. Inputs: `seam-pass.md` (the questions and
-first-draft recommendations), `classification-matrix.md` (every
-construct, three columns, a class), `questioned-rows.md` (the
-author's answers and the v4 cross-reference), `in-flight-tickets.md`
-(ORC-246/247), and two rule-by-rule passes over report C's load-time
-checks against the runtime (§2 below).
+README §5 step 3. This replaces an earlier version of this file that
+listed conclusions without arguing them and classified a load rule as
+a habit whenever no *current* runtime module read it. That test was
+wrong: the same proposal classifies a construct as reserved when its
+consumer is coming, and rules deserve the same class. Critique
+adjacency, reconcile-before-merge and the ticket backbone all have
+Phase 7 consumers the record names, and the earlier version called
+them habits. §3 re-reads every rule with the corrected classes.
 
-Two outputs, as the plan asked for: where each construct lands
-(§1), and which load-time rules are the engine's and which are the
-default bundle's habits (§2). §3 is the target key set that falls
-out; §4 lists what is still the author's to decide, and nothing in
-§1–§3 depends on those answers except where a row says so.
+## 0. How to read this
 
-## 0. The levels
+Every recommended change carries five parts: the change; the
+argument for it; the argument against it and what it costs; the
+evidence, cited; and its standing. Standing is one of:
 
-Every construct lands at exactly one of these:
+- **settled by evidence** — the tree or the record decides it, and
+  the counter-argument would need a fact that was not found;
+- **arguable** — I recommend it, the argument is stated, and a
+  reasonable reader could weigh the costs differently;
+- **open** — the author's call; both sides are argued and no
+  recommendation is made, or one is made with low confidence and
+  says so.
 
-| Level | Meaning |
-|---|---|
-| **G** | grammar, declared: the author writes it |
-| **G-default** | grammar, defaulted: the author writes it only to override a derivation the loader states |
-| **G-reserved** | grammar, marked reserved: intended consumer named; shape may move when it lands |
-| **XSD** | a fact about the document, stated in the body grammar, not the DSL |
-| **ENGINE** | a rule of the engine, stated in the contract as a rule, with no key |
-| **BINDING** | project or platform configuration, not bundle content |
-| **PROMPT** | content: prompt template or partial |
-| **RETIRE** | removed from the grammar and the loader |
+Each change also says what would change the recommendation. Inputs:
+`seam-pass.md`, `classification-matrix.md`, `questioned-rows.md`,
+`in-flight-tickets.md`, the two rule passes in `evidence/`.
 
-"Derived" in a G-default row means the loader computes the value and
-the contract states the derivation in one sentence; the author can
-still write the key. "No key" means the author cannot write it at
-all.
+## 1. How the two bundles interact
 
-## 1. Constructs
+The proposal so far treated the axes as near-orthogonal and analysed
+each on its own. They are not orthogonal, and several changes below
+depend on saying exactly how they meet. This section is the analysis
+that was missing.
 
-### 1.1 Chain axis
+### 1.1 The interaction points that exist by construction
 
-| Construct | Level | Derivation / rule / reason |
-|---|---|---|
-| `catapult.yaml` `chain:` / `workflow:` | BINDING | loader input naming one bundle per axis (core_dsl#7); stays |
-| `bundle.yaml` `name`, `kind` | G | |
-| `bundle.yaml` `version` | G-reserved | cutover (v5 §6); no consumer yet |
-| `tiers:`/`edges:`/`flows:` globs | RETIRE | single-file chain (seam 1); a bundle is one `chain.yaml` plus `prompts/` and `schemas/` |
-| `fragments:` vocabulary | RETIRE as a key; ENGINE derives | the vocabulary is the union of `produces` keys; the load check ("every `fragments[k]` walk names a produced kind") survives as a rule |
-| `extends:` | ENGINE | one refusal line: unknown key; no layering (core_dsl#29) |
-| tier name | G | map key |
-| `scope: singleton \| per(X) \| child_of(X)` | G | required on every generated tier; `child_of(X)` single-sourced (ORC-247 `#45`, ENGINE rule stated with its readiness reason) |
-| `scope: reference` | RETIRE | folded into the externally-sourced generator (seam 2, 3): such a tier has no scope by rule |
-| `scope: cascade_visit` | G-reserved → likely ENGINE-derived | reserved with flows; under seam 12 the planning tier is derived from the flow declaration and no author writes this scope |
-| `scope_filter:` | RETIRE | `questioned-rows.md` |
-| `identity:` | G, required, no default | ORC-246; chosen per tier from the mint element's key. Placement (tier key vs `xs:appinfo` on the element) is §4.a |
-| `fields: draft.* / mint.* / mint.parent.*` | G | |
-| `fields: reference.*` | G-reserved | with the externally-sourced generator; no write path yet |
-| `argument` reserved field | G-reserved → ENGINE-derived | with flows; a planning tier's fixed fields are the engine's if the tier is derived |
-| `handle.fields` | G-default | default: every field plus what is produced onto the node; write to narrow. Add the subset check |
-| `handle.fragments` | RETIRE as a key; derived | a node exposes what `produces` writes onto it |
-| `draft.root_tag` | G-default | default: the tier name, hyphenated; 17 of 22 already are |
-| `draft.grammar` | G-default | default: `schemas/<tier>.xsd`; 19 of 22 already are |
-| `generator: llm` | G-default | the default when `prompt`/`draft` is present |
-| `generator: synthesis` (join target) | RETIRE the name; G as absence | a tier with no `draft` and no generator is a join target (v4 A.1.1); if a keyword is wanted, `join`. The word `synthesis` is freed for aggregation if ever re-admitted |
-| `generator: supplied` + `source:` | G | the one externally-sourced kind; absorbs `reference` |
-| `generator: reference` | RETIRE | merged into `supplied` |
-| `generator: external`, `template` | G-reserved | registry (Phase 7); `template` needs an owner named or joins the door-open note |
-| `generator: git_commit`, `webhook` | G-reserved | author's intent recorded in `questioned-rows.md`: repo commits, history, events as context and flow triggers |
-| generator option keys | with their generator | listed in the grammar table, not prose |
-| `prompt:` | G-default | default: `prompts/<tier>.md.liquid`; existence checked at load, not dispatch |
-| `executor:` | G-default | default `{effort: max}`; reserved consumer is executor-profile routing |
-| `context:` | G, **map form** | name → walk or list of walks (seam 7, ORC-247). Naming is mandatory and explicit; the merge-by-tier rule and the `as:` form question dissolve; reserved names (`self`, `feedback`, `prior_review`, `draft`, `raft`) and key uniqueness are the only collision rules |
-| walk forms: `self`, `self.parent`, hops, `~`, `->`, `.fragments[k]`, `all.<tier>`, `input.<role>`, `input.*` | G | unchanged; `-> <tier>` with `handle` as the default projection |
-| `all.<tier>` driver-closure refusal | ENGINE | ORC-247 `#46`, stated with its readiness reason; `cascade_visit` targets included |
-| `.synthesis` projection | RETIRE | no refusal line needed once the generator is renamed |
-| `ticket.findings` walk source | G-reserved | flows + delivery findings |
-| `produces:` | G, **map form** | `kind: draft.<path>`; owner implied (parent); `owner: self` retired |
-| `delivery.phase` | G-default, **free names** (seam 20) | default: the kind implied by the tier (generation for `llm`, critique for a review); write to name a finer position. Unmatched fine name runs at its kind, silently (the depth rule) |
-| `delivery.agent_step` | G-default | default from the tier's role (design / critique); reserved consumer is dispatch routing |
-| `enforcement:` | G-reserved | v5 §6 profiles; Phase 7 |
-| `reviews: <tier>` (review tiers) | RETIRE as tiers; G-default `review:` on the tier | default: `prompts/review/<tier>.md.liquid` if present; context equality holds by construction; the 17 files go |
-| review tier `grammar:` | ENGINE default | `schemas/review.xsd` is platform-wide; a key only to override |
-| body attrs `implementation:`, `swap:` | XSD | |
-| edge name | G | groups instances of one type |
-| `type:` | G | `fanout`, `reference`, `dependency`, `policy_application`; `synthesis` G-reserved with flows (and likely derived, seam 12) |
-| inline `source`/`target` form | RETIRE | the instance is the unit (seam 4) |
-| `instances[].{source, target, declared_in}` | G | |
-| `source_ref` / `target_ref` | G-default | derived: `self` / `self.parent` structurally, `@from`/`@to`/`@ref` by row-attribute convention; written only when the convention cannot express the endpoint |
-| `cardinality.{source,target}.{min,max}` | XSD | `minOccurs`/`maxOccurs` on the declaring element; the 62 shipped rows are all this |
-| `cardinality.when` + named predicates | G-reserved | projection-time content invariants, rejecting the commit (v4 A.2.8); the predicate language survives for this |
-| `cardinality.per_source` | RETIRE | |
-| `graph_constraint` | ENGINE | acyclic + no self loop is a rule of the `dependency` type; `tree` retires with no use |
-| `consistency` | G-reserved | v5 §2.6; no phase named |
-| `navigation: true` | G | has a reader (walk ban); could become a type; either is one line |
-| `constraint` | RETIRE | |
-| flows: `name`, `walk`, `entry`, `prompt`, `targets`, `context` | G-reserved | the varying part (seam 12); flow-engine ticket re-settles |
-| flows: planning tier, `plan_target`, `predicates.yaml` completion | ENGINE-derived, reserved | derived from the flow declaration; v4 A.5.5 already had the engine detect completion |
-| `ticket.labels` | G-reserved | with the flow ticket face |
-| prompt variables, partials | PROMPT | content contract, stated once in the chain doc's prompt section |
-| XSD grammars | XSD | |
-| extension registry, dialects, extension kinds | G-reserved, narrowed | holds executors (generator types, context sources, annotation namespaces, enforcement profiles); grammar grows by reviewed core edit |
-| `role_holders:`, `mirror_mapping:` | BINDING, reserved | loader inputs, not bundle content |
+**a. A tier names the status it generates in.** `delivery.phase` is
+the one declared cross-axis reference, and it runs one way: the
+chain references workflow positions; the workflow never names a
+tier. Today nothing reads it at runtime (matrix 1.2); its Phase 7
+consumer is dispatch gated by the ticket's resting position, which
+is what makes a human gate hold generation at all.
 
-### 1.2 Workflow axis
+**b. Chain fan-out becomes workflow child tickets.** v5 §7.5: "One
+feature branch with one PR to main; each child ticket gets its own PR
+merging into the feature branch." core_dsl#22: architecture fan-out is
+recursive child tickets, and `merge` fires only at the root. v5
+§7.19: a status carries a fan-out depth and "a child's effective
+sequence is the declared sequence filtered to its depth". So a
+`fanout` edge in the chain (`sysarch → comp`, `comparch → subcomp`,
+the frontend families) implies, on the workflow side: child tickets
+running the same declared sequence one level down, their PRs joined
+into the parent's at `reconcile`, and `merge` at the root. This is
+the relation the ticket skeleton encodes, and it is not the default
+bundle's habit: it is what Phase 7's PR mechanics require of any
+chain that fans out. The earlier version of this file missed that,
+and §2.C and §3 correct it.
 
-| Construct | Level | Derivation / rule / reason |
-|---|---|---|
-| `gates:`/`environments:`/`types:` globs | RETIRE | single-file workflow: one `workflow.yaml` |
-| `entry:` | G | reserved consumer (provisioning) but the key is the only way to name the root |
-| type name | G | map key |
-| `skeleton:` | G, **open** (§4.c) | kept as today pending seam 21; if the third placement is taken it shrinks to lifecycle states |
-| `statuses:` ordered array | G | |
-| `status:` entry | G, **free names** | `status: <name>` where the name resolves to a *kind* by declaration: either `status: generation, name: features` (the existing keys) or `features: generation` (map form); the contract picks one spelling. The fixed set becomes the set of *kinds*, not of names |
-| `review:` entry | G | |
-| `environment:` entry | G-reserved | with a note that both lifecycle sequences drop it today |
-| sub-array grouping | G | kept (author, `questioned-rows.md`) |
-| `name:` on a status entry | G | kept; load-bearing for seam 20 and for multi-role review |
-| `<anchor>.<name>` references | G | with sub-arrays |
-| `flow:` on a population anchor | G | |
-| `blocks:` | G | |
-| `depth:` on `critique` | G-reserved | review passes at depth (generation target) |
-| kinds `pending`, `generation`, `critique`, `checks`, `reconcile`, `merge`, `deploy`, `terminal` | G (closed set of kinds) | `reconcile`/`merge` are §4.c's question |
-| kinds `setup`, `prep`, `main`, `retro`, `cleanup` | G | container five |
-| kinds `design`, `architecture`, `implementation` | RETIRE | free names make them unnecessary (seam 20); ORC-179 becomes "which position each default tier names" |
-| kinds `backlog`, `blocked`, `stubbed`, `validating` | ENGINE | plane states; in the engine doc, out of the bundle contract |
-| gate `review` name, `role` | G | |
-| gate `depth` | G | wanted (`questioned-rows.md`); the "0 is the rule" sentence goes |
-| gate `throwback` | G-default | derived: the head of the enclosing sub-array; written to override |
-| gate `escalation` | G-reserved | delivery Phase 7 |
-| environment `promote_from`, `depth`, `lifetime` | G-reserved | with environments; `per_ticket` is PR environments |
+**c. Chain review tiers run at the workflow's `critique` position.**
+Every review tier names `phase: critique`; the critique entry in a
+type's array is where they run once dispatch is gated. So critique's
+place relative to the generation it reviews is structural, given by
+the chain graph (a review tier is 1:1 with the tier it reviews), and
+the workflow's adjacency rule is the workflow-side statement of that
+structure. The earlier version called it a habit; it is a
+reserved-enforced rule with a chain-side derivation.
 
-### 1.3 What moved across the seam, in one place
+**d. The default assumes architecture fans out and product does
+not.** In the chain graph the product tiers *do* fan out
+(`journeys → journey`, `screens → screen`, `requirements → resp`,
+`feature_expansion → vocab`), but into join targets with no
+generated content of their own, so no child ticket has anything to
+generate. Architecture fans out into tiers that generate
+(`comp → comparch → subcomp → subcomparch → impl`). For the workflow,
+"fans out" therefore means "mints children that carry generation
+tiers", which is a property of the chain the workflow cannot see and
+does not declare. `default-flow`'s `feature.yaml` encodes the
+assumption in its depths: critique `[2, 0]`, gates at `0`.
 
-- **Into the XSD:** plain cardinality; body attributes (already there).
-- **Into engine rules with no key:** `graph_constraint`; the `fragments` vocabulary check; the driver-closure and single-source readiness rules; the plane-owned status kinds; `extends` refusal.
-- **Into defaults:** `handle.fields`, `root_tag`, `grammar`, `prompt`, `generator: llm`, `executor`, `delivery.*`, review as a tier property, `source_ref`/`target_ref`, gate `throwback`.
-- **Out of the grammar entirely:** `scope_filter`, `constraint`, `per_source`, `owner: self`, `scope: reference`, `generator: reference`, `reviews:` tiers, inline edge form, the globs, the `.synthesis` projection, the three named generation kinds, the merge-by-tier variable rule.
-- **From loader derivation into declaration:** context variable names (the map form replaces `as:` and the merge rule).
-- **From the workflow into the chain (open):** the generation → reconcile → merge relation, if seam 21's third placement is taken.
-- **Nothing moved from engine code into the grammar.** The pass found no engine behaviour that a bundle author needs to vary and cannot.
+**e. Under fixed kinds, one `generation` position spans the whole
+chain.** Every `llm` tier in the default names `phase: generation`
+(ORC-179 deferred choosing further). So the product draft at depth 0
+and each component's architecture at depth 1 are the *same
+position*, distinguished only by depth. A gate "after product
+generation" and a gate "after architecture generation" are
+inexpressible with one position, which is exactly why v5 §7.18 added
+`design`/`architecture`/`implementation` to the fixed table and why
+the granularity question (§2.C.1) exists. Depth distinguishes
+levels; it cannot distinguish positions at one level.
 
-## 2. Rules
+### 1.2 What each side assumes of the other, and what checks it
 
-Report C's 69 load-time checks, plus the chain checks `chain.ex`
-implements that C does not list, each classified by whether a
-runtime module depends on it. Two passes over the tree, one per axis
-(`evidence/seam-rules-chain.md`, `evidence/seam-rules-workflow.md`),
-each naming the module and function that misbehaves without the
-rule, how, and the weaker form that suffices. Counts are from the
-tables, recounted:
-
-| Class | Chain (42 rows) | Workflow (44 rows) | Meaning |
+| Assumption | Held by | Checked? | On violation |
 |---|---|---|---|
-| ENGINE | 20 | 6 | a runtime module misbehaves without it |
-| LOADER-ONLY | 17 | 11 | keeps a loader derivation consistent; nothing downstream reads it, or the runtime tolerates the violation |
-| HABIT | 2 | 18 | no reader; a convention or design opinion; a violating bundle loads and runs |
-| NEGATIVE | 3 | 9 | a "no check exists" sentence or a derivation, not a rule |
+| Every phase a tier names is a position the paired workflow declares | chain | no (only membership in the fixed table) | today: nothing, since nothing reads phase; Phase 7: a tier at an undeclared position never dispatches, or dispatches at its kind |
+| The chain fans out at the depths the workflow's gates and critique name | workflow | no, by decision (v5 §7.19 "must not be a load error") | depth is a maximum; a shallower chain applies the levels that exist, silently |
+| A position that fans out has children to reconcile | workflow | no | v5 4231: the mechanical merge and the reconcile read happen regardless; with no children it is a no-op fan-in |
+| A generation position has one agent step to group gates around | workflow (sub-arrays) | at load, within the workflow only | n/a |
+| Children run the declared sequence filtered by depth, so generation-shaped entries apply at every level | both | implied by v5 §7.19 | a workflow with all gates at depth 0 handles a fanned chain: children generate, check, reconcile and merge with no human gates |
 
-### 2.1 What the engine actually requires
+The last row answers the author's question about serial versus
+fanned tiers at every level: the depth mechanism *does* let one
+workflow accept both, because fan-out changes only which levels the
+gates apply at, not whether the sequence runs. What it does not let
+a workflow do is gate two different generation passes at the same
+level differently, which is 1.1.e again. So the incompatibility is
+not fan-out versus serial; it is that positions, not levels, are
+what a gate needs to name, and fixed kinds give the workflow too few
+of them. A chain that fans out at *product* (a decomposition whose
+journeys each generate) would still run under `default-flow`; its
+per-journey children would just have no gates until someone added
+depth to the product gates, which the fixed table lets them do.
 
-**Chain.** The live core is exactly what §1 kept. Edge endpoints must
-name declared tiers (an undeclared target mints nodes no walk can
-settle). `scope` must be one of the closed kinds (`ReadyScopes
-.candidates/3` has one clause per kind and raises otherwise). Type-
-level acyclicity is required **over `fanout` instances only**:
-`tier_drained?` recurses driver chains with no visited set, so a
-fanout cycle exhausts the stack, while `reference`/`dependency`
-cycles are harmless to every runtime reader. The ORC-232/236
-mirrors (`declared_in` and `draft.*` paths resolve in the XSD;
-locator forms; `mint.parent` names a provided field) are engine-
-required as stated, because they are the same `EdgeLocator` and
-navigation the commit path runs, and the failure mode is a silent
-`nil`. `all.<tier>` must name a declared tier and must not target a
-reference-scope tier (permanent unreadiness). Walk hops must name a
-declared edge with the walker on the right side, else readiness is
-vacuously true and the prompt variable is silently missing. The
-projection set is closed because `render_fragments/3`'s clause heads
-are the set. Cardinality bounds must be integers where present.
+### 1.3 Compatibility versus autonomy
 
-Three rules are **weaker than stated** in the contract: `scope_filter`
-is the only predicate slot with an evaluator (retired anyway); a
-`scope: reference` tier must merely never be dispatchable, the
-pairing itself is opinion (retired anyway); `-> <tier>` on a `self`
-walk is a type annotation the runtime never consults. One rule is
-**stronger than stated**: `produces` owner must be `self.parent`,
-not "`self` or `self.parent`" (retired to the map form, owner
-implied).
+This is the decision under §2.C.1 (free status names) and it is open.
+Both sides:
 
-**Workflow.** Six rules, and three of them in a weaker form than the
-contract states:
+*For compatibility (fixed kinds).* Bundles exist for community-scale
+sharing (v5 §8's premise; the author's framing). A workflow shared
+across chains must gate on positions every chain has, and the fixed
+kinds are that shared vocabulary. Free names let a workflow become
+specific to one chain's position names; a shared workflow that used
+them would silently degrade on any other chain. The fixed table is
+small and platform-owned, which is also what makes tooling (the
+board, lane keys, the status columns) uniform across projects.
 
-- Every `status:` kind must be an existing atom
-  (`FeatureLifecycle.Sequence.to_position/1` calls
-  `String.to_existing_atom` on the kind and crashes the process
-  manager otherwise). It atomizes `status`, never `name`, so **free
-  names are safe under the `status: <kind>, name: <free>` spelling**
-  and the closed set is a set of kinds. This settles §4.b.
-- A population anchor carries `flow:` (`Status.queue_shaped?` is what
-  `ContainerQueues.admits?`, `unresolved_queues` and `Composition`
-  branch on; without it a queue silently becomes a one-shot slot).
-  The "absent elsewhere" half is tolerated.
-- The declaration graph is acyclic and no type nests itself
-  (`ContainerLifecycle.open_for/3` mints an unbounded ladder of
-  containers otherwise).
-- Every sub-array has **at least one** non-review-shaped agent-balled
-  entry (`Type.namespaced_positions/1` raises on zero, and every
-  runtime reader on both axes and both LiveViews goes through it).
-  "Exactly one" is the contract's; the second anchor is tolerated.
-- Names are unique within a namespace (two entries with one
-  qualified name make the container dispatcher loop forever between
-  them).
-- No gate name equals any status name, bare or qualified (the gate
-  lookup precedes namespace resolution; a collision pins a ticket at
-  a gate it is not at).
+*For autonomy (free names).* The fixed table forces batching that the
+author considers a bug, and every new position anyone wants is a
+platform vocabulary change, which is the growth-in-content-tickets
+pattern. Siege allowed review after every tier. The depth rule
+already established that a workflow may name something a chain does
+not have and degrade silently; names are the same trade at the
+position axis that depth is at the level axis.
 
-### 2.2 What is loader-only, and what happens to it
+*The middle, which is what I recommend, with the reason.* Kinds stay
+the shared vocabulary and are what a portable workflow uses; a fine
+name is an opt-in that degrades to its kind on any chain that does
+not declare it. A workflow using only kinds is portable exactly as
+today; one using fine names is chain-specific *by the author's
+choice*, which is the same choice depth already gives them. Sharing
+is not harmed because a shared workflow either uses kinds (portable)
+or is shared as a pair with its chain (where fine names are fine).
+What would change this: evidence that community sharing is
+predominantly workflow-alone rather than pair or chain-alone, in
+which case the fixed table should stay closed and grow by platform
+decision, and the author should decide the batching is acceptable.
 
-Chain loader-only rules fall with the constructs §1 retired or
-derived: the fragment vocabulary checks (derived from `produces`), the
-review-tier rules including context equality (gone with review tiers;
-`ContextAssembly` already recomputes the reviewed tier's context and
-never reads the review tier's), the reference-scope rules (gone with
-`scope: reference`), `enforcement`/`ticket.*` registrations
-(reserved markers), the `extends` refusal (one line). Duplicate-name
-and scope-target checks stay as ordinary referential checks.
+## 2. Recommended changes
 
-Workflow loader-only rules: `throwback:` earlier-than (kept; it is
-re-derived at the command edge, so the declaration is only a
-default), `skeleton` membership, sub-array flatness, name-ambiguity
-(kept with sub-arrays). Two are worth naming because the runtime
-disagrees with the loader: `blocks:` is resolved by namespace at
-load and matched by **bare kind** at runtime (`ContainerQueues` holds
-on every occurrence of a recurring kind, which is the case the loader
-refuses); and `entry:` has no reader anywhere outside the loader.
+### A. Chain grammar
 
-### 2.3 What is habit, and leaves the contract
+**A.1 One `chain.yaml` instead of one file per tier and edge.**
+*Argument:* the file layout was never decided (report F); 51 tier
+files carry 600 lines of header comment and a tier name repeated in
+three paths each; the design-carrying content is a few hundred lines
+(report D part 6); the workflow axis already made this move
+(core_dsl#14) with no regret recorded. A single file is what the
+author originally imagined and what a newcomer can read in one
+sitting, which README §4.8 makes the acceptance test. *Against:* per-
+file diffs are smaller and per-tier ownership is clearer in review; a
+700-line YAML file is its own readability problem. *Evidence:* D
+parts 1 and 4; F part 2. *Standing:* arguable. The prototype is the
+test: if the single file does not read well, keep per-tier files and
+take only the defaults below.
 
-Chain: `delivery.phase`/`agent_step` membership in the fixed
-vocabulary (nothing reads `Tier.delivery`; replaced by free names
-with the depth rule, seam 20). The navigation-edge walk ban has no
-runtime reader either, but it is a platform design rule with a
-recorded reason (v5 §4.3), not the default's habit; it stays as a
-stated rule.
+**A.2 Defaults for `root_tag`, `grammar`, `prompt`, `generator: llm`,
+`executor`, derived from the tier name.** *Argument:* 17 of 22
+root tags, 19 of 22 grammars and nearly every prompt path already
+equal the derivation; `executor` is `max` in all 10 uses; `llm` is
+already the default. A default the author writes to override costs
+nothing where the value differs and removes a line everywhere else.
+*Against:* implicit paths are harder to grep for. *Evidence:* D part
+2. *Standing:* settled by evidence.
 
-Workflow, eighteen rows, of which the ones that matter:
+**A.3 `handle.fields` defaults to every field; `handle.fragments` is
+derived from what is produced onto the node.** *Argument:* checked
+against the tree, **no shipped tier narrows its handle**: every one
+of the nine spine tiers and all ten join targets expose `[id] +
+every field`. The 34 blocks carry no information. v4's purpose for
+`handle` (A.1.6, the public surface) survives as an override for a
+tier that wants to narrow, and a subset check should be added since
+today none exists. *Against:* information hiding between tiers is a
+real design tool and a default of "everything" nudges authors away
+from it. *Evidence:* the tree, read directly. *Standing:* settled by
+evidence for the default; the nudge concern is real but costs one
+line to act on.
 
-- **Both skeleton backbones** (`setup, prep, main, retro, cleanup,
-  terminal`; `pending, generation…, checks, merge, deploy,
-  terminal`). `ContainerLifecycle` iterates the declared array and
-  closes at `terminal` *or* end of array; `FeatureLifecycle.Sequence`
-  reads `checks` and `merge` only as a reachability boundary and
-  tolerates their absence. Nothing reads `setup`/`prep`/`main`/
-  `retro`/`cleanup` by name; `Composition` takes the first
-  queue-shaped entry.
-- **`merge` preceded by `reconcile`.** `reconcile` has no runtime
-  reader at all.
-- **`pending` immediately before each generation-shaped entry, and
-  before `deploy`.** Nothing dispatches on `pending`; the projection
-  auto-passes it; the fallback reads whether a group starts with one
-  and tolerates absence.
-- **`critique` adjacent to its generation entry.** No module positions
-  on `critique`; the projection auto-passes it wherever it sits.
-- The unknown-field rule and its four restatements, `depth:` shape
-  (kept as plain typing), escalation shape, the two opt-in checks,
-  the naming-discipline rule, the runtime-dialect refusal, and the
-  explicit-`throwback:` requirement for an ungrouped review, which
-  the loader never implemented.
+**A.4 Review as a tier property (`review:`), not a review tier.**
+*Argument:* all 17 review tiers are seven keys of which four are
+constants and one is a byte-identical copy of the base tier's walks;
+the load rule that the copy is exact exists only because the copy
+exists; and `ContextAssembly` already ignores the review tier's
+context and recomputes from the reviewed tier (seam rules, chain
+#10). The rule's reason (core_dsl#9) dissolves when equality holds by
+construction. *Against:* a review tier could one day want a
+different context than its base. *Evidence:* D part 3; E; the
+equality rule itself forbids the counter-case. *Standing:* settled by
+evidence; the counter-case is forbidden by the current contract.
 
-This is the finding that bears on seam 21: **the ticket skeleton's
-backbone and the generation → reconcile → merge relation are pure
-contract today.** No runtime module enforces or reads them; the ~130
-lines of §13 that state them (report C #26–#29) and the ~760 lines
-of §15.1–§15.3 that explain them constrain authors without
-constraining the engine. Whatever placement §4.c chooses, the rules
-as written are the default bundle's shape stated as law, and the
-contract should carry only the six rules in §2.1 plus whatever the
-chosen placement genuinely needs.
+**A.5 `context:` as a map from variable name to walk.** *Argument:*
+ORC-247 found the merge-by-tier rule silently fusing distinct reads
+at eighteen sites, unseen for the bundle's whole life, and the fix on
+that branch adds an `as:` key, a merge-by-name rule, two collision
+errors, and a still-open form question. Mandatory naming removes the
+merge rule, reduces collisions to key uniqueness plus a short reserved
+list, and makes every prompt variable visible in the declaration.
+*Against:* the common single-walk entry now needs a name, which is a
+line of ceremony for the 109 `self.*` reads; a default name (the
+target tier) would recover the ceremony but reintroduce the merge
+rule. *Evidence:* `in-flight-tickets.md` ORC-247 review 5; seam 7.
+*Standing:* arguable. I weight the eighteen-site defect over the
+ceremony; the prototype shows whether the ceremony is tolerable.
 
-### 2.4 Gaps the passes surfaced
+**A.6 `produces:` as a map `kind: draft.<path>`; owner implied;
+`fragments:` vocabulary derived.** *Argument:* every one of the 24
+shipped rows and every v4 example is `owner: self.parent`; `owner:
+self` never existed in v4 and the engine discards it; the bundle-
+level vocabulary is the union of produced kinds and nothing else.
+*Against:* none found. *Evidence:* `questioned-rows.md`; D part 2; E.
+*Standing:* settled by evidence.
 
-Not rules, but things the contract claims or the runtime assumes that
-the other side does not honour. Each is a ticket or a contract
-sentence, and the redesign should not repeat the claim:
+**A.7 Plain cardinality moves to the XSD; `cardinality.when` stays,
+reserved.** *Argument:* all 62 shipped `min`/`max` rows are either
+`minOccurs` facts about the declaring element or tautologies of the
+edge type ("every comp has exactly one mint"), and nothing enforces
+them at runtime. v4's real use was `when`-conditioned bounds
+("foundation at every level"), a cross-node invariant the XSD cannot
+express, enforced by rejecting the commit; that mechanism stays,
+reserved, with the predicate language for it. *Against:* keeping
+cardinality in the DSL keeps all structural facts in one place; the
+XSD is a second place to look. *Evidence:* `questioned-rows.md`
+(v4 A.2.3, A.2.8, bundle §4.1); D part 2. *Standing:* arguable on
+placement; settled that the plain rows carry no DSL-level
+information.
 
-- `prompt:` and `draft.grammar` paths are never resolved at load
-  (§13 says they are); a missing prompt is an Oban retry loop at
-  dispatch. §1 makes existence a load check.
-- `per(X)` scope chains are recursed by `tier_drained?` but never
-  cycle-checked.
-- A review tier's `context:` is dead at runtime (moot once reviews
-  are tier properties).
-- Every `ticket.<source>` walk blocks readiness unconditionally,
-  registered or not (moot while reserved; the marker should say so).
-- `blocks:` namespace semantics differ between loader and runtime
-  (§2.2).
-- `entry:` is validated three ways and read by nothing.
-- The `throwback:`-required rule for ungrouped reviews is in the
-  contract and not in the loader.
+**A.8 The instance is the unit; drop the inline edge form.**
+*Argument:* 58 of 62 declarations are instances; the inline form and
+its exclusivity check exist for four files. *Against:* the inline
+form is shorter for a single-instance edge. *Evidence:* D part 2.
+*Standing:* settled by evidence.
 
-## 3. The target key set
+**A.9 Endpoint locators default by convention (`self`, `self.parent`,
+a row's `from`/`to`/`ref` attribute); explicit only when the
+convention cannot express the endpoint.** *Argument:* all six uses
+are `@from`/`@to` in one file and ORC-247's `@ref` follows the same
+pattern; the closed form was derived by tracing the default's
+instances and closed to exactly what they need (core_dsl#37).
+*Against:* an explicit locator is self-documenting and the
+convention is one more rule to know. *Evidence:* D; F part 4.
+*Standing:* arguable; low stakes either way.
 
-What an author can write after §1, before any prototype iteration.
-Reserved keys are included and marked; derived defaults are listed
-under the key they default.
+**A.10 Retire `scope_filter`, edge `constraint`, `per_source`.**
+*Argument:* each served a v4 mechanism v5 removed by recorded
+decision (the domain/presentational split, the cascade visit set,
+phases), none is used, and `scope_filter` is the only evaluated
+predicate slot. *Against:* a future bundle may want a conditional
+scope. *Evidence:* `questioned-rows.md`. *Standing:* settled by
+evidence; re-admission is one slot if a need appears.
+
+**A.11 Rename the join-target generator; merge `reference` into
+`supplied`; retire `scope: reference`.** *Argument:* v5 §5.1 reused
+v4's `synthesis` (a computed aggregation body) for a node with no
+body, so the word now means two things; a tier with no draft is a
+join target by v4 A.1.1 and needs no keyword. `reference` and
+`supplied` are both "externally sourced, never generated, never
+drained", and `scope: reference` restates `generator: reference`
+(the pairing rule exists because the fact is written twice, A part
+4). *Against:* renaming touches ten tiers and the record; `reference`
+nodes have a write path still to build and may want their own kind.
+*Evidence:* `questioned-rows.md`; seam 2, 3. *Standing:* arguable on
+the merge; settled on the rename.
+
+**A.12 `delivery.phase` and `agent_step` default from the tier's
+role.** *Argument:* both are fully determined by generator and
+`reviews` in every shipped tier; the key stays because it is the
+cross-axis binding (§1.1.a) and the only way to name a finer position
+under §2.C.1. *Against:* none. *Evidence:* D part 2. *Standing:*
+settled.
+
+### B. Workflow grammar
+
+**B.1 Keep sub-arrays; keep `name:`; keep gate `depth`.** *Argument:*
+the author's, recorded in `questioned-rows.md`: sub-arrays give the
+default throwback, bound how far a child may lead its parent, scope
+reconcile and merge, and are the board's grouping, with consecutiveness
+free; `name:` is the only way to distinguish two entries of one kind
+once several roles share review duty, and §2.C.1 reuses it; gate depth
+is wanted (scaffolding reviews the whole tree, a feature the top
+levels). *Against:* none that survives the author's reasons.
+*Standing:* settled by the author.
+
+**B.2 Delete the sentence "Depth 0 is the rule for a gate."**
+*Argument:* `dsl-syntax.md` 2349 attributes it to v5 §7.19, which
+says the opposite ("`1` adds components; `2` adds subcomponents");
+it contradicts the author's intent and is why every shipped gate
+carries `depth: 0`. *Evidence:* both passages quoted in
+`questioned-rows.md`. *Standing:* settled by evidence.
+
+**B.3 Gate `throwback` defaults to the enclosing sub-array's head.**
+*Argument:* that is the current derivation; the command edge
+re-derives legality anyway (seam rules, workflow #24), so the
+declaration is only a one-click default. If the derived default is
+never what authors want, the author's own rule applies: fix the
+default. *Standing:* settled (it is the tree).
+
+**B.4 Reconcile the `blocks:` semantics between loader and runtime.**
+*Argument:* the loader resolves `blocks:` targets by namespace and
+refuses a recurring kind; `ContainerQueues.held_or_resolved/3` matches
+by bare kind and holds on every occurrence. One of them is wrong.
+*Standing:* settled that they disagree; which to keep is the
+author's, and it is a small ticket either way.
+
+**B.5 Either implement or drop the "ungrouped review must declare
+`throwback:`" rule.** *Argument:* it is in the contract and not in the
+loader; the runtime tolerates a nil default (a gate with no one-click
+target). *Standing:* settled that the contract and loader disagree.
+
+**B.6 `entry:` stays; note that nothing reads it yet.** *Argument:* it
+is the only way to name the root type; its consumer is provisioning.
+*Standing:* settled.
+
+**B.7 The ticket backbone and merge-after-reconcile stay, as
+reserved-enforced rules.** This reverses the earlier version of this
+file. *Argument:* §1.1.b: Phase 7 opens one PR per child ticket and
+merges them into the feature branch; `reconcile` is where an agent
+joins the children's output and where a human can look at the fanned-
+out results in aggregate, with gates legal before and after it;
+`merge` is the plane-balled join into the parent that follows; `checks`
+is CI against produced work. The order is what PR mechanics require,
+not the default's taste. That no current dispatcher reads `reconcile`
+(seam rules, workflow #28) means the rule is reserved, not that it is
+a habit. *Against:* the container backbone's five-member requirement
+(`setup`, `prep`, `main`, `retro`, `cleanup`) is weaker: `Composition`
+takes the first queue-shaped entry and the dispatcher closes at
+end-of-array, and v5 §7.8 describes the milestone model rather than
+requiring every member. *Evidence:* v5 §7.5, §7.19, 4231; core_dsl#21,
+#22. *Standing:* settled for the ticket backbone; arguable whether the
+container backbone should require all five members or only their
+relative order when present.
+
+**B.8 `pending` before each generation-shaped entry stays, as a
+reserved-enforced rule; "immediately before" can weaken to
+"before".** *Argument:* `pending` is the dispatch-wait position; once
+dispatch is gated by the ticket's resting position, a ticket must
+have a position to rest at while no agent has picked it up, and that
+position precedes the generation it waits for. *Against:* nothing
+today dispatches on it; the projection auto-passes it. *Evidence:*
+seam rules, workflow #14. *Standing:* arguable on the adjacency,
+settled on the existence.
+
+**B.9 Critique adjacency stays; state it as derived from the chain.**
+*Argument:* §1.1.c. A review tier is 1:1 with the tier it reviews, so
+the critique position follows the generation it reviews by
+construction; the workflow rule restates chain structure. It should
+be stated once, in the chain contract, as "a review runs at the
+`critique` position following its tier's generation position", and
+the workflow's adjacency rule cited to it rather than restated.
+*Standing:* settled that it is structural; arguable where it is
+stated.
+
+### C. Cross-axis
+
+**C.1 Free status names, degrading to kinds by the depth rule.**
+Argued in §1.3. *Standing:* **open**; my recommendation is the
+middle, with low-to-medium confidence, and the thing that would change
+it is named there. What is settled underneath it: the direction is
+already tiers → statuses and stays; the runtime atomizes the kind and
+never the name, so the `status: <kind>, name: <free>` spelling is safe
+with no code change; and gate enforcement against dispatch is Phase 7
+work either way, so freeing names changes what the board shows and
+nothing about what runs until that lands.
+
+**C.2 Reconciliation stays a workflow position; the chain may attach
+a fan-in document to it.** This narrows seam entry 21 and withdraws
+its third placement. *Argument:* the author's: fan-outs need a
+reconcile because child PRs must merge into the parent predictably,
+with gates possibly before and after; that is a *position* in the
+ticket's sequence, which only the workflow can place gates around.
+The chain's contribution is already what v5 4231 allows: an optional
+synthesis tier at the reconcile position, authored so a human reading
+the post-join gate sees a document rather than a composed diff.
+Folding reconcile into the fan-out declaration would move the position
+into the chain and lose the workflow's ability to gate before and
+after it, which is the point. *Against:* the skeleton's generation →
+reconcile → merge relation is still derivable from the chain's fan-out
+edges, so the workflow restates chain structure; but restating a
+required position is cheaper than a cross-axis derivation. *Standing:*
+arguable, leaning to keep. What remains open is the container
+skeleton (B.7).
+
+**C.3 A declared chain-shape check, as lint.** *Argument:* §1.2 shows
+every cross-axis assumption is unchecked by decision. A load-time
+*warning* (never an error, per v5 §7.19's reason) when a workflow's
+depths exceed the chain's fan-out, or a tier's fine phase matches no
+position, costs nothing and turns silent degradation into a visible
+one. `load_axes/5` has both bundles in hand. *Against:* §14 forbids
+cross-axis reference, and a warning is a compatibility contract in all
+but name. *Standing:* arguable; the reason §14 gives is about
+*errors*, and a warning does not fork workflows per stack.
+
+### D. Docs and record
+
+**D.1 Write the contract docs fresh; each rule once with an id, a
+reason in the sibling, and a live/reserved marker.** *Argument:*
+README §3, §4.6, §4.7; the duplication structure is the bloat
+generator and the six-round sibling failure is its symptom.
+*Standing:* settled by evidence (reports A, B, G).
+
+**D.2 State the interaction points of §1.1 in the chain contract,
+once, as the section where the workflow is mentioned at all.**
+*Argument:* nothing in the record states them together; each is
+recoverable only by reading v5 §7.5, §7.18, §7.19 and core_dsl#22
+side by side. *Standing:* settled.
+
+**D.3 Amend the record in the same change** (v5 §6, §9, §3.4, §7.18,
+§7.19; core_dsl and platform_content standing decisions named in
+README §2.4; `non-goals.md` for the retired constructs). *Standing:*
+settled by the repo's own rule.
+
+## 3. Rules, re-read with the corrected classes
+
+The two passes in `evidence/seam-rules-*.md` classified each load rule
+by whether a runtime module reads it *today*. That is the right input
+and the wrong last step. The classes used here:
+
+- **ENGINE** — a runtime module misbehaves without it now.
+- **RESERVED-ENFORCED** — a Phase 7 (or named later) consumer the
+  record identifies will depend on it; stays in the contract, marked.
+- **DERIVED** — true by construction of the grammar in §2; the rule
+  disappears with the construct that needed it.
+- **DISCIPLINE** — loader hygiene (unknown keys, duplicates, typing);
+  stays, stated once.
+- **HABIT** — no consumer now or named; a convention; leaves the
+  contract, may live as lint or in the default's own comments.
+
+**Chain (42 rows).** ENGINE 20, as the pass found. Of the 17 loader-
+only rows: fragment vocabulary (2c, 2d), review-tier rules (9, 10,
+11), reference-scope rules (65, 66, 68), the inline-form exclusivity,
+and the `.synthesis` refusal become DERIVED under §2.A; `enforcement`
+and `ticket.*` registration are RESERVED-ENFORCED markers; unknown
+keys, duplicates and scope-target resolution are DISCIPLINE. Of the 2
+habits: `delivery.phase` membership splits into RESERVED-ENFORCED
+("a phase names a position", Phase 7 dispatch gating) and OPEN ("the
+position is in the fixed table", §2.C.1); the navigation-walk ban is a
+platform design rule with a recorded reason (v5 §4.3) and stays as a
+stated rule, not a habit.
+
+**Workflow (44 rows).** ENGINE 6, as the pass found, three in a weaker
+form (§2.B). The 18 the pass called habits re-read as:
+
+| Rows | Class | Why |
+|---|---|---|
+| 26 (ticket backbone), 27, 28 (merge after reconcile) | RESERVED-ENFORCED | §2.B.7: Phase 7 PR-per-child merge mechanics |
+| 14, 15 (`pending` placement) | RESERVED-ENFORCED, weaker form | §2.B.8: a dispatch-wait position must exist; adjacency is arguable |
+| 20 (critique adjacency) | RESERVED-ENFORCED, derivable | §2.B.9: chain structure restated |
+| 26 (container backbone membership) | arguable: RESERVED-ENFORCED for order, HABIT for requiring all five | §2.B.7 against |
+| 23 (escalation shape), 31, 32 (opt-ins) | RESERVED-ENFORCED / BINDING | delivery Phase 7; bindings |
+| 1, 19, 21, 30, 35 (unknown keys ×5), 18 (depth typing), 34 (dialect) | DISCIPLINE | stated once, not five times |
+| 33 (naming discipline) | HABIT → lint | style |
+| 50 (`throwback` required when ungrouped) | unimplemented | §2.B.5 |
+
+So the honest count on the workflow axis is not "6 of 44 matter" but:
+6 engine-required now, roughly 10 reserved-enforced by Phase 7, 7
+discipline, 1 lint, 1 unimplemented, and the rest negatives or
+derivations. What the earlier version got right is narrower than it
+claimed: the *number of times* these rules are stated (eight for
+`pending`, five for critique adjacency) is the bloat; the rules
+themselves mostly have reasons.
+
+## 4. The target key set
+
+Unchanged from the earlier version in shape, now marked as provisional
+on §2.C.1 (free names) and §2.C.2 (reconcile stays). Reserved keys are
+marked with an asterisk; derived defaults are listed under the key
+they default.
 
 **`catapult.yaml`:** `chain`, `workflow`.
 
@@ -310,7 +486,7 @@ name, version*, kind: chain
 tiers:
   <name>:
     scope            singleton | per(X) | child_of(X)      (absent on a supplied tier)
-    identity         id | alias | name | slug               (required; §4.a may move it)
+    identity         id | alias | name | slug               (required; §5.a may move it)
     fields           {<name>: draft.<path> | mint.<name> | mint.parent.<name> | reference.<name>*}
     handle           [<field>...]        default: all fields + produced kinds
     draft            {root_tag, grammar} defaults: <name>, schemas/<name>.xsd; absent = join target
@@ -321,7 +497,7 @@ tiers:
     executor         default: {effort: max}
     context          {<variable>: <walk> | [<walk>...]}
     produces         {<kind>: draft.<path>}
-    delivery         {phase, agent_step}  defaults from the tier's role; phase may be a free name
+    delivery         {phase, agent_step}  defaults from the tier's role; phase may be a fine name (§2.C.1, open)
     enforcement*     [<profile>...]
 edges:
   <name>:
@@ -342,7 +518,7 @@ name, version*, kind: workflow
 entry: <type>
 types:
   <name>:
-    skeleton         ticket | container | absent          (§4.c)
+    skeleton         ticket | container | absent
     statuses:        [ <entry> | [ <entry>... ] ]
       <entry> :=  {status: <kind>, name?: <free>, flow?: <type>, blocks?: [...], depth*?: n | [a, b]}
                 | {review: <gate>}
@@ -353,41 +529,30 @@ environments*:
   <name>: {promote_from?, depth?, lifetime}
 ```
 
-Asterisks mark reserved. Kinds: `pending`, `generation`, `critique`,
-`checks`, `reconcile`, `merge`, `deploy`, `terminal`, `setup`, `prep`,
-`main`, `retro`, `cleanup`. Walk forms and predicate forms are
-unchanged from the current §7 and §8.
+Kinds: `pending`, `generation`, `critique`, `checks`, `reconcile`,
+`merge`, `deploy`, `terminal`, `setup`, `prep`, `main`, `retro`,
+`cleanup`. The three named generation kinds retire only if §2.C.1 is
+taken; otherwise they stay and ORC-179 assigns them.
 
-Chain keys an author may write, counted from the listing above: 14
-tier keys (`scope`, `identity`, `fields`, `handle`, `draft`,
-`generator`, `source`, `prompt`, `review`, `executor`, `context`,
-`produces`, `delivery`, `enforcement`), of which 7 carry a default
-(`handle`, `draft`, `generator`, `prompt`, `review`, `executor`,
-`delivery`) and 1 is reserved (`enforcement`); 4 edge keys (`type`,
-`navigation`, `consistency`, `instances`) and 6 instance keys
-(`source`, `target`, `declared_in`, `source_ref`, `target_ref`,
-`when`), of which 2 are defaulted and 2 reserved; and the reserved
-`predicates` and `flows` blocks. Down from the ~60 the current §1–§12
-define, with no construct the engine reads removed.
+Counted from the listing: 14 tier keys (7 defaulted, 1 reserved), 4
+edge keys and 6 instance keys (2 defaulted, 2 reserved), and the
+reserved `predicates`/`flows` blocks. Down from the ~60 the current
+§1–§12 define, with no construct the engine reads removed and no
+reserved construct dropped.
 
-## 4. Still the author's
+## 5. Still the author's
 
-- **a. Where identity is declared.** On the tier (`identity:`), or on
-  the mint element in the XSD (`xs:appinfo`), which makes the schema
-  the single source for "which attribute is the key" (seam 19). The
-  prototype writes both and the author picks.
-- **b. The `status:` spelling for free names.** Settled by §2.1 in
-  favour of the existing keys, `status: generation, name: features`:
-  the runtime atomizes `status` and never `name`, so the kind stays a
-  closed atom set and the name is a free string with no code change.
-  The map form would need the same guarantee re-established.
-- **c. Where reconciliation lives** (seam 21), and with it whether
-  `skeleton:` survives as more than `ticket | container`, and whether
-  `reconcile`/`merge` stay authorable kinds.
-- **d. A tier family with several drivers** (seam 2, ORC-247): three
-  same-shaped policy tiers, or one declaration with three drivers and
-  per-instance readiness in the engine. The grammar in §3 expresses
-  the first; the second is engine work.
-- **e. `generator: template`**: name an owner, or fold it into the
-  door-open note with `git_commit`/`webhook`.
-- **f. The acceptance number** (README §4.8).
+- **a. Where identity is declared** (tier key or `xs:appinfo` on the
+  mint element; seam 19). The prototype writes both.
+- **b. Free status names** (§1.3, §2.C.1). Open; the recommendation
+  is the middle, with the condition that would change it stated.
+- **c. The container backbone**: require all five members, or only
+  their order when present (§2.B.7).
+- **d. `blocks:` semantics**: the loader's or the runtime's
+  (§2.B.4).
+- **e. A tier family with several drivers** (seam 2, ORC-247): three
+  same-shaped tiers, or one declaration with per-instance readiness in
+  the engine.
+- **f. `generator: template`**: an owner, or the door-open note.
+- **g. Whether a cross-axis *warning* is acceptable** (§2.C.3).
+- **h. The acceptance number** (README §4.8).

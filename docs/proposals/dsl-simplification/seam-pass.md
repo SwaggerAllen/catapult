@@ -35,8 +35,8 @@ or the author can settle.
 | 17 | Gates and environments | gates live; environments reserved with a live defect | mixed | gate = role + depth + throwback; drop the "depth 0 is the rule" sentence; mark environments; fix or mark the sequence drop |
 | 18 | Two axes, no cross-reference | live | platform | keep; document the vocabulary leak as the trade |
 | 19 | XSD vs DSL for structural facts | live | — | paths stay in the DSL; cardinality moves to the XSD; evaluate `xs:appinfo` |
-| 20 | Where human gates live; the fixed status-name set | live grammar, reserved enforcement | platform (name set), engine (Phase 7 consumer) | keep the direction (tiers name statuses); free the names by the depth rule; retire the three reserved kinds |
-| 21 | Where reconciliation lives; whether the ticket skeleton restates the chain's fan-out | live, open | engine (fan-in is real), workflow (skeleton encodes it) | author's call; three placements framed |
+| 20 | Where human gates live; the fixed status-name set | live grammar, reserved enforcement | platform (name set), engine (Phase 7 consumer) | open: compatibility vs autonomy argued in `seam-decisions.md` §1.3; the direction (tiers name statuses) stays either way |
+| 21 | Where reconciliation lives; whether the ticket skeleton restates the chain's fan-out | live; reserved-enforced by Phase 7 | engine (PR-per-child merge) | reconcile stays a workflow position; chain may attach a fan-in document; container backbone membership open |
 
 ## Entries
 
@@ -639,12 +639,15 @@ here.
   its direction stand. What this entry questions is only the closed
   name set, and it records that the runtime half is Phase 7 either
   way.
-- **Recommendation:** free the names, by the depth rule, in the
-  redesign; retire the three reserved kinds; amend `dsl-syntax.md`
-  §11's "no compatibility contract" to state the silent-fallback rule
-  and v5 §7.18/§7.19 to match; carry ORC-179 as "which position each
-  default tier names", which is the same decision with a better
-  answer available. Author's call.
+- **Recommendation:** open. `seam-decisions.md` §1.3 argues both
+  sides: compatibility (bundles exist for community-scale sharing,
+  and a shared workflow must gate on positions every chain has) and
+  autonomy (per-tier gates; the depth rule already lets a workflow
+  degrade silently). The middle, kinds as the shared vocabulary with
+  fine names as an opt-in that degrades to its kind, is recommended
+  there with low-to-medium confidence and the condition that would
+  change it. Whatever is chosen, the direction (tiers name statuses)
+  stays, and gate enforcement against dispatch is Phase 7 either way.
 
 ### 21. Where reconciliation lives, and whether the ticket skeleton restates the chain's fan-out
 
@@ -703,8 +706,13 @@ Raised by the author with the `synthesis` question
   only a sequence of gates and lifecycle states.
 - **Status:** live; the fan-in is real and enforced today through the
   skeleton. The question is placement.
-- **Recommendation:** none yet; author's call. If the third placement
-  is taken, `dsl-syntax.md` §15.1's backbone, §15.11, v5 §7.5/§7.16
-  and core_dsl#21/#22 are amended in the same change, and the
-  `synthesis` edge type's remaining use (flows' `plan_target`) is
-  re-examined with flows.
+- **Recommendation, narrowed** (`seam-decisions.md` §2.C.2): the
+  third placement is withdrawn. Fan-outs need a reconcile position
+  because Phase 7 opens one PR per child ticket and merges them into
+  the parent predictably (v5 §7.5), and a human needs to see the
+  fanned-out results in aggregate, with gates possibly before and
+  after; only the workflow can place gates around a position. So
+  reconcile stays a workflow position, and the chain's contribution is
+  the optional synthesis tier v5 4231 already allows. What remains
+  open is the container skeleton: whether all five members are
+  required or only their order when present.
