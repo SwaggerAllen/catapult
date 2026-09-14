@@ -193,15 +193,21 @@ same gate at different depths.
 
 ## Costs the prototype makes visible
 
-- **Strict binding duplicates the position list across `feature` and
-  `seed`.** Both types declare the five generation positions with
-  their critiques, and differ only in `plan`, the staging environment,
-  and one depth. That is 24 lines said twice. A YAML anchor cannot
-  share it cleanly because the gate citations differ inside the
-  groups. The alternative is one type with per-flow gate depth, which
-  would retire `seed` as a type; that is a decision for the contract
-  docs, and v5 §7.9's reason for a separate seed type (different
-  settings for the seed pass) should be re-read against it.
+- **`seed` and `feature` are two types, and the position list is
+  written in both.** Decided by the author. The scaffold pass (v5
+  §7.9) is reviewed at every depth, since it has no reviewed prior
+  graph to trust; a feature is reviewed at the system and component
+  levels and catches the rest through the reconciled branch. Both
+  types declare the five generation positions with their critiques,
+  and differ in `plan`, the staging environment, and the depth on
+  `engineering-review`. The alternative, one `feature` type with the
+  `[first, rest]` depth pair on its gates, was considered and
+  rejected: it expresses this one case and no other without making
+  the feature flow depend on its parent container, whereas a type per
+  kind of pass scales to any number of them. The duplication is 24
+  lines, and the seed type's own comment in the tree ("no gates: the
+  seed produces the base schema rather than a change anyone signs off
+  on") is wrong and goes when the bundle is rewritten.
 - **`review: default` is written explicitly** on all 17 reviewed
   tiers, although A.2 allows deriving it from the existence of
   `prompts/review/<name>.md.liquid`. Written, because a reader of the

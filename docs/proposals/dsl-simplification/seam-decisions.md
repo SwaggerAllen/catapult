@@ -522,7 +522,14 @@ them.
 **D.3 Amend the record in the same change** (v5 §6, §9, §3.4, §7.18,
 §7.19; core_dsl and platform_content standing decisions named in
 README §2.4; `non-goals.md` for the retired constructs). *Decision:*
-**decided**: all the docs in one go, so they are consistent.
+**decided**: all the docs in one go, so they are consistent. Two
+corrections the prototype added to the list: `dsl-syntax.md` 2349's
+"depth 0 is the rule" sentence (§2.B.2), and the comment on
+`bundles/default-flow/types/seed.yaml` saying the scaffold pass has
+no gates, which contradicts v5 §7.19's reason for the depth pair and
+the author's intent: the scaffold is reviewed at every depth, a
+feature at the system and component levels. `seed` stays a separate
+type for that, by the author's decision (prototype README).
 
 ## 3. Rules, re-read with the decisions applied
 
