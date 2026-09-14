@@ -451,9 +451,16 @@ orchestration enforces its own protocol and this section defers to it.
   owning system doc in the same change that moves a boundary.
 - **A rule carries an id, and the reason it holds lives beside the
   doc.** Every h2-or-deeper heading and every bullet under `## Standing
-  decisions` opens with `#n` (`## #1 Standing decisions`, `- **#17
-  Lead …**`), unique within the doc, minted as the highest present plus
-  one and never reused or renumbered; the reason is `## #17` in
+  decisions` opens with an id (`## #1 Standing decisions`, `- **#17
+  Lead …**`, `- **#ORC-247-2 Lead …**`), unique within the doc and never
+  reused or renumbered. A ticket's design pass mints `<ticket>-<n>`, one
+  above the highest that ticket has minted in the doc, because two
+  tickets designed against one doc from the same main both mint "the
+  highest plus one" (ORC-246 and ORC-247 both minted a `#52` in
+  `systems/generation.md`);
+  a bare number is the author's or the port's, one above the doc's
+  highest bare id. The ticket in an id is the minter, never the owner.
+  The reason is `## #17` or `## #ORC-247-2` in
   `systems/<name>.reasons.md` (`screens/<name>.reasons.md` for a
   screen), with `since:` / `revisit:` / `retired:` before the prose
   (orchestration's DESIGN §4). The doc keeps what a pass needs to obey
@@ -461,8 +468,8 @@ orchestration enforces its own protocol and this section defers to it.
   of why in the rule's own sentence; the sibling gets what a pass needs
   only to change it. Run `pipeline reasons <doc>#n` before changing a
   rule; amend its entry in the same commit; a retired rule loses its
-  line and its entry gains `retired:`. Cite a rule as `name#n`
-  (`delivery#17`), never by its wording: `pipeline audit` resolves the
+  line and its entry gains `retired:`. Cite a rule as `name#<id>`
+  (`delivery#17`, `name#ORC-247-2`), never by its wording: `pipeline audit` resolves the
   id, holds every heading and standing decision to carrying one, and
   reports an entry whose rule is gone and a retired entry whose rule
   survives.
