@@ -154,7 +154,7 @@ contradict the chain's reads (a tier at `features` reading a node
 written at `architecture`), which the fixed table made impossible by
 having one position; the check restores the guarantee. Structural
 reads only, because a global read is of the approved graph as of
-dispatch (`chain.md` #22): the prototype's first check called every
+dispatch (`chain.md` #22): the redesign's first check called every
 plan tier's `all.sysarch` read an ordering error, and it was not.
 
 ## #24
@@ -185,7 +185,7 @@ rejected) is allowed without a special case.
 
 ## #27
 
-C.2 of the seam pass: fan-outs need a reconcile position because
+The author's: fan-outs need a reconcile position because
 child PRs must merge into the parent predictably with gates possibly
 before and after, and only the workflow can place a position and
 gates around it; the prompt is the chain's (`chain.md` #15).

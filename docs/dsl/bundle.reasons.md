@@ -85,46 +85,11 @@ fans out less "applies at the levels that exist, silently. It must
 of different shapes. A warning turns silent degradation into a visible
 one without forking workflows per stack; an error would.
 
-## #18
-
-Under a fixed table every `llm` tier in the default named one
-`generation` position, so a gate could sit between levels but not
-between two passes at one level: an objection at `feature_expansion`
-regenerated `journeys` and `screens`. Every new gate position anyone
-wanted was a platform vocabulary change. The author's decision was to
-let standard names come out of use as convention rather than hand
-them down, with the loader strict about them (#11).
-
-## #19
-
-Every agent-balled position needs a wait state without exception,
-which is how two (`reconcile`, `critique`) were found missing their
-declared `pending` in the shipped bundle; a declaration that must
-always be present in a fixed place is not a choice and so is not
-syntax. `agent_step` carried `design` on all 22 generating tiers and
-`critique` on all 17 reviews, was read by nothing, and collided with
-the human `role: design` on a gate; its intended job, which runtime
-runs a tier, is the executor profile's.
-
-## #20
-
-Review tiers were seven keys of which four were constants and one a
-byte-identical copy of the reviewed tier's walks, with a load rule
-that the copy be exact; `generator: synthesis` reused v4's name for a
-computed aggregation to mean a node with no body; `reference` and
-`supplied` were both "externally sourced, never generated, never
-drained" and differed only in where the content came from, which is a
-`source:` value; `scope_filter`, edge `constraint` and `per_source`
-served the domain/presentational split, the cascade visit set and
-phases, all removed by recorded v5 decisions; `owner: self` appeared
-nowhere in v4 and the engine discarded it; `.synthesis` had no walk
-targeting it; the inline edge form existed for four files and needed
-an exclusivity check against the list form.
-
-## #22
+## #14
 
 The community premise (v5 §8) is that a project customises its
 bundle; "if customising requires learning YAML, that premise is
-half-delivered". The first prototype measured 466 and 137 lines; the
+half-delivered". The redesign's first draft of the pair measured 466
+and 137 lines; the
 bound is the author's original estimate of 600 to 800 for the chain,
 leaving room for the reasons a rule carries beside its declaration.

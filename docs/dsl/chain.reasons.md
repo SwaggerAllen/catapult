@@ -143,21 +143,22 @@ of well-formedness against declared edges, never of instance data.
 
 ## #20
 
-The census that decided it: of 165 walks across the tree, 107 were an
+The count that decided it: of the 165 walks the first grammar's
+bundle declared, 107 were an
 edge whose source was the tier or its scope parent, and the projection
 varied by edge type, not by tier; every `dependency` read
 `fragments[pubapi]`, every `reference` read the handle. Deriving
 those from the edge declaration removes two thirds of the ceremony
 and, because a derived read is named by its edge, removes the
 merge-by-tier rule that fused distinct reads of one tier at eighteen
-sites. The collision rule exists because the prototype's first
+sites. The collision rule exists because the redesign's first
 derivation silently overwrote `ui_coll → ui_coll` with `ui_coll →
 design_system` under the one name `dependency`, and only a walk-by-walk
 comparison against the tree caught it.
 
 ## #21
 
-Additive only, because the census found no tier that had an edge from
+Additive only, because the count found no tier that had an edge from
 itself or its parent and did not read it, once `fanout` edges carry
 no context (#26). `all.*` and `input.*` are 56 of the 165 walks and
 are not edges, so they stay explicit; naming them is what makes every
@@ -173,7 +174,7 @@ adding `all.policy.handle` to `comparch`'s context was a permanent
 deadlock when `policy` had `comparch` among its three fanout drivers
 (ORC-247, review 3); single-sourcing `child_of` (#28) is what makes
 `drained?` decidable at all. The flow-ticket case is reserved because
-the prototype's traversability check first called a plan tier's
+the redesign's traversability check first called a plan tier's
 `all.sysarch` read an ordering error, and it is not: the plan reads
 the approved graph it is about to regenerate, which is the flow
 engine's semantics to state.

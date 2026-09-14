@@ -560,8 +560,8 @@ inventory and diffs it against the contract doc).
    later amends a contract doc mints `#ORC-n-m`. The in-flight
    tickets' rules that survive the redesign keep their ids. Target
    sizes: a few hundred lines each. Written: `docs/dsl/bundle.md`
-   (22 ids), `chain.md` (39) and `workflow.md` (39) with their
-   siblings, 124, 282 and 207 lines. `docs/dsl-syntax.md` and the
+   (14 ids), `chain.md` (39) and `workflow.md` (39) with their
+   siblings, 96, 282 and 207 lines. `docs/dsl-syntax.md` and the
    `dsl-syntax.md` citation shorthand retire with step 6, since the
    shorthand is author-owned config and the record's citations move
    in the same pass.

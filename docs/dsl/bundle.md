@@ -86,37 +86,9 @@ lands.
   out, each produce a load warning and then apply at the levels and
   positions that exist (`workflow.md` #24, #28).
 
-## #13 Deliberately absent
+## #13 The acceptance test
 
-Each of these was in an earlier grammar or was asked for, and is out
-by a recorded decision; proposing it means arguing with that decision
-and saying so.
-
-- **#14 `extends:` and any load-time layering** (#7).
-- **#15 A second chain bundle per project** (#2).
-- **#16 Bundle-side code, arithmetic, strings or regex in
-  predicates** (#8).
-- **#17 A workflow-side reference to a tier, and a chain-side gate**
-  (#11): both reverse the one-way binding, and a gate in the chain
-  would move organisation policy into the document graph.
-- **#18 A platform-fixed table of position names.** Positions are the
-  bundle pair's own names over a short set of engine *shapes*
-  (`workflow.md` #10); standard names emerge from use.
-- **#19 `pending` as a declared status, and `agent_step` on a tier.**
-  The wait state before an agent picks a ticket up is a flag the
-  engine sets on every agent-balled position (`workflow.md` #25);
-  which runtime executes a tier is the executor profile's
-  (`chain.md` #10).
-- **#20 Review tiers, the `synthesis` and `reference` generators,
-  `scope: reference`, `scope_filter`, edge `constraint`,
-  `cardinality.per_source`, `produces: {owner: self}`, the
-  `.synthesis` projection, and the single-instance edge form.** Each
-  is either a property of the construct it duplicated (`chain.md`
-  #14, #8, #17, #27) or served a v4 mechanism v5 removed.
-
-## #21 The acceptance test
-
-- **#22 The default pair is readable in one sitting by someone who
+- **#14 The default pair is readable in one sitting by someone who
   has not read the engine.** `bundles/default/chain.yaml` is at most
   800 lines including comments with comments at most a fifth of that,
   `bundles/default-flow/workflow.yaml` at most 240, and both read in
