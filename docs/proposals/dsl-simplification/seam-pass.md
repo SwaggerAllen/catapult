@@ -639,15 +639,17 @@ here.
   its direction stand. What this entry questions is only the closed
   name set, and it records that the runtime half is Phase 7 either
   way.
-- **Recommendation:** open. `seam-decisions.md` §1.3 argues both
-  sides: compatibility (bundles exist for community-scale sharing,
-  and a shared workflow must gate on positions every chain has) and
-  autonomy (per-tier gates; the depth rule already lets a workflow
-  degrade silently). The middle, kinds as the shared vocabulary with
-  fine names as an opt-in that degrades to its kind, is recommended
-  there with low-to-medium confidence and the condition that would
-  change it. Whatever is chosen, the direction (tiers name statuses)
-  stays, and gate enforcement against dispatch is Phase 7 either way.
+- **Decision (`seam-decisions.md` §1.3, §2.C.1):** free tier-status
+  binding, strict. The middle option this entry floated, kinds as the
+  shared vocabulary with fine names degrading to their kind, fails
+  because the skeletons already stipulate several positions of most
+  kinds, so there is no single position to degrade to. Names are the
+  bundle pair's; the loader refuses a `phase:` the paired type does
+  not declare; a traversability check and a cross-axis warning replace
+  the fixed table's guarantee; the three named generation kinds retire
+  and return as the default pair's `name:` values. The direction
+  (tiers name statuses) stays, and gate enforcement against dispatch
+  is Phase 7 either way.
 
 ### 21. Where reconciliation lives, and whether the ticket skeleton restates the chain's fan-out
 
@@ -713,6 +715,7 @@ Raised by the author with the `synthesis` question
   fanned-out results in aggregate, with gates possibly before and
   after; only the workflow can place gates around a position. So
   reconcile stays a workflow position, and the chain's contribution is
-  the optional synthesis tier v5 4231 already allows. What remains
-  open is the container skeleton: whether all five members are
-  required or only their order when present.
+  a `reconcile:` block on the fan-out tier, the way a review is a
+  `review:` block (§2.C.2), rather than a separate synthesis tier. The
+  container skeleton is decided at §2.B.7: `main` required, order
+  among the members present, and membership implied by `fills:`.

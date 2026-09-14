@@ -576,37 +576,46 @@ inventory and diffs it against the contract doc).
 8. **Hold to the acceptance test.** The default chain file is
    readable in one sitting by someone who has not read the engine,
    and a reader can tell from the contract doc alone which rules
-   bind today.
+   bind today. The proposed number (`seam-decisions.md` §5.b): the
+   chain file at most 400 lines including comments with comments at
+   most a fifth, the workflow file at most 120, both read in thirty
+   minutes.
 
-## 6. Decisions only the author can make
+## 6. Decisions the author has made, and the two still proposed
 
-- The "intended" column of the construct matrix (§5 step 2). The
-  questioned constructs are resolved in `questioned-rows.md` against
-  v4 and the author's answers; two corrections to the record fall
-  out of it (the "depth 0 is the rule" sentence, and `synthesis`
-  naming a join target rather than v4's aggregation).
-- The container backbone: require all five members, or only their
-  order when present (`seam-decisions.md` §2.B.7). Reconciliation
-  itself stays a workflow position (§2.C.2): Phase 7's one-PR-per-
-  child merge needs it, with gates before and after.
-- Whether a cross-axis load-time *warning* is acceptable
-  (`seam-decisions.md` §2.C.3), given that §14 forbids cross-axis
-  reference for the sake of errors, not warnings.
-- Whether the planning-tier shape for flows is the engine's
-  requirement or the default's habit (`seam-pass.md`, flows entry).
-  Settling it before the flow engine is written is cheaper than
-  after.
-- Whether reviews become a tier property (§4.2). Recommendation: yes.
-- Which workflow derivations flip to declared fields (§4.4).
-  Recommendation: decide from the prototype, not in the abstract.
-- The narrowed scope of the extension doctrine (§4.5).
-- Whether to free the generation status names (`seam-decisions.md`
-  §1.3, §2.C.1). Open. The coupling is already unidirectional and the
-  only closure is the fixed kind table, which is why a gate cannot
-  sit between `feature_expansion` and `journeys`. Against freeing:
-  bundles exist for community-scale sharing and the fixed kinds are
-  the vocabulary a shared workflow can rely on. For: per-tier gates,
-  and the depth rule already lets a workflow degrade silently. The
-  middle (kinds shared, fine names opt-in and degrading to kinds) is
-  recommended with the condition that would change it stated.
-- The acceptance number for §4.8 (lines, or minutes to read).
+The author reviewed every change in `seam-decisions.md` §2 and each
+entry there carries the decision beside its argument. The ones that
+changed a recommendation:
+
+- Free tier-status binding, strict (§1.3, §2.C.1): the middle option
+  (kinds shared, fine names degrading to kinds) fails because the
+  skeletons stipulate several positions per kind. Names are the
+  pair's; the loader refuses a `phase:` the paired type lacks; the
+  chain flow names its type; a traversability check and a cross-axis
+  warning replace the fixed table.
+- Context derives from edges by default (§2.A.5): each edge declares
+  its projection, a tier receives every edge from self or its parent,
+  and only `all.*`, `input.*` and additions are explicit. Two thirds
+  of the shipped walks derive.
+- `agent_step` is dropped and `phase:` is required (§2.A.12); the
+  three uses of "role" are named there.
+- Endpoint locators stay explicit (§2.A.9).
+- Gate depth defaults to all depths; less review is explicit (§2.B.2).
+- `pending` becomes an engine flag (§2.B.8); critique placement is
+  order-only (§2.B.9); the ungrouped-throwback rule is dropped
+  (§2.B.5); `blocks:` keeps the loader's namespaced semantics and the
+  runtime is corrected (§2.B.4).
+- The container backbone requires `main` and relative order; `fills:`
+  on a status names where a population step's tickets land and
+  implies the rest (§2.B.7).
+- The reconcile prompt lives on the fan-out tier; the position stays
+  in the workflow (§2.C.2).
+- The XSD/DSL seam: intra-node facts in the XSD, inter-node facts in
+  the DSL (`seam-decisions.md` §5).
+
+Still proposed, for the author to confirm or argue against:
+
+- `fills:` on the status rather than the tier (`seam-decisions.md`
+  §5.a).
+- The acceptance number (§4.8, `seam-decisions.md` §5.b): 400 / 120
+  lines, thirty minutes.
