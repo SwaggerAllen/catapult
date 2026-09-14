@@ -558,9 +558,13 @@ inventory and diffs it against the contract doc).
    section. Ids follow the scheme PR #161 lands: the redesign is
    author-minted, so its rules take bare numbers, and a ticket that
    later amends a contract doc mints `#ORC-n-m`. The in-flight
-   tickets' rules that survive the redesign keep their ids. Target sizes: a few hundred lines each. Retire
-   `docs/dsl-syntax.md` and the `dsl-syntax.md` citation shorthand
-   in the same change.
+   tickets' rules that survive the redesign keep their ids. Target
+   sizes: a few hundred lines each. Written: `docs/dsl/bundle.md`
+   (22 ids), `chain.md` (39) and `workflow.md` (39) with their
+   siblings, 124, 282 and 207 lines. `docs/dsl-syntax.md` and the
+   `dsl-syntax.md` citation shorthand retire with step 6, since the
+   shorthand is author-owned config and the record's citations move
+   in the same pass.
 6. **Amend the record.** v5 §6, §9, §3.4, §7.19 and the core_dsl and
    platform_content standing decisions §2.4 names; add to `non-goals
    .md` anything the seam pass removed and why. Move mechanism
