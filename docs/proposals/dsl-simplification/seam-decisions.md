@@ -18,8 +18,8 @@ against it and what it costs; the evidence, cited; and its
   amendment the entry states;
 - **decided, amended** — the author took a different shape from the
   one recommended, and the entry gives the author's reason;
-- **proposed** — a shape this pass recommends that the author has not
-  yet confirmed; the prototype is where it is tested.
+- **decided, on review** — a shape this pass proposed after the first
+  review and the author confirmed or corrected in the second (§5).
 
 Inputs: `seam-pass.md`, `classification-matrix.md`,
 `questioned-rows.md`, `in-flight-tickets.md`, the two rule passes in
@@ -418,7 +418,7 @@ it. *Decision:* **decided, amended** to this shape.
   position refers to the next instance of the type, which is how
   `retro` reaches the next milestone's `prep`. This is the case the
   prototype tests.
-- **Placement is the status, not the tier** (proposed, §5.a below):
+- **Placement is the status, not the tier** (decided, §5.a):
   "setup fills prep" is a relation between two positions in one
   array, and the workflow owns every relation of that shape
   (`blocks:`, `throwback:`, grouping); the tier already says where it
@@ -647,27 +647,27 @@ bundle level), of which 7 default and 1 is reserved; 4 edge keys and 6
 instance keys; and the reserved `predicates`/`flows` blocks. The
 status entry gains `fills:`; the gate's `depth` default flips.
 
-## 5. Proposed, awaiting the author
+## 5. The last two, decided
 
-Everything in §2 is decided. Two shapes are proposed here for the
-author to confirm or argue against.
-
-- **a. `fills:` placement — on the status.** Argued under §2.B.7.
-  The alternative, on the tier, tells the reader which two statuses
-  relate to a tier in one place, at the cost of a second cross-axis
-  hookup and of binding the chain to one workflow's queue names.
-- **b. The acceptance number (README §4.8).** Today the chain bundle
-  is 2378 lines of YAML (1411 without comments) and the workflow 286
-  (104). Proposed: the single chain file at most **400 lines including
-  comments, comments at most a fifth**; the workflow file at most
-  **120 lines**; a reader who has not seen the engine reads both in
-  **thirty minutes**. The chain figure is what survives §2: 22 tiers
-  at roughly ten lines each once reviews fold in and two thirds of the
-  context derives from edges, plus edges, flows and the defaults
-  block. Separately, and not this number: a review tier's acceptance
-  threshold, a key alongside the review prompt with a default of 90,
-  which the author raised and which belongs in the `review:` block's
-  grammar.
+- **a. `fills:` placement — on the status.** Decided. Argued under
+  §2.B.7: "setup fills prep" is a relation between two positions in
+  one array, and the workflow owns every relation of that shape; the
+  alternative, on the tier, would have told the reader which two
+  statuses relate to a tier in one place at the cost of a second
+  cross-axis hookup and of binding the chain to one workflow's queue
+  names.
+- **b. The acceptance number (README §4.8).** Decided. Today the chain
+  bundle is 2378 lines of YAML (1411 without comments) and the
+  workflow 286 (104). The single chain file is at most **800 lines
+  including comments, comments at most a fifth**; the workflow file at
+  most **240 lines**; a reader who has not seen the engine reads both
+  in **thirty minutes**. The chain figure is the 600 to 800 the author
+  estimated at the outset, doubled from this pass's first proposal of
+  400, which was derived from the surviving keys alone and left no
+  room for the comments that carry a rule's reason. Separately, and
+  not this number: a review's acceptance threshold, a key alongside
+  the review prompt with a default of 90, which belongs in the
+  `review:` block's grammar.
 
 The rule of thumb the author confirmed for the XSD/DSL seam (seam
 entry 19): **intra-node facts in the XSD, inter-node facts in the

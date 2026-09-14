@@ -576,12 +576,12 @@ inventory and diffs it against the contract doc).
 8. **Hold to the acceptance test.** The default chain file is
    readable in one sitting by someone who has not read the engine,
    and a reader can tell from the contract doc alone which rules
-   bind today. The proposed number (`seam-decisions.md` §5.b): the
-   chain file at most 400 lines including comments with comments at
-   most a fifth, the workflow file at most 120, both read in thirty
+   bind today. The number (`seam-decisions.md` §5.b): the chain file
+   at most 800 lines including comments with comments at most a
+   fifth, the workflow file at most 240, both read in thirty
    minutes.
 
-## 6. Decisions the author has made, and the two still proposed
+## 6. Decisions the author has made
 
 The author reviewed every change in `seam-decisions.md` §2 and each
 entry there carries the decision beside its argument. The ones that
@@ -613,9 +613,11 @@ changed a recommendation:
 - The XSD/DSL seam: intra-node facts in the XSD, inter-node facts in
   the DSL (`seam-decisions.md` §5).
 
-Still proposed, for the author to confirm or argue against:
-
 - `fills:` on the status rather than the tier (`seam-decisions.md`
   §5.a).
-- The acceptance number (§4.8, `seam-decisions.md` §5.b): 400 / 120
-  lines, thirty minutes.
+- The acceptance number (§4.8, `seam-decisions.md` §5.b): the chain
+  file at most 800 lines, the workflow at most 240, thirty minutes to
+  read.
+
+Nothing in the seam pass is open. The next step is §5 step 4, the
+hand-written prototype.
