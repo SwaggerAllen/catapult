@@ -619,5 +619,9 @@ changed a recommendation:
   file at most 800 lines, the workflow at most 240, thirty minutes to
   read.
 
-Nothing in the seam pass is open. The next step is §5 step 4, the
-hand-written prototype.
+Nothing in the seam pass is open. §5 step 4, the hand-written
+prototype, is at `prototype/`: both bundles as one file each, a check
+script that derives context, runs traversability and measures, and a
+README naming what the prototype found (a subtraction case in the edge
+default, an instance-level projection, the plan tiers' global reads,
+and the position list duplicated across `feature` and `seed`).

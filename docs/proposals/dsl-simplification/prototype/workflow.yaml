@@ -1,0 +1,137 @@
+# The default workflow bundle as one file, in the grammar
+# seam-decisions.md §2.B and §4 decide. Position names are the pair's
+# own; a chain tier's `phase:` must name one of them. `pending` is an
+# engine flag, not an entry. Gate depth defaults to every depth; `0`
+# is written where the top level alone is meant.
+
+name: default-flow
+version: "1.0.0"
+kind: workflow
+entry: project
+
+types:
+
+  # A feature ticket: the plan step the flows add, then the five
+  # generation positions the chain names, each with its critique and
+  # a human gate where the default wants one. A sub-array groups a
+  # position with what reviews it, and is the gate's default throwback.
+
+  feature:
+    skeleton: ticket
+    statuses:
+      - status: generation
+        name: plan
+      - - status: generation
+          name: features
+        - status: critique
+        - review: features-review
+      - - status: generation
+          name: experience
+        - status: critique
+        - review: ux-review
+      - - status: generation
+          name: requirements
+        - status: critique
+      - - status: generation
+          name: architecture
+        - status: critique
+        - review: engineering-review
+          depth: 1
+      - - status: generation
+          name: implementation
+        - status: critique
+      - status: checks
+      - status: reconcile
+      - status: merge
+      - environment: staging
+      - status: deploy
+      - status: terminal
+
+  # The seed pass (v5 §7.9): the same positions, reviewed at every
+  # depth, since scaffolding is where the whole tree is read once.
+
+  seed:
+    skeleton: ticket
+    statuses:
+      - - status: generation
+          name: features
+        - status: critique
+        - review: features-review
+      - - status: generation
+          name: experience
+        - status: critique
+        - review: ux-review
+      - - status: generation
+          name: requirements
+        - status: critique
+      - - status: generation
+          name: architecture
+        - status: critique
+        - review: engineering-review
+      - - status: generation
+          name: implementation
+        - status: critique
+      - status: checks
+      - status: reconcile
+      - status: merge
+      - status: deploy
+      - status: terminal
+
+  # A milestone: setup fills prep, main runs features and holds retro
+  # open, retro files into this milestone's cleanup and the next one's
+  # prep (a queue earlier than the filling position is the next
+  # instance's), then the whole promotes to prod.
+
+  milestone:
+    skeleton: container
+    statuses:
+      - - status: setup
+          fills: [prep]
+        - review: kickoff-review
+      - status: prep
+        flow: feature
+      - status: main
+        flow: feature
+        blocks: [retro]
+      - - review: milestone-signoff
+        - status: retro
+          fills: [cleanup, prep]
+        - review: proposals-read
+      - status: cleanup
+        flow: feature
+      - environment: prod
+      - status: deploy
+      - status: terminal
+
+  # The project: a queue sequence with no skeleton and no terminal;
+  # all but scaffolding dispatch the same work for now (v5 §7.8).
+
+  project:
+    statuses:
+      - { status: initialization, flow: feature }
+      - { status: scaffolding, flow: seed }
+      - { status: build-out, flow: milestone }
+      - { status: iteration, flow: milestone }
+      - { status: maintenance, flow: feature }
+      - { status: deprecating, flow: feature }
+      - { status: sunsetting, flow: feature }
+
+# Gates: who signs off and where a decline lands. A gate inside a
+# sub-array throws back to the group's generation position unless it
+# says otherwise; a gate outside one may have no throwback at all.
+
+gates:
+  features-review: { role: design, escalation: author }
+  ux-review: { role: design, escalation: author }
+  engineering-review: { role: engineering, escalation: author }
+  kickoff-review: { role: author, escalation: author }
+  milestone-signoff: { role: author, escalation: author, throwback: main }
+  proposals-read: { role: author, escalation: author }
+
+# Reserved: delivery Phase 7 deploy. `lifetime: per_ticket` is the
+# PR-environment case, semantics not yet fixed.
+
+environments:
+  dev: { lifetime: persistent }
+  staging: { promote_from: dev, lifetime: persistent }
+  prod: { promote_from: staging, lifetime: persistent }
