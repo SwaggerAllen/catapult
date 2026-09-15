@@ -2,8 +2,9 @@
 """Prototype checks for the flipped binding: the workflow names the
 tiers, the chain names nothing in the workflow. Derives each tier's
 effective context from the edges, resolves which type serves each
-flow, checks that the type's positions cover the flow's tiers exactly
-once, runs the traversability rule over the resulting order, and
+flow, checks that the type's positions cover the flow's tiers (exactly
+once, bar a cascade_visit tier), runs the traversability rule over the
+resulting order, and
 measures both files against the acceptance number. Read-only; prints.
 """
 import re, sys, yaml
@@ -91,7 +92,12 @@ def layout(type_name):
             elif kind(t) != "generating":
                 fail(f"{type_name}: position {e.get('name')!r} names {t!r}, a {kind(t)} tier")
             if t in tier_at:
-                fail(f"{type_name}: {t!r} is listed at two positions")
+                # chain.md #40: a cascade_visit tier rests at each plan
+                # position; every other tier sits at exactly one.
+                if str((tiers.get(t) or {}).get("scope")) != "cascade_visit":
+                    fail(f"{type_name}: {t!r} is listed at two positions")
+                continue  # ordering uses the earliest; per-position
+                          # drainage is the flow engine's (chain.md #40)
             tier_at[t] = i
     return order, tier_at
 

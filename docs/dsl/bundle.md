@@ -39,7 +39,8 @@ lands.
   `prompt:` of `../..` reads as not found, never as a file.
 - **#4 A workflow bundle is one declaration file.**
   `bundles/<name>/workflow.yaml` carries every type, gate and
-  environment. It names no file outside itself.
+  environment, and the chain tier and flow names each type binds to
+  (#11). It names no file outside itself.
 - **#5 The manifest fields are `name`, `version` (reserved: the
   registry, for bundle pinning) and `kind: chain | workflow`**; a
   bundle of the wrong kind on an axis, an unknown top-level key, and
@@ -72,19 +73,21 @@ lands.
   produces onto its parent, and every walk are in `chain.yaml`. The
   commit path validates a draft against its schema before the event
   lands, so the schema is the enforcer of what it states.
-- **#11 The chain references the workflow, checked at load; the
-  workflow never references the chain.** A tier's `phase:` names a
-  position in the type its flow dispatches into and must exist there
-  (`chain.md` #7, `workflow.md` #22); a flow names its type
-  (`chain.md` #38). A workflow declaration names no tier, edge or
-  chain flow anywhere, so any workflow that declares the positions a
-  chain names runs it, and a pair that disagrees fails at load rather
-  than at dispatch.
+- **#11 The workflow references the chain, checked at load; the
+  chain never references the workflow.** A generation position names
+  the tiers that run at it (`workflow.md` #22) and a ticket type names
+  the chain flows it serves (`workflow.md` #40). A tier, an edge and a
+  flow name no position, gate or type anywhere, so a chain bundle is
+  valid on its own, and it is the pair that fails at load: a position
+  naming a tier the chain does not declare, and a served flow's tier
+  that no position lists, are each an error rather than a fallback.
 - **#12 Between the two files, the loader warns and never errors on
-  shape mismatches that only degrade.** A generation position no
-  tier of a flow names, and a gate depth deeper than the chain fans
-  out, each produce a load warning and then apply at the levels and
-  positions that exist (`workflow.md` #24, #28).
+  shape mismatches that only degrade.** A generation position none of
+  whose tiers are active in a given flow, and a gate depth deeper than
+  the chain fans out, each produce a load warning and then apply at
+  the levels and positions that exist (`workflow.md` #24, #28). A
+  mismatch that would leave work unrun or unplaced is #11's error
+  instead.
 
 ## #13 The acceptance test
 

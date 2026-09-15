@@ -39,18 +39,28 @@ what `all.<tier>` means inside a flow ticket.
 
 ## #7
 
-`agent_step` is gone because its intended consumer, the bindings file
-mapping an agent kind to a runtime, is served by the executor profile
-(#10), and its only shipped values were derivable (`design` on every
-generating tier, `critique` on every review) while colliding with the
-human `role: design` on a gate. `phase:` is required rather than
-defaulted because under free position names there is no default to
-derive (`bundle.md` #18).
+retired: `phase:` named the workflow position a generating tier ran
+at. The binding now runs the other way, from the position to its
+tiers (`workflow.md` #22), for `bundle.md` #11's reason: the workflow
+is the forked file, and a tier naming a position made every change to
+gate granularity an edit in the chain.
+
+`agent_step`, which that rule replaced, stays gone for its own reason:
+its intended consumer, the bindings file mapping an agent kind to a
+runtime, is served by the executor profile (#10), and its only shipped
+values were derivable (`design` on every generating tier, `critique`
+on every review) while colliding with the human `role: design` on a
+gate.
 
 ## #8
 
 A join target has no body of its own, so "no draft" is the fact and
-a generator name for it was a second spelling of the same fact. The
+a generator name for it was a second spelling of the same fact. It is
+spelled `none` rather than left implicit because `phase:` used to be
+what marked a tier as generating, and with that gone the absence of a
+draft was only inferable from which optional keys a tier happened to
+write. A chain that cannot classify its own tiers without opening the
+workflow gives back exactly what `bundle.md` #11 bought. The
 reserved generators stay parseable so a bundle written against them
 does not change shape when their consumer lands (`bundle.md` intro).
 
@@ -177,7 +187,8 @@ deadlock when `policy` had `comparch` among its three fanout drivers
 the redesign's traversability check first called a plan tier's
 `all.sysarch` read an ordering error, and it is not: the plan reads
 the approved graph it is about to regenerate, which is the flow
-engine's semantics to state.
+engine's semantics to state. Its structural reads are a separate
+matter and do order it (#40).
 
 ## #23
 
@@ -186,6 +197,17 @@ are structurally cyclic, so they can neither carry readiness nor be
 walked for context without either a cycle or a read of nothing. The
 `~` reversal check runs on every hop so a reversed hop cannot smuggle
 one in.
+
+## #25
+
+`context:` is on the edge rather than on each tier that reads across
+it because the derivation (#20) needs one answer per edge: every tier
+sourcing or parenting an instance gets the same projection, and a
+per-reader projection would be the explicit map (#21) again under
+another name. `graph_constraint:` is on the edge for the same shape of
+reason in the other direction: it ranges over the instance set rather
+than over any one draft, so it is the edge's to state and the commit
+path's to enforce (#30).
 
 ## #26
 
@@ -270,13 +292,58 @@ mechanisms v5 removed.
 
 ## #38
 
-Flows are reserved because nothing dispatches them yet, and their
-shape is settled now so the five plan tiers and their `synthesis` edge
-do not change when the engine lands. The flow names its type because
-strict binding (#7) needs to know which type's positions to check a
-tier against, and the first grammar paired flow and type by an
-unchecked label convention. The seed flow is the scaffold pass (v5
-§7.9), the whole chain from the raft with no prior graph.
+Flows are reserved because nothing dispatches them yet, and the gap
+is wider than the marker suggests: the tier parser accepts
+`cascade_visit`, and `Catapult.Engine.Projections.ReadyScopes` returns
+an empty candidate list for that scope, so a plan tier loads and never
+mints. Flow instances are opened and completed, and the store records
+that the cascade walk itself, planning-tier minting included, is not
+built there. The shape is settled now so the five plan tiers and their
+`synthesis` edge do not change when the engine lands.
+
+The flow names no workflow type because the workflow is the file that
+binds (`bundle.md` #11), and the predicate it binds on is the flow
+parser's own framing: scaffolding is the base schema with a ticket
+face and an empty delta, which is why that parser does not special-
+case an empty one. The seed flow is the scaffold pass (v5 §7.9), the
+whole chain from the raft with no prior graph.
+
+## #40
+
+The interleaving corrects a defect in the first record of this
+design, which put every plan node at one plan position reading the
+approved graph. Since the cascade mints a plan at every visited scope,
+that had the plan for a subcomponent planning against the component
+the same cascade was about to rewrite. Nothing has ever run it, so the
+defect was in the record rather than in the tree.
+
+The image rule is deliberately stronger than "a plan reads the plan
+above it". The spine serialises on its scope parents and on its edge
+reads both, so mirroring only the parent relation would run plans in
+parallel wherever the spine's order came from an edge: component
+architecture reads its dependency and policy edges, not only its
+parent. Mirroring every structural read costs no declarations, since
+it is #20's derivation applied through the cascade relation, and it
+neither under-serialises on the ladder nor over-serialises above it,
+where the tiers make no structural reads at all and a mirrored parent
+edge would force the journeys plan to finish before the screens plan
+started.
+
+## #41
+
+The list is stated against `Catapult.Dsl.Flow`, which accepts two
+primitives and requires one of them, because the first record of this
+design named three as current and the prototype then wrote the third.
+A scaffold declaring `downward_cascade` states nothing true, which is
+the gap `full` fills.
+
+`up_then_down` repairs as it climbs rather than assessing first and
+writing once. The cheaper design is an assessment climb that predicts
+how far the damage reaches, and the prediction is its unreliable part:
+a rung cannot tell whether its parent's document has to change without
+having written its own change first. The halt on the first unchanged
+rung is what keeps the expensive version affordable, and it is the
+recorded degenerate case, no doc change and fix the implementation.
 
 ## #39
 

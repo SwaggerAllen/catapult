@@ -152,7 +152,7 @@ targets take their minting tier's position; supplied tiers have none.
 
 ```
   type scaffold: 11 positions, 17 tiers listed
-  type delta: 12 positions, 22 tiers listed
+  type delta: 16 positions, 22 tiers listed
 
   seed -> scaffold: 17 tiers, positions unfilled: none (warning only)
   feature_request -> delta: 18 tiers, positions unfilled: none (warning only)
@@ -186,14 +186,17 @@ carry this note.
 
 ## The positions the default workflow chose
 
-Six names, declared in the workflow and listed with their tiers there:
-`plan` (the five flow plan tiers, one active per flow),
-`features` (`feature_expansion`, `non_goals`, `vocab`), `experience`
-(`journeys`, `screens`), `requirements`, `architecture` (the nine
-architecture tiers at three depths), `implementation` (the three
-`impl_*` tiers). Human gates after `features`, `experience` and
-`architecture`; none after `requirements` or `implementation`, the
-latter per v5 §7.10's touchpoint budget. This is the granularity the
+Declared in the workflow and listed with their tiers there. Five
+generation positions: `features` (`feature_expansion`, `non_goals`,
+`vocab`), `experience` (`journeys`, `screens`), `requirements`
+(`requirements`), `architecture` (`sysarch`, `comparch`,
+`subcomparch`, `frontend_sysarch`, `ui_collarch`, `ui_subcomparch`,
+`screen_collarch`, `screen_subcomparch`) and `implementation`
+(`impl_backend`, `impl_ui`, `impl_screen`). `delta` adds a plan
+position before each, every one listing all five flow plan tiers.
+Human gates after `features`, `experience` and `architecture`; none
+after `requirements` or `implementation`, the latter per v5 §7.10's
+touchpoint budget. This is the granularity the
 fixed table could not express: an objection at `features-review`
 throws back to `features` and does not touch `journeys` or `screens`.
 
@@ -263,11 +266,11 @@ same gate at different depths.
 
 ```
   chain.yaml: 455 lines (limit 800), 25 comment lines (5%)
-  workflow.yaml: 163 lines (limit 240), 30 comment lines (18%)
+  workflow.yaml: 182 lines (limit 240), 33 comment lines (18%)
 ```
 
 Against the tree: 2378 chain lines become 455, 286 workflow lines
-become 163. The chain figure has room for roughly 300 lines of
+become 182. The chain figure has room for roughly 300 lines of
 comment before the limit, which is where a rule's reason goes once
 the contract docs say which reasons belong beside the declaration
 rather than in the doc. The thirty-minute reading test is the

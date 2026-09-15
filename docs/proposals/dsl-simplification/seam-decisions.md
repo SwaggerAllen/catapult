@@ -36,16 +36,17 @@ that was missing, and it now states the interaction as it will be once
 
 ### 1.1 The interaction points that exist by construction
 
-**a. A tier names the position it runs at, and the reference runs one
-way.** `phase:` is the declared cross-axis reference: the chain
-references workflow positions; the workflow never names a tier
-(`dsl-syntax.md` §11, v5 §7.10). Today nothing reads it at runtime
-(matrix 1.2); its Phase 7 consumer is dispatch gated by the ticket's
-resting position, which is what makes a human gate hold generation at
-all. Under §2.C.1 the reference is **strict**: the position a tier
-names must exist in the workflow type its flow dispatches into, and
-the loader refuses a chain whose tiers name positions the paired type
-does not declare.
+**a. A position names the tiers that run at it, and the reference runs
+one way.** The binding is the declared cross-axis reference and it is
+the workflow's: a generation position lists its tiers and a ticket type
+names the flows it serves, while the chain names no position, gate or
+type. Today nothing reads the binding at runtime (matrix 1.2); its
+Phase 7 consumer is dispatch gated by the ticket's resting position,
+which is what makes a human gate hold generation at all. Under §2.C.1
+the reference is **strict**: a position naming a tier the chain does
+not declare, and a tier of a served flow that no position lists, are
+each a load error. This reverses `dsl-syntax.md` §11 and v5 §7.10,
+whose reference ran the other way; §2.C.1 carries the reason.
 
 **b. Chain fan-out becomes workflow child tickets.** v5 §7.5: "One
 feature branch with one PR to main; each child ticket gets its own PR
@@ -64,8 +65,7 @@ chain that fans out.
 **c. A tier's review runs at a critique position after the tier's
 own.** Under §2.A.4 a review is a property of the tier it reviews, so
 its position is derived: the first critique-kind position after the
-tier's own position in the paired type, overridable by an explicit
-`phase:` on the review block. The workflow's rule about where a
+one its tier is listed at in the serving type. The workflow's rule about where a
 critique may sit (§2.B.9) is the workflow-side statement of the same
 structure.
 
@@ -82,13 +82,13 @@ what a node emits, the workflow says where it goes, which is the same
 split 1.1.d makes for reconcile.
 
 **f. Under free names, a position is whatever the workflow declares
-and a tier names.** Every `llm` tier in the default names `phase:
-generation` today, so the product draft at depth 0 and each
+and whichever tiers it lists there.** Every `llm` tier in the default
+sits at `generation` today, so the product draft at depth 0 and each
 component's architecture at depth 1 are the same position,
 distinguished only by depth, and a gate between `feature_expansion`
 and `journeys` is inexpressible. §2.C.1 frees the names: a workflow
 declares as many generation-shaped positions as it wants gates
-between, and each tier names its own. The fixed kinds remain the
+between, and distributes the tiers across them. The fixed kinds remain the
 *shapes* the engine branches on (generation-shaped, review-shaped,
 the plane states); the *names* are the bundle pair's.
 
@@ -206,8 +206,7 @@ context and recomputes from the reviewed tier (seam rules, chain
 than its base. *Decision:* **decided.** Reviews were a special case
 already; if a review ever needs different context from the tier it
 reviews, `review:` takes a `context:` key rather than a new tier. The
-review's position is derived per §1.1.c, overridable with `phase:`
-inside the block.
+review's position is derived per §1.1.c.
 
 **A.5 Context: derived from edges by default, named when explicit.**
 *Argument as first made:* ORC-247 found the merge-by-tier rule
@@ -314,7 +313,7 @@ propagate changes from them. That syntax is `generator: supplied` plus
 rather than a second generator, so the two kinds of supply are one key
 with two values, and re-pinning a source is what re-drains downstream.
 
-**A.12 `delivery.phase` explicit and required; `agent_step` dropped.**
+**A.12 `agent_step` dropped, and `delivery.phase` with it.**
 The earlier recommendation was to default both from the tier's role.
 *The author's question* was what the "roles" are, since tier roles
 and user roles have already been confused. *What the tree says:*
@@ -329,10 +328,11 @@ bindings file mapping agent kind to a runtime implementation. That is
 the collision: `ux-review` carries `role: design` and every tier
 carries `agent_step: design`, meaning different things. *Decision:*
 **decided, amended.** `agent_step` is dropped; its job belongs to the
-executor profile and its current value is derivable. `phase:` stays,
-is required on every tier (§2.C.1), and is the only cross-axis key a
-tier carries. The `delivery:` wrapper goes with `agent_step`, since
-`phase:` alone does not need a block.
+executor profile and its current value is derivable. `phase:`, which
+this entry originally kept as the surviving key, goes with it: C.1
+moves the binding to the workflow, so a tier carries no cross-axis key
+at all. The `delivery:` wrapper goes too, having nothing left to
+wrap.
 
 ### B. Workflow grammar
 
@@ -421,12 +421,11 @@ it. *Decision:* **decided, amended** to this shape.
 - **Placement is the status, not the tier** (decided, §5.a):
   "setup fills prep" is a relation between two positions in one
   array, and the workflow owns every relation of that shape
-  (`blocks:`, `throwback:`, grouping); the tier already says where it
-  runs through `phase:`; and a population tier on the status side
-  stays reusable across workflows that route its output differently.
-  This is the interface for a setup-and-retro bundle: the chain's tier
-  emits tickets and names its `phase:`; the workflow's status names
-  the queue.
+  (`blocks:`, `throwback:`, grouping); and a population tier on the
+  status side stays reusable across workflows that route its output
+  differently. This is the interface for a setup-and-retro bundle: the
+  chain's tier emits tickets, the workflow's position lists it, and
+  that same status names the queue it fills.
 
 **B.8 `pending` becomes an engine flag, not a status.** The earlier
 change kept `pending` as a reserved-enforced rule and weakened
@@ -461,32 +460,48 @@ once, in the chain contract, and cited from the workflow's.
 ### C. Cross-axis
 
 **C.1 Free tier-status binding, strict.** Argued in §1.3. *Decision:*
-**decided**, with three consequences the author accepted or that
-follow from strictness.
+**decided, amended** — free and strict as argued, with the direction
+reversed.
 
-1. `phase:` is required on every tier; a review's position derives
-   per §1.1.c with an explicit override.
-2. Strictness needs to know which type to check against. Today a
-   chain flow pairs with a workflow type by *label convention* that
-   the spec deliberately does not check (`dsl-syntax.md` §11, the
-   passage on `flow:` and labels). So the chain flow names its type:
-   `ticket: {type: feature}`. This is the same chain-names-workflow
-   direction and amends §11 from "no cross-reference" to **"the chain
-   references the workflow, checked at load; the workflow never
-   references the chain."**
-3. The traversability check, per flow and type: every tier in the
-   flow names a position in the type; for every walk where B reads A,
-   A's position precedes B's at the same depth; a fan-out's child
-   tiers bind within the child's own filtered sequence; and a
-   generation-shaped position no tier of the flow names is skipped
-   with a warning (C.3), the same shape as a depth the chain never
-   reaches, because the five plan flows share the `feature` type and
-   will not name every position.
+The author's reason: the workflow is forked far more often than the
+chain, so the binding belongs on the file that is already
+project-specific, since nobody ports a fork, while binding the file a
+project takes from upstream unchanged is what charges rent. The
+earlier recommendation was that a tier names its position, on the
+argument that a tier referenced only the workflow's stable spine. The
+spine is not stable. A gate needs an ordering point and the only
+ordering point is a position, so gating between two tiers batched at
+one position splits that position, which renames it, which edits every
+tier naming it — eight of them at `architecture` in the default chain.
+The granularity of the spine *is* the gating dial, which is the thing
+free position names were introduced for.
 
-What is settled underneath it: the direction is tiers → statuses and
-stays; the runtime atomizes the kind and never the name, so
-`status: <kind>, name: <free>` is safe with no code change; and gate
-enforcement against dispatch is Phase 7 work either way.
+1. A generation position lists its tiers with `tiers:`, and `phase:`
+   is gone. `phase:` was also the only key marking a tier as
+   generating, so a join target now declares `draft: none` and the
+   chain can still classify its own tiers.
+2. Strictness needs to know which type to check against, and the type
+   is what knows: a ticket type declares `serves:`, either a predicate
+   over flows or a list of flow names, and a flow carrying an empty
+   schema delta is a scaffold — the flow parser's own framing. So the
+   chain flow drops `ticket: {type}` entirely, and §11 is amended from
+   "no cross-reference" to **"the workflow references the chain,
+   checked at load; the chain never references the workflow."**
+3. The traversability check, per flow and the type serving it: the
+   type's positions list every tier active in the flow, each at one
+   position bar a `cascade_visit` tier; for every structural walk
+   where B reads A, A's position precedes B's at the same depth; a
+   fan-out's child tiers bind within the child's own filtered
+   sequence; and a position none of whose tiers are active in the flow
+   is skipped with a warning (C.3). The check carries more weight
+   under the reversed direction, since the workflow author now holds
+   the ordering and is the less likely of the two to have read the
+   chain's dependency graph.
+
+What is settled underneath it: free position names stay; the runtime
+atomizes the kind and never the name, so `status: <kind>, name:
+<free>` is safe with no code change; and gate enforcement against
+dispatch is Phase 7 work either way.
 
 **C.2 The reconcile prompt lives on the fan-out tier; the reconcile
 position stays in the workflow.** *Argument:* fan-outs need a
@@ -506,8 +521,10 @@ workflow's depths exceed the chain's fan-out, or a position no tier of
 a flow names, costs nothing and turns silent degradation into a
 visible one. `load_axes/5` has both bundles in hand. *Decision:*
 **decided**: there is a contract whether or not it is named, and with
-free binding a misspelling must be caught. A misspelled `phase:` is an
-error under C.1; the warning covers the other direction.
+free binding a misspelling must be caught. A position naming a tier
+that does not exist, and a tier of a served flow that no position
+lists, are errors under C.1; the warning covers the mismatches that
+only degrade.
 
 ### D. Docs and record
 
@@ -550,11 +567,12 @@ only rows: fragment vocabulary (2c, 2d), review-tier rules (9, 10,
 11), reference-scope rules (65, 66, 68), the inline-form exclusivity,
 and the `.synthesis` refusal are DERIVED under §2.A; `enforcement` and
 `ticket.*` registration are RESERVED-ENFORCED markers; unknown keys,
-duplicates and scope-target resolution are DISCIPLINE. `delivery.phase`
-membership becomes ENGINE at load in its strict form (§2.C.1: the
-position exists in the paired type) and RESERVED-ENFORCED at runtime
-(Phase 7 dispatch gating); `agent_step` membership is RETIRED with the
-key; the navigation-walk ban is a platform design rule with a recorded
+duplicates and scope-target resolution are DISCIPLINE. The tier-to-
+position binding becomes ENGINE at load in its strict form (§2.C.1:
+the position lists tiers the chain declares, and a served flow's tiers
+are all listed) and RESERVED-ENFORCED at runtime (Phase 7 dispatch
+gating); `agent_step` and `delivery.phase` membership are both RETIRED
+with their keys; the navigation-walk ban is a platform design rule with a recorded
 reason (v5 §4.3) and stays, now stated on the edge declaration as
 `context: none`.
 
@@ -598,13 +616,12 @@ defaults:                              # bundle-level, per-tier scalars only
 tiers:
   <name>:
     scope            singleton | per(X) | child_of(X)      (absent on a supplied tier)
-    phase            <position name in the paired type>    (required; the one cross-axis key)
-    draft            {root_tag, grammar} defaults: <name>, schemas/<name>.xsd; absent = join target
+    draft            {root_tag, grammar} defaults: <name>, schemas/<name>.xsd; none = join target
     generator        llm (default) | supplied | external* | template* | git_commit* | webhook*
     source           input.<role> | write*                 (supplied only)
     prompt           default: prompts/<name>.md.liquid
-    review           {prompt?, context?, phase?}  default prompt: prompts/review/<name>.md.liquid; phase derived
-    reconcile        {prompt, phase?}             (fan-out tiers only; phase derived)
+    review           {prompt?, context?}         default prompt: prompts/review/<name>.md.liquid; position derived
+    reconcile        {prompt}                     (fan-out tiers only; position derived)
     executor         default: defaults.executor
     handle           [<field or kind>...]  default: all fields + produced kinds; subset-checked
     context          {<variable>: <walk>}   additive to the edge-derived reads
@@ -619,7 +636,7 @@ edges:
       - {source, target, declared_in, source_ref, target_ref, when*?}
 predicates*:         {<name>: <predicate>}                 (cardinality.when, completion)
 flows*:
-  <name>: {walk, entry, ticket: {type, labels}, prompt, targets, context}
+  <name>: {walk, entry, delta, completion, ticket: {labels}, prompt, targets, context}
 ```
 
 **`workflow.yaml`:**
@@ -630,8 +647,9 @@ entry: <type>
 types:
   <name>:
     skeleton         ticket | container | absent
+    serves           no_delta | has_delta | [<chain flow>...]   (ticket types only)
     statuses:        [ <entry> | [ <entry>... ] ]
-      <entry> :=  {status: <kind>, name?: <free>, flow?: <type>, blocks?: [<ref>...], fills?: [<ref>...], depth*?: n | [a, b]}
+      <entry> :=  {status: <kind>, name?: <free>, tiers?: [<chain tier>...], flow?: <type>, blocks?: [<ref>...], fills?: [<ref>...], depth*?: n | [a, b]}
                 | {review: <gate>}
                 | {environment*: <env>}
 gates:
@@ -647,7 +665,7 @@ table: `backlog`, `generation`, `critique`, `checks`, `reconcile`,
 `architecture` and `implementation` retire as kinds and return as the
 default pair's `name:` values (§2.C.1).
 
-Counted from the listing: 14 tier keys (`scope`, `phase`, `draft`,
+Counted from the listing: 13 tier keys (`scope`, `draft`,
 `generator`, `source`, `prompt`, `review`, `reconcile`, `executor`,
 `handle`, `context`, `produces`, `enforcement`, and `defaults` at the
 bundle level), of which 7 default and 1 is reserved; 4 edge keys and 6

@@ -54,18 +54,21 @@ types:
       - status: deploy
       - status: terminal
 
-  # A change ticket: the plan position the delta flows add, then the
-  # same five positions the scaffold pass uses, reviewed at the
-  # component level rather than at every depth. It serves every chain
-  # flow carrying a schema delta. A sub-array groups a position with
-  # what reviews it, and is the gate's default throwback.
+  # A change ticket: a plan position before each generation position,
+  # so the cascade plans one rung at a time against what the rung above
+  # just wrote, then the same five positions the scaffold pass uses,
+  # reviewed at the component level rather than at every depth. Each
+  # plan position lists all five plan tiers; a flow's delta activates
+  # the one it carries. It serves every chain flow with a schema delta.
+  # A sub-array groups a position with what reviews it, and is the
+  # gate's default throwback.
 
   delta:
     skeleton: ticket
     serves: has_delta
     statuses:
       - status: generation
-        name: plan
+        name: plan-features
         tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
                 downward_propagation_plan, upward_propagation_plan]
       - - status: generation
@@ -73,15 +76,27 @@ types:
           tiers: [feature_expansion, non_goals, vocab]
         - status: critique
         - review: features-review
+      - status: generation
+        name: plan-experience
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
       - - status: generation
           name: experience
           tiers: [journeys, screens]
         - status: critique
         - review: ux-review
+      - status: generation
+        name: plan-requirements
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
       - - status: generation
           name: requirements
           tiers: [requirements]
         - status: critique
+      - status: generation
+        name: plan-architecture
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
       - - status: generation
           name: architecture
           tiers: [sysarch, comparch, subcomparch, frontend_sysarch,
@@ -90,6 +105,10 @@ types:
         - status: critique
         - review: engineering-review
           depth: 1
+      - status: generation
+        name: plan-implementation
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
       - - status: generation
           name: implementation
           tiers: [impl_backend, impl_ui, impl_screen]

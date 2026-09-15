@@ -560,8 +560,9 @@ inventory and diffs it against the contract doc).
    later amends a contract doc mints `#ORC-n-m`. The in-flight
    tickets' rules that survive the redesign keep their ids. Target
    sizes: a few hundred lines each. Written: `docs/dsl/bundle.md`
-   (14 ids), `chain.md` (39) and `workflow.md` (39) with their
-   siblings, 96, 282 and 207 lines. `docs/dsl-syntax.md` and the
+   (14 ids), `chain.md` (40) and `workflow.md` (40) with their
+   siblings, 99, 308 and 231 lines. One id is retired, `chain.md` #7,
+   whose reasons entry carries why the binding reversed. `docs/dsl-syntax.md` and the
    `dsl-syntax.md` citation shorthand retire with step 6, since the
    shorthand is author-owned config and the record's citations move
    in the same pass.
@@ -628,4 +629,11 @@ prototype, is at `prototype/`: both bundles as one file each, a check
 script that derives context, runs traversability and measures, and a
 README naming what the prototype found (a subtraction case in the edge
 default, an instance-level projection, the plan tiers' global reads,
-and the position list duplicated across `feature` and `seed`).
+and the inventory duplicated across `scaffold` and `delta`).
+
+The binding between the two axes was reversed after the pair was
+written: a workflow position now names its tiers and a ticket type
+names the flows it serves, and the chain names nothing in the
+workflow. §2.C.1 carries the author's reason and the three
+consequences; the prototype, the three contract docs and their reasons
+are written against the reversed direction.

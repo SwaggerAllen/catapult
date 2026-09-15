@@ -27,8 +27,9 @@ reading `/etc/passwd` before the guard was added.
 
 The workflow file names nothing outside itself because it declares
 positions, gates and environments only; prompts, schemas and flows are
-all chain content, and a workflow that reached for a file would be
-reaching across the axis (#11).
+all chain content. Naming a tier or a flow is naming a declaration,
+not reaching for a file, and the loader resolves both against the
+paired chain (#11).
 
 ## #5
 
@@ -68,14 +69,26 @@ DSL's rows.
 
 ## #11
 
-The reference runs one way because a workflow naming a tier would
-make the workflow specific to one chain's declarations, and a gate
-declared on a tier would put organisation policy (who signs off, when)
-into the document graph that v5 §7.16 keeps out of it. It is checked
-strictly, not degraded, because the skeletons already stipulate
-several positions of most shapes, so "fall back to the shape" has no
-single position to fall back to; a misspelled `phase:` under a lenient
-rule would silently run a tier at the wrong position.
+The reference runs from the workflow because the workflow is the file
+a project forks. Binding a file that is already project-specific costs
+nothing, since nobody ports a fork; binding the file a project wants
+to take from upstream unchanged is what charges rent, and the chain is
+that file.
+
+The opposite direction, a tier naming its position, is the natural
+first design, and it fails on the case free position names exist for.
+A gate needs an ordering point and the only ordering point is a
+position, so gating between two tiers batched at one position means
+splitting that position, which renames it, which edits every tier
+naming it. Eight of the default chain's tiers share the architecture
+position, so the likeliest place to want another gate was the place
+that cost eight edits in the file the fork was trying not to touch.
+
+Gates stay out of the chain for the reason they always did: who signs
+off and when is organisation policy, which v5 §7.16 keeps out of the
+document graph. The check is strict rather than degrading because a
+tier no position lists would silently never run, and a position naming
+a tier that does not exist has nothing to degrade to.
 
 ## #12
 
@@ -83,7 +96,9 @@ v5 §7.19's reason for depth: a workflow's depth against a chain that
 fans out less "applies at the levels that exist, silently. It must
 *not* be a load error", because a workflow is meant to run over chains
 of different shapes. A warning turns silent degradation into a visible
-one without forking workflows per stack; an error would.
+one without forking workflows per stack; an error would. The line
+between the two is whether work goes missing: a position with nothing
+to do is a warning, a tier with nowhere to run is #11's error.
 
 ## #14
 

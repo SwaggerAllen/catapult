@@ -106,9 +106,9 @@ rather than fixed at five.
 
 The author's, recorded here because it was not written down before:
 a bundle for setup and retro needs a standard interface for
-scheduling work, and this is it in two keys: `phase:` on the chain
-tier says where it runs, `fills:` on the workflow status says where
-its tickets land. It is on the status rather than the tier because
+scheduling work, and this is it in two keys: `tiers:` on the position
+says what runs there, `fills:` on the status says where its tickets
+land. `fills:` is on the status rather than the tier because
 "setup fills prep" is a relation between two positions in one array
 and the workflow owns every relation of that shape; a tier carrying
 it would be a second cross-axis hookup and would bind the chain to
@@ -133,26 +133,50 @@ no cardinality needs bounding.
 
 ## #21
 
-A position is the unit the chain binds to and a gate follows, so it
-has to be a named generation-shaped entry rather than a shape: under
-free names there is no other thing for `phase:` to point at.
+A position is the unit that carries tiers and that a gate follows, so
+it has to be a named generation-shaped entry rather than a shape:
+under free names a shape no longer identifies one place in the
+sequence.
 
 ## #22
 
-Strict rather than degrading (`bundle.md` #11): the skeletons already
-stipulate several positions of most shapes, so there is no single
-shape-level position to fall back to, and a misspelled `phase:` under
-a lenient rule would run a tier at the wrong position silently. The
-flow names the type because the first grammar paired them by an
-unchecked label convention, and a strict check has to know which
-type's namespace it is checking against.
+The list is on the position rather than the tier for `bundle.md`
+#11's reason. What it costs is that the mapping is stated at the
+codomain, so neither totality nor uniqueness is syntactic: a tier
+listed twice, and a tier listed nowhere, both have to be checked.
+Both checks are cheap. Uniqueness is one pass over a single file, and
+a tier no position lists is already caught downstream, since nothing
+reading it can ever drain.
+
+Join targets and supplied tiers are excluded rather than allowed and
+ignored, because a bundle author who lists one has misunderstood
+something the loader can name.
+
+## #40
+
+Derived rather than declared, so the chain keeps naming nothing here.
+The predicate is the parser's own framing: scaffolding is the base
+schema with a ticket face and an empty delta, which is why an empty
+`delta` is the ordinary shape a scaffold declaration takes rather than
+a special case. So "carries a delta" already separates a change from a
+scaffold, and no new marker was needed on either side.
+
+The list form exists because a derived default is invisible, and the
+one flow that will need its own type is upward propagation, whose
+positions differ in sequence rather than in gates. An outright claim
+beats a predicate so that the narrow case does not have to restate the
+broad one; two outright claims are an error because there is no
+principled winner between them.
 
 ## #23
 
 Free names make it possible to declare a workflow whose positions
 contradict the chain's reads (a tier at `features` reading a node
 written at `architecture`), which the fixed table made impossible by
-having one position; the check restores the guarantee. Structural
+having one position; the check restores the guarantee. It matters
+more now than it did: the workflow author holds the ordering, and
+they are the population least likely to have read the chain's
+dependency graph, so the load error is their guardrail. Structural
 reads only, because a global read is of the approved graph as of
 dispatch (`chain.md` #22): the redesign's first check called every
 plan tier's `all.sysarch` read an ordering error, and it was not.
@@ -162,8 +186,9 @@ plan tier's `all.sysarch` read an ordering error, and it was not.
 The depth rule's shape (v5 §7.19): a workflow may say more than a
 chain has, and the difference degrades with a warning rather than an
 error, because a workflow is meant to run over chains of different
-shapes and the five plan flows share `feature` without all naming
-`plan`.
+shapes. The default pair never trips it, since `scaffold` omits the
+plan position rather than leaving it unfilled; the rule is for the
+fork whose chain fans out less than its workflow expects.
 
 ## #25
 
@@ -206,7 +231,9 @@ the edge a project/container cycle runs on; it has no terminal
 because a skeleton-less type has no universal sequence to end. Its
 queue list is bundle content because a project's queue list is
 exactly as declarable as any other content, and all but `scaffolding`
-point at the same work for now (v5 §7.8).
+point at the same work for now (v5 §7.8). It declares no `serves:`
+because nothing opens it but the project itself; a container is the
+same case one level down.
 
 ## #32
 
@@ -217,7 +244,7 @@ indistinguishable from a slow reviewer (v5 §7.16).
 
 ## #33
 
-Depth sits on the citation because `feature` and `seed` cite the same
+Depth sits on the citation because `delta` and `scaffold` cite the same
 gate at different depths: the scaffold pass has no reviewed prior
 graph to trust and wants its fan-out reviewed in full, while a
 feature runs against a graph a human has read once and returns to the

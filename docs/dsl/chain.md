@@ -39,17 +39,18 @@ and edge name. Markers: **live** is read by the engine today;
 ## #4 Tiers
 
 - **#5 A tier is a kind of node, and it is one of three things by
-  what it declares.** A **generating tier** has a `phase:` and a
-  draft: an agent writes its body (`feature_expansion`, `comparch`,
-  `impl_backend`). A **join target** has a scope and no draft: its
-  nodes are minted by a parent's draft and carry only the fields that
-  draft gives them (`comp`, `resp`, `screen`, the three policy
-  tiers). A **supplied tier** has a `generator: supplied` and a
-  `source:` and no scope: its content arrives from outside the chain
-  (`design_system`, `ref`). The keys a tier may carry are `scope`,
-  `phase`, `draft`, `generator`, `source`, `prompt`, `review`,
-  `reconcile`, `executor`, `handle`, `fields`, `context`, `produces`
-  and the reserved `enforcement`; nothing else.
+  what it declares.** A **generating tier** has a draft: an agent
+  writes its body (`feature_expansion`, `comparch`, `impl_backend`).
+  A **join target** declares `draft: none`: its nodes are minted by a
+  parent's draft and carry only the fields that draft gives them
+  (`comp`, `resp`, `screen`, the three policy tiers). A **supplied
+  tier** has a `generator: supplied` and a `source:` and no scope: its
+  content arrives from outside the chain (`design_system`, `ref`). The
+  keys a tier may carry are `scope`, `draft`, `generator`, `source`,
+  `prompt`, `review`, `reconcile`, `executor`, `handle`, `fields`,
+  `context`, `produces` and the reserved `enforcement`; nothing else.
+  Which position a tier runs at is the workflow's (`workflow.md` #22)
+  and appears nowhere in this file.
 - **#6 `scope:` says how many nodes a tier has and who their parent
   is.** `singleton` is one node per project; `per(X)` is one node per
   node of tier X, and X is the scope parent; `child_of(X)` is one node
@@ -57,18 +58,14 @@ and edge name. Markers: **live** is read by the engine today;
   is the scope parent; `cascade_visit` (reserved: the flow engine,
   #38) is one node per scaffold node a flow visits. A supplied tier
   has no scope.
-- **#7 `phase:` names the workflow position a generating tier runs
-  at, and the paired type must declare it** (`bundle.md` #11,
-  `workflow.md` #22). It is required on every generating tier and is
-  the only cross-axis key a tier carries. Dispatch gated by the
-  ticket's resting position is reserved: delivery Phase 7; until it
-  lands, the sweeper dispatches every ready node and `phase:` decides
-  what the board shows.
-- **#8 `draft:` names the body's root element and schema, and its
-  absence is what makes a join target.** `root_tag` defaults to the
-  tier name and `grammar` to `schemas/<tier>.xsd`; a tier writes the
-  key only where the default is wrong (`impl_backend`, `impl_ui` and
-  `impl_screen` share `schemas/impl.xsd`). `generator:` defaults to
+- **#8 `draft:` names the body's root element and schema, and
+  `draft: none` is what makes a join target.** `root_tag` defaults to
+  the tier name and `grammar` to `schemas/<tier>.xsd`; a tier writes
+  the key only where the default is wrong (`impl_backend`, `impl_ui`
+  and `impl_screen` share `schemas/impl.xsd`) or where it has no body
+  at all. `none` is written rather than left to the absence of every
+  authoring key, so a reader and the loader can tell a generating tier
+  from a join target inside this file. `generator:` defaults to
   `llm`; `supplied` is the other live value (#17); `external`,
   `template`, `git_commit` and `webhook` are reserved (#39).
 - **#9 `prompt:` defaults to `prompts/<tier>.md.liquid`** and is
@@ -99,15 +96,16 @@ and edge name. Markers: **live** is read by the engine today;
   `review:`.** `review: default` reads
   `prompts/review/<tier>.md.liquid` with the tier's own effective
   context (#20, #21) plus `draft`, and runs at the first
-  critique-shaped position after the tier's own in the paired type
-  (`workflow.md` #26). A map form overrides any of `prompt`, `context`
-  and `phase`. Seventeen of the default's 22 generating tiers are
-  reviewed; the five flow plan tiers are not.
+  critique-shaped position after the one its tier is listed at
+  (`workflow.md` #26). A map form overrides `prompt` or `context`.
+  Seventeen of the default's 22 generating tiers are
+  reviewed; the five flow plan tiers are not, at any of the plan
+  positions they run at.
 - **#15 A fan-out tier may carry `reconcile:`, the prompt an agent
   runs when its children's PRs are joined.** `reconcile: default`
   reads `prompts/reconcile/<tier>.md.liquid` and runs at the first
   reconcile-shaped position after the children's positions
-  (`workflow.md` #27); a map form overrides `prompt` and `phase`. The
+  (`workflow.md` #27); a map form overrides `prompt`. The
   mechanical merge and the reconcile read happen whether or not a
   tier declares one (v5 4231); the block decides only whether a human
   at the post-join gate sees an authored document or the composed
@@ -165,7 +163,8 @@ and edge name. Markers: **live** is read by the engine today;
   exactly one minting parent (#28). `input.*` reads never block: a
   role with no documents yields an empty collection. Inside a flow
   ticket, a plan tier's `all.<tier>` reads are of the approved graph
-  the flow is about to regenerate (reserved: the flow engine, #38).
+  the flow is about to regenerate, and its structural reads are the
+  image of its spine node's (reserved: the flow engine, #40).
 - **#23 A `navigation: true` edge carries no context and no
   readiness in either direction.** `navigation` in the default
   connects screens for the journey's sake and is read by nothing.
@@ -261,17 +260,43 @@ and edge name. Markers: **live** is read by the engine today;
   rule that every level of decomposition has a foundation child,
   which `minOccurs` cannot count.
 - **#38 `flows:` declares the traversals a ticket may open.**
-  (Reserved: the flow engine, v5 §7.2.) A flow names its `walk`
-  (`full`, `downward_cascade`, `up_then_down`), the `entry` tier the
-  cascade enters at, the `delta` of tiers and edges active only in
-  it, and
-  the workflow type it dispatches into as `ticket: {type, labels}`,
-  which is the second cross-axis reference and is checked like the
-  first (`workflow.md` #22). A plan tier is `cascade_visit`-scoped,
-  runs at the flow's `plan` position, and reads the approved graph
-  through `all.<tier>`; the `synthesis` edge from it to each spine
-  tier is what the cascade follows. The `seed` flow is the whole
-  chain with no delta.
+  (Reserved: the flow engine, v5 §7.2.) A flow declares its `walk`
+  (#41), the `entry` tier a cascade enters at, the `delta` of tiers
+  and edges active only while it is open, a `completion` predicate,
+  and a `ticket:` block carrying the labels that select among flows.
+  It names no workflow type and no position: which type serves a flow
+  is derived from whether its `delta` is empty, and that derivation is
+  the workflow's to declare (`workflow.md` #40). An empty `delta` is
+  the ordinary shape a scaffold flow takes rather than a special case,
+  which is what makes the derivation exact; the `seed` flow is the
+  whole chain with an empty delta.
+- **#40 A plan tier is `cascade_visit`-scoped, and its nodes run
+  interleaved with the spine rather than all at once.** (Reserved: the
+  flow engine, #38.) One plan node is minted per scaffold node the
+  flow visits, and the `synthesis` edge from the plan tier to each
+  spine tier is what the cascade follows. A plan node's structural
+  context is the image of its spine node's: for every structural read
+  the spine node makes, the plan node reads the corresponding plan
+  node, so the plan cascade serialises exactly as the spine does and
+  cannot contain a cycle the spine does not. Tiers above system
+  architecture make no structural reads, so nothing mirrors there and
+  position order alone orders them. A serving type therefore declares
+  a plan position before each generation position the cascade plans
+  for, and lists the plan tier at every one, which is why a
+  `cascade_visit` tier is the one kind that may sit at more than one
+  position (`workflow.md` #22). A plan node that read the approved
+  graph alone would plan a subcomponent against the component this
+  same cascade is about to rewrite.
+- **#41 Two walk primitives are built and a third is proposed.**
+  `downward_cascade` enters at the flow's `entry` tier and follows
+  downstream edges to enumerate the scopes a change reaches.
+  `up_then_down` starts where a finding was raised, walks upstream
+  repairing each rung against what its children now say, halting on
+  the first rung whose own document does not change, then cascades
+  downward from the highest rung that did. `Catapult.Dsl.Flow` accepts
+  these two and requires one of them. A scaffold flow runs no cascade
+  and neither primitive describes it, so `full` is proposed as the
+  third: adding it is a grammar change, and the prototype writes it.
 - **#39 Four generator types and every context-source kind beyond
   `input` are extension vocabulary** (reserved: the registry, v5
   §9). `external` resolves a node's content from the component
