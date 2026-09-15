@@ -12,11 +12,11 @@ defaults:
   # cheaper effort setting is where a decomposition loses structure.
   executor: { effort: max }
 
-# Positions. Every generating tier names the workflow position it runs
-# at, and the paired type must declare it. The default pair uses six:
-# plan (flows only), features, experience, requirements, architecture,
-# implementation. A review runs at the first critique position after
-# its tier's own; a reconcile block at the first reconcile position.
+# This file names nothing in the workflow bundle. A workflow position
+# names the tiers that run at it, so which tier runs where, and in what
+# order, is read there. A review runs at the first critique position
+# after its tier's own; a reconcile block at the first reconcile
+# position.
 
 tiers:
 
@@ -24,7 +24,6 @@ tiers:
 
   feature_expansion:
     scope: singleton
-    phase: features
     context:
       project_doc: input.project_doc
       mocks: input.mocks
@@ -32,7 +31,6 @@ tiers:
 
   non_goals:
     scope: singleton
-    phase: features
     context:
       intake: input.*
       non_goals: input.non_goals
@@ -40,20 +38,18 @@ tiers:
 
   vocab:
     scope: child_of(feature_expansion)
-    phase: features
     review: default
 
   journeys:
     scope: per(feature_expansion)
-    phase: experience
     review: default
 
   journey:
     scope: child_of(journeys)
+    draft: none
 
   screens:
     scope: per(feature_expansion)
-    phase: experience
     context:
       journeys: all.journey.handle
       mocks: input.mocks
@@ -61,10 +57,10 @@ tiers:
 
   screen:
     scope: child_of(screens)
+    draft: none
 
   requirements:
     scope: per(feature_expansion)
-    phase: requirements
     context:
       journeys: all.journey.handle
       screens: all.screen.handle
@@ -72,12 +68,12 @@ tiers:
 
   resp:
     scope: child_of(requirements)
+    draft: none
 
   # -- Backend architecture ----------------------------------------------
 
   sysarch:
     scope: per(requirements)
-    phase: architecture
     context:
       responsibilities: self.parent.decomposition -> resp.handle
     review: default
@@ -85,19 +81,21 @@ tiers:
 
   comp:
     scope: child_of(sysarch)
+    draft: none
     fields:
       project_techspec: mint.parent.techspec
       project_policies_summary: mint.parent.policies_summary
 
   sysarch_policy:
     scope: child_of(sysarch)
+    draft: none
 
   non_goals_policy:
     scope: child_of(non_goals)
+    draft: none
 
   comparch:
     scope: per(comp)
-    phase: architecture
     context:
       failure_surfaces: self.parent.dependency -> comp.handle.fragments[failure_surface]
       binding_policies: self.parent.fulfills.policy_application~ -> sysarch_policy.handle
@@ -116,6 +114,7 @@ tiers:
 
   subcomp:
     scope: child_of(comparch)
+    draft: none
     fields:
       parent_techspec: mint.parent.techspec
       parent_pubapi: mint.parent.pubapi
@@ -125,10 +124,10 @@ tiers:
 
   comparch_policy:
     scope: child_of(comparch)
+    draft: none
 
   subcomparch:
     scope: per(subcomp)
-    phase: architecture
     produces:
       techspec: draft.technical-specification
       pubapi: draft.public-surface
@@ -137,7 +136,6 @@ tiers:
 
   impl_backend:
     scope: per(subcomp)
-    phase: implementation
     draft: { root_tag: implementation, grammar: schemas/impl.xsd }
     prompt: prompts/impl.md.liquid
     context:
@@ -148,7 +146,6 @@ tiers:
 
   frontend_sysarch:
     scope: singleton
-    phase: architecture
     context:
       journeys: all.journey.handle
       screens: all.screen.handle
@@ -159,13 +156,14 @@ tiers:
 
   ui_coll:
     scope: child_of(frontend_sysarch)
+    draft: none
 
   screen_coll:
     scope: child_of(frontend_sysarch)
+    draft: none
 
   ui_collarch:
     scope: per(ui_coll)
-    phase: architecture
     context:
       failure_surfaces: self.parent.dependency -> ui_coll.handle.fragments[failure_surface]
       vocab: all.vocab.handle
@@ -180,6 +178,7 @@ tiers:
 
   ui_subcomp:
     scope: child_of(ui_collarch)
+    draft: none
     fields:
       parent_techspec: mint.parent.techspec
       parent_pubapi: mint.parent.pubapi
@@ -189,7 +188,6 @@ tiers:
 
   ui_subcomparch:
     scope: per(ui_subcomp)
-    phase: architecture
     context:
       vocab: all.vocab.handle
     produces:
@@ -200,7 +198,6 @@ tiers:
 
   impl_ui:
     scope: per(ui_subcomp)
-    phase: implementation
     draft: { root_tag: implementation, grammar: schemas/impl.xsd }
     context:
       features: all.feature_expansion.handle
@@ -208,7 +205,6 @@ tiers:
 
   screen_collarch:
     scope: per(screen_coll)
-    phase: architecture
     context:
       failure_surfaces: self.parent.dependency -> screen_coll.handle.fragments[failure_surface]
       journeys: all.journey.handle
@@ -224,6 +220,7 @@ tiers:
 
   screen_subcomp:
     scope: child_of(screen_collarch)
+    draft: none
     fields:
       parent_techspec: mint.parent.techspec
       parent_pubapi: mint.parent.pubapi
@@ -233,7 +230,6 @@ tiers:
 
   screen_subcomparch:
     scope: per(screen_subcomp)
-    phase: architecture
     context:
       vocab: all.vocab.handle
     produces:
@@ -244,7 +240,6 @@ tiers:
 
   impl_screen:
     scope: per(screen_subcomp)
-    phase: implementation
     draft: { root_tag: implementation, grammar: schemas/impl.xsd }
     context:
       features: all.feature_expansion.handle
@@ -264,7 +259,6 @@ tiers:
 
   feature_request_plan:
     scope: cascade_visit
-    phase: plan
     prompt: flows/feature_request/propose.md.liquid
     context:
       project_doc: input.project_doc
@@ -273,7 +267,6 @@ tiers:
 
   refactor_plan:
     scope: cascade_visit
-    phase: plan
     prompt: flows/refactor/plan.md.liquid
     context:
       project_doc: input.project_doc
@@ -282,7 +275,6 @@ tiers:
 
   bug_fix_plan:
     scope: cascade_visit
-    phase: plan
     prompt: flows/bug_fix/plan.md.liquid
     context:
       project_doc: input.project_doc
@@ -290,7 +282,6 @@ tiers:
 
   downward_propagation_plan:
     scope: cascade_visit
-    phase: plan
     draft: { root_tag: propagation-plan }
     prompt: flows/downward_propagation/plan.md.liquid
     context:
@@ -300,7 +291,6 @@ tiers:
 
   upward_propagation_plan:
     scope: cascade_visit
-    phase: plan
     prompt: flows/upward_propagation/plan.md.liquid
     context:
       project_doc: input.project_doc
@@ -433,34 +423,33 @@ predicates:
 flows:
   seed:
     walk: full
-    ticket: { type: seed }
   feature_request:
     delta: { tiers: [feature_request_plan], edges: [plan_target] }
     walk: downward_cascade
     entry: feature_expansion
-    ticket: { type: feature, labels: [] }
+    ticket: { labels: [] }
     completion: feature_request_complete
   refactor:
     delta: { tiers: [refactor_plan], edges: [plan_target] }
     walk: downward_cascade
     entry: sysarch
-    ticket: { type: feature, labels: [] }
+    ticket: { labels: [] }
     completion: refactor_complete
   bug_fix:
     delta: { tiers: [bug_fix_plan], edges: [plan_target] }
     walk: downward_cascade
     entry: impl_backend
-    ticket: { type: feature, labels: [] }
+    ticket: { labels: [] }
     completion: bug_fix_complete
   downward_propagation:
     delta: { tiers: [downward_propagation_plan], edges: [plan_target] }
     walk: downward_cascade
     entry: sysarch
-    ticket: { type: feature, labels: [] }
+    ticket: { labels: [] }
     completion: downward_propagation_complete
   upward_propagation:
     delta: { tiers: [upward_propagation_plan], edges: [plan_target] }
     walk: up_then_down
     entry: comparch
-    ticket: { type: feature, labels: [] }
+    ticket: { labels: [] }
     completion: upward_propagation_complete

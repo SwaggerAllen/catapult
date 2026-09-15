@@ -3,10 +3,12 @@
 README §5 step 4. `chain.yaml` and `workflow.yaml` are the default
 pair hand-written in the grammar `../seam-decisions.md` §2 and §4
 decide, from the tree at `main` plus what ORC-246 and ORC-247 landed
-on their branches. `check.py` derives every tier's effective context
-from the edges, runs the traversability rule for each flow and type,
-and measures both files; its output is quoted below rather than
-restated, so the numbers here are counted.
+on their branches. The binding runs one way only: a workflow position
+names the chain tiers that run at it, and the chain file names nothing
+in the workflow. `check.py` derives every tier's effective context from
+the edges, resolves which type serves each flow, runs the traversability
+rule over the resulting order, and measures both files; its output is
+quoted below rather than restated, so the numbers here are counted.
 
 ## What is in the files, and what moved out of them
 
@@ -141,24 +143,34 @@ here collapse to five list-valued instances.
 
 ## Traversability
 
-The rule, per flow and the type it names: every active tier's `phase`
-is a position in the type; a structural read (a walk from self or the
-parent) targets a node whose generating tier sits at the same or an
-earlier position; a generation-shaped position no active tier names
-is a warning. Join targets take their minting tier's position;
-supplied tiers have none.
+The rule, per flow and the type that serves it: the type's positions
+list every tier active in that flow, each at exactly one position; a
+structural read (a walk from self or the parent) targets a node whose
+generating tier sits at the same or an earlier position; a generation
+position none of whose tiers are active in this flow is a warning. Join
+targets take their minting tier's position; supplied tiers have none.
 
 ```
-  seed -> seed: 17 tiers, positions unfilled: none (warning only)
-  feature_request -> feature: 18 tiers, positions unfilled: none (warning only)
-  refactor -> feature: 18 tiers, positions unfilled: none (warning only)
-  bug_fix -> feature: 18 tiers, positions unfilled: none (warning only)
-  downward_propagation -> feature: 18 tiers, positions unfilled: none (warning only)
-  upward_propagation -> feature: 18 tiers, positions unfilled: none (warning only)
-traversability problems: 0
-  note: feature_request/feature: feature_request_plan@plan reads all.sysarch, regenerated later at architecture
+  type scaffold: 11 positions, 17 tiers listed
+  type delta: 12 positions, 22 tiers listed
+
+  seed -> scaffold: 17 tiers, positions unfilled: none (warning only)
+  feature_request -> delta: 18 tiers, positions unfilled: none (warning only)
+  refactor -> delta: 18 tiers, positions unfilled: none (warning only)
+  bug_fix -> delta: 18 tiers, positions unfilled: none (warning only)
+  downward_propagation -> delta: 18 tiers, positions unfilled: none (warning only)
+  upward_propagation -> delta: 18 tiers, positions unfilled: none (warning only)
+load errors: 0
+  note: feature_request -> delta: feature_request_plan reads all.sysarch, regenerated later
   ... (nine notes, one per plan tier per global read)
 ```
+
+Which type serves a flow is derived, not named: a flow whose schema
+delta is empty is a scaffold and a flow carrying one is a change, so
+`scaffold` declares `serves: no_delta` and `delta` declares `serves:
+has_delta`. A type may instead name flows outright, and an outright
+claim beats a predicate; two outright claims on one flow are a load
+error.
 
 **What the check found.** Every plan tier reads `all.sysarch` and
 `all.comp` from the `plan` position, and both are regenerated later in
@@ -172,9 +184,10 @@ never drain: the flow engine, not the loader, owns what `all.<tier>`
 means inside a flow ticket. The reserved marker on `flows:` should
 carry this note.
 
-## The positions the default pair chose
+## The positions the default workflow chose
 
-Six names, chain and workflow agreeing: `plan` (flows only),
+Six names, declared in the workflow and listed with their tiers there:
+`plan` (the five flow plan tiers, one active per flow),
 `features` (`feature_expansion`, `non_goals`, `vocab`), `experience`
 (`journeys`, `screens`), `requirements`, `architecture` (the nine
 architecture tiers at three depths), `implementation` (the three
@@ -184,30 +197,38 @@ latter per v5 §7.10's touchpoint budget. This is the granularity the
 fixed table could not express: an objection at `features-review`
 throws back to `features` and does not touch `journeys` or `screens`.
 
-Depth: gates default to every depth. `feature` writes `depth: 1` on
+Depth: gates default to every depth. `delta` writes `depth: 1` on
 its `engineering-review` citation (system and component levels; the
-reconciled branch covers the rest); `seed` leaves it at the default
+reconciled branch covers the rest); `scaffold` leaves it at the default
 because scaffolding reads the whole tree once. Depth therefore sits on
 the citation, not the gate declaration, since the two types cite the
 same gate at different depths.
 
 ## Costs the prototype makes visible
 
-- **`seed` and `feature` are two types, and the position list is
-  written in both.** Decided by the author. The scaffold pass (v5
+- **`scaffold` and `delta` are two types, and each carries its own
+  tier inventory.** Decided by the author. The scaffold pass (v5
   §7.9) is reviewed at every depth, since it has no reviewed prior
-  graph to trust; a feature is reviewed at the system and component
+  graph to trust; a change is reviewed at the system and component
   levels and catches the rest through the reconciled branch. Both
-  types declare the five generation positions with their critiques,
-  and differ in `plan`, the staging environment, and the depth on
-  `engineering-review`. The alternative, one `feature` type with the
+  types declare the same five generation positions with their
+  critiques, and differ in `plan`, the staging environment, and the
+  depth on `engineering-review`. The alternative, one type with the
   `[first, rest]` depth pair on its gates, was considered and
   rejected: it expresses this one case and no other without making
-  the feature flow depend on its parent container, whereas a type per
-  kind of pass scales to any number of them. The duplication is 24
-  lines, and the seed type's own comment in the tree ("no gates: the
-  seed produces the base schema rather than a change anyone signs off
-  on") is wrong and goes when the bundle is rewritten.
+  the change flow depend on its parent container, whereas a type per
+  kind of pass scales to any number of them. Flipping the binding
+  prices the second type at its inventory as well as its positions:
+  the two lists hold 39 tier names between them, 17 and 22. That is
+  the flip's standing charge, and it is what makes a third type
+  something to justify by a difference in sequence rather than in
+  gates.
+- **Join targets now say so.** `phase:` was the only key that marked a
+  tier as generating, so with it gone the chain could not classify its
+  own tiers without reading the workflow, which is the opposite of
+  what the flip is for. The twelve join targets carry `draft: none`
+  instead: twelve lines, and the classification is declared rather
+  than inferred from which optional keys a tier happens to write.
 - **`review: default` is written explicitly** on all 17 reviewed
   tiers, although A.2 allows deriving it from the existence of
   `prompts/review/<name>.md.liquid`. Written, because a reader of the
@@ -233,20 +254,20 @@ same gate at different depths.
   `features` in the waiting state. `backlog` was not added, since the
   tree never used it and nothing here needs an author-balled entry
   before dispatch.
-- **`labels: []` on every flow** is carried from the tree; with the
-  flow naming its type, the label is only the trigger that selects a
-  flow among those sharing a type, and whether it stays is the flow
-  engine's question.
+- **`labels: []` on every delta flow** is carried from the tree. With
+  the flow no longer naming a type, the label is only the trigger that
+  selects among flows, and whether it stays is the flow engine's
+  question. The seed flow keeps no `ticket:` block at all.
 
 ## Measurement
 
 ```
-  chain.yaml: 466 lines (limit 800), 25 comment lines (5%)
-  workflow.yaml: 137 lines (limit 240), 22 comment lines (16%)
+  chain.yaml: 455 lines (limit 800), 25 comment lines (5%)
+  workflow.yaml: 163 lines (limit 240), 30 comment lines (18%)
 ```
 
-Against the tree: 2378 chain lines become 466, 286 workflow lines
-become 137. The chain figure has room for roughly 300 lines of
+Against the tree: 2378 chain lines become 455, 286 workflow lines
+become 163. The chain figure has room for roughly 300 lines of
 comment before the limit, which is where a rule's reason goes once
 the contract docs say which reasons belong beside the declaration
 rather than in the doc. The thirty-minute reading test is the
