@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Edge do
   @moduledoc """
-  One `edges/<edge>.yaml` declaration (dsl-syntax.md §4): one or more
+  One `edges/<edge>.yaml` declaration (`chain.md` #25): one or more
   source/target/declared_in/cardinality **instances** sharing one name,
   one `type`, and one set of graph/consistency constraints.
   `graph_constraint: acyclic` is an *instance-level* constraint checked
@@ -13,7 +13,7 @@ defmodule Catapult.Dsl.Edge do
 
   **The flat, single-site shape** (`source`/`target`/`declared_in`/
   `cardinality` inline) **and `instances:` are mutually exclusive**
-  (dsl-syntax.md §4.1) — an edge declares exactly one instance inline,
+  (`chain.md` #27) — an edge declares exactly one instance inline,
   or several under `instances:`, never both, never neither. Both forms
   normalize to the same `instances:` list on this struct so every
   consumer (`Catapult.Dsl.Chain`) reads one shape regardless of which
@@ -284,7 +284,7 @@ defmodule Catapult.Dsl.Edge do
     {values, problems ++ invalid}
   end
 
-  # `consistency:` is meaningful only on `dependency` edges (dsl-syntax.md
+  # `consistency:` is meaningful only on `dependency` edges (`chain.md`
   # §4); other edge types carry no eventual/transactional distinction, so
   # the field is refused there rather than silently ignored.
   defp parse_consistency(raw, "dependency", where) do

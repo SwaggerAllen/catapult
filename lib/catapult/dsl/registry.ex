@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Registry do
   @moduledoc """
   Aggregates a dialect's `Catapult.Dsl.Extension` modules into one
-  registry (dsl-syntax.md §12): the union of every namespace,
+  registry (`bundle.md` #8): the union of every namespace,
   declaration kind, generator type, context source and enforcement
   profile they register, collision-checked the way
   `Catapult.Component.Composer` checks the component roster — a

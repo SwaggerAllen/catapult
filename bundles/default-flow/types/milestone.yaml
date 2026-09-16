@@ -3,7 +3,7 @@ skeleton: container                # setup, prep, main, retro, cleanup each
                                     #   at least once, in that relative
                                     #   order, then terminal — a required
                                     #   backbone, never an exclusive
-                                    #   membership (dsl-syntax.md §15.1,
+                                    #   membership (workflow.md #16,
                                     #   ORC-148)
 statuses:
   - - status: pending               # setup's own leading entry (ORC-155)
@@ -45,7 +45,7 @@ statuses:
                                       #   carries the identical
                                       #   namespace-qualified identity the
                                       #   loader already resolves against
-                                      #   (ORC-171, dsl-syntax.md §15.12)
+                                      #   (ORC-171, workflow.md #7)
     - status: retro                  # the container's other agent step,
                                       #   inline the identical way as
                                       #   setup, grouped with the sign-off

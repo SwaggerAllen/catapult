@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Type do
   @moduledoc """
-  One `types/<name>.yaml` declaration (dsl-syntax.md §15.2): a work
+  One `types/<name>.yaml` declaration (`workflow.md` #4): a work
   item, ticket or container alike, one declaration shape rather than
   three. A skeleton fixes a required backbone, never an exclusive
   membership (a seventh-pass reversal, ORC-148): `type:` names the

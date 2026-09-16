@@ -1,20 +1,15 @@
-# Every `dsl-syntax.md` citation in this bundle names a retired
-# document. `docs/dsl/retired-spec-index.md` maps its sections onto
-# the rules that replaced them; this tree is rewritten as one
-# declaration file per axis, and the citations go with it.
 name: default-flow
 version: "1.0.0"
 kind: workflow
-# No extends: — a workflow bundle carries none at all (dsl-syntax.md §11,
-# §13): this bundle *is* the platform workflow layer, forked rather than
+# No extends: — a workflow bundle carries none at all (`bundle.md` #7): this bundle *is* the platform workflow layer, forked rather than
 # layered the day a project wants a third review or a per-ticket-type
 # variant.
 gates: [gates/*.yaml]
 environments: [environments/*.yaml]
 types: [types/*.yaml]
 entry: project                     # the type the plane instantiates for
-                                    #   a fresh project (dsl-syntax.md §2,
-                                    #   §15.2, §15.6) — `entry:` must name
+                                    #   a fresh project (`bundle.md` #5,
+                                    #   `workflow.md` #30) — `entry:` must name
                                     #   a queue-shaped root, never a
                                     #   ticket-skeleton type, so this
                                     #   cannot simply be `feature`

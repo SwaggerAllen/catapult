@@ -7,7 +7,7 @@
 # edge's comp -> resp instance already states for the backend ("this
 # architecture node is the one that implements this responsibility")
 # (systems/platform_content.md's ORC-111 entry). Moved to `instances:`
-# form (dsl-syntax.md §4.1) to carry both.
+# form (`chain.md` #27) to carry both.
 edge: fulfills
 type: reference
 instances:

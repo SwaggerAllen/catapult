@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The platform-wide review grammar (dsl-syntax.md §10, §3.3). One schema
+  The platform-wide review grammar (`chain.md` #14, #33). One schema
   backs every review tier's `grammar:` — the triad
-  invariant (§9 of dsl-syntax.md) means a review prompt receives the same
+  invariant (`chain.md` #14) means a review prompt receives the same
   context as the tier it reviews plus `draft`, so what comes back is
   structurally the same shape everywhere: a verdict, a 0-100 score a
   threshold predicate can read (docs/v5-design-decisions.md §7.19's

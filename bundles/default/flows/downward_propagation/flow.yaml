@@ -1,5 +1,5 @@
 # The downward_propagation flow — the explicit version of what
-# staling already does implicitly (dsl-syntax.md's staling machinery
+# staling already does implicitly (the staling machinery
 # marks a downstream scope stale when its upstream context changes;
 # this flow drives that regeneration explicitly, scope by scope,
 # rather than leaving it to accumulate). Walk: downward_cascade.

@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.TypeTest do
   @moduledoc """
-  `namespaced_positions/1` and `anchor_index/2` (dsl-syntax.md §15.12,
+  `namespaced_positions/1` and `anchor_index/2` (`workflow.md` #7,
   ORC-116) at the struct grain — the one place §15.10/§15.12's
   bare/qualified/ambiguity computation lives, shared by
   `Catapult.Dsl.Workflow` (ticket axis) and `Catapult.Delivery

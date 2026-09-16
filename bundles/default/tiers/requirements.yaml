@@ -7,7 +7,7 @@
 # `singleton` — both read as "exactly one instance" (feature_expansion
 # is itself a singleton), but only per(X) gives this tier a
 # self.parent walk back to feature_expansion's handle. (An
-# `all.feature_expansion.handle` read, dsl-syntax.md §7.2, would reach
+# `all.feature_expansion.handle` read, `chain.md` #22, would reach
 # the same content without per(X) — added this pass, after this
 # substitution was already the working pattern; per(X) still wins here
 # since requirements genuinely has one parent, not a flat pool to

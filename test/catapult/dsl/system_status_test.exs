@@ -3,7 +3,7 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the nineteen fixed kinds, dsl-syntax.md §15.1's order (ORC-151: implementation and " <>
+  test "the nineteen fixed kinds, workflow.md #10's order (ORC-151: implementation and " <>
          "reconcile join, fanout retires)" do
     assert SystemStatus.kinds() == [
              :backlog,

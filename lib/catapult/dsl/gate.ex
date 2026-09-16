@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Gate do
   @moduledoc """
-  One `gates/<gate>.yaml` declaration (dsl-syntax.md §15.4): a declared
+  One `gates/<gate>.yaml` declaration (`workflow.md` #32): a declared
   review status — role, throwback exits, escalation policy, fan-out
   depth. Position is not part of this declaration: a citing type's own
   `statuses:` array places its `review:` entry wherever the author
@@ -25,7 +25,7 @@ defmodule Catapult.Dsl.Gate do
 
   Structural parsing only; whether `throwback:` resolves to a position
   in the citing type's own array is `Catapult.Dsl.Workflow`'s job
-  (dsl-syntax.md §13), since that resolution is per citing type, not a
+  (`workflow.md` #34), since that resolution is per citing type, not a
   fact about the gate declaration alone.
   """
 

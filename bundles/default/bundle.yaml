@@ -1,13 +1,9 @@
-# Every `dsl-syntax.md` citation in this bundle names a retired
-# document. `docs/dsl/retired-spec-index.md` maps its sections onto
-# the rules that replaced them; this tree is rewritten as one
-# declaration file per axis, and the citations go with it.
 name: default
 version: "1.0.0"
 kind: chain
 tiers: [tiers/*.yaml]
 edges: [edges/*.yaml]
-# Closed per bundle (dsl-syntax.md §2): every kind used in a handle:
+# Closed per bundle (`bundle.md` #5): every kind used in a handle:
 # or produces: below must appear here, and nowhere else authors one.
 # Not a separate fragments.yaml file — Catapult.Dsl.Manifest reads
 # `fragments:` as a bundle.yaml key (a plain list of kind names), and

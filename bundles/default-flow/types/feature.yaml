@@ -1,5 +1,5 @@
 type: feature
-skeleton: ticket                   # dsl-syntax.md §15.1: pending, then
+skeleton: ticket                   # workflow.md #12: pending, then
                                     #   generation/gates interleaved, then
                                     #   checks, merge, deploy, terminal
 statuses:
@@ -30,7 +30,7 @@ statuses:
     - review: engineering-review
   - status: checks
   - status: reconcile             # reads the produced PR against its own
-                                   #   argument, before merge (dsl-syntax.md
+                                   #   argument, before merge (workflow.md
                                    #   §15.1, §15.11) — required wherever
                                    #   merge is, ORC-151
   - status: merge

@@ -119,7 +119,7 @@
         <!-- ORC-236: a plain-string summary of this project's
              top-level policies, mint-time-copied onto every comp as
              `project_policies_summary` (`mint.parent.policies_summary`,
-             `docs/dsl-syntax.md` §3) — the identical mechanism
+             `chain.md` #12) — the identical mechanism
              `techspec` already rides for `project_techspec`. -->
         <xs:element name="policies-summary" type="xs:string"/>
         <xs:element name="dependencies" type="Dependencies"/>

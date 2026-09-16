@@ -16,7 +16,7 @@
   standalone screens (settings) are (v5 §4.2).
 
   <navigation> is the cyclic-legal, never-readiness-bearing edge
-  (edges/navigation.yaml, dsl-syntax.md §4's v5 rule), declared here,
+  (edges/navigation.yaml, `chain.md` #23), declared here,
   per-screen, rather than as a project-wide list, since both
   endpoints already exist in this same committed draft.
 -->

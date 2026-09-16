@@ -90,18 +90,16 @@ that rule. The checks cited most often, and where they live:
 
 ## Who still cites it
 
-No document in `docs/`, `systems/`, `screens/` or `seed-docs/` cites a
-section of the retired spec any more. Every one of those citations was
-read and repointed at the rule that replaced it, or dropped where the
-sentence already stated its rule.
+Nothing in this tree does. Every citation — in `docs/`, `systems/`,
+`screens/`, `seed-docs/`, `bundles/`, `lib/`, `test/`, the schemas, the
+prompts, the migrations and `mix.exs` — was read and repointed at the
+rule that replaced it, or dropped where the sentence already stated its
+rule. `pipeline.config.json` no longer registers a `dsl-syntax.md`
+shorthand, because no citation is left for it to resolve.
 
-`bundles/**` still cites it, in the header comments of the per-tier,
-per-edge and per-type files. Those files are replaced wholesale when
-the default pair is rewritten as `chain.yaml` and `workflow.yaml`
-(`platform_content.md` #64), so scrubbing a comment in a file being
-deleted buys nothing; the citations go with the files.
-
-Git history cites it forever, which is what this index is for.
+Git history cites it forever, which is what this index is for. A
+section number arriving from an old commit, a ticket or a review
+comment resolves here.
 
 Three reversals were settled rather than repointed, because the
 sentence carrying them stated a rule the redesign reverses. Each is

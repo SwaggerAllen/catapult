@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Manifest do
   @moduledoc """
-  One `bundle.yaml` (dsl-syntax.md §2): name, version, kind, and the
+  One `bundle.yaml` (`bundle.md` #5): name, version, kind, and the
   per-kind glob lists — a chain carries `tiers:`, `edges:`,
   `fragments:` and `flows:`; a workflow carries `gates:`,
   `environments:`, `types:` and `entry:` (§15.2, §15.6) instead. A

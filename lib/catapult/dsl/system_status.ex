@@ -1,14 +1,14 @@
 defmodule Catapult.Dsl.SystemStatus do
   @moduledoc """
   The platform-fixed vocabulary both bundle axes reference and neither
-  declares (dsl-syntax.md §15.1, v5 §7.18-§7.19): the system-status
+  declares (`workflow.md` #10, v5 §7.18-§7.19): the system-status
   kinds and the five fixed agent steps. Referenced by a chain's
   `delivery:` block (`phase:` against `kinds/0`, `agent_step:` against
   `agent_steps/0`) and by a workflow's `types/<name>.yaml` `statuses:`
   array (§15.1-§15.2), which positions everything by array index
   rather than by a named predecessor (§15.3).
 
-  Not declarable by either axis (dsl-syntax.md §15.1) — that is what
+  Not declarable by either axis (`workflow.md` #10) — that is what
   lets a blocked ticket re-resolve against these anchors across a
   workflow cutover (v5 §7.19) — so this module is a closed constant
   table, never a registry.
@@ -52,7 +52,7 @@ defmodule Catapult.Dsl.SystemStatus do
   appear in the same declared array, the collision stopped being
   theoretical. `pending` keeps the fixed-vocabulary meaning exactly —
   "committed, awaiting dispatch capacity" — freeing "queue" for the
-  sense the rest of dsl-syntax.md §15 needs it in.
+  sense the rest of `workflow.md` needs it in.
 
   **`:boundary` retired from `agent_step/0`, at the same pass** (§15.1,
   `systems/core_dsl.md`): it used to name "the milestone pass" as a
@@ -118,7 +118,7 @@ defmodule Catapult.Dsl.SystemStatus do
 
   @agent_steps [:design, :dev, :critique, :reconcile, :validate]
 
-  @doc "The fixed system-status kinds, in the order dsl-syntax.md §15.1 declares them."
+  @doc "The fixed system-status kinds, in the order workflow.md #10 declares them."
   @spec kinds() :: [kind()]
   def kinds, do: Enum.map(@statuses, &elem(&1, 0))
 
@@ -139,7 +139,7 @@ defmodule Catapult.Dsl.SystemStatus do
   atoms (`Catapult.Dsl.Fields`'s no-`to_atom`-on-bundle-content
   discipline).
 
-  This is the raw ball column and nothing more. dsl-syntax.md §15.10's
+  This is the raw ball column and nothing more. `workflow.md` #6's
   sub-array anchor rule wants the *non-review-shaped* agent-balled
   entries; that exclusion is drawn at its own call site, where §15.5's
   reason for drawing it is written down, rather than folded in here
@@ -154,7 +154,7 @@ defmodule Catapult.Dsl.SystemStatus do
   @doc """
   Whether the status *name* `name` is generation-shaped —
   `generation`, `design`, `architecture` or `implementation`
-  (dsl-syntax.md §15.1): the set every rule needing "a generation-shaped
+  (`workflow.md` #10): the set every rule needing "a generation-shaped
   entry" reads (backbone membership, `pending`-precedes, blocked-exit,
   critique pairing, sub-array agent-balled counting), named once here
   rather than at every call site.
@@ -166,7 +166,7 @@ defmodule Catapult.Dsl.SystemStatus do
 
   @doc """
   Whether the status *name* `name` is review-shaped — `critique` or
-  `reconcile` (dsl-syntax.md §15.1, added at ORC-151): an agent run
+  `reconcile` (`workflow.md` #10, added at ORC-151): an agent run
   judging an artifact that already exists, rather than originating one.
   This is `generation_shaped?/1`'s sibling category, and the set
   §15.10's sub-array anchor rule excludes from its own one-required
@@ -186,8 +186,8 @@ defmodule Catapult.Dsl.SystemStatus do
   @doc """
   A `pending` precedes every generation-shaped kind
   (`generation`/`design`/`architecture`/`implementation`) and every
-  `deploy` (dsl-syntax.md §15.1, §13) — a structural fact about the
-  fixed skeleton, not something any bundle declares, so it is a
+  `deploy` (`workflow.md` #12; `pending` is an engine flag under
+  #25) — a structural fact about the fixed skeleton, not something any bundle declares, so it is a
   constant rather than a check over bundle content.
   """
   @spec pending_precedes?(kind()) :: boolean()
@@ -198,7 +198,7 @@ defmodule Catapult.Dsl.SystemStatus do
   Every non-terminal status can be kicked to `:blocked` (v5 §7.19: "the
   automation kicks tickets into it" — a plane rule, not declared data).
   This is what makes "every generation status has at least one blocked
-  exit" (dsl-syntax.md §13) a fact about the fixed skeleton rather than
+  exit" (`workflow.md` #12) a fact about the fixed skeleton rather than
   about any one workflow bundle; see `Catapult.Dsl.Workflow` for where
   that invariant is exercised at load time.
   """

@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Status do
   @moduledoc """
   One `statuses:` array entry of a `types/<name>.yaml` declaration
-  (dsl-syntax.md §15.2-§15.7): exactly one of a skeleton anchor
+  (`workflow.md` #5): exactly one of a skeleton anchor
   (`status:`), a gate reference (`review:`) or an environment
   reference (`environment:`) — position is the array index the entry
   sits at in its own declaration, never a separate field (§15.3).
@@ -43,7 +43,7 @@ defmodule Catapult.Dsl.Status do
   `environment:` resolving in the loaded union, `flow:` resolving in
   the type registry, `blocks:` scoped to the same array, the
   skeleton's own fixed anchor set and relative order) is
-  `Catapult.Dsl.Workflow`'s job (dsl-syntax.md §13).
+  `Catapult.Dsl.Workflow`'s job (`workflow.md` #8).
 
   **A `status:` entry carries an optional `name:`, distinct from its
   kind, defaulting to the kind when omitted** (§15.12, ORC-155): what a

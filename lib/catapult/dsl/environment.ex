@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Environment do
   @moduledoc """
-  One `environments/<env>.yaml` declaration (dsl-syntax.md §15.4): a
+  One `environments/<env>.yaml` declaration (`workflow.md` #39): a
   deployment environment — which environments exist and what promotion
   into one requires, never endpoints, credentials or hostnames (those
   are plane bindings, v5 §7.10's store test).

@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Flow do
   @moduledoc """
-  One `flows/<flow>/flow.yaml` declaration (dsl-syntax.md §6): the
+  One `flows/<flow>/flow.yaml` declaration (`chain.md` #38): the
   schema delta while the flow is open, its walk primitive, the ticket
   face (v5 §7.10 — opening a ticket is opening a flow instance), and
   its completion predicate.

@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Chain do
   @moduledoc """
   Loads and validates one `kind: chain` bundle end to end
-  (dsl-syntax.md §1-§8, §11, §13): reads its one directory, parses
+  (`bundle.md` #3, `chain.md`): reads its one directory, parses
   every tier/edge/flow file, then runs the cross-reference and
   acyclicity checks that need the whole bundle in view. All problems
   at once, the way `Catapult.Component.Composer` and `Catapult.Config`
@@ -35,7 +35,7 @@ defmodule Catapult.Dsl.Chain do
         }
 
   @doc """
-  Resolves a predicate-language slot's raw string (dsl-syntax.md §8) —
+  Resolves a predicate-language slot's raw string (`chain.md` #37) —
   `scope_filter`, `cardinality.when`, an edge `constraint`, a flow
   `completion` — against this bundle's own `predicates.yaml`: a
   registered name wins, an inline expression parses fresh. The same
@@ -158,7 +158,7 @@ defmodule Catapult.Dsl.Chain do
     |> Enum.map(fn {name, _count} -> "two or more #{label} declarations name #{inspect(name)}" end)
   end
 
-  ## Cross-reference validation (dsl-syntax.md §13)
+  ## Cross-reference validation (`chain.md` #19, #32)
 
   defp cross_reference_problems(dir, tiers, edges, flows, fragments, named_predicates, registry) do
     scope_problems(tiers) ++
@@ -182,7 +182,7 @@ defmodule Catapult.Dsl.Chain do
         DeclaredInSchema.field_problems(dir, tiers) ++
         DeclaredInSchema.ref_problems(dir, tiers, edges)
 
-  ## source_ref:/target_ref: (dsl-syntax.md §4.2, §13) — every
+  ## source_ref:/target_ref: (`chain.md` #27) — every
   ## `reference`/`dependency` instance whose source or target isn't the
   ## tier `declared_in` names must locate that side one of five ways.
   ## `fanout`/`policy_application` edges are not this mechanism
@@ -249,7 +249,7 @@ defmodule Catapult.Dsl.Chain do
       _other ->
         [
           "edge #{inspect(edge_name)}'s instance's #{label} #{inspect(raw)} is not a recognized " <>
-            "locator — dsl-syntax.md §4.2's explicit form is an attribute path (@<attr>) only"
+            "locator — chain.md #27's explicit form is an attribute path (@<attr>) only"
         ]
     end
   end
@@ -282,7 +282,7 @@ defmodule Catapult.Dsl.Chain do
           "edge #{inspect(edge_name)}'s instance (source #{inspect(instance.source)}, " <>
             "target #{inspect(instance.target)}, declared_in #{inspect(instance.declared_in)}) " <>
             "cannot locate #{inspect(sides)} — declare an explicit source_ref:/target_ref: " <>
-            "(dsl-syntax.md §4.2)"
+            "(chain.md #27)"
         ]
     end
   end
@@ -313,7 +313,7 @@ defmodule Catapult.Dsl.Chain do
         get_in(instance, [:cardinality, side, :min]) not in [nil, 0] do
       "edge #{inspect(edge_name)}'s instance's cardinality declares a non-zero #{side} min " <>
         "against #{inspect(tier_name)}, a scope: reference tier that is never drained " <>
-        "(dsl-syntax.md §13)"
+        "(chain.md #22)"
     end
   end
 
@@ -332,7 +332,7 @@ defmodule Catapult.Dsl.Chain do
         not source_provides?(tiers, source_name, name) do
       "tier #{inspect(target_name)}'s fields #{inspect(field_name)} names mint.parent.#{name}, " <>
         "which #{inspect(source_name)} (its minting fanout source) declares in neither " <>
-        "fields: nor produces: (dsl-syntax.md §3)"
+        "fields: nor produces: (chain.md #12)"
     end
   end
 
@@ -395,7 +395,7 @@ defmodule Catapult.Dsl.Chain do
   end
 
   # A slot resolves either as a `predicates.yaml` name or as an inline
-  # expression (dsl-syntax.md §8) — a bare identifier parses fine either
+  # expression (`chain.md` #37) — a bare identifier parses fine either
   # way, so the named form is tried first and the inline parse is the
   # fallback, never a competing error.
   defp predicate_problem(raw, named, where) do
@@ -431,7 +431,8 @@ defmodule Catapult.Dsl.Chain do
     end
   end
 
-  ## Review tiers (dsl-syntax.md §3.3, §13): `reviews:` names a
+  ## Review tiers (`chain.md` #14, which retires them as tiers of
+  ## their own): `reviews:` names a
   ## declared tier, and the review tier's own `context:` is exactly the
   ## same set of walks as the reviewed tier's — the per-tier triad
   ## invariant (§9), checked rather than trusted.
@@ -462,7 +463,7 @@ defmodule Catapult.Dsl.Chain do
 
       [
         "tier #{inspect(name)}'s context does not match reviewed tier #{inspect(reviewed_name)}'s " <>
-          "own context (dsl-syntax.md §3.3) — differing entries: #{inspect(diff)}"
+          "own context (chain.md #14) — differing entries: #{inspect(diff)}"
       ]
     end
   end
@@ -695,7 +696,7 @@ defmodule Catapult.Dsl.Chain do
 
   defp navigation_problem(%Edge{navigation: true}, walk, message_name, edge_name) do
     [
-      "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(edge_name)}, marked navigation: true — navigation edges are never readiness-bearing (dsl-syntax.md §4, §13)"
+      "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} traverses edge #{inspect(edge_name)}, marked navigation: true — navigation edges are never readiness-bearing (chain.md #23)"
     ]
   end
 
@@ -713,7 +714,7 @@ defmodule Catapult.Dsl.Chain do
     end
   end
 
-  # An `all.<tier>` walk against a `scope: reference` tier (dsl-syntax.md
+  # An `all.<tier>` walk against a `scope: reference` tier (`chain.md`
   # §7.2, §13, ORC-236): an indefinite, write-path-created pool has no
   # point at which "no further node will ever appear" becomes true, so
   # readiness has no correct answer to give.
@@ -722,7 +723,7 @@ defmodule Catapult.Dsl.Chain do
       [
         "tier #{inspect(message_name)}'s context walk #{inspect(walk.raw)} is an all.<tier> " <>
           "walk targeting #{inspect(target)}, a scope: reference tier — never drained, so " <>
-          "readiness has no correct answer (dsl-syntax.md §13)"
+          "readiness has no correct answer (chain.md #22)"
       ]
     else
       []

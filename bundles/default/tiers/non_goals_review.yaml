@@ -1,9 +1,9 @@
 # docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
 # a nested block on non_goals.yaml. `reviews: non_goals` fixes this
 # review's scope and cardinality to non_goals' own (singleton, 1:1) —
-# not restated, dsl-syntax.md §3.3. `context:` is the same set of
-# walks as non_goals' own, checked at load time (§13) rather than
-# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# not restated (`chain.md` #14). `context:` is the same set of
+# walks as non_goals' own, checked at load time rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (`chain.md` #35)
 # and are never context: entries. No new review mechanism: the author
 # reviews the extracted candidate set the same way any other tier's
 # draft is reviewed, through this ordinary draft->review->approve loop

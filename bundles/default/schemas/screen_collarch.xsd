@@ -61,7 +61,7 @@
   </xs:simpleType>
 
   <!-- swap/exit-plan required iff grade="stubbed" — cross-field rule
-       left to instance-level validation (dsl-syntax.md §13). -->
+       left to instance-level validation (`chain.md` #37). -->
   <xs:complexType name="Implementation">
     <xs:sequence>
       <xs:element name="swap" type="Swap" minOccurs="0"/>

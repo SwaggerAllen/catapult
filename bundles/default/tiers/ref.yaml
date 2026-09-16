@@ -13,7 +13,7 @@
 # this tier no longer has a draft to hold. "Any parents and any
 # children" (v5 §4.5's redirect) is unchanged: `edges/reference.yaml`
 # (comparch/subcomparch/impl, each its own instance under
-# dsl-syntax.md §4.1) is the attachment surface, wired at
+# `chain.md` #27) is the attachment surface, wired at
 # comparch-and-below only — refs are an implementation detail, so
 # nothing above comparch attaches one.
 tier: ref

@@ -2,7 +2,7 @@ defmodule Catapult.Dsl.DeclaredInSchema do
   @moduledoc """
   Cross-checks a `declared_in` path's element and attribute segments
   against the schema of the tier its own **leading segment** names
-  (dsl-syntax.md §13, `systems/core_dsl.md`'s ORC-232 entry) —
+  (`chain.md` #32, `systems/core_dsl.md`'s ORC-232 entry) —
   `Catapult.Dsl.Chain`'s existing cross-reference pass never opened a
   schema file, so a segment spelled wrong against its own tier's XSD
   loaded silently and minted or resolved nothing at runtime (ORC-232:
@@ -80,7 +80,7 @@ defmodule Catapult.Dsl.DeclaredInSchema do
   @doc """
   Every explicit `source_ref:`/`target_ref:` `@<attr>` locator's
   attribute, checked against the schema of whichever tier's draft
-  `declared_in` resolves against (dsl-syntax.md §13's ORC-236 entry) —
+  `declared_in` resolves against (`chain.md` #29, ORC-236) —
   the identical cross-validation the block above runs for `declared_in`
   itself, now also run for the attribute name an explicit ref reads off
   that same terminal element. `self`/`self.parent`/`fanout(<edge>)`

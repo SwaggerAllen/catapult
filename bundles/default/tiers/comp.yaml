@@ -3,13 +3,12 @@
 # fragments comparch writes onto self.parent (comparch.yaml's
 # produces:). `mint.*` fields are set when sysarch's `decomposition`
 # edge (edges/decomposition.yaml) mints this node from its own
-# <components> row (dsl-syntax.md §3 has no documented field source
-# for a join-target tier; the addendum this ticket adds there names
-# `mint.<field>` for exactly this case — see the diff to
-# docs/dsl-syntax.md). `project_techspec` and `project_policies_summary`
+# <components> row (`chain.md` #12 names `mint.parent.<kind>` for
+# exactly this case — a join target's cross-node copies are the only
+# `fields:` the chain file carries). `project_techspec` and `project_policies_summary`
 # are the one exception to "content lives in fragments written by
 # comparch": a plain-string copy of sysarch's own techspec/policies,
-# made at the same mint moment. dsl-syntax.md §7.1's reversed hop
+# made at the same mint moment. `chain.md` #19's reversed hop
 # (added this pass) *could* now reach it live —
 # `self.parent.decomposition~ -> sysarch.handle` from comparch — but
 # the mint-time copy stays: this content is written once by sysarch

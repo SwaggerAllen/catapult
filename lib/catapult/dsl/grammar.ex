@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Grammar do
   @moduledoc """
   Validates a committed draft body against a tier's grammar —
-  `draft.root_tag` + XSD (dsl-syntax.md §10) — at commit time. One
+  `draft.root_tag` + XSD (`chain.md` #33) — at commit time. One
   validator source for the commit-time rejection engine's aggregate
   gates on (via generation's command edge, `systems/core_dsl.md`'s
   "engine and generation call it") and any future pre-flight check
@@ -15,7 +15,7 @@ defmodule Catapult.Dsl.Grammar do
 
   A schema path (`draft.grammar`, or a review tier's own top-level
   `grammar:`) is bundle-relative, resolved against the bundle's one
-  directory (dsl-syntax.md §11: no `extends:` layering) through
+  directory (`bundle.md` #7: no `extends:` layering) through
   `Catapult.Dsl.BundlePath.resolve/2`, which also refuses a path that
   escapes the bundle.
   """
@@ -29,7 +29,7 @@ defmodule Catapult.Dsl.Grammar do
           | {:schema_invalid, term()}
 
   @doc """
-  Validates `body` (an XML-fragmented-markdown draft, dsl-syntax.md
+  Validates `body` (an XML-fragmented-markdown draft, `chain.md`
   §10) against the grammar named by `root_tag` + `grammar_path`
   (bundle-relative, e.g. `"schemas/comparch.xsd"`) for the bundle
   `bundle_name` under `bundles_root` (the `bundles/` directory itself,

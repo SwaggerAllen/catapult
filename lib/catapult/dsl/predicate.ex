@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Predicate do
   @moduledoc """
-  The predicate language (dsl-syntax.md §8): six operator families —
+  The predicate language (`chain.md` #37): six operator families —
   comparison, boolean, edge counting, existential, universal,
   reachability — over exactly four slots (`scope_filter`,
   `cardinality.when`, an edge `constraint`, a flow `completion`).
@@ -9,7 +9,7 @@ defmodule Catapult.Dsl.Predicate do
 
   Parses a predicate expression into a plain-data AST. What a path
   segment or edge name actually resolves to is a cross-reference the
-  loader checks with the rest of the bundle in view (dsl-syntax.md
+  loader checks with the rest of the bundle in view (`chain.md`
   §13); this module only rejects what the grammar itself forbids.
 
   ## Grammar
@@ -30,7 +30,7 @@ defmodule Catapult.Dsl.Predicate do
       comparator := "==" | "!=" | "<" | ">" | "<=" | ">="
       path       := ident ("." ident)*
 
-  `predicates.yaml` composes these under a name (dsl-syntax.md §8); a
+  `predicates.yaml` composes these under a name (`chain.md` #37); a
   named reference (`scope_filter: is_domain`) is not itself predicate
   syntax and is resolved by the loader against that file, not by this
   parser.
