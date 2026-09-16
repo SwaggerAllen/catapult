@@ -182,7 +182,11 @@ is `drained?` per tier plus every walk target approved. `all.<tier>` inside the 
 adding `all.policy.handle` to `comparch`'s context was a permanent
 deadlock when `policy` had `comparch` among its three fanout drivers
 (ORC-247, review 3); single-sourcing `child_of` (#28) is what makes
-`drained?` decidable at all. The flow-ticket case is reserved because
+`drained?` decidable at all. The `write`-sourced refusals are
+ORC-236's, for the same shape of reason: an indefinite pool an outside
+path accretes cannot tell "no more will ever be written" from "none
+exist yet", and no chain event marks it complete, so a reader of one
+would hang the first time anything asked. The flow-ticket case is reserved because
 the redesign's traversability check first called a plan tier's
 `all.sysarch` read an ordering error, and it is not: the plan reads
 the approved graph it is about to regenerate, which is the flow

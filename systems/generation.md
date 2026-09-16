@@ -123,8 +123,8 @@ and validation logic and must not fork it.
   clause, exactly like every join-target tier.
 - **#11 `ref` retires from the swept, `generator: "llm"` dispatch set, and
   the fixture-coverage count (below) corrects with it, in the same
-  change.** `ref`'s `scope: reference`/`generator: reference`
-  (`docs/dsl-syntax.md` §3.1, §3.2) carries no `draft:`, so
+  change.** `ref` is a supplied tier (`chain.md` #5, #17) and
+  carries no `draft:`, so
   `Sweeper.dispatchable?/1` matches it on neither of its two
   clauses, and `ref_review` goes with it — nothing
   commits a draft for it to review. `ref.md.liquid` and `ref_review`'s

@@ -160,7 +160,10 @@ and edge name. Markers: **live** is read by the engine today;
   the tier drained, every node of it approved, and are refused at
   load when the reading tier is in the target tier's driver closure,
   because it could never drain; a tier is drained only when it has
-  exactly one minting parent (#28). `input.*` reads never block: a
+  exactly one minting parent (#28). A `write`-sourced supplied tier
+  never drains either, so an `all.<tier>` read of one and a non-zero
+  cardinality `min` on the side of an edge instance naming one are
+  both refused at load. `input.*` reads never block: a
   role with no documents yields an empty collection. Inside a flow
   ticket, a plan tier's `all.<tier>` reads are of the approved graph
   the flow is about to regenerate, and its structural reads are the

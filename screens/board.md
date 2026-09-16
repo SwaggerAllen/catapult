@@ -31,7 +31,7 @@ abbreviated view and the full one coincide until identity ships a real mapping.
 
 A `statuses:` entry that is itself an array groups a contiguous run of lanes (`workflow.md` #6, ORC-115) — `generation`, its critique, and the gates that review it, in the default bundle's
 own `feature.yaml`. `board` renders that grouping visibly rather than flattening it into the run
-(ORC-116, closing the open question §15.10 left for this screen): the lanes it spans sit inside a
+(ORC-116, closing the open question `workflow.md` #6 leaves to this screen): the lanes it spans sit inside a
 shared boundary, and one lane inside it carries a small badge marking it as where a throwback in
 this group lands by default. Which lane that is is not this screen's to say — it renders whatever
 `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group (`workflow.md` #34 has
@@ -88,8 +88,7 @@ The retired spec gave `component`/`subcomponent` their own declared type, sharin
 `feature`, so a component's own lane had no counterpart on a feature's own board and there was no
 lane to roll it up into. A child now runs the declared sequence filtered to its depth
 (`workflow.md` #28), which removes that premise; whether the aggregate count below is still the
-right rendering is open, and `docs/dsl/retired-spec-index.md` carries where the rest of §15.11
-went. A subcomponent inside a component is the one case that still
+right rendering is open. A subcomponent inside a component is the one case that still
 shares an array (both instances of `types/component.yaml`, one level deeper), and keeps the
 per-lane roll-up above unchanged. A feature's own component children roll up as a single aggregate
 count on the card instead — however many are in flight, wherever the feature's own lane happens to

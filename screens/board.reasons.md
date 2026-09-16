@@ -48,7 +48,7 @@ assumed. `workflow.md` #6 does give a passed gate's approval a structural node t
 question — "has what this gate approved changed" — answerable from a log join with no body view, and
 it is a different mechanism from the command-side `body_sha` compare a dispatch needs, which is "the
 body the actor believes they are resolving against" (`systems/engine.md`'s own distinction between
-the two; `systems/delivery.md`'s note that the staleness half is what §15.10 actually closed). A
+the two; `systems/delivery.md`'s note that the staleness half is what `workflow.md` #6 actually closed). A
 card still shows no body, so it still has nothing honest to supply on `ApproveGate`/ `DeclineGate`'s
 own compare, whatever the node derivation settles — the interim named above does not end here. What
 the derivation *does* unlock is gate staleness display, `docs/ui-spec.md`'s own v2 stage (§5), with

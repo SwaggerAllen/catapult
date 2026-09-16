@@ -179,10 +179,10 @@ extraction or mint-time-value question.
 ## #26
 
 A `supplied` node is settled the moment it exists because nothing upstream in the generation chain
-produced it and could still revise it; a `reference` node (`ref`, the tier `dsl-syntax.md` §3.1's
-`reference` scope kind exists for) has the identical property for a different reason — its content
-is written once, by a write path outside the chain, with no draft anywhere in its history to be
-unapproved. Both clauses read "settled unconditionally, the moment the node exists," keyed on the
+produced it and could still revise it. `ref` is supplied too (`chain.md` #5, #17), for a different
+reason — its content is written once, by a write path outside the chain (`source: write`), with no
+draft anywhere in its history to be
+unapproved. The clause reads "settled unconditionally, the moment the node exists," keyed on the
 tier's own generator declaration rather than on `parent_node_id == nil`, for the reason the
 three-way match above keeps the check declaration-keyed. This is what makes a `self.reference ->
 ref.handle` walk (`chain.md` #19's own walk forms) resolvable at all: a `ref` node

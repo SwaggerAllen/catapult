@@ -113,7 +113,7 @@ establish, not a new mechanism, and not required for the conflict to render corr
 (ORC-116): the origin default here and a gate's own derived default (its citing sub-array's generation position,
 `workflow.md` #34) are both a visible fall-back to the head of a box the screen already
 draws, but the picker's remaining options reach earlier than that box too — the earlier-prefix
-legality test (§15.10) never stops at a group boundary. An option inside the current group renders
+legality test (`workflow.md` #8) never stops at a group boundary. An option inside the current group renders
 plainly; one outside it carries a small "leaves this loop" note, so choosing it reads as an arrow
 leaving the box rather than a silent landing somewhere else. `screens/document-review.md`'s own
 throwback picker draws the identical distinction over the identical test, and cites this section

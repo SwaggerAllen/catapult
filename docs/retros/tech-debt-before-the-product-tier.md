@@ -22,7 +22,7 @@ Shipped (archived from the tracker; this note is what duplicate detection reads,
 - ORC-176 — setup/retro's own generation-to-deploy progression is no longer placeable by FeatureLifecycle (merged 7439c1be85fb9fc35a805891f1f714f26a3e9b7a)
 - ORC-177 — ContainerLifecycle's repopulation/backward-move semantics still implement the design's own retired reading (merged 27e0bffefdafd8d17eaf590151c19f9f910c32cb)
 - ORC-179 — Which generation kind (design/architecture) each bundle chain tier picks is still undecided — deliberately deferred (merged 3e2bee0f0fbbb5143319d5fc654484ec7e9373dc)
-- ORC-181 — dsl-syntax.md §15.10 doesn't settle the derived default for a gate sitting before its own sub-array's agent step
+- ORC-181 — the retired DSL spec doesn't settle the derived default for a gate sitting before its own sub-array's agent step
 - ORC-182 — Sequence.positions/2 truncates at the first :checks entry, not the last one before merge (merged 047292ec14d9a01270dbf4c598abf436c4ebebc7)
 - ORC-183 — No CSS build pipeline for the dashboard — every daisyUI class in storybook/screens/** is unstyled (merged b2dd679b94c37b43e00f54fd1e9867171e0fa1d4)
 - ORC-184 — partials/_architecture_framing.md.liquid's own feedback-revision block never renders — {% render %} isolates scope from every one of its 9 call sites (merged 75f705ada92dd9352d02f2b20e7cc85189e26f21)

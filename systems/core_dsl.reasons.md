@@ -327,6 +327,16 @@ what a named pass decided, and rewriting them in place would put
 words in those passes' mouths. What a later reader needs is which
 rules still bind, and an entry that names them is checkable in a way
 fifteen silently amended entries are not.
+The entries above still carry their own citations, and those are
+repointed at the rules that replaced the retired spec's sections
+rather than left dangling: a citation is a pointer, not a claim a pass
+made, so moving one puts no words in anyone's mouth. Where an entry's
+prose would otherwise *state* a rule the contract now contradicts —
+`ref`'s scope, a review tier's own file, two grains landing in one
+collection — the spelling is corrected and the pass's conclusion left
+as it stood. The retired spec's own sections are gone from this
+document; `docs/dsl/retired-spec-index.md` maps them for a reader
+holding an older citation from git history.
 
 Each change is argued where its rule lives: `bundle.reasons.md`,
 `chain.reasons.md` and `workflow.reasons.md` carry the reason behind

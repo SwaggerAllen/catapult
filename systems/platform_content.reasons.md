@@ -339,7 +339,7 @@ tier-ordering benefit is available to relocate it for: `design_system` is
 pinned at intake (v5 §1.1) and carries no draft of its own to wait on, so
 nothing about *when* the edge is declared changes whether the content
 behind it is settled. The walk resolves through the instance's own
-locators (`docs/dsl-syntax.md` §4.2, `systems/core_dsl.md`'s ORC-236
+locators (`chain.md` #27, `systems/core_dsl.md`'s ORC-236
 entry): `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
 `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
 `target_ref:` at all, so this instance extracts and resolves with no
@@ -402,6 +402,16 @@ for `core_dsl`'s #45 reason: the entries above are ticket-attributed
 records of what a named pass decided about a grammar that is being
 replaced, and rewriting them in place would put words in those passes'
 mouths.
+The entries above still carry their own citations, and those are
+repointed at the rules that replaced the retired spec's sections
+rather than left dangling: a citation is a pointer, not a claim a pass
+made, so moving one puts no words in anyone's mouth. Where an entry's
+prose would otherwise *state* a rule the contract now contradicts —
+`ref`'s scope, a review tier's own file, two grains landing in one
+collection — the spelling is corrected and the pass's conclusion left
+as it stood. The retired spec's own sections are gone from this
+document; `docs/dsl/retired-spec-index.md` maps them for a reader
+holding an older citation from git history.
 
 The acceptance bound is the reason the file layout changes at all, and
 it is a bound rather than a preference. The community premise (v5 §8)

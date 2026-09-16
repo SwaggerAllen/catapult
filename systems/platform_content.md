@@ -166,11 +166,11 @@ loader tickets carry `system:core_dsl`.
   the distilled intake set's own candidates, above; three fanout
   instances into one flat pool is legal, since `Catapult.Dsl.Tier`'s
   scope check only requires `child_of(X)` to name a *declared* tier,
-  not the sole edge targeting it); `ref` is `scope: reference`
-  (`docs/dsl-syntax.md` §3.1, ORC-236): `id` identity over a literal
-  singleton would be meaningless, and `scope: reference` names exactly
-  what `ref` is — a flat pool that accretes via a write tool, never
-  minted by a fanout edge at all.
+  not the sole edge targeting it); `ref` is supplied with `source:
+  write` (`chain.md` #5, #17; ORC-236): `id` identity over a literal
+  singleton would be meaningless, and a supplied tier's having no
+  scope at all names exactly what `ref` is — a flat pool that accretes
+  via a write tool, never minted by a fanout edge.
   **`ref` may attach anywhere, any parent, any child** — a general
   rule rather than v4's "comparch and below" restriction: no per-use
   kinds, no special-case lifecycles. The attachment sites
@@ -204,8 +204,8 @@ loader tickets carry `system:core_dsl`.
   that does: `comparch.yaml` reads `self.parent.policy_application~
   -> policy.handle` (direct grain, one reversed hop) and
   `self.parent.fulfills.policy_application~ -> policy.handle`
-  (through-responsibility grain, forward then reversed), and both
-  land in one `policy` collection (dsl-syntax.md §9). No further
+  (through-responsibility grain, forward then reversed), each under
+  its own name in `comparch`'s `context:` (`chain.md` #21). No further
   edge is needed — `policy_application`'s two instances already
   carry both grains in their declared direction; reversal reads them
   backward at walk time.
@@ -337,9 +337,8 @@ loader tickets carry `system:core_dsl`.
   `feature_expansion`, `impl`, `ref`, `vocab` carry no nested
   `review: {prompt, grammar}` block; each has a sibling tier file
   (`tiers/<name>_review.yaml`) declaring `reviews: <name>` instead.
-  `dsl-syntax.md` §3.3 documents the mechanism: a review tier's scope
-  and cardinality are the reviewed tier's by construction (never
-  restated), it carries no `draft:`/`produces:` (comments, not a
+  A review tier's scope and cardinality are the reviewed tier's by
+  construction (never restated), it carries no `draft:`/`produces:` (comments, not a
   commit), and its `context:` is restated verbatim and checked at load
   time against the reviewed tier's own `context:` — the per-tier triad
   invariant made a load-time property instead of a shared-assembly-code
@@ -997,15 +996,15 @@ loader tickets carry `system:core_dsl`.
 
 - **#59 `ref.yaml` sheds everything a generated tier needs and keeps
   nothing a generated tier doesn't** (ORC-236;
-  `docs/v5-design-decisions.md` §4.5, `docs/dsl-syntax.md` §3.1, §3.2).
-  It is `scope: reference`, not `scope: singleton`, and `generator:
-  reference`, not `generator: llm`, so it carries no `prompt:` and no
+  `docs/v5-design-decisions.md` §4.5, `chain.md` #5, #17).
+  It is supplied, not `scope: singleton`, and its content comes from
+  `source: write`, not from an agent, so it carries no `prompt:` and no
   `delivery:` block — there is no dispatch to phase, since nothing
   dispatches it — and no `draft:` (no `root_tag`, no `grammar`): a
   write-path-created node has no draft to validate against a grammar.
   `fields:` carries `title`/`body`, sourced to `reference.title` and
-  `reference.body` — the fourth field-source form
-  (`docs/dsl-syntax.md` §3), legal only on a `scope: reference` tier,
+  `reference.body` — the field-source form legal only on a supplied
+  tier (`chain.md` #5),
   naming a key the write path's own payload supplies directly rather
   than a `draft.title`/`draft.body` this tier has no draft to hold.
   The payload shape itself is the write tool's to define when it is
@@ -1037,8 +1036,7 @@ loader tickets carry `system:core_dsl`.
   `reference`'s `screen_coll → journey` takes `source_ref: self.parent`,
   also automatic (`screen_collarch` is `per(screen_coll)`). Every side
   not resolved structurally on its own instance defaults to the trailing
-  `.@attr` segment of `declared_in` (`docs/dsl-syntax.md` §4.2's widened
-  default) — which is what closes `navigation`'s own target side (its
+  `.@attr` segment of `declared_in` (`chain.md` #27) — which is what closes `navigation`'s own target side (its
   `declared_in`'s trailing `.@to`, not a second `fanout(decomposition)`
   locator: both sides resolving through the same fanout element would
   make source and target the identical `<screen>` node on every
@@ -1054,8 +1052,8 @@ loader tickets carry `system:core_dsl`.
   for `calls`/`uses_shapes`, `ui_coll` for `renders`) defaulting off the
   trailing attribute; `dependency.yaml`'s own `ui_coll → design_system`
   takes `source_ref: self.parent` (`ui_collarch` is `per(ui_coll)`) and
-  needs no `target_ref:` at all, because `design_system` is
-  `scope: singleton` (`docs/dsl-syntax.md` §4.2's fourth locator kind) —
+  needs no `target_ref:` at all, because `design_system` is supplied
+  and singular (`chain.md` #27's locator forms) —
   there is exactly one node to mean, so nothing needs pointing at.
 
   The remaining six — `comp ↔ comp`, `subcomp ↔ subcomp`, `ui_coll ↔
@@ -1139,7 +1137,15 @@ loader tickets carry `system:core_dsl`.
      parent declare** (`chain.md` #20), with `context:` adding to the
      derivation rather than restating it; node identity, a node's own
      fields and plain cardinality move into the schemas (`bundle.md`
-     #10).
+     #10). Two grains of one relation are two named reads, not one
+     collection: a name colliding with a derived read is a load error
+     (`chain.md` #21).
+  5. **`ref` is a supplied tier.** `scope: reference` and `generator:
+     reference` leave the vocabulary; a supplied tier declares
+     `generator: supplied` and a `source:` and has no scope at all,
+     which is what `ref` — a flat pool an outside write path accretes
+     — needs said (`chain.md` #5, #17). Every entry above spelling
+     `ref`'s scope or generator as `reference` reads this way.
 
   The rewritten pair is measured against the acceptance bound
   (`bundle.md` #14): at most 800 lines for the chain file with

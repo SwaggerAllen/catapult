@@ -64,7 +64,7 @@ downstream would ever have prose left to show it beside.
   of `docs/ui-spec.md` §3.2 as "the throwback target chosen from the declared exits" no longer
   matches what that section says (ORC-116 correction). The control is a single primary button
   naming whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves — the gate's own
-  `throwback:` when it declares one, otherwise the derived default (§15.10, rendered rather than
+  `throwback:` when it declares one, otherwise the derived default (`workflow.md` #34, rendered rather than
   restated here) — with every earlier position in the
   effective sequence offered behind a secondary "choose a different target" disclosure: the
   identical earlier-prefix picker `screens/ticket.md`'s own Blocked-return control draws, over the

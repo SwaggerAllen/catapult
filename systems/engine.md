@@ -242,15 +242,15 @@ them.
     `(project_id, tier, scope_key)`): drained once its one node exists
     and is `settled?` — never vacuously, because such a tier's count is
     exactly one once the chain reaches it, never legitimately zero;
-  - `reference` (`ref` is `bundles/default`'s only instance, `docs
-    /dsl-syntax.md` §3.1, ORC-236): never drained. An indefinite,
+  - a `write`-sourced supplied tier (`ref` is `bundles/default`'s
+    only instance, `chain.md` #5, #17, ORC-236): never drained. An indefinite,
     write-path-created pool cannot tell "no more will ever be written"
     from "none exist yet" the way every branch above can — there is no
     upstream tier whose own exhaustion would settle the question, and
     no chain event marks the pool complete. Rather than leave that
-    recursion hang the first time anything asks, `dsl-syntax.md` §13
+    recursion hang the first time anything asks, `chain.md` #22
     refuses two things at load time instead: an `all.<tier>` walk
-    targeting a `reference`-scope tier, and a non-zero cardinality `min`
+    targeting such a tier, and a non-zero cardinality `min`
     on the side of an edge instance that names one (below) — nothing in
     `bundles/default` needs either (every `ref` read is a named
     `reference`/`fulfills` citation resolved by id, never a population
@@ -459,8 +459,8 @@ them.
 - **#45 A review tier needs no staleness treatment — but this does not
   close v5 §7.16's open item, which names a different object.** §7.16
   asks what a passed *workflow* gate pins ("Approval is a status, and
-  review states are declared"); `dsl-syntax.md` §3.3 (ORC-84)'s
-  `reviews: <tier>` is the chain axis, and §7.19 draws the line
+  review states are declared"); a tier's own `review:` block
+  (`chain.md` #14, ORC-84) is the chain axis, and §7.19 draws the line
   explicitly: a review tier is dispatched immediately after the
   generation tier it reviews, one cycle, and "has no throwback
   semantics: there is no passed gate downstream of it to reopen." A
@@ -910,8 +910,8 @@ them.
   `Catapult.Dsl.Workflow .throwback_target_details/3` already derives for a throwback target
   (`lib/catapult/dsl/workflow.ex`), read here in the forward direction instead; an earlier gate's
   approval only advances the ticket's own projected status. A decline is not the same shape: every
-  `review:` entry in a `generation`/`critique`/ review group falls back to the same leading `pending`
-  (§15.10, the rule `screens/document-review.md` cites), so any `GateDeclined` against the node
+  `review:` entry in a `generation`/`critique`/ review group falls back to the same group anchor
+  (`workflow.md` #34, the rule `screens/document-review.md` cites), so any `GateDeclined` against the node
   dispatches `DiscardDraft` unconditionally — there is no partial-decline case where the draft should
   survive.
 - **#66 `DraftDiscarded` resets the node to `:absent`, not a fourth status.** `Node.status` keeps

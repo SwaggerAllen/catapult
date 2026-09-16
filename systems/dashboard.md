@@ -178,21 +178,20 @@ conventions §13).
   .Positions.key/2` rather than paired by this system** (ORC-116,
   superseding this bullet's own prior scan-and-pair scheme after
   ORC-155 landed the namespacing rule this system had been assembling
-  by hand). §15.10's own anchor predicate — a sub-array's one
-  non-review-shaped agent-balled entry (`generation`, `design`,
-  `architecture`, `implementation`, `retro` or `setup`) — still picks
-  the entry a group keys off; what §15.12 changes is what supplies the
-  *other half* of the key. A `status:` entry now carries a
+  by hand). `workflow.md` #6's anchor predicate — a sub-array's one
+  non-review-shaped agent-balled entry, a generation position or a
+  container's `setup` or `retro` — still picks the entry a group keys
+  off; what #7 changes is what supplies the *other half* of the key. A `status:` entry now carries a
   bundle-authored `name:` (defaulting to its kind), and an anchor's own
   name *is* the sub-array's namespace: every other entry sharing that
   sub-array addresses as `<anchor-name>.<its-own-name>`, a top-level
   entry addresses bare, and the loader refuses a colliding pair before
-  a bundle ever ships (§15.12's own uniqueness check). `Positions
+  a bundle ever ships (`workflow.md` #7's uniqueness check). `Positions
   .key/2` already encodes exactly this — `"kind:" <> anchor <> "." <>
   name` when given an anchor, the identical bare `"kind:" <> name` it
   has always produced otherwise — so a lane or rail key is that string,
   not a runtime identity this system derives.
-- **#18 The anchor for a *resting* ticket — the gap §15.12 left open by its own admission — is
+- **#18 The anchor for a *resting* ticket — the case `workflow.md` #7 leaves to this system — is
   `Positions.resting_key/2`** (ORC-116). `Catapult.Delivery.FeatureLifecycle.Projection`'s
   `passed`/ `pinned_to`/`blocked_from` all still key on the bare `position()` tuple, with no
   namespace attached, so `resting_key/2` resolves this as a lookup against the loaded

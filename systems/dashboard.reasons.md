@@ -46,17 +46,18 @@ reader sees why they all say it the same way.
 scanning backward to the nearest anchor, no `Catapult.Generation.NodeId.resolve/1` chain-node
 id and no `Catapult.Delivery.ContainerLifecycle.Ids.work_item_id/3` work-item id standing in
 as the anchor's own identity — both were needed only because the prior scheme had no
-bundle-authored name to key on and had to borrow one from a runtime concept instead. §15.12's
-namespace is a fact about the loaded declaration alone, so the key for any position is
+bundle-authored name to key on and had to borrow one from a runtime concept instead.
+`workflow.md` #7's namespace is a fact about the loaded declaration alone, so the key for any position is
 available the moment the workflow loads, with no read against `engine_nodes` or a container's
 own queue identity. The "Not yet covered" gap this bullet used to carry — two `critique` or
 `reconcile` entries in one sub-array colliding on the same `(anchor, kind)` pair — closes the
-same way: §15.12 requires distinct `name:`s the moment two entries share a sub-array, so the
+same way: `workflow.md` #7 requires distinct `name:`s the moment two entries share a sub-array, so the
 collision is a load error before this system ever sees the bundle, never a rendering gap for
 it to solve.
 
-Recurrence itself is unchanged from what this bullet already found: `docs/dsl-syntax.md` §13
-still lets a generation-shaped entry, `checks`, `merge`, `reconcile` and `pending` all recur,
+Recurrence itself is unchanged from what this bullet already found: `workflow.md` #7
+still lets a generation-shaped entry, `checks`, `merge` and `reconcile` all recur
+(`pending` is an engine flag rather than an entry, #25),
 and `merge`, `deploy` and `terminal` need no carve-out of their own — each is an ordinary bare
 top-level name whenever it sits outside a sub-array (true of every recurrence in the current
 `bundles/default-flow` types), and the namespace rule above already covers a bare top-level
