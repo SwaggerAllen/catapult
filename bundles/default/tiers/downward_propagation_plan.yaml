@@ -10,7 +10,7 @@ scope: cascade_visit
 identity: id
 fields:
   # `argument` is the reserved `fields:` name the work surface reads
-  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # off a flow's entry tier (ORC-114, `chain.md` #12) — this
   # tier is that entry tier for every downward_propagation flow instance.
   argument: draft.argument
   scope_summary: draft.scope

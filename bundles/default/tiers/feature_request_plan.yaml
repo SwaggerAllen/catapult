@@ -15,7 +15,7 @@ scope: cascade_visit
 identity: id
 fields:
   # `argument` is the reserved `fields:` name the work surface reads
-  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # off a flow's entry tier (ORC-114, `chain.md` #12) — this
   # tier is that entry tier for every feature_request flow instance.
   argument: draft.argument
   resolved: draft.resolved

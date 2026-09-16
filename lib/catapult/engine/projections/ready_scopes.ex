@@ -275,7 +275,7 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     true
   end
 
-  # `scope: reference` (`ref`, `docs/dsl-syntax.md` §3.1): never
+  # a `write`-sourced supplied tier (`ref`, `chain.md` #5, #17): never
   # drained. An indefinite, write-path-created pool cannot tell "no
   # more will ever be written" from "none exist yet" — dsl-syntax.md
   # §13 refuses the two things that would ever ask this question at

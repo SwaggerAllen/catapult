@@ -1,8 +1,3 @@
----
-paths:
-  - docs/dsl/**
----
-
 # The retired DSL spec, section by section
 
 `docs/dsl-syntax.md` was the normative DSL grammar until `bundle.md`,

@@ -56,8 +56,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   produced was the ceiling, not evidence of a finished chain. Now that
   `Provisioning.approve_drafts/2` exists as the unattended run's own
   actor (test scaffolding, not product semantics —
-  `docs/dsl-syntax.md` §15.10's threshold-based-gating decision stays
-  parked; this reads no review score and approves unconditionally), the
+  the threshold-based-gating decision stays parked; this reads no review score and approves unconditionally), the
   poll loop alternates: poll `runs/2`
   (`/dispatch/test-project/:project_id/runs`,
   `systems/delivery.md`'s ORC-230 entry) until its own `remaining`

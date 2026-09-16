@@ -197,29 +197,6 @@ beats a predicate so that the narrow case does not have to restate the
 broad one; two outright claims are an error because there is no
 principled winner between them.
 
-## #28
-
-Computed rather than declared, because a declared depth on a generation
-entry could only restate what the tier list already says, and two
-statements of one fact drift. The tier list is the better of the two
-anyway: it says *which* work happens at a level, where a number says
-only how deep the level is.
-
-The author's decision, against giving a generation entry its own
-`depth:` and against keeping two ticket types: one type across depths,
-depth computed from the tiers a position references, and a child
-simply never occupying the positions whose depth set excludes it.
-
-The author's second correction is why the test is "at most the
-deepest tier" rather than "a depth one of the tiers has". Every
-implementation tier in the default is scoped to a subcomponent, so on
-the narrower test a feature and a component would both skip the
-implementation position — and with it the gate and the PR boundary at
-those granularities, leaving review of produced code possible only at
-the bottom of the tree. A ticket stands at a position either to
-generate there or to hold the branch its children's work at that
-position merges into, and both are reasons to be able to gate it.
-
 ## #23
 
 Free names make it possible to declare a workflow whose positions
@@ -280,12 +257,30 @@ gates around it; the prompt is the chain's (`chain.md` #15).
 
 ## #28
 
-v5 §7.19: "a child's effective sequence is the declared sequence
-filtered to its depth", with the simplifying assumption that
-validation wanted at a nested level is wanted at every level above.
-The default is every depth because the author wants doing less review
-to be the explicit choice, and "all depths" is well defined under this
-rule where it was not expressible before.
+v5 §7.19's rule: "a child's effective sequence is the declared sequence
+filtered to its depth", with the simplifying assumption that validation
+wanted at a nested level is wanted at every level above.
+
+Computed rather than declared, because a declared depth on a generation
+entry could only restate what the tier list already says, and two
+statements of one fact drift. The tier list is the better of the two
+anyway: it says *which* work happens at a level, where a number says
+only how deep the level is.
+
+The author's decision, against giving a generation entry its own
+`depth:` and against keeping two ticket types: one type across depths,
+depth computed from the tiers a position references, and a child
+simply never occupying the positions whose depth set excludes it.
+
+The author's second correction is why the test is "at most the
+deepest tier" rather than "a depth one of the tiers has". Every
+implementation tier in the default is scoped to a subcomponent, so on
+the narrower test a feature and a component would both skip the
+implementation position — and with it the gate and the PR boundary at
+those granularities, leaving review of produced code possible only at
+the bottom of the tree. A ticket stands at a position either to
+generate there or to hold the branch its children's work at that
+position merges into, and both are reasons to be able to gate it.
 
 ## #30
 

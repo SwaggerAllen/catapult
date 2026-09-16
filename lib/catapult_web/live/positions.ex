@@ -112,7 +112,7 @@ defmodule CatapultWeb.Live.Positions do
   elsewhere in `positions` (its own `group_key`, the recurring
   sub-array's anchor), bare otherwise. The ordinary case — no `types/
   *.yaml` this system ships recurs a kind across two sub-arrays today
-  (`docs/dsl-syntax.md` §15.2's own note) — is unaffected: every
+  (`workflow.md` #7's own namespace rule) — is unaffected: every
   position keeps the identical bare encoding `key/1` has always
   produced.
   """

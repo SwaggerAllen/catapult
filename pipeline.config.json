@@ -40,9 +40,6 @@
     "conventions": { "path": "docs/conventions.md" },
     "Conventions": { "path": "docs/conventions.md" },
     "dsl-syntax.md": { "unchecked": "the retired v5 DSL spec, whose rules now live in docs/dsl/ and are cited by id rather than by section: its §1, §2, §11 and §12 are bundle.md, its §3 to §10, §13 and §14 are chain.md, and its §15.x is workflow.md. docs/dsl/retired-spec-index.md maps every section onto the rules that replaced it. Only bundles/** still cites it, in header comments of files the bundle rewrite deletes; a section citation anywhere else is a defect, never a path to resolve." },
-    "bundle.md": { "path": "docs/dsl/bundle.md" },
-    "chain.md": { "path": "docs/dsl/chain.md" },
-    "workflow.md": { "path": "docs/dsl/workflow.md" },
 
     "DESIGN": { "unchecked": "orchestration's DESIGN.md — another repository, so no path here can resolve it" },
     "orchestration": { "unchecked": "orchestration's own docs — another repository, so no path here can resolve it" },
