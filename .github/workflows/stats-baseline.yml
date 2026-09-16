@@ -1,0 +1,122 @@
+# Captures the cutover baseline (orchestration's PLAN.md C0, and
+# docs/baselines/README.md there for what it measures and why).
+#
+# **It lives here rather than in the pipeline repo because the token
+# does.** `PIPELINE_STATE_TOKEN` is a project-repo Actions secret; a
+# workflow in orchestration cannot see it, and giving it one would mean
+# a second copy of a credential that also writes the move record. The
+# same reasoning already moved `pipeline-review-replay` into this repo.
+#
+# It is not a `pipeline-*` stub: orchestration ships no
+# `examples/stubs/stats-baseline.yml`, and naming it as though it did
+# would send the next reader looking for an upstream copy to sync with.
+#
+# Reads only. No Go build and no `stats collect` — the nightly
+# `pipeline-stats` run fills the store, and this takes six HTTP GETs
+# against what is already there.
+name: stats-baseline
+
+on:
+  workflow_dispatch:
+  # Also on push to the branch carrying the cutover work, because
+  # `workflow_dispatch` needs the file on the default branch before the
+  # Actions UI will offer it — and the whole point is to capture the
+  # baseline *before* the cutover lands.
+  push:
+    branches:
+      - claude/catapult-ops-free-pipeline-mbzuur
+    paths:
+      - .github/workflows/stats-baseline.yml
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture the baseline
+        env:
+          PIPELINE_STATE_TOKEN: ${{ secrets.PIPELINE_STATE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PIPELINE_STATE_TOKEN}" ]; then
+            echo "PIPELINE_STATE_TOKEN is empty — the store would answer 401 and this would" >&2
+            echo "capture nothing while looking like it ran. Set it as an Actions secret." >&2
+            exit 1
+          fi
+
+          BASE="$(jq -r .state.url pipeline.config.json)"
+          PROJECT="$(jq -r .state.project pipeline.config.json)"
+          ROOT="$BASE/stats/$PROJECT"
+
+          # The queries orchestration's docs/baselines/README.md fixes.
+          # Each response is stored with the URL that produced it, so the
+          # later comparison re-runs the derivation rather than trusting
+          # the number — which is the whole point of the artifact.
+          ops=(
+            "/watermark"
+            "/milestones"
+            "/states?on=completed"
+            "/states?on=completed&bucket=month"
+            "/minutes?by=workflow"
+            "/minutes?by=workflow&bucket=month"
+          )
+
+          queries='[]'
+          for op in "${ops[@]}"; do
+            url="$ROOT$op"
+            echo "GET $url" >&2
+            # -f so a non-2xx fails the step. A baseline assembled from
+            # error pages is the silent-empty failure this whole exercise
+            # exists to avoid.
+            body="$(curl -fsS -H "authorization: Bearer $PIPELINE_STATE_TOKEN" "$url")"
+            # --argjson rejects a non-JSON body, which is the second half
+            # of that guard: a 200 carrying HTML still fails here.
+            queries="$(jq --arg op "$op" --arg url "$url" --argjson body "$body" \
+              '. + [{op: $op, url: $url, response: $body}]' <<<"$queries")"
+          done
+
+          jq -n \
+            --arg takenAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg project "$PROJECT" \
+            --arg store "$BASE" \
+            --arg capturedFrom "$GITHUB_SHA" \
+            --arg runURL "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --argjson queries "$queries" \
+            '{takenAt: $takenAt, project: $project, store: $store,
+              capturedFrom: $capturedFrom, runURL: $runURL, queries: $queries}' \
+            > baseline.json
+
+          {
+            echo "## Baseline captured"
+            echo
+            echo "\`$PROJECT\` at \`$(jq -r .takenAt baseline.json)\`, ${#ops[@]} queries."
+            echo
+            echo "### Watermark — read this first"
+            echo
+            echo "A baseline over an unfinished backfill measures the part that had been"
+            echo "collected, and a later capture over a complete one shows a delta that is"
+            echo "entirely the collector catching up. If \`oldestComplete\` has not reached"
+            echo "the project's first ticket, this capture is not the baseline."
+            echo
+            echo '```json'
+            jq -c '.queries[] | select(.op == "/watermark") | .response' baseline.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Printed as well as uploaded: the artifact is the file to
+          # commit, and the log is how a session without artifact access
+          # reads it back.
+          echo "----- BEGIN baseline.json -----"
+          cat baseline.json
+          echo "----- END baseline.json -----"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline
+          path: baseline.json
+          if-no-files-found: error
