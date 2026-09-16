@@ -38,7 +38,10 @@
     "v4": { "unchecked": "the vendored v4 corpus in seed-docs/ — Catapult's own docs and code deliberately do not cite it (seed-docs/README.md); a v4 section number outside seed-docs/ is a defect, and seed-docs/README.md names its own files by path" },
     "conventions": { "path": "docs/conventions.md" },
     "Conventions": { "path": "docs/conventions.md" },
-    "dsl-syntax.md": { "path": "docs/dsl-syntax.md" },
+    "dsl-syntax.md": { "unchecked": "the retired v5 DSL spec, whose rules now live in docs/dsl/ and are cited by id rather than by section: its §1, §2, §11 and §12 are bundle.md, its §3 to §10, §13 and §14 are chain.md, and its §15.x is workflow.md. A surviving section citation is a stale reference to repoint when its passage is next amended, never a path to resolve." },
+    "bundle.md": { "path": "docs/dsl/bundle.md" },
+    "chain.md": { "path": "docs/dsl/chain.md" },
+    "workflow.md": { "path": "docs/dsl/workflow.md" },
 
     "DESIGN": { "unchecked": "orchestration's DESIGN.md — another repository, so no path here can resolve it" },
     "orchestration": { "unchecked": "orchestration's own docs — another repository, so no path here can resolve it" },

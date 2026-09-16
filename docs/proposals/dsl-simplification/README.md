@@ -566,9 +566,11 @@ inventory and diffs it against the contract doc).
    `dsl-syntax.md` citation shorthand retire with step 6, since the
    shorthand is author-owned config and the record's citations move
    in the same pass.
-6. **Amend the record.** v5 §6, §9, §3.4, §7.19 and the core_dsl and
-   platform_content standing decisions §2.4 names; add to `non-goals
-   .md` anything the seam pass removed and why. Move mechanism
+6. **Amend the record.** v5 §3.4, §6, §7.10, §7.18, §7.19 and §9, and
+   the core_dsl and platform_content standing decisions §2.4 names;
+   add to `non-goals.md` anything the seam pass removed and why.
+   §7.10 and §7.19 are where the cross-axis binding is stated, four
+   passages between them, and the reversal touches every one. Move mechanism
    narration from the old spec into `systems/*.md` where it is not
    already there. Give each reserved construct a home in the relevant
    system doc's "Initial vs target" section so the build plan can

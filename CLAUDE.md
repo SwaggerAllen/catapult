@@ -17,7 +17,9 @@ pipeline for the projects it builds. Design source of truth:
 carries its reason. Negative space: `docs/non-goals.md` — proposing
 against it means arguing with a recorded decision, and saying so.
 Architecture: `systems/*.md`, one doc per system with a file map.
-DSL grammar: `docs/dsl-syntax.md` (normative; wins over the v4 spec).
+DSL grammar: `docs/dsl/bundle.md`, `chain.md` and `workflow.md`
+(normative; each rule carries an id and a reason in its
+`.reasons.md` sibling, and wins over the v4 spec).
 
 ## Toolchain
 
@@ -38,7 +40,7 @@ toolchain is the only supported one.
   suite that CI runs separately** — run both.
 - `bundles/` — DSL bundle content, both axes (v5 §7.18), each a
   single forked-and-tailored directory rather than a loader-composed
-  layer (`dsl-syntax.md` §11): the chain bundle (`default`) and the
+  layer (`bundle.md` #7): the chain bundle (`default`) and the
   platform workflow bundle (`default-flow`: default review sequence,
   `dev`/`staging`).
 - `screens/` and `storybook/` — **design-owned** (`pipeline
@@ -243,7 +245,7 @@ Each of these cost a wrong diagnosis before it was written down.
   noticed. Leaving the source of truth stating the superseded rule is
   how the next pass re-derives it.
 - **A rule stated in more than one place is amended in every place,
-  in the same change.** `docs/dsl-syntax.md` states each load-time
+  in the same change.** The retired v5 DSL spec stated each load-time
   rule at least twice by construction — §13's checklist and the §15.x
   section that owns it — and often a third time, in a worked example
   or §15.1's lifecycle mapping. Six consecutive design-review rounds
@@ -327,7 +329,7 @@ Each of these cost a wrong diagnosis before it was written down.
   decline.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
-  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —
+  — `v5 §7.8`, `conventions §2`, `chain.md` #22 —
   rather than by path. `pipeline.config.json`'s `citationShorthands`
   is what maps each to a file; an entry that cannot resolve in this
   tree (`DESIGN`, `orchestration`, `AGPL`) carries the reason on
