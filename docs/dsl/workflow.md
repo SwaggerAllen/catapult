@@ -46,24 +46,52 @@ type and gate name. Markers: **live** is read by the engine today;
   `{review: <gate>}` cites a declared gate (#31); `{environment: <env>}` cites a
   declared environment and configures the `deploy` that follows it
   (#38).
-- **#6 A sub-array groups a generation position with what reviews
-  it.** It is anonymous, holds exactly one generation-shaped entry
-  plus the critique and gate entries that follow it, is the default
-  throwback target of every gate inside it (#34), bounds how far
-  ahead of a parent a child ticket may run, and is the board's
-  grouping. `delta`'s `architecture` group is the position, its
-  critique and `engineering-review`.
+- **#6 A sub-array groups one agent-balled step with what reviews
+  it.** It is anonymous, holds exactly one agent-balled entry that is
+  not review-shaped — a generation position, or a container's `setup`
+  or `retro` — plus the critique and gate entries around it, is the
+  default throwback target of every gate inside it (#34), bounds how
+  far ahead of a parent a child ticket may run, and is the board's
+  grouping. That one entry is the group's **anchor**, and its name is
+  the group's namespace (#7). `delta`'s `architecture` group is the
+  position, its critique and `engineering-review`; `milestone`'s
+  `retro` group is the retro step between its two author gates.
 - **#7 An entry's name is its `name:` if it has one, else its kind,
-  and names are a namespace per type.** A kind that recurs in one
-  array is legal; a name that recurs is a load error. `delta`
-  declares ten generation-shaped entries under ten names, five of
-  them plan positions, and five bare `critique` entries.
-- **#8 A reference to an entry, from `throwback:`, `blocks:` or
-  `fills:`, resolves by name within the citing type**, reaching a
-  grouped entry through its own name the same way it reaches a
-  top-level one. A reference that resolves to none, or to a bare kind
-  that recurs, is a load error. The runtime matches by the same
-  resolution, never by bare kind.
+  and a position's identity is `<anchor>.<name>` inside a sub-array,
+  bare at the top level.** Identity is derived, never declared: the
+  anchor's own name is the group's namespace, so everything sharing
+  that group — its critique, an intervening `checks`, a gate citation
+  — is addressed as `<anchor>.<its own name>`, and an entry outside
+  every sub-array is addressed bare, the top-level array being its own
+  namespace. One level only, and nothing qualifies an anchor by what
+  it sits after or before. Names are unique within their own
+  namespace, the top-level array and each sub-array alike, and two
+  entries colliding on a *default* name are as much a load error as
+  two declaring the same string. An anchor's name sits in both: it is
+  its own group's namespace, and it is what the top-level namespace
+  checks that group against, so two groups cannot share an anchor name
+  any more than two bare entries can. `delta` declares ten generation
+  entries and five `critique` entries, and no critique needs a `name:`
+  because each is already `<its own group>.critique`.
+- **#8 A reference stays bare when it is unambiguous and qualifies
+  when it is not; ambiguity is a load error, never a silent pick.**
+  `throwback:`, `blocks:` and `fills:` resolve against every
+  namespaced position the citing type's own array declares. A bare
+  name found in exactly one namespace resolves there; a bare name
+  recurring across several has no single answer and is refused at
+  load rather than resolved to whichever occurrence comes first, and
+  `<anchor>.<name>` is what an author writes instead. A reference
+  resolving to none is a load error too. The runtime matches by the
+  same resolution, never by bare kind.
+- **#42 A declared gate's name is disjoint from every addressable
+  status name in the loaded union, checked at load.** A bare string in
+  a citation is read as a gate or as a position by membership in the
+  declared gate set, which is safe only while the two vocabularies
+  cannot collide. A bundle-authored `name:` breaks that by
+  construction, since nothing stops `name: ux-review` on a status
+  entry in a bundle that also declares a gate called `ux-review`, so
+  the loader refuses the pair rather than letting the reading depend
+  on which set is consulted first.
 - **#9 `flow:` on an entry names the type dispatched into that
   queue**, resolving against this bundle's own types, never against a
   chain flow. Reaching such an entry opens an instance of the named

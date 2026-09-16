@@ -465,11 +465,10 @@ profiles.
 
 - **#26 ORC-155 (design pass) gives a `status:` entry a bundle-authored
   `name:` distinct from its kind, and namespaces a position by the
-  sub-array it sits in** (`docs/dsl-syntax.md` §13, §15.1, §15.4,
-  §15.9, §15.12; `docs/v5-design-decisions.md` §7.19). Without it a
-  recurring kind — three `pending`, three `checks`, two `reconcile`
-  in `dsl-syntax.md` §15.2's `types/feature.yaml` worked example
-  alone — is addressable only by kind, which a card, a rail entry, a
+  sub-array it sits in** (`workflow.md` #7, #8;
+  `docs/v5-design-decisions.md` §7.19). Without it a recurring kind —
+  a `critique` and a `checks` once per group — is addressable only by
+  kind, which a card, a rail entry, a
   `throwback:` or a `blocks:` reference all need to name
   unambiguously and cannot: `CatapultWeb.Live.Positions.key/1`
   round-trips exactly the `{:kind, atom} | {:gate, name}` pair the
@@ -548,7 +547,7 @@ profiles.
 
 - **#28 ORC-198 (design pass) splits `Type.namespaced_positions/1`'s one
   ambiguity computation into two, because ORC-155's own `name:` is exactly
-  what makes them able to disagree** (`docs/dsl-syntax.md` §15.12).
+  what makes them able to disagree** (`workflow.md` #7, #8).
 
   The two sets are not one a subset of the other, so neither is safe
   to derive from the other: `status: pending` in one sub-array beside

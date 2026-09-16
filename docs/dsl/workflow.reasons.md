@@ -38,10 +38,21 @@ would be a second way to say the same thing.
 ## #7
 
 `name:` is what distinguishes two entries of one kind, which is every
-generation position under free names (`bundle.md` #11) and every
-critique that follows one. It is a namespace per type because a
-reference (#8) is resolved within the citing type and never across
-types.
+generation position under free names and every critique that follows
+one. The namespace is the sub-array rather than the type, and the flip
+is why that matters more than it did: with the binding on the position
+rather than on the tier, a position's name carries less weight and a
+bundle is free to reuse short ones inside each group. `checks` and
+`critique` recurring once per group is the ordinary shape, and
+`<anchor>.checks` is how an author addresses one without inventing a
+distinct name for every occurrence.
+
+Derived rather than declared, because the anchor is already fixed at
+one per sub-array (#6) and a declared identity could only restate or
+contradict it. One level deep, because a second level would have to be
+read off array order — which side of a `reconcile` an entry falls on —
+and that is a fact about what a gate approves, not about what a
+position is called.
 
 ## #8
 
@@ -50,8 +61,24 @@ resolved `blocks:` by namespace and refused a recurring kind, the
 projection matched by bare kind and held on every occurrence. The
 author chose the loader's semantics, so `blocks:`, `throwback:` and
 `fills:` share one resolution and the projection is rewritten to it.
-Uniqueness is a property of the reference, not the declaration: a
-bare kind that recurs is fine until something cites it.
+
+Uniqueness is a property of the reference, not the declaration: a bare
+kind recurring across several groups is fine until something cites it
+bare, and then it is refused rather than resolved to whichever
+occurrence comes first. Refusing is the same posture every other
+cross-reference in this grammar takes — validate the reference, never
+guess the shape — and the qualified form is what the author writes
+instead of being guessed for.
+
+## #42
+
+The check exists because a bundle-authored `name:` is what broke the
+guarantee the resolver rested on. `Sequence.resolve_position/3` decides
+whether a bare string names a gate or a status by membership in the
+declared gate set alone, and its own documentation says that is safe
+because a gate name is never also a declared status kind — true while
+a status could only be a platform-fixed kind, and false the moment a
+bundle can call a status anything it likes.
 
 ## #9
 

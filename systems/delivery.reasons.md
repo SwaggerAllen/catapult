@@ -458,7 +458,7 @@ can name a `status:` entry (ORC-155), nothing but a check stops that name collid
 with a declared gate. Left unchecked, a collision resolves to `{:gate, name}`
 unconditionally and a name matching neither raises inside `String.to_existing_atom` —
 both on the throwback path, both invisible until a decline actually fires. The
-load-time check `dsl-syntax.md` §15.12 states closes this the same way every other gap
+load-time check `workflow.md` #42 states closes this the same way every other gap
 in this class closes, at load rather than at the first decline that exercises it.
 
 ## #80

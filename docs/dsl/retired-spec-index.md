@@ -95,18 +95,18 @@ that rule. The checks cited most often, and where they live:
 
 ## The sites that still cite it, and why
 
-Thirty-eight sentences in `systems/*.md` still name the retired spec.
+Twenty-seven sentences in `systems/*.md` still name the retired spec.
 Each was left on purpose: the sentence states a rule the redesign
 reversed, so repointing it would make the doc assert something the
 cited rule contradicts. Each needs its sentence decided, not its
 citation fixed. They fall into five reversals.
 
-- **Positions namespaced by their sub-array.** `<anchor>.<name>` was
-  the qualified form and each sub-array its own namespace; names are
-  now one namespace per type and a reference resolves by bare name
-  within it (`workflow.md` #7, #8). Sites: `delivery.md` 1165, 1170,
-  1187, 1219, 1285, 1291; `delivery.reasons.md` 461; `dashboard.md`
-  177; `dashboard.reasons.md` 58; `core_dsl.md` 468, 471, 551.
+- **Positions namespaced by their sub-array.** Not a reversal after
+  all, and the sites are repointed rather than left: `<anchor>.<name>`
+  inside a sub-array and a bare name at the top level both survive
+  (`workflow.md` #7, #8), which is what `seam-decisions.md` §2.B.4
+  decided. An earlier draft of those two rules flattened the namespace
+  to one per type; the rules now say what was decided.
 - **`pending` as a declared entry.** It is an engine flag every
   agent-balled position carries (`workflow.md` #25), so the
   opens-with-pending, pending-precedes and sub-array-head rules have

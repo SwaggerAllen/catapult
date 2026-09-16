@@ -174,7 +174,7 @@ conventions §13).
   apart), and `board`'s `assignee` filter has no source to filter against — deferred beside
   `milestone` and `mutex label` for the identical reason.
 - **#17 A lane/rail key is a position's own namespaced identity
-  (`docs/dsl-syntax.md` §15.12), rendered through `CatapultWeb.Live
+  (`workflow.md` #7), rendered through `CatapultWeb.Live
   .Positions.key/2` rather than paired by this system** (ORC-116,
   superseding this bullet's own prior scan-and-pair scheme after
   ORC-155 landed the namespacing rule this system had been assembling

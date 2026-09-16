@@ -1162,12 +1162,11 @@ generating as scope-runs inside one ticket.
 
 - **#78 ORC-155 (design pass) gives `Sequence.resolve_position/3` a disjointness check
   it has been trusting rather than enforcing, and gives every `position()` a namespaced
-  identity beyond kind or gate name alone** (`dsl-syntax.md` §13, §15.1, §15.4, §15.12;
+  identity beyond kind or gate name alone** (`workflow.md` #7, #8, #42;
   `v5-design-decisions.md` §7.19).
 - **#79 Separately, and for the reason `CatapultWeb.Live.Positions`' own moduledoc
   already gives** — a card, a rail entry, a `throwback:` and a `blocks:` reference all
-  name a position that may recur (three `pending`, three `checks`, two `reconcile` in
-  `dsl-syntax.md` §15.2's `types/feature.yaml` worked example alone) — **a bare
+  name a position that may recur (a `critique` and a `checks` once per group) — **a bare
   `position()` is no longer a sufficient identity on its own.** `<anchor>.<name>`
   (§15.12) is the qualified form; this system's own `status_kind`/`status_gate`
   projection columns (`Store.tickets_for_project/1`) are unaffected in shape — a gate's
@@ -1184,7 +1183,7 @@ generating as scope-runs inside one ticket.
 
 - **#80 ORC-116 widens to give `ContainerLifecycle.Sequence` the identical namespace
   awareness the entry above gave this system's ticket-axis positions**
-  (`docs/dsl-syntax.md` §15.2, §15.12) — the container axis has the identical gap, and a
+  (`workflow.md` #7, #8) — the container axis has the identical gap, and a
   bundle shaped to avoid recurring names only dodges it.
 - **#81 The fix mirrors the ticket-axis one rather than inventing a second mechanism,
   and the data it needs is on `Type`, not on `Status`.** `%Catapult.Dsl.Type{}` already
@@ -1215,8 +1214,8 @@ generating as scope-runs inside one ticket.
   nothing rather than to the wrong occurrence.
 
 - **#84 ORC-171 gives runtime position-tracking, on both axes, the
-  identical canonical identity ORC-116 gave `Sequence`'s own lookups**
-  (`docs/dsl-syntax.md` §15.2, §15.12).
+  identical canonical identity ORC-116 gave `Sequence`'s own
+  lookups** (`workflow.md` #7, #8).
 - **#85 Container axis.** `Catapult.Delivery.ContainerLifecycle`'s dispatcher carries
   `Type.namespaced_positions/1`'s own `canonical` identity throughout, never
   `Sequence.name/1`'s display label: `container.current_queue` is populated with it,
@@ -1281,15 +1280,14 @@ generating as scope-runs inside one ticket.
 - **#93 ORC-198 (design pass) corrects three `FeatureLifecycle.Sequence` call sites,
   carrying four instances of the same bug between them, that stayed keyed on the
   reference-ambiguity test after `systems/core_dsl.md`'s own ORC-198 entry splits it
-  from the runtime-collision one ORC-155's `name:` made distinct** (this system's own
-  ORC-171 entry, above; `docs/dsl-syntax.md` §15.12).
+  from the runtime-collision one ORC-155's `name:` made distinct** (this system's own ORC-171 entry, above; `workflow.md` #42).
 
   All four read `kind_ambiguous`.
 
 - **#94 ORC-202 (author decision) settles what a recurring kind is
   disambiguated *by*, and the qualifier reads `qualified` rather than
-  `namespace` in consequence** (`docs/dsl-syntax.md` §15.12). The rule:
-  **a kind may recur freely; a *name* may not.** §15.12 already says
+  `namespace` in consequence** (`workflow.md` #7). The rule: **a kind may recur
+  freely; a *name* may not.** `workflow.md` #7 already says
   so — "two `critique` entries in one array, three `pending` entries,
   or two `checks` entries" are legal and `name:` is what tells them
   apart — and its uniqueness check binds names within a namespace,
