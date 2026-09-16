@@ -107,7 +107,7 @@ and edge name. Markers: **live** is read by the engine today;
   reconcile-shaped position after the children's positions
   (`workflow.md` #27); a map form overrides `prompt`. The
   mechanical merge and the reconcile read happen whether or not a
-  tier declares one (v5 4231); the block decides only whether a human
+  tier declares one (v5 §7.19); the block decides only whether a human
   at the post-join gate sees an authored document or the composed
   diff. The default declares it on `sysarch`, `comparch`,
   `frontend_sysarch`, `ui_collarch` and `screen_collarch`.
@@ -310,7 +310,8 @@ and edge name. Markers: **live** is read by the engine today;
   downward from the highest rung that did. `Catapult.Dsl.Flow` accepts
   these two and requires one of them. A scaffold flow runs no cascade
   and neither primitive describes it, so `full` is proposed as the
-  third: adding it is a grammar change, and the prototype writes it.
+  third: adding it is a grammar change, and `example/chain.yaml`
+  writes it.
 - **#39 Four generator types and every context-source kind beyond
   `input` are extension vocabulary** (reserved: the registry, v5
   §9). `external` resolves a node's content from the component

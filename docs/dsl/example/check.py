@@ -127,7 +127,7 @@ def reads(t):
     parent inside this traversal; global reads (`all.<tier>`) read the
     project's approved state as of dispatch and are ordered only as a
     note, since a flow's plan tier reads the graph it is about to
-    regenerate (in-flight-tickets.md, ORC-247 review 5)."""
+    regenerate (ORC-247, review 5)."""
     structural, global_ = set(), set()
     for w in list((tiers[t] or {}).get("context", {}).values()):
         m = re.match(r"all\.(\w+)\.", w)

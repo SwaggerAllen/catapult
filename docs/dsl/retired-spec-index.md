@@ -104,9 +104,7 @@ citation fixed. They fall into five reversals.
 - **Positions namespaced by their sub-array.** Not a reversal after
   all, and the sites are repointed rather than left: `<anchor>.<name>`
   inside a sub-array and a bare name at the top level both survive
-  (`workflow.md` #7, #8), which is what `seam-decisions.md` §2.B.4
-  decided. An earlier draft of those two rules flattened the namespace
-  to one per type; the rules now say what was decided.
+  (`workflow.md` #7, #8).
 - **`pending` as a declared entry.** It is an engine flag every
   agent-balled position carries (`workflow.md` #25), so the
   opens-with-pending, pending-precedes and sub-array-head rules have

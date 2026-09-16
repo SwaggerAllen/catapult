@@ -177,9 +177,8 @@ ones `ContextAssembly` binds itself.
 
 ## #22
 
-Context as the only readiness signal is v4 A.2.5's rule and the
-engine's: readiness is `drained?` per tier plus every walk target
-approved. `all.<tier>` inside the driver closure is refused because
+Context as the only readiness signal is the engine's rule: readiness
+is `drained?` per tier plus every walk target approved. `all.<tier>` inside the driver closure is refused because
 adding `all.policy.handle` to `comparch`'s context was a permanent
 deadlock when `policy` had `comparch` among its three fanout drivers
 (ORC-247, review 3); single-sourcing `child_of` (#28) is what makes
@@ -249,9 +248,9 @@ a policy's own `<required>` child is what binds it.
 
 ## #30
 
-v4 A.2.8's enforcement semantics: a violation is rejected at commit
-with a typed error the agent can retry against, rather than
-discovered at projection after the body is in the graph. The
+Enforcement rejects a violation at commit with a typed error the
+agent can retry against, rather than leaving it to be discovered at
+projection after the body is in the graph. The
 `GraphConstraints` module carried this check with no caller in the
 first tree; the commit path is its caller.
 
@@ -333,7 +332,8 @@ started.
 
 The list is stated against `Catapult.Dsl.Flow`, which accepts two
 primitives and requires one of them, because the first record of this
-design named three as current and the prototype then wrote the third.
+design named three as current and `example/chain.yaml` then wrote the
+third.
 A scaffold declaring `downward_cascade` states nothing true, which is
 the gap `full` fills.
 

@@ -1,5 +1,5 @@
 # The default workflow bundle as one file, in the grammar
-# seam-decisions.md §2.B and §4 decide. Positions are this file's own
+# `docs/dsl/workflow.md` states. Positions are this file's own
 # names, and each generation position names the chain tiers that run
 # at it: which tier runs where, and in what order, is read here and
 # nowhere else. A ticket type names the chain flows it serves. The

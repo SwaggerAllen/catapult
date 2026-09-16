@@ -814,9 +814,9 @@ profiles.
 - **#45 The DSL redesign replaces the grammar the entries above
   describe, and the loader's shape with it.** The contract is
   `bundle.md`, `chain.md` and `workflow.md`, each rule carrying an id
-  and a reason; the argument behind each change is in
-  `docs/proposals/dsl-simplification/`. Five changes, each naming the
-  entries it supersedes:
+  and, in its `.reasons.md` sibling, the argument for it.
+  `docs/dsl/example/` is the default pair written in that grammar.
+  Five changes, each naming the entries it supersedes:
   1. **Each axis is one declaration file.** `chain.yaml` carries every
      tier, edge, flow and predicate; `workflow.yaml` every type, gate
      and environment (`bundle.md` #3, #4). The per-file declaration

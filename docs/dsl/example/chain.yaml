@@ -1,5 +1,5 @@
-# The default chain bundle as one file, in the grammar seam-decisions.md
-# §2 and §4 decide. Facts about one document live in its schema:
+# The default chain bundle as one file, in the grammar `docs/dsl/
+# chain.md` states. Facts about one document live in its schema:
 # identity, fields, plain cardinality. Facts relating nodes live here.
 # A line marked `reserved:` names the consumer that will read it.
 
@@ -406,7 +406,7 @@ edges:
       - { source: upward_propagation_plan, target: [feature_expansion, requirements, sysarch, comparch, subcomparch, impl_backend], declared_in: "upward_propagation_plan.cascade_target" }
 
 # Reserved: projection-time content invariants (cardinality.when) and
-# flow completion, rejected at commit with a typed error (v4 A.2.8).
+# flow completion, rejected at commit with a typed error.
 
 predicates:
   has_foundation_child: "count(decomposed_by(child) where child.is_foundation) >= 1"

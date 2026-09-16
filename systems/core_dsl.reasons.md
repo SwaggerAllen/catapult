@@ -328,9 +328,7 @@ words in those passes' mouths. What a later reader needs is which
 rules still bind, and an entry that names them is checkable in a way
 fifteen silently amended entries are not.
 
-The changes themselves are argued in
-`docs/proposals/dsl-simplification/seam-decisions.md`, each with the
-argument against it and the author's decision; `bundle.reasons.md`,
+Each change is argued where its rule lives: `bundle.reasons.md`,
 `chain.reasons.md` and `workflow.reasons.md` carry the reason behind
 every rule of the contract. The one reason worth repeating here,
 because it is the one a later pass would otherwise re-derive: the
