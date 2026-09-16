@@ -510,7 +510,7 @@ defmodule Catapult.Delivery.HostPort.Actions do
   missing directory (a project with no raft yet, or none left after
   every input doc is deleted) answers `{:ok, %{}}` rather than an
   error, the same shape a role with no documents already has
-  (dsl-syntax.md §7).
+  (`chain.md` #19).
   """
   @impl Catapult.Delivery.HostPort
   def read_directory(project_id, ref, path) do

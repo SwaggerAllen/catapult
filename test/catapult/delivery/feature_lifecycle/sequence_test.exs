@@ -5,7 +5,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
   ticket) — rather than a synthetic fixture, so a change to the shipped
   types is caught here too.
 
-  Rewritten at ORC-104: `after:` is retired (dsl-syntax.md §15.3), so
+  Rewritten at ORC-104: `after:` is retired (`workflow.md` #12), so
   there is no gate chain to walk and no orphan-anchor case to test.
   Position is the citing type's own array index, which is what the
   synthetic cases below now exercise instead.
@@ -155,7 +155,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
-  describe "positions/2 boundary against a multi-phase type (dsl-syntax.md §15.2, ORC-182)" do
+  describe "positions/2 boundary against a multi-phase type (workflow.md #12, ORC-182)" do
     test "the boundary is the last :checks ahead of merge, not the first" do
       # `types/feature.yaml`'s revised, multi-phase shape (§15.2's fourth
       # design review): three generation-shaped sub-arrays, each with its
@@ -228,7 +228,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
-  describe "annotated_positions/2 (dsl-syntax.md §15.10, ORC-116)" do
+  describe "annotated_positions/2 (workflow.md #6, ORC-116)" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
       %{workflow: workflow}
@@ -325,7 +325,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
-  describe "resolve_position/3 (dsl-syntax.md §15.12, ORC-171)" do
+  describe "resolve_position/3 (workflow.md #7, ORC-171)" do
     # `pending` recurs across `setup`'s and a top-level entry's own —
     # see `name/4`'s own describe block below for why `generation` (not
     # `setup`/`retro`) is the anchor kind these fixtures reuse.
@@ -360,7 +360,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
   end
 
-  describe "name/4 (dsl-syntax.md §15.12, ORC-155, ORC-171)" do
+  describe "name/4 (workflow.md #7, ORC-155, ORC-171)" do
     setup do
       assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
       %{workflow: workflow}
@@ -390,7 +390,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     # top-level entry, neither carrying a `name:` override — the
     # ordinary, motivating shape (`setup`.`pending`/`retro`.`pending`,
     # no override on either): ambiguity is computed off `Status.name/1`
-    # (dsl-syntax.md §15.12), so two entries only share one bare
+    # (`workflow.md` #7), so two entries only share one bare
     # identity when neither's own authored name pulls them apart, which
     # is exactly the case a `name:` override would break — not this
     # ticket's own gap, since a distinctly-named entry never needed
@@ -503,7 +503,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     # The case `kind_recurring_named_workflow/0` above does not reach:
     # its two `pending` entries sit in *different* sub-arrays, so the
     # group anchor ("setup"/"retro") tells them apart on its own. Here
-    # both are top-level, which `dsl-syntax.md` §15.12 permits — names
+    # both are top-level, which `workflow.md` #7 permits — names
     # are unique within a namespace, kinds need not be ("three
     # `pending` entries" is its own example) — and the namespace is
     # therefore identical for both. Anything keyed on the namespace

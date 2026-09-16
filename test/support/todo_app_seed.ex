@@ -16,7 +16,7 @@ defmodule Catapult.TodoAppSeed do
   shape (`role: Path.rootname(filename)`,
   `Store.pin_input_documents/3`), same seven roles
   (`project_doc`, `non_goals` and `mocks` are platform roles per
-  `dsl-syntax.md` §7; `behavior_docs`, `invariants`,
+  `chain.md` #19; `behavior_docs`, `invariants`,
   `capability_inventories`, `forward_strategies` are project-declared
   names, legal and simply never walked by anything that doesn't read
   them). It carries no canned tier bodies — `toy_seed` stays the

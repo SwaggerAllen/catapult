@@ -91,7 +91,7 @@ defmodule CatapultWeb.DocumentReviewLiveTest do
     {:ok, view, _html} = live(conn, "/projects/#{project_id}/tickets/flow-1/review")
 
     # `deploy` sits *after* `ux-review` in `types/feature.yaml`, so it
-    # is not a legal landing point (dsl-syntax.md §15.10: earlier in
+    # is not a legal landing point (`workflow.md` #34: earlier in
     # the citing type's effective sequence, and nothing else). No
     # button offers it — which is exactly why the check has to exist:
     # `target` arrives from a client-controlled `phx-value-target`, and

@@ -12,7 +12,7 @@ defmodule CatapultWeb.Live.Positions do
   position the engine/delivery layer already produced.
 
   **`key/2` carries an optional namespace-qualifying anchor beside the
-  position it encodes** (dsl-syntax.md §15.12, ORC-155): a bare
+  position it encodes** (`workflow.md` #7, ORC-155): a bare
   `position()` stopped being a sufficient identity the moment a bundle
   could recur one kind across more than one sub-array — three
   `pending`, three `checks`, two `reconcile` in one type's array is

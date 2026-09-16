@@ -2,7 +2,7 @@ defmodule Catapult.Engine.Projections.GraphConstraints do
   @moduledoc """
   Evaluates every edge instance's declared `cardinality` and every
   edge's `graph_constraint` against real committed edges —
-  dsl-syntax.md §13's own "checked at projection time (the engine's)"
+  `chain.md` #30's own "checked when a draft commits"
   answered concretely (`systems/engine.md`'s ORC-236 entry).
 
   **Reported, never blocking.** No function here declines a draft or

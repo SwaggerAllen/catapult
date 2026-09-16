@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.Events.ContainerActivated do
   @moduledoc """
   A minted container instance became the *current* one at its parent's
-  queue (dsl-syntax.md §15.8, v5 §7.8). Version 1.
+  queue (`workflow.md` #19, v5 §7.8). Version 1.
 
   `queue` is the instance's own first declared entry — `setup` for a
   `container`-skeleton type, the first array entry for a skeleton-less

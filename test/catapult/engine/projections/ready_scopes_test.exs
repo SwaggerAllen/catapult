@@ -138,7 +138,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
     assert candidate.id == "comp1"
   end
 
-  test "a review tier is never ready (dsl-syntax.md §3.3 — no draft: of its own)" do
+  test "a review is never ready on its own (chain.md #14 — no draft: of its own)" do
     chain = chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
     assert ReadyScopes.ready(chain, "p1", "comp_review") == []
   end

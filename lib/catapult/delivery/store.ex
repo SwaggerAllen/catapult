@@ -666,7 +666,8 @@ defmodule Catapult.Delivery.Store do
   the screens staying ORC-75's.
 
   `argument` is `fields["argument"]` off the node at the flow's own
-  `entry_node_id` (`docs/dsl-syntax.md`'s reserved `fields:` name) —
+  `entry_node_id` (the flow's own reserved `fields:` name,
+  `chain.md` #38) —
   `nil` until a tier declares it, the same unset-is-empty behavior
   `prior_review` already relies on.
   """

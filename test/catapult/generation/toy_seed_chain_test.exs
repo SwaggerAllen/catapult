@@ -14,7 +14,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
   `systems/generation.md`'s old ORC-10 entry proved `input.<role>`
   resolved `{:error, :unsupported}` for every role, which
   `Catapult.Engine.Projections.ReadyScopes.ready?/2` treated as *not
-  ready* rather than the vacuous pass dsl-syntax.md §7.2 promises — so
+  ready* rather than the vacuous pass `chain.md` #22 warns of — so
   `feature_expansion`, the chain's one tier with an `input.project_doc`
   context entry, could never be *selected* by the scheduler. ORC-107
   closed that gap: `Catapult.Engine.Projections.ContextResolver`
@@ -37,7 +37,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
   and subcomp<->subcomp, both declared a level above the tier they
   connect) and `policy_application` (a mint-time marker, not a second
   draft) all extract for real now, via `Catapult.Dsl.EdgeLocator`'s
-  five-locator resolution (dsl-syntax.md §4.2) — this test no longer
+  five-locator resolution (`chain.md` #27) — this test no longer
   seeds any of the three; it asserts they land from the toy seed's own
   fixture content instead (`sysarch.xml`'s own `<dep>`/`<resp>`/
   `<required>` elements, `comparch.xml`'s own `<structural/>` policy and
@@ -253,8 +253,8 @@ defmodule Catapult.Generation.ToySeedChainTest do
     # content seed_edge! used to stand in for: `redirector`'s own
     # `<resp id="redirect_resolution"/>`, `link_admin`'s own
     # `<resp id="link_creation"/>`, and `<dep from="link_admin"
-    # to="redirector"/>` (`Catapult.Dsl.EdgeLocator`, dsl-syntax.md
-    # §4.2) — asserted below rather than fabricated.
+    # to="redirector"/>` (`Catapult.Dsl.EdgeLocator`, `chain.md`
+    # #27) — asserted below rather than fabricated.
     redirector = fetch_node!(project_id, "comp", %{"id" => "redirector"})
     link_admin = fetch_node!(project_id, "comp", %{"id" => "link_admin"})
 

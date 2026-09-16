@@ -156,7 +156,7 @@ defmodule Catapult.Engine.Store do
     )
   end
 
-  @doc "Every edge instance walking forward from `node_id` along `edge_name` (dsl-syntax.md §7)."
+  @doc "Every edge instance walking forward from `node_id` along `edge_name` (`chain.md` #19)."
   @spec edges_from(binary(), binary(), String.t()) :: [Edge.t()]
   def edges_from(project_id, node_id, edge_name) do
     Repo.all(
@@ -180,7 +180,7 @@ defmodule Catapult.Engine.Store do
 
   @doc """
   Every edge instance leaving `node_id`, any name — the predicate
-  language's unrestricted `reaches/2` walk (dsl-syntax.md §8), which
+  language's unrestricted `reaches/2` walk (`chain.md` #37), which
   names no edge the way `has_edge`/`count`/a context-walk hop do.
   """
   @spec edges_from(binary(), binary()) :: [Edge.t()]
@@ -331,7 +331,7 @@ defmodule Catapult.Engine.Store do
     |> Enum.uniq()
   end
 
-  ## Containers (ORC-104, systems/engine.md; dsl-syntax.md §15.6-§15.8)
+  ## Containers (ORC-104, systems/engine.md; `workflow.md` #16 through #19)
 
   @doc """
   Records a minted container instance. Idempotent on replay: a second
@@ -428,7 +428,7 @@ defmodule Catapult.Engine.Store do
 
   @doc """
   The unresolved work items assigned to `queue` in `container_id` —
-  **the queue itself, computed on every call** (dsl-syntax.md §15.7, v5
+  **the queue itself, computed on every call** (`workflow.md` #30, v5
   §7.8).
 
   There is no bucket behind this and there is deliberately never going
@@ -449,7 +449,7 @@ defmodule Catapult.Engine.Store do
   @doc """
   Whether anything has **ever** been assigned to `queue` in
   `container_id`, resolved work included — the fact `singleton:`'s
-  lifetime bound is checked against (dsl-syntax.md §15.7).
+  lifetime bound is checked against (`workflow.md` #17, #18).
 
   This is not stored state reintroduced by the back door: it is
   `queue_population/3`'s own query with the resolution filter dropped.

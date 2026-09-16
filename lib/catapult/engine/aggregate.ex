@@ -73,7 +73,7 @@ defmodule Catapult.Engine.Aggregate do
 
   A container's entry holds four facts and no more, each one because
   some command below rejects on it: `state` (mint, activation and
-  close are three distinct transitions, dsl-syntax.md §15.8), `queue`
+  close are three distinct transitions, `workflow.md` #19), `queue`
   (the compare-and-swap `AdvanceContainerQueue` performs), `findings`
   (a second adjudication of the same finding is a conflict, not an
   overwrite) and `flag_flip` (intent and completion may each happen
@@ -251,7 +251,7 @@ defmodule Catapult.Engine.Aggregate do
   ## clauses react to (`systems/delivery.md`). Bundle content — is
   ## `gate` real, is `throwback_to` earlier in the citing type's own
   ## effective sequence (`Catapult.Dsl.Workflow.throwback_legal?/4`,
-  ## dsl-syntax.md §15.10 — never a per-gate declared list) — is the
+  ## `workflow.md` #8, #34 — never a per-gate declared list) — is the
   ## command edge's to check before
   ## dispatch, same as every other command here; `execute/2` validates
   ## only the minimal aggregate-local state each command needs
@@ -362,7 +362,7 @@ defmodule Catapult.Engine.Aggregate do
     }
   end
 
-  ## Containers (dsl-syntax.md §15.6-§15.8) — mint, activate, advance,
+  ## Containers (`workflow.md` #16 through #19) — mint, activate, advance,
   ## close. Never a second aggregate: "a project has one aggregate, not
   ## two" (`systems/engine.md`) already answers where an original fact
   ## about a project lands, and a container instance's existence is

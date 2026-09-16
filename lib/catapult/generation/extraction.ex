@@ -1,7 +1,7 @@
 defmodule Catapult.Generation.Extraction do
   @moduledoc """
   Reads `fields:`, `produces:` and declared-edge instances out of a
-  validated draft body (dsl-syntax.md §3, §4) — the extraction
+  validated draft body (`chain.md` #5, #24) — the extraction
   `Catapult.Engine.Events.DraftCommitted`'s own moduledoc places "at
   the command edge... never inside the reducer." This is that command
   edge's structural half, over the xmerl tree `Catapult.Dsl.Grammar`
@@ -12,7 +12,7 @@ defmodule Catapult.Generation.Extraction do
   right now — this module can only navigate the draft body it was
   handed — but a `source`/`target` that names a *different* tier than
   the committing one is no longer skipped. `Catapult.Dsl.EdgeLocator`
-  (dsl-syntax.md §4.2) resolves each side to `self` (the committing
+  (`chain.md` #27) resolves each side to `self` (the committing
   node), `self.parent`, the node minted by a prefixing `fanout`
   instance, a `scope: singleton` endpoint, or an explicit
   `source_ref:`/`target_ref:` path — the identical five-kind
@@ -85,14 +85,14 @@ defmodule Catapult.Generation.Extraction do
   committed): every `declared_in` instance across `edges` whose path's
   leading tier is `tier_name` and whose type is `:fanout`. Each matched
   element becomes one mint entry with its `mint.<name>`/
-  `mint.parent.<name>` field values already resolved (dsl-syntax.md
-  §3) — `own_fields` is this same commit's own `fields/2` result and
+  `mint.parent.<name>` field values already resolved (`chain.md`
+  #12) — `own_fields` is this same commit's own `fields/2` result and
   `own_produces_by_kind` its own `produces/3` result keyed by
   fragment kind, both already computed, purity-floor-clean, before
   this is called (`systems/engine.md`'s ORC-236 entry: "no new
   navigation, only a second place already-computed values are read
   from"). `status` is `:approved` when the target tier declares no
-  `draft:` block (a join-target tier, dsl-syntax.md §3 — it has no
+  `draft:` block (a join target, `chain.md` #5 — it has no
   commit path of its own to ever move it off whatever this writes,
   `systems/engine.md`'s ORC-117 entry) and `:absent` otherwise.
 
@@ -183,8 +183,10 @@ defmodule Catapult.Generation.Extraction do
 
   # A `mint.<name>` value read off the minting instance element itself:
   # an attribute or child-element named `name`, unvalidated at load
-  # time (dsl-syntax.md §3 — there is no schema to check `<name>`
-  # against). A hyphenated fallback covers the same `_`/`-` mismatch
+  # time — the retired grammar had no schema to check `<name>`
+  # against. `chain.md` #32 closes that: a `declared_in` path resolving
+  # to no element is a load error. The tree has not caught up, so the
+  # fallback below still stands. A hyphenated fallback covers the same `_`/`-` mismatch
   # `systems/core_dsl.md`'s ORC-232/ORC-236 entries name for
   # schema-checked paths, harmless here since it only recovers a match
   # that would otherwise be silently absent.
@@ -265,7 +267,7 @@ defmodule Catapult.Generation.Extraction do
   used, never a second navigator), a `scope: singleton` tier's one
   node, or an explicit `source_ref:`/`target_ref:` attribute — the
   identical resolution `Catapult.Dsl.Chain` already confirmed is
-  legally locatable at load time (dsl-syntax.md §4.2).
+  legally locatable at load time (`chain.md` #27).
   """
   @spec references(element(), String.t(), Chain.t(), binary(), binary() | nil, resolver()) :: [
           map()
@@ -374,7 +376,7 @@ defmodule Catapult.Generation.Extraction do
 
   # The anchor/suffix split: when a side resolves via `{:fanout,
   # edge_name}`, that fanout's own `declared_in` names the anchor depth
-  # every leaf is navigated relative to (dsl-syntax.md §4.2) — the
+  # every leaf is navigated relative to (`chain.md` #27) — the
   # identical element `mints/6` already walked for that fanout, never a
   # second navigator. Neither side is a fanout locator (the ordinary
   # self-sourced case, or a same-tier explicit-path pair) means no
@@ -440,8 +442,8 @@ defmodule Catapult.Generation.Extraction do
   # the fanout's own anchor elements and matching identity, the
   # identical computation `mints/6` itself performs for that sibling —
   # never a plain string-concatenation guess, because a tier whose
-  # identity extraction itself fails (dsl-syntax.md §3's documented
-  # `id`/`alias` gap — `screen`/`resp`/`vocab`/`policy` carry neither)
+  # identity extraction itself fails (the `id`/`alias` gap below —
+  # `screen`/`resp`/`vocab`/`policy` carry neither)
   # must fail the same way here too, rather than construct an id the
   # real mint will never actually write.
   defp resolve_side({:path, "@" <> attr}, side_tier, declaring_tier, _anchor, leaf, ctx) do
@@ -580,11 +582,13 @@ defmodule Catapult.Generation.Extraction do
     target_tier <> ":" <> to_string(identity_value(identity_field, instance_el))
   end
 
-  # `identity: id | alias | name` (dsl-syntax.md §3) names one of three
-  # closed *strategies*, and nothing in that doc or `dsl-syntax.md`
-  # elsewhere spells the exact attribute/element a minted instance
-  # carries it under — a real gap, not a guess this module papers
-  # over. Measured against the one schema this ticket could check
+  # `identity` (`chain.md` #32) names one of `id`, `alias`, `name` or
+  # `slug`, and the retired grammar spelled nowhere which exact
+  # attribute or element a minted instance carries it under — a real
+  # gap, not a guess this module papers over. #32's
+  # `<catapult:mints tier="comp" identity="alias"/>` annotation is what
+  # closes it; until the loader reads that annotation the fallback
+  # below stands. Measured against the one schema this ticket could check
   # (`sysarch.xsd`'s `Component`, minted by `comp`'s `identity: id`):
   # the instance carries no `id` element or attribute at all, only a
   # required `alias` attribute — so `alias` is tried as a named

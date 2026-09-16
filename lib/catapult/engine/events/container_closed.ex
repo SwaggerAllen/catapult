@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.ContainerClosed do
   @moduledoc """
-  A container instance closed (dsl-syntax.md §15.6). Version 1.
+  A container instance closed (`workflow.md` #16). Version 1.
 
   Two shapes, one event: a `container`-skeleton instance closes by
   reaching its fixed `terminal` kind after `cleanup` resolves; a

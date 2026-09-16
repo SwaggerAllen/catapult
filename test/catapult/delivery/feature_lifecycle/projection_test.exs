@@ -2,7 +2,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
   @moduledoc """
   Rewritten at ORC-104: the fixture is a `types/<name>.yaml`
   declaration rather than a bundle-wide gate chain, since `after:` is
-  retired (dsl-syntax.md §15.3) and a gate's position is now the citing
+  retired (`workflow.md` #12) and a gate's position is now the citing
   type's own array index.
   """
 
@@ -176,7 +176,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
 
   describe "passable?/2 over the generation-shaped and checks/reconcile kinds (ORC-182)" do
     # `design`/`architecture`/`implementation` sub-arrays, each with its
-    # own `checks`, mirroring dsl-syntax.md §15.2's revised
+    # own `checks`, mirroring `workflow.md` #12's revised
     # `feature.yaml` closely enough to exercise every kind `passable?/2`
     # now has to answer for.
     defp multi_phase_workflow do
@@ -263,12 +263,12 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     end
   end
 
-  describe "resting/3 carries a qualifying anchor for a bare kind that recurs (dsl-syntax.md §15.12, ORC-171)" do
+  describe "resting/3 carries a qualifying anchor for a bare kind that recurs (workflow.md #7, ORC-171)" do
     # `pending` recurs twice: once as `generation`'s own leading entry
     # (qualified `generation.pending`, since its group has a second
     # member to share a namespace with) and once top-level, ungrouped
     # (stays bare — a top-level entry's `qualified` is always its own
-    # bare name, dsl-syntax.md §15.12). `generation` is the only
+    # bare name, `workflow.md` #7). `generation` is the only
     # agent-balled, non-review-shaped kind `passable?/2` already treats
     # as "always walked through once committed" (the real
     # `types/feature.yaml`'s own shape), which is what keeps every test

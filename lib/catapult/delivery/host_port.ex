@@ -99,7 +99,7 @@ defmodule Catapult.Delivery.HostPort do
   file directly under `path` at `ref`, `filename => content`
   (`systems/delivery.md`'s Discovery/Reading-it entries) — a missing
   or empty directory answers `{:ok, %{}}` rather than an error, the
-  same "a role with no documents" shape dsl-syntax.md §7 gives the
+  same "a role with no documents" shape `chain.md` #22 gives the
   walk this feeds. Unlike `reset_repo/2`'s implicit default-branch
   read, `ref` is explicit: intake pins against a commit a caller
   names, never whatever the default branch happens to be the moment

@@ -74,7 +74,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert row.entry_node_id == "sysarch"
     assert FeatureLifecycle.status(row) == {:kind, :pending}
     # No authored `name:` on `feature.yaml`'s own `pending` entry, so
-    # this defaults to the kind (dsl-syntax.md §15.12, ORC-155).
+    # this defaults to the kind (`workflow.md` #7, ORC-155).
     assert row.status_name == "pending"
   end
 
@@ -103,7 +103,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
     # A gate's own declared name was always its whole identity
-    # (dsl-syntax.md §15.12, ORC-155) — no separate name column needed.
+    # (`workflow.md` #7, ORC-155) — no separate name column needed.
     assert row.status_name == "ux-review"
   end
 

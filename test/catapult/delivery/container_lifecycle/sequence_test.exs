@@ -1,6 +1,6 @@
 defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   @moduledoc """
-  Array-index navigation (dsl-syntax.md §15.3): "what comes next" is
+  Array-index navigation (`workflow.md` #12): "what comes next" is
   literally the next element. Run against the shipped
   `bundles/default-flow`, so a change to the declared types is caught
   here.
@@ -84,13 +84,12 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     assert Sequence.next_step(workflow, "no-such-type", "anything") == nil
   end
 
-  describe "a bare name recurring across two sub-arrays (dsl-syntax.md §15.2, ORC-116)" do
+  describe "a bare name recurring across two sub-arrays (workflow.md #7, ORC-116)" do
     # `types/milestone.yaml` avoids this today by omitting `retro`'s own
     # leading `pending`, precisely because this module's own bare-name
-    # lookup used to have no namespace awareness (`docs/dsl-syntax.md`
-    # §15.2's own note). Built here as a struct — the loader accepts
-    # this shape (§15.12 only refuses a collision *within* one
-    # sub-array) — to prove the fix rather than the workaround.
+    # lookup used to have no namespace awareness. Built here as a
+    # struct — the loader accepts this shape (`workflow.md` #7 only
+    # refuses a collision *within* one namespace) — to prove the fix rather than the workaround.
     setup do
       statuses = [
         %Status{status: "pending"},
@@ -117,8 +116,8 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     } do
       # The bug this fix retires: `next_step/3` used to walk `pending`
       # backward to `setup`'s own successor for a container that had
-      # actually reached `retro`'s own `pending` (`docs/dsl-syntax.md`
-      # §15.2's own reproduction). Resolving nothing is the safe
+      # actually reached `retro`'s own `pending` (`workflow.md` #8's
+      # ambiguity rule). Resolving nothing is the safe
       # failure — the qualified name below is what a caller needs once
       # a bare one is ambiguous.
       assert Sequence.step(workflow, "t", "pending") == nil

@@ -1,6 +1,6 @@
 defmodule Catapult.Delivery.ContainerLifecycle.Sequence do
   @moduledoc """
-  A container's declared sequence, navigated (dsl-syntax.md §15.2-§15.8)
+  A container's declared sequence, navigated (`workflow.md` #16 through #19)
   — pure functions over a loaded `Catapult.Dsl.Workflow.t()`, the same
   "take the loaded bundle as a parameter" shape
   `Catapult.Delivery.FeatureLifecycle.Sequence` already uses for the

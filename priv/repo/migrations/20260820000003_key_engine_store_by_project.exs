@@ -3,7 +3,7 @@ defmodule Catapult.Repo.Migrations.KeyEngineStoreByProject do
 
   # ORC-87 (systems/engine.md): a node id is a per-project slug, not
   # globally unique — `scope_key`/`handle` are already how a node is
-  # addressed *within* a project (dsl-syntax.md §3), and nothing about
+  # addressed *within* a project (`chain.md` #6), and nothing about
   # the command edge or a bundle's own vocabulary promises more than
   # that. The primary key `AddEngineStore` fixed at `id` alone was the
   # one legal shape that assumption doesn't support; this migration

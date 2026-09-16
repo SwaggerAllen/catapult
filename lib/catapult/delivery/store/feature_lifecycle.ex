@@ -18,7 +18,7 @@ defmodule Catapult.Delivery.Store.FeatureLifecycle do
   `:blocked`, read here rather than stamped onto a comment.
 
   **`status_name` sits beside `status_kind`, unaffected in shape or
-  meaning** (dsl-syntax.md §15.12, ORC-155): a status entry's own
+  meaning** (`workflow.md` #7, ORC-155): a status entry's own
   bundle-authored `name:`, defaulting to its kind, read for display
   alone — nothing branches on it, and `status_kind` is still what every
   downstream branch reads. A gate's own name was always its whole

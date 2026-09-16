@@ -1,7 +1,7 @@
 defmodule Catapult.Generation.ContextAssembly do
   @moduledoc """
   Evaluates a tier's context walks and renders its Liquid prompt
-  (`dsl-syntax.md` §7, §9) — one path for generation and review tiers
+  (`chain.md` #20, #35) — one path for generation and review tiers
   alike, so "the reviewer sees exactly the generator's context plus
   the draft" (`systems/generation.md`'s per-tier triad invariant) is
   enforced by sharing this module, not by convention. A review tier
@@ -27,14 +27,14 @@ defmodule Catapult.Generation.ContextAssembly do
   `Catapult.Delivery` — the same cross-boundary shape `draft_variable/2`
   already uses for `get_draft_body/2` — and sets the result as a
   **plain string**, keyed by role name for `input.<role>` or the
-  reserved word `raft` for `input.*` (dsl-syntax.md §9). A role with no
+  reserved word `raft` for `input.*` (`chain.md` #19). A role with no
   pinned documents is left out of the variables map entirely, the same
   omission-is-the-contract shape `feedback`/`prior_review` use below —
   never `""`.
 
   `feedback`/`prior_review` (ORC-34, `systems/generation.md`'s own
   entry) are two direct engine reads, unconditional — unlike `draft`,
-  neither is review-tier-only (`dsl-syntax.md` §9/§3.3): `feedback` is
+  neither is review-tier-only (`chain.md` #35, #14): `feedback` is
   `Catapult.Engine.Projections.CommentFeedback.since_last_resolution/2`
   and `prior_review` is `Catapult.Engine.Store.reviews_for_node/2`.
   Both are left out of the variables map entirely — never set to `[]`
@@ -170,7 +170,7 @@ defmodule Catapult.Generation.ContextAssembly do
 
   # Direct delivery reads, one per `:input` walk — never through
   # `ContextResolver` (moduledoc above). `raft` is the wildcard's own
-  # reserved variable name (dsl-syntax.md §9); an `input.<role>` walk's
+  # reserved variable name (`chain.md` #35); an `input.<role>` walk's
   # variable is the role name itself.
   defp input_variables(variables, project_id, context_walks) do
     Enum.reduce(context_walks, variables, fn
@@ -238,7 +238,7 @@ defmodule Catapult.Generation.ContextAssembly do
   defp render_node(chain, %Node{} = node), do: render_node(chain, node, :full)
 
   # A context walk's own `projection` decides what this emits
-  # (dsl-syntax.md §7, `systems/generation.md`'s ORC-236 entry): a
+  # (`chain.md` #19, `systems/generation.md`'s ORC-236 entry): a
   # `:handle`-typed walk emits `handle_fields` only (`fragments` present
   # but empty, the same map shape either way so no template needs a
   # conditional); a `{:fragments, kind}`-typed walk emits that one
@@ -315,7 +315,7 @@ defmodule Catapult.Generation.ContextAssembly do
   end
 
   # Shared framing across tiers rides `{% render "partials/<name>" %}`
-  # (dsl-syntax.md §9: "one source for shared framing") — resolved
+  # (`chain.md` #35: "one source for shared framing") — resolved
   # against the leaf bundle's own `prompts/` directory (this repo's
   # actual layout: partials live beside the prompts that render them,
   # in `default/prompts/partials/`, not layered per-prompt). Solid's

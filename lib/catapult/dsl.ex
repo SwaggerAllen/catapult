@@ -2,8 +2,8 @@ defmodule Catapult.Dsl do
   @moduledoc """
   The DSL core (`systems/core_dsl.md`): the frozen vocabulary, the
   bundle loader (`bundle.yaml` + registered files → validated union,
-  single directory per bundle — no `extends:` layering, dsl-syntax.md
-  §11), and the extension registry (v5 §9) through which platform
+  single directory per bundle — no `extends:` layering, `bundle.md`
+  #7), and the extension registry (v5 §9) through which platform
   extensions grow it. This module is the boundary export;
   `Catapult.Dsl.Loader` and its siblings under `lib/catapult/dsl/`
   carry the implementation.
@@ -25,14 +25,14 @@ defmodule Catapult.Dsl do
        "catapult.yaml is missing, malformed, or names an axis the active dialect refuses",
        remedy:
          "fix catapult.yaml to name a chain: bundle (and, under the design dialect, a workflow: bundle) under bundles/"},
-      {:dsl_bundle_invalid, "a bundle failed load-time validation (dsl-syntax.md §13)",
+      {:dsl_bundle_invalid, "a bundle failed load-time validation (docs/dsl/)",
        remedy:
          "fix every problem in details[:problems] and reload; a bundle that loads is a bundle the engine can run"}
     ]
   end
 
   @doc """
-  Loads the bundle pair rooted at `root` (dsl-syntax.md §1-§15):
+  Loads the bundle pair rooted at `root` (`bundle.md` #1):
   `catapult.yaml` plus its named chain bundle and, under a dialect
   with one, its named workflow bundle. See `Catapult.Dsl.Loader.load/2`
   for `opts`.
@@ -53,8 +53,8 @@ defmodule Catapult.Dsl do
 
   @doc """
   Validates `body` against the grammar named by `root_tag` +
-  `grammar_path` for `bundle_name` under `bundles_root` (dsl-syntax.md
-  §10). See `Catapult.Dsl.Grammar.validate/5`. One validator source:
+  `grammar_path` for `bundle_name` under `bundles_root` (`chain.md`
+  #33). See `Catapult.Dsl.Grammar.validate/5`. One validator source:
   generation's commit path and engine's own commit-time rejection call
   this rather than two implementations that could drift
   (`systems/core_dsl.md`).
