@@ -60,7 +60,7 @@ downstream would ever have prose left to show it beside.
 - **Throw back** — `Commands.DeclineGate{project_id, flow_id, gate, throwback_to, since_sequence,
   node_id, body_sha, actor_id}` → `GateDeclined`. `throwback_to` is never a free-text target and
   never carries a reason field, but it is no longer chosen from a per-gate declared list either —
-  `docs/dsl-syntax.md` §15.10 retired that bound (ORC-115), and this section's own prior citation
+  `workflow.md` #34 retired that bound (ORC-115), and this section's own prior citation
   of `docs/ui-spec.md` §3.2 as "the throwback target chosen from the declared exits" no longer
   matches what that section says (ORC-116 correction). The control is a single primary button
   naming whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves — the gate's own

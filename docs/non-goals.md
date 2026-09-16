@@ -49,9 +49,8 @@ human, nothing dispatches from one, and no prompt is written against
 one — so they are declared, vary by ticket type, and default to a UX
 review and an engineering review (§7.16). A work-item type's own
 existence and the gate array it declares qualify the same way
-(`docs/dsl-syntax.md` §15.2), as does where in that array a gate sits
-(§15.3) and whether adjacent entries are grouped into a bare sub-array
-(§15.10). What stays refused is a project rewiring the automation graph
+(`workflow.md` #4), as does where in that array a gate sits (#5) and
+whether adjacent entries are grouped into a bare sub-array (#6). What stays refused is a project rewiring the automation graph
 itself.
 
 ## No second home for the reference instance's live facts
