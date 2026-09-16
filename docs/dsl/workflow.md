@@ -176,19 +176,27 @@ type and gate name. Markers: **live** is read by the engine today;
   after its children's positions** (`chain.md` #15); the position
   itself is the workflow's and gates may sit before and after it.
 - **#28 A child ticket runs the declared sequence filtered to its
-  depth, and a position's depths are computed from the tiers it
-  lists.** A tier's depth is the number of ticket-spawning fan-outs
-  (`chain.md` #42) between the project root and it, so a position
-  carries the set of depths its tiers have, and a ticket occupies a
-  position only when its own depth is in that set. Nothing declares a
-  depth on a generation entry: the tier list already says which levels
-  have work there, and a second declaration could only disagree with
-  it. In the default `delta` type the architecture position spans
-  depths 0, 1 and 2 while implementation is depth 2 alone, so a
-  component child runs architecture and leaves implementation to its
-  own children. A `cascade_visit` tier has no scope parent to count
-  from and takes the depths of the position it is listed at, its nodes
-  being minted per visited scope (`chain.md` #40).
+  depth, and a position's depth comes from the tiers it lists.** A
+  tier's depth is the number of ticket-spawning fan-outs (`chain.md`
+  #42) between the project root and it, and **a ticket occupies a
+  position when its own depth is at most the deepest tier listed
+  there.** It stands there to generate where it has a tier of its own
+  at that depth, and to receive where it does not: what its children
+  produce at that position merges into its branch, which is what gives
+  a gate and a PR at every granularity above the deepest one rather
+  than only at the bottom. Nothing declares a depth on a generation
+  entry, because the tier list already says how deep the position goes
+  and a second statement could only disagree with it.
+
+  In the default pair the architecture position runs to depth 2 with
+  work of its own at every level, while implementation runs to depth 2
+  with work only at depth 2 — so a feature and a component both stand
+  at implementation, holding the branch their subcomponents' code
+  merges into, and both can be gated there. The product positions stop
+  at depth 0, no fan-out above them spawning a ticket (#41). A
+  `cascade_visit` tier has no scope parent to count from and takes the
+  depths of the position it is listed at, its nodes being minted per
+  visited scope (`chain.md` #40).
 - **#41 A child ticket exists only where a fan-out spawns one, so a
   position no fan-out reaches is never a child's to skip.** The
   product positions are depth 0 and stay there: the fan-outs at those

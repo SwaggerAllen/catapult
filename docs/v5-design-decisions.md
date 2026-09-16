@@ -2803,9 +2803,10 @@ are what those blocks carry:
   not green** — finished work is out of mind, and green is spent on
   work in flight. Nothing reads colors back; they exist so the
   author sees the queue without reading it. **There is no `Building`
-  status and no green row for one** (`workflow.md` #10): a
-  ticket runs its own implementation position (violet, above — real
-  dispatched work), then sits at `Checks` while its own children
+  status and no green row for one** (`workflow.md` #10): a ticket stands
+  at its implementation position (violet, above), generating there
+  when it has a tier at its own depth and holding its children's
+  branch when it does not, then sits at `Checks` while those children
   build, and `Checks` already carries the yellow row above — no
   separate wait-status, no separate color for it.
 - the **ticket types** with their position sequences and PR topology
@@ -4299,17 +4300,22 @@ no-op itself below the root. Nothing declares a depth on a generation
 entry at all: the tier list already says which levels have work there,
 and a second statement of that fact could only disagree with it.
 
-Two consequences, both visible in the default pair. A position's depth
-is a set rather than a number — architecture spans depths 0, 1 and 2
-because the system, component and subcomponent architecture tiers all
-sit there, while implementation is depth 2 alone, so a component child
-runs architecture and leaves implementation to its own children. And
-the product positions stay at depth 0 without needing to be filtered
-out of anything: a child ticket exists only where a fan-out spawns
-one, six of the default's thirteen do, and all six are at system
-architecture or below. The fan-outs at the product tiers mint pools
-nobody generates from, so there is no depth-1 ticket standing at a
-product position to worry about.
+A ticket stands at a position for either of two reasons, and both are
+reasons to be able to gate it: it has a tier of its own there at its
+own depth, or it holds the branch into which its children's work at
+that position merges. Every implementation tier in the default is
+scoped to a subcomponent, so on generation alone a feature and a
+component would skip the implementation position entirely — and with
+it the gate and the PR boundary at those granularities, leaving
+produced code reviewable only at the bottom of the tree. Both stand
+there instead.
+
+The product positions stay at depth 0 without being filtered out of
+anything: a child ticket exists only where a fan-out spawns one, six
+of the default's thirteen do, and all six are at system architecture
+or below. The fan-outs at the product tiers mint pools nobody
+generates from, so no ticket is opened below them and none stands at a
+product position.
 
 Gate depth is a different fact and stays declared (`workflow.md` #33):
 it narrows where a *review* applies, not where the work is, which is

@@ -167,31 +167,33 @@ load errors: 0
 
 ## Depth is derived too
 
-A position's depths come from the tiers it lists, never from a
-declaration (`workflow.md` #28). A tier's depth is the number of
-ticket-spawning fan-outs above it, and a fan-out spawns a ticket only
-where something generates from the pool it mints (`chain.md` #42).
-Six of the default's thirteen fan-outs do, and every one is at system
-architecture or below:
+A position's depth comes from the tiers it lists, never from a
+declaration (`workflow.md` #28): a ticket stands at a position when
+its own depth is at most the deepest tier there, generating where it
+has a tier at its own depth and holding its children's branch where it
+does not. A tier's depth is the number of ticket-spawning fan-outs
+above it, and a fan-out spawns a ticket only where something generates
+from the pool it mints (`chain.md` #42). Six of the default's thirteen
+fan-outs do, and every one is at system architecture or below:
 
 ```
   ticket-spawning fan-outs: 6 of 13
      -> ['comp', 'screen_coll', 'screen_subcomp', 'subcomp', 'ui_coll', 'ui_subcomp']
 
-     features               depths [0]
-     experience             depths [0]
-     requirements           depths [0]
-     architecture           depths [0, 1, 2]
-     implementation         depths [2]
+          features               depths [0]  (own work at [0])
+     experience             depths [0]  (own work at [0])
+     requirements           depths [0]  (own work at [0])
+     architecture           depths [0, 1, 2]  (own work at [0, 1, 2])
+     implementation         depths [0, 1, 2]  (own work at [2])
 ```
 
-Two things fall out of it. A position's depth is a set, not a number:
-architecture holds the system, component and subcomponent tiers at
-once, while implementation is depth 2 alone, so a component child runs
-architecture and leaves implementation to its own children. And the
-product positions stay at depth 0 because the fan-outs there mint
-pools nobody generates from, so no ticket opens below them and no
-child ever stands at one.
+The second column is what the position generates; the first is who
+stands there. They differ at implementation, where every tier is
+scoped to a subcomponent: a feature and a component hold the branch
+their subcomponents' code merges into, so a gate and a PR are
+available at all three granularities rather than only at the bottom.
+The product positions stop at depth 0 because the fan-outs there mint
+pools nobody generates from, so no ticket opens below them.
 
 Which type serves a flow is derived, not named: a flow whose schema
 delta is empty is a scaffold and a flow carrying one is a change, so

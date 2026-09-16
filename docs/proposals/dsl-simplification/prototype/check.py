@@ -200,8 +200,11 @@ for n, (order, tier_at) in layouts.items():
             continue
         cascade = [t for t in e["tiers"]
                    if str((tiers.get(t) or {}).get("scope")) == "cascade_visit"]
-        ds = sorted({depth(t) for t in e["tiers"] if t not in cascade})
-        shown = ds if ds else "follows the position it precedes"
+        own = {depth(t) for t in e["tiers"] if t not in cascade}
+        # workflow.md #28: a position runs from depth 0 to its deepest tier —
+        # shallower tickets stand there to receive what merges from below.
+        ds = list(range(0, max(own) + 1)) if own else []
+        shown = f"{ds}  (own work at {sorted(own)})" if own else "follows the position it precedes"
         print(f"     {e.get('name'):22} depths {shown}")
 
 print("\n== traversability ==")

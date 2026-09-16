@@ -116,9 +116,9 @@ citation fixed. They fall into five reversals.
   They are `name:` values on generation entries (`workflow.md` #10).
   Sites: `delivery.md` 625, 1157; `delivery.reasons.md` 193.
 - **A fan-out child running a second declared type.** Settled, and the
-  sites are fixed. One type serves every depth, a position's depths
-  are computed from the tiers it lists, and a child occupies a
-  position only when its own depth is in that set (`workflow.md`
+  sites are fixed. One type serves every depth, a position's depth
+  comes from the tiers it lists, and a ticket stands at a position
+  when its own depth is at most the deepest tier there (`workflow.md`
   #28). A child exists only where a fan-out spawns one, which no
   product-tier fan-out does (#41, `chain.md` #42).
 - **`scope: reference`, `generator: reference`, and `reviews:`.** A

@@ -183,12 +183,15 @@ The author's decision, against giving a generation entry its own
 depth computed from the tiers a position references, and a child
 simply never occupying the positions whose depth set excludes it.
 
-What it costs is that a position's depth is a set rather than a
-number, and the default shows why that is right rather than
-unfortunate: architecture spans depths 0, 1 and 2 because the system,
-component and subcomponent architecture tiers all sit there, while
-implementation is depth 2 alone. A single number could not describe
-either.
+The author's second correction is why the test is "at most the
+deepest tier" rather than "a depth one of the tiers has". Every
+implementation tier in the default is scoped to a subcomponent, so on
+the narrower test a feature and a component would both skip the
+implementation position — and with it the gate and the PR boundary at
+those granularities, leaving review of produced code possible only at
+the bottom of the tree. A ticket stands at a position either to
+generate there or to hold the branch its children's work at that
+position merges into, and both are reasons to be able to gate it.
 
 ## #23
 
