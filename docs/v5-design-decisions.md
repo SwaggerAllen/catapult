@@ -2080,20 +2080,20 @@ state.
   `Ready for rework / Reworking`, design states gone: children are
   born past design (their design is the parent's approved docs),
   entering at `Ready for dev` by construction — which is how
-  every-ticket-gets-a-design-pass is satisfied at the parent. **This is the generic shape — one undifferentiated generation-shaped
-visit — and a child reaches it by running the declared sequence
-filtered to its depth** (`workflow.md` #28). A product-level position
-no-ops below the root because the tiers listed there have no nodes at
-that depth, which is what makes one declared type serve every level. **A child spawned by
-  architecture's own recursive fan-out (comparch/subcomparch,
-  `workflow.md` #28) runs a third, richer type instead of this
-  one** — `In progress` split into its own `Architecting`/
-  `Implementation` pair, each with its own review, the identical split
-  the feature lifecycle above takes — because that child's own
-  artifact needs the same reading before it merges that the feature's
-  does. An ordinary child entering directly at implementation, with no
-  architecture review of its own to run (§7.3's entry-tier taxonomy),
-  still runs this simpler bullet's own shape unchanged.
+  every-ticket-gets-a-design-pass is satisfied at the parent. **This is the generic shape — one undifferentiated
+  generation-shaped visit — and a child reaches it by running the
+  declared sequence filtered to its depth** (`workflow.md` #28). A
+  child spawned by architecture's own recursive fan-out
+  (comparch/subcomparch) occupies the architecture and implementation
+  positions of that same sequence, its `In progress` splitting into
+  `Architecting`/`Implementation` with each position's own review,
+  because that child's own artifact needs the same reading before it
+  merges that the feature's does. It stands at no product position,
+  and not because a filter removes one: the fan-outs at the product
+  tiers mint pools nobody generates from, so no ticket is opened below
+  them at all (`chain.md` #42). An ordinary child entering directly at
+  implementation, with no architecture of its own to run (§7.3's
+  entry-tier taxonomy), runs the same sequence from further in.
 - **`Stubbed`** — machinery-filed swap tickets only (§2.16):
   committed work deliberately waiting on an external timeline. Passes
   the admission test with a distinct who-has-the-ball answer — the
@@ -4289,27 +4289,32 @@ exception rather than the ordinary case — architecture and policy are
 what constrain intention narrowly enough that no ordinary scope needs
 a human reading the code it produces.
 
-**Two type declarations, not one array depth-filtered.** One declared
-type instantiated once per node the plan names, the feature ticket
-included at depth 0 of its own array, cannot be the feature's own
-type: `design` and its product review are feature-only, and neither
-`design` nor a bare `status:` entry carries a `depth:` field to make
-it no-op below the root the way a gate or `critique` already can. The
-feature type (design → architecture → implementation → merge, one
-instance, ever) and the type architecture's own fan-out spawns
-(architecture → implementation, recurring per tree level) are
-therefore two separate declarations sharing the vocabulary, never one
-array read two ways. This is v5 §7.6's own "Child" lifecycle: a child
-spawned by architecture's own recursive fan-out runs this second,
-richer type — its own `In progress` split into
-`Architecting`/`Implementation`, mirroring the feature's own split —
-while an ordinary child entering directly at implementation, with no
-architecture review of its own to run, still runs §7.6's simpler
-generic shape unchanged. It is also the exercised case behind the
-"two types declaring different ceilings" precedent (`workflow.md` #28's never-validated-against-the-chain posture for `depth:`): the
-fan-out type's own gates reach one level deeper than the feature
-type's ever need to, because the two types fan to different depths by
-declaration, not by anything the chain claims.
+**One type declaration across depths, and depth is computed rather
+than declared.** A position's depths are the depths of the tiers it
+lists, and a tier's depth is the number of ticket-spawning fan-outs
+above it (`workflow.md` #28, `chain.md` #42). A ticket occupies a
+position only when its own depth is in that position's set, so one
+array serves every level and nothing has to carry a `depth:` field to
+no-op itself below the root. Nothing declares a depth on a generation
+entry at all: the tier list already says which levels have work there,
+and a second statement of that fact could only disagree with it.
+
+Two consequences, both visible in the default pair. A position's depth
+is a set rather than a number — architecture spans depths 0, 1 and 2
+because the system, component and subcomponent architecture tiers all
+sit there, while implementation is depth 2 alone, so a component child
+runs architecture and leaves implementation to its own children. And
+the product positions stay at depth 0 without needing to be filtered
+out of anything: a child ticket exists only where a fan-out spawns
+one, six of the default's thirteen do, and all six are at system
+architecture or below. The fan-outs at the product tiers mint pools
+nobody generates from, so there is no depth-1 ticket standing at a
+product position to worry about.
+
+Gate depth is a different fact and stays declared (`workflow.md` #33):
+it narrows where a *review* applies, not where the work is, which is
+why `delta` writes `depth: 1` on its engineering review while
+`scaffold` leaves it at every depth.
 
 **`pending` is an engine flag, not an entry.** Every agent-balled
 position carries it until an agent picks the work up, so it is what a

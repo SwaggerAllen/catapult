@@ -355,3 +355,20 @@ be able to act as generators so that repository commits, history and
 events can serve as context and as flow triggers. `template` is kept
 because it is cheap to implement and has uses; rendering a template in
 the plane makes no model call.
+
+## #42
+
+The distinction is what makes the tree's levels countable without a
+level counter. A `fanout` always mints a pool; whether that pool is a
+level of the ticket tree depends on whether anything generates from
+it, and `per(<join target>)` is that test. The default's own numbers
+carry it: six of thirteen fan-outs spawn a ticket and all six are at
+system architecture or below, while the seven that do not — `vocab`,
+`resp`, the three policy tiers, `journey` and `screen` — mint pools
+their own ticket carries to its end.
+
+The author's observation is what put this in writing: a child ticket
+exists only where a fan-out spawns one, and its content merges into
+its parent's branch before the parent leaves, so a product tier
+fanning out into a pool nobody generates from opens no ticket at all.
+

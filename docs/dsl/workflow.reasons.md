@@ -170,6 +170,26 @@ beats a predicate so that the narrow case does not have to restate the
 broad one; two outright claims are an error because there is no
 principled winner between them.
 
+## #28
+
+Computed rather than declared, because a declared depth on a generation
+entry could only restate what the tier list already says, and two
+statements of one fact drift. The tier list is the better of the two
+anyway: it says *which* work happens at a level, where a number says
+only how deep the level is.
+
+The author's decision, against giving a generation entry its own
+`depth:` and against keeping two ticket types: one type across depths,
+depth computed from the tiers a position references, and a child
+simply never occupying the positions whose depth set excludes it.
+
+What it costs is that a position's depth is a set rather than a
+number, and the default shows why that is right rather than
+unfortunate: architecture spans depths 0, 1 and 2 because the system,
+component and subcomponent architecture tiers all sit there, while
+implementation is depth 2 alone. A single number could not describe
+either.
+
 ## #23
 
 Free names make it possible to declare a workflow whose positions
@@ -182,6 +202,17 @@ dependency graph, so the load error is their guardrail. Structural
 reads only, because a global read is of the approved graph as of
 dispatch (`chain.md` #22): the redesign's first check called every
 plan tier's `all.sysarch` read an ordering error, and it was not.
+
+## #41
+
+The rule exists because its absence is what made the earlier design
+declare two ticket types. A product position could not be no-op'd
+below the root, so a component child running the same array would
+re-run the product pass, and the way out was a second array. Computing
+depth from the tier list closes that by making the question moot twice
+over: the product position's tiers have no nodes at depth 1, and no
+fan-out at a product tier opens a depth-1 ticket in the first place
+(`chain.md` #42).
 
 ## #24
 

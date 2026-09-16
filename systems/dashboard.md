@@ -225,14 +225,15 @@ conventions §13).
   card whose own resolved sequence excludes it — `screens/board.md`'s
   existing "a lane never shows a child it does not itself hold" rule,
   extended from membership to shape.
-- **#21 Cross-type fan-out roll-up is a card-level count, not a per-lane
-  one** (ORC-116). `docs/dsl-syntax.md` §15.11 gives `component`/
-  `subcomponent` their own declared type, sharing no array with
-  `feature` ("two type declarations, not one spanning the whole
-  tree"), so a component's own position has no corresponding lane on a
-  feature's board at all — `docs/ui-spec.md` §3.1's "each lane rolls up
-  only the children it holds" assumed children read off the parent's
-  own lane set, which no longer holds across this boundary. Same-type
+- **#21 Fan-out roll-up is per lane, because a child reads its
+  position off the same declared sequence its parent does**
+  (ORC-116). A child ticket runs the declared sequence filtered to its
+  depth (`workflow.md` #28), so a component's architecture position is
+  the feature's architecture lane at depth 1 rather than a position
+  with no lane to sit in, and `docs/ui-spec.md` §3.1's "each lane
+  rolls up only the children it holds" holds across the boundary that
+  once broke it. What a lane still has to distinguish is depth, since
+  one lane now holds the feature's own work and its children's. Same-type
   nesting — a subcomponent inside a component — keeps the per-lane
   roll-up `screens/board.md` already describes, since both instances
   read the identical array; a feature's own component children instead

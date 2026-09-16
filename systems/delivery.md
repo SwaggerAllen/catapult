@@ -1112,10 +1112,9 @@ generating as scope-runs inside one ticket.
 
 - **#76 A third design review on this same ticket adds two facts this
   system's own dispatcher will carry, past what the pass above scoped
-  as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
-  `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
-  architecture's own fan-out (sysarch/comparch/subcomparch) spawns a
-  ticket per tree level, the identical spawn rule this system states
+  as "not this pass's to build"** (`chain.md` #42; `docs/v5-design-decisions.md`
+  §7.2, §7.10, §7.15, §7.19). First, architecture's own fan-out
+  (sysarch/comparch/subcomparch) spawns a ticket per tree level, the identical spawn rule this system states
   for a feature's component and subcomponent children (above,
   "children spawn when the plan node names them, not at a status
   transition"; `v5-design-decisions.md` §7.15 states the same rule) —
@@ -1139,13 +1138,15 @@ generating as scope-runs inside one ticket.
 
 - **#77 A fourth design review on this same ticket names two facts this system's own
   dispatcher will carry that the third pass's own worked example got wrong, past what
-  either pass scoped as "not this pass's to build"** (`docs/dsl-syntax.md` §13, §15.1,
-  §15.2, §15.11; `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
-  architecture's own fan-out spawns run a second, distinct type from the feature ticket
-  itself, not the feature's own array at a deeper tree position** — the feature ticket
-  dispatches through `types/feature.yaml` (design → architecture → implementation →
-  merge, one instance ever); a comparch or subcomparch ticket dispatches through a
-  second declared type with no `design` phase of its own, recurring per tree level,
+  either pass scoped as "not this pass's to build"** (`workflow.md` #28, #41, `chain.md` #42;
+  `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
+  architecture's own fan-out spawns run the same declared type as the
+  ticket above them, at a deeper tree position** — a position's depths
+  are the depths of the tiers it lists, and a ticket occupies a
+  position only when its own depth is in that set, so a comparch or
+  subcomparch ticket runs the architecture and implementation
+  positions and stands at no product position at all, there being no
+  ticket-spawning fan-out above those,
   which is `v5-design-decisions.md` §7.6's "Child" lifecycle. This system's own
   type-registry lookup (above, "the loaded workflow is a parameter, never resolved")
   already resolves whichever type a spawn names, so the fact that a spawned child names

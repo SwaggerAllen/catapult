@@ -466,13 +466,12 @@ loader tickets carry `system:core_dsl`.
   tier draws for itself.** This is narrower than "every tier" — the
   other agent-step family, `critique`, pairs uniformly with
   `phase: critique` instead, an unrelated axis untouched by this entry.
-  `dsl-syntax.md` §15.1 and v5 §7.6 name `design`, `architecture` and
-  `implementation` as kinds a type's own lifecycle draws —
-  `feature.yaml`'s generation sub-array splitting into a
-  `design`-then-`architecture` pair, and the recursive architecture
-  fan-out's own child type (`dsl-syntax.md` §15.11) reading the same
-  kinds — not a distinction a tier makes independently of the type it
-  fans out from. `delivery.phase` has exactly one reader in the tree,
+  `workflow.md` #10 makes `design`, `architecture` and
+  `implementation` `name:` values a type's own lifecycle chooses — the
+  generation entries splitting into a product-then-architecture pair,
+  and the recursive architecture fan-out's children running those same
+  positions at a deeper depth (#28, #41) — not a distinction a tier
+  makes independently of the position that lists it. `delivery.phase` has exactly one reader in the tree,
   `Catapult.Dsl.Chain`'s load-time check that its value names a real
   system-status kind (`lib/catapult/dsl/chain.ex`), so nothing
   dispatches on which kind a tier picks. Tier values move together

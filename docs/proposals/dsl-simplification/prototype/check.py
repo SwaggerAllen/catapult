@@ -156,12 +156,53 @@ def generating_ancestor(node):
     return node if node in tiers and kind(node) == "generating" else None
 
 
+# ---- depth, computed from the tiers a position lists (workflow.md #28)
+_per = {}
+for _t, _v in tiers.items():
+    _m = re.match(r"per\((\w+)\)", str((_v or {}).get("scope", "")))
+    if _m:
+        _per.setdefault(_m.group(1), []).append(_t)
+spawning = {(i["source"], i["target"])
+            for e in edges.values() if e.get("type") == "fanout"
+            for i in e["instances"]
+            if any(kind(k) == "generating" for k in _per.get(i["target"], []))}
+scope_parent = {}
+for t, v in tiers.items():
+    m = re.match(r"(?:per|child_of)\((\w+)\)", str((v or {}).get("scope", "")))
+    if m:
+        scope_parent[t] = m.group(1)
+
+
+def depth(t, seen=()):
+    """chain.md #42: a level is a fan-out whose target something generates from."""
+    if t in seen or t not in scope_parent:
+        return 0
+    p = scope_parent[t]
+    return depth(p, seen + (t,)) + (1 if (p, t) in spawning else 0)
+
+
+print("\n== depth ==")
+print(f"  ticket-spawning fan-outs: {len(spawning)} of "
+      f"{sum(len(e['instances']) for e in edges.values() if e.get('type') == 'fanout')}"
+      f"  -> {sorted(t for _, t in spawning)}")
+
 print("\n== the binding ==")
 all_delta = {x for f in chain["flows"].values() for x in (f.get("delta") or {}).get("tiers", [])}
 layouts = {n: layout(n) for n in wf["types"] if any(
     "tiers" in s for e in wf["types"][n]["statuses"] for s in (e if isinstance(e, list) else [e]))}
 for n, (order, tier_at) in layouts.items():
     print(f"  type {n}: {len(order)} positions, {len(tier_at)} tiers listed")
+    flat = []
+    for e in wf["types"][n]["statuses"]:
+        flat += e if isinstance(e, list) else [e]
+    for e in flat:
+        if "tiers" not in e:
+            continue
+        cascade = [t for t in e["tiers"]
+                   if str((tiers.get(t) or {}).get("scope")) == "cascade_visit"]
+        ds = sorted({depth(t) for t in e["tiers"] if t not in cascade})
+        shown = ds if ds else "follows the position it precedes"
+        print(f"     {e.get('name'):22} depths {shown}")
 
 print("\n== traversability ==")
 notes = []

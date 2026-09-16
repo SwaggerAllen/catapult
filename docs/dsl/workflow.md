@@ -176,10 +176,28 @@ type and gate name. Markers: **live** is read by the engine today;
   after its children's positions** (`chain.md` #15); the position
   itself is the workflow's and gates may sit before and after it.
 - **#28 A child ticket runs the declared sequence filtered to its
-  depth**, and depth on a citation is a maximum: `0` is the top level
-  only, `1` adds components, `2` adds subcomponents, the default is
-  every depth, and a depth deeper than the chain fans out applies at
-  the levels that exist with a load warning (`bundle.md` #12).
+  depth, and a position's depths are computed from the tiers it
+  lists.** A tier's depth is the number of ticket-spawning fan-outs
+  (`chain.md` #42) between the project root and it, so a position
+  carries the set of depths its tiers have, and a ticket occupies a
+  position only when its own depth is in that set. Nothing declares a
+  depth on a generation entry: the tier list already says which levels
+  have work there, and a second declaration could only disagree with
+  it. In the default `delta` type the architecture position spans
+  depths 0, 1 and 2 while implementation is depth 2 alone, so a
+  component child runs architecture and leaves implementation to its
+  own children. A `cascade_visit` tier has no scope parent to count
+  from and takes the depths of the position it is listed at, its nodes
+  being minted per visited scope (`chain.md` #40).
+- **#41 A child ticket exists only where a fan-out spawns one, so a
+  position no fan-out reaches is never a child's to skip.** The
+  product positions are depth 0 and stay there: the fan-outs at those
+  tiers mint pools nobody generates from (`chain.md` #42), so no
+  ticket is opened below them and the question of a child standing at
+  a product position does not arise. A child's sequence begins at the
+  position carrying the tier its fan-out spawned, and its content
+  merges into its parent's branch before the parent leaves its own
+  reconcile (#13).
 
 ## #29 Queue-shaped types
 
@@ -201,9 +219,13 @@ type and gate name. Markers: **live** is read by the engine today;
   identity, v5 §7.16); `escalation` is who is told when it stalls
   (reserved: delivery).
 - **#33 `depth:` on a gate citation is where the gate applies, and
-  defaults to every depth.** An integer is a maximum level; a pair
-  `[first, rest]` gives one value for the project's first traversal
-  of the position and another for every later one. Doing less review
+  defaults to every depth.** An integer is a maximum level: `0` is the
+  top level only, `1` adds components, `2` adds subcomponents, and a
+  depth deeper than the chain fans out applies at the levels that
+  exist with a load warning (`bundle.md` #12). A pair `[first, rest]`
+  gives one value for the project's first traversal of the position
+  and another for every later one. A citation narrows where a *review*
+  applies; where the work is, is #28's. Doing less review
   is the explicit choice: `delta` writes `depth: 1` on
   `engineering-review` and `scaffold` leaves it at the default.
 - **#34 A gate inside a sub-array throws back to the group's

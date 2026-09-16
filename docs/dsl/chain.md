@@ -199,6 +199,20 @@ and edge name. Markers: **live** is read by the engine today;
   A `synthesis` instance's `target` may be a list. There is no
   single-instance form: an edge with one instance writes a list of
   one.
+- **#42 A `fanout` spawns a child ticket when its target has a
+  generating tier scoped `per()` it, and otherwise mints nodes into
+  the ticket it ran in.** The target of a `fanout` is a join target
+  (#5), so the question is whether anything generates from it: a
+  `per(<join target>)` generating tier is a unit of work with its own
+  branch, and the fan-out that minted the join target is where the
+  tree gains a level. Six of the default's thirteen fan-outs spawn
+  one, all of them at system architecture or below: `sysarch → comp`,
+  `comparch → subcomp`, `frontend_sysarch → ui_coll`,
+  `frontend_sysarch → screen_coll`, `ui_collarch → ui_subcomp` and
+  `screen_collarch → screen_subcomp`. The other seven mint a pool
+  nobody generates from — `vocab`, `resp`, the three policy tiers,
+  `journey` and `screen` — and those nodes belong to the ticket whose
+  draft minted them.
 - **#28 A tier has exactly one minting parent.** Two `fanout`
   instances may not target one tier; a pool minted from several
   drafts is a family of same-shaped tiers, one per parent
