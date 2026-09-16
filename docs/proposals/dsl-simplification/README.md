@@ -2,7 +2,10 @@
 
 A proposal, not part of the record. Nothing in `docs/`, `systems/`, or
 `bundles/` is changed by this directory; it argues for changes and
-sequences them. The measurements it rests on are in `evidence/`
+sequences them. Its `dsl-syntax.md` citations are the retired spec
+being analysed rather than a live reference, and
+`docs/dsl/retired-spec-index.md` maps its sections onto the rules that
+replaced them. The measurements it rests on are in `evidence/`
 (seven reports, each scoped to one source so that no single pass had
 to hold the whole spec in view). Numbers in this memo come from those
 reports and are approximate where the reports say so. `seam-pass.md`

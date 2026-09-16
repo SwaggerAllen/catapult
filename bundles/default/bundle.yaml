@@ -1,3 +1,7 @@
+# Every `dsl-syntax.md` citation in this bundle names a retired
+# document. `docs/dsl/retired-spec-index.md` maps its sections onto
+# the rules that replaced them; this tree is rewritten as one
+# declaration file per axis, and the citations go with it.
 name: default
 version: "1.0.0"
 kind: chain
