@@ -902,7 +902,11 @@ scoped to exactly what dispatch needs; the rest of the host port
 Phase 4. Regen-with-feedback threading has since landed (ORC-34,
 above: `feedback`/`prior_review` read straight off engine's own
 projections). Target: review passes, executor-profile routing, the
-shared seam with the runtime dialect kept clean.
+shared seam with the runtime dialect kept clean. The reserved grammar
+this phase gives a consumer to is the `executor:` profile a tier or a
+bundle's `defaults:` declares (`chain.md` #10), routed here and bound
+by llm; a review pass dispatches a tier's `review:` block rather than
+a tier of its own (`chain.md` #14).
 
 ## #51 Depends on
 

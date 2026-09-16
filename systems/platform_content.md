@@ -1122,13 +1122,52 @@ loader tickets carry `system:core_dsl`.
   is row-local and stays `mint.<name>` — `mint.parent.<name>` is only
   for the fields that could never have been row-local in the first
   place.
+- **#64 The default pair is rewritten as one file per axis, and the
+  binding reverses with it.** `bundles/default/chain.yaml` and
+  `bundles/default-flow/workflow.yaml` replace the per-tier,
+  per-edge, per-type and per-gate trees the entries above describe,
+  together with each bundle's manifest and the standalone status,
+  type and escalation files. What stays beside them is what the
+  declaration names: `schemas/<tier>.xsd`, the prompt families, and a
+  flow's own prompts (`bundle.md` #3, #4). Four consequences for this
+  bundle's own content, each naming what it supersedes:
+  1. **No tier names a position.** A generation position lists the
+     tiers that run at it, and a ticket type names the chain flows it
+     serves (`workflow.md` #22, #40), so every `delivery:` block in
+     the entries above goes with `phase:` and `agent_step:`.
+  2. **The two ticket types are `scaffold` and `delta`**, named for
+     the shape of change they serve. `feature` was the wrong name for
+     a type that receives bug fixes and refactors, and it collided
+     with the chain flow the scaffold pass runs.
+  3. **The seventeen review tiers and the reconcile tiers collapse
+     into `review:` and `reconcile:` blocks** on the tiers they belong
+     to (`chain.md` #14, #15), so `tiers/<name>_review.yaml` and the
+     `reviews: <name>` key go.
+  4. **Each tier's context is derived from the edges it and its scope
+     parent declare** (`chain.md` #20), with `context:` adding to the
+     derivation rather than restating it; node identity, a node's own
+     fields and plain cardinality move into the schemas (`bundle.md`
+     #10).
+
+  The rewritten pair is measured against the acceptance bound
+  (`bundle.md` #14): at most 800 lines for the chain file with
+  comments at most a fifth of that, at most 240 for the workflow file.
+
 ## #62 Initial vs target
 
-Initial (Phase 3): default bundle's upstream tiers + ported prompts,
-platform-elixir grammar skeletons. Target: full tier set including
-product tier, `frontend_sysarch`, and the UI and screen families
-(Phase 5), delivery declarations and the client family (Phase 7),
+Initial (Phase 3): default bundle's upstream tiers + ported prompts.
+Target: full tier set including product tier, `frontend_sysarch`, and
+the UI and screen families (Phase 5), the client family (Phase 7),
 runtime-dialect example content (Phase 8).
+
+This bundle is where every reserved construct is declared for the
+first time, so it carries the shape each consumer will read. The flow
+engine's (engine#69): the five plan tiers, their `synthesis` edges,
+the `flows:` block and its walks and completion predicates. Delivery
+Phase 7's (delivery#123): `enforcement:` on `comparch`, the
+`environment:` entries and the gates' `escalation`. The registry's
+(registry#7): `version` on either declaration. Generation's
+(generation#50): the `executor:` profile the chain sets as a default.
 
 ## #63 Depends on
 

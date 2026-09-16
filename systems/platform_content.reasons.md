@@ -394,3 +394,26 @@ stay in the fixture repo indefinitely. Harmless — the dispatch harness
 reads the path the context response names, not a directory listing — but a
 reader of that repo should know the five underscored `.catapult-stub`
 entries are dead.
+
+## #64
+
+One superseding entry rather than edits to each entry above it,
+for `core_dsl`'s #45 reason: the entries above are ticket-attributed
+records of what a named pass decided about a grammar that is being
+replaced, and rewriting them in place would put words in those passes'
+mouths.
+
+The acceptance bound is the reason the file layout changes at all, and
+it is a bound rather than a preference. The community premise (v5 §8)
+is that a project customises its bundle, and "if customising requires
+learning YAML, that premise is half-delivered". The tree this replaces
+carried 51 tier files with 600 lines of header comment and each tier's
+name repeated in three paths, so a newcomer read it by directory
+listing and a diff of a change to it showed nowhere.
+
+`feature` was renamed rather than kept because the name was false of
+the thing: four of the five flows that dispatched into it are bug
+fixes, refactors and propagations, and the fifth is a feature request.
+`scaffold` and `delta` name the shape of the change, which is also
+what the type binds on — a flow carrying an empty schema delta is a
+scaffold.

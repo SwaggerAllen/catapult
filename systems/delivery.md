@@ -1746,9 +1746,16 @@ gate pins," which `systems/engine.md`'s own entry names as untouched
 by the mechanism above.
 Target
 (Phase 7): the whole of v5 §7,
-including the delivery-DSL extension registered with core_dsl, the
-declared review sequences and environments of §7.19, and the outbound
-mirror in place of the Linear adapter.
+including the declared review sequences and environments of §7.19 and
+the outbound mirror in place of the Linear adapter. The reserved
+grammar this phase gives a consumer to, all of it parsed and checked
+at load already (`core_dsl` #43): `enforcement:` on a tier and
+`consistency:` on an edge (`chain.md` #16, #25); the ticket
+skeleton's relative order enforced against dispatch, a gate's
+`escalation`, and `environment:` entries with every environment key
+(`workflow.md` #12, #32, #38). What does *not* arrive with it is a
+tier-side annotation block: the cross-axis binding is the workflow's,
+and a tier carries no delivery key at all (`bundle.md` #11).
 
 ## #124 Depends on
 

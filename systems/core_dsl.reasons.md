@@ -319,3 +319,25 @@ dispatch/fixture-coverage totals (it has no `draft:` for
 `Sweeper.dispatchable?/1` to match, same as every join-target tier);
 `ref`'s absence from the swept set is `systems/generation.md`'s own ORC-236
 entry.
+
+## #45
+
+Stated as one superseding entry rather than as edits to each entry it
+touches, because the entries above are ticket-attributed records of
+what a named pass decided, and rewriting them in place would put
+words in those passes' mouths. What a later reader needs is which
+rules still bind, and an entry that names them is checkable in a way
+fifteen silently amended entries are not.
+
+The changes themselves are argued in
+`docs/proposals/dsl-simplification/seam-decisions.md`, each with the
+argument against it and the author's decision; `bundle.reasons.md`,
+`chain.reasons.md` and `workflow.reasons.md` carry the reason behind
+every rule of the contract. The one reason worth repeating here,
+because it is the one a later pass would otherwise re-derive: the
+cross-axis reference runs from the workflow because the workflow is
+the file a project forks, and a gate needs an ordering point, so
+gating between two tiers batched at one position splits that position
+and renames it. Under the other direction that renames every tier
+naming it — eight of them at the default chain's architecture
+position.

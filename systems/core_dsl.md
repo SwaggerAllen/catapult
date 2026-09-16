@@ -817,12 +817,84 @@ profiles.
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
 
+- **#45 The DSL redesign replaces the grammar the entries above
+  describe, and the loader's shape with it.** The contract is
+  `bundle.md`, `chain.md` and `workflow.md`, each rule carrying an id
+  and a reason; the argument behind each change is in
+  `docs/proposals/dsl-simplification/`. Five changes, each naming the
+  entries it supersedes:
+  1. **Each axis is one declaration file.** `chain.yaml` carries every
+     tier, edge, flow and predicate; `workflow.yaml` every type, gate
+     and environment (`bundle.md` #3, #4). The per-file declaration
+     kinds go, and the manifest with them. #7's `catapult.yaml` rule
+     stands unchanged; #14's one-declaration-shape rule stands as one
+     `types:` block rather than one file format across three
+     directories; #29's "single directory of authored content"
+     narrows to a single file plus the schemas and prompts that file
+     names.
+  2. **The cross-axis reference runs from the workflow.** A generation
+     position names the tiers that run at it and a ticket type names
+     the chain flows it serves (`workflow.md` #22, #40); nothing in
+     `chain.yaml` names a position, a gate or a type. This reverses
+     #11: the workflow now has vocabulary for the chain's flows, and
+     the pairing is a load error rather than a convention.
+  3. **A review and a reconcile are blocks on the tier they belong
+     to** (`chain.md` #14, #15). #9's `reviews: <tier>` retires with
+     the review tier itself, and so does the load rule checking that a
+     review tier's walks match the reviewed tier's, which existed only
+     because the copy existed.
+  4. **`design`, `architecture` and `implementation` stop being
+     kinds** and return as `name:` values on generation entries
+     (`workflow.md` #10); the fixed table is the set of shapes plane
+     logic branches on. The agent-balled kind enumerations in #17,
+     #20, #23 and #27 shrink accordingly. `pending` leaves the table
+     altogether — it is an engine flag every agent-balled position
+     carries until an agent picks the work up, not an entry
+     (`workflow.md` #25) — which supersedes the per-sub-array
+     `pending` rules in #17, #19, #23, #25, #26 and #28.
+  5. **A fact about one document is the schema's** (`bundle.md` #10):
+     node identity, which elements are fields, and plain cardinality
+     are annotations and occurrence bounds in the XSD, so the loader
+     stops carrying rows nothing enforced. A join target declares
+     `draft: none` rather than being recognised by the absence of a
+     draft (`chain.md` #8), which is what #30 keyed its mint-time
+     default on.
+
 ## #43 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
-set (delivery annotations arrive with delivery). Target: full
-extension registry with delivery + runtime dialects registered;
-bundle-diff support for the registry's handle machinery.
+set. Target: the single-file loader for `chain.yaml` and
+`workflow.yaml` (`bundle.md` #3, #4); full extension registry with
+delivery + runtime dialects registered; bundle-diff support for the
+registry's handle machinery.
+
+The loader parses and checks reserved grammar now, so a bundle written
+against it does not change shape when the consumer lands (`bundle.md`
+intro). Each reserved construct and the ticket that will read it:
+
+- **The flow engine** (engine#69): the `cascade_visit` scope, the
+  `synthesis` edge type, `flows:` and every key inside it, a flow's
+  `completion` predicate, the walk primitives, and the plan cascade's
+  positions and derived context (`chain.md` #6, #26, #38, #40, #41).
+- **Delivery Phase 7** (delivery#123): `enforcement:` on a tier,
+  `consistency:` on an edge, the ticket skeleton's relative order
+  enforced against dispatch, gate `escalation`, and `environment:`
+  entries with every environment key (`chain.md` #16, #25;
+  `workflow.md` #12, #38).
+- **Generation** (generation#50) and **the LLM bindings** (llm#6):
+  `executor:` profiles, routed by generation and bound by llm
+  (`chain.md` #10).
+- **The registry** (registry#7): `version` on either manifest, the
+  `external`, `template`, `git_commit` and `webhook` generators,
+  extension context-source kinds, and annotation namespaces
+  (`chain.md` #39; `bundle.md` #5, #8).
+- **Identity** (identity#6): a gate's `role` checked against the
+  holders the identity component knows (`workflow.md` #32).
+- **The commit path**: a `fanout` instance's `when:` predicate, and
+  validation of a `template` generator's rendered body (`chain.md`
+  #37, #39).
+- **This doc**: the reference write path behind a supplied tier's
+  `source: write` (`chain.md` #17).
 
 ## #44 Depends on
 
