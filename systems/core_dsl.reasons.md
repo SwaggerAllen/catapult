@@ -16,13 +16,13 @@ change is the sentence right after: "a platform-versioned event with a
 migration story." This entry is that story. All four landed inside a
 content-porting ticket rather than a dedicated `core_dsl` ticket, under
 that ticket's design-review sign-off, because a missing DSL construct is a
-`docs/dsl-syntax.md` proposal, not a reason to ship the bundle without the
-capability — and not a gap to record as a non-goal in its place;
-`mint.<name>` (§3's join-target field-source addendum) landed the same way.
-Design review's sign-off is the reviewed change; a dedicated ticket would
-be re-litigating a decision already made in daylight, not making a new one.
-Every addition is additive to the closed sets it extends (no existing
-bundle content stops parsing) and ships with loader tests
+`chain.md` proposal, not a reason to ship the bundle without the capability
+— and not a gap to record as a non-goal in its place; `mint.<name>` (§3's
+join-target field-source addendum) landed the same way. Design review's
+sign-off is the reviewed change; a dedicated ticket would be re-litigating
+a decision already made in daylight, not making a new one. Every addition
+is additive to the closed sets it extends (no existing bundle content stops
+parsing) and ships with loader tests
 (`test/catapult/dsl/context_walk_test.exs`,
 `test/catapult/dsl/loader_test.exs`) exercising the new productions
 directly, not only through `bundles/default/`'s own use of them. Revisit
@@ -208,18 +208,17 @@ and the two stay in step because both are keyed on `bare`.
 A second question gets asked of the same set, and ORC-155's `name:` is what
 pulls it apart from the first: does this entry's own *runtime position* —
 its `status:`/`review:`/`environment:` value, the field every `position()`
-constructor reads and `name:` never touches (`docs/dsl-syntax.md` §15.12:
-"Every load-time predicate, and every plane branch, still reads the kind —
-never the name") — recur elsewhere in the array, so that two occurrences
-collide once reduced to `{:kind, atom}` and need their anchor carried at
-runtime regardless of whether they're also nameable apart? Before `name:`
-existed the two questions had one answer, because bare **was** kind.
-`name:` was built precisely so two same-kind entries could carry distinct
-labels (`docs/dsl-syntax.md` §15.12, ORC-155) — and a bundle exercising
-exactly that, two `status: pending` entries with distinct `name:`
-overrides, now recurs on kind while *not* recurring on bare: `canonical`
-reads "unambiguous" for both (their names don't collide, the point of
-naming them), while `Catapult.Delivery
+constructor reads and `name:` never touches (`workflow.md` #10: shapes are
+all the engine knows about a position) — recur elsewhere in the array, so
+that two occurrences collide once reduced to `{:kind, atom}` and need
+their anchor carried at runtime regardless of whether they're also
+nameable apart? Before `name:` existed the two questions had one answer,
+because bare **was** kind. `name:` was built precisely so two same-kind
+entries could carry distinct labels (`workflow.md` #7, ORC-155) — and a
+bundle exercising exactly that, two `status: pending` entries with
+distinct `name:` overrides, now recurs on kind while *not* recurring on
+bare: `canonical` reads "unambiguous" for both (their names don't collide,
+the point of naming them), while `Catapult.Delivery
 .FeatureLifecycle.Sequence.to_position/1` — reading `status:`, never
 `name:` — still builds `{:kind, :pending}` for both. Reproduces the "first
 occurrence wins, silently" failure ORC-171 fixed, through the one door
@@ -287,11 +286,11 @@ silently. The bundle-content rule, landing with the widened check: the six
 tiers' `produces:` `authored:` values are spelled the hyphenated way the
 schemas declare — the schemas and the fixture are the correct side, and
 only the tier files reading them are wrong. `techspec` itself — the
-fragment *kind* name and the `fields:` key alike, as in `dsl-syntax.md`
-§3's `mint.parent.techspec` example and the `subcomp.parent_techspec` one
-below — is a single word and is spelled correctly. What those examples name
-is empty all the same while the `authored:` source beneath it is misspelled
-— `comparch`'s own `techspec` fragment carries `nil`, so
+fragment *kind* name and the `fields:` key alike, as in `chain.md` #12's
+`mint.parent.techspec` example and the `subcomp.parent_techspec` one below
+— is a single word and is spelled correctly. What those examples name is
+empty all the same while the `authored:` source beneath it is misspelled —
+`comparch`'s own `techspec` fragment carries `nil`, so
 `mint.parent.techspec` copies nothing across every tier that reads it — the
 identical silent-empty-context failure mode the widened check exists to
 close.

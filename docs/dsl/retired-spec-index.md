@@ -56,7 +56,7 @@ rule went missing.
 | §15.3 | The array is the only ordering mechanism, and there is no `after:` | `workflow.md` #12 and #16 state the relative orders the array carries. **No rule restates the absence of `after:`**, because no key was ever added to refuse |
 | §15.4 | Gate and environment declarations | `workflow.md` #31 through #36 for gates, #37 through #39 for environments; `depth:` on a citation is #33 |
 | §15.5 | `critique` paired with a peer generation entry | `workflow.md` #26 |
-| §15.6 | Nesting, and the declaration graph that bounds it | `workflow.md` #9 for `flow:`, #28 for depth filtering. **The declaration-graph acyclicity check has no rule here**; it is the loader's, `core_dsl` #14 |
+| §15.6 | Nesting, and the declaration graph that bounds it | `workflow.md` #9 for `flow:`, #28 for depth filtering. **The declaration-graph acyclicity check has no rule here**; it is the loader's, `systems/core_dsl.md` #15 |
 | §15.7 | Queues, dispatch, blocking | `workflow.md` #16 through #19 for the container backbone, #29 and #30 for queue-shaped types, #9 for `flow:` |
 | §15.8 | Mint versus activation | `workflow.md` #19 |
 | §15.9 | The declarable-protocol narrowing | `workflow.md` #10, #30 |
@@ -92,3 +92,45 @@ that rule. The checks cited most often, and where they live:
   `chain.md` #32
 - a draft validated against its schema before its event lands:
   `chain.md` #33
+
+## The sites that still cite it, and why
+
+Forty-three sentences in `systems/*.md` still name the retired spec.
+Each was left on purpose: the sentence states a rule the redesign
+reversed, so repointing it would make the doc assert something the
+cited rule contradicts. Each needs its sentence decided, not its
+citation fixed. They fall into five reversals.
+
+- **Positions namespaced by their sub-array.** `<anchor>.<name>` was
+  the qualified form and each sub-array its own namespace; names are
+  now one namespace per type and a reference resolves by bare name
+  within it (`workflow.md` #7, #8). Sites: `delivery.md` 1164, 1169,
+  1186, 1218, 1284, 1290; `delivery.reasons.md` 461; `dashboard.md`
+  177; `dashboard.reasons.md` 58; `core_dsl.md` 468, 471, 551.
+- **`pending` as a declared entry.** It is an engine flag every
+  agent-balled position carries (`workflow.md` #25), so the
+  opens-with-pending, pending-precedes and sub-array-head rules have
+  nothing to attach to. Sites: `delivery.md` 310; `delivery.reasons.md`
+  499.
+- **`design`, `architecture` and `implementation` as status kinds.**
+  They are `name:` values on generation entries (`workflow.md` #10).
+  Sites: `delivery.md` 625, 1156; `delivery.reasons.md` 193;
+  `platform_content.md` 469.
+- **A fan-out child running a second declared type.** A child runs the
+  declared sequence filtered to its depth (`workflow.md` #28). Sites:
+  `delivery.md` 1115, 1142; `dashboard.md` 229; `platform_content.md`
+  473. This one is not settled: the rule as written filters citations,
+  and what makes a generation position empty below the root is the
+  scope of the tiers listed there, which no rule states.
+- **`scope: reference`, `generator: reference`, and `reviews:`.** A
+  ref is a supplied tier with no scope (`chain.md` #5, #17), and a
+  review is a block on the tier it reviews (`chain.md` #14). Sites:
+  `core_dsl.md` 70, 689, 729; `engine.md` 246, 251, 462;
+  `engine.reasons.md` 182; `generation.md` 127; `platform_content.md`
+  170, 208, 340, 1001, 1009, 1041, 1059;
+  `platform_content.reasons.md` 342.
+
+Two more sit outside those five: `core_dsl.md` 116 and 376 are entries
+already marked superseded by the entry below them, and `core_dsl.md`
+225 and `delivery.md` 318 state that a gate with no earlier entry must
+declare `throwback:`, where `workflow.md` #35 now lets it have none.

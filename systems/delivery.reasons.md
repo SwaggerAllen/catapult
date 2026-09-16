@@ -61,11 +61,11 @@ ticket; giving a container instance file-map paths of its own for the mutex mapp
 key against, the identical shape a ticket's paths already take; keying `DispatchRun`
 on the container instance's id in that case rather than assuming a ticket id — is
 Target (Phase 7), unticketed: revisit when it is actually needed rather than the
-per-entry synthetic flow. What `main`'s `blocks: [retro]` (§15.7) means once `retro`
-is `milestone`'s own inline entry rather than a population of unresolved child
-tickets: `retro` cannot be *entered* while `main`'s own queue still carries unresolved
-work — the identical entry-guard test §15.7 states generally (the `blocks:` entry
-below), applied to a guarded entry that is not itself a queue.
+per-entry synthetic flow. What `main`'s `blocks: [retro]` (`workflow.md` #18) means
+once `retro` is `milestone`'s own inline entry rather than a population of unresolved
+child tickets: `retro` cannot be *entered* while `main`'s own queue still carries
+unresolved work — the identical entry-guard test `workflow.md` #18 states generally
+(the `blocks:` entry below), applied to a guarded entry that is not itself a queue.
 
 ## #25
 
@@ -86,7 +86,7 @@ bound for.
 
 This is also what keeps the `terminal` guard two bullets up reachable at all: the
 shipped `milestone`'s only throwback to `main` is `milestone-signoff`, sequenced
-*before* `retro` (`dsl-syntax.md` §15.10), so absent this manual return `retro` filing
+*before* `retro` (`workflow.md` #16), so absent this manual return `retro` filing
 work into `main` would leave `cleanup`/`terminal` blocked with no declared path back.
 Every site the retired reading reached states this rule (ORC-177, merged `27e0bff`):
 `Catapult.Delivery.ContainerLifecycle`'s `next_commands/2` performs no population
@@ -99,8 +99,8 @@ transition above, is that mechanism's own vocabulary to add once it is built, no
 anticipated here. `container_lifecycle_test.exs` asserts against what replaces the
 walk, below, never `reason: :repopulated`.
 
-Position needs no re-derivation, because there is nothing left to derive: §15.8
-retires position being a function of queue population at all. `next_commands/2` has no
+Position needs no re-derivation, because there is nothing left to derive: position
+is not a function of queue population at all. `next_commands/2` has no
 `earliest_unresolved/4` pre-check — deleted, not repurposed — and dispatches straight
 to `forward_or_open/3` on every event. A container's position sits wherever the last
 forward advance or one of the two remaining backward-move causes (a step's own
@@ -279,7 +279,7 @@ Attaching it to the close says the same thing about the same container without a
 the grammar for a magic word, and says it about *every* container — including one
 whose author declared no backward-looking entry at all, which a `retro`-named check
 would have let close over its findings silently. This is not a `blocks:` relation
-either way (`dsl-syntax.md` §15.7's `blocks:` is an entry guard, checked once at
+either way (`workflow.md` #18's `blocks:` is an entry guard, checked once at
 transition, ORC-148): nothing gates *entry into* `retro` on its own findings, since
 the findings are what `retro` itself produces and adjudicates after it has already
 begun. **In the shipped `milestone` type, `retro` is followed by `proposals-read`,
@@ -291,7 +291,7 @@ directly, so there is nothing for `checks`/`reconcile`/`merge` to check, join or
 The finding-adjudication close gate above sits on `retro` itself, ahead of whatever
 follows it, never on `cleanup`; `setup` takes the identical shape — both agent steps
 drop the same three entries for the same reason, `setup` gaining a `kickoff-review`
-gate in their place (`dsl-syntax.md` §15.2, §15.12).
+gate in their place (`workflow.md` #5, #19).
 
 ## #50
 
@@ -336,7 +336,7 @@ merge-forward machinery nothing to do.
 
 No tier in `bundles/default/tiers/*.yaml` declares a target-repo location for its own
 draft — `draft:`'s `root_tag`/`grammar` name a validation contract, not a place in a
-shipped project's tree, and nothing else in `dsl-syntax.md` fills that gap either.
+shipped project's tree, and nothing else in `chain.md` fills that gap either.
 Deciding the real one — whether a shipped project ever sees this XML at all, or
 whether a rendering step turns it into the kind of prose `systems/*.md` in *this* repo
 is, and where that step would live — is a bundle-grammar question
@@ -747,7 +747,7 @@ half. `tickets_for_project/1` reads `EngineFlow` rows, and the only place shippe
 ever dispatches `Catapult.Engine.Commands.OpenFlow` is
 `Catapult.Delivery.ContainerLifecycle.open_inline/3` — reachable only from a
 *workflow-bundle* container reaching a non-queue-shaped, non-review-shaped array entry
-(`docs/dsl-syntax.md` §15.7). Nothing in `lib/catapult/generation/**` ever dispatches
+(`workflow.md` #19). Nothing in `lib/catapult/generation/**` ever dispatches
 `OpenFlow` or `MintContainer` for a chain-axis node, and a toy-seed project intakes no
 workflow-bundle content at all, so `tickets_for_project/1` returns nothing for it, on
 every poll, forever — `ApproveGate` itself requires a `flow_id` valid against the

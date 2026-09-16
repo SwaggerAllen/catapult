@@ -68,8 +68,8 @@ larger scope are failures any component can commit, backend or not. **The
 comp with no natural subcomponent split skip fanning out to subcomponents
 entirely (impl attaching directly to the comp); expressing that as a scope
 needs a union this ticket's closed scope-expression set (`singleton |
-per(X) | child_of(X)`, dsl-syntax.md §3.1) has no form for (`per(subcomp)
-OR per(comp where count(subcomponents)==0)`). Dropped as a content
+per(X) | child_of(X)`, `chain.md` #6) has no form for (`per(subcomp) OR
+per(comp where count(subcomponents)==0)`). Dropped as a content
 simplification, not carried forward silently: `decomposition`'s
 comparch→subcomp instance declares `source: {min: 1}`, making every comp
 fan out into at least one subcomponent.
@@ -107,11 +107,11 @@ its consumers, unrelated to distillation.
 ## #19
 
 `comparch.yaml`'s own comment records why: `all.policy` is unfiltered by
-construction (dsl-syntax.md §7.2) and would return every resp- and
-comp-scoped policy too, indiscriminate noise next to the grains a tier
-already reads explicitly. A scope-filtered "only the unscoped grain" read
-has no expression in this DSL, and supplying one is a `core_dsl` question,
-not bundle content; a consumer that wants `all.policy`'s indiscriminate
+construction (`chain.md` #19) and would return every resp- and comp-scoped
+policy too, indiscriminate noise next to the grains a tier already reads
+explicitly. A scope-filtered "only the unscoped grain" read has no
+expression in this DSL, and supplying one is a `core_dsl` question, not
+bundle content; a consumer that wants `all.policy`'s indiscriminate
 reading on its own merits (reconciliation, whose job is project-wide by
 nature, is the plausible first taker) wires it against its own need.
 
@@ -200,9 +200,9 @@ have made someone notice, and closing it for real means either admitting
 over feedback — narrowing, not repealing, §9's "review-tier alone" rule —
 or replacing the verbatim-preservation instruction with something
 achievable without it. It is a standing-invariant question spanning
-`dsl-syntax.md` §9/§3.3, `systems/generation.md`'s own restatement of the
-same rule, and this doc, not a call-convention fix — named here rather
-than silently carried forward as unenforceable prompt text.
+`chain.md` #35, `systems/generation.md`'s own restatement of the same
+rule, and this doc, not a call-convention fix — named here rather than
+silently carried forward as unenforceable prompt text.
 
 ## #29
 
@@ -211,7 +211,7 @@ With none of `partials/_architecture_framing`'s thirteen call sites across
 its scope and its `{% if feedback.size > 0 %}` block never fired, on any
 tier or flow — an inert guard masking two live defects, not a hook waiting
 on a future caller. `draft` never enters that scope either way: it is
-generation-prompt-off-limits by `dsl-syntax.md` §9's own design
+generation-prompt-off-limits by `chain.md` #35's own design
 (`Catapult.Generation.ContextAssembly.build_variables/5` sets it only for
 a review tier's own dispatch), and every one of the thirteen call sites is
 a generation tier.

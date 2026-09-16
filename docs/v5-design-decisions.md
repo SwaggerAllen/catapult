@@ -2250,7 +2250,7 @@ a runtime check over container *instances*.** It is a static check of
 the declaration graph itself — **nodes are every type with a
 queue-shaped anchor, edges are `flow:` references between them** —
 which must be acyclic, with a type naming itself the degenerate
-one-node case of the same rule (`workflow.md` #9, `core_dsl#14`). A `flow:` edge
+one-node case of the same rule (`workflow.md` #9, `systems/core_dsl.md` #15). A `flow:` edge
 whose target resolves to a `ticket`-skeleton type takes no part in
 this graph — a `ticket`-skeleton type declares no further `flow:` of
 its own, so it is always a leaf. Skeleton-less types are nodes

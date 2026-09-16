@@ -73,7 +73,7 @@ them.
   `all`/`any`, `reaches`) needs live graph state the same way a context
   walk does. Built as the shared home for the predicate language's
   other three slots (`cardinality.when`, an edge `constraint`, a flow
-  `completion`, `dsl-syntax.md` §8) when their own tickets land, not a
+  `completion`, `chain.md` #37) when their own tickets land, not a
   one-off for this slot alone.
 - **#8 `input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
   a real target, never `{:error, :unsupported}`** (ORC-107, closing the
@@ -93,7 +93,7 @@ them.
   targets}` generically — `Enum.all?(targets, &(&1.status == :approved))` on an empty list is
   vacuously true, `Enum.any?(targets, &target_newer?/2)` on an empty list is vacuously false. Neither
   module carries a line for this: an `input.<role>` walk is therefore *structurally* incapable of
-  blocking readiness or reporting staleness, which is dsl-syntax.md §7's "a role with no documents
+  blocking readiness or reporting staleness, which is `chain.md` #22's "a role with no documents
   never blocks readiness" and v5 §1.1's "an input-doc edit... stales nothing" — both already true of
   every `{:ok, []}` regardless of source, so neither invariant needs a bespoke branch written *for*
   it.
@@ -111,7 +111,7 @@ them.
   machinery — a second traversal implementation is the drift risk, not
   the convenience.
 - **#12 Navigation edges get no second check in the engine.** `Catapult.Dsl.Chain` already refuses
-  to load a context walk that traverses a `navigation: true` edge (dsl-syntax.md §4, §13) — the
+  to load a context walk that traverses a `navigation: true` edge (`chain.md` #19, #23) — the
   readiness and explain-why queries walk only what the loader already proved is readiness-bearing, and
   add no redundant edge-kind filter of their own.
 - **#13 Creation is not dispatchability, and the engine needs no new node
@@ -306,7 +306,7 @@ them.
   entry onto `Store.mint_node/1` without the reducer deriving anything;
   the mint entry also carries `fields:` — every
   `mint.<name>`/`mint.parent.<name>` value `Extraction.mints/4`
-  resolved at the command edge (`docs/dsl-syntax.md` §3,
+  resolved at the command edge (`chain.md` #12, #32,
   `systems/core_dsl.md`'s ORC-236 entry) — and `apply_mint/2` copies it
   onto the same call, alongside `status`. No reducer branch derives
   them and the purity floor is not exposed: the values are computed,
@@ -344,7 +344,7 @@ them.
   fanout-minted, and its one node's `scope_key` is the flat `%{}` every
   `scope: singleton` tier shares — an id lookup against it can never
   match. That instance resolves through the `scope: singleton` endpoint
-  locator instead (`docs/dsl-syntax.md` §4.2), which is
+  locator instead (`chain.md` #27), which is
   `resolve_target/3`'s second clause: a `scope: singleton` target
   resolves by `Store.get_node_by_scope(project_id, target_tier, %{})`,
   no id involved, selected by the tier's own declared scope rather than
@@ -356,7 +356,7 @@ them.
 
 - **#29 A fanned-out child cannot leave its parent's workflow-axis sub-array, and this is a
   consequence of readiness already gating, not a new rule for this system to enforce** (ORC-115,
-  design pass — stated as an invariant `docs/dsl-syntax.md` §15.10's sub-array grouping and ORC-116's
+  design pass — stated as an invariant `workflow.md` #6's sub-array grouping and ORC-116's
   own subflow-navigation design both lean on).
 
 - **#30 Sweeper cadence defaults to 30s, `tunable`** (v5 §7.10's bindings surface, same mechanism as
@@ -483,14 +483,14 @@ them.
 
 - **#47 Container and workflow-axis lifecycle events land on the same
   single per-project aggregate, not a second one** (ORC-104;
-  `docs/dsl-syntax.md` §15.6-§15.8, `docs/v5-design-decisions.md`
+  `workflow.md` #16, #19, `docs/v5-design-decisions.md`
   §7.8). A container instance's
   mint, its activation, each move of its current queue — forward past
   a resolved gate, or backward on a step's own outcome (a decline, from
   a `critique` entry's own agent run, landing on the generation entry
   it pairs with, or from a human at a gate, landing per its
   `throwback:` — one mechanism per §7.19, not two) or an explicit
-  author transition, never on a queue's population refilling (§15.8)
+  author transition, never on a queue's population refilling
   — a carried finding's filing or decline, and a milestone's flag-set
   flip are none of them derivable
   from anything already in the log: nobody else records "this
@@ -525,7 +525,7 @@ them.
 
 - **#49 Membership is derived by reference, never a stored list — the
   queue-as-query principle applied one level up** (ORC-104;
-  ORC-105's grammar, `dsl-syntax.md` §15.6-§15.7,
+  ORC-105's grammar, `workflow.md` #16, #18,
   `docs/v5-design-decisions.md` §7.8's "containers and projects alike
   keep references to their work items even once archived"). A
   container's access path to its own work is answerable from each work
@@ -541,8 +541,8 @@ them.
   current queue position per container instance in the same shape the
   ninth projection already gives current bundle version — one row per
   instance, current queue and the sequence it became current — since
-  "which instance is minted vs. which is active" (`dsl-syntax.md`
-  §15.8) is exactly that same two-fact shape, mint recorded once and
+  "which instance is minted vs. which is active" (`workflow.md`
+  #19) is exactly that same two-fact shape, mint recorded once and
   activation a later, separate write to the same row.
 - **#50 Membership is a version bump on the opening event, not a new table.** `container_id` and
   `queue` are set once, at open — which means they are fields on the event that opens a work item, so
@@ -705,7 +705,7 @@ them.
   "earlier in the array" test `Catapult.Dsl.Workflow`'s own `gate_throwback_problems/2` runs at load
   time for a *declared* `throwback:` value, reused at the command edge as a runtime check, since
   ORC-115 makes the declared `throwback:` a single-target override on the derived default rather than
-  the bound on legality, `docs/dsl-syntax.md` §15.10, §15.4) — is the command edge's to check, not
+  the bound on legality, `workflow.md` #34) — is the command edge's to check, not
   `execute/2`'s**: the container commands this entry points to as precedent validate bundle content at
   their own dispatcher, `Catapult.Delivery.ContainerLifecycle`, and reject in `execute/2` only against
   the aggregate's own pure state — this aggregate's own moduledoc states that split ("never against
@@ -717,7 +717,7 @@ them.
   **A decline requires at least one comment; there is no free-text override.** `docs/ui-spec.md`
   §3.2's own `document -review` action set is "approve / throw back," target chosen from the gate's
   own declared `throwback:` when it names one, its derived default otherwise, or the earlier-prefix
-  picker for anything else (ORC-115, `docs/dsl-syntax.md` §15.4) — no reason field — so the screen
+  picker for anything else (ORC-115, `workflow.md` #34) — no reason field — so the screen
   this command answers to specs exactly the simpler rule: `DeclineGate` is rejected outright,
   synchronously, at the point of action, when the aggregate's own comment counter has not advanced
   past the mark it recorded for `gate` at that gate's last resolution — pure aggregate state, no store
@@ -886,7 +886,7 @@ them.
   but neither event ever touched `Node.status`, so a node reached
   `:drafted` and stayed there and `ReadyScopes.ready/3`'s
   `Enum.all?(targets, &(&1.status == :approved))` never turned true for
-  anything downstream of it (dsl-syntax.md §7). The fix is at the
+  anything downstream of it (`chain.md` #22). The fix is at the
   dispatch side, not the read side — the identical shape ORC-117's
   join-target fix above takes. A process manager,
   `Catapult.Delivery.DraftResolution` (`systems/delivery.md`, below),
@@ -900,7 +900,7 @@ them.
   approved is answerable from the object" holds for a draft the
   identical way it already holds for a gate.
 - **#65 Approve only when the resolving gate is the review group's own last one; decline discards
-  unconditionally.** A gate's own citing sub-array (dsl-syntax.md §15.10) may hold more than one
+  unconditionally.** A gate's own citing sub-array (`workflow.md` #6) may hold more than one
   `review:` entry ahead of `checks` — `feature.yaml` ships two, `ux-review` then `engineering-review`,
   both reviewing the same single node (Phase 4's own mapping, above) — and marking the node
   `:approved` the moment the first of them passes would let a downstream context walk dispatch before
@@ -935,9 +935,9 @@ them.
   against a node already moved past that draft (approved, discarded, or superseded by a fresh commit)
   is a rejection, not a second event.
 - **#68 The review score stays parked.** Nothing here reads `ReviewWritten.score` —
-  `docs/dsl-syntax.md` §15.10's "a parked scheduler item, §7.19, not bundle content" stands, and
-  `ApproveDraft` dispatches only off a human's `GateApproved`, never off a review tier's own automated
-  pass.
+  threshold-based gating stays a parked scheduler item rather than bundle content
+  (`docs/v5-design-decisions.md` §7.19), and `ApproveDraft` dispatches only off a human's
+  `GateApproved`, never off a review tier's own automated pass.
 
 ## #69 Initial vs target
 

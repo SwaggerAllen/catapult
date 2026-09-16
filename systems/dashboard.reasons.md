@@ -65,19 +65,20 @@ name without naming any of the three specifically.
 ## #19
 
 What a non-root instance's own `deploy` would mean stays exactly as open as
-`docs/dsl-syntax.md` §15.11 leaves it; this bullet only says the board renders nothing for
+`workflow.md` #28 leaves it; this bullet only says the board renders nothing for
 that gap, not what fills it.
 
 ## #22
 
-§15.11's declared fan-out depth is what lets the roll-up-shape bullet (cross-type count vs.
-per-lane) resolve entirely from the type, and what lets the bullet above it resolve a type's
-own lane set — the union of every tree-shape's effective sequence — the same way. That
-bullet's other rule does not clear the same bar: "a lane never shows a card whose own resolved
-sequence excludes it" means knowing whether **this instance** has children, and
-`docs/dsl-syntax.md` says twice that no declaration states that — "whether a given instance
-runs [`reconcile`] is a fact about that instance's own children, not a declared ceiling"
-(§15.11; restated at §13). That fact takes exactly the relationship this bullet says is
+`workflow.md` #28's declared fan-out depth is what lets the roll-up-shape bullet
+(cross-type count vs. per-lane) resolve entirely from the type, and what lets the
+bullet above it resolve a type's own lane set — the union of every tree-shape's
+effective sequence — the same way. That bullet's other rule does not clear the same
+bar: "a lane never shows a card whose own resolved sequence excludes it" means knowing
+whether **this instance** has children, and no declaration states that: whether a
+given instance runs `reconcile` is a fact about that instance's own children, not a
+declared ceiling (`workflow.md` #28). That fact takes exactly the relationship this
+bullet says is
 missing: `board` cannot distinguish a leaf card from one with children, both reading the
 identical type-and-depth sequence, so a leaf card can sit in a `reconcile` lane it never
 reaches — the case that rule exists to prevent. Enumerating which flows are a given ticket's

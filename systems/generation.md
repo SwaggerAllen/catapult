@@ -97,8 +97,8 @@ and validation logic and must not fork it.
   scope, parent-inherited `mint.parent.<name>` off the committing
   tier's own `fields`/`produces` values, both already local by the time
   `mints:` is built); `Extraction.references/5` resolves the
-  `source_ref:`/`target_ref:` locators `docs/dsl-syntax.md`
-  §4.2 and `systems/core_dsl.md`'s ORC-236 entry describe, which is
+  `source_ref:`/`target_ref:` locators `chain.md`
+  #27 and `systems/core_dsl.md`'s ORC-236 entry describe, which is
   what reaches every `dependency` and `reference`/`fulfills` instance
   the source-identity gate alone excludes; and `Extraction.mints/4`
   (not `references/5`) also reads `policy_application`'s two
@@ -155,7 +155,7 @@ and validation logic and must not fork it.
   prompt actually receives rather than only about what the loaded
   bundle happens to declare.
   `:synthesis` needs no clause: it is not in the projection
-  vocabulary (`docs/dsl-syntax.md` §7,
+  vocabulary (`chain.md` #19,
   `systems/core_dsl.md`'s ORC-236 entry), so `render_node/2`'s
   projection match is total over `:handle`/`{:fragments, kind}` with
   nothing left unhandled.
@@ -335,7 +335,7 @@ and validation logic and must not fork it.
   `Engine.Store.reviews_for_node/2` — beside the
   `ContextResolver.resolve/2` and `Store.fragments/2` reads it already
   makes for everything else it renders. Both are unconditional, unlike
-  `draft`: neither is review-tier-only (`docs/dsl-syntax.md` §9/§3.3,
+  `draft`: neither is review-tier-only (`chain.md` #35,
   which also carries their rendered shapes).
 
 - **#28 `ContextAssembly` renders an `input.<role>`/`input.*` entry from a
@@ -354,7 +354,7 @@ and validation logic and must not fork it.
   same cross-boundary shape `draft_variable/2` already uses for
   `Delivery.get_draft_body/2`, and sets the result as a **plain
   string** variable — keyed by role name for `input.<role>`, or the
-  reserved word `raft` for the wildcard (`dsl-syntax.md` §9, both
+  reserved word `raft` for the wildcard (`chain.md` #19, #35, both
   settled there). A role with no pinned documents is left out of the
   variables map entirely, the same omission-is-the-contract shape this
   module already uses for `feedback`/`prior_review` above — never
