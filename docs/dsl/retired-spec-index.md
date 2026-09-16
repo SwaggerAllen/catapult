@@ -93,41 +93,41 @@ that rule. The checks cited most often, and where they live:
 - a draft validated against its schema before its event lands:
   `chain.md` #33
 
-## The sites that still cite it, and why
+## Who still cites it
 
-Twenty-seven sentences in `systems/*.md` still name the retired spec.
-Each was left on purpose: the sentence states a rule the redesign
-reversed, so repointing it would make the doc assert something the
-cited rule contradicts. Each needs its sentence decided, not its
-citation fixed. They fall into five reversals.
+No document in `docs/`, `systems/`, `screens/` or `seed-docs/` cites a
+section of the retired spec any more. Every one of those citations was
+read and repointed at the rule that replaced it, or dropped where the
+sentence already stated its rule.
 
-- **Positions namespaced by their sub-array.** Not a reversal after
-  all, and the sites are repointed rather than left: `<anchor>.<name>`
-  inside a sub-array and a bare name at the top level both survive
-  (`workflow.md` #7, #8).
-- **`pending` as a declared entry.** It is an engine flag every
-  agent-balled position carries (`workflow.md` #25), so the
-  opens-with-pending, pending-precedes and sub-array-head rules have
-  nothing to attach to. Sites: `delivery.md` 310; `delivery.reasons.md`
-  499.
-- **`design`, `architecture` and `implementation` as status kinds.**
-  They are `name:` values on generation entries (`workflow.md` #10).
-  Sites: `delivery.md` 625, 1157; `delivery.reasons.md` 193.
-- **A fan-out child running a second declared type.** Settled, and the
-  sites are fixed. One type serves every depth, a position's depth
-  comes from the tiers it lists, and a ticket stands at a position
-  when its own depth is at most the deepest tier there (`workflow.md`
-  #28). A child exists only where a fan-out spawns one, which no
-  product-tier fan-out does (#41, `chain.md` #42).
-- **`scope: reference`, `generator: reference`, and `reviews:`.** A
-  ref is a supplied tier with no scope (`chain.md` #5, #17), and a
-  review is a block on the tier it reviews (`chain.md` #14). Sites:
-  `core_dsl.md` 70, 689, 729; `engine.md` 246, 251, 462;
-  `engine.reasons.md` 182; `generation.md` 127; `platform_content.md`
-  170, 208, 340, 1000, 1008, 1040, 1058;
-  `platform_content.reasons.md` 342.
+`bundles/**` still cites it, in the header comments of the per-tier,
+per-edge and per-type files. Those files are replaced wholesale when
+the default pair is rewritten as `chain.yaml` and `workflow.yaml`
+(`platform_content.md` #64), so scrubbing a comment in a file being
+deleted buys nothing; the citations go with the files.
 
-Two more sit outside those five: `core_dsl.md` 116 and 376 are entries
-already marked superseded by the entry below them, and `core_dsl.md`
-225 and `delivery.md` 318 state that a gate with no earlier entry must
-declare `throwback:`, where `workflow.md` #35 now lets it have none.
+Git history cites it forever, which is what this index is for.
+
+Three reversals were settled rather than repointed, because the
+sentence carrying them stated a rule the redesign reverses. Each is
+now recorded in the superseding entry of the document that carried it
+— `core_dsl.md` #45, `delivery.md` #125, `platform_content.md` #64 —
+rather than restated at every site:
+
+- **`pending` is an engine flag, not a declared entry** (`workflow.md`
+  #25), so the opens-with-pending, pending-precedes and
+  sub-array-head rules have nothing to attach to.
+- **`design`, `architecture` and `implementation` are `name:` values
+  on generation entries, not kinds** (`workflow.md` #10).
+- **`scope: reference`, `generator: reference` and `reviews:` leave
+  the vocabulary.** A ref is a supplied tier with no scope
+  (`chain.md` #5, #17) and a review is a block on the tier it
+  reviews (`chain.md` #14).
+
+Two rules the retired spec stated and the redesign had dropped were
+found by this pass and carried into the contract rather than lost:
+`chain.md` #22's refusal of an `all.<tier>` read of a never-draining
+write-sourced pool (and of a non-zero cardinality `min` on an edge
+naming one), and `workflow.md` #35's reversal of the forced
+`throwback:` on an ungrouped gate, which #45's and #125's own entries
+record as a change rather than a move.

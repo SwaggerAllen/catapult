@@ -197,7 +197,7 @@ nothing here gives the model a baseline to preserve *against*. The gap
 stayed masked as long as the guards never printed the feedback that would
 have made someone notice, and closing it for real means either admitting
 `draft` to a generation tier's prompt specifically when it is regenerating
-over feedback — narrowing, not repealing, §9's "review-tier alone" rule —
+over feedback — narrowing, not repealing, `chain.md` #35's "review-tier alone" rule —
 or replacing the verbatim-preservation instruction with something
 achievable without it. It is a standing-invariant question spanning
 `chain.md` #35, `systems/generation.md`'s own restatement of the same

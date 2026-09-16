@@ -170,18 +170,18 @@ The shipped single-phase `feature.yaml` never exercised the difference — one `
 so first and last coincide — which is what let
 `Catapult.Delivery.FeatureLifecycle.Sequence.positions/2`'s own
 `take_through_boundary/1` anchor on the first occurrence and still read correct. The
-multi-phase case is `dsl-syntax.md` §15.2's own `feature.yaml` worked example (three
+multi-phase case is `feature.yaml`'s own shape (three
 `checks`, one per design/architecture/implementation sub-array — the same count this
-doc's own ORC-155 entry, below, names for that same declaration); §15.11's
-`component.yaml` is not it: that example carries only two `checks` (architecture and
-implementation) and no `design` sub-array at all — §15.11's own prose is what rules
-`design` out there, since `design` and `product-review` are feature-only. Every one of
-§15.2's earlier `checks`/`critique`/gate cycles is ordinary reachable board structure,
+doc's own ORC-155 entry, below, names for that same declaration);
+`component.yaml` is not it: it carries only two `checks` (architecture and
+implementation) and no `design` sub-array at all, `design` and `product-review`
+being feature-only. Every one of
+`feature.yaml`'s earlier `checks`/`critique`/gate cycles is ordinary reachable board structure,
 not Phase 7 machinery — only what follows the *final* `checks` (that sub-array's own
 `critique`, the type's trailing `reconcile`, `merge`, `deploy`, `terminal`) sits
 behind it. Anchoring on the first occurrence instead silently drops every position
 after it, however many phases and gates that is — a landmine the moment a bundle ships
-§15.2's documented shape. `take_through_boundary/1` finds the *last* index carrying
+`feature.yaml`'s documented shape. `take_through_boundary/1` finds the *last* index carrying
 `{:kind, :checks}` ahead of `merge`, not the first.
 
 ## #40
@@ -190,7 +190,7 @@ Reasoned from §7.10's own store test (does changing it change what is generated
 validated or enforced? no — a label is read, never branched on): a human-facing label
 is presentation, and belongs with "the work surface renders" (this doc's own opening
 paragraph), not with this projection and not with workflow-bundle content.
-`dsl-syntax.md` §15.1's table already fixes labels for the twenty platform-fixed kinds
+`workflow.md` #10's table already fixes labels for the platform-fixed kinds
 — `backlog`, `pending`, `generation`, `design`, `architecture`, `implementation`,
 `critique`, `checks`, `reconcile`, `merge`, `deploy`, `validating`, `blocked`,
 `stubbed`, `setup`, `prep`, `main`, `retro`, `cleanup`, `terminal` — across the two
@@ -496,7 +496,7 @@ unambiguous" rule already covers exactly that case elsewhere. Checked against
 `system:engine` nor `system:dashboard`.
 
 `bundles/default-flow/types/milestone.yaml`'s `retro` group carries its own leading
-`pending`, symmetric with `setup`'s (`docs/dsl-syntax.md` §15.2) — the canonical
+`pending`, symmetric with `setup`'s — the canonical
 identity is what makes `setup.pending` and `retro.pending` distinct positions rather
 than one bare name arriving twice. Reverting that bundle to the symmetric shape and
 the plumbing above are one dev diff.
@@ -516,8 +516,8 @@ system's own ORC-176 entry, below) builds `setup`/`retro`'s fixed `pending`/ kin
 by hand, with no declared type's `statuses:` array behind either entry — the same
 reason each already carries `group_key: nil`. `Type.namespaced_positions/1`'s own
 qualification is a property of a name's position inside a declared type's `statuses:`
-array; an entry with no such array behind it is bare by the identical rule §15.12
-already states for anything outside a sub-array, and unambiguous besides — a
+array; an entry with no such array behind it is bare by the identical rule
+`workflow.md` #8 already states for anything outside a sub-array, and unambiguous besides — a
 synthesized two-entry list cannot recur a name against itself, and `setup`/`retro` are
 two distinct `FeatureLifecycle` process-manager instances
 (`ContainerLifecycle.open_inline/3` opens each as its own flow), so their two
@@ -621,8 +621,8 @@ not — the ORC-202 entry below is what that second fixture exists for.
 
 ORC-198's three sites took the qualifier from `namespace`, which answers a different
 question: it is the recurring group's own anchor name, and it separates two
-occurrences only when they sit in *different* sub-arrays. For the case §15.12 actually
-permits — one namespace, two names — both occurrences carry the same `namespace`, so
+occurrences only when they sit in *different* sub-arrays. For the case `workflow.md` #7
+actually permits — one namespace, two names — both occurrences carry the same `namespace`, so
 matching on it picks whichever comes first. That is the ORC-171 defect this field
 exists to close, reopened one door over. At the top level it is also a type error:
 `namespace` is the atom `:top_level` there, and `anchor()` is `String.t() | nil`.
@@ -636,7 +636,7 @@ schemes before either was chosen. Under `namespace` it fails three ways: `annota
 hands back the atom `:top_level` against an `anchor()` of `String.t() | nil`, and
 `name/4` answers `"pending"` for both occurrences, having found neither. Under
 `qualified` all three pass and the rest of the suite stays green. A scheme that cannot
-express the case §15.12 permits is not a narrower fix; it is the same defect with a
+express the case `workflow.md` #7 permits is not a narrower fix; it is the same defect with a
 smaller blast radius.
 
 ## #97
@@ -930,3 +930,19 @@ depends on needing GitHub to hold an undocumented guarantee is itself the defect
 concurrency would introduce. A single tree-and-commit write needs no such guarantee:
 every file's blob is independent, content-addressed into one tree, built and committed
 as one object graph before the ref ever moves.
+
+## #125
+
+One superseding entry rather than edits to each entry above it, for
+`core_dsl`'s #45 reason: the entries above are ticket-attributed records of
+what a named pass decided about a grammar that is being replaced, and
+rewriting them in place would put words in those passes' mouths. This
+document restates the workflow's own rules more than any other, which is
+what makes the single entry worth more here than elsewhere: the `pending`
+rule alone has six statements above, and six consecutive ORC-151 rounds
+already demonstrated what correcting one statement at a time costs.
+
+The citations in those entries are repointed at the rules that replaced the
+retired spec's sections, since a citation is a pointer rather than a claim a
+pass made. `docs/dsl/retired-spec-index.md` maps the retired sections for a
+reader holding an older citation out of git history.

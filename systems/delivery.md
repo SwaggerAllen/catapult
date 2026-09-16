@@ -306,8 +306,7 @@ generating as scope-runs inside one ticket.
   single optional status: the dispatcher reads it when the gate names
   one, and falls back otherwise to the citing sub-array's own earliest
   entry as the one-click default — its own leading `pending`, when the
-  sub-array has one (every generation-shaped sub-array does,
-  `docs/dsl-syntax.md` §13's tightened check), its own
+  sub-array has one (every generation-shaped sub-array does), its own
   non-review-shaped agent-balled entry directly otherwise — either way
   computed from the loaded workflow bundle at throwback time, never
   stored. This is the same shape `flow:` resolution and the
@@ -315,8 +314,8 @@ generating as scope-runs inside one ticket.
   cache a derived fact). A gate sitting first in its own sub-array, or
   in no sub-array at all, has no earlier entry there to fall back to,
   so the dispatcher derives no default for it and the gate must
-  declare `throwback:` explicitly (ORC-181, `docs/dsl-syntax.md`
-  §15.4, §13, §15.10).
+  declare `throwback:` explicitly (ORC-181; superseded by #125's
+  third rule, which lets an ungrouped gate have none).
 - **#24 A container instance is an agent dispatch target on the identical footing as a
   ticket instance (ORC-148).** Dispatching from a work item with a queue and one without
   were never different operations, only different status flows attached to the same
@@ -615,15 +614,15 @@ generating as scope-runs inside one ticket.
   `checks` (always last, on the shipped bundle) never hits the missing
   clause: `take_through_boundary/1`'s first-occurrence anchor was
   load-bearing for this too. Moving the boundary to the last
-  occurrence makes every earlier `checks` — and, on §15.2's shape,
+  occurrence makes every earlier `checks` — and, on a type declaring them,
   `design`, `architecture`, `implementation`, and every `reconcile`
   ahead of the final `checks` — a *non-last* position `resting/3` does
   test, raising `FunctionClauseError` out of a clause list never asked
   to answer for them. Two answers were coherent; the rule is:
 
   - `design`, `architecture` and `implementation` are generation-shaped
-    the identical way `generation` already is (`dsl-syntax.md` §13,
-    §15.1) and this projection draws no distinction between the four
+    the identical way `generation` already is (`workflow.md` #10)
+    and this projection draws no distinction between the four
     anywhere else (`Sequence.to_position/1` maps all of them through
     the same `{:kind, atom}` shape) — the clause's `kind in [...]`
     list names all four, not `generation` alone.
@@ -640,7 +639,7 @@ generating as scope-runs inside one ticket.
     exactly like the boundary always has. Consequence: a ticket
     resting at a non-final `checks` or `reconcile` does not advance
     into that phase's own `critique`/gates under today's event
-    vocabulary — real on §15.2's documented shape, not on the shipped
+    vocabulary — real on a type declaring them, not on the shipped
     bundle. Giving this phase a signal for an intermediate checks or
     reconcile outcome is new Phase 4 advancement behaviour, a design
     of its own; it is unbuilt.
@@ -1154,7 +1153,7 @@ generating as scope-runs inside one ticket.
   grow — it is a fact about which type a spawn cites, `bundles/**` content against this
   record. Second, **`implementation` is a real dispatch phase, a kind of its own in the
   fixed vocabulary alongside `design`/`architecture`, not a vestigial `checks`
-  occurrence** (`dsl-syntax.md` §15.1; "Reachability, settled", above, ORC-32) — a
+  occurrence** (`workflow.md` #10; "Reachability, settled", above, ORC-32) — a
   ticket's own code generation dispatches at `status: implementation` the identical way
   its own architecture phase dispatches at `status: architecture`, both inline
   agent-balled entries this process manager's existing uniform dispatch already reaches,
@@ -1168,7 +1167,7 @@ generating as scope-runs inside one ticket.
   already gives** — a card, a rail entry, a `throwback:` and a `blocks:` reference all
   name a position that may recur (a `critique` and a `checks` once per group) — **a bare
   `position()` is no longer a sufficient identity on its own.** `<anchor>.<name>`
-  (§15.12) is the qualified form; this system's own `status_kind`/`status_gate`
+  (`workflow.md` #7) is the qualified form; this system's own `status_kind`/`status_gate`
   projection columns (`Store.tickets_for_project/1`) are unaffected in shape — a gate's
   name was always its whole identity, and a status's kind is still what every downstream
   branch here reads — and gain a `name` column beside `status_kind`, read for display
@@ -1201,7 +1200,7 @@ generating as scope-runs inside one ticket.
   `statuses`, and `steps/2`'s output does not share that indexing.** `to_step/1` returns
   `nil` for an `environment:` entry and `steps/2` rejects every `nil`, so a step's
   position in `steps/2`'s output is only the same as its index in `statuses` when no
-  `environment:` entry sits ahead of it. §15.10 admits an `environment:` wherever a
+  `environment:` entry sits ahead of it. `workflow.md` #6 admits an `environment:` wherever a
   `review:` is legal — inside a sub-array, not only after one — so a lookup that walks
   `groups`' `Range`s against `statuses` directly (never against the filtered `steps/2`
   list) holds regardless; one that reuses `steps/2`'s existing index space would break
@@ -1245,7 +1244,7 @@ generating as scope-runs inside one ticket.
   keep reading exactly that — with the qualifying anchor consulted only where recurrence
   needs telling apart.
 - **#90 The loader is not where this closes, and no load-time warning is the decision
-  here.** §15.12's own uniqueness-within-a-namespace check already refuses the one shape
+  here.** `workflow.md` #7's uniqueness-within-a-namespace check already refuses the one shape
   that is actually a grammar error; two occurrences of one kind in two distinct
   namespaces are legal DSL, correctly so — recurrence across sub-arrays is exactly what
   namespacing exists to permit.
@@ -1268,8 +1267,8 @@ generating as scope-runs inside one ticket.
   `ContainerLifecycle` opens this flow inline in the first place, read directly rather
   than re-derived. If so, the flow's own effective sequence is fixed rather than
   resolved from any declared array: `[{:kind, :pending}, {:kind, <kind>}]` — the same
-  "immediately preceded by its own pending, as that entry's sub-array head" shape §15.1
-  already gives every generation-shaped entry — and nothing after it, for the reason
+  "immediately preceded by its own pending, as that entry's sub-array head" shape
+  already given every generation-shaped entry (superseded by #125's first rule) — and nothing after it, for the reason
   named above: an inline dispatch point has no `checks`/`reconcile`/`merge`/`deploy`
   position to place it at. **A `flow_name` naming neither a declared type nor one of
   these closed kinds is still the authoring bug `warn_unplaceable/3` describes** — a
@@ -1296,7 +1295,7 @@ generating as scope-runs inside one ticket.
 
   `qualified` is the field that identifies an occurrence uniquely, by
   construction: `<anchor>.<name>` inside a sub-array, the bare name
-  outside one, over names §15.12 already forces to be unique within
+  outside one, over names `workflow.md` #7 already forces to be unique within
   their namespace. `Sequence.qualifier/1` is the one place that choice
   is made, and `annotate/4`, `resolve_kind_reference/3` and
   `find_kind_entry/3` all read it, so the qualifier a position is
@@ -1652,6 +1651,26 @@ generating as scope-runs inside one ticket.
   …/git/refs/heads/{branch}` joins the same bullet — Contents alone, since the workflow
   file never touches the Git Data path and so needs nothing beyond the Contents scope
   this token already holds.
+- **#125 The DSL redesign reverses three rules the entries above
+  restate, and this entry is where they are superseded rather than
+  each site being rewritten** (`systems/core_dsl.md` #45, whose
+  reason argues the form). Three, each naming what it reaches:
+  1. **`pending` is an engine flag, not an entry** (`workflow.md`
+     #25). Every agent-balled position carries a waiting state until
+     an agent picks the work up; nothing declares it, no sub-array
+     leads with it, and no rule counts it. This reaches every
+     statement above of the once-per-sub-array rule, the
+     sub-array-head shape and the `[pending, kind]` inline sequence.
+  2. **`design`, `architecture` and `implementation` are `name:`
+     values on generation entries, not kinds** (`workflow.md` #10).
+     The fixed table is the set of shapes plane logic branches on, so
+     a projection that draws no distinction between the four keeps
+     drawing none — it branches on generation-shaped, which is what
+     it wanted.
+  3. **An ungrouped gate may carry no `throwback:`** (`workflow.md`
+     #34, #35), the decline landing on a human-chosen earlier
+     position. The rule that it must declare one was in the contract
+     and never in the dispatcher, which tolerated nil throughout.
 
 ## #123 Initial vs target
 
