@@ -38,7 +38,7 @@ would be a second way to say the same thing.
 ## #7
 
 `name:` is what distinguishes two entries of one kind, which is every
-generation position under free names (`bundle.md` #18) and every
+generation position under free names (`bundle.md` #11) and every
 critique that follows one. It is a namespace per type because a
 reference (#8) is resolved within the citing type and never across
 types.
@@ -55,9 +55,11 @@ bare kind that recurs is fine until something cites it.
 
 ## #9
 
-`flow:` resolves against this bundle's own types and never a chain
-flow because the workflow never references the chain (`bundle.md`
-#11); the chain flow names the type instead (`chain.md` #38).
+`flow:` on a queue entry resolves against this bundle's own types and
+never a chain flow, because the two are different relations: a queue
+opens an instance of a type, while a ticket type declares which chain
+flows it serves (#40). Both live here, which is why they need telling
+apart by key rather than by namespace.
 
 ## #10
 
@@ -272,10 +274,13 @@ so a nil target is the honest declaration.
 
 ## #36
 
-A gate names no tier because the workflow never references the chain
-(`bundle.md` #11); its review set follows from position and depth
-alone, which is what makes any workflow that declares a chain's
-positions run it.
+A position names tiers and a gate does not, which is the one place
+the two halves of the seam part company. A gate's review set follows
+from position and depth alone, so a position can gain or lose a tier
+without any gate noticing, and who signs off stays out of the document
+graph (v5 §7.16). A gate naming a tier would also make the chain's
+tier names a published interface for the wrong reason: the position
+already names them, one level up.
 
 ## #38
 
