@@ -2177,13 +2177,12 @@ generation, and they are otherwise interchangeable** — a milestone
 with a `main` queue, then a human sign-off gate, then a staging
 deployment, then `retro` is an ordinary sentence. One declaration
 shape holds all three cases — `ticket`, `container` and the
-skeleton-less project — distinguished by the `skeleton:` field rather
-than by which file a declaration lives in (`dsl-syntax.md`
-§15.1-§15.2).
+skeleton-less project — distinguished by the `skeleton:` field, and
+all of them entries of the one `types:` block (`workflow.md` #4).
 
 **`skeleton:` is optional, and rootness is derived rather than
 declared.** `ticket` and `container` are the only two values, and a
-type declaring neither has no anchors at all (`dsl-syntax.md` §15.1);
+type declaring neither has no anchors at all (`workflow.md` #4, #30);
 a `skeleton: none` value would be spent on exactly the fact its own
 absence already states. Nothing polices rootness with a load check
 either — it falls out of the declaration graph (below). **Gates and
@@ -2776,10 +2775,12 @@ unchanged is what charges rent.
   under gate phases, not Building. The grain rule is a platform
   constant.
 
-**What remains standalone** is exactly the files with no design-graph
-counterpart:
+**What remains outside a declaration file** is exactly the content
+with no design-graph counterpart. Each is a block of `workflow.yaml`
+rather than a file of its own (`bundle.md` #4), and the names below
+are what those blocks carry:
 
-- `states.yaml` — the status vocabulary with owners and the **writer
+- the **status vocabulary** with owners and the **writer
   matrix** (`moved_by: author | machine | ci | deploy | nobody` per
   transition — one field, and it makes the state-admission test
   executable by the sim ring), plus which states are gates, plus
@@ -2810,28 +2811,28 @@ counterpart:
   not green** — finished work is out of mind, and green is spent on
   work in flight. Nothing reads colors back; they exist so the
   author sees the queue without reading it. **There is no `Building`
-  status and no green row for one** (`dsl-syntax.md` §15.1): a
-  feature runs its own `Implementation` (violet, above — real
+  status and no green row for one** (`workflow.md` #10): a
+  ticket runs its own implementation position (violet, above — real
   dispatched work), then sits at `Checks` while its own children
   build, and `Checks` already carries the yellow row above — no
   separate wait-status, no separate color for it.
-- `types.yaml` — ticket types, per-type lifecycles, PR topology
-  (feature: base main, squash; child: base parent branch, merge).
-- `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
+- the **ticket types** with their position sequences and PR topology
+  (a top-level ticket: base main, squash; a child: base parent
+  branch, merge).
+- **escalation thresholds** routing to `Blocked`, with `tunable`
   markers as the only project-override surface.
 
-CI suite selection is *derived*, not declared: gate phases are
-docs-phases → `ci:docs`; a ticket's own `implementation` phase
-(`dsl-syntax.md` §15.1 — real dispatched work, not bare `checks`) →
-`ci:code`. A `ci.yaml` exists only if a real exception ever forces
+CI suite selection is *derived*, not declared: gate positions are
+docs-positions → `ci:docs`; a ticket's own implementation position
+(real dispatched work, not bare `checks`) → `ci:code`. A `ci.yaml` exists only if a real exception ever forces
 it.
 
 **Agents are three layers, changing at three rates.** The writer
 matrix carries *roles* only — authority, invariant across
 implementations. The protocol names *agent kinds* (design, dev,
 reconcile, validation, and — dispatched through a milestone's
-declared queues rather than a tier's `delivery:` block, §7.8 — retro
-and setup) as vocabulary. Tier declarations may carry an *executor
+declared queues rather than through a ticket type's positions, §7.8 —
+retro and setup) as vocabulary. Tier declarations may carry an *executor
 profile* (model, effort, harness requirements —
 v4's per-tier `thinking_effort` is the precedent). The project
 bindings file maps kind → runtime (orchestration's `agents:` config,
@@ -3784,16 +3785,15 @@ derivation, and all-reopen degrades into re-reviewing everything by
 hand every time.
 
 **"Downstream of the regeneration" is structural, not prose.**
-`dsl-syntax.md` §15.10's sub-array grouping is the mechanism: a
-throwback's default fallback is its citing sub-array's own earliest
-entry — its own leading `pending` for a generation-shaped group
-(§13's check), never straight to the agent step — so "everything
-downstream of the regeneration" *is* "everything in this sub-array,"
-derived from the same structure that already answers §7.16's open
-item above. A gate sitting first in its own sub-array, or in no
-sub-array at all, has no earlier entry there to fall back to, so this
-derivation gives it no default and it must declare `throwback:`
-explicitly (`dsl-syntax.md` §15.4, §13, §15.10). The derivation
+Sub-array grouping is the mechanism (`workflow.md` #6): a throwback's
+default fallback is its citing sub-array's own generation position,
+which the ticket enters in its waiting substate rather than
+mid-dispatch — so "everything downstream of the regeneration" *is*
+"everything in this sub-array," derived from the same structure that
+already answers §7.16's open item above. A gate sitting first in its
+own sub-array, or in no sub-array at all, has no earlier entry there
+to fall back to, so this derivation gives it no default and it must
+declare `throwback:` explicitly (`workflow.md` #34, #35). The derivation
 supplies the sub-array's own default landing point, and `throwback:`
 (below) is a single, explicit override for the gate that wants a
 different one — never a second, narrower *legality* rule (§4.5's
@@ -4321,19 +4321,19 @@ fan-out type's own gates reach one level deeper than the feature
 type's ever need to, because the two types fan to different depths by
 declaration, not by anything the chain claims.
 
-**`pending` recurs, once per generation-shaped entry's own
-sub-array.** A single leading `pending` licensing every later
-generation-shaped entry in the same array would satisfy a load-time
-check while leaving a second or third such entry nowhere to wait for
-dispatch capacity — and with no `fanout` status (above), `pending` is
-the only plane-balled wait position there is. `dsl-syntax.md` §13
-states the check in full; the consequence that matters here is
-throwback's own derived default (§15.10), which falls back to a
-generation-shaped sub-array's own leading `pending` rather than
-straight to the generation-shaped entry itself — matching this
-section's own repair-loop mapping, `Ready for rework`(pending) /
-`Reworking`(generation), rather than skipping the queued wait every
-other entry into that status goes through.
+**`pending` is an engine flag, not an entry.** Every agent-balled
+position carries it until an agent picks the work up, so it is what a
+ticket rests in between reaching a position and dispatch, what a
+throwback lands in, and what the board renders as that position's
+waiting substate (`workflow.md` #25). Declaring it per sub-array was
+the earlier shape and it bought a load-time check over something no
+bundle had a reason to vary: a second or third generation-shaped entry
+in one array needs somewhere to wait for dispatch capacity, and the
+flag gives every one of them the same somewhere without a declaration
+to keep in step. The repair-loop mapping is unchanged — `Ready for
+rework` is the waiting substate of the position `Reworking` runs at —
+and throwback's derived default is the citing sub-array's own
+generation position, which the ticket enters waiting.
 
 **The same declared gate may be cited twice within one type's own
 array — but only when the two citations land in distinguishable
@@ -4621,11 +4621,11 @@ start, each need becomes a fork and the dialects drift apart
   handles, context walks, grammars, readiness, generators, the
   predicate language, bundle layout.
 - **An extension** is *platform-shipped* code that registers with the
-  loader: new annotation namespaces on existing declaration kinds
-  (the `delivery:` block, the `enforcement:` block), new declaration
-  kinds and files (the flow ticket face; `states.yaml`), new
-  generator types (`external`, `template`), new context-source kinds
-  (`ticket.findings`), and new audit/enforcement profiles. Each
+  loader: new annotation namespaces on existing declaration kinds (the
+  `enforcement:` block), new declaration kinds (the gate and the
+  environment), new generator types (`external`, `template`), new
+  context-source kinds (`ticket.findings`), and new audit/enforcement
+  profiles. Each
   extension carries its own validation schema; the loader validates
   the union; type-level checks run over the union. **Never
   bundle-side code** — bundles declare instances against whatever
@@ -4638,7 +4638,7 @@ start, each need becomes a fork and the dialects drift apart
   generation runtime, §10). Same vocabulary, different profiles.
 - **Extensions compose the language; bundle content is never composed
   by the DSL at all — it is authored, forked and tailored through git**
-  (`dsl-syntax.md` §11). The loader validates the union of what a
+  (`bundle.md` #7). The loader validates the union of what a
   bundle declares against the installed extension set; it composes
   nothing itself. What vocabulary a bundle may use is a platform
   decision (extensions); what a project's bundle actually contains is
