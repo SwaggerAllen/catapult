@@ -173,8 +173,8 @@ seeds release task.
   rest.
 - **#25 Env var names are declared, not derived, and an off-spine name is marked.** Conventions §3
   renders the spine as a mechanical derivation — component `engine` gets `ENGINE_*` — and this repo
-  already contains the counter-example: `DATABASE_URL` is injected by App Platform under a name we do
-  not choose, and `FOUNDATION_DATABASE_URL` is not on offer. So the declaration carries the literal
+  already contains the counter-example: `DATABASE_URL` carries the name every Postgres client
+  expects rather than the one the spine would derive, and `FOUNDATION_DATABASE_URL` is not on offer. So the declaration carries the literal
   variable name (it already does — `config/0`'s entries are `{key, env_var, opts}`), the audit checks
   the prefix, and a name off the spine is legal only with `external: true` on the entry.
 - **#26 The cast is total, and the report enumerates.** The requirement is
@@ -266,9 +266,9 @@ seeds release task.
   had; the cast stays the single definition of what a value means,
   which is the reason casts became ours at all. Present-but-empty is
   present — `DATABASE_URL=""` is a value the source found, and whether
-  empty is legal is the cast's business — because App Platform can
-  inject an empty variable and "unset" and "set to nothing" deserve
-  different lines in the report.
+  empty is legal is the cast's business — because a platform can inject
+  an empty variable and "unset" and "set to nothing" deserve different
+  lines in the report.
 - **#36 The boundary this draws, said plainly:** the port's domain is flat, string-valued, named
   settings arriving over some transport other than the environment. A document with nested structure
   and lists of maps is not a config source in this sense at all — it is content, and it belongs in

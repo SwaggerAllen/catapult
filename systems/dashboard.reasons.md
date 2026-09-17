@@ -95,62 +95,31 @@ one: it is served from a live Phoenix route, with no export task standing in for
 `CatapultWeb.Endpoint` serves `priv/static` at `/assets` through `Plug.Static`; without it the
 live route serves no static asset of any kind, not only unstyled daisyUI classes.
 
-The export links assets by relative path rather than root-absolute ones, since a Pages hash
-subdomain has no fixed base path to hardcode against: it copies `priv/static/assets/app.css`
-into `dist/assets/app.css` and each generated page links it with a relative `href`.
-
-That copy needs something to have built it first, so `bin/preview-build.sh` runs `mix
-assets.build` right after its own `mix compile` step and before the export script, guarded by
-the same `|| fall_back "..."` discipline as every other step in that script (`Where things
-actually run`, `CLAUDE.md` — the script never exits non-zero, so a step that can fail must
-degrade to the placeholder itself rather than let a later step fail past it). Without that
-guard, a CSS build failure would not stop the export — nothing downstream reads
-`priv/static/assets/app.css` before copying it — so the script would still exit 0 and publish
-pages linking a stylesheet that was never built, ORC-183's own symptom, with the job reporting
-success.
+**That is now how the preview works, rather than an obstacle to it.** The design review's
+preview is a Render preview environment of the whole app, so the storybook is served from the
+live Phoenix route this entry always said it had to be, and the hand-rolled static export that
+stood in for one is gone with `bin/preview-build.sh` (rule #26, retired).
 
 `assets/**` is on this doc's own file map but is not design-owned (`pipeline.config.json`'s
 `designOwnedPaths` names `screens/**`, `storybook/**`, `systems/*.md`, `docs/*.md`, nothing
-under `assets/`), so the CSS build is dev's diff. That diff also touches `mix.exs`,
-`Dockerfile` and `bin/preview-build.sh` — each unowned by any file map (`systems/README.md`),
-git's textual conflict detection standing in for a mutex on those three the same way it does
-for every other ticket that adds a dependency or touches the toolchain.
+under `assets/`), so the CSS build is dev's diff. That diff also touches `mix.exs` and
+`Dockerfile` — both unowned by any file map (`systems/README.md`), git's textual conflict
+detection standing in for a mutex on them the same way it does for every other ticket that
+adds a dependency or touches the toolchain.
 
 ## #26
 
-Booting is possible on the preview runner: the design-agent job
-(`.github/workflows/pipeline-agent-design.yml`) installs the pinned toolchain with
-`erlef/setup-beam@v1`, runs under `MIX_ENV: test`, and provisions a health-checked
-`postgres:16` service, and `config/test.exs` seeds `DATABASE_URL`,
-`FOUNDATION_ENDPOINT_SECRET_KEY_BASE` and `DELIVERY_GITHUB_TOKEN` into
-`Catapult.Config.Static` for exactly that `MIX_ENV`, so under the job's own environment
-`Catapult.Boot.load!/0` succeeds. (`CLAUDE.md`'s "agent runs have no BEAM" is about what
-orchestration's own `setup-pipeline` action provides — Go and nothing else, because the
-pipeline is language-agnostic — and this project's workflow layers a toolchain and a database
-on top of it; both are true at their own layer, so anything needing `mix` inside an agent job
-still supplies its own.) What stops a boot is `bin/preview-build.sh` itself: the script sets
-its own `export MIX_ENV=prod`, unconditionally, to build the preview in the shape a real
-deploy would; `config/prod.exs` declares no `:config_source`, so under that `MIX_ENV`
-`Catapult.Boot`'s compile-time default applies — `{Catapult.Config.Env, []}`, the
-real-environment reader — and nothing in the job sets `DATABASE_URL`, `DELIVERY_GITHUB_TOKEN`
-or `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` as literal environment variables (only
-`PGHOST`/`PGUSER`/`PGPASSWORD`, which nothing outside `config/*.exs` assembles into a
-`DATABASE_URL`). Setting `MIX_ENV=test` for the export step alone would lift that, so the
-choice is made on merit: stories are stateless function components by this system's own
-placement rule, so nothing about rendering them benefits from the request cycle, live PubSub
-or persisted event store a boot would supply — "no socket, no live data" is a property the
-export gets for free, not one it has to work around. Render- direct also never depends on
-`Boot.load!/0` succeeding, so it stays correct regardless of what a future component declares
-as required config; a boot-based export would instead be one new non-defaulted `config/0`
-entry away from a preview breaking over a change that has nothing to do with the dashboard.
-Every `storybook/screens/<name>/component.story.exs` declares its own `function/0` and
-`variations/0` (`PhoenixStorybook.Story`'s own `:component` shape); the export calls each
-variation's attributes straight into its story's component function and writes the rendered
-markup to `dist/` — compiled, but with `Catapult.Application` never entered, so no endpoint,
-no supervision tree, no database. What boot would buy, and what is traded away, is
-`phoenix_storybook`'s own navigation chrome (its sidebar, its live search): the export's index
-page is generated directly from the same variation list instead, one link per story and
-variation.
+retired: The rule described the static storybook export — it rendered stories directly and
+never booted the application. There is no export. Design review reads the storybook from the
+Render preview environment of the whole app, which does boot it, so the property the rule
+named ("no socket, no live data") is not one the preview has any more.
+
+Kept as the reason it was traded away, because the trade is the thing a later pass would
+redo: the export avoided `Boot.load!/0`, so it could not break over a new non-defaulted
+`config/0` entry that had nothing to do with the dashboard. A preview environment can. That
+is a real cost of the move, paid knowingly — a preview whose boot fails now reports a failed
+preview on the ticket (DESIGN §4) rather than silently serving stale stories, which is the
+exchange: the failure is louder and the surface is larger.
 
 ## #28
 

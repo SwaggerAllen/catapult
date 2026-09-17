@@ -10,7 +10,7 @@ system. `GET /health` is the contract everything else reads — the
 endpoint from `Catapult.Health`, returning the build's git SHA, an
 overall `ok`, and per-component readiness as JSON (200 when every
 component is ready, 503 otherwise); ops and agents read those facts.
-Deploy detection watches the App Platform app itself instead. A second
+Deploy detection watches the Render service's own deploys instead. A second
 path, `/dispatch/*`, serves the agent-dispatch host port's
 context-fetch/result-report calls (`systems/generation.md`,
 `systems/delivery.md`); both paths sit behind
