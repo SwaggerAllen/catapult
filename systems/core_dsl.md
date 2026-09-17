@@ -3,6 +3,8 @@ paths:
   - lib/catapult/dsl/**
   - test/catapult/dsl/**
   - catapult.yaml
+  - lib/mix/tasks/catapult.bundle.check.ex
+  - test/mix/tasks/catapult.bundle.check_test.exs
 ---
 
 # core_dsl
@@ -858,6 +860,26 @@ profiles.
      human-chosen earlier position instead. #17's and #19's rule that
      such a gate must declare one was in the contract and never in
      the loader, which tolerated nil throughout.
+
+- **#ORC-249-1 `bundle.md` #14's acceptance test is a `Mix.Task`,
+  `lib/mix/tasks/catapult.bundle.check.ex` — the first task at that
+  path in the root project.** It loads `bundles/default/chain.yaml`
+  and `bundles/default-flow/workflow.yaml` through the ordinary loader
+  path (`Catapult.Dsl.Loader.load_axes/5`), which exercises every load
+  rule the two files are held to for free, and then measures both
+  files' line counts against the bound `bundle.md` #14 states, failing
+  over it. It is a built-in of the task itself, not a `Catapult.Audit
+  .Check` (`systems/substrate.md`'s registry is `components/substrate`'s
+  own gate suite, rooted at the working directory it runs from — a task
+  here would need `system:substrate` in this ticket's mutex for a
+  registry this task gains nothing from) and not a port of
+  `docs/dsl/example/check.py`'s other three jobs, which are load-time
+  rules the loader owns once it reads the grammar `docs/dsl/` states
+  (`chain.md` #20, #21; `workflow.md` #22, #23, #40; `bundle.md` #11) —
+  reimplementing those here would be a second implementation of the
+  same load rules, which is the drift this task exists to end rather
+  than repeat. `docs/dsl/example/` stays the checker's own worked
+  example; this task reads the shipped bundle, never that folder.
 
 ## #43 Initial vs target
 

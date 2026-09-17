@@ -355,3 +355,26 @@ gating between two tiers batched at one position splits that position
 and renames it. Under the other direction that renames every tier
 naming it — eight of them at the default chain's architecture
 position.
+
+## #ORC-249-1
+
+Elixir because the task calls the loader, and `erlef/setup-beam` is a
+composite Action unreachable from a shell string — anything needing
+`mix` inside an agent job installs its own toolchain, but `ci.yml`
+already runs `mix` steps with the toolchain set up, so a `mix` task is
+the cheapest thing that can call `Catapult.Dsl.Loader` directly rather
+than shelling out to it. The root project rather than
+`components/substrate`: substrate's own `mix catapult.audit` exists
+because substrate ships into every generated project and needs its own
+gate suite there: pulling this task in for that reason alone would put
+`system:substrate` in every ticket touching the bundle pair's line
+count, for a registry (`Catapult.Audit.Check`) built for boot-time
+component checks this task has no component to register. Not a port of
+`check.py`: three of its four jobs stop being a second implementation
+the moment the loader reads `docs/dsl/`'s rules itself, and porting
+them into a checker would be exactly the drift `docs/dsl/`'s own
+existence is meant to end. The fourth job — the line-count bound — has
+no loader rule behind it, because it is a readability property of the
+file, not a load-time property of its content, so it stays a
+stand-alone measurement rather than moving into the loader with the
+other three.
