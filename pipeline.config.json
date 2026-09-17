@@ -25,6 +25,7 @@
   },
   "designOwnedPaths": [
     "CHANGE.md",
+    "tests/manual/**",
     "screens/**",
     "storybook/**",
     "systems/*.md",
