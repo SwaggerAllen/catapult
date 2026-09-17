@@ -3,8 +3,6 @@ paths:
   - catapult.yaml
   - bundles/**
   - lib/catapult/dsl/loader.ex
-  - lib/mix/tasks/catapult.bundle.check.ex
-  - test/mix/tasks/catapult.bundle.check_test.exs
 ---
 
 # The bundle

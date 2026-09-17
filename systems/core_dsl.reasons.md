@@ -378,3 +378,32 @@ no loader rule behind it, because it is a readability property of the
 file, not a load-time property of its content, so it stays a
 stand-alone measurement rather than moving into the loader with the
 other three.
+
+Filed at `lib/catapult/dsl/bundle_check.ex` rather than
+`lib/mix/tasks/catapult.bundle.check.ex`: a first design pass placed it
+at the conventional Mix path and a record review caught that the
+placement was arbitrary rather than forced — Mix resolves a task by its
+module name (`Mix.Tasks.Catapult.Bundle.Check`), never by where the
+file sits, so nothing requires `lib/mix/tasks/**`, and that path had no
+owning file map and wasn't on `systems/README.md`'s deliberately-
+unowned list either. Filing it under `lib/catapult/dsl/`, which this
+doc already maps, closes the gap structurally instead of by adding a
+second `paths:` entry to this doc and to `docs/dsl/bundle.md` — one
+unowned directory avoided is better than two file-map lines to
+remember.
+
+That same review asked whether the module needs a Boundary
+classification, since the root project runs the boundary compiler
+(`mix.exs`) and this module's name doesn't start with `Catapult.` or
+`CatapultWeb.` regardless of which file it lives in — Boundary
+classifies by module name, and an unclassified module is a compile
+error there (`"is not included in any boundary"`), not a warning
+substrate's own precedent could wave through, because substrate never
+runs the boundary compiler at all. `use Boundary, classify_to: Catapult`
+resolves it — Boundary's own tasks (`Mix.Tasks.Compile.Boundary` and
+its siblings, classified to `Boundary.Mix`) are the shipped precedent
+for exactly this namespace mismatch. Classifying straight to `Catapult`
+rather than introducing `Catapult.Mix`: the library's own doc frames
+`Catapult.Mix` as a home for helper modules several tasks share, and
+this ticket adds the project's first and only task, with no such
+helpers yet to justify the extra boundary.
