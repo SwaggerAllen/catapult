@@ -97,6 +97,6 @@ config :catapult, Catapult.Engine.Application,
 # the suite can be aimed at another deployment without a commit.
 config :catapult,
        :live_base_url,
-       System.get_env("CATAPULT_LIVE_BASE_URL", "https://catapult-ezten.ondigitalocean.app")
+       System.get_env("CATAPULT_LIVE_BASE_URL", "https://catapult-REPLACE-AT-PROVISION.onrender.com")
 
 config :logger, level: :warning

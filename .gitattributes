@@ -1,0 +1,14 @@
+# The ticket spec (orchestration's DESIGN §4). Every ticket overwrites it
+# wholly, so two tickets whose lifetimes overlap conflict on it every time
+# and over the whole file — and the resolution is always ours, because the
+# other ticket's spec is already in history on its own merge.
+#
+# Resolved by git rather than by the agent on purpose: left to a pass, it
+# is a conflict that is always safe to take blindly, and learning to take
+# it blindly is the habit you do not want in the same merge where a real
+# collision in a systems doc has to be read carefully.
+#
+# The driver is defined in the agent job (`git config merge.ours.driver
+# true`), because git does not ship one. Without that config git falls
+# back to an ordinary conflict, which is loud rather than wrong.
+CHANGE.md merge=ours

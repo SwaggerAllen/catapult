@@ -29,7 +29,7 @@ defmodule Catapult.Foundation.FailureLog do
   A record carries the response body when `:stop` supplied one, capped
   at `@body_limit`. That is the only place a deliberate 5xx says *why*:
   it has no stack trace, and the reason it writes into its own body
-  never reaches a caller, because App Platform replaces the body of an
+  never reaches a caller, because the platform replaces the body of an
   upstream 502 with its own error page.
 
   No `max_heap_size:` guardrail: there is no default to fall back on
@@ -50,13 +50,15 @@ defmodule Catapult.Foundation.FailureLog do
   # A 5xx the plane produced deliberately carries its reason in the
   # response body and nowhere else: `Catapult.Delivery.Provisioning`'s
   # own 502 answers `{"error": inspect(reason)}` and never raises, so
-  # there is no stack trace to fall back on. App Platform replaces the
+  # there is no stack trace to fall back on. App Platform replaced the
   # body of an upstream 502 with its own error page before a caller
   # sees it, which makes the reason unreachable from outside the
   # container — five live-suite runs were spent reading "App Platform
   # failed to forward this request to the application" as an
   # infrastructure fault while the plane had in fact answered and said
-  # why. The body is only readable on `:stop`, and only because
+  # why. Measured on App Platform; nobody has read whether Render's edge
+  # does the same, and the rule stands either way — `:stop` costs nothing
+  # if the body survives, and the reason is unreachable if it does not. The body is only readable on `:stop`, and only because
   # `Plug.Telemetry` fires it from a `register_before_send` callback:
   # `Plug.Conn.send_resp/1` runs those before handing the body to the
   # adapter, then sets `resp_body` to whatever the adapter returns —

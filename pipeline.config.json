@@ -24,6 +24,8 @@
     "canceled": "Canceled"
   },
   "designOwnedPaths": [
+    "CHANGE.md",
+    "tests/manual/**",
     "screens/**",
     "storybook/**",
     "systems/*.md",
@@ -56,8 +58,8 @@
     "mix test"
   ],
   "deploy": {
-    "provider": "digitalocean",
-    "endpoint": "https://api.digitalocean.com/v2/apps/b4f0108b-87cc-4358-9afc-b423e3ff6188/deployments",
+    "provider": "render",
+    "endpoint": "https://api.render.com/v1/services/srv-REPLACE-AT-PROVISION/deploys",
     "timeout": "30m"
   },
   "state": {
@@ -65,11 +67,6 @@
     "project": "catapult"
   },
   "staleClaimGrace": "20m",
-  "preview": {
-    "pagesProject": "catapult-storybook",
-    "buildCommand": "bash bin/preview-build.sh",
-    "outputDir": "dist"
-  },
   "actors": {
     "author": [
       "35acc20f-05b8-4931-8cc2-3b4a5dffe6da"

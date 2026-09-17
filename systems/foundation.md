@@ -62,8 +62,11 @@ reached only through their APIs per v5 §2.4).
   The substrate's rule is that a name off the slug spine is legal only with
   `external: true`, and that the flag confers nothing — "an `external: true`
   on a name nobody else imposes is a lie a reviewer can see". Only
-  `DATABASE_URL` is imposed: App Platform injects it under a name we do not
-  choose. Marking the other two external to keep a bare spelling would
+  `DATABASE_URL` is imposed: the platform supplies the connection string under
+  that name and `FOUNDATION_DATABASE_URL` is not on offer. Render binds it in
+  `render.yaml` rather than injecting it, which narrows the reason without
+  removing it — the value still comes from the datastore rather than from
+  anything the spine names. Marking the other two external to keep a bare spelling would
   falsify that argument on the check's only three subjects. Neither is set
   on the reference instance, both carry their defaults (`10`, `8080`), and
   `SETUP.md` §2 names the spelling for the override. The rule: `external:

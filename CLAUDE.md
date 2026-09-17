@@ -54,13 +54,6 @@ toolchain is the only supported one.
   `.story.exs`. It is on `elixirc_paths` in every environment
   deliberately — off it, the whole gate set is blind to exactly the
   code nobody reviewed as code.
-- `bin/preview-build.sh` — the branch preview
-  (`pipeline.config.json`'s `preview.buildCommand`). It installs its
-  own OTP/Elixir because the agent runners have none (below), and it
-  **never exits non-zero**: the calling step is `set -euo pipefail`,
-  so a failing preview would fail the agent job and stop tickets
-  dispatching. Every failure publishes `preview/index.html` instead
-  and says why on stdout.
 - `priv/repo/migrations_infra/` — infrastructure migrations
   (Oban, EventStore); per-store migrations compose in as stores land.
 - `seed-docs/` — **vendored SiegeEngine reference, frozen**: the v4
@@ -120,10 +113,12 @@ a `.sobelow-skips` baseline, for the reason `mix.exs`'s own
 `ignore_advisories` gives: a silent gate re-blinds itself to the next
 finding. Why it is ignored is recorded on the gate line itself, where
 the edit would be made, and it is a settled decision rather than one
-waiting on a condition: App Platform coerces HTTP to HTTPS at its
-edge and offers no setting to stop it, so an endpoint `force_ssl:`
-could only ever fire on the container-local health probe, which it
-would answer with a 301 and fail the deploy. HSTS — the half the edge
+waiting on a condition: Render redirects HTTP to HTTPS at its edge, so
+an endpoint `force_ssl:` could only ever fire on the container-local
+health probe, which it would answer with a 301 and fail the deploy.
+That second half is the load-bearing one and is a property of container
+health checks rather than of any one vendor, which is why the reasoning
+moved off App Platform intact. HSTS — the half the edge
 does not supply — is set on `CatapultWeb.Router`'s `:browser`
 pipeline, which `Config.HTTPS` cannot see because it reads endpoint
 config.
@@ -207,10 +202,14 @@ Each of these cost a wrong diagnosis before it was written down.
   Go and nothing else (orchestration's `setup-pipeline`), because the
   pipeline is language-agnostic by design. `erlef/setup-beam` is a
   composite Action and unreachable from a shell string, so anything
-  needing `mix` inside an agent job installs its own toolchain —
-  which is the whole reason `bin/preview-build.sh` exists in that
-  shape. **The gates do not run in agent jobs**; they run in `ci.yml`
-  on the PR.
+  needing `mix` inside an agent job installs its own toolchain.
+  **The gates do not run in agent jobs**; they run in `ci.yml` on the
+  PR. **Nor does the preview get built there any more** —
+  `bin/preview-build.sh` is gone: Render builds a preview environment
+  per pull request, out-of-band from the agent job entirely, so a
+  failing preview can no longer fail a dispatch. That is what the
+  script's never-exit-non-zero contract existed to prevent, solved by
+  moving the build rather than by making it incapable of failing.
 - **The pipeline audit only runs on ticket branches.** `ci.yml`'s
   `gate the pipeline audit` step greps the branch for `orc-[0-9]+`
   and skips the whole audit without one. So mutex, doc lint, class

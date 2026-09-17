@@ -21,19 +21,26 @@ defmodule Catapult.Foundation do
   @impl Catapult.Component
   def config do
     [
-      # The one name imposed from outside: App Platform injects
-      # DATABASE_URL under a name we do not choose, and
-      # FOUNDATION_DATABASE_URL is not on offer (SETUP.md §2). That is
-      # what `external: true` is for, and it confers nothing — it only
-      # makes this case distinguishable from sloppiness, so the audit's
-      # spine check can stay armed for the two below.
+      # The one name imposed from outside: the platform supplies the
+      # connection string under DATABASE_URL and FOUNDATION_DATABASE_URL
+      # is not on offer (SETUP.md §2). That is what `external: true` is
+      # for, and it confers nothing — it only makes this case
+      # distinguishable from sloppiness, so the audit's spine check can
+      # stay armed for the two below.
+      #
+      # Render binds it in `render.yaml` rather than injecting it, which
+      # narrows the reason without removing it: the *value* still comes
+      # from the datastore rather than from anything the slug spine
+      # names, and every Postgres client in existence expects this key.
       {:database_url, "DATABASE_URL",
        cast: &__MODULE__.cast_database_url/1, secret: true, external: true},
       {:pool_size, "FOUNDATION_POOL_SIZE", cast: :integer, default: "2"},
       # Deliberately not PORT: this is the app's HTTP listener (the
-      # health endpoint). App Platform routes public traffic to 8080 and
-      # that isn't changeable in its UI, so 8080 is the default and this
-      # variable is the explicit override.
+      # health endpoint), not the platform's idea of one. 8080 was App
+      # Platform's fixed public port and is kept as the default because
+      # nothing about it was wrong; `render.yaml` now sets PORT and this
+      # to the same number, so the platform's probe and the app's
+      # listener cannot disagree. Leaving either implicit is how they do.
       {:health_port, "FOUNDATION_HEALTH_PORT", cast: :integer, default: "8080"},
       # `CatapultWeb.Endpoint`'s own secret (ORC-35's dev pass): signs
       # the LiveView socket's connect tokens and the session cookie

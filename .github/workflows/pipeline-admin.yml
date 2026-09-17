@@ -38,9 +38,9 @@ jobs:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       PIPELINE_STATE_TOKEN: ${{ secrets.PIPELINE_STATE_TOKEN }}
       # setup probes the deploy endpoint at the end, which is the whole
-      # reason it catches a wrong app id at hookup instead of on the
+      # reason it catches a wrong service id at hookup instead of on the
       # first ticket to reach Merged.
-      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
