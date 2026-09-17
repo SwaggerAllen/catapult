@@ -379,31 +379,28 @@ file, not a load-time property of its content, so it stays a
 stand-alone measurement rather than moving into the loader with the
 other three.
 
-Filed at `lib/catapult/dsl/bundle_check.ex` rather than
-`lib/mix/tasks/catapult.bundle.check.ex`: a first design pass placed it
-at the conventional Mix path and a record review caught that the
-placement was arbitrary rather than forced — Mix resolves a task by its
-module name (`Mix.Tasks.Catapult.Bundle.Check`), never by where the
-file sits, so nothing requires `lib/mix/tasks/**`, and that path had no
-owning file map and wasn't on `systems/README.md`'s deliberately-
-unowned list either. Filing it under `lib/catapult/dsl/`, which this
-doc already maps, closes the gap structurally instead of by adding a
-second `paths:` entry to this doc and to `docs/dsl/bundle.md` — one
-unowned directory avoided is better than two file-map lines to
-remember.
+Filed at `lib/catapult/dsl/bundle_check.ex` rather than at the
+conventional `lib/mix/tasks/`: Mix resolves a task by its module name
+(`Mix.Tasks.Catapult.Bundle.Check`), never by where the file sits, so
+nothing requires that path — and `lib/mix/tasks/**` has no owning file
+map and is not on `systems/README.md`'s deliberately-unowned list, so
+filing there would open a directory the mutex audit cannot see. Filing
+it under `lib/catapult/dsl/`, which this doc already maps, closes that
+structurally rather than by adding `paths:` entries to this doc and to
+`docs/dsl/bundle.md` — one unowned directory avoided beats two
+file-map lines to remember.
 
-That same review asked whether the module needs a Boundary
-classification, since the root project runs the boundary compiler
-(`mix.exs`) and this module's name doesn't start with `Catapult.` or
-`CatapultWeb.` regardless of which file it lives in — Boundary
-classifies by module name, and an unclassified module is a compile
-error there (`"is not included in any boundary"`), not a warning
-substrate's own precedent could wave through, because substrate never
-runs the boundary compiler at all. `use Boundary, classify_to: Catapult`
-resolves it — Boundary's own tasks (`Mix.Tasks.Compile.Boundary` and
-its siblings, classified to `Boundary.Mix`) are the shipped precedent
-for exactly this namespace mismatch. Classifying straight to `Catapult`
-rather than introducing `Catapult.Mix`: the library's own doc frames
-`Catapult.Mix` as a home for helper modules several tasks share, and
-this ticket adds the project's first and only task, with no such
-helpers yet to justify the extra boundary.
+The Boundary classification is forced rather than chosen. The root
+project runs the boundary compiler (`mix.exs`), this module's name
+starts with neither `Catapult.` nor `CatapultWeb.` whatever file it
+lives in, and Boundary classifies by module name — so left alone it is
+an unclassified module, which is a compile error there (`"is not
+included in any boundary"`) rather than a warning. Substrate's own task
+is no precedent: substrate never runs the boundary compiler at all.
+`use Boundary, classify_to: Catapult` is the mechanism Boundary
+reserves for exactly this namespace mismatch, and Boundary's own tasks
+(`Mix.Tasks.Compile.Boundary` and its siblings, classified to
+`Boundary.Mix`) are the shipped example. Straight to `Catapult` rather
+than a new `Catapult.Mix`: that shape holds helper modules several
+tasks share, and this is the project's only task, with no such helpers
+to hold.
