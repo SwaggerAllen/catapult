@@ -67,7 +67,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
     end
   end
 
-  describe "hop chains and reversal (dsl-syntax.md §7.1)" do
+  describe "hop chains and reversal (chain.md #19)" do
     test "a chain of more than one edge before -> is legal" do
       assert {:ok,
               %ContextWalk{
@@ -94,7 +94,7 @@ defmodule Catapult.Dsl.ContextWalkTest do
     end
   end
 
-  describe "all.<tier> forms (dsl-syntax.md §7.2)" do
+  describe "all.<tier> forms (chain.md #19)" do
     test "all.<tier>.handle" do
       assert {:ok, %ContextWalk{source: :all, target_tier: "vocab", projection: :handle}} =
                ContextWalk.parse("all.vocab.handle")

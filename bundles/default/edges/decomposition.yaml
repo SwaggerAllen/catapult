@@ -8,7 +8,7 @@
 # already documents why three fanout sources into one flat pool is
 # legal), and journey/screen (journeys' and screens' own rotations —
 # the requirements/resp shape, systems/platform_content.md's ORC-109
-# entry). Nine sites, one mechanism, one file — dsl-syntax.md §4.1's
+# entry). Nine sites, one mechanism, one file — `chain.md` #27's
 # `instances:` form.
 edge: decomposition
 type: fanout

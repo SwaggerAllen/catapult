@@ -1,7 +1,7 @@
 defmodule Catapult.Delivery.ContainerLifecycle do
   @moduledoc """
   The queue dispatcher (`systems/delivery.md`'s ORC-104 design pass; v5
-  §7.8; dsl-syntax.md §15.6-§15.8): a Commanded process manager that
+  §7.8; `workflow.md` #16 through #19): a Commanded process manager that
   decides *when* a container's position moves and issues the command,
   built beside `Catapult.Delivery.FeatureLifecycle` on the identical
   `application: Catapult.Engine.Application`-subscribed shape.
@@ -46,7 +46,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   progression — and `inline_dispatch_point?/1` excluded it **by name**,
   the seam ORC-148's own dev pass filed a finding against itself for.
   ORC-151 closes it from the grammar side rather than the code side:
-  `merge`'s own `ball` is now `plane` (dsl-syntax.md §15.1, §15.11), so
+  `merge`'s own `ball` is now `plane` (`workflow.md` #10, #13), so
   it is no longer agent-balled at all and leaves this predicate's
   candidate set without a name check ever being added. Nothing in this
   module branches on the words `setup`, `retro`, `main`, `prep`,
@@ -478,7 +478,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
   # queue, now that `setup`/`retro` fold directly into `milestone`'s
   # own array with no `flow:` to represent them.
   # `Status.non_review_shaped_agent_step?/1`'s set is exactly this
-  # dispatcher's candidate set (dsl-syntax.md §15.1, §15.11, ORC-151):
+  # dispatcher's candidate set (`workflow.md` #10, #13, ORC-151):
   # `merge`'s own `ball` is `plane`, not `agent`, so it never reaches
   # this predicate at all — it is the *same* flow's own mechanical join,
   # effected by the plane once `reconcile` approves, never a fresh thing
@@ -563,7 +563,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
         # rather than silently absorbed.
         Logger.debug(
           "inline dispatch point #{inspect(entry.status)} on container #{container.id} is " <>
-            "closed and admits no further work (dsl-syntax.md §15.7)",
+            "closed and admits no further work (workflow.md #30)",
           component: :delivery
         )
 
@@ -586,7 +586,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
       # ambiguous — so `next_identified_step/3`'s lookup always finds
       # the instance's true position. A container-skeleton instance
       # never lands here: its array closes on `terminal` exactly once,
-      # last (dsl-syntax.md §15.1), so its own last queue entry always
+      # last (`workflow.md` #16), so its own last queue entry always
       # resolves to `{_canonical, :terminal}` below instead. While a
       # caller could still pass a bare, ambiguous name, that lookup
       # could land on the wrong occurrence and reach this clause for a
@@ -609,7 +609,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
 
   # Closing is the one transition with preconditions of its own beyond
   # the queue model: every carried finding adjudicated, and every
-  # queue-shaped anchor resolved (v5 §7.8, dsl-syntax.md §15.7). Both
+  # queue-shaped anchor resolved (v5 §7.8, `workflow.md` #30). Both
   # are computed here and neither is stored — the outstanding set is a
   # difference of two queries, and the unresolved-queue check is a scan
   # against `ContainerQueues.resolution/3`. The flag set requested
@@ -642,7 +642,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
       unresolved ->
         Logger.info(
           "container #{container.id} holds #{length(unresolved)} unresolved queue(s) and " <>
-            "will not close over them (dsl-syntax.md §15.7)",
+            "will not close over them (workflow.md #30)",
           component: :delivery
         )
 

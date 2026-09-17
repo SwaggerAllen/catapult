@@ -1,6 +1,6 @@
-# The feature_request flow's planning tier (dsl-syntax.md §6's delta
+# The feature_request flow's planning tier (`chain.md` #38's delta
 # tier — a flow's schema delta lives beside the base tiers, its prompt
-# under flows/<flow>/). `scope: cascade_visit` (dsl-syntax.md §3.1) —
+# under flows/<flow>/). `scope: cascade_visit` (`chain.md` #6) —
 # one plan per node the flow's own downward_cascade actually visits,
 # not one singleton plan per open flow instance: a feature request
 # that touches sysarch, three comparchs and two impls needs six plans,
@@ -15,7 +15,7 @@ scope: cascade_visit
 identity: id
 fields:
   # `argument` is the reserved `fields:` name the work surface reads
-  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # off a flow's entry tier (ORC-114, `chain.md` #12) — this
   # tier is that entry tier for every feature_request flow instance.
   argument: draft.argument
   resolved: draft.resolved
@@ -28,10 +28,10 @@ draft:
 generator: llm
 prompt: flows/feature_request/propose.md.liquid
 context:
-  # `ticket.findings` (dsl-syntax.md §7's v5 addition — the closest
-  # thing this language has to v4's dropped `seed:` block, since it
-  # names "ticket thread for the scope") is not wired here: it is an
-  # extension-provided context source (§12), and neither dialect
+  # `ticket.findings` (the closest thing this language has to v4's
+  # dropped `seed:` block, since it names "ticket thread for the
+  # scope") is not wired here: it is an extension-provided context
+  # source (`bundle.md` #8), and neither dialect
   # registers one yet (lib/catapult/dsl/dialect.ex — "context sources
   # arrive with the delivery system", a later core_dsl milestone, not
   # this ticket's). Using it now would fail load. `input.project_doc`
@@ -43,7 +43,7 @@ context:
   - all.comp.handle
   # Project-wide visibility: a plan reasoning about where a feature's
   # obligations land needs to see the whole component graph, not just
-  # the one node it is currently visiting (dsl-syntax.md §7.2).
+  # the one node it is currently visiting (`chain.md` #22).
   - self.plan_target -> sysarch.handle
   - self.plan_target -> comparch.handle
   - self.plan_target -> subcomparch.handle

@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Tier do
   @moduledoc """
-  One `tiers/<tier>.yaml` declaration (dsl-syntax.md §3): scope,
+  One `tiers/<tier>.yaml` declaration (`chain.md` #5): scope,
   identity, fields, handle, draft grammar, generator, prompt, executor
   hints, context walks, produced fragments, and the extension-provided
   `delivery:` / `enforcement:` annotations. Or, when it carries
@@ -19,7 +19,7 @@ defmodule Catapult.Dsl.Tier do
   resolve against the platform vocabulary, does `reviews:` name a real
   tier, does a review tier's `context:` match the reviewed tier's) need
   the rest of the bundle in view and are `Catapult.Dsl.Chain`'s job
-  (dsl-syntax.md §13).
+  (`chain.md` #19, #32).
   """
 
   alias Catapult.Dsl.ContextWalk
@@ -84,7 +84,7 @@ defmodule Catapult.Dsl.Tier do
   @core_keys ~w(tier scope scope_filter identity fields handle draft generator prompt
                 executor context produces delivery enforcement source)
 
-  # dsl-syntax.md §3.3: everything a generation tier declares that a
+  # `chain.md` #14: everything a generation tier declares that a
   # review tier's cardinality/scope-by-construction makes redundant, and
   # that this loader therefore rejects outright rather than silently
   # ignoring — restating any of them is a second place for the reviewed
@@ -195,13 +195,13 @@ defmodule Catapult.Dsl.Tier do
     end
   end
 
-  ## Review tiers — dsl-syntax.md §3.3
+  ## Review tiers — `chain.md` #14 (which retires them as tiers)
 
   defp parse_review_tier(file, raw, name, reviews, tier_where, name_problems) do
     forbidden =
       for key <- @review_forbidden, Map.has_key?(raw, key) do
         "#{tier_where} declares #{inspect(key)}, which a review tier " <>
-          "(reviews: #{inspect(reviews)}) may not carry (dsl-syntax.md §3.3)"
+          "(reviews: #{inspect(reviews)}) may not carry (chain.md #14)"
       end
 
     {generator, generator_problems} =
@@ -284,7 +284,7 @@ defmodule Catapult.Dsl.Tier do
 
   defp reference_scope_problems(_scope, _generator, _draft, _produces, _where), do: []
 
-  # `reference.<name>` (dsl-syntax.md §3) is legal only on a
+  # `reference.<name>` (`chain.md` #5) is legal only on a
   # `scope: reference` tier's own `fields:` — there is no committed
   # draft and no minting instance anywhere else for it to mean.
   defp field_source_problems(scope, fields, where) do
@@ -484,7 +484,7 @@ defmodule Catapult.Dsl.Tier do
      ["#{where}'s produces entry #{inspect(other)} is not {fragment: {owner, kind, authored}}"]}
   end
 
-  ## delivery: — dsl-syntax.md §3, §11, §13; v5 §7.10's "an unknown phase
+  ## delivery: — retired by `workflow.md` #22; v5 §7.10's "an unknown phase
   ## or agent step is a load error" and §11's "platform-fixed vocabulary
   ## only". Structural shape only here — actual membership in
   ## Catapult.Dsl.SystemStatus's closed sets is a bundle-level

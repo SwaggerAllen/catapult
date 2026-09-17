@@ -4,13 +4,13 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   `systems/delivery.md`'s ORC-32 design pass): `pending → generation →
   [critique] → [gate] → … → checks`, read directly off a loaded
   `Catapult.Dsl.Workflow.t()`'s named `types/<name>.yaml` declaration
-  (dsl-syntax.md §15.2) rather than resolved by this module — the same
+  (`workflow.md` #5) rather than resolved by this module — the same
   "take the loaded bundle as a parameter" shape `Catapult.Engine
   .Projections.ReadyScopes.ready/3` and `Catapult.Engine.Scheduler
   .trigger/2` already establish for the chain axis.
 
   **Position is the citing type's own array index, not a named
-  `after:` predecessor** (ORC-104, dsl-syntax.md §15.3): `after:` is
+  `after:` predecessor** (ORC-104, `workflow.md` #12): `after:` is
   retired from this grammar entirely, so this module walks the named
   type's `statuses:` array directly instead of following `gate.after`
   chains from `"generation"`.
@@ -20,12 +20,12 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   reachable position — included as the sequence's own trailing
   sentinel, the same role the retired `:fanout` played before this
   ticket's bundle migration removed it from the shipped `feature` type
-  (dsl-syntax.md §15.2's worked example has no `fanout` anchor at all).
+  (`workflow.md` #12's backbone has no `fanout` anchor at all).
   `merge`, `deploy` and `terminal` are real positions in the loaded
   type's own array but sit behind the child lifecycle/mutex/dispatch/
   reconciliation machinery Phase 7 builds, so this module never places
   one in the sequence it returns — a type declaring them still loads
-  and validates (dsl-syntax.md §13); this module simply never reaches
+  and validates (`workflow.md` #12); this module simply never reaches
   them. An `environment:` citation is absent for a different reason,
   which outlives the reachability boundary: it is not a resting
   position at all (see `to_position/1`).
@@ -83,7 +83,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
 
   @typedoc """
   One `positions/2` entry, paired with the sub-array it belongs to
-  (dsl-syntax.md §15.10, ORC-116). `group_key` is shared by every
+  (`workflow.md` #6, ORC-116). `group_key` is shared by every
   entry a declared sub-array spans — the group's own anchor's bare
   name — and `nil` for an entry no sub-array cites. `group_anchor`
   marks the group's own non-review-shaped agent step — not always
@@ -194,8 +194,8 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   #
   # Reads `qualified`, never `namespace` (ORC-202). `namespace` is the
   # recurring group's own anchor name, which disambiguates only when
-  # the two occurrences sit in *different* sub-arrays. dsl-syntax.md
-  # §15.12 permits a kind to recur inside one namespace — "two
+  # the two occurrences sit in *different* sub-arrays. `workflow.md`
+  # #7 permits a kind to recur inside one namespace — "two
   # `critique` entries in one array, three `pending` entries" — with
   # `name:` as the only thing telling them apart, and there `namespace`
   # is identical for both, so matching on it picks whichever comes
@@ -241,8 +241,8 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
 
   # An `environment:` entry is not a resting position and never
   # becomes one: it configures the `deploy` entry that follows it
-  # (dsl-syntax.md §15.5's "an environment sits *before* the `deploy`
-  # entry it is a promotion target for"), so a ticket rests at
+  # (`workflow.md` #38's "an environment sits *before* the `deploy`
+  # entry it configures"), so a ticket rests at
   # `deploy`, never at the environment declaration that told `deploy`
   # where to go. Dropped here rather than filtered by the caller —
   # `position/0` has exactly two shapes and the projection's own two
@@ -318,7 +318,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
 
   @doc """
   The authored name a resting `position()` is displayed under
-  (dsl-syntax.md §15.12, ORC-155): a status kind's own `name:` — the
+  (`workflow.md` #7, ORC-155): a status kind's own `name:` — the
   occurrence `anchor` (ORC-171) picks out, defaulting to the kind
   itself — or a gate's own declared name, which was always its whole
   identity. `nil` only for `nil` (no resting position at all).
@@ -361,7 +361,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.Sequence do
   end
 
   # `@reachable_boundary` can recur, once per generation-shaped
-  # sub-array (dsl-syntax.md §15.2's revised `feature.yaml`, ORC-182):
+  # sub-array (`workflow.md` #12, ORC-182):
   # the boundary is the *last* occurrence ahead of the array's own
   # `merge` entry, not the first — the shipped single-phase bundle
   # never exercised the difference, since it declares exactly one.

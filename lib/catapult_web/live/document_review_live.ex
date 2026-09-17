@@ -29,7 +29,7 @@ defmodule CatapultWeb.DocumentReviewLive do
   (`Catapult.Engine.Commands.DeclineGate`'s own moduledoc: bundle
   content is the command edge's to validate, never the aggregate's).
   A target is legal iff it is earlier in the citing type's own
-  effective sequence — `dsl-syntax.md` §15.10's one rule, answered by
+  effective sequence — `workflow.md` #34's one rule, answered by
   `Catapult.Dsl.Workflow.throwback_legal?/4`, never by a per-gate
   declared list. The check is not belt-and-braces over the buttons this
   screen renders: `target` arrives from a `phx-value-target` the client

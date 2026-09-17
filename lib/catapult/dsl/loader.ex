@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Loader do
   @moduledoc """
-  The whole load (dsl-syntax.md §1-§15): reads `catapult.yaml` at
+  The whole load (`bundle.md`, `chain.md`, `workflow.md`): reads `catapult.yaml` at
   `root`, resolves the dialect, loads the chain bundle and — under a
   dialect that has one — the workflow bundle, and returns every
   problem at once (`Catapult.Config`'s style, applied to the DSL).

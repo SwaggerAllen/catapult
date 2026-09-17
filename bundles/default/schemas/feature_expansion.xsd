@@ -48,9 +48,9 @@
     <xs:attribute name="name" type="xs:string" use="required"/>
     <xs:attribute name="scope" type="TermScope" use="required"/>
     <!-- required iff scope="feature"; a cross-field rule the loader's
-         instance-level checks enforce, not XSD alone (dsl-syntax.md
-         §13's split between load-time structure and projection-time
-         instance constraints). -->
+         instance-level checks enforce, not XSD alone (`chain.md`
+         #33 and #37's split between what the schema states and what a
+         predicate counts). -->
     <xs:attribute name="feature-name" type="xs:string" use="optional"/>
   </xs:complexType>
 

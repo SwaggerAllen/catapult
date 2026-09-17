@@ -1,5 +1,5 @@
 type: project
-# No skeleton: line — this type has no anchors at all (dsl-syntax.md
+# No skeleton: line — this type has no anchors at all (`workflow.md`
 # §15.1). A project needs no re-resolution anchor: all review happens at
 # lower levels, and a workflow cutover mid-project is not the hazard a
 # cutover mid-container is (v5 §7.8). Its whole array is queue-shaped,

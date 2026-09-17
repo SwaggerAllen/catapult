@@ -1,7 +1,7 @@
 # A second intake root, alongside feature_expansion (v5 §1.1, §4.5,
 # the negative-space doctrine; systems/platform_content.md's ORC-108
 # entry). Reads the whole raft (`input.*`) plus the `non_goals` role
-# (`input.non_goals`, dsl-syntax.md §7.2) — strong signal when the raft
+# (`input.non_goals`, `chain.md` #19) — strong signal when the raft
 # tags a document that way, never a requirement: neither walk can block
 # readiness, and a raft with nothing tagged still runs this tier
 # against `input.*` alone. Mints straight into the `policy` pool via

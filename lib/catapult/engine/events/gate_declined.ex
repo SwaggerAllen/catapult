@@ -6,8 +6,8 @@ defmodule Catapult.Engine.Events.GateDeclined do
 
   `throwback_to` is the target the decline resolved to — the gate's own
   declared `throwback:`, the derived default, or any other entry
-  earlier in the citing type's effective sequence (dsl-syntax.md
-  §15.10) — and moves the ticket's projected status straight there, no
+  earlier in the citing type's effective sequence (`workflow.md`
+  #8, #34) — and moves the ticket's projected status straight there, no
   lookup needed. Reachability is the **command edge's** guarantee
   (`Catapult.Dsl.Workflow.throwback_legal?/4`), not a load-time one:
   `gate_throwback_problems/2` checks a *declared* `throwback:`, and

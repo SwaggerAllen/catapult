@@ -1,13 +1,13 @@
 defmodule Catapult.Dsl.PredicatesFile do
   @moduledoc """
-  `predicates.yaml` (dsl-syntax.md §8): named predicates composing the
+  `predicates.yaml` (`chain.md` #37): named predicates composing the
   expression language, referenced by name from any of the language's
   four slots (`scope_filter`, `cardinality.when`, an edge `constraint`,
   a flow `completion`).
 
   Not a glob-listed manifest key (`bundle.yaml`'s §2 example carries no
   `predicates:` list) — a fixed filename at the bundle's own directory
-  root, present or absent (dsl-syntax.md §11).
+  root, present or absent (`bundle.md` #3).
   """
 
   alias Catapult.Dsl.Predicate

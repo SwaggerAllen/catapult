@@ -1,9 +1,9 @@
 # Scoped per v5 §4.5's three grains: project-global (no
-# scope edge, read via `all.policy` — dsl-syntax.md §7.2), through-
+# scope edge, read via `all.policy` — `chain.md` #19), through-
 # responsibilities (`policy_application`'s policy->resp instance — the
 # load-bearing grain, since a policy bound to a resp survives a
 # sysarch re-decomposition, reached by comparch via a reversed hop
-# through `fulfills` — dsl-syntax.md §7.1), and direct component links
+# through `fulfills` — `chain.md` #19), and direct component links
 # for genuinely structural policies (`policy_application`'s
 # policy->comp instance). Never child_of(resp) — the grain is an edge
 # (policy_application, reachability through fulfills), not parentage.
@@ -12,7 +12,7 @@
 # validated against, but three `decomposition` instances mint into it
 # (edges/decomposition.yaml) — sysarch's project-level <policies>,
 # comparch's component-local <policies>, and (ORC-108) non_goals'
-# distilled intake candidates. Nothing in dsl-syntax.md's closed scope
+# distilled intake candidates. Nothing in `chain.md` #6's closed scope
 # vocabulary expresses "child of any of these three tiers", and
 # lib/catapult/dsl/tier.ex's scope_problems check only verifies
 # child_of(X) names a *declared* tier — it does not require X to be the

@@ -27,7 +27,8 @@
     "screens/**",
     "storybook/**",
     "systems/*.md",
-    "docs/*.md"
+    "docs/*.md",
+    "docs/dsl/**"
   ],
   "componentPaths": [
     "lib/catapult_web/components/**"
@@ -38,7 +39,6 @@
     "v4": { "unchecked": "the vendored v4 corpus in seed-docs/ — Catapult's own docs and code deliberately do not cite it (seed-docs/README.md); a v4 section number outside seed-docs/ is a defect, and seed-docs/README.md names its own files by path" },
     "conventions": { "path": "docs/conventions.md" },
     "Conventions": { "path": "docs/conventions.md" },
-    "dsl-syntax.md": { "path": "docs/dsl-syntax.md" },
 
     "DESIGN": { "unchecked": "orchestration's DESIGN.md — another repository, so no path here can resolve it" },
     "orchestration": { "unchecked": "orchestration's own docs — another repository, so no path here can resolve it" },

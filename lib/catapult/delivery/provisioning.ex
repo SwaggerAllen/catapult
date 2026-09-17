@@ -284,8 +284,8 @@ defmodule Catapult.Delivery.Provisioning do
   alongside `remaining`.
 
   Reads no review body and no score: it approves every drafted node it
-  finds, unconditionally, so `docs/dsl-syntax.md` §15.10's parked
-  threshold-based-gating decision stays parked. Approves; never
+  finds, unconditionally, so the parked threshold-based-gating
+  decision stays parked. Approves; never
   discards — an unattended walk only ever needs to advance.
   """
   @spec approve_drafts(Plug.Conn.t(), binary()) :: Plug.Conn.t()

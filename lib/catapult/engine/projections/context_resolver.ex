@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Projections.ContextResolver do
   @moduledoc """
-  Resolves one `Catapult.Dsl.ContextWalk` (dsl-syntax.md §7) against
+  Resolves one `Catapult.Dsl.ContextWalk` (`chain.md` #19) against
   live graph state — the engine-side half the loader's own validation
   (`Catapult.Dsl.Chain`) never does: the loader confirms a walk is
   *well-formed* against declarations; this module walks it against
@@ -27,7 +27,7 @@ defmodule Catapult.Engine.Projections.ContextResolver do
   is vacuously true while `Enum.any?/2` on `[]` is vacuously false, so
   neither module gained a line for this — an `input.<role>` walk is
   therefore *structurally* incapable of blocking readiness or
-  reporting staleness, which is dsl-syntax.md §7's "a role with no
+  reporting staleness, which is `chain.md` #22's "a role with no
   documents never blocks readiness" and v5 §1.1's "an input-doc
   edit... stales nothing," both already true of every `{:ok, []}`
   regardless of source (`systems/engine.md`'s ORC-107 entry carries the

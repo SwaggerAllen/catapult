@@ -23,7 +23,7 @@ defmodule Catapult.Dsl.Fixture do
   with `write!/2` afterward.
 
   The workflow half carries `types:`/`entry:` and no `after:` anywhere
-  as of ORC-104 (dsl-syntax.md §15.2-§15.4): a gate's position is the
+  as of ORC-104 (`workflow.md` #5, #12, #33): a gate's position is the
   citing type's own array index, and `entry:` is a required key naming
   the queue-shaped root a fresh project dispatches from.
   """

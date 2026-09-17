@@ -8,7 +8,7 @@ defmodule Catapult.Engine.Projections.Staleness do
   A review tier needs no staleness treatment at all
   (`docs/v5-design-decisions.md` §7.16, corrected) — and this module
   never has to special-case it, because a review tier commits no body
-  and mints no node of its own (dsl-syntax.md §3.3): it is simply
+  and mints no node of its own (`chain.md` #14): it is simply
   never a `node.tier` this function is called with.
 
   `chain` is the loaded bundle (`Catapult.Dsl.Chain`) whose tier

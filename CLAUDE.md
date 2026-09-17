@@ -17,7 +17,13 @@ pipeline for the projects it builds. Design source of truth:
 carries its reason. Negative space: `docs/non-goals.md` — proposing
 against it means arguing with a recorded decision, and saying so.
 Architecture: `systems/*.md`, one doc per system with a file map.
-DSL grammar: `docs/dsl-syntax.md` (normative; wins over the v4 spec).
+DSL grammar: `docs/dsl/bundle.md`, `chain.md` and `workflow.md`
+(normative; each rule carries an id and a reason in its
+`.reasons.md` sibling, and wins over the v4 spec).
+`docs/dsl/example/` is the default pair written in that grammar, with
+a checker that derives what the rules say is derived;
+`docs/dsl/retired-spec-index.md` maps the sections of the retired
+`docs/dsl-syntax.md` onto the rules that replaced them.
 
 ## Toolchain
 
@@ -38,7 +44,7 @@ toolchain is the only supported one.
   suite that CI runs separately** — run both.
 - `bundles/` — DSL bundle content, both axes (v5 §7.18), each a
   single forked-and-tailored directory rather than a loader-composed
-  layer (`dsl-syntax.md` §11): the chain bundle (`default`) and the
+  layer (`bundle.md` #7): the chain bundle (`default`) and the
   platform workflow bundle (`default-flow`: default review sequence,
   `dev`/`staging`).
 - `screens/` and `storybook/` — **design-owned** (`pipeline
@@ -217,6 +223,13 @@ Each of these cost a wrong diagnosis before it was written down.
   for publishing previews from the harness rather than a
   push-watcher. A push under ordinary credentials is what restores
   them.
+- **The id/reasons audit does not see `docs/dsl/`.** Orchestration's
+  check is scoped to `systems/` and `screens/`, so a rule in
+  `bundle.md`, `chain.md` or `workflow.md` whose `.reasons.md` entry
+  is missing or unamended passes the audit silently, and
+  `pipeline reasons chain#22` does not resolve. The convention binds
+  regardless — it is the contract's own rules that carry the ids —
+  and the gap closes when that scope widens.
 - **A stale `_build` fails `--warnings-as-errors` for a lie.** A
   half-finished compile leaves a dependency's modules missing, and
   the gate then reports them undefined at their call sites — which
@@ -243,7 +256,7 @@ Each of these cost a wrong diagnosis before it was written down.
   noticed. Leaving the source of truth stating the superseded rule is
   how the next pass re-derives it.
 - **A rule stated in more than one place is amended in every place,
-  in the same change.** `docs/dsl-syntax.md` states each load-time
+  in the same change.** The retired v5 DSL spec stated each load-time
   rule at least twice by construction — §13's checklist and the §15.x
   section that owns it — and often a third time, in a worked example
   or §15.1's lifecycle mapping. Six consecutive design-review rounds
@@ -309,7 +322,8 @@ Each of these cost a wrong diagnosis before it was written down.
   site, or state the predicate that finds them — a partial list reads
   as a checklist rather than as an example.
 - **A rule carries an id, and its reason lives beside the doc.** In
-  `systems/*.md` and `screens/*.md` every h2-or-deeper heading and every
+  `systems/*.md`, `screens/*.md` and `docs/dsl/*.md` every
+  h2-or-deeper heading and every
   standing decision opens with an id — `#17` from the port or the
   author, `#ORC-247-2` from a ticket's design pass, which mints one
   above the highest it has minted in that doc, because two tickets
@@ -327,7 +341,7 @@ Each of these cost a wrong diagnosis before it was written down.
   decline.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
-  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —
+  — `v5 §7.8`, `conventions §2`, `chain.md` #22 —
   rather than by path. `pipeline.config.json`'s `citationShorthands`
   is what maps each to a file; an entry that cannot resolve in this
   tree (`DESIGN`, `orchestration`, `AGPL`) carries the reason on

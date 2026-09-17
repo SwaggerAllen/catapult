@@ -2,7 +2,7 @@
 # subcomp→subcomp — one mechanism, one name (this ticket's edges
 # section: "dependency covers comp→comp and subcomp→subcomp through
 # one declaration"). Previously two files (dependency, sub_dependency);
-# dsl-syntax.md §4.1's `instances:` form is what makes one file
+# `chain.md` #27's `instances:` form is what makes one file
 # possible without losing the fact that a subcomp-to-subcomp
 # dependency is scoped to siblings under the same comparch instance
 # (each dep is declared inside that one comparch's own draft, not a
@@ -12,7 +12,7 @@ edge: dependency
 type: dependency
 instances:
   # These two, and the four sibling-scoped instances below, are the
-  # residual locator case (dsl-syntax.md §4.2): neither end is `self`,
+  # residual locator case (`chain.md` #27): neither end is `self`,
   # `self.parent`, a fanout element, nor a `scope: singleton` tier —
   # `sysarch.draft.dependencies.dep[]` shares no prefix with
   # `decomposition`'s own `comp` fanout locus, and `sysarch`'s own

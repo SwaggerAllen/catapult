@@ -1,10 +1,10 @@
 # docs/v5-design-decisions.md §7.19, revised: a review is a tier, not
 # a nested block on comparch.yaml. `reviews: comparch` fixes this
 # review's scope and cardinality to comparch's own (per(comp), 1:1) —
-# not restated, dsl-syntax.md §3.3. `context:` below is the same set
+# not restated (`chain.md` #14). `context:` below is the same set
 # of walks as comparch's own (comparch.yaml), checked at load time
 # (§13) rather than trusted; `draft`/`prior_review` reach the prompt
-# automatically (§9) and are never context: entries.
+# automatically (`chain.md` #35) and are never context: entries.
 tier: comparch_review
 reviews: comparch
 generator: llm

@@ -1,4 +1,4 @@
-# docs/v5-design-decisions.md §7.19, dsl-syntax.md §3.3: a review is
+# docs/v5-design-decisions.md §7.19, `chain.md` #14: a review is
 # a tier, not a nested block. `reviews: screens` fixes this review's
 # scope, identity and cardinality to screens' own — not restated.
 # `context:` is the same set of walks as screens' own, checked at

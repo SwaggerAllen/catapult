@@ -1,6 +1,6 @@
 # v5 §4.5, revised at ORC-236: refs are purely tool-authored — content
-# supplied, no draft, no review, no approval. `scope: reference`
-# (docs/dsl-syntax.md §3.1) names exactly what a ref is: a flat,
+# supplied, no draft, no review, no approval. A supplied tier having no
+# scope at all (`chain.md` #5, #17) names exactly what a ref is: a flat,
 # project-scoped pool of nodes created directly by a write path outside
 # the chain, `id`-identified, never minted by a fanout edge and bound
 # to no parent tier — legal only paired with `generator: reference`
@@ -13,7 +13,7 @@
 # this tier no longer has a draft to hold. "Any parents and any
 # children" (v5 §4.5's redirect) is unchanged: `edges/reference.yaml`
 # (comparch/subcomparch/impl, each its own instance under
-# dsl-syntax.md §4.1) is the attachment surface, wired at
+# `chain.md` #27) is the attachment surface, wired at
 # comparch-and-below only — refs are an implementation detail, so
 # nothing above comparch attaches one.
 tier: ref

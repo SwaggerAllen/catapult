@@ -10,7 +10,7 @@
 # is none of those: not a mint (decomposition), not a comp-fulfills-
 # resp binding (fulfills), not a policy scope grain
 # (policy_application). Named separately and consolidated the same
-# way (dsl-syntax.md §4.1's `instances:`) since it is one mechanism —
+# way (`chain.md` #27's `instances:`) since it is one mechanism —
 # "a tier attaches a reference" — recurring at three sites.
 #
 # ORC-109 adds three more sites under this same mechanism, not a new

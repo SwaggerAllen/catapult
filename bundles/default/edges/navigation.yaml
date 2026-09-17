@@ -1,4 +1,4 @@
-# The edge dsl-syntax.md's v5 rule already anticipated ("navigation
+# The edge `chain.md` #23 already anticipated ("navigation
 # edges [...] are cyclic-legal reference edges" and "must never appear
 # in a readiness-bearing context walk") — this ticket is what actually
 # declares it (systems/platform_content.md's ORC-109 entry). Declared

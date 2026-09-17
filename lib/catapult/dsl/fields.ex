@@ -4,7 +4,7 @@ defmodule Catapult.Dsl.Fields do
   flow, gate, environment, bundle.yaml): every accessor returns
   `{value, problems}` rather than raising or short-circuiting, so a
   parser can read every field it needs and report every problem at
-  once (dsl-syntax.md §13's all-problems-at-once style, `Catapult
+  once (the loader's all-problems-at-once style, `Catapult
   .Config`'s idiom applied to YAML maps).
 
   YAML maps keep string keys throughout (`Catapult.Dsl.Yaml`):
@@ -163,7 +163,7 @@ defmodule Catapult.Dsl.Fields do
   @type depth :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}
 
   @doc """
-  A `depth:` field (dsl-syntax.md §13): a non-negative integer, or a
+  A `depth:` field (`workflow.md` #33): a non-negative integer, or a
   2-element list of non-negative integers (`[first, rest]`, §7.19) —
   the same grammar checked the same way on a gate, an environment and
   `critique.yaml` (§15.2, §15.4, §15.5). Omitted defaults to `0`.

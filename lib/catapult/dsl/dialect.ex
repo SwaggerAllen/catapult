@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Dialect do
   @moduledoc """
-  A dialect is core plus an extension set plus defaults (dsl-syntax.md
+  A dialect is core plus an extension set plus defaults (`bundle.md`
   §12): `design` (full Catapult, both axes) and `runtime` (the embedded
   generation runtime, v5 §10 — no review lifecycle, no git bodies, and
   therefore no workflow bundle at all — v5 §7.18: "a workflow bundle

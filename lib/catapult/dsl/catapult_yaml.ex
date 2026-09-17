@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.CatapultYaml do
   @moduledoc """
-  `catapult.yaml` (dsl-syntax.md §1): repo-root, pins one bundle name
+  `catapult.yaml` (`bundle.md` #2): repo-root, pins one bundle name
   per axis under `bundles/`. The loader's own input, not bundle
   content (`systems/core_dsl.md`) — nothing here is validated against
   a bundle schema, only read to find `bundles/` in the first place.

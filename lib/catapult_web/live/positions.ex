@@ -12,7 +12,7 @@ defmodule CatapultWeb.Live.Positions do
   position the engine/delivery layer already produced.
 
   **`key/2` carries an optional namespace-qualifying anchor beside the
-  position it encodes** (dsl-syntax.md §15.12, ORC-155): a bare
+  position it encodes** (`workflow.md` #7, ORC-155): a bare
   `position()` stopped being a sufficient identity the moment a bundle
   could recur one kind across more than one sub-array — three
   `pending`, three `checks`, two `reconcile` in one type's array is
@@ -112,7 +112,7 @@ defmodule CatapultWeb.Live.Positions do
   elsewhere in `positions` (its own `group_key`, the recurring
   sub-array's anchor), bare otherwise. The ordinary case — no `types/
   *.yaml` this system ships recurs a kind across two sub-arrays today
-  (`docs/dsl-syntax.md` §15.2's own note) — is unaffected: every
+  (`workflow.md` #7's own namespace rule) — is unaffected: every
   position keeps the identical bare encoding `key/1` has always
   produced.
   """

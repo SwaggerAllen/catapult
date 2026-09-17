@@ -3,7 +3,7 @@
 # pair — see schemas/upward_propagation_plan.xsd's
 # header for the argued reason. No siege prompt exists for this flow.
 #
-# `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node
+# `scope: cascade_visit` (`chain.md` #6) — one plan per node
 # either leg of this flow's `up_then_down` walk visits, resolved via
 # `self.plan_target` (edges/plan_target.yaml), which is why this is
 # the one plan tier reaching all the way to `feature_expansion` and
@@ -13,7 +13,7 @@ scope: cascade_visit
 identity: id
 fields:
   # `argument` is the reserved `fields:` name the work surface reads
-  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # off a flow's entry tier (ORC-114, `chain.md` #12) — this
   # tier is that entry tier for every upward_propagation flow instance.
   # `argument_summary` (below) is this tier's own pre-existing field,
   # kept as-is; this is a second name for the same `draft.argument`

@@ -1,9 +1,9 @@
 # docs/v5-design-decisions.md §7.19: a review is a tier, not a nested
 # block. `reviews: impl_ui` fixes this review's scope and cardinality
-# to impl_ui's own (per(ui_subcomp), 1:1) — not restated,
-# dsl-syntax.md §3.3. `context:` is the same set of walks as impl_ui's
-# own, checked at load time (§13) rather than trusted;
-# `draft`/`prior_review` reach the prompt automatically (§9) and are
+# to impl_ui's own (per(ui_subcomp), 1:1) — not restated
+# (`chain.md` #14). `context:` is the same set of walks as impl_ui's
+# own, checked at load time rather than trusted;
+# `draft`/`prior_review` reach the prompt automatically (`chain.md` #35) and are
 # never context: entries.
 tier: impl_ui_review
 reviews: impl_ui

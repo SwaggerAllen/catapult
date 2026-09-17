@@ -14,7 +14,7 @@
       this grammar does not model).
     - <enforcement>: zero or more platform-defined profile refs
       (`codegen: restricted`, `purity: replay_floor`, ...) — a closed
-      vocabulary the *registry* enforces (dsl-syntax.md §12), not this
+      vocabulary the *registry* enforces (`bundle.md` #8), not this
       schema; the schema only shapes the reference.
     - <implementation> on each <subcomponent>: the stub-grade
       declaration (§2.16). Required, not optional — "the lie must be
@@ -74,7 +74,7 @@
   </xs:simpleType>
 
   <!-- swap/exit-plan required iff grade="stubbed" — a cross-field rule
-       left to instance-level validation (dsl-syntax.md §13), same as
+       left to instance-level validation (`chain.md` #37), same as
        feature_expansion.xsd's scope="feature" ↔ feature-name pairing. -->
   <xs:complexType name="Implementation">
     <xs:sequence>

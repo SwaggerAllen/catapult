@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Workflow do
   @moduledoc """
   Loads and validates one `kind: workflow` bundle end to end
-  (dsl-syntax.md §15): declared gates and environments (§15.4), and
+  (`workflow.md`): declared gates and environments (#31, #37), and
   the unified work-item declaration `types/<name>.yaml` (§15.2) whose
   `statuses:` array positions everything — the skeleton's own required
   backbone, gate/environment citations, `flow:`/`blocks:` population-
@@ -589,7 +589,7 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  # dsl-syntax.md §13: a fact about the fixed skeleton, exercised at
+  # `workflow.md` #12: a fact about the fixed skeleton, exercised at
   # load time so a defect in that skeleton (not in any one bundle) is
   # what it would catch.
   defp generation_blocked_exit_problems do

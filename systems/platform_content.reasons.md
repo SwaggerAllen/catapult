@@ -68,8 +68,8 @@ larger scope are failures any component can commit, backend or not. **The
 comp with no natural subcomponent split skip fanning out to subcomponents
 entirely (impl attaching directly to the comp); expressing that as a scope
 needs a union this ticket's closed scope-expression set (`singleton |
-per(X) | child_of(X)`, dsl-syntax.md §3.1) has no form for (`per(subcomp)
-OR per(comp where count(subcomponents)==0)`). Dropped as a content
+per(X) | child_of(X)`, `chain.md` #6) has no form for (`per(subcomp) OR
+per(comp where count(subcomponents)==0)`). Dropped as a content
 simplification, not carried forward silently: `decomposition`'s
 comparch→subcomp instance declares `source: {min: 1}`, making every comp
 fan out into at least one subcomponent.
@@ -107,11 +107,11 @@ its consumers, unrelated to distillation.
 ## #19
 
 `comparch.yaml`'s own comment records why: `all.policy` is unfiltered by
-construction (dsl-syntax.md §7.2) and would return every resp- and
-comp-scoped policy too, indiscriminate noise next to the grains a tier
-already reads explicitly. A scope-filtered "only the unscoped grain" read
-has no expression in this DSL, and supplying one is a `core_dsl` question,
-not bundle content; a consumer that wants `all.policy`'s indiscriminate
+construction (`chain.md` #19) and would return every resp- and comp-scoped
+policy too, indiscriminate noise next to the grains a tier already reads
+explicitly. A scope-filtered "only the unscoped grain" read has no
+expression in this DSL, and supplying one is a `core_dsl` question, not
+bundle content; a consumer that wants `all.policy`'s indiscriminate
 reading on its own merits (reconciliation, whose job is project-wide by
 nature, is the plausible first taker) wires it against its own need.
 
@@ -197,12 +197,12 @@ nothing here gives the model a baseline to preserve *against*. The gap
 stayed masked as long as the guards never printed the feedback that would
 have made someone notice, and closing it for real means either admitting
 `draft` to a generation tier's prompt specifically when it is regenerating
-over feedback — narrowing, not repealing, §9's "review-tier alone" rule —
+over feedback — narrowing, not repealing, `chain.md` #35's "review-tier alone" rule —
 or replacing the verbatim-preservation instruction with something
 achievable without it. It is a standing-invariant question spanning
-`dsl-syntax.md` §9/§3.3, `systems/generation.md`'s own restatement of the
-same rule, and this doc, not a call-convention fix — named here rather
-than silently carried forward as unenforceable prompt text.
+`chain.md` #35, `systems/generation.md`'s own restatement of the same
+rule, and this doc, not a call-convention fix — named here rather than
+silently carried forward as unenforceable prompt text.
 
 ## #29
 
@@ -211,7 +211,7 @@ With none of `partials/_architecture_framing`'s thirteen call sites across
 its scope and its `{% if feedback.size > 0 %}` block never fired, on any
 tier or flow — an inert guard masking two live defects, not a hook waiting
 on a future caller. `draft` never enters that scope either way: it is
-generation-prompt-off-limits by `dsl-syntax.md` §9's own design
+generation-prompt-off-limits by `chain.md` #35's own design
 (`Catapult.Generation.ContextAssembly.build_variables/5` sets it only for
 a review tier's own dispatch), and every one of the thirteen call sites is
 a generation tier.
@@ -339,7 +339,7 @@ tier-ordering benefit is available to relocate it for: `design_system` is
 pinned at intake (v5 §1.1) and carries no draft of its own to wait on, so
 nothing about *when* the edge is declared changes whether the content
 behind it is settled. The walk resolves through the instance's own
-locators (`docs/dsl-syntax.md` §4.2, `systems/core_dsl.md`'s ORC-236
+locators (`chain.md` #27, `systems/core_dsl.md`'s ORC-236
 entry): `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
 `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
 `target_ref:` at all, so this instance extracts and resolves with no
@@ -394,3 +394,36 @@ stay in the fixture repo indefinitely. Harmless — the dispatch harness
 reads the path the context response names, not a directory listing — but a
 reader of that repo should know the five underscored `.catapult-stub`
 entries are dead.
+
+## #64
+
+One superseding entry rather than edits to each entry above it,
+for `core_dsl`'s #45 reason: the entries above are ticket-attributed
+records of what a named pass decided about a grammar that is being
+replaced, and rewriting them in place would put words in those passes'
+mouths.
+The entries above still carry their own citations, and those are
+repointed at the rules that replaced the retired spec's sections
+rather than left dangling: a citation is a pointer, not a claim a pass
+made, so moving one puts no words in anyone's mouth. Where an entry's
+prose would otherwise *state* a rule the contract now contradicts —
+`ref`'s scope, a review tier's own file, two grains landing in one
+collection — the spelling is corrected and the pass's conclusion left
+as it stood. The retired spec's own sections are gone from this
+document; `docs/dsl/retired-spec-index.md` maps them for a reader
+holding an older citation from git history.
+
+The acceptance bound is the reason the file layout changes at all, and
+it is a bound rather than a preference. The community premise (v5 §8)
+is that a project customises its bundle, and "if customising requires
+learning YAML, that premise is half-delivered". The tree this replaces
+carried 51 tier files with 600 lines of header comment and each tier's
+name repeated in three paths, so a newcomer read it by directory
+listing and a diff of a change to it showed nowhere.
+
+`feature` was renamed rather than kept because the name was false of
+the thing: four of the five flows that dispatched into it are bug
+fixes, refactors and propagations, and the fifth is a feature request.
+`scaffold` and `delta` name the shape of the change, which is also
+what the type binds on — a flow carrying an empty schema delta is a
+scaffold.

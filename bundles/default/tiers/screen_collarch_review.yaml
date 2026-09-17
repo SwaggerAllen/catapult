@@ -1,9 +1,9 @@
 # docs/v5-design-decisions.md §7.19: a review is a tier, not a nested
 # block. `reviews: screen_collarch` fixes this review's scope and
 # cardinality to screen_collarch's own (per(screen_coll), 1:1) — not
-# restated, dsl-syntax.md §3.3. `context:` is the same set of walks as
-# screen_collarch's own, checked at load time (§13) rather than
-# trusted; `draft`/`prior_review` reach the prompt automatically (§9)
+# restated (`chain.md` #14). `context:` is the same set of walks as
+# screen_collarch's own, checked at load time rather than
+# trusted; `draft`/`prior_review` reach the prompt automatically (`chain.md` #35)
 # and are never context: entries.
 tier: screen_collarch_review
 reviews: screen_collarch

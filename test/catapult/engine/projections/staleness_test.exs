@@ -96,7 +96,7 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   end
 
   test "a review tier never has a node to be called with, so it is simply never asked" do
-    # dsl-syntax.md §3.3 / v5 §7.16 (corrected): a review tier commits
+    # `chain.md` #14 / v5 §7.16 (corrected): a review commits
     # no body and mints no node of its own — this is the whole of what
     # "needs no staleness treatment" means at this module's level.
     chain = chain([tier("comp_review", context: [])])

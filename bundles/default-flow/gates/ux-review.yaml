@@ -2,7 +2,7 @@ review: ux-review
 role: design
 depth: 0                           # a gate reads the top level; this is
                                     # the rule for a gate, not merely its
-                                    # default (dsl-syntax.md §15.4,
+                                    # default (workflow.md #32,
                                     # ORC-92) — fan-out reasoning belongs
                                     # to the citing type's own critique
                                     # entry instead

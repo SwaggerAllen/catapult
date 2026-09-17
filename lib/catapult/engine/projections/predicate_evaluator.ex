@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Projections.PredicateEvaluator do
   @moduledoc """
-  Evaluates one `Catapult.Dsl.Predicate` AST (dsl-syntax.md §8) against
+  Evaluates one `Catapult.Dsl.Predicate` AST (`chain.md` #37) against
   live graph state, anchored on one node — built as the shared home for
   the predicate language's four slots (`scope_filter`, `cardinality
   .when`, an edge `constraint`, a flow `completion`) to evaluate
@@ -14,12 +14,12 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   unlike a context walk's hops. The final segment of a `field`/compare
   path is read off the landed node(s)' own `fields` map; multiple
   landings take the first rather than fan a scalar comparison out
-  (undocumented by dsl-syntax.md §8, unexercised by any shipped bundle
+  (undocumented by `chain.md` #37, unexercised by any shipped bundle
   today — an engine-side resolution call like the one below, not a
   spec reading).
 
   A bare single-segment operand on the right of a comparison is always
-  the enum-literal reading, never a field lookup — `dsl-syntax.md` §8's
+  the enum-literal reading, never a field lookup — `chain.md` #37's
   own grammar note ("a single bare word... could be either a path
   segment... or an enum literal. Both are legal... so it carries as a
   one-segment path and the loader resolves it against the field it is
@@ -30,7 +30,7 @@ defmodule Catapult.Engine.Projections.PredicateEvaluator do
   up, unexercised anywhere today.
 
   `reaches(a, b)` is this module's own engine-side resolution, the same
-  latitude dsl-syntax.md §8 already exercises for
+  latitude `chain.md` #37 already exercises for
   `all(refactor_plan -> resolved)`'s tier-as-path-root reading in flow
   completion: `a` and `b` name tiers, the anchor must itself be of tier
   `a`, and the predicate holds when a forward walk from the anchor —

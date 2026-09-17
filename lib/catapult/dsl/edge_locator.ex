@@ -2,7 +2,7 @@ defmodule Catapult.Dsl.EdgeLocator do
   @moduledoc """
   Decides how an edge instance's `source`/`target` endpoint that isn't
   the tier committing the draft `declared_in` names is located
-  (dsl-syntax.md §4.2): `self`, `self.parent`, `fanout(<edge>)`, a
+  (`chain.md` #27): `self`, `self.parent`, `fanout(<edge>)`, a
   `scope: singleton` endpoint, or an explicit path. Shared between
   `Catapult.Dsl.Chain` (load-time legality — does a locator exist at
   all) and `Catapult.Generation.Extraction` (runtime resolution — the

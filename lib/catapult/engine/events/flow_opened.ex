@@ -3,7 +3,7 @@ defmodule Catapult.Engine.Events.FlowOpened do
   A flow instance was opened — the ticket face (v5 §7.10): opening a
   ticket IS opening a flow instance. Version 2. Scaffolding is not a
   flow; it is the base schema with a ticket face and an empty delta
-  (dsl-syntax.md §6), and it opens the same way.
+  (`chain.md` #38), and it opens the same way.
 
   **Version 2 carries `container_id` and `queue`: membership is
   derived by reference, never a stored list** (ORC-104,
@@ -25,7 +25,7 @@ defmodule Catapult.Engine.Events.FlowOpened do
     columns, the identical reason `ready_scopes` refuses to
     materialize and `Catapult.Engine.Scheduler` holds no memory of
     what it last broadcast — a stale ordering is worse than none
-    (dsl-syntax.md §15.7).
+    (`workflow.md` #30).
 
   Both are `nil` for a work item belonging to no container, which is
   what every version-1 event upcasts to

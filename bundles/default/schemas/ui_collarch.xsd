@@ -62,7 +62,7 @@
   </xs:simpleType>
 
   <!-- swap/exit-plan required iff grade="stubbed" — cross-field rule
-       left to instance-level validation (dsl-syntax.md §13), same as
+       left to instance-level validation (`chain.md` #37), same as
        comparch.xsd's own Implementation type. -->
   <xs:complexType name="Implementation">
     <xs:sequence>

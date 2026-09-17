@@ -111,7 +111,7 @@ defmodule Catapult.Generation.Sweeper do
     :ok
   end
 
-  # `generator: supplied` (dsl-syntax.md §3.2) mints straight from its
+  # `generator: supplied` (`chain.md` #8, #17) mints straight from its
   # own pinned `input.<role>` document — no draft, no dispatch. `role`
   # rides `generator_opts` (`Catapult.Dsl.Tier.parse_generator_opts/3`'s
   # own `supplied` clause already resolved and validated it against

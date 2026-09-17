@@ -13,9 +13,9 @@ defmodule Catapult.ToySeed do
   rather than fixture content).
 
   These are exactly the roles named across the design corpus
-  (dsl-syntax.md §7.2's examples, v5-design-decisions.md's "the intake
+  (`chain.md` #19's `input.<role>`, v5-design-decisions.md's "the intake
   role list has since grown") — the mechanism itself has no closed
-  registry to violate (dsl-syntax.md §7: only a shipped tier reading a
+  registry to violate (`chain.md` #19: only a shipped tier reading a
   role makes it platform vocabulary, and a project's own role name is
   legal and simply never walked), so this list is fixture breadth, not
   a registry this module enforces.

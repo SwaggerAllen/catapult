@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.ContextWalk do
   @moduledoc """
-  Parses one `context:` entry (dsl-syntax.md §7): `self`, `self.parent`,
+  Parses one `context:` entry (`chain.md` #19): `self`, `self.parent`,
   a chain of `.<edge_name>` hops (each optionally reversed with a
   trailing `~`, §7.1) following declared edges, `-> <tier>.<projection>`
   typing the target (`.handle` or `.handle.fragments[<kind>]` —
@@ -11,7 +11,7 @@ defmodule Catapult.Dsl.ContextWalk do
 
   Parsing only — whether a named edge, target tier, fragment kind or
   `ticket.*` source actually exists is a cross-reference the loader
-  checks with the rest of the bundle in view (dsl-syntax.md §13); this
+  checks with the rest of the bundle in view (`chain.md` #19); this
   module reports only what a single walk string cannot possibly mean.
 
   Free-form names (edge, tier, role, fragment kind, ticket source) stay
@@ -33,7 +33,7 @@ defmodule Catapult.Dsl.ContextWalk do
             wildcard: false,
             ticket_source: nil
 
-  @typedoc "`:handle`, or `{:fragments, kind}` — `.synthesis` retired with no shipped consumer (dsl-syntax.md §7, ORC-236)."
+  @typedoc "`:handle`, or `{:fragments, kind}` — `.synthesis` retired with no shipped consumer (chain.md #19, ORC-236)."
   @type projection :: :handle | {:fragments, String.t()}
 
   @typedoc "One `.<edge_name>` step; `reversed?` is the trailing `~` (§7.1)."

@@ -10,13 +10,13 @@
 # a body location: the value is set at the same moment the engine
 # mints the visit node, from the walk's own current position.
 #
-# One edge name, `instances:` (dsl-syntax.md §4.1) covering every
+# One edge name, `instances:` (`chain.md` #27) covering every
 # planning tier against every LLM-generated ("scaffold") tier it might
 # reasonably reach — `comp`/`subcomp` are excluded on purpose: they are
 # projection tiers with no prompt of their own (tiers/comp.yaml,
 # tiers/subcomp.yaml), so a cascade never "regenerates" one directly,
 # only the comparch/subcomparch that mints it. `type: synthesis`
-# (dsl-syntax.md §4's closed type vocabulary) — the correspondence is
+# (`chain.md` #26's closed type set) — the correspondence is
 # computed by the engine at mint time, not authored in any committed
 # body, which is exactly what that type is for.
 edge: plan_target
@@ -74,7 +74,7 @@ instances:
       target: { min: 0 }
 
   # bug_fix omits sysarch: a defect report's originating_scope is a
-  # specific artifact (dsl-syntax.md §6's ticket.entry names impl for
+  # specific artifact (`chain.md` #38's ticket.entry names impl for
   # this flow), never a project-wide re-decomposition.
   - source: bug_fix_plan
     target: comparch
@@ -120,7 +120,7 @@ instances:
       source: { min: 1, max: 1 }
       target: { min: 0 }
 
-  # upward_propagation's up_then_down walk (dsl-syntax.md §6) can land
+  # upward_propagation's up_then_down walk (`chain.md` #41) can land
   # anywhere from feature_expansion down, on either leg.
   - source: upward_propagation_plan
     target: feature_expansion

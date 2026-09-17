@@ -206,8 +206,8 @@ defmodule Catapult.Generation.CommitPath do
     end
   end
 
-  # `value` is `nil` for a `scope: singleton` endpoint (dsl-syntax.md
-  # §4.2's fourth locator kind) — there is exactly one node to mean, so
+  # `value` is `nil` for a `scope: singleton` endpoint (`chain.md`
+  # #27's locator forms) — there is exactly one node to mean, so
   # the lookup carries no `"id"` key at all, matching that scope's own
   # flat `%{}` scope_key (`ReadyScopes.candidates/3`).
   defp resolve_target(project_id, target_tier, nil) do

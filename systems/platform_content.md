@@ -22,7 +22,7 @@ corrected at §7.18): shipping them from the language corpus welded
 the workflow vocabulary to one target stack, which is exactly what the
 two-axis split exists to prevent. They ship from the workflow bundle
 instead, and neither bundle composes the other — both axes are
-forked, never layered (v5 §6, `dsl-syntax.md` §11).
+forked, never layered (v5 §6, `bundle.md` #7).
 
 A separate system from core_dsl **for the mutex**: prompt iteration
 and loader development are unrelated work streams, and one label
@@ -82,7 +82,7 @@ loader tickets carry `system:core_dsl`.
   not repeated here). `comp`/`subcomp` are projection tiers (no draft, no
   prompt, `generator: synthesis`), minted by the `decomposition` edge's
   sysarch→comp and comparch→subcomp instances (one edge name, several sites
-  sharing the mechanism — dsl-syntax.md §4.1's `instances:` form;
+  sharing the mechanism — `chain.md` #27's `instances:` form;
   `edges/decomposition.yaml`) from their parent decomposition's row. `resp`
   gets the same treatment: v5 restores it as a real tier
   (`seed-docs/README.md`'s first known delta) by minting one node per atom
@@ -106,11 +106,11 @@ loader tickets carry `system:core_dsl`.
   that rather than contrasting: since ORC-107, `input.<role>` and `input.*`
   both resolve to `{:ok, []}` when nothing is pinned under that role, fold
   vacuously satisfied through `walk_ready?`, and never block a tier's
-  readiness (`dsl-syntax.md` §7, `systems/engine.md`'s standing decision).
-  The two roots name no `context:` entry on each other — a raft's negative
-  space is read from the same frozen input prose either root reads, never
-  from the other root's own drafted output, so nothing sequences one behind
-  the other and both are ready the moment intake pins the raft. Its own
+  readiness (`chain.md` #22, `systems/engine.md`'s standing decision). The
+  two roots name no `context:` entry on each other — a raft's negative space
+  is read from the same frozen input prose either root reads, never from the
+  other root's own drafted output, so nothing sequences one behind the other
+  and both are ready the moment intake pins the raft. Its own
   `non_goals_review` counterpart puts the whole extracted set in front of
   the author through the ordinary draft→review→approve gate loop — no new
   review mechanism. Declining is declining the batch: the same
@@ -118,9 +118,9 @@ loader tickets carry `system:core_dsl`.
   already has (`sysarch`'s `<policies>`, `comparch`'s `<subcomponents>`),
   and a decline naming one candidate to drop is answered the way every other
   tier's decline is — a comment naming the candidate, reaching the
-  regenerating pass as ordinary `feedback` prose (`dsl-syntax.md` §9), never
-  a per-candidate accept/reject affordance, which this pool has never had
-  and this ticket does not add.
+  regenerating pass as ordinary `feedback` prose (`chain.md` #35), never a
+  per-candidate accept/reject affordance, which this pool has never had and
+  this ticket does not add.
 
   `non_goals` mints straight into the `policy` pool through a third
   `decomposition` instance — the identical mechanism the flat-pools
@@ -151,8 +151,8 @@ loader tickets carry `system:core_dsl`.
   `<failure-surface>` section — policy reachability is transitive
   from the owning comp's policies, and failure modes route
   through pubapi's typed return shapes instead. The fragment
-  vocabulary in `bundle.yaml` stays 5 kinds either way (dsl-syntax.md
-  §2's per-bundle closed set is over kinds, not over which tier owns
+  vocabulary in `bundle.yaml` stays 5 kinds either way (`chain.md`
+  #13's fragment vocabulary is over kinds, not over which tier owns
   which); what's tier-specific is which kinds a given tier's
   `handle.fragments:` and `produces:` actually name.
 - **#15 `ref`/`vocab`/`policy` are flat pools, not singleton nodes**
@@ -166,51 +166,49 @@ loader tickets carry `system:core_dsl`.
   the distilled intake set's own candidates, above; three fanout
   instances into one flat pool is legal, since `Catapult.Dsl.Tier`'s
   scope check only requires `child_of(X)` to name a *declared* tier,
-  not the sole edge targeting it); `ref` is `scope: reference`
-  (`docs/dsl-syntax.md` §3.1, ORC-236): `id` identity over a literal
-  singleton would be meaningless, and `scope: reference` names exactly
-  what `ref` is — a flat pool that accretes via a write tool, never
-  minted by a fanout edge at all.
+  not the sole edge targeting it); `ref` is supplied with `source:
+  write` (`chain.md` #5, #17; ORC-236): `id` identity over a literal
+  singleton would be meaningless, and a supplied tier's having no
+  scope at all names exactly what `ref` is — a flat pool that accretes
+  via a write tool, never minted by a fanout edge.
   **`ref` may attach anywhere, any parent, any child** — a general
   rule rather than v4's "comparch and below" restriction: no per-use
   kinds, no special-case lifecycles. The attachment sites
   (`edges/reference.yaml`'s three instances — comparch, subcomparch,
-  impl, one edge name per dsl-syntax.md §4.1) are wired only where
-  content is actually consumed, matching v4's own choice of sites —
-  the general rule is about the `ref` tier's own shape carrying no
-  restriction, not a mandate to pre-wire every tier against a need
-  nothing has yet. `reference` is its own edge name, not an instance
-  of one of the five edges ORC-84 names (`fulfills`, `dependency`,
-  `domain_parent`, `decomposition`, `policy_application`): ref
-  attachment is not a mint, not the comp↔resp binding, and not a
-  policy scope grain, so any of those names would misname the
-  mechanism rather than honor "same mechanism, one name".
-  **Policy scoping is v5 §4.5's three grains, never `child_of(resp)`**:
-  project-global (no scope edge — a `<policy>` with neither `<required>`
-  nor `<structural/>`, read via `all.policy` when a tier genuinely
-  needs the unscoped grain — dsl-syntax.md §7.2), through-
-  responsibilities (`policy_application`'s policy→resp instance — the
-  load-bearing grain, since a policy bound to a resp survives a
+  impl, one edge name per `chain.md` #27) are wired only where content
+  is actually consumed, matching v4's own choice of sites — the general
+  rule is about the `ref` tier's own shape carrying no restriction, not
+  a mandate to pre-wire every tier against a need nothing has yet.
+  `reference` is its own edge name, not an instance of one of the five
+  edges ORC-84 names (`fulfills`, `dependency`, `domain_parent`,
+  `decomposition`, `policy_application`): ref attachment is not a mint,
+  not the comp↔resp binding, and not a policy scope grain, so any of
+  those names would misname the mechanism rather than honor "same
+  mechanism, one name". **Policy scoping is v5 §4.5's three grains,
+  never `child_of(resp)`**: project-global (no scope edge — a `<policy>`
+  with neither `<required>` nor `<structural/>`, read via `all.policy`
+  when a tier genuinely needs the unscoped grain — `chain.md` #19),
+  through- responsibilities (`policy_application`'s policy→resp instance
+  — the load-bearing grain, since a policy bound to a resp survives a
   sysarch re-decomposition instead of being re-typed by hand), and
   direct component links for genuinely structural policies
   (`policy_application`'s policy→comp instance, grammar siege has no
-  counterpart for — its own `<policy>` element only ever names a resp
-  id via `<required>`; the `<structural/>` marker in
-  `schemas/sysarch.xsd` and `schemas/comparch.xsd` is what a policy
-  declares instead, mutually exclusive with `<required>` by the
-  grammar's own `xs:choice`, never both). Both are instances of one
-  `policy_application` edge (dsl-syntax.md §4.1).
-  **The through-responsibility read is wired.** `comparch`'s one-hop
-  context reads cannot reach the grain on their own; `dsl-syntax.md`
-  §7.1's hop chains and reversed hops (`.<edge>~`) are the construct
-  that does: `comparch.yaml` reads
-  `self.parent.policy_application~ -> policy.handle` (direct grain,
-  one reversed hop) and `self.parent.fulfills.policy_application~ ->
-  policy.handle` (through-responsibility grain, forward then
-  reversed), and both land in one `policy` collection (dsl-syntax.md
-  §9). No further edge is needed — `policy_application`'s two
-  instances already carry both grains in their declared direction;
-  reversal reads them backward at walk time.
+  counterpart for — its own `<policy>` element only ever names a resp id
+  via `<required>`; the `<structural/>` marker in `schemas/sysarch.xsd`
+  and `schemas/comparch.xsd` is what a policy declares instead, mutually
+  exclusive with `<required>` by the grammar's own `xs:choice`, never
+  both). Both are instances of one `policy_application` edge (`chain.md`
+  #27). **The through-responsibility read is wired.** `comparch`'s
+  one-hop context reads cannot reach the grain on their own; `chain.md`
+  #19's hop chains and reversed hops (`.<edge>~`) are the construct
+  that does: `comparch.yaml` reads `self.parent.policy_application~
+  -> policy.handle` (direct grain, one reversed hop) and
+  `self.parent.fulfills.policy_application~ -> policy.handle`
+  (through-responsibility grain, forward then reversed), each under
+  its own name in `comparch`'s `context:` (`chain.md` #21). No further
+  edge is needed — `policy_application`'s two instances already
+  carry both grains in their declared direction; reversal reads them
+  backward at walk time.
 - **#16 A distilled non-goal mints project-global, grain one, only — and
   the schema says so rather than the prompt.** The `non_goals` tier's own
   policy-analog element carries no `<required>`/`<structural/>` choice at
@@ -243,22 +241,22 @@ loader tickets carry `system:core_dsl`.
   tier, the predicate that finds them, plus the mint-time identity
   fields on `vocab`, which is not a join target and carries a draft of
   its own. A given field on a given tier uses one or the other, never
-  both, per the split below. `docs/dsl-syntax.md` §3 states the
-  convention (the gap `seed-docs/README.md` flagged: a tier with no
-  `draft:` still needs a field source), and `mint.<name>` names the
-  minting fanout edge's `declared_in:` row — the row-local form. The
-  row-local form is unvalidated at load time — nothing cross-checks a
-  bare `mint.<name>`'s `<name>` against the minting instance element's
-  own attributes. The inherited case — a value copied from the
-  committing tier's own already-computed `fields:`/`produces:` entries
-  rather than read off the minting instance element, one hop further
-  than a single walk reaches (`comp`'s
+  both, per the split below. `chain.md` #12 states the convention (the
+  gap `seed-docs/README.md` flagged: a tier with no `draft:` still
+  needs a field source), and `mint.<name>` names the minting fanout
+  edge's `declared_in:` row — the row-local form. The row-local form
+  is unvalidated at load time — nothing cross-checks a bare
+  `mint.<name>`'s `<name>` against the minting instance element's own
+  attributes. The inherited case — a value copied from the committing
+  tier's own already-computed `fields:`/`produces:` entries rather
+  than read off the minting instance element, one hop further than a
+  single walk reaches (`comp`'s
   `project_techspec`/`project_policies_summary`, copied from `sysarch`
   at the same mint moment) — has its own name, `mint.parent.<name>`,
   and is cross-checked at load time against the committing tier's own
   `fields:`/`produces:` entries, the same cross-validation a
-  `draft.<path>` source gets against its schema (ORC-236,
-  `docs/dsl-syntax.md` §3, §13).
+  `draft.<path>` source gets against its schema (ORC-236, `chain.md`
+  #12, #32).
 - **#21 Five flows ship, not six** (ORC-84): `feature_request`,
   `refactor`, `bug_fix`, `downward_propagation`, `upward_propagation`.
   `plan_change` is the one flow v5 voids outright — it exists solely to
@@ -274,31 +272,32 @@ loader tickets carry `system:core_dsl`.
   would have to supply.
 
   One gap remains open and is *not* a grammar question: no planning
-  tier reads `ticket.findings` (dsl-syntax.md §7's "ticket thread for
-  the scope", v5's replacement for v4's dropped `seed:` block) —
-  `lib/catapult/dsl/dialect.ex` registers no context-source extension
-  in either dialect, so declaring it fails load. What is missing is a
-  registration rather than a grammar: `ticket.findings` already parses
-  and is already spec'd, and what it needs is a platform module
-  implementing `Catapult.Dsl.Extension`'s `context_sources/0` and
-  registering `"findings"`. That is `core_dsl`'s delivery-system
-  milestone — plane extension code, not bundle content. Every planning
-  tier reads `input.project_doc` instead, which is the frozen original
-  intake, not the flow's own new prose.
+  tier reads `ticket.findings` (an extension context-source kind,
+  `chain.md` #39 — the ticket thread for the scope, v5's replacement
+  for v4's dropped `seed:` block) — `lib/catapult/dsl/dialect.ex`
+  registers no context-source extension in either dialect, so
+  declaring it fails load. What is missing is a registration rather
+  than a grammar: `ticket.findings` already parses and is already
+  spec'd, and what it needs is a platform module implementing
+  `Catapult.Dsl.Extension`'s `context_sources/0` and registering
+  `"findings"`. That is `core_dsl`'s delivery-system milestone — plane
+  extension code, not bundle content. Every planning tier reads
+  `input.project_doc` instead, which is the frozen original intake,
+  not the flow's own new prose.
 - **#22 Each flow's planning tier mints one `cascade_visit`-scoped node
   per node the flow's cascade actually visits, not one `singleton` node per
   open instance.** v5's closed scope set had no tier standing for "whichever
   tier this cascade is currently visiting" the way v4's informal
-  `scaffold_tier` did, and a missing scope kind is a `dsl-syntax.md`
-  proposal, the same move already used for `mint.<name>`, not a reason to
-  ship without the capability. `cascade_visit` (dsl-syntax.md §3.1) is that
-  proposal, landed (`systems/core_dsl.md` records the grammar side); every
-  `<flow>_plan` tier uses it, and `edges/plan_target.yaml` supplies the live
-  pointer from a plan instance to the specific scaffold node it is planning
-  for — the schema delta is where plan→target lives. Completion follows the
-  same shape: `all(<flow>_plan -> resolved)` (`predicates.yaml`) reads
-  "every visited node's plan has resolved," the universal quantifier over
-  the tier's own name as path root (dsl-syntax.md §8's addendum) — not v4's
+  `scaffold_tier` did, and a missing scope kind is a `chain.md` proposal,
+  the same move already used for `mint.<name>`, not a reason to ship without
+  the capability. `cascade_visit` (`chain.md` #6) is that proposal, landed
+  (`systems/core_dsl.md` records the grammar side); every `<flow>_plan` tier
+  uses it, and `edges/plan_target.yaml` supplies the live pointer from a
+  plan instance to the specific scaffold node it is planning for — the
+  schema delta is where plan→target lives. Completion follows the same
+  shape: `all(<flow>_plan -> resolved)` (`predicates.yaml`) reads "every
+  visited node's plan has resolved," the universal quantifier over the
+  tier's own name as path root (`chain.md` #37) — not v4's
   `count(open_visit) == 0` (unparseable under
   `lib/catapult/dsl/predicate.ex`'s actual grammar: no `open_visit` edge, no
   `decomposed_by(...)` call), and not a single-node `resolved == true`.
@@ -311,20 +310,19 @@ loader tickets carry `system:core_dsl`.
   listing) — they are
   siege's own generic "surgical diff against targeted feedback"
   variant, orthogonal to which flow (if any) produced the feedback.
-  `dsl-syntax.md` §3's tier grammar has exactly one `prompt:` slot per
-  tier, and §9 confirms a tier's single template receives `feedback`
+  `chain.md` #5's tier grammar has exactly one `prompt:` slot per
+  tier, and #35 confirms a tier's single template receives `feedback`
   as a variable on every regen, review or not — there is no second
   "modify" template slot in the grammar, and inventing one would be
   new DSL surface a content-porting ticket has no mandate to add. The
   shared discipline (surgical modification, sticky sections) lives
-  once in `prompts/partials/_architecture_framing.md.liquid`'s own
-  `{% if feedback %}` block; each of `sysarch`/`comparch`/
-  `subcomparch`'s own prompts carries the tier-specific "preserve
-  this, when the feedback says X do Y" content from its matching
-  `modify_*.md` source in its own `{% if feedback %}` section.
-  `impl`, `feature_expansion`, `requirements`, `vocab`, `ref` have no
-  `modify_*` source and rely on the shared partial's generic framing
-  alone.
+  once in `prompts/partials/_architecture_framing.md.liquid`'s own `{%
+  if feedback %}` block; each of `sysarch`/`comparch`/ `subcomparch`'s
+  own prompts carries the tier-specific "preserve this, when the
+  feedback says X do Y" content from its matching `modify_*.md` source
+  in its own `{% if feedback %}` section. `impl`, `feature_expansion`,
+  `requirements`, `vocab`, `ref` have no `modify_*` source and rely on
+  the shared partial's generic framing alone.
 - **#24 `catapult.yaml` is created** (ORC-84), naming `chain: default` /
   `workflow: default-flow` — `core_dsl`'s file map already claims the path
   (ORC-5); this ticket supplies the content the map was left pointing at
@@ -339,9 +337,8 @@ loader tickets carry `system:core_dsl`.
   `feature_expansion`, `impl`, `ref`, `vocab` carry no nested
   `review: {prompt, grammar}` block; each has a sibling tier file
   (`tiers/<name>_review.yaml`) declaring `reviews: <name>` instead.
-  `dsl-syntax.md` §3.3 documents the mechanism: a review tier's scope
-  and cardinality are the reviewed tier's by construction (never
-  restated), it carries no `draft:`/`produces:` (comments, not a
+  A review tier's scope and cardinality are the reviewed tier's by
+  construction (never restated), it carries no `draft:`/`produces:` (comments, not a
   commit), and its `context:` is restated verbatim and checked at load
   time against the reviewed tier's own `context:` — the per-tier triad
   invariant made a load-time property instead of a shared-assembly-code
@@ -352,26 +349,26 @@ loader tickets carry `system:core_dsl`.
   no manifest entry names them. `bundles/platform-elixir/schemas
   /review.xsd` carries `<score>` (integer, 0-100) and `id` on
   `<finding>` — both load-bearing per `docs/v5-design-decisions.md`
-  §7.19, and nothing in the review grammar is trimmed. `dsl-syntax.md`
-  §15.1's system-status table carries `critique`, and the loader's own
-  closed set mirrors it — `Catapult.Dsl.SystemStatus.kinds/0` carries
-  `:critique` between `:generation` and `:fanout`, `agent_steps/0`
-  carries `:critique` between `:dev` and `:reconcile`.
+  §7.19, and nothing in the review grammar is trimmed. `workflow.md`
+  #10's kind table carries `critique`, and the loader's own closed set
+  mirrors it — `Catapult.Dsl.SystemStatus.kinds/0` carries `:critique`
+  between `:generation` and `:fanout`, `agent_steps/0` carries
+  `:critique` between `:dev` and `:reconcile`.
 
 - **#26 A gate reads `depth: 0`; the architecture chain's `critique`
   entries read `depth: [2, 0]`** (ORC-92; `docs/v5-design-decisions.md`
-  §7.19 carries the argument, `docs/dsl-syntax.md` §15.5 the form). A
-  gate is a human sign-off and reads the top level however far the
-  chain fans out beneath it, so fan-out reasoning never belongs on a
-  gate — it belongs on the citing type's own `critique` entry. `[2, 0]`
-  is the pair that follows: `2` for a project's first traversal,
-  because the architecture chain's own deepest fan-out is two edges
-  (`comp`, then `subcomp`), and `0` for every later traversal, which
-  returns to the top level.
+  §7.19 carries the argument, `workflow.md` #33 the form). A gate is a
+  human sign-off and reads the top level however far the chain fans out
+  beneath it, so fan-out reasoning never belongs on a gate — it belongs
+  on the citing type's own `critique` entry. `[2, 0]` is the pair that
+  follows: `2` for a project's first traversal, because the
+  architecture chain's own deepest fan-out is two edges (`comp`, then
+  `subcomp`), and `0` for every later traversal, which returns to the
+  top level.
 
 - **#27 Every `<flow>_plan` tier declares `fields: argument: draft.argument`,
-  closing the gap `docs/dsl-syntax.md` §3's new reserved name leaves
-  open by default** (ORC-114, design pass). A flow's planning tier —
+  closing the gap the reserved `argument` field name leaves open by
+  default** (ORC-114, design pass). A flow's planning tier —
   `feature_request_plan`, `refactor_plan`, `bug_fix_plan`,
   `downward_propagation_plan`, `upward_propagation_plan` — is already,
   by this doc's own "Five flows ship" entry above, the tier every one
@@ -433,7 +430,7 @@ loader tickets carry `system:core_dsl`.
 
 - **#31 `partials/_review_framing` has the same scope-isolation defect
   ORC-193 fixed on the generation side, and every review tier carries it**
-  (ORC-201; `docs/dsl-syntax.md` §9).
+  (ORC-201; `chain.md` #35).
 
   The fix is ORC-193's, applied to the other partial: all eight call
   sites pass `draft: draft` explicitly, and the partial prints it
@@ -468,13 +465,12 @@ loader tickets carry `system:core_dsl`.
   tier draws for itself.** This is narrower than "every tier" — the
   other agent-step family, `critique`, pairs uniformly with
   `phase: critique` instead, an unrelated axis untouched by this entry.
-  `dsl-syntax.md` §15.1 and v5 §7.6 name `design`, `architecture` and
-  `implementation` as kinds a type's own lifecycle draws —
-  `feature.yaml`'s generation sub-array splitting into a
-  `design`-then-`architecture` pair, and the recursive architecture
-  fan-out's own child type (`dsl-syntax.md` §15.11) reading the same
-  kinds — not a distinction a tier makes independently of the type it
-  fans out from. `delivery.phase` has exactly one reader in the tree,
+  `workflow.md` #10 makes `design`, `architecture` and
+  `implementation` `name:` values a type's own lifecycle chooses — the
+  generation entries splitting into a product-then-architecture pair,
+  and the recursive architecture fan-out's children running those same
+  positions at a deeper depth (#28, #41) — not a distinction a tier
+  makes independently of the position that lists it. `delivery.phase` has exactly one reader in the tree,
   `Catapult.Dsl.Chain`'s load-time check that its value names a real
   system-status kind (`lib/catapult/dsl/chain.ex`), so nothing
   dispatches on which kind a tier picks. Tier values move together
@@ -488,23 +484,22 @@ loader tickets carry `system:core_dsl`.
 
 - **#35 `bundles/platform-elixir/` folds into `bundles/default/`, and
   `extends:` retires from the DSL** (ORC-153;
-  `docs/v5-design-decisions.md` §5.5, §6, §7.18; `docs/dsl-syntax.md`
-  §11). The layer's only content, `schemas/review.xsd` — a
-  platform-wide review grammar belonging to no language — lives in
-  the chain bundle's own `schemas/`; nothing else was ever loaded onto
-  the stub (the convention grammars, template tiers and enforcement
-  profiles the ORC-84 entry above scoped to "a separate ticket's job"
-  never shipped there). With the workflow axis carrying no base layer
-  of its own either (ORC-105), `extends:` has no user on either axis,
-  so a chain bundle is a single directory of authored content, the
-  same shape a workflow bundle has, and `extends:` is an unknown key
-  on any bundle's manifest.
-  **The bundle-relative content-path traversal guard is not part of
-  what retires**: a `prompt:` or `grammar:` path is still checked
-  against escaping its own bundle wherever single-directory path
-  resolution lands, because that guard is about bundle-authored
-  content being untrusted input, not about there being a second layer
-  underneath to escape into.
+  `docs/v5-design-decisions.md` §5.5, §6, §7.18; `bundle.md` #5, #7).
+  The layer's only content, `schemas/review.xsd` — a platform-wide
+  review grammar belonging to no language — lives in the chain
+  bundle's own `schemas/`; nothing else was ever loaded onto the stub
+  (the convention grammars, template tiers and enforcement profiles
+  the ORC-84 entry above scoped to "a separate ticket's job" never
+  shipped there). With the workflow axis carrying no base layer of its
+  own either (ORC-105), `extends:` has no user on either axis, so a
+  chain bundle is a single directory of authored content, the same
+  shape a workflow bundle has, and `extends:` is an unknown key on any
+  bundle's manifest. **The bundle-relative content-path traversal
+  guard is not part of what retires**: a `prompt:` or `grammar:` path
+  is still checked against escaping its own bundle wherever
+  single-directory path resolution lands, because that guard is about
+  bundle-authored content being untrusted input, not about there being
+  a second layer underneath to escape into.
 
 - **#36 `journeys`/`journey` and `screens`/`screen` land as two more
   spine-plus-projection pairs, the identical shape `requirements`/
@@ -568,12 +563,11 @@ loader tickets carry `system:core_dsl`.
   - **A new `navigation` edge**: `type: reference`, `navigation: true`,
     `source: screen, target: screen`, `declared_in: screens.draft
     .screen[].navigation.edge[].@to`, no `graph_constraint` — this is
-    the edge `docs/dsl-syntax.md`'s existing v5 rule ("navigation edges
-    \[…\] are cyclic-legal reference edges" and "must never appear in a
-    readiness-bearing context walk") already anticipated; this bundle
-    is what declares it. Declared inside `screens`' own draft
-    (same document as every screen it connects), so no forward
-    reference here either.
+    the edge `chain.md` #23's rule ("carries no context and no
+    readiness in either direction") already anticipated; this bundle is
+    what declares it. Declared inside `screens`' own draft (same
+    document as every screen it connects), so no forward reference here
+    either.
 
   **Review and `requirements`' scope follow from the shape:**
   - `journeys_review` (`reviews: journeys`) and `screens_review`
@@ -811,11 +805,11 @@ loader tickets carry `system:core_dsl`.
   simply has no instance of this edge to declare — absence, not a
   zero-cardinality edge naming a node that doesn't exist.
 - **#45 Chain placement and per-family tiers.** `frontend_sysarch` is
-  `scope: singleton` (the closed scope set — dsl-syntax.md §3.1 — has a real
-  kind for exactly this: no `per(X)` parent it would otherwise need a
-  context walk to reach), one `generator: llm` draft per project, reading
-  `context: [all.journey .handle, all.screen.handle, all.sysarch.handle,
-  all.comp.handle]` — four `all.<tier>` walks (dsl-syntax.md §7.2), no edge
+  `scope: singleton` (the closed scope set — `chain.md` #6 — has a real kind
+  for exactly this: no `per(X)` parent it would otherwise need a context
+  walk to reach), one `generator: llm` draft per project, reading `context:
+  [all.journey .handle, all.screen.handle, all.sysarch.handle,
+  all.comp.handle]` — four `all.<tier>` walks (`chain.md` #19), no edge
   needed for any of them, the same no-owning-parent case
   `vocab`/`ref`/project-global `policy` already use.
 - **#46 `all.comp.handle` is read because `uses_shapes`/`calls` are
@@ -842,11 +836,11 @@ loader tickets carry `system:core_dsl`.
 - **#48 Minting two target tiers from one source is the loader's existing
   shape.** `edges/decomposition.yaml`'s `sysarch` source already fans into
   two different targets, `comp` and `policy`, as two `instances:` entries
-  under one edge name — "the same source fanning out to several different
-  target tiers," in dsl-syntax.md §4.1's own words, describing exactly this
-  shape and already load-bearing. `frontend_sysarch` carries two
-  `decomposition` instances the identical way: `source: frontend_sysarch,
-  target: ui_coll, declared_in:
+  under one edge name — the same source fanning out to several different
+  target tiers, which is one instance sharing a source with another instance
+  of the same edge (`chain.md` #27), and already load-bearing.
+  `frontend_sysarch` carries two `decomposition` instances the identical
+  way: `source: frontend_sysarch, target: ui_coll, declared_in:
   frontend_sysarch.draft.ui-collections.collection[]` (`cardinality: source:
   {min: 0}` — a project may recurrence-seed no shared widgets — `target:
   {min: 1, max: 1}`) and `source: frontend_sysarch, target: screen_coll,
@@ -867,10 +861,8 @@ loader tickets carry `system:core_dsl`.
   edge is *inexpressible*, not merely never declared:
   `systems/core_dsl.md`'s own standing decision records type-level
   acyclicity as a load-time check (libgraph, over the full edge-instance
-  graph — dsl-syntax.md §13's "type-level acyclicity over the edge-instance
-  graph," §4.1's "every instance still contributes its own `{source,
-  target}` pair to the type-level acyclicity check … the graph is over
-  sites, not over edge names").
+  graph — every instance contributes its own `{source, target}` pair to
+  that check, so the graph is over sites, not over edge names).
 - **#50 `ui_coll → design_system` is declared in `ui_collarch`'s own
   draft, unlike `renders`/`uses_shapes`/`calls`** (ORC-235).
 - **#51 No `policy_application` instances for either family.**
@@ -1004,15 +996,15 @@ loader tickets carry `system:core_dsl`.
 
 - **#59 `ref.yaml` sheds everything a generated tier needs and keeps
   nothing a generated tier doesn't** (ORC-236;
-  `docs/v5-design-decisions.md` §4.5, `docs/dsl-syntax.md` §3.1, §3.2).
-  It is `scope: reference`, not `scope: singleton`, and `generator:
-  reference`, not `generator: llm`, so it carries no `prompt:` and no
+  `docs/v5-design-decisions.md` §4.5, `chain.md` #5, #17).
+  It is supplied, not `scope: singleton`, and its content comes from
+  `source: write`, not from an agent, so it carries no `prompt:` and no
   `delivery:` block — there is no dispatch to phase, since nothing
   dispatches it — and no `draft:` (no `root_tag`, no `grammar`): a
   write-path-created node has no draft to validate against a grammar.
   `fields:` carries `title`/`body`, sourced to `reference.title` and
-  `reference.body` — the fourth field-source form
-  (`docs/dsl-syntax.md` §3), legal only on a `scope: reference` tier,
+  `reference.body` — the field-source form legal only on a supplied
+  tier (`chain.md` #5),
   naming a key the write path's own payload supplies directly rather
   than a `draft.title`/`draft.body` this tier has no draft to hold.
   The payload shape itself is the write tool's to define when it is
@@ -1024,34 +1016,32 @@ loader tickets carry `system:core_dsl`.
   a `reference` root_tag nor a `ref` review tier.
 - **#60 Every third-party-declared edge instance gains `source_ref:`/
   `target_ref:` where their `source`/`target` isn't the committing tier
-  itself** (ORC-236; `docs/dsl-syntax.md` §4.2,
-  `systems/core_dsl.md`'s ORC-236 entry). Seven `reference`/`fulfills`
-  instances and ten `dependency`-typed instances share this shape,
-  each enumerated below with its locator kind — the two edge files'
-  own instance count includes `navigation.yaml`'s `screen → screen`
-  (declared in `screens`'s draft, which never commits under the name
-  `screen`) and `calls`/`renders`/`uses_shapes` (three separate
-  `type: dependency` edges, not instances of the `dependency` edge
-  itself, each declared in `frontend_sysarch`'s own draft rather than
-  `screen_coll`'s or `ui_coll`'s). All seven `reference`-typed instances
-  resolve structurally with no explicit locator: `fulfills`'s
-  `comp → resp` and `screen_coll → screen`, `reference`'s
-  `resp → journey`, `resp → screen`, and `navigation`'s
-  `screen → screen` (its *source* side) all take `source_ref:
-  fanout(decomposition)` implicitly the moment the loader finds
-  `decomposition`'s own matching instance's `declared_in` is a prefix
-  of theirs; `reference`'s `journey → screen` is the mirror shape on
-  its target side, `target_ref: fanout(decomposition)`; `reference`'s
-  `screen_coll → journey` takes `source_ref: self.parent`, also
-  automatic (`screen_collarch` is `per(screen_coll)`). Every side not
-  resolved structurally on its own instance defaults to the trailing
-  `.@attr` segment of `declared_in` (`docs/dsl-syntax.md` §4.2's
-  widened default) — which is what closes `navigation`'s own target
-  side (its `declared_in`'s trailing `.@to`, not a second
-  `fanout(decomposition)` locator: both sides resolving through the
-  same fanout element would make source and target the identical
-  `<screen>` node on every instance) and the *other* side of each of
-  the remaining six with no explicit locator either.
+  itself** (ORC-236; `chain.md` #27, `systems/core_dsl.md`'s ORC-236
+  entry). Seven `reference`/`fulfills` instances and ten
+  `dependency`-typed instances share this shape, each enumerated below
+  with its locator kind — the two edge files' own instance count
+  includes `navigation.yaml`'s `screen → screen` (declared in
+  `screens`'s draft, which never commits under the name `screen`) and
+  `calls`/`renders`/`uses_shapes` (three separate `type: dependency`
+  edges, not instances of the `dependency` edge itself, each declared in
+  `frontend_sysarch`'s own draft rather than `screen_coll`'s or
+  `ui_coll`'s). All seven `reference`-typed instances resolve
+  structurally with no explicit locator: `fulfills`'s `comp → resp` and
+  `screen_coll → screen`, `reference`'s `resp → journey`, `resp →
+  screen`, and `navigation`'s `screen → screen` (its *source* side) all
+  take `source_ref: fanout(decomposition)` implicitly the moment the
+  loader finds `decomposition`'s own matching instance's `declared_in`
+  is a prefix of theirs; `reference`'s `journey → screen` is the mirror
+  shape on its target side, `target_ref: fanout(decomposition)`;
+  `reference`'s `screen_coll → journey` takes `source_ref: self.parent`,
+  also automatic (`screen_collarch` is `per(screen_coll)`). Every side
+  not resolved structurally on its own instance defaults to the trailing
+  `.@attr` segment of `declared_in` (`chain.md` #27) — which is what closes `navigation`'s own target side (its
+  `declared_in`'s trailing `.@to`, not a second `fanout(decomposition)`
+  locator: both sides resolving through the same fanout element would
+  make source and target the identical `<screen>` node on every
+  instance) and the *other* side of each of the remaining six with no
+  explicit locator either.
 
   Of the ten `dependency`-typed instances, four resolve the identical
   implicit way: `calls`, `renders` and `uses_shapes` each take
@@ -1062,8 +1052,8 @@ loader tickets carry `system:core_dsl`.
   for `calls`/`uses_shapes`, `ui_coll` for `renders`) defaulting off the
   trailing attribute; `dependency.yaml`'s own `ui_coll → design_system`
   takes `source_ref: self.parent` (`ui_collarch` is `per(ui_coll)`) and
-  needs no `target_ref:` at all, because `design_system` is
-  `scope: singleton` (`docs/dsl-syntax.md` §4.2's fourth locator kind) —
+  needs no `target_ref:` at all, because `design_system` is supplied
+  and singular (`chain.md` #27's locator forms) —
   there is exactly one node to mean, so nothing needs pointing at.
 
   The remaining six — `comp ↔ comp`, `subcomp ↔ subcomp`, `ui_coll ↔
@@ -1082,22 +1072,22 @@ loader tickets carry `system:core_dsl`.
 - **#61 `comp`, `subcomp`, `ui_subcomp` and `screen_subcomp` gain
   `mint.parent.<name>` values in place of `mint.<name>` on exactly the
   fields that were never row-local** (ORC-236;
-  `docs/dsl-syntax.md` §3). `comp.yaml`'s `project_techspec` field's
-  value is `mint.parent.techspec`, naming `sysarch`'s own `techspec`
-  field (`sysarch.yaml`'s `fields: techspec: draft.techspec`); its
+  `chain.md` #12). `comp.yaml`'s `project_techspec` field's value is
+  `mint.parent.techspec`, naming `sysarch`'s own `techspec` field
+  (`sysarch.yaml`'s `fields: techspec: draft.techspec`); its
   `project_policies_summary` field's value is
   `mint.parent.policies_summary`, naming `sysarch.yaml`'s
   `policies_summary` field (`fields: policies_summary:
-  draft.policies-summary`, hyphenated to match the schema element
-  below — `Extraction.text/2` matches a path segment against a schema
-  element by exact string equality with no `_`↔`-` normalization, the
-  same rule `systems/core_dsl.md`'s ORC-232 entry states for
-  `declared_in`, also checked for `fields:`/`produces:` at load time
-  per that same system's ORC-236 entry). `sysarch` carries that field
-  because `comp`'s own field has nothing else to name, and three more
-  sites carry the element with it, since a field naming nothing to
-  read is inert: `bundles/default/schemas/sysarch.xsd`'s `<sysarch>`
-  sequence has a `policies-summary` element alongside
+  draft.policies-summary`, hyphenated to match the schema element below
+  — `Extraction.text/2` matches a path segment against a schema element
+  by exact string equality with no `_`↔`-` normalization, the same rule
+  `systems/core_dsl.md`'s ORC-232 entry states for `declared_in`, also
+  checked for `fields:`/`produces:` at load time per that same system's
+  ORC-236 entry). `sysarch` carries that field because `comp`'s own
+  field has nothing else to name, and three more sites carry the
+  element with it, since a field naming nothing to read is inert:
+  `bundles/default/schemas/sysarch.xsd`'s `<sysarch>` sequence has a
+  `policies-summary` element alongside
   `introduction`/`techspec`/`components`/`policies`/`dependencies`;
   `bundles/default/prompts/sysarch.md.liquid` carries the instruction
   to produce it; and `test/catapult/generation/fixtures/toy_seed
@@ -1109,9 +1099,9 @@ loader tickets carry `system:core_dsl`.
   fragment kind `comparch.yaml`/`ui_collarch.yaml`/
   `screen_collarch.yaml`'s own `produces:` is *declared* to write under
   that same name. The six tiers' `authored:` paths must spell their
-  schema elements exactly (`systems/core_dsl.md`'s ORC-236 entry on
-  the widened declared_in/schema check): four of those five fragments'
-  own `authored:` sources were misspelled against their schema,
+  schema elements exactly (`systems/core_dsl.md`'s ORC-236 entry on the
+  widened declared_in/schema check): four of those five fragments' own
+  `authored:` sources were misspelled against their schema,
   independently of this bullet's own mechanism, and
   `mint.parent.techspec`/`pubapi`/`privapi`/`failure_surface` each
   named an empty fragment until the paths were corrected — the
@@ -1122,13 +1112,60 @@ loader tickets carry `system:core_dsl`.
   is row-local and stays `mint.<name>` — `mint.parent.<name>` is only
   for the fields that could never have been row-local in the first
   place.
+- **#64 The default pair is rewritten as one file per axis, and the
+  binding reverses with it.** `bundles/default/chain.yaml` and
+  `bundles/default-flow/workflow.yaml` replace the per-tier,
+  per-edge, per-type and per-gate trees the entries above describe,
+  together with each bundle's manifest and the standalone status,
+  type and escalation files. What stays beside them is what the
+  declaration names: `schemas/<tier>.xsd`, the prompt families, and a
+  flow's own prompts (`bundle.md` #3, #4). Four consequences for this
+  bundle's own content, each naming what it supersedes:
+  1. **No tier names a position.** A generation position lists the
+     tiers that run at it, and a ticket type names the chain flows it
+     serves (`workflow.md` #22, #40), so every `delivery:` block in
+     the entries above goes with `phase:` and `agent_step:`.
+  2. **The two ticket types are `scaffold` and `delta`**, named for
+     the shape of change they serve. `feature` was the wrong name for
+     a type that receives bug fixes and refactors, and it collided
+     with the chain flow the scaffold pass runs.
+  3. **The seventeen review tiers and the reconcile tiers collapse
+     into `review:` and `reconcile:` blocks** on the tiers they belong
+     to (`chain.md` #14, #15), so `tiers/<name>_review.yaml` and the
+     `reviews: <name>` key go.
+  4. **Each tier's context is derived from the edges it and its scope
+     parent declare** (`chain.md` #20), with `context:` adding to the
+     derivation rather than restating it; node identity, a node's own
+     fields and plain cardinality move into the schemas (`bundle.md`
+     #10). Two grains of one relation are two named reads, not one
+     collection: a name colliding with a derived read is a load error
+     (`chain.md` #21).
+  5. **`ref` is a supplied tier.** `scope: reference` and `generator:
+     reference` leave the vocabulary; a supplied tier declares
+     `generator: supplied` and a `source:` and has no scope at all,
+     which is what `ref` — a flat pool an outside write path accretes
+     — needs said (`chain.md` #5, #17). Every entry above spelling
+     `ref`'s scope or generator as `reference` reads this way.
+
+  The rewritten pair is measured against the acceptance bound
+  (`bundle.md` #14): at most 800 lines for the chain file with
+  comments at most a fifth of that, at most 240 for the workflow file.
+
 ## #62 Initial vs target
 
-Initial (Phase 3): default bundle's upstream tiers + ported prompts,
-platform-elixir grammar skeletons. Target: full tier set including
-product tier, `frontend_sysarch`, and the UI and screen families
-(Phase 5), delivery declarations and the client family (Phase 7),
+Initial (Phase 3): default bundle's upstream tiers + ported prompts.
+Target: full tier set including product tier, `frontend_sysarch`, and
+the UI and screen families (Phase 5), the client family (Phase 7),
 runtime-dialect example content (Phase 8).
+
+This bundle is where every reserved construct is declared for the
+first time, so it carries the shape each consumer will read. The flow
+engine's (engine#69): the five plan tiers, their `synthesis` edges,
+the `flows:` block and its walks and completion predicates. Delivery
+Phase 7's (delivery#123): `enforcement:` on `comparch`, the
+`environment:` entries and the gates' `escalation`. The registry's
+(registry#7): `version` on either declaration. Generation's
+(generation#50): the `executor:` profile the chain sets as a default.
 
 ## #63 Depends on
 

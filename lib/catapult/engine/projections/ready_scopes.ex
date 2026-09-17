@@ -30,7 +30,7 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
       being not-yet-ready.
     * `ready_review/3` — review-tier dispatch, a second and simpler
       rule than the context walk above: a review tier has no `context:`
-      of its own to gate on (dsl-syntax.md §3.3), so its readiness is
+      of its own to gate on (`chain.md` #14), so its readiness is
       exactly "the reviewed tier's current draft has no review yet."
     * `explain/2` — "what is blocking this scope"
       (`systems/dashboard.md`'s naming), the same candidate/walk fold
@@ -73,7 +73,7 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   end
 
   @doc """
-  Review-tier dispatch (dsl-syntax.md §3.3, §7.19): every node of the
+  Review dispatch (`chain.md` #14, v5 §7.19): every node of the
   tier `tier_name` reviews whose current draft has no review yet
   (`Store.reviews_for_draft/1`) — fired unconditionally the cycle after
   that draft commits, with no context walk of the review tier's own to
@@ -275,10 +275,10 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     true
   end
 
-  # `scope: reference` (`ref`, `docs/dsl-syntax.md` §3.1): never
+  # a `write`-sourced supplied tier (`ref`, `chain.md` #5, #17): never
   # drained. An indefinite, write-path-created pool cannot tell "no
-  # more will ever be written" from "none exist yet" — dsl-syntax.md
-  # §13 refuses the two things that would ever ask this question at
+  # more will ever be written" from "none exist yet" — `chain.md`
+  # #22 refuses the two things that would ever ask this question at
   # all (an `all.<tier>` walk against one, a non-zero cardinality `min`
   # on one), so this branch is never actually reached in
   # `bundles/default`, and returning `false` here is the honest answer

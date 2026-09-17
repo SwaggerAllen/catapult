@@ -6,7 +6,7 @@
 # gives sysarch a self.parent walk to requirements' handle, and —
 # critically — a walk along requirements' own `decomposition` instance
 # (edges/decomposition.yaml) to read every minted resp as a collection
-# (dsl-syntax.md §7: cardinality-many walks yield collections). No
+# (`chain.md` #19: cardinality-many walks yield collections). No
 # `kind`/domain-
 # presentational split and no `<domain-parent>` section carried
 # forward: v5 §4.1 replaces that whole mechanism with the product/

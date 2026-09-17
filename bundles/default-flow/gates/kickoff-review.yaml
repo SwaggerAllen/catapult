@@ -9,7 +9,7 @@ role: author                       # the author's own manual pass across
 depth: 0
 throwback: setup                   # a real override, not a restatement
                                     #   of the derived default
-                                    #   (dsl-syntax.md §15.10, fourth-pass
+                                    #   (workflow.md #34, fourth-pass
                                     #   correction): this group's own
                                     #   leading pending precedes setup
                                     #   (types/milestone.yaml), so the

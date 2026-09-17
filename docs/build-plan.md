@@ -196,7 +196,7 @@ Journey/screen grammars, UX/IA prompts, `frontend_sysarch`, and the
 UI and screen collection families (v5 §5.1) — the client family
 lands in Phase 7, with its consumer (`systems/client_ts.md`). Also
 here: the platform's input-document role vocabulary — `project_doc`,
-`mocks`, `non_goals`, `design_system` (`dsl-syntax.md` §7).
+`mocks`, `non_goals`, `design_system` (`chain.md` #19).
 
 Exit criterion — the first big one: **a small todo application,
 scaffolded from spec documents written for the purpose, produces a
@@ -225,12 +225,12 @@ The seed is a second fixture beside `toy_seed` — spec documents
 carrying the same file-per-role shape `toy_seed`'s own raft already
 uses (`role: Path.rootname(filename)`, `Store.pin_input_documents/3`):
 `project_doc`, `non_goals` and `mocks` are platform roles
-(`dsl-syntax.md` §7), and `behavior_docs`, `invariants`,
+(`chain.md` #19), and `behavior_docs`, `invariants`,
 `capability_inventories`, `forward_strategies` are the same
 project-declared names `toy_seed`'s own fixture files already carry
 — a project's own role name is that project's declaration, not
 platform vocabulary, and an unread one is simply never walked
-(`dsl-syntax.md` §7). It carries no canned tier bodies — it only ever
+(`chain.md` #19). It carries no canned tier bodies — it only ever
 runs live, and `toy_seed` stays the offline fixture, untouched. The
 spec names the three to five components it intends the chain to
 mint, so the proof checks the fan-out against those names rather than

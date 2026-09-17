@@ -654,7 +654,7 @@ defmodule Catapult.Dsl.LoaderTest do
 
   test "retro folds inline, with no flow:, directly into a sub-array", %{tmp_dir: dir} do
     # The shape the milestone retirement actually needs (ORC-148,
-    # dsl-syntax.md §15.10): `retro` grouped with the gates around it,
+    # `workflow.md` #6): `retro` grouped with the gates around it,
     # carrying no `flow:` of its own — the load error the check above
     # exercises is what used to block exactly this shape.
     Fixture.minimal!(dir)
@@ -737,7 +737,7 @@ defmodule Catapult.Dsl.LoaderTest do
     #                              leading pending, namespace-qualified)
     #
     # `design`, not `merge`, is the group's own agent step: `merge`'s
-    # own ball is `plane` (dsl-syntax.md §15.1, ORC-151), so it is never
+    # own ball is `plane` (`workflow.md` #10, ORC-151), so it is never
     # a candidate for a sub-array's own agent step any more. The shipped
     # bundle cannot separate the corrected rule from a naive first-
     # element read: `types/feature.yaml`'s own `design` group already
@@ -1092,8 +1092,8 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, _loaded} = Loader.load(dir)
   end
 
-  # dsl-syntax.md §13/§15.1: "a `pending` precedes every generation and
-  # every deployment" is a fact about the fixed system-status skeleton
+  # `workflow.md` #12 (`pending` is an engine flag under #25):
+  # "a `pending` precedes every generation and every deployment" is a fact about the fixed system-status skeleton
   # (Catapult.Dsl.SystemStatus.pending_precedes?/1), not bundle
   # content — like the sibling blocked-exit skeleton check, it cannot
   # be made to fail from bundle data, so this locks in that the check
@@ -1343,7 +1343,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, _loaded} = Loader.load(dir)
   end
 
-  ## dsl-syntax.md §4.1 — instances:
+  ## `chain.md` #27 — instances:
 
   test "instances: consolidates several source/target sites under one edge name", %{
     tmp_dir: dir
@@ -1458,7 +1458,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert {:ok, _loaded} = Loader.load(dir)
   end
 
-  ## dsl-syntax.md §7.1 — hop chains and reversal
+  ## `chain.md` #19 — hop chains and reversal
 
   test "a reversed hop matches the edge's target instead of its source", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
@@ -1541,7 +1541,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "does not include"))
   end
 
-  ## dsl-syntax.md §7.2 — all.<tier>
+  ## `chain.md` #19, #22 — all.<tier>
 
   test "all.<tier> reads every declared instance with no walker at all", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
@@ -1583,7 +1583,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert Enum.any?(problems, &String.contains?(&1, "\"nonexistent\", which is not declared"))
   end
 
-  ## dsl-syntax.md §3.1 — cascade_visit
+  ## `chain.md` #6 — cascade_visit
 
   test "cascade_visit is a legal scope with no parent tier to check", %{tmp_dir: dir} do
     Fixture.minimal!(dir)
@@ -1603,7 +1603,7 @@ defmodule Catapult.Dsl.LoaderTest do
     assert loaded.chain.tiers["plan"].scope == {:cascade_visit}
   end
 
-  ## dsl-syntax.md §3.3, §13 — review tiers
+  ## `chain.md` #14 — review tiers
 
   test "a valid review tier loads, sharing the reviewed tier's context", %{tmp_dir: dir} do
     Fixture.minimal!(dir)

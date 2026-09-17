@@ -49,9 +49,8 @@ human, nothing dispatches from one, and no prompt is written against
 one — so they are declared, vary by ticket type, and default to a UX
 review and an engineering review (§7.16). A work-item type's own
 existence and the gate array it declares qualify the same way
-(`docs/dsl-syntax.md` §15.2), as does where in that array a gate sits
-(§15.3) and whether adjacent entries are grouped into a bare sub-array
-(§15.10). What stays refused is a project rewiring the automation graph
+(`workflow.md` #4), as does where in that array a gate sits (#5) and
+whether adjacent entries are grouped into a bare sub-array (#6). What stays refused is a project rewiring the automation graph
 itself.
 
 ## No second home for the reference instance's live facts
@@ -188,7 +187,51 @@ per language, have no way to merge into a single project's graph.
 Per-platform variation lives inside the one chain bundle's own
 architecture and implementation prompts, never as a second bundle
 merged in — there is no bundle-layering mechanism left to merge one
-through (`dsl-syntax.md` §11, v5 §5.5).
+through (`bundle.md` #7, v5 §5.5).
+
+## No chain bundle naming anything the workflow declares
+scope: system:core_dsl, system:platform_content, system:delivery, system:engine
+
+The cross-axis reference runs one way, from the workflow to the chain:
+a generation position names the tiers that run at it and a ticket type
+names the chain flows it serves, while a tier, an edge and a flow name
+no position, gate or type (`bundle.md` #11, v5 §7.10, §7.18). So a
+chain bundle is valid on its own, and the pair is what fails at load.
+
+The refusal is worth stating because the other direction is the one a
+pass reaches for first, and it looks cheaper: one key on the tier
+instead of a list on the position. It fails on the case free position
+names exist for. A gate needs an ordering point and the only ordering
+point is a position, so putting a gate between two tiers that share
+one means splitting that position, which renames it, which edits every
+tier that named it — eight of them at the default chain's architecture
+position. The workflow is the file a project forks to change its
+review posture, and binding a file that is already project-specific
+costs nothing; binding the file a project takes from upstream
+unchanged is what charges rent.
+
+A gate still names no tier in either direction. Who signs off and
+when is organisation policy, which v5 §7.16 keeps out of the document
+graph.
+
+## No second file for a declaration a bundle already has a file for
+scope: system:core_dsl, system:platform_content
+
+Each axis is one declaration file: `bundles/<name>/chain.yaml` carries
+every tier, edge, flow and predicate, and
+`bundles/<name>/workflow.yaml` every type, gate and environment
+(`bundle.md` #3, #4). There is no per-tier, per-edge, per-type or
+per-gate file, no manifest beside them, and no standalone status,
+type or escalation file. What stays outside a declaration file is
+content the declaration *names*: schemas, prompts, and a flow's own
+prompts.
+
+The reason is the acceptance test (`bundle.md` #14), which is a real
+bound rather than a preference: a bundle a project is expected to
+tailor has to be readable in one sitting by someone who has not read
+the engine. The per-file tree that preceded this carried 51 tier files
+with 600 lines of header comment and each tier's name repeated in
+three paths, and a diff of a change to it showed nowhere.
 
 ## No hand-maintained inventories
 scope: universal

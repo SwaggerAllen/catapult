@@ -11,8 +11,8 @@ The DSL: the frozen core vocabulary (tiers, scopes, edges, fragments,
 handles, context walks, grammars, readiness, generators, the
 predicate language), the bundle loader (`bundle.yaml` + registered
 files → validated union, single directory per bundle — no `extends:`
-layering, `dsl-syntax.md` §11), and the **extension registry** (v5
-§9) through which platform extensions add annotation namespaces,
+layering, `bundle.md` #7), and the **extension registry** (v5 §9)
+through which platform extensions add annotation namespaces,
 declaration kinds, generator types, context-source kinds, and audit
 profiles.
 
@@ -50,48 +50,48 @@ profiles.
   declarations); engine and generation call it. One validator source
   because commit-time rejection (engine) and pre-flight validation
   (generation, CLI later) must agree byte-for-byte.
-- **#7 `catapult.yaml` is the loader's, not the bundle's** (dsl-syntax.md
-  §1-2). It names one bundle per axis and nothing else — it is what
-  the loader reads to find `bundles/` in the first place, not content
-  the loader validates against a bundle schema. That makes it this
-  system's file, same as any other loader input, and distinct from
-  `bundles/**`'s content, which `platform_content` owns.
+- **#7 `catapult.yaml` is the loader's, not the bundle's** (`bundle.md`
+  #2). It names one bundle per axis and nothing else — it is what the
+  loader reads to find `bundles/` in the first place, not content the
+  loader validates against a bundle schema. That makes it this system's
+  file, same as any other loader input, and distinct from `bundles/**`'s
+  content, which `platform_content` owns.
 - **#8 Four core-grammar growth events landed directly, not through the
-  extension registry** (ORC-84): a fourth scope kind, `cascade_visit` (§3.1 —
-  one node per node a flow's own cascade walk visits, for a planning tier,
-  engine-minted rather than fanout-minted); a context walk's hop chain
-  lengthened from exactly one to any number, plus a `~` suffix reversing a
-  hop (§7.1 — walker matches the edge's `target` instead of its `source`); a
-  new context-walk source, `all.<tier>.<projection>` (§7.2 — every declared
-  instance of a tier, no edge); and edges gaining an `instances:` list,
-  several source/target sites sharing one name and mechanism (§4.1).
+  extension registry** (ORC-84): a fourth scope kind, `cascade_visit`
+  (`chain.md` #6 — one node per node a flow's own cascade walk visits, for a
+  planning tier, engine-minted rather than fanout-minted); a context walk's
+  hop chain lengthened from exactly one to any number, plus a `~` suffix
+  reversing a hop (`chain.md` #19 — walker matches the edge's `target`
+  instead of its `source`); a new context-walk source,
+  `all.<tier>.<projection>` (#19 — every declared instance of a tier, no
+  edge); and edges gaining an `instances:` list, several source/target
+  sites sharing one name and mechanism (`chain.md` #27).
 - **#9 A fifth core-grammar growth event, same daylight, same ticket**
   (ORC-84, author decision revising `docs/v5-design-decisions.md` §7.19): a
-  tier declaration gains `reviews: <tier>` (dsl-syntax.md §3.3), marking it a
+  tier declaration gains `reviews: <tier>` (retired by #45), marking it a
   review tier for the named tier rather than a generation tier of its own.
   Unlike the four above, this isn't a new scope kind, edge form, or
   context-walk source — it's a new relation *between two tier declarations*:
   `reviews:` fixes the declaring tier's scope and cardinality to the named
   tier's, 1:1, without restating `scope:`, and it obligates a load-time check
-  with no precedent in the closed sets §13 already validates — that the
+  with no precedent in the closed sets the load rules already validate — that the
   review tier's own `context:` names the same set of walks as the reviewed
   tier's `context:`.
 - **#10 Depth's grammar generalizes to a pair, and a new declarable form
-  configures `critique`'s participation** (ORC-92; `docs/dsl-syntax.md` §13,
-  §15.4, §15.5; `docs/v5-design-decisions.md` §7.19 — both grammar sections'
-  own shape changed again at ORC-105, below, without disturbing this
-  decision). Two changes land together: `depth:`'s shape check widens from
-  "non-negative integer" to "non-negative integer, or a list of exactly two"
-  — `Catapult.Dsl.Gate.parse_depth/2` and `Catapult.Dsl.Environment`'s own
-  copy both need the second clause, and §13 gains a shape-check rule
-  validating all three depth sites the same way — and the loader gains a new,
-  singular, non-globbed declaration kind: `critique.yaml` at a workflow
-  bundle's root, structural-parsing-only in the same shape `Gate` and
-  `Environment` already use (unknown keys rejected, `depth:` defaulting to
-  `0`), with no other fields — no `after:`, no `role:`, nothing that would
-  make it look like a review-status declaration, because it configures a
-  fixed kind rather than declaring one (§15.1's line stays exactly as
-  strict).
+  configures `critique`'s participation** (ORC-92; `workflow.md` #26, #33;
+  `docs/v5-design-decisions.md` §7.19 — both grammar sections' own shape
+  changed again at ORC-105, below, without disturbing this decision). Two
+  changes land together: `depth:`'s shape check widens from "non-negative
+  integer" to "non-negative integer, or a list of exactly two" —
+  `Catapult.Dsl.Gate.parse_depth/2` and `Catapult.Dsl.Environment`'s own copy
+  both need the second clause, and the load rules gain a shape check validating
+  all three depth sites the same way — and the loader gains a new, singular,
+  non-globbed declaration kind: `critique.yaml` at a workflow bundle's root,
+  structural-parsing-only in the same shape `Gate` and `Environment` already
+  use (unknown keys rejected, `depth:` defaulting to `0`), with no other
+  fields — no `after:`, no `role:`, nothing that would make it look like a
+  review-status declaration, because it configures a fixed kind rather than
+  declaring one (`workflow.md` #10's line stays exactly as strict).
 - **#11 Not built: a named-pass selector for the `[first, rest]` pair.**
   `first`/`rest` are positional, never a name a bundle chooses (`scaffold`,
   `refactor_flow`) — a chain has no vocabulary for its own flows on the
@@ -103,7 +103,7 @@ profiles.
   runtime consumer). `Chain.build/3` already resolves and validates
   every named predicate a bundle's four slots (`scope_filter`,
   `cardinality.when`, an edge `constraint`, a flow `completion`,
-  dsl-syntax.md §8) reference — then discards the map once load-time
+  `chain.md` #37) reference — then discards the map once load-time
   validation passes. Nothing downstream can evaluate a `scope_filter`
   reference against live graph state without it; re-parsing
   `predicates.yaml` independently would double-implement this system's
@@ -114,17 +114,16 @@ profiles.
   runtime-evaluator decision this field exists to serve.
 - **#13 A project's queue sequence and a container's are two declaration
   shapes, not one shape parameterized by kind, and work-item types are now a
-  registry** (ORC-105; `docs/dsl-syntax.md` §15.6-§15.9;
-  `docs/v5-design-decisions.md` §7.8).
+  registry** (ORC-105; `docs/v5-design-decisions.md` §7.8).
 
 - **#14 A fourth ORC-105 pass unified `queues/project.yaml`, `queues/
   containers/<name>.yaml` and `types/<name>.yaml` into one declaration shape,
   retired `after:`, and moved `critique.yaml`/`gates/`/ `environments/`
   positioning inline** (supersedes the three-file-shape entry above;
-  `docs/dsl-syntax.md` §15.1-§15.9; `docs/v5-design-decisions.md` §7.8,
-  §7.18, §7.19). Every declaration is `types/<name>.yaml`: `type:` names it,
-  `skeleton:` picks `ticket`, `container` or `none` (§15.1's per-skeleton
-  fixed anchor set), and `statuses:` is one ordered array holding both the
+  `workflow.md` #4, #5, #32; `docs/v5-design-decisions.md` §7.8, §7.18,
+  §7.19). Every declaration is `types/<name>.yaml`: `type:` names it,
+  `skeleton:` picks `ticket`, `container` or `none` (`workflow.md` #12 and
+  #16's per-skeleton fixed backbones), and `statuses:` is one ordered array holding both the
   skeleton's own anchors and whatever gates (`review:`), environments
   (`environment:`) or `critique` entries the author interleaves among them —
   position is the array index, full stop; no declaration in this grammar
@@ -139,7 +138,7 @@ profiles.
   in the same array, which is also the load-time reason a `container`- or
   `none`-skeleton type can never declare one — it has no `generation` anchor
   to pair with. The loader gains three checks with no exact precedent in the
-  closed sets §13 already validates: a `statuses:` entry must carry exactly
+  closed sets the load rules already validate: a `statuses:` entry must carry exactly
   one of `status:`/`review:`/`environment:`; `flow:`/`blocks:` are legal only
   on a queue-shaped `status:` entry (a container's five anchors, or any entry
   in a `none`-skeleton type); and a `ticket`-skeleton type's array must
@@ -149,83 +148,82 @@ profiles.
   carries no `extends:` field at all, since v5 §3.1's fork-tailor-merge
   lifecycle — already the model for bundles and policy packs generally — is
   the one a workflow bundle was always shaped for, not a runtime-composed
-  layer (`docs/dsl-syntax.md` §11).
+  layer (`bundle.md` #7).
 
 - **#15 A fifth ORC-105 pass corrected two errors the fourth pass's own
   three-valued `skeleton:` field had baked in, and added one field**
-  (`docs/dsl-syntax.md` §15.1-§15.9; `docs/v5-design-decisions.md`
-  §7.8). `skeleton:` is optional rather than
-  `ticket | container | none` — a type declaring neither has no
-  anchors at all, and there is no "at most one loaded
-  `skeleton: none` declaration" check: rootness is a node nothing
-  else's `flow:` targets, derived from the declaration graph the
-  loader already builds, never a value a second check has to police.
-  **The declaration-graph acyclicity check's node set is any type
-  with a queue-shaped anchor** — `container`-skeleton or
+  (`workflow.md` #4, #30; `docs/v5-design-decisions.md` §7.8).
+  `skeleton:` is optional rather than `ticket | container | none` — a
+  type declaring neither has no anchors at all, and there is no "at
+  most one loaded `skeleton: none` declaration" check: rootness is a
+  node nothing else's `flow:` targets, derived from the declaration
+  graph the loader already builds, never a value a second check has to
+  police. **The declaration-graph acyclicity check's node set is any
+  type with a queue-shaped anchor** — `container`-skeleton or
   skeleton-less alike — and a `flow:` naming a skeleton-less type is
   legal. Admitting only `container`-skeleton types as nodes excludes
   every `flow:` edge *into* a skeleton-less type by construction and
-  leaves a real cycle undetected (`milestone.main` naming
-  `flow: project` alongside `project.build-out` naming
-  `flow: milestone`). **Gates and environments are legal on
-  skeleton-less types too** — that a project needs no re-resolution
-  anchor is an argument about anchors, not about what its array may
-  contain, and the governing rule never claimed otherwise. **New:
-  `singleton: true` on a queue-shaped anchor entry**, bounding a queue
-  to at most one work item over its lifetime for plane code to
-  address directly (`milestone`'s `setup` and `retro` are the
-  motivating declarations) — not a load-time check (assignment
-  history is live state), and the loader's job stops at accepting the
-  field; a second assignment to a singleton queue is dispatch
-  behavior, not a grammar concern, and what that bound means is the
-  entry below's — a lifetime bound and a "files `Blocked`" response
-  disagree with each other. The dispatcher, the sweep, the
-  scan/setup/retro machinery, and the singleton-queue rejection check
-  are ORC-104's.
+  leaves a real cycle undetected (`milestone.main` naming `flow:
+  project` alongside `project.build-out` naming `flow: milestone`).
+  **Gates and environments are legal on skeleton-less types too** —
+  that a project needs no re-resolution anchor is an argument about
+  anchors, not about what its array may contain, and the governing
+  rule never claimed otherwise. **New: `singleton: true` on a
+  queue-shaped anchor entry**, bounding a queue to at most one work
+  item over its lifetime for plane code to address directly
+  (`milestone`'s `setup` and `retro` are the motivating declarations)
+  — not a load-time check (assignment history is live state), and the
+  loader's job stops at accepting the field; a second assignment to a
+  singleton queue is dispatch behavior, not a grammar concern, and
+  what that bound means is the entry below's — a lifetime bound and a
+  "files `Blocked`" response disagree with each other. The dispatcher,
+  the sweep, the scan/setup/retro machinery, and the singleton-queue
+  rejection check are ORC-104's.
 
 - **#16 A sixth ORC-105 pass named the plane's entry point explicitly and
   corrected `singleton:`'s own semantics, both gaps the fifth pass's own
-  record left open** (`docs/dsl-syntax.md` §2, §13, §15.2, §15.6-§15.7;
-  `docs/v5-design-decisions.md` §7.8). Derived rootness answers "is this type
-  a root," never "which root does the plane dispatch a fresh project from" —
-  a bundle declaring `epic` without nesting it under anything else already
-  has two roots, so "the project is a project by convention" names nothing
-  the loader can check. `entry:`, a required key on a workflow bundle's own
-  `bundle.yaml`, names that type instead, checked at load the same way
-  `role_holders:` and `mirror_mapping:` are checked when supplied: the name
-  resolves, the resolved type carries a queue-shaped anchor, and it is a root
-  in the declaration graph.
+  record left open** (`workflow.md` #2, #30; `docs/v5-design-decisions.md`
+  §7.8). Derived rootness answers "is this type a root," never "which root
+  does the plane dispatch a fresh project from" — a bundle declaring `epic`
+  without nesting it under anything else already has two roots, so "the
+  project is a project by convention" names nothing the loader can check.
+  `entry:`, a required key on a workflow bundle's own `bundle.yaml`, names
+  that type instead, checked at load the same way `role_holders:` and
+  `mirror_mapping:` are checked when supplied: the name resolves, the
+  resolved type carries a queue-shaped anchor, and it is a root in the
+  declaration graph.
 
 - **#17 ORC-115 (design pass, corrected on two later design reviews)
   narrows `throwback:` to a single-target escape hatch and gives a
   `statuses:` array a grouping construct the fourth ORC-105 pass's
-  unification didn't have** (`docs/dsl-syntax.md` §15.10, §13, §15.4;
+  unification didn't have** (`workflow.md` #6, #34;
   `docs/v5-design-decisions.md` §7.8, §7.16, §7.19). A `statuses:`
   entry may be a bare, unnamed sub-array holding a contiguous run of
   the entries already legal elsewhere in the array
   (`status:`/`review:`/`environment:`, unchanged); the loader gains
-  three checks with no exact precedent in the closed sets §13 already
-  validates — a sub-array nested inside a sub-array is a load error
+  three checks with no exact precedent in the closed sets the load rules
+  already validate — a sub-array nested inside a sub-array is a load error
   (the grammar is flat, deliberately, see below); a sub-array must
   hold exactly one entry whose `status:` is a non-review-shaped
   agent-balled system status (`generation`, `design`, `architecture`,
-  `implementation`, `retro` or `setup` — §15.1's own `ball` column
-  minus `critique` and `reconcile`, both review-shaped and excluded
-  for the reason §15.5 already excludes `critique` from standing
-  alone; `merge` is not a candidate either, its own `ball` having
+  `implementation`, `retro` or `setup` — `workflow.md` #10's
+  agent-balled shapes minus `critique` and `reconcile`, both
+  review-shaped and excluded for the reason #26 already excludes
+  `critique` from standing alone; `merge` is not a candidate either, its own `ball` having
   moved from `agent` to `plane`, ORC-151), zero or two-or-more being
   a load error naming the count found; and a queue-shaped anchor
   (`flow:`/`blocks:`) may not sit inside one. A `review:` entry's
   decline defaults to its citing sub-array's own earliest entry — its
   own leading `pending`, when the sub-array has one (every
-  generation-shaped sub-array does, §13's tightened check), its own
+  generation-shaped sub-array does), its own
   non-review-shaped entry directly otherwise — computed at throwback
   time from the loaded bundle, never stored, the same posture
   `ready_scopes` and staleness already take. A gate sitting first in
   its own sub-array, or in no sub-array at all, has no earlier entry
   there to fall back to, so this derivation gives it no default and
-  it must declare `throwback:` explicitly (ORC-181,
-  `docs/dsl-syntax.md` §15.4, §13, §15.10).
+  it must declare `throwback:` explicitly (ORC-181; superseded by
+  #45's sixth change, which lets an ungrouped gate have no throwback
+  at all).
 - **#18 A decline's legal targets are never narrower than
   `docs/v5-design-decisions.md` §7.19's own Blocked-return rule — any earlier
   status in the ticket's effective sequence — and no bundle-declared list
@@ -235,43 +233,43 @@ profiles.
   It bounded legality, and that job is gone. It also named a decline's
   *landing point* — the one-click action a bare decline takes — and that job
   is untouched: the sub-array's own earliest entry — its own leading
-  `pending` for a generation-shaped group, §13 — is the derived default, and
+  `pending` for a generation-shaped group — is the derived default, and
   `throwback:` is what a gate declares instead, for the gate that wants a
   different one.
 
 - **#20 ORC-148 (design pass) reverses the fourth pass's own governing
   sentence — a skeleton fixes a required backbone, never an exclusive
-  membership — and retires `singleton:` outright** (`docs/dsl-syntax
-  .md` §13, §15.1, §15.2, §15.5-§15.10; `docs/v5-design-decisions.md`
-  §7.8; `systems/delivery.md`). "A container is any work item whose
-  skeleton has queues, a ticket is any work item whose skeleton has a
-  generation" (§15.2's own sentence) is not an *exclusive* membership
-  rule, and the loader read it as one: `Catapult.Dsl.Workflow
-  .container_shape_problems/2` required a `container`-skeleton type's
-  array to hold *exactly* its five fixed anchors, nothing else, and
-  `Status.parse/4`'s `queue_shaped?` — whether `flow:`/`blocks:` (and,
-  until it retired, `singleton:`) are legal on a given entry — was
-  computed once per type from `skeleton:` alone. Nothing in this
-  section's own prose ever argued for that exclusivity; it was the
-  three-file format's residue, the same kind of accidental coupling
-  the one-file unification above removes from everywhere else.
-  **The check keys on the entry's own name and content, not on the
-  type's `skeleton:`:** `flow:`/`blocks:` are legal on a *population
-  anchor* (`prep`/`main`/`cleanup`, or any entry in a skeleton-less
-  type's array) and illegal on the fixed agent/world kinds (`pending`,
+  membership — and retires `singleton:` outright** (`workflow.md` #12,
+  #16; `docs/v5-design-decisions.md` §7.8; `systems/delivery.md`). "A
+  container is any work item whose skeleton has queues, a ticket is
+  any work item whose skeleton has a generation" (`workflow.md` #4's
+  own sentence) is not an *exclusive* membership rule, and the loader read
+  it as one: `Catapult.Dsl.Workflow .container_shape_problems/2`
+  required a `container`-skeleton type's array to hold *exactly* its
+  five fixed anchors, nothing else, and `Status.parse/4`'s
+  `queue_shaped?` — whether `flow:`/`blocks:` (and, until it retired,
+  `singleton:`) are legal on a given entry — was computed once per
+  type from `skeleton:` alone. Nothing in this section's own prose
+  ever argued for that exclusivity; it was the three-file format's
+  residue, the same kind of accidental coupling the one-file
+  unification above removes from everywhere else. **The check keys on
+  the entry's own name and content, not on the type's `skeleton:`:**
+  `flow:`/`blocks:` are legal on a *population anchor*
+  (`prep`/`main`/`cleanup`, or any entry in a skeleton-less type's
+  array) and illegal on the fixed agent/world kinds (`pending`,
   `generation`, `critique`, `checks`, `merge`, `deploy`, `setup`,
   `retro`, `terminal`), whichever type's array either sits in; the
   declaration-graph node set and `entry:`'s own check both key on
-  "does this type's array hold a population anchor at all" rather
-  than on "is this type's `skeleton:` `container` or absent." A
+  "does this type's array hold a population anchor at all" rather than
+  on "is this type's `skeleton:` `container` or absent." A
   `container`-skeleton type's required backbone (its five anchors,
   each at least once, in order) and a `ticket`-skeleton type's are
   exactly as fixed as before; what they do not do is cap what else a
   declaring bundle may additionally interleave from the shared
   vocabulary. **This is what lets `setup` and `retro` fold inline:**
-  each is an ordinary agent-balled entry directly in `milestone`'s
-  own array — `retro` grouped with the sign-off gates around it in a
-  §15.10 sub-array (the shape ORC-115 named and left unreachable,
+  each is an ordinary agent-balled entry directly in `milestone`'s own
+  array — `retro` grouped with the sign-off gates around it in a
+  sub-array (`workflow.md` #6, the shape ORC-115 named and left unreachable,
   above), `setup` needing no group at all — dispatched by
   `milestone`'s own chain-bundle tiers exactly as a `generation` entry
   dispatches by a ticket-skeleton type's, with no `flow:` and no
@@ -284,77 +282,76 @@ profiles.
   there is exactly one `milestone` instance and exactly one array
   position each occupies, which is the "at most one, ever" property
   with nothing left for a field to declare. **A container instance is
-  an agent dispatch target** — the question ORC-115 left open,
-  settled the same direction as the rest of this reversal:
-  dispatching from a work item with a queue and one without were
-  never different operations, only different status flows attached
-  to the identical mechanism (`docs/v5-design-decisions.md` §7.8,
+  an agent dispatch target** — the question ORC-115 left open, settled
+  the same direction as the rest of this reversal: dispatching from a
+  work item with a queue and one without were never different
+  operations, only different status flows attached to the identical
+  mechanism (`docs/v5-design-decisions.md` §7.8,
   `systems/delivery.md`). The loader carries it across
   `lib/catapult/dsl/status.ex`, `type.ex` and `workflow.ex`;
   `bundles/default-flow/**` is the folded result; and the
-  dispatcher/executor half is `systems/delivery.md`'s, against its
-  own Target list.
+  dispatcher/executor half is `systems/delivery.md`'s, against its own
+  Target list.
 
 - **#21 ORC-151 (design pass) splits the fixed vocabulary's `merge` kind
-  in two, naming the review it always implied** (`docs/dsl-syntax.md`
-  §15.1, §13, §15.5, §15.10, new §15.11; `docs/v5-design-decisions.md`
-  §7.5, §7.19). `merge` carried two jobs at once — reading a produced
-  PR against its own argument, and mechanically joining it into the
-  parent branch — and `Catapult.Dsl.SystemStatus.agent_steps/0` has
-  carried `:reconcile` since Phase 3 with no matching `phase:` to
-  declare it against. `reconcile` joins the fixed table as the second
-  **review-shaped** kind alongside `critique` (the parallel category
-  to "generation-shaped"), agent-balled and required — stated
-  positionally, not per skeleton — wherever a `merge` entry appears:
-  a `merge` entry must be preceded, earlier in the same array, by a
+  in two, naming the review it always implied** (`workflow.md` #10,
+  #13; `docs/v5-design-decisions.md` §7.5, §7.19). `merge` carried two
+  jobs at once — reading a produced PR against its own argument, and
+  mechanically joining it into the parent branch — and
+  `Catapult.Dsl.SystemStatus.agent_steps/0` has carried `:reconcile`
+  since Phase 3 with no matching `phase:` to declare it against.
+  `reconcile` joins the fixed table as the second **review-shaped**
+  kind alongside `critique` (the parallel category to
+  "generation-shaped"), agent-balled and required — stated
+  positionally, not per skeleton — wherever a `merge` entry appears: a
+  `merge` entry must be preceded, earlier in the same array, by a
   `reconcile` entry, `container`-skeleton arrays included (a
-  skeleton-keyed statement leaves a gap: `dsl-syntax.md` §15.2's
-  `milestone.yaml` example ran `setup` and `retro` each through a
-  bare `checks → merge → deploy`, merging unread), never opt-in the
-  way `critique` is, since no ticket merges without having been read
+  skeleton-keyed statement leaves a gap: the retired spec's
+  `milestone.yaml` example ran `setup` and `retro` each through a bare
+  `checks → merge → deploy`, merging unread), never opt-in the way
+  `critique` is, since no ticket merges without having been read
   against its own argument first. `reconcile` may also recur, the way
-  a generation-shaped entry and `merge` already could —
-  `dsl-syntax.md` §15.11's own worked example carries two, one
-  closing the architecture phase's own join and one closing
-  implementation. `merge`'s own `ball` changes from `agent` to
-  `plane`: mechanical, effected by the plane once `reconcile`
-  approves, barring a conflict (which routes to `Blocked` the
-  ordinary way). This is also what lets `Catapult.Delivery
-  .ContainerLifecycle.inline_dispatch_point?/1` stop excluding
-  `merge` by name — a name check inside a module whose own moduledoc
-  asserts it branches on no status name: the predicate is
-  "agent-balled and not review-shaped," which excludes `merge`
+  a generation-shaped entry and `merge` already could — the retired
+  spec's own worked example carries two, one closing the architecture
+  phase's own join and one closing implementation. `merge`'s own
+  `ball` changes from `agent` to `plane`: mechanical, effected by the
+  plane once `reconcile` approves, barring a conflict (which routes to
+  `Blocked` the ordinary way). This is also what lets
+  `Catapult.Delivery .ContainerLifecycle.inline_dispatch_point?/1`
+  stop excluding `merge` by name — a name check inside a module whose
+  own moduledoc asserts it branches on no status name: the predicate
+  is "agent-balled and not review-shaped," which excludes `merge`
   because it is no longer agent-balled, needing no name check. The
-  sub-array anchor rule (§15.10) generalizes the identical way:
+  sub-array anchor rule (`workflow.md` #6) generalizes the identical way:
   "non-critique agent-balled" becomes "non-review-shaped
-  agent-balled," admitting any number of `reconcile` entries
-  alongside `critique` ones without counting toward the sub-array's
-  required-one anchor. **Gate scope is derived from position relative
-  to the nearest `reconcile` before it** — a gate earlier than every
+  agent-balled," admitting any number of `reconcile` entries alongside
+  `critique` ones without counting toward the sub-array's required-one
+  anchor. **Gate scope is derived from position relative to the
+  nearest `reconcile` before it** — a gate earlier than every
   `reconcile` in a type's own array approves the citing tier's own
   artifact; one sitting after a `reconcile` approves what that
   `reconcile` has already joined and, per the entry below, already
   **merged** in from every child beneath it, superseded again by a
   later `reconcile` if one follows — closing a gap
   `v5-design-decisions.md` §7.16 left open (what a gate scoped to a
-  join, rather than to one generation's own sub-array, approves),
-  with no new field: computed from array position, the identical
-  "derive, don't declare" posture `throwback:`'s own default already
-  takes. **No `docs/non-goals.md` entry**: growing this closed table
-  is covered by that file's existing admission rule without
-  amendment, the same non-entry `design`/`architecture` got at
-  ORC-148. The loader carries it in `lib/catapult/dsl/system_status
-  .ex`'s `@statuses` table and `generation_shaped?/1`'s sibling,
+  join, rather than to one generation's own sub-array, approves), with
+  no new field: computed from array position, the identical "derive,
+  don't declare" posture `throwback:`'s own default already takes.
+  **No `docs/non-goals.md` entry**: growing this closed table is
+  covered by that file's existing admission rule without amendment,
+  the same non-entry `design`/`architecture` got at ORC-148. The
+  loader carries it in `lib/catapult/dsl/system_status .ex`'s
+  `@statuses` table and `generation_shaped?/1`'s sibling,
   `status.ex`'s `non_critique_agent_step?/1` rename and
   generalization, and `workflow.ex`'s backbone and sub-array checks
   widening to include `reconcile` and the merge-preceded-by-reconcile
-  positional check; `bundles/**` declares it; the dispatcher change
-  is `systems/delivery.md`'s, against its own Target list.
+  positional check; `bundles/**` declares it; the dispatcher change is
+  `systems/delivery.md`'s, against its own Target list.
 
 - **#22 A third design review on this same ticket retires `fanout` from the
   fixed table, moves architecture's own fan-out onto the ticket tree, and
-  makes `merge` implicit outside the root** (`docs/dsl-syntax.md` §15.1, §13,
-  §15.11; `docs/v5-design-decisions.md` §7.10, §7.15, §7.19). Three changes:
+  makes `merge` implicit outside the root** (`workflow.md` #10, #28;
+  `docs/v5-design-decisions.md` §7.10, §7.15, §7.19). Three changes:
   **`fanout` retires**, its only remaining job (marking a feature's own wait
   before its implementation-phase `reconcile`) a dispatch precondition rather
   than a status of its own — the edge type of the identical name
@@ -377,8 +374,7 @@ profiles.
 
 - **#23 A fourth design review on ORC-151 fixes five worked-example defects
   the third pass's own draft left standing, and settles two questions it left
-  open** (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.4, §15.5, §15.10,
-  §15.11; `docs/v5-design-decisions.md` §7.6, §7.10, §7.19).
+  open** (`docs/v5-design-decisions.md` §7.6, §7.10, §7.19).
   **`implementation` joins the fixed table as a third named generation kind**
   — a tier's code cannot dispatch through a bare second `checks`, because
   `checks` is world-balled CI against produced work, never a generation run;
@@ -389,7 +385,8 @@ profiles.
   sub-array**, tightening "somewhere earlier in the array" — with `fanout`
   retired, `pending` is the only plane-balled wait position left, and a
   shared leading `pending` licensing several sub-arrays at once leaves later
-  ones with nowhere to queue; throwback's own derived default (§15.10) falls
+  ones with nowhere to queue; throwback's own derived default (`workflow.md`
+  #34) falls
   back to a generation-shaped sub-array's own leading `pending` rather than
   straight to its agent step, matching the repair-loop mapping (`Ready for
   rework`/`Reworking`) rather than skipping the queued wait. **A declared
@@ -408,51 +405,50 @@ profiles.
   never at their *own* dispatch of `merge`, and the worked example's `merge`
   comment says so; and the gate is `architecture-review`, not
   `comparch-review`, since naming a gate for the tier it reviews is the
-  implicit-anchor-meaning defect §11 exists to keep out, and its own two
+  implicit-anchor-meaning defect #11 exists to keep out, and its own two
   positions already derive their different scopes from where they sit, not
   from a second name.
 
 - **#24 A sixth design review on ORC-151 closes one gap the fifth pass's
-  own fix left open** (`docs/dsl-syntax.md` §13, §15.5;
+  own fix left open** (`workflow.md` #26;
   `docs/v5-design-decisions.md` §7.19). `critique`'s load-time
   adjacency rule — "immediately after a generation-shaped entry, or
   immediately after that entry's own `checks`, never before it" — is
   stated at five sites, and all five carry the identical `checks`
-  caveat: §13's rule statement, the container/ticket-skeleton
-  interleaving passage, the `skeleton:`-decoupling section's own
-  "critique's admission" bullet, the project-level widening passage,
-  and §15.5, the section §13's own citation points at as the rule's
-  other statement. A worked example reordered to the amended rule is,
+  caveat: the retired spec's load checklist, its own rule statement,
+  the container/ticket-skeleton interleaving passage, the
+  `skeleton:`-decoupling section's own "critique's admission" bullet,
+  and the project-level widening passage. A worked example reordered to the amended rule is,
   read against any one of those sites without the caveat, a load
-  error. §15.5 states the rule in the rule statement itself, not in a
+  error. The rule belongs in the rule statement itself, not in a
   second worked-example paragraph beside it claiming the rule above
-  already says it. A rule with three or more statements in this
+  already says it (`workflow.md` #26 states it once). A rule with three or more statements in this
   document (critique adjacency, `pending` precedence, the
   depth-bearing sites, the generation-shaped kind list) is edited at
   every statement in the same pass that changes any one of them, not
   just the site a review happens to quote: six consecutive rounds on
-  ORC-151 each corrected one statement and left a sibling
-  statement stale — `merge`, the reconcile count, `checks`'s
-  position, the child lifecycle, `pending`, and `critique`'s own
-  adjacency rule against itself. The loader's widened
-  critique-adjacency check is the entry below's.
+  ORC-151 each corrected one statement and left a sibling statement
+  stale — `merge`, the reconcile count, `checks`'s position, the
+  child lifecycle, `pending`, and `critique`'s own adjacency rule
+  against itself. The loader's widened critique-adjacency check is
+  the entry below's.
 
 - **#25 A fifth design review on ORC-151 fixes three defects the fourth
   pass's own worked examples and lifecycle mapping left standing**
-  (`docs/dsl-syntax.md` §13, §15.1, §15.2, §15.5, §15.11;
-  `docs/v5-design-decisions.md` §7.19). **`checks` sits between a
-  generation-shaped entry and the `critique` that reviews it**, not
-  after it, and never behind the human gate. `critique`'s own
-  load-time adjacency rule (§13, §15.5) admits an intervening
-  `checks` ("immediately after a generation-shaped entry, or
-  immediately after that entry's own `checks`, never before it"), and
-  both worked examples (`types/feature.yaml`, `types/component.yaml`)
-  carry that order — one `checks` per generation-shaped sub-array,
-  always ahead of its `critique`. **§15.1's own lifecycle mapping
-  carries three `Todo`s and three `Checks`, matching `feature.yaml`'s
-  three generation-shaped sub-arrays** — a single occurrence of each
-  is the `pending`-once-per-sub-array rule (§13) violated, stated as
-  a tracker lifecycle rather than a load error. The mapping and the
+  (`workflow.md` #26, #28; `docs/v5-design-decisions.md` §7.19).
+  **`checks` sits between a generation-shaped entry and the
+  `critique` that reviews it**, not after it, and never behind the
+  human gate. `critique`'s own load-time adjacency rule (`workflow.md` #26)
+  admits an intervening `checks` ("immediately after a
+  generation-shaped entry, or immediately after that entry's own
+  `checks`, never before it"), and both worked examples
+  (`types/feature.yaml`, `types/component.yaml`) carry that order —
+  one `checks` per generation-shaped sub-array, always ahead of its
+  `critique`. **The retired spec's own lifecycle mapping carries three `Todo`s
+  and three `Checks`, matching `feature.yaml`'s three
+  generation-shaped sub-arrays** — a single occurrence of each is the
+  `pending`-once-per-sub-array rule violated, stated as a
+  tracker lifecycle rather than a load error. The mapping and the
   worked example describe one type and are edited together: five
   consecutive corrections had fixed one and left the other
   disagreeing (`merge`, the reconcile count, `checks`'s position, the
@@ -469,29 +465,28 @@ profiles.
 
 - **#26 ORC-155 (design pass) gives a `status:` entry a bundle-authored
   `name:` distinct from its kind, and namespaces a position by the
-  sub-array it sits in** (`docs/dsl-syntax.md` §13, §15.1, §15.4,
-  §15.9, §15.12; `docs/v5-design-decisions.md` §7.19). Without it a
-  recurring kind — three `pending`, three `checks`, two `reconcile`
-  in `dsl-syntax.md` §15.2's `types/feature.yaml` worked example
-  alone — is addressable only by kind, which a card, a rail entry, a
+  sub-array it sits in** (`workflow.md` #7, #8;
+  `docs/v5-design-decisions.md` §7.19). Without it a recurring kind —
+  a `critique` and a `checks` once per group — is addressable only by
+  kind, which a card, a rail entry, a
   `throwback:` or a `blocks:` reference all need to name
   unambiguously and cannot: `CatapultWeb.Live.Positions.key/1`
   round-trips exactly the `{:kind, atom} | {:gate, name}` pair the
   projection stores, with no way to say *which* `pending`. `name:`
-  answers it without growing §15.1's closed kind table a fourth time
-  for a need no chain lifecycle actually has (the identical reasoning
-  §15.9 already gives for `design`/`architecture`/`implementation` not
+  answers it without growing the closed kind table (`workflow.md` #10) a
+  fourth time for a need no chain lifecycle actually has (the identical
+  reasoning #30 already gives for `design`/`architecture`/`implementation` not
   needing a fifth or sixth member): a position's identity is
   `<anchor>.<name>`, the sub-array's own one non-review-shaped
-  agent-balled entry supplying the anchor (§15.10), bare at the top
+  agent-balled entry supplying the anchor (`workflow.md` #6, #7), bare at the top
   level, one level of qualification only. **This retires the "same
-  declared gate cited twice" pattern (§15.4, above)**: two citations
+  declared gate cited twice" pattern (`workflow.md` #32, above)**: two citations
   landing in the same sub-array collide under the
   uniqueness-within-a-namespace check, and a citation told apart from
   its sibling only by which side of a `reconcile` it falls on is
   exactly the second qualification level the grammar refuses.
   `architecture-review`, cited twice in `feature.yaml` and again in
-  §15.11's `component.yaml`, is the exercised case; the citation
+  `component.yaml`, is the exercised case; the citation
   scoped to what `reconcile` has joined is a gate of its own,
   `architecture-synthesis-review`, in both worked examples — the two
   already reviewed different things and say so by name, rather than
@@ -511,19 +506,18 @@ profiles.
   the consumers.
 
 - **#27 A design review on ORC-148 corrected two things the pass above got
-  wrong and settled one it had left implicit** (`docs/dsl-syntax.md`
-  §13, §15.1, §15.5, §15.7, §15.10; `docs/v5-design-decisions.md`
-  §7.8). `milestone.yaml`'s `main blocks: [retro]` beside a `retro`
-  folded inline with no `flow:` cannot load under a `blocks:` check
-  that requires its target to be a population anchor, which an inline
-  `retro` is not. **`blocks:` is an entry guard, checked once at the
-  transition it guards, never a standing hold a projection
-  recomputes** — `Q1 blocks: [Q2]` means `Q2` cannot be *entered*
-  while `Q1` still carries unresolved work, checked exactly once, not
-  continuously for as long as `Q2` runs. A standing-hold reading
-  carries a real defect: a queue refilling while the guarded entry
-  was already mid-run pulls the container back out of it, and
-  `retro`'s own output landing back in `main` would make a
+  wrong and settled one it had left implicit** (`workflow.md` #8, #18;
+  `docs/v5-design-decisions.md` §7.8). `milestone.yaml`'s `main
+  blocks: [retro]` beside a `retro` folded inline with no `flow:`
+  cannot load under a `blocks:` check that requires its target to be a
+  population anchor, which an inline `retro` is not. **`blocks:` is an
+  entry guard, checked once at the transition it guards, never a
+  standing hold a projection recomputes** — `Q1 blocks: [Q2]` means
+  `Q2` cannot be *entered* while `Q1` still carries unresolved work,
+  checked exactly once, not continuously for as long as `Q2` runs. A
+  standing-hold reading carries a real defect: a queue refilling while
+  the guarded entry was already mid-run pulls the container back out
+  of it, and `retro`'s own output landing back in `main` would make a
   completion-hold `blocks:` interrupt `retro` with its own result.
   **Reaching `terminal` has an unconditional, undeclarable guard** —
   every one of a container's own queues holding no unresolved work —
@@ -553,7 +547,7 @@ profiles.
 
 - **#28 ORC-198 (design pass) splits `Type.namespaced_positions/1`'s one
   ambiguity computation into two, because ORC-155's own `name:` is exactly
-  what makes them able to disagree** (`docs/dsl-syntax.md` §15.12).
+  what makes them able to disagree** (`workflow.md` #7, #8).
 
   The two sets are not one a subset of the other, so neither is safe
   to derive from the other: `status: pending` in one sub-array beside
@@ -561,7 +555,7 @@ profiles.
   **distinct** kinds — a real reference ambiguity (`blocks: [pending]`
   cannot pick one), no runtime collision at all, since the two resolve
   to different `position()` shapes. The two namespaces are what makes
-  that bundle legal to write at all: §15.12's own uniqueness check
+  that bundle legal to write at all: `workflow.md` #7's uniqueness check
   ("Names are unique within their own namespace — the top-level array,
   and each sub-array") refuses the same pair sharing one namespace at
   load, so the case worth modelling here is only ever the one that
@@ -583,9 +577,9 @@ profiles.
   a single directory of authored content, forked and tailored the way
   a workflow bundle has been since ORC-105's fourth pass** (ORC-153;
   `docs/v5-design-decisions.md` §5.5, §6, §7.18;
-  `docs/dsl-syntax.md` §11). `Catapult.Dsl.Manifest` drops `extends:`
-  — an unknown key, rejected at load on either bundle kind, the same
-  as a workflow bundle's manifest already rejects it. `Catapult.Dsl
+  `bundle.md` #5, #7). `Catapult.Dsl.Manifest` drops `extends:` — an
+  unknown key, rejected at load on either bundle kind, the same as a
+  workflow bundle's manifest already rejects it. `Catapult.Dsl
   .Extends` (`chain/3`, cycle detection, the cross-axis kind check,
   base-first ordering, `resolve_files/2`, `fragment_vocabulary/1`,
   `load_layers/2`) goes with it; `Catapult.Dsl.Grammar` and
@@ -607,7 +601,7 @@ profiles.
   vendored node like any §3.2 external" — reads as behavior parity, not
   mechanism reuse, once weighed against what `external` actually is:
   registry-resolved content, `package:`- addressed, staleness a version bump
-  the registry publishes (v5 §3.2, `dsl-syntax.md` §3.2).
+  the registry publishes (v5 §3.2, `chain.md` #39).
 
   The new type: `generator: supplied`, `source: input.<role>`. Content
   is the raft document(s) pinned under that role at intake, copied into
@@ -632,14 +626,14 @@ profiles.
   closed.
 
   `design_system` joins `project_doc`, `mocks`, `non_goals` as platform
-  input-tag vocabulary (`dsl-syntax.md` §7.2) — a fourth role, admitted
-  the same way the other three were, by a shipped tier reading it
-  (ORC-107's admission rule) — but read through a `supplied` generator's
-  `source:` field rather than a `context: input.<role>` walk: the
-  role-tagging mechanism is shared across all four roles, the
-  consumption path is not, because `design_system` has no prompt for
-  `ContextAssembly` to render a variable into (unlike `mocks`, which
-  does — `systems/platform_content.md`'s ORC-110 entry).
+  input-tag vocabulary (`chain.md` #19) — a fourth role, admitted the
+  same way the other three were, by a shipped tier reading it (ORC-107's
+  admission rule) — but read through a `supplied` generator's `source:`
+  field rather than a `context: input.<role>` walk: the role-tagging
+  mechanism is shared across all four roles, the consumption path is
+  not, because `design_system` has no prompt for `ContextAssembly` to
+  render a variable into (unlike `mocks`, which does —
+  `systems/platform_content.md`'s ORC-110 entry).
 - **#31 This entry declares the `design_system` tier itself**, not only its
   node kind: `design_system`, `generator: supplied`, `source:
   input.design_system`, no scope parent (mints directly from the pinned raft
@@ -652,8 +646,8 @@ profiles.
 
 - **#33 A `declared_in` path's element and attribute segments join the
   cross-references the loader already checks at load time**
-  (ORC-232, `dsl-syntax.md` §13, sharpening this system's own
-  "cross-references" bullet above). §13's own enumeration of what
+  (ORC-232, `chain.md` #32, sharpening this system's own
+  "cross-references" bullet above). The retired spec's enumeration of what
   "every cross-reference resolves" already covers — edge endpoints,
   fragment kinds, prompt/schema paths, predicate names — named no
   check of a `declared_in` path's own segments against the schema of
@@ -666,9 +660,9 @@ profiles.
   path's leading segment to the tier it names, reads that tier's own
   `draft.grammar` schema, and walks the remaining segments against it
   the same way `Extraction.descend/2` walks them against a committed
-  body — refusing to load when a segment names no element or
-  attribute the schema declares under that exact spelling, naming the
-  edge, the instance and the offending segment.
+  body — refusing to load when a segment names no element or attribute
+  the schema declares under that exact spelling, naming the edge, the
+  instance and the offending segment.
 - **#34 The walk follows a `type="Name"` reference into a complexType
   declared in the same schema file exactly as it follows an inline content
   model — this bundle's ordinary shape, not an edge case.**
@@ -691,7 +685,7 @@ profiles.
 
 - **#37 A third-party-declared edge instance locates its non-`self`
   endpoint one of five ways, and only one of the five needs bundle
-  content to say so** (ORC-236; `dsl-syntax.md` §4.2, §13).
+  content to say so** (ORC-236; `chain.md` #27, #32).
   `Extraction`'s own moduledoc names the gap and declines to guess at
   it: an instance whose `source` (or `target`) differs from
   the tier committing the draft that declares it needs "per-edge-type
@@ -731,7 +725,7 @@ profiles.
   below). A side that resolves one of
   these four structural ways lets its *other* side default to the
   trailing `.@attr` segment of `declared_in` when it has one
-  (`dsl-syntax.md` §4.2) — which is why every `reference`-typed instance
+  (`chain.md` #27) — which is why every `reference`-typed instance
   and four of the ten `dependency`-typed ones (`ui_coll →
   design_system`, `calls`, `renders`, `uses_shapes`) need no locator in
   bundle content at all: one side resolves structurally and the other
@@ -766,7 +760,7 @@ profiles.
   against.
 - **#38 The ORC-232 declared_in/schema cross-validation widens to cover
   `fields:`/`produces:` `draft.<path>` sources, which have the identical
-  defect already live in the shipped bundle** (ORC-236; `dsl-syntax.md` §13).
+  defect already live in the shipped bundle** (ORC-236; `chain.md` #32).
   `mint.parent.<name>` reads a committing tier's own `fields:`/`produces:`
   values by name (below), so those sources get the same schema cross-check
   `declared_in` already gets — and `Extraction.text/2`'s exact-string match
@@ -794,7 +788,7 @@ profiles.
   the extractor.
 - **#40 `mint.parent.<name>` names the inherited half of a join-target
   tier's `mint.<name>` field source, spelled rather than left implicit**
-  (ORC-236; `dsl-syntax.md` §3).
+  (ORC-236; `chain.md` #12).
 - **#41 `design_system`'s `generator: supplied` mint is a scaffold-time
   write, not a swept dispatch.** `core_dsl.md`'s own ORC-110 entry (above)
   settles the tier's shape (mints at most one, directly from the pinned raft
@@ -806,10 +800,10 @@ profiles.
   kind whose content is already final the moment the tier becomes reachable,
   never revisited by a later sweep tick.
 - **#42 `.synthesis` retires from the context-walk projection vocabulary**
-  (ORC-236; `dsl-syntax.md` §7). No tier in `bundles/default` declares
-  a walk targeting it, and `ContextAssembly.render_node/2` never
-  implemented it — parsed, documented, never consumed on either side.
-  A projection with no consumer is not designed; the word is out of the
+  (ORC-236; `chain.md` #19). No tier in `bundles/default` declares a
+  walk targeting it, and `ContextAssembly.render_node/2` never
+  implemented it — parsed, documented, never consumed on either side. A
+  projection with no consumer is not designed; the word is out of the
   vocabulary instead, and nothing in `bundles/default` depends on it.
   `type: synthesis`, the edge type a `cascade_visit`-scoped planning
   tier's `plan_target`-style edges declare, is a different vocabulary
@@ -817,12 +811,89 @@ profiles.
   `upward_propagation_plan.yaml` and `downward_propagation_plan.yaml`
   all walk `self.plan_target -> <tier>.handle`, never `.synthesis`.
 
+- **#45 The DSL redesign replaces the grammar the entries above
+  describe, and the loader's shape with it.** The contract is
+  `bundle.md`, `chain.md` and `workflow.md`, each rule carrying an id
+  and, in its `.reasons.md` sibling, the argument for it.
+  `docs/dsl/example/` is the default pair written in that grammar.
+  Five changes, each naming the entries it supersedes:
+  1. **Each axis is one declaration file.** `chain.yaml` carries every
+     tier, edge, flow and predicate; `workflow.yaml` every type, gate
+     and environment (`bundle.md` #3, #4). The per-file declaration
+     kinds go, and the manifest with them. #7's `catapult.yaml` rule
+     stands unchanged; #14's one-declaration-shape rule stands as one
+     `types:` block rather than one file format across three
+     directories; #29's "single directory of authored content"
+     narrows to a single file plus the schemas and prompts that file
+     names.
+  2. **The cross-axis reference runs from the workflow.** A generation
+     position names the tiers that run at it and a ticket type names
+     the chain flows it serves (`workflow.md` #22, #40); nothing in
+     `chain.yaml` names a position, a gate or a type. This reverses
+     #11: the workflow now has vocabulary for the chain's flows, and
+     the pairing is a load error rather than a convention.
+  3. **A review and a reconcile are blocks on the tier they belong
+     to** (`chain.md` #14, #15). #9's `reviews: <tier>` retires with
+     the review tier itself, and so does the load rule checking that a
+     review tier's walks match the reviewed tier's, which existed only
+     because the copy existed.
+  4. **`design`, `architecture` and `implementation` stop being
+     kinds** and return as `name:` values on generation entries
+     (`workflow.md` #10); the fixed table is the set of shapes plane
+     logic branches on. The agent-balled kind enumerations in #17,
+     #20, #23 and #27 shrink accordingly. `pending` leaves the table
+     altogether — it is an engine flag every agent-balled position
+     carries until an agent picks the work up, not an entry
+     (`workflow.md` #25) — which supersedes the per-sub-array
+     `pending` rules in #17, #19, #23, #25, #26 and #28.
+  5. **A fact about one document is the schema's** (`bundle.md` #10):
+     node identity, which elements are fields, and plain cardinality
+     are annotations and occurrence bounds in the XSD, so the loader
+     stops carrying rows nothing enforced. A join target declares
+     `draft: none` rather than being recognised by the absence of a
+     draft (`chain.md` #8), which is what #30 keyed its mint-time
+     default on.
+  6. **A gate outside a sub-array may carry no `throwback:` at all**
+     (`workflow.md` #34, #35), the decline landing on a
+     human-chosen earlier position instead. #17's and #19's rule that
+     such a gate must declare one was in the contract and never in
+     the loader, which tolerated nil throughout.
+
 ## #43 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension
-set (delivery annotations arrive with delivery). Target: full
-extension registry with delivery + runtime dialects registered;
-bundle-diff support for the registry's handle machinery.
+set. Target: the single-file loader for `chain.yaml` and
+`workflow.yaml` (`bundle.md` #3, #4); full extension registry with
+delivery + runtime dialects registered; bundle-diff support for the
+registry's handle machinery.
+
+The loader parses and checks reserved grammar now, so a bundle written
+against it does not change shape when the consumer lands (`bundle.md`
+intro). Each reserved construct and the ticket that will read it:
+
+- **The flow engine** (engine#69): the `cascade_visit` scope, the
+  `synthesis` edge type, `flows:` and every key inside it, a flow's
+  `completion` predicate, the walk primitives, and the plan cascade's
+  positions and derived context (`chain.md` #6, #26, #38, #40, #41).
+- **Delivery Phase 7** (delivery#123): `enforcement:` on a tier,
+  `consistency:` on an edge, the ticket skeleton's relative order
+  enforced against dispatch, gate `escalation`, and `environment:`
+  entries with every environment key (`chain.md` #16, #25;
+  `workflow.md` #12, #38).
+- **Generation** (generation#50) and **the LLM bindings** (llm#6):
+  `executor:` profiles, routed by generation and bound by llm
+  (`chain.md` #10).
+- **The registry** (registry#7): `version` on either manifest, the
+  `external`, `template`, `git_commit` and `webhook` generators,
+  extension context-source kinds, and annotation namespaces
+  (`chain.md` #39; `bundle.md` #5, #8).
+- **Identity** (identity#6): a gate's `role` checked against the
+  holders the identity component knows (`workflow.md` #32).
+- **The commit path**: a `fanout` instance's `when:` predicate, and
+  validation of a `template` generator's rendered body (`chain.md`
+  #37, #39).
+- **This doc**: the reference write path behind a supplied tier's
+  `source: write` (`chain.md` #17).
 
 ## #44 Depends on
 

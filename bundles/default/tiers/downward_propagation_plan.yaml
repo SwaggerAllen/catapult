@@ -2,7 +2,7 @@
 # version of what staling does implicitly. No siege prompt exists
 # for this flow; authored fresh.
 #
-# `scope: cascade_visit` (dsl-syntax.md §3.1) — one plan per node this
+# `scope: cascade_visit` (`chain.md` #6) — one plan per node this
 # flow's downward_cascade visits below the re-approved scope, resolved
 # via `self.plan_target` (edges/plan_target.yaml).
 tier: downward_propagation_plan
@@ -10,7 +10,7 @@ scope: cascade_visit
 identity: id
 fields:
   # `argument` is the reserved `fields:` name the work surface reads
-  # off a flow's entry tier (ORC-114, docs/dsl-syntax.md §3) — this
+  # off a flow's entry tier (ORC-114, `chain.md` #12) — this
   # tier is that entry tier for every downward_propagation flow instance.
   argument: draft.argument
   scope_summary: draft.scope
