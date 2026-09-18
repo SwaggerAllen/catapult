@@ -891,8 +891,70 @@ profiles.
   It declares `use Boundary, classify_to: Catapult`, the mechanism
   Boundary reserves for mix tasks and protocol implementations for
   exactly this namespace mismatch. No `Catapult.Mix` sub-boundary: that
-  shape exists to hold helper modules several tasks share, and this is
-  the project's only task with no such helpers to hold.
+  shape exists to hold helper modules several tasks share, and neither
+  this task nor #ORC-250-1's below needs one — the two tasks share no
+  code.
+
+- **#ORC-250-1 A second `Mix.Task`, `Mix.Tasks.Catapult.Dsl.CheckContract`
+  (`mix catapult.dsl.check_contract`), filed at
+  `lib/catapult/dsl/contract_check.ex` beside #ORC-249-1's, diffs the
+  loader's own accepted-key sets against what `docs/dsl/bundle.md`,
+  `chain.md` and `workflow.md` say those keys are.** ORC-249's rewrite
+  fixed the contract's *statement*; nothing kept the loader's parsers
+  from drifting from that statement afterward, which is the failure
+  this ticket's own argument traces three landed defects to (ORC-232,
+  ORC-235, ORC-236) and #ORC-249-1's own entry above names by the same
+  root: a doc and a loader that must agree, with nothing checking that
+  they do. It shares `#ORC-249-1`'s `use Boundary, classify_to:
+  Catapult` and its reasons.
+
+  **The loader's key inventory is derived, never a second list.** Every
+  place a construct parser closes its key set runs the raw map through
+  `Catapult.Dsl.Fields.unknown_keys/3` — 19 call sites today, across
+  `catapult_yaml.ex`; `chain.ex` and `workflow.ex` (each doc's
+  top-level keys, `chain.md` #2, `workflow.md` #2); `tier.ex` (three:
+  generating, join, supplied); `edge.ex` (two: the declaration, an
+  instance); `flow.ex` (three: the declaration, `delta`, `ticket`);
+  `gate.ex`; `type.ex`; `environment.ex`; and `status.ex` (three) — and
+  that call's second argument, whether a `~w(...)` sigil, a list
+  literal, or a same-module `@attr` reference, is the accepted set at
+  that spot. The task reads each of those source files, walks its AST,
+  and resolves every `Fields.unknown_keys/3` call site's second
+  argument into a flat key list, rather than hand-listing the grammar's
+  keys a second time (`docs/non-goals.md`'s "no hand-maintained
+  inventories"). A construct that grows a key without threading it
+  through `Fields.unknown_keys/3` stays invisible to the task exactly
+  as it is already invisible to the loader's own closed-key check — the
+  scope this task inherits rather than duplicates. `predicate.ex`
+  closes no map through `Fields.unknown_keys/3` (its grammar is a
+  recursive-descent parser over an expression string, not a keyed map,
+  `chain.md` #37) and contributes nothing to the inventory.
+
+  **The doc side is matched by construct, against the same three files
+  the contract itself already splits into** (`bundle.md` #1):
+  `catapult_yaml.ex`'s keys against `bundle.md`; `chain.ex`, `tier.ex`,
+  `edge.ex`, `flow.ex` against `chain.md`; `workflow.ex`, `type.ex`,
+  `gate.ex`, `environment.ex`, `status.ex` against `workflow.md`. A key
+  is named by its file when the file's text, read as one string,
+  carries a backtick span that is either exactly `` `key` `` or opens
+  `` `key:` ``. Both forms are already live in the contract's own
+  prose — `` `tiers` `` bare in `chain.md` #2 beside `` `kind: chain` ``
+  and `` `consistency: eventual | transactional` `` value-qualified in
+  the same doc — and the task reads both rather than forcing every rule
+  onto whichever form it happens not to use today.
+
+  **Findings run both ways, and the two directions are not held to the
+  same strictness.** A key the loader accepts that no span, bare or
+  colon-form, names in its mapped file is a finding — the direction
+  that has actually bitten (this entry's own ORC-236 citation above).
+  A key that appears in colon-form only (`` `key:` `` or
+  `` `key: value` ``) and names nothing the mapped modules accept is a
+  finding the other way; a bare span (`` `key` ``) never triggers this
+  direction on its own, because the contract's prose bare-mentions
+  values and tier names too (`` `singleton` ``, `` `llm` ``,
+  `` `vocab` ``) that were never meant to become keys, and a scrape
+  that could not tell the two apart would fail on every run rather than
+  on a drift.
 
 ## #43 Initial vs target
 
