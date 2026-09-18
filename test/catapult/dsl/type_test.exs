@@ -24,7 +24,7 @@ defmodule Catapult.Dsl.TypeTest do
         %Status{review: "ux-review"}
       ]
 
-      type = %Type{name: "t", file: "types/t.yaml", statuses: statuses, groups: [0..3//1]}
+      type = %Type{name: "t", statuses: statuses, groups: [0..3//1]}
 
       assert Type.anchor_index(type, 0..3//1) == 1
     end
@@ -39,7 +39,7 @@ defmodule Catapult.Dsl.TypeTest do
         %Status{status: "checks"}
       ]
 
-      type = %Type{name: "t", file: "types/t.yaml", statuses: statuses, groups: [0..2//1]}
+      type = %Type{name: "t", statuses: statuses, groups: [0..2//1]}
 
       assert type
              |> Type.namespaced_positions()
@@ -68,7 +68,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }
@@ -100,7 +99,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }
@@ -130,7 +128,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }

@@ -7,6 +7,7 @@ defmodule Catapult.Engine.SchedulerTest do
   alias Catapult.Engine.Events.DraftApproved
   alias Catapult.Engine.Events.DraftCommitted
   alias Catapult.Engine.Events.DraftDiscarded
+  alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Scheduler
   alias Catapult.Engine.Store
   alias Catapult.Engine.Topics
@@ -97,7 +98,7 @@ defmodule Catapult.Engine.SchedulerTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []}
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}}
         ])
 
       assert :ok = Scheduler.trigger(chain, @project)
@@ -107,6 +108,11 @@ defmodule Catapult.Engine.SchedulerTest do
     end
 
     test "broadcasts a ready review-tier candidate as {review_tier, scope_key}" do
+      # `comp` is a generating tier that reviews itself (`chain.md` #14):
+      # a review is a block on the tier it reviews, not a tier of its
+      # own — `comp1` is already drafted (not :absent), so the plain
+      # generation pair is not ready, but its current draft has no
+      # review yet, so the synthetic review-dispatch name is.
       :ok = Topics.subscribe(Topics.ready_scopes(@project))
 
       node!("comp1", "comp", status: :drafted, current_draft_id: "draft1")
@@ -114,13 +120,18 @@ defmodule Catapult.Engine.SchedulerTest do
 
       chain =
         chain([
-          %Tier{name: "comp_review", file: "f", reviews: "comp", context: []}
+          %Tier{
+            name: "comp",
+            draft: %{root_tag: "comp", grammar: "schemas/comp.xsd"},
+            scope: {:singleton},
+            review: %{prompt: "prompts/review/comp.md.liquid", context_raw: %{}, context: %{}}
+          }
         ])
 
       assert :ok = Scheduler.trigger(chain, @project)
 
       assert_receive {:ready_scopes, @project, pairs}
-      assert {"comp_review", %{}} in pairs
+      assert {ReadyScopes.review_tier_name("comp"), %{}} in pairs
     end
 
     test "a tier with nothing ready still broadcasts (liberally, per systems/engine.md)" do
@@ -129,7 +140,7 @@ defmodule Catapult.Engine.SchedulerTest do
       node!("sysarch", "sysarch", status: :drafted)
 
       chain =
-        chain([%Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []}])
+        chain([%Tier{name: "sysarch", draft: %{}, scope: {:singleton}}])
 
       assert :ok = Scheduler.trigger(chain, @project)
       assert_receive {:ready_scopes, @project, []}
@@ -139,7 +150,7 @@ defmodule Catapult.Engine.SchedulerTest do
       :ok = Topics.subscribe(Topics.ready_scopes("scheduler-other-project"))
 
       chain =
-        chain([%Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []}])
+        chain([%Tier{name: "sysarch", draft: %{}, scope: {:singleton}}])
 
       assert :ok = Scheduler.trigger(chain, @project)
       refute_receive {:ready_scopes, @project, _pairs}

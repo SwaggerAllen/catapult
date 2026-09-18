@@ -32,7 +32,7 @@ defmodule CatapultWeb.MyQueueLiveTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       ticket_ref: "ORC-#{flow_id}",
       entry_node_id: "sysarch"
     }

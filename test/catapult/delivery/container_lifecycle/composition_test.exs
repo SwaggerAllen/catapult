@@ -9,13 +9,14 @@ defmodule Catapult.Delivery.ContainerLifecycle.CompositionTest do
 
   alias Catapult.Delivery.ContainerLifecycle.Composition
   alias Catapult.Delivery.Store, as: DeliveryStore
+  alias Catapult.Dsl
   alias Catapult.Dsl.Workflow
   alias Catapult.Engine.Store
 
   @project "comp-project"
 
   setup do
-    assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+    assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
 
     Store.upsert_node(%{
       id: "entry",

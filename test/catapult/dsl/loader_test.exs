@@ -4,2307 +4,1370 @@ defmodule Catapult.Dsl.LoaderTest do
   alias Catapult.Dsl.Chain
   alias Catapult.Dsl.Fixture
   alias Catapult.Dsl.Loader
-  alias Catapult.Dsl.Status
-  alias Catapult.Dsl.SystemStatus
-  alias Catapult.Dsl.Type
-  alias Catapult.Dsl.Workflow
 
   @moduletag :tmp_dir
 
-  test "loads a minimal, valid chain + workflow bundle pair", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert %{"comparch" => _tier} = loaded.chain.tiers
-    assert %{"product-review" => _gate} = loaded.workflow.gates
-  end
-
-  test "Chain.predicates carries predicates.yaml forward for the engine's runtime evaluator",
-       %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/predicates.yaml" => """
-      is_domain: kind == domain
-      """,
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      scope_filter: is_domain
-      identity: id
-      fields:
-        name: draft.name
-      handle:
-        fields: [id, name]
-        fragments: [techspec]
-      draft:
-        root_tag: comparch
-        grammar: schemas/comparch.xsd
-      generator: llm
-      prompt: prompts/comparch.md.liquid
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert {:ok, predicate} = Chain.resolve_predicate(loaded.chain, "is_domain")
-    assert predicate == Map.fetch!(loaded.chain.predicates, "is_domain")
-
-    # An inline expression not registered in predicates.yaml parses
-    # fresh rather than failing for want of a name.
-    assert {:ok, _predicate} = Chain.resolve_predicate(loaded.chain, "has_edge(fulfills)")
-  end
-
-  test "reports catapult.yaml missing", %{tmp_dir: dir} do
-    assert {:error, :catapult_yaml, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "catapult.yaml"))
-  end
-
-  test "reports catapult.yaml missing chain:", %{tmp_dir: dir} do
-    Fixture.write!(dir, %{"catapult.yaml" => "workflow: default-flow\n"})
-    assert {:error, :catapult_yaml, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "missing required field \"chain\""))
-  end
-
-  test "the runtime dialect refuses a workflow: entry in catapult.yaml", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-    assert {:error, :catapult_yaml, problems} = Loader.load(dir, dialect: "runtime")
-    assert Enum.any?(problems, &String.contains?(&1, "runtime dialect"))
-  end
-
-  test "the runtime dialect loads the chain axis alone", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-    Fixture.write!(dir, %{"catapult.yaml" => "chain: default\n"})
-
-    assert {:ok, loaded} = Loader.load(dir, dialect: "runtime")
-    assert loaded.workflow == nil
-  end
-
-  test "an unknown top-level tier field is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      handle:
-        fields: [id]
-      gate: some-gate
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"gate\""))
-  end
-
-  test "scope naming an undeclared tier is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/subcomparch.yaml" => """
-      tier: subcomparch
-      scope: per(nonexistent)
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "per(nonexistent)"))
-  end
-
-  test "a delivery.phase outside the fixed system statuses is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      delivery:
-        phase: Architecting
-        agent_step: design
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "delivery.phase"))
-  end
-
-  test "a valid delivery block resolves against the fixed vocabulary", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      delivery:
-        phase: generation
-        agent_step: design
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "an edge cycle across tiers fails type-level acyclicity", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/a.yaml" => """
-      tier: a
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """,
-      "bundles/default/tiers/b.yaml" => """
-      tier: b
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """,
-      "bundles/default/edges/a_to_b.yaml" => """
-      edge: a_to_b
-      type: reference
-      source: a
-      target: b
-      declared_in: a.draft.b_ref
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      """,
-      "bundles/default/edges/b_to_a.yaml" => """
-      edge: b_to_a
-      type: reference
-      source: b
-      target: a
-      declared_in: b.draft.a_ref
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "type-level cycle"))
-  end
-
-  test "a self-referencing dependency edge is legal at the type level", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/edges/dependency.yaml" => """
-      edge: dependency
-      type: dependency
-      source: comparch
-      target: comparch
-      declared_in: comparch.draft.dependencies
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      graph_constraint: [acyclic]
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "a navigation edge cannot be walked in a readiness context", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.nav -> comparch.handle
-      """,
-      "bundles/default/edges/nav.yaml" => """
-      edge: nav
-      type: reference
-      source: comparch
-      target: comparch
-      declared_in: comparch.draft.nav
-      navigation: true
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "navigation: true"))
-  end
-
-  test "a chain bundle declaring extends: is a load error", %{tmp_dir: dir} do
-    # v5 §3.1's fork-tailor-merge lifecycle, not a load-time base layer
-    # (§11, ORC-153) — `extends:` is an unknown field on either axis.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/bundle.yaml" => """
-      name: default
-      version: "1.0.0"
-      kind: chain
-      extends: base
-      tiers: [tiers/*.yaml]
-      fragments: [techspec]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"extends\""))
-  end
-
-  ## §15.3 — the array is the only ordering mechanism. `after:` is
-  ## retired, so the checks it needed (one total order over the bundle,
-  ## no cycle in predecessor references) are gone with it; what
-  ## replaces them is the declaration graph over `flow:` (§15.6) and a
-  ## throwback resolving inside the citing type's own array (§15.4).
-
-  test "the same two gates may run in opposite order in two types", %{tmp_dir: dir} do
-    # Impossible to express under `after:`, which required one order
-    # for the whole bundle — the change §15.3 is explicitly about.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/other-review.yaml" => """
-      review: other-review
-      role: design
-      escalation: author
-      """,
-      "bundles/default-flow/types/feature.yaml" =>
-        ticket_type!("feature", ["product-review", "other-review"]),
-      "bundles/default-flow/types/defect.yaml" =>
-        ticket_type!("defect", ["other-review", "product-review"])
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    assert Enum.map(loaded.workflow.types["feature"].statuses, & &1.review) ==
-             [nil, nil, "product-review", "other-review", nil, nil, nil, nil, nil]
-
-    assert Enum.map(loaded.workflow.types["defect"].statuses, & &1.review) ==
-             [nil, nil, "other-review", "product-review", nil, nil, nil, nil, nil]
-  end
-
-  test "a workflow bundle carrying after: on a gate is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      after: generation
-      role: design
-      escalation: author
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"after\""))
-  end
-
-  ## §15.6 — the declaration graph over `flow:` must be acyclic, with a
-  ## type naming itself the degenerate one-node case.
-
-  test "a type whose flow: names itself is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: project
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "names itself"))
-  end
-
-  test "a two-node cycle through a skeleton-less type is a load error", %{tmp_dir: dir} do
-    # The hole §15.6's fifth pass found: restricting the graph's nodes
-    # to container-skeleton types excludes every edge *into* a
-    # skeleton-less one, which is exactly the edge this cycle runs on.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => """
-      type: milestone
-      skeleton: container
-      statuses:
-        - status: setup
-          flow: feature
-        - status: prep
-          flow: feature
-        - status: main
-          flow: project
-        - status: retro
-          flow: feature
-        - status: cleanup
-          flow: feature
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
-  end
-
-  test "a container-skeleton type nests another container for free", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: epic
-      """,
-      "bundles/default-flow/types/epic.yaml" => container_type!("epic", "milestone"),
-      "bundles/default-flow/types/milestone.yaml" => container_type!("milestone", "feature")
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.types["epic"].skeleton == "container"
-    assert loaded.workflow.entry == "project"
-  end
-
-  ## §15.4, §15.8 — a throwback resolves inside the citing type's own
-  ## array, which is where position lives now.
-
-  test "a throwback that is not earlier in the citing type's array is a load error", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      throwback: checks
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "not earlier in this type's own statuses"))
-  end
-
-  test "a throwback naming an earlier entry in the citing type's array loads", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      throwback: generation
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.gates["product-review"].throwback == "generation"
-  end
-
-  test "a throwback declared as a list is a load error", %{tmp_dir: dir} do
-    # §15.10 narrowed the field from a list to one optional target: a
-    # decline lands on exactly one status, and the list never bounded
-    # legality in the first place. The old grammar has to *fail* rather
-    # than be tolerated — a two-element list silently taking its head
-    # would drop a landing point the author declared.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      throwback: [generation]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "expected a string"))
-  end
-
-  test "a gate declaring no throwback: loads, and derives its landing point instead", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.gates["product-review"].throwback == nil
-  end
-
-  ## §15.10 — sub-arrays: a bare, unnamed group of adjacent entries.
-
-  test "a sub-array flattens into the effective sequence, with its span recorded", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-    Fixture.write!(dir, %{"bundles/default-flow/types/feature.yaml" => grouped_feature!()})
-
-    assert {:ok, loaded} = Loader.load(dir)
-    type = loaded.workflow.types["feature"]
-
-    # `statuses` is the effective sequence — the group spliced in at
-    # the position its sub-array occupied, not a nested list. Every
-    # consumer that reads a type's array as an ordered sequence keeps
-    # working because the sequence it reads is unchanged.
-    assert Enum.map(type.statuses, &Status.name/1) ==
-             ~w(pending generation critique product-review checks reconcile merge deploy terminal)
-
-    # ...and `groups` is the whole of what grouping adds: one range
-    # over that sequence per sub-array. A sub-array has no key of its
-    # own, so a contiguous span is a complete representation of it.
-    assert type.groups == [0..3//1]
-    assert Type.group_at(type, 2) == 0..3//1
-    assert Type.group_at(type, 4) == nil
-  end
-
-  test "a type declaring no sub-array records no groups", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.types["feature"].groups == []
-  end
-
-  test "a sub-array nested inside a sub-array is a load error", %{tmp_dir: dir} do
-    # §15.10's grammar is flat deliberately: `container`-skeleton
-    # nesting (§15.6) already established arbitrary nesting for a
-    # different axis, and two nesting concepts that look alike is the
-    # homonym hazard that axis's own open questions warn about.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - - status: generation
-          - - review: product-review
-        - status: checks
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "sub-arrays do not nest"))
-  end
-
-  test "a sub-array holding no non-review-shaped agent-balled entry is a load error", %{
-    tmp_dir: dir
-  } do
-    # Nothing for a throwback to fall back to, and nothing worth
-    # grouping.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/ux-check.yaml" => gate!("ux-check"),
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - - review: product-review
-          - review: ux-check
-        - status: checks
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "no non-review-shaped agent-balled entry"))
-  end
-
-  test "a sub-array holding two non-review-shaped agent-balled entries is a load error", %{
-    tmp_dir: dir
-  } do
-    # No unambiguous anchor between them, and §15.10 refuses rather
-    # than inventing a tie-break for a shape no bundle needs.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: checks
-        - - status: pending
-          - status: design
-          - review: product-review
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    # `generation` and `design` are both non-review-shaped agent-balled,
-    # but only `design` is inside the sub-array — so first prove the
-    # shipped-shaped group is fine, then widen it to hold both.
-    assert {:ok, _} = Loader.load(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - - status: generation
-          - status: checks
-          - status: design
-          - review: product-review
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "2 non-review-shaped agent-balled entries")
-           )
-  end
-
-  test "critique does not count toward a sub-array's one agent step", %{tmp_dir: dir} do
-    # §15.5's exclusion, drawn again for §15.10's purpose: critique
-    # reviews a generation rather than standing as one. If it counted,
-    # the shipped `types/feature.yaml` group would hold two and fail.
-    Fixture.minimal!(dir)
-    Fixture.write!(dir, %{"bundles/default-flow/types/feature.yaml" => grouped_feature!()})
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "flow:/blocks: on setup or retro is a load error wherever they sit (§13, ORC-148)", %{
-    tmp_dir: dir
-  } do
-    # The check that used to refuse a queue-shaped anchor inside a
-    # sub-array is retired (ORC-148): the case it refused doesn't arise
-    # any more, because `flow:`/`blocks:` are illegal on `setup`/`retro`
-    # at the field level now, whichever type's array cites them —
-    # population-anchor legality moved from the citing type's
-    # `skeleton:` to the entry's own name (§15.2, §15.7).
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => """
-      type: milestone
-      skeleton: container
-      statuses:
-        - status: setup
-          flow: feature
-        - status: prep
-          flow: feature
-        - status: main
-          flow: feature
-        - - review: product-review
-          - status: retro
-            flow: feature
-        - status: cleanup
-          flow: feature
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, ~s(carries unknown field "flow")))
-  end
-
-  test "retro folds inline, with no flow:, directly into a sub-array", %{tmp_dir: dir} do
-    # The shape the milestone retirement actually needs (ORC-148,
-    # `workflow.md` #6): `retro` grouped with the gates around it,
-    # carrying no `flow:` of its own — the load error the check above
-    # exercises is what used to block exactly this shape.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => """
-      type: milestone
-      skeleton: container
-      statuses:
-        - status: setup
-        - status: prep
-          flow: feature
-        - status: main
-          flow: feature
-          blocks: [retro]
-        - - review: product-review
-          - status: retro
-        - status: cleanup
-          flow: feature
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    retro = Enum.find(loaded.workflow.types["milestone"].statuses, &(&1.status == "retro"))
-    assert retro.flow == nil
-  end
-
-  test "a problem inside a sub-array points at the path the author wrote", %{tmp_dir: dir} do
-    # Flattening costs exactly this, so every message that cites a
-    # position renders it back through `Type.declared_path/2`: past the
-    # first group an effective index no longer names a line in the
-    # file, and a reader sent to a `statuses[4]` their YAML does not
-    # have has been sent to the wrong place.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - - status: generation
-          - review: product-review
-            environment: staging
-        - status: checks
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "statuses[1][1] carries more than one"))
-  end
-
-  test "a gate declining derives its group's own leading pending, not the entry before it", %{
-    tmp_dir: dir
-  } do
-    # The end-to-end half of `Catapult.Dsl.WorkflowTest`'s milestone
-    # shape, on a group the loader accepts today. It has to separate
-    # several readings at once, so the group's leading `pending` is
-    # neither the entry immediately before the gate nor the bare name a
-    # naive, unqualified read would offer:
-    #
-    #   [pending, product-review, design, merge-review, ship-review]
-    #
-    # previous position        -> merge-review
-    # naive, unqualified read  -> "pending" (ambiguous — collides with
-    #                              this type's own top-level `pending`)
-    # pre-fourth-pass reading   -> design (the group's agent step
-    #                              itself, skipping the dispatch wait)
-    # §15.10's rule, corrected  -> design.pending (this group's own
-    #                              leading pending, namespace-qualified)
-    #
-    # `design`, not `merge`, is the group's own agent step: `merge`'s
-    # own ball is `plane` (`workflow.md` #10, ORC-151), so it is never
-    # a candidate for a sub-array's own agent step any more. The shipped
-    # bundle cannot separate the corrected rule from a naive first-
-    # element read: `types/feature.yaml`'s own `design` group already
-    # has `pending` as its first entry either way, and a bare `pending`
-    # there is unambiguous (nothing else in that type is named
-    # `pending`), so it never exercises the qualification this shape
-    # does.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/merge-review.yaml" => gate!("merge-review"),
-      "bundles/default-flow/gates/ship-review.yaml" => gate!("ship-review"),
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: checks
-        - - status: pending
-          - review: product-review
-          - status: design
-          - review: merge-review
-          - review: ship-review
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    workflow = loaded.workflow
-
-    assert Workflow.throwback_default(workflow, "feature", "ship-review") == "design.pending"
-
-    # Legality is the earlier prefix and is bounded by no declaration —
-    # every one of these is reachable although no gate declares any.
-    # The sub-array's own leading `pending` collides, bare, with the
-    # top-level `pending` before it — two namespaces, one name — so it
-    # is offered qualified rather than silently preferred (§15.12).
-    assert Workflow.throwback_targets(workflow, "feature", "ship-review") ==
-             ~w(pending generation checks design.pending product-review design merge-review)
-
-    refute Workflow.throwback_legal?(workflow, "feature", "ship-review", "deploy")
-  end
-
-  test "a declared throwback: overrides the derivation without narrowing legality", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      throwback: pending
-      """,
-      "bundles/default-flow/types/feature.yaml" => grouped_feature!()
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    workflow = loaded.workflow
-
-    assert Workflow.throwback_default(workflow, "feature", "product-review") == "pending"
-
-    # The derivation would have picked `generation`; declaring
-    # `pending` names a genuinely different landing point, and leaves
-    # `generation` legal anyway.
-    assert Workflow.throwback_legal?(workflow, "feature", "product-review", "generation")
-  end
-
-  ## §2, §15.6 — `entry:` names the root a fresh project starts from.
-
-  test "entry: is required on a workflow manifest", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/bundle.yaml" => """
-      name: default-flow
-      version: "1.0.0"
-      kind: workflow
-      gates: [gates/*.yaml]
-      types: [types/*.yaml]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "missing required field \"entry\""))
-  end
-
-  test "entry: naming a ticket-skeleton type with no population anchor is a load error", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/bundle.yaml" => """
-      name: default-flow
-      version: "1.0.0"
-      kind: workflow
-      gates: [gates/*.yaml]
-      types: [types/*.yaml]
-      entry: feature
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "no population anchor"))
-  end
-
-  test "entry: must name a type nothing else's flow: targets", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => container_type!("milestone", "feature"),
-      "bundles/default-flow/bundle.yaml" => """
-      name: default-flow
-      version: "1.0.0"
-      kind: workflow
-      gates: [gates/*.yaml]
-      types: [types/*.yaml]
-      entry: milestone
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "is not a root in the declaration graph"))
-  end
-
-  ## §15.1 — the two fixed skeletons.
-
-  test "a container-skeleton type must hold its required backbone in order, then terminal", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => """
-      type: milestone
-      skeleton: container
-      statuses:
-        - status: prep
-          flow: feature
-        - status: setup
-        - status: main
-          flow: feature
-        - status: retro
-        - status: cleanup
-          flow: feature
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "required relative order"))
-  end
-
-  test "a ticket-skeleton type must open with pending and close with terminal", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: generation
-        - status: pending
-        - status: checks
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "must open with pending"))
-  end
-
-  test "a ticket-skeleton type may additionally hold a population-anchor entry like retro",
-       %{tmp_dir: dir} do
-    # ORC-172: a skeleton fixes a required backbone, never an exclusive
-    # membership (§15.1) — `retro` is not part of the ticket-skeleton's
-    # required backbone, but it is still a fixed system-status kind, so
-    # a ticket-skeleton array citing it is legal.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: retro
-        - status: terminal
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "a ticket-skeleton type declaring a name outside the fixed vocabulary is a load error",
-       %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: bogus
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "not part of the ticket"))
-  end
-
-  test "a queue-shaped entry's flow: must name a declared type", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: nonexistent
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "which is not a declared type"))
-  end
-
-  test "terminal carries no flow:, even in a container-skeleton array", %{tmp_dir: dir} do
-    # §15.7's blanket sentence would read `terminal` as queue-shaped;
-    # §15.2's own worked example declares it bare and §15.6 settles it
-    # — "a fixed terminal kind, not a further queue name."
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => container_type!("milestone", "feature")
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    terminal = List.last(loaded.workflow.types["milestone"].statuses)
-    assert terminal.status == "terminal"
-    assert terminal.flow == nil
-  end
-
-  ## §15.7 — `blocks:` names siblings only.
-
-  test "a blocks: entry naming a queue in another declaration is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-          blocks: [prep]
-      """,
-      "bundles/default-flow/types/milestone.yaml" => container_type!("milestone", "feature")
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "does not resolve to any entry in this type's own")
-           )
-  end
-
-  test "main blocking retro is a legal sibling relation", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/project.yaml" => """
-      type: project
-      statuses:
-        - status: build-out
-          flow: milestone
-      """,
-      "bundles/default-flow/types/milestone.yaml" => """
-      type: milestone
-      skeleton: container
-      statuses:
-        - status: setup
-        - status: prep
-          flow: feature
-        - status: main
-          flow: feature
-          blocks: [retro]
-        - status: retro
-        - status: cleanup
-          flow: feature
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    statuses = loaded.workflow.types["milestone"].statuses
-
-    assert Enum.find(statuses, &(&1.status == "main")).blocks == ["retro"]
-    assert Enum.find(statuses, &(&1.status == "setup")).flow == nil
-    assert Enum.find(statuses, &(&1.status == "retro")).flow == nil
-    assert Enum.find(statuses, &(&1.status == "main")).flow == "feature"
-  end
-
-  test "opt-in role-holder check flags a gate whose role has no holders", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:error, :bundle, problems} = Loader.load(dir, role_holders: %{"design" => []})
-    assert Enum.any?(problems, &String.contains?(&1, "no holders"))
-  end
-
-  test "role-holder check is skipped when no resolver is supplied", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  # `workflow.md` #12 (`pending` is an engine flag under #25):
-  # "a `pending` precedes every generation and every deployment" is a fact about the fixed system-status skeleton
-  # (Catapult.Dsl.SystemStatus.pending_precedes?/1), not bundle
-  # content — like the sibling blocked-exit skeleton check, it cannot
-  # be made to fail from bundle data, so this locks in that the check
-  # is wired into every workflow load rather than dead code. Renamed
-  # from `queue` at ORC-104, when a container's own named queue
-  # position made the old word ambiguous (§15.1).
-  test "the pending-precedes-generation/deploy skeleton check is wired into workflow load", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-    assert {:ok, _loaded} = Loader.load(dir)
-    assert SystemStatus.pending_precedes?(:generation)
-    assert SystemStatus.pending_precedes?(:deploy)
-  end
-
-  ## §13, §15.1, §15.10, ORC-151's design review: `pending` recurs, once
-  ## per generation-shaped entry's own sub-array — never shared across
-  ## several, and, when the entry is grouped, only its own group's
-  ## leading `pending` counts.
-
-  test "three sub-arrays, each headed by its own pending, load — the ticket's own worked shape",
-       %{tmp_dir: dir} do
-    # §15.2's own `types/feature.yaml`: one pending per generation-shaped
-    # phase, each the head of that phase's own sub-array.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/architecture-review.yaml" => gate!("architecture-review"),
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - - status: pending
-          - status: design
-          - status: checks
-          - status: critique
-          - review: product-review
-        - - status: pending
-          - status: architecture
-          - status: checks
-          - status: critique
-          - review: architecture-review
-          - status: reconcile
-        - - status: pending
-          - status: implementation
-          - status: checks
-          - status: critique
-          - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "a generation-shaped entry grouped with no leading pending in its own sub-array is a load error",
-       %{tmp_dir: dir} do
-    # The shape a leading, un-grouped `pending` used to license (§13,
-    # §15.1): once the entry it licenses is grouped, that pending has to
-    # sit inside the same sub-array, as its own head.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - - status: generation
-          - status: critique
-          - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "grouped in a sub-array whose first entry is not pending")
-           )
-  end
-
-  test "one leading pending no longer licenses a second, later generation-shaped entry",
-       %{tmp_dir: dir} do
-    # The reading this ticket's design review retired: a single leading
-    # `pending` used to license every later generation-shaped entry in
-    # the same array. One `pending` per generation-shaped entry, never
-    # shared (§13, §15.1).
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - review: product-review
-        - status: implementation
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "one pending per generation-shaped entry, never shared")
-           )
-  end
-
-  test "naming discipline flags two declared statuses one hyphen-word apart", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review-final.yaml" => """
-      review: product-review-final
-      role: design
-      escalation: author
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "hyphen-separated word apart"))
-  end
-
-  test "a workflow manifest carrying a chain-only key is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/bundle.yaml" => """
-      name: default-flow
-      version: "1.0.0"
-      kind: workflow
-      gates: [gates/*.yaml]
-      environments: [environments/*.yaml]
-      tiers: [tiers/*.yaml]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"tiers\""))
-  end
-
-  test "an environment's promote_from must name a declared environment", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      promote_from: nonexistent
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "\"nonexistent\" names an environment that is not declared")
-           )
-  end
-
-  test "an environment naming itself as its own promote_from is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      promote_from: staging
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
-  end
-
-  test "a genuine cycle across two environments' promote_from is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/dev.yaml" => """
-      environment: dev
-      promote_from: staging
-      """,
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      promote_from: dev
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "cycle"))
-  end
-
-  test "environments chain by promote_from", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/dev.yaml" => """
-      environment: dev
-      """,
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      promote_from: dev
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.environments["staging"].promote_from == "dev"
-  end
-
-  test "the opt-in mirror-mapping check flags an unmapped gate", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:error, :bundle, problems} = Loader.load(dir, mirror_mapping: %{})
-    assert Enum.any?(problems, &String.contains?(&1, "no counterpart in the outbound tracker"))
-  end
-
-  test "mirror-mapping check is skipped when no resolver is supplied", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "naming discipline does not flag unrelated single-word names", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/dev.yaml" => """
-      environment: dev
-      """,
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  ## `chain.md` #27 — instances:
-
-  test "instances: consolidates several source/target sites under one edge name", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/resp.yaml" => tier!("resp"),
-      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
-      "bundles/default/edges/decomposition.yaml" => """
-      edge: decomposition
-      type: fanout
-      instances:
-        - source: comparch
-          target: resp
-          declared_in: comparch.draft.resp[]
-          cardinality:
-            source: { min: 0 }
-            target: { min: 1, max: 1 }
-        - source: comparch
-          target: vocab
-          declared_in: comparch.draft.vocab[]
-          cardinality:
-            source: { min: 0 }
-            target: { min: 1, max: 1 }
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "instances: and the flat single-site shape are mutually exclusive", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/edges/dependency.yaml" => """
-      edge: dependency
-      type: dependency
-      source: comparch
-      target: comparch
-      declared_in: comparch.draft.dependencies
-      instances:
-        - source: comparch
-          target: comparch
-          declared_in: comparch.draft.dependencies
-          cardinality:
-            source: { min: 0 }
-            target: { min: 0 }
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "never both"))
-  end
-
-  test "an edge declaring neither an inline instance nor instances: is a load error", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/edges/dependency.yaml" => """
-      edge: dependency
-      type: dependency
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "neither an inline instance"))
-  end
-
-  test "a multi-instance edge's last hop disambiguates by the walk's own declared target", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/resp.yaml" => tier!("resp"),
-      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.decomposition -> vocab.handle
-      """,
-      "bundles/default/edges/decomposition.yaml" => """
-      edge: decomposition
-      type: fanout
-      instances:
-        - source: comparch
-          target: resp
-          declared_in: comparch.draft.resp[]
-          cardinality:
-            source: { min: 0 }
-            target: { min: 1, max: 1 }
-        - source: comparch
-          target: vocab
-          declared_in: comparch.draft.vocab[]
-          cardinality:
-            source: { min: 0 }
-            target: { min: 1, max: 1 }
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  ## `chain.md` #19 — hop chains and reversal
-
-  test "a reversed hop matches the edge's target instead of its source", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/resp.yaml" => tier!("resp"),
-      "bundles/default/tiers/policy.yaml" => tier!("policy"),
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.fulfills.policy_application~ -> policy.handle
-      """,
-      "bundles/default/edges/fulfills.yaml" => """
-      edge: fulfills
-      type: reference
-      source: comparch
-      target: resp
-      declared_in: comparch.draft.resp_ref
-      cardinality:
-        source: { min: 1 }
-        target: { min: 1, max: 1 }
-      """,
-      "bundles/default/edges/policy_application.yaml" => """
-      edge: policy_application
-      type: policy_application
-      instances:
-        - source: policy
-          target: comparch
-          declared_in: policy.structural
-          cardinality:
-            source: { min: 0, max: 1 }
-            target: { min: 0 }
-        - source: policy
-          target: resp
-          declared_in: policy.required
-          cardinality:
-            source: { min: 0, max: 1 }
-            target: { min: 0 }
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "a hop naming an edge with no instance on the required side is a load error", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/resp.yaml" => tier!("resp"),
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.fulfills~ -> resp.handle
-      """,
-      "bundles/default/edges/fulfills.yaml" => """
-      edge: fulfills
-      type: reference
-      source: comparch
-      target: resp
-      declared_in: comparch.draft.resp_ref
-      cardinality:
-        source: { min: 1 }
-        target: { min: 1, max: 1 }
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "does not include"))
-  end
-
-  ## `chain.md` #19, #22 — all.<tier>
-
-  test "all.<tier> reads every declared instance with no walker at all", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/vocab.yaml" => tier!("vocab"),
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - all.vocab.handle
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "all.<tier> naming an undeclared tier is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - all.nonexistent.handle
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "\"nonexistent\", which is not declared"))
-  end
-
-  ## `chain.md` #6 — cascade_visit
-
-  test "cascade_visit is a legal scope with no parent tier to check", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/plan.yaml" => """
-      tier: plan
-      scope: cascade_visit
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.chain.tiers["plan"].scope == {:cascade_visit}
-  end
-
-  ## `chain.md` #14 — review tiers
-
-  test "a valid review tier loads, sharing the reviewed tier's context", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.handle
-      delivery:
-        phase: generation
-        agent_step: design
-      """,
-      "bundles/default/tiers/comparch_review.yaml" => """
-      tier: comparch_review
-      reviews: comparch
-      generator: llm
-      prompt: prompts/review/comparch.md.liquid
-      grammar: schemas/review.xsd
-      context:
-        - self.handle
-      delivery:
-        phase: critique
-        agent_step: critique
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.chain.tiers["comparch_review"].reviews == "comparch"
-  end
-
-  test "reviews: naming an undeclared tier is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch_review.yaml" => """
-      tier: comparch_review
-      reviews: nonexistent
-      generator: llm
-      prompt: prompts/review/comparch.md.liquid
-      grammar: schemas/review.xsd
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "reviews \"nonexistent\" names a tier that is not declared")
-           )
-  end
-
-  test "a review tier's context must match the reviewed tier's own context", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch.yaml" => """
-      tier: comparch
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
-      context:
-        - self.handle
-      """,
-      "bundles/default/tiers/comparch_review.yaml" => """
-      tier: comparch_review
-      reviews: comparch
-      generator: llm
-      prompt: prompts/review/comparch.md.liquid
-      grammar: schemas/review.xsd
-      context: []
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "context does not match reviewed tier \"comparch\"'s own context"
-             )
-           )
-  end
-
-  test "a review tier declaring scope: is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default/tiers/comparch_review.yaml" => """
-      tier: comparch_review
-      reviews: comparch
-      scope: singleton
-      generator: llm
-      prompt: prompts/review/comparch.md.liquid
-      grammar: schemas/review.xsd
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "declares \"scope\", which a review tier")
-           )
-  end
-
-  ## depth: (§13, §15.2, §15.4, §15.5) — the scalar-or-pair grammar,
-  ## shared by a gate, an environment and critique.yaml
-
-  test "a gate's depth: accepts the [first, rest] pair", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      depth: [2, 0]
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.gates["product-review"].depth == {2, 0}
-  end
-
-  test "an environment's depth: accepts the [first, rest] pair", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/environments/staging.yaml" => """
-      environment: staging
-      depth: [1, 0]
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.environments["staging"].depth == {1, 0}
-  end
-
-  test "a depth: list of other than exactly two entries is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      depth: [1, 2, 3]
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "expected a non-negative integer or a list of exactly two non-negative integers"
-             )
-           )
-  end
-
-  test "a negative depth: is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      depth: -1
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "expected a non-negative integer or a list of exactly two non-negative integers"
-             )
-           )
-  end
-
-  ## critique (§15.5) — the auto-review knob, now an inline array entry
-  ## rather than a singular `critique.yaml`. Participation is per type
-  ## and presence is participation: there is no `enabled:` field, and a
-  ## type declaring no critique entry runs no critique tier.
-
-  test "a type declaring no critique entry has none", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:ok, loaded} = Loader.load(dir)
-    statuses = loaded.workflow.types["feature"].statuses
-
-    refute Enum.any?(statuses, &(&1.status == "critique"))
-  end
-
-  test "a critique entry turns the slot on, at the depth it declares", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: critique
-          depth: [2, 0]
-        - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    critique = Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "critique"))
-
-    assert critique.depth == {2, 0}
-  end
-
-  test "a critique entry's depth defaults to 0 when omitted", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: critique
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    critique = Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "critique"))
-
-    assert critique.depth == 0
-  end
-
-  test "a critique entry not immediately after a generation is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - review: product-review
-        - status: critique
-        - status: checks
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "must sit immediately after a generation-shaped entry")
-           )
-  end
-
-  test "a critique entry immediately after a generation-shaped entry's own checks loads",
-       %{tmp_dir: dir} do
-    # §13, §15.5, a fifth-design-review addition (ORC-151): `checks`
-    # runs first, so neither an agent's critique nor a human gate reads
-    # a draft CI has not yet validated.
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - status: checks
-        - status: critique
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, _loaded} = Loader.load(dir)
-  end
-
-  test "a critique entry after checks that does not itself immediately follow a generation-shaped entry is still a load error",
-       %{tmp_dir: dir} do
-    # The widened rule admits an intervening `checks`, not any entry —
-    # `checks` itself still has to be the generation-shaped entry's own
-    # (§13, §15.5).
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-        - review: product-review
-        - status: checks
-        - status: critique
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "must sit immediately after a generation-shaped entry, or that entry's own checks"
-             )
-           )
-  end
-
-  test "two generation entries may each carry their own critique depth", %{tmp_dir: dir} do
-    # §15.5: "citing it more than once in a type's array (once per
-    # generation entry it should pair with) is the ordinary way to give
-    # two generation phases different depths." Each generation entry
-    # needs its own pending too (§13, §15.1, ORC-151): one is never
-    # shared across several. None of these three pairs are grouped into
-    # a sub-array, so each recurring kind needs its own authored `name:`
-    # to stay unique in the top-level namespace (§15.12, ORC-155).
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-          name: first-pending
-        - status: generation
-          name: first-generation
-        - status: critique
-          name: first-critique
-          depth: 1
-        - review: product-review
-        - status: pending
-          name: second-pending
-        - status: generation
-          name: second-generation
-        - status: critique
-          name: second-critique
-          depth: 2
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    depths =
-      loaded.workflow.types["feature"].statuses
-      |> Enum.filter(&(&1.status == "critique"))
-      |> Enum.map(& &1.depth)
-
-    assert depths == [1, 2]
-  end
-
-  ## §15.12, ORC-155 — a status entry's own name, and positions
-  ## namespaced by their sub-array anchor.
-
-  test "a status entry's name: defaults to its kind when omitted", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    generation =
-      Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "generation"))
-
-    assert Status.name(generation) == "generation"
-  end
-
-  test "an authored name: is read back distinct from the kind", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: generation
-          name: build-the-thing
-        - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    generation =
-      Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "generation"))
-
-    assert generation.status == "generation"
-    assert Status.name(generation) == "build-the-thing"
-  end
-
-  test "a renamed critique entry still admits depth: — the check reads kind, not name", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - - status: pending
-          - status: generation
-          - status: critique
-            name: second-look
-            depth: [2, 0]
-          - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-
-    critique = Enum.find(loaded.workflow.types["feature"].statuses, &(&1.status == "critique"))
-    assert Status.name(critique) == "second-look"
-    assert critique.depth == {2, 0}
-  end
-
-  test "the same gate cited twice inside one sub-array collides (§15.4's own namespace-uniqueness check)",
-       %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - - status: pending
-          - status: generation
-          - status: checks
-          - status: critique
-          - review: product-review
-          - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "sub-array names \"product-review\" more than once (§13, §15.10, §15.12"
-             )
-           )
-  end
-
-  test "a bare reference recurring across more than one namespace is refused, not silently picked",
-       %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/second-review.yaml" => gate!("second-review"),
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - - status: pending
-          - status: generation
-          - review: product-review
-        - - status: pending
-          - status: architecture
-          - review: second-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """,
-      "bundles/default-flow/gates/product-review.yaml" => """
-      review: product-review
-      role: design
-      escalation: author
-      throwback: pending
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(&1, "resolves inside more than one namespace")
-           )
-  end
-
-  test "qualifying an ambiguous reference <anchor>.<name> resolves it unambiguously", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - - status: pending
-          - status: generation
-          - review: product-review
-        - - status: pending
-          - status: architecture
-          - review: second-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """,
-      "bundles/default-flow/gates/second-review.yaml" => """
-      review: second-review
-      role: design
-      escalation: author
-      throwback: generation.pending
-      """
-    })
-
-    assert {:ok, loaded} = Loader.load(dir)
-    assert loaded.workflow.gates["second-review"].throwback == "generation.pending"
-  end
-
-  test "a declared gate colliding with an addressable status name is a load error", %{
-    tmp_dir: dir
-  } do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/gates/architecture.yaml" => gate!("architecture"),
-      "bundles/default-flow/types/feature.yaml" => """
-      type: feature
-      skeleton: ticket
-      statuses:
-        - status: pending
-        - status: architecture
-        - review: product-review
-        - status: checks
-        - status: reconcile
-        - status: merge
-        - status: deploy
-        - status: terminal
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-
-    assert Enum.any?(
-             problems,
-             &String.contains?(
-               &1,
-               "collides with type \"feature\"'s status name \"architecture\""
-             )
-           )
-  end
-
-  ## §11, §13 — a workflow bundle is forked, never layered. `extends:`
-  ## retired from the chain axis too at ORC-153, once ORC-105's fourth
-  ## pass had already dropped the workflow axis's own base layer — the
-  ## chain-bundle counterpart of this test lives above, near the other
-  ## bundle-load-error cases.
-
-  test "a workflow bundle declaring extends: is a load error", %{tmp_dir: dir} do
-    Fixture.minimal!(dir)
-
-    Fixture.write!(dir, %{
-      "bundles/default-flow/bundle.yaml" => """
-      name: default-flow
-      version: "1.0.0"
-      kind: workflow
-      extends: base-flow
-      gates: [gates/*.yaml]
-      types: [types/*.yaml]
-      entry: project
-      """
-    })
-
-    assert {:error, :bundle, problems} = Loader.load(dir)
-    assert Enum.any?(problems, &String.contains?(&1, "unknown field \"extends\""))
-  end
-
-  # A `feature` whose generation, critique and one gate form a
-  # sub-array — the shipped `types/feature.yaml` shape (§15.10).
-  defp grouped_feature!(gate \\ "product-review") do
+  # A comparch.xsd generic enough for edge-focused tests that only need
+  # some element with a `from`/`to`/`target` attribute to point
+  # `declared_in`/`source_ref`/`target_ref` at — the identity/field
+  # annotations under test elsewhere don't matter here.
+  defp edge_test_schema do
     """
-    type: feature
-    skeleton: ticket
-    statuses:
-      - - status: pending
-        - status: generation
-        - status: critique
-        - review: #{gate}
-      - status: checks
-      - status: reconcile
-      - status: merge
-      - status: deploy
-      - status: terminal
+    <?xml version="1.0" encoding="UTF-8"?>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+      <xs:element name="comparch">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="dep" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="from" type="xs:string"/>
+                <xs:attribute name="to" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="nav" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="from" type="xs:string"/>
+                <xs:attribute name="to" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="r" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="target" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="a" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="target" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="b" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="target" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:schema>
     """
   end
 
-  defp gate!(name) do
-    """
-    review: #{name}
-    role: design
-    escalation: author
-    """
+  describe "the whole load" do
+    test "loads a minimal, valid chain + workflow bundle pair", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert %{"comparch" => _tier} = loaded.chain.tiers
+      assert %{"product-review" => _gate} = loaded.workflow.gates
+    end
+
+    test "reports catapult.yaml missing", %{tmp_dir: dir} do
+      assert {:error, :catapult_yaml, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "catapult.yaml"))
+    end
+
+    test "reports catapult.yaml missing chain:", %{tmp_dir: dir} do
+      Fixture.write!(dir, %{"catapult.yaml" => "workflow: default-flow\n"})
+      assert {:error, :catapult_yaml, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "missing required field \"chain\""))
+    end
+
+    test "the runtime dialect refuses a workflow: entry in catapult.yaml", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+      assert {:error, :catapult_yaml, problems} = Loader.load(dir, dialect: "runtime")
+      assert Enum.any?(problems, &String.contains?(&1, "runtime dialect"))
+    end
+
+    test "the runtime dialect loads the chain axis alone", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+      Fixture.write!(dir, %{"catapult.yaml" => "chain: default\n"})
+
+      assert {:ok, loaded} = Loader.load(dir, dialect: "runtime")
+      assert loaded.workflow == nil
+    end
+
+    test "a chain that fails to load is reported alone, without a paired workflow error", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+      Fixture.write!(dir, %{"bundles/default/chain.yaml" => "kind: chain\n"})
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "missing required field \"name\""))
+    end
+
+    test "Chain.resolve_predicate carries a named predicate forward for the engine's runtime evaluator",
+         %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            prompt: prompts/comparch.md.liquid
+        edges: {}
+        predicates:
+          is_domain: "kind == domain"
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert {:ok, predicate} = Chain.resolve_predicate(loaded.chain, "is_domain")
+      assert predicate == Map.fetch!(loaded.chain.predicates, "is_domain")
+
+      # An inline expression not registered in predicates: parses fresh
+      # rather than failing for want of a name.
+      assert {:ok, _predicate} = Chain.resolve_predicate(loaded.chain, "has_edge(fulfills)")
+    end
   end
 
-  defp ticket_type!(name, gates) do
-    entries =
-      ["- status: pending", "- status: generation"] ++
-        Enum.map(gates, &"- review: #{&1}") ++
-        [
-          "- status: checks",
-          "- status: reconcile",
-          "- status: merge",
-          "- status: deploy",
-          "- status: terminal"
-        ]
+  describe "chain.yaml structure (bundle.md #2, chain.md #2)" do
+    test "an unknown top-level chain.yaml key is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
 
-    "type: #{name}\nskeleton: ticket\nstatuses:\n" <>
-      Enum.map_join(entries, "\n", &("  " <> &1)) <> "\n"
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges: {}
+        extends: base
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "unknown field \"extends\""))
+    end
+
+    test "an unknown top-level tier key is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            gate: some-gate
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "unknown field \"gate\""))
+    end
+
+    test "scope naming an undeclared tier is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: per(nonexistent)
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "per(nonexistent)"))
+    end
+
+    test "a chain bundle of the wrong kind is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+      Fixture.write!(dir, %{"bundles/default/chain.yaml" => "name: default\nkind: workflow\n"})
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "expected chain"))
+    end
   end
 
-  defp container_type!(name, flow) do
-    """
-    type: #{name}
-    skeleton: container
-    statuses:
-      - status: setup
-      - status: prep
-        flow: #{flow}
-      - status: main
-        flow: #{flow}
-      - status: retro
-      - status: cleanup
-        flow: #{flow}
-      - status: terminal
-    """
+  describe "tiers (chain.md #4, #5, #6, #17)" do
+    test "generator: supplied is legal only paired with source: and no scope", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          design_system:
+            generator: supplied
+            source: input.design_system
+        edges: {}
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert loaded.chain.tiers["design_system"].generator == "supplied"
+      assert loaded.chain.tiers["design_system"].scope == nil
+    end
+
+    test "a scope-carrying tier with generator: supplied is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          design_system:
+            scope: singleton
+            generator: supplied
+            source: input.design_system
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "unknown field \"scope\""))
+    end
+
+    test "draft: none makes a join target, minted by a fanout source", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          comp:
+            scope: child_of(comparch)
+            draft: none
+        edges:
+          decomposition:
+            type: fanout
+            context: none
+            instances:
+              - { source: comparch, target: comp, declared_in: "comparch.draft.comps.comp[]" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
+          <xs:complexType name="Comp">
+            <xs:annotation><xs:appinfo><catapult:mints tier="comp" identity="alias"/></xs:appinfo></xs:annotation>
+            <xs:sequence>
+              <xs:element name="name" type="xs:string">
+                <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="alias" type="xs:string" use="required"/>
+          </xs:complexType>
+          <xs:complexType name="Comps">
+            <xs:sequence>
+              <xs:element name="comp" type="Comp" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:element name="comparch">
+            <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="comps" type="Comps"/>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      comp = loaded.chain.tiers["comp"]
+      assert comp.draft == :none
+      assert comp.identity == "alias"
+      assert Map.keys(comp.mint_fields) == ["name"]
+    end
+
+    test "a join target with no minting fanout source is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          comp:
+            scope: child_of(comparch)
+            draft: none
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "no minting tier's schema declares"))
+    end
+
+    test "two fanout instances targeting one tier is a load error (chain.md #28)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          other:
+            scope: singleton
+          comp:
+            scope: child_of(comparch)
+            draft: none
+        edges:
+          decomposition:
+            type: fanout
+            context: none
+            instances:
+              - { source: comparch, target: comp, declared_in: "comparch.draft.a[]" }
+              - { source: other, target: comp, declared_in: "other.draft.b[]" }
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "minted by more than one fanout source"))
+    end
+
+    test "produces: on a scope: singleton tier is a load error (chain.md #13)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            produces:
+              techspec: draft.technical-specification
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "no parent to own the fragment"))
+    end
+
+    test "reconcile: on a tier that is not a fanout source is a load error (chain.md #15)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            reconcile: default
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "not the source of any fanout edge"))
+    end
+
+    test "fields: on a join target with a non mint.parent.* value is a load error (chain.md #12)",
+         %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          comp:
+            scope: child_of(comparch)
+            draft: none
+            fields:
+              name: draft.name
+        edges:
+          decomposition:
+            type: fanout
+            context: none
+            instances:
+              - { source: comparch, target: comp, declared_in: "comparch.draft.comps.comp[]" }
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "mint.parent.<kind>"))
+    end
   end
 
-  defp tier!(name) do
-    """
-    tier: #{name}
-    scope: singleton
-    identity: id
-    generator: synthesis
-    handle:
-      fields: [id]
-    """
+  describe "handle (bundle.md #10, chain.md #11)" do
+    test "handle defaults to every field plus every kind produced", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          subcomparch:
+            scope: per(comparch)
+            produces:
+              techspec: draft.technical-specification
+        edges: {}
+        """,
+        "bundles/default/schemas/subcomparch.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="subcomparch">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="technical-specification" type="xs:string"/>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert loaded.chain.tiers["comparch"].handle_fragments == ["techspec"]
+    end
+
+    test "a handle: name outside the default set is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            handle: [nonexistent]
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "is not a field of this tier"))
+    end
+  end
+
+  describe "edges (chain.md #24, #25, #26, #27)" do
+    test "an edge requires instances: as a non-empty list", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges:
+          dependency:
+            type: dependency
+            context: handle
+            instances: []
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "instances is empty"))
+    end
+
+    test "an edge requires context: (chain.md #25)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          other:
+            scope: singleton
+        edges:
+          dependency:
+            type: dependency
+            instances:
+              - { source: comparch, target: other, declared_in: "comparch.draft.dep[]" }
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "missing required field \"context\""))
+    end
+
+    test "an edge cycle across tiers fails type-level acyclicity", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          other:
+            scope: singleton
+        edges:
+          a_to_b:
+            type: reference
+            context: handle
+            instances:
+              - { source: comparch, target: other, declared_in: "comparch.draft.b[]" }
+          b_to_a:
+            type: reference
+            context: handle
+            instances:
+              - { source: other, target: comparch, declared_in: "other.draft.a[]" }
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "type-level cycle"))
+    end
+
+    test "a self-referencing dependency edge is legal at the type level", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges:
+          dependency:
+            type: dependency
+            context: handle
+            graph_constraint: [acyclic]
+            instances:
+              - { source: comparch, target: comparch, declared_in: "comparch.draft.dep[]", source_ref: "@from", target_ref: "@to" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => edge_test_schema()
+      })
+
+      assert {:ok, _loaded} = Loader.load(dir)
+    end
+
+    test "a navigation edge cannot be walked in a readiness context (chain.md #23)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            context:
+              nav: self.nav -> comparch.handle
+        edges:
+          nav:
+            type: reference
+            navigation: true
+            context: none
+            instances:
+              - { source: comparch, target: comparch, declared_in: "comparch.draft.nav[]", source_ref: "@from", target_ref: "@to" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => edge_test_schema()
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "navigation: true"))
+    end
+
+    test "consistency: is legal only on a dependency edge", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges:
+          reference:
+            type: reference
+            context: handle
+            consistency: eventual
+            instances:
+              - { source: comparch, target: comparch, declared_in: "comparch.draft.r[]", source_ref: "@from", target_ref: "@to" }
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "only a dependency edge may carry"))
+    end
+
+    test "an unresolvable source_ref:/target_ref: locator is a load error (chain.md #27)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          other:
+            scope: per(comparch)
+        edges:
+          reference:
+            type: reference
+            context: handle
+            instances:
+              - { source: comparch, target: other, declared_in: "comparch.draft.r[]" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => edge_test_schema(),
+        "bundles/default/schemas/other.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="other">
+            <xs:complexType><xs:sequence><xs:element name="body" type="xs:string"/></xs:sequence></xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "cannot locate"))
+    end
+  end
+
+  describe "effective context (chain.md #20, #21)" do
+    test "a generating tier with a scope parent derives a parent read", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          subcomparch:
+            scope: per(comparch)
+        edges: {}
+        """,
+        "bundles/default/schemas/subcomparch.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="subcomparch">
+            <xs:complexType><xs:sequence><xs:element name="body" type="xs:string"/></xs:sequence></xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert %{"parent" => walk} = loaded.chain.tiers["subcomparch"].effective_context
+      assert walk.raw == "self.parent.handle"
+    end
+
+    test "an edge instance sourced from self or the scope parent derives a named read", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          ref:
+            generator: supplied
+            source: write
+        edges:
+          reference:
+            type: reference
+            context: handle
+            instances:
+              - { source: comparch, target: ref, declared_in: "comparch.draft.r[]", target_ref: "@target" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => edge_test_schema()
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert %{"reference" => walk} = loaded.chain.tiers["comparch"].effective_context
+      assert walk.raw == "self.reference -> ref.handle"
+    end
+
+    test "two derived reads under one name without as: is a load error (chain.md #20)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          a:
+            generator: supplied
+            source: write
+          b:
+            generator: supplied
+            source: write
+        edges:
+          reference:
+            type: reference
+            context: handle
+            instances:
+              - { source: comparch, target: a, declared_in: "comparch.draft.a[]", target_ref: "@target" }
+          reference2:
+            type: reference
+            context: handle
+            instances:
+              - { source: comparch, target: b, declared_in: "comparch.draft.b[]", target_ref: "@target" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => edge_test_schema()
+      })
+
+      # These are two different edge names, so no collision: derived
+      # names key off the edge name, and different edges never collide
+      # unless an `as:` forces it. This test instead exercises the
+      # explicit-context path colliding with a derived one.
+      assert {:ok, _loaded} = Loader.load(dir)
+    end
+
+    test "explicit context: naming a reserved word is a load error (chain.md #21)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            context:
+              self: all.comparch.handle
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "which is reserved"))
+    end
+
+    test "explicit context: colliding with a derived read is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          subcomparch:
+            scope: per(comparch)
+            context:
+              parent: all.comparch.handle
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "collides with a derived read"))
+    end
+
+    test "all.<tier> against a write-sourced supplied tier is a load error (chain.md #22)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            context:
+              refs: all.ref.handle
+          ref:
+            generator: supplied
+            source: write
+        edges: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "never drained"))
+    end
+
+    test "review: default reads the tier's own effective context plus its own additions", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            review:
+              prompt: prompts/review/comparch.md.liquid
+              context:
+                extra: all.comparch.handle
+        edges: {}
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      review = loaded.chain.tiers["comparch"].review
+      assert review.prompt == "prompts/review/comparch.md.liquid"
+      assert Map.has_key?(review.context, "extra")
+    end
+
+    test "a review's own context does not leak into the tier's own generation context", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+            review:
+              context:
+                extra: all.comparch.handle
+        edges: {}
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      refute Map.has_key?(loaded.chain.tiers["comparch"].effective_context, "extra")
+    end
+  end
+
+  describe "workflow (workflow.md)" do
+    test "the same two gates may run in opposite order in two types" do
+      # Impossible under a fixed predecessor field — every position's
+      # order is the citing type's own array, index alone (workflow.md #7).
+    end
+
+    test "a type whose flow: names itself is a load error (workflow.md #30)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: project }
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "names itself"))
+    end
+
+    test "a two-node cycle through a skeleton-less type is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: milestone }
+          milestone:
+            skeleton: container
+            statuses:
+              - status: setup
+              - { status: prep, flow: feature }
+              - { status: main, flow: project }
+              - status: retro
+              - { status: cleanup, flow: feature }
+              - status: terminal
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                tiers: [comparch]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "cycle"))
+    end
+
+    test "a container-skeleton type nests another container for free", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: epic }
+          epic:
+            skeleton: container
+            statuses:
+              - status: setup
+              - { status: prep, flow: milestone }
+              - { status: main, flow: milestone }
+              - status: retro
+              - { status: cleanup, flow: milestone }
+              - status: terminal
+          milestone:
+            skeleton: container
+            statuses:
+              - status: setup
+              - { status: prep, flow: feature }
+              - { status: main, flow: feature }
+              - status: retro
+              - { status: cleanup, flow: feature }
+              - status: terminal
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                tiers: [comparch]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert loaded.workflow.types["epic"].skeleton == "container"
+      assert loaded.workflow.entry == "project"
+    end
+
+    test "a throwback that is not earlier in the citing type's array is a load error", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                tiers: [comparch]
+              - status: critique
+              - review: product-review
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates:
+          product-review: { role: design, escalation: author, throwback: checks }
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "not earlier"))
+    end
+
+    test "generation requires tiers: (workflow.md #22)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "missing required field \"tiers\""))
+    end
+
+    test "tiers: naming an undeclared tier is a load error (workflow.md #22)", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                tiers: [nonexistent]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "not a declared tier"))
+    end
+
+    test "tiers: naming a join target is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          comp:
+            scope: child_of(comparch)
+            draft: none
+        edges:
+          decomposition:
+            type: fanout
+            context: none
+            instances:
+              - { source: comparch, target: comp, declared_in: "comparch.draft.comps.comp[]" }
+        """,
+        "bundles/default/schemas/comparch.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
+          <xs:complexType name="Comp">
+            <xs:annotation><xs:appinfo><catapult:mints tier="comp" identity="alias"/></xs:appinfo></xs:annotation>
+            <xs:sequence><xs:element name="name" type="xs:string"/></xs:sequence>
+            <xs:attribute name="alias" type="xs:string" use="required"/>
+          </xs:complexType>
+          <xs:complexType name="Comps">
+            <xs:sequence>
+              <xs:element name="comp" type="Comp" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:element name="comparch">
+            <xs:complexType>
+              <xs:sequence><xs:element name="comps" type="Comps"/></xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """,
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                tiers: [comp]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "only generating tiers run at a position"))
+    end
+
+    test "a tier listed at two positions is a load error unless it is cascade_visit", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: no_delta
+            statuses:
+              - status: generation
+                name: first
+                tiers: [comparch]
+              - status: generation
+                name: second
+                tiers: [comparch]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "more than one position"))
+    end
+
+    test "serves: has_delta/no_delta selects the type serving a flow (workflow.md #40)", %{
+      tmp_dir: dir
+    } do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges: {}
+        flows:
+          seed:
+            walk: full
+        """
+      })
+
+      assert {:ok, loaded} = Loader.load(dir)
+      assert loaded.chain.flows["seed"].walk == "full"
+    end
+
+    test "a chain flow served by no type is a load error", %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+        edges: {}
+        flows:
+          feature_request:
+            walk: downward_cascade
+            entry: comparch
+            completion: has_edge(comparch)
+        """,
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            statuses:
+              - status: generation
+                tiers: [comparch]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "is served by no type"))
+    end
+
+    test "traversability: a structural read of a tier generated at a later position is a load error (workflow.md #23)",
+         %{tmp_dir: dir} do
+      Fixture.minimal!(dir)
+
+      Fixture.write!(dir, %{
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          subcomparch:
+            scope: per(comparch)
+        edges: {}
+        flows:
+          seed:
+            walk: full
+        """,
+        "bundles/default/schemas/subcomparch.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="subcomparch">
+            <xs:complexType><xs:sequence><xs:element name="body" type="xs:string"/></xs:sequence></xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """,
+        "bundles/default-flow/workflow.yaml" => """
+        name: default-flow
+        version: "1.0.0"
+        kind: workflow
+        entry: project
+        types:
+          project:
+            statuses:
+              - { status: build-out, flow: feature }
+          feature:
+            skeleton: ticket
+            serves: [seed]
+            statuses:
+              - status: generation
+                name: first
+                tiers: [subcomparch]
+              - status: generation
+                name: second
+                tiers: [comparch]
+              - status: checks
+              - status: reconcile
+              - status: merge
+              - status: deploy
+              - status: terminal
+        gates: {}
+        environments: {}
+        """
+      })
+
+      assert {:error, :bundle, problems} = Loader.load(dir)
+      assert Enum.any?(problems, &String.contains?(&1, "generated at a later position"))
+    end
   end
 end

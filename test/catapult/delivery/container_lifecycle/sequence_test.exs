@@ -9,11 +9,12 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.ContainerLifecycle.Sequence
+  alias Catapult.Dsl
   alias Catapult.Dsl.Status
   alias Catapult.Dsl.Workflow
 
   setup do
-    assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+    assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
     %{workflow: workflow}
   end
 
@@ -22,14 +23,16 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   } do
     names = workflow |> Sequence.steps("milestone") |> Enum.map(&Sequence.name/1)
 
+    # `pending` is retired from the grammar (`workflow.md` #25 — an
+    # engine-set flag every agent-balled position carries, never a
+    # declared entry), so `setup`/`retro` are milestone's own leading
+    # positions in their respective sub-arrays now.
     assert names == [
-             "pending",
              "setup",
              "kickoff-review",
              "prep",
              "main",
              "milestone-signoff",
-             "pending",
              "retro",
              "proposals-read",
              "cleanup",
@@ -55,14 +58,14 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   end
 
   test "first_step/2 is what an activation starts at", %{workflow: workflow} do
-    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "pending"
+    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "setup"
     assert Sequence.first_step(workflow, "project") |> Sequence.name() == "initialization"
   end
 
   test "next_step/3 walks by index, gates included", %{workflow: workflow} do
     assert Sequence.next_step(workflow, "milestone", "main") == {:gate, "milestone-signoff"}
 
-    assert {:queue, %Status{status: "pending"}} =
+    assert {:queue, %Status{status: "retro"}} =
              Sequence.next_step(workflow, "milestone", "milestone-signoff")
 
     assert {:queue, %Status{status: "deploy"}} =
@@ -101,7 +104,6 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
 
       type = %Catapult.Dsl.Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "container",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]

@@ -128,6 +128,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
   @journeys_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/journeys.xml"))
   @screens_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/screens.xml"))
   @requirements_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/requirements.xml"))
+  @non_goals_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/non_goals.xml"))
   @sysarch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/sysarch.xml"))
   @comparch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/comparch.xml"))
   @subcomparch_body File.read!(Path.join(__DIR__, "fixtures/toy_seed/subcomparch.xml"))
@@ -169,8 +170,18 @@ defmodule Catapult.Generation.ToySeedChainTest do
     assert fe_request.rendered_prompt =~ @project_doc_body
 
     fe = commit!(chain, project_id, "feature_expansion", fe_candidate, @feature_expansion_body)
-    review!(chain, project_id, "feature_expansion_review", fe, @approve_review_body)
+    review!(chain, project_id, "feature_expansion:review", fe, @approve_review_body)
     approve_real!(project_id, fe.id, fe.current_draft_id)
+
+    # -- non_goals: organically ready (singleton, intake-only context) —
+    #    dispatched here rather than left un-exercised now that
+    #    `comparch`'s own `non_goal_policies: all.non_goals_policy
+    #    .handle` read (`chain.md` #28's own three-way policy-family
+    #    split) gates comparch's readiness on non_goals being drained. --
+    non_goals_candidate = ready_one!(chain, project_id, "non_goals")
+    non_goals = commit!(chain, project_id, "non_goals", non_goals_candidate, @non_goals_body)
+    review!(chain, project_id, "non_goals:review", non_goals, @approve_review_body)
+    approve_real!(project_id, non_goals.id, non_goals.current_draft_id)
 
     # -- journeys: organically ready (self.parent = feature_expansion,
     #    approved) — dispatched ahead of requirements now that
@@ -179,7 +190,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    satisfied by an as-yet-undrafted tier). --
     journeys = ready_one!(chain, project_id, "journeys")
     journeys = commit!(chain, project_id, "journeys", journeys, @journeys_body)
-    review!(chain, project_id, "journeys_review", journeys, @approve_review_body)
+    review!(chain, project_id, "journeys:review", journeys, @approve_review_body)
     approve_real!(project_id, journeys.id, journeys.current_draft_id)
 
     # -- journey: journeys' own mint, seeded — see moduledoc (`<journey>`
@@ -201,7 +212,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    journeys itself, off the identical vacuous-`all.<tier>` bug. --
     screens = ready_one!(chain, project_id, "screens")
     screens = commit!(chain, project_id, "screens", screens, @screens_body)
-    review!(chain, project_id, "screens_review", screens, @approve_review_body)
+    review!(chain, project_id, "screens:review", screens, @approve_review_body)
     approve_real!(project_id, screens.id, screens.current_draft_id)
 
     # -- screen: screens' own mint, seeded — same identity gap as journey. --
@@ -215,7 +226,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    ticket fixes). --
     req = ready_one!(chain, project_id, "requirements")
     req = commit!(chain, project_id, "requirements", req, @requirements_body)
-    review!(chain, project_id, "requirements_review", req, @approve_review_body)
+    review!(chain, project_id, "requirements:review", req, @approve_review_body)
     approve_real!(project_id, req.id, req.current_draft_id)
 
     # -- resp: requirements' own mint (decomposition), seeded — see moduledoc.
@@ -236,7 +247,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    self.parent.decomposition -> resp.handle, both resps approved) --
     sysarch = ready_one!(chain, project_id, "sysarch")
     sysarch = commit!(chain, project_id, "sysarch", sysarch, @sysarch_body)
-    review!(chain, project_id, "sysarch_review", sysarch, @approve_review_body)
+    review!(chain, project_id, "sysarch:review", sysarch, @approve_review_body)
     approve_real!(project_id, sysarch.id, sysarch.current_draft_id)
 
     # -- comp: sysarch's own mint, real extraction (both components
@@ -268,7 +279,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     policy =
       seed_mint!(
         project_id,
-        "policy",
+        "sysarch_policy",
         "immutable_short_codes",
         sysarch.id,
         "decomposition",
@@ -303,7 +314,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     seed_mint!(project_id, "vocab", "short_code", fe.id, "decomposition")
     vocab = ready_one!(chain, project_id, "vocab")
     vocab = commit!(chain, project_id, "vocab", vocab, @vocab_body)
-    review!(chain, project_id, "vocab_review", vocab, @approve_review_body)
+    review!(chain, project_id, "vocab:review", vocab, @approve_review_body)
     approve_real!(project_id, vocab.id, vocab.current_draft_id)
 
     # -- comparch: per(comp) — both `redirector` and `link_admin` are
@@ -312,7 +323,7 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    moduledoc's "one ready scope" note). --
     comparch = ready_matching!(chain, project_id, "comparch", redirector.id)
     comparch = commit!(chain, project_id, "comparch", comparch, @comparch_body)
-    review!(chain, project_id, "comparch_review", comparch, @approve_review_body)
+    review!(chain, project_id, "comparch:review", comparch, @approve_review_body)
     approve_real!(project_id, comparch.id, comparch.current_draft_id)
 
     # -- subcomp: comparch's own mint, real extraction (`alias` again) —
@@ -329,13 +340,13 @@ defmodule Catapult.Generation.ToySeedChainTest do
     #    `lookup_engine`'s scope deliberately, same reasoning as comparch. --
     subcomparch = ready_matching!(chain, project_id, "subcomparch", lookup_engine.id)
     subcomparch = commit!(chain, project_id, "subcomparch", subcomparch, @subcomparch_body)
-    review!(chain, project_id, "subcomparch_review", subcomparch, @approve_review_body)
+    review!(chain, project_id, "subcomparch:review", subcomparch, @approve_review_body)
     approve_real!(project_id, subcomparch.id, subcomparch.current_draft_id)
 
     # -- impl_backend: per(subcomp), same two-ready-scopes shape as subcomparch --
     impl = ready_matching!(chain, project_id, "impl_backend", lookup_engine.id)
     impl = commit!(chain, project_id, "impl_backend", impl, @impl_body)
-    review!(chain, project_id, "impl_backend_review", impl, @approve_review_body)
+    review!(chain, project_id, "impl_backend:review", impl, @approve_review_body)
     approve_real!(project_id, impl.id, impl.current_draft_id)
 
     # -- every generation-tier node committed for real drafted (then approved) --

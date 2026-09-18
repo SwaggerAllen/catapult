@@ -4,7 +4,6 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   alias Catapult.Dsl.Chain
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Dsl.Edge
-  alias Catapult.Dsl.Predicate
   alias Catapult.Dsl.Tier
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
@@ -27,8 +26,8 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   defp fanout_edge!(name, source, target) do
     %Edge{
       name: name,
-      file: "f",
       type: "fanout",
+      context_raw: "none",
       instances: [%{source: source, target: target, declared_in: "x", cardinality: %{}}]
     }
   end
@@ -59,7 +58,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
   test "a singleton tier with an approved context is ready" do
     chain =
       chain([
-        %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []}
+        %Tier{name: "sysarch", draft: %{}, scope: {:singleton}}
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "sysarch")
@@ -71,7 +70,7 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
     node!("sysarch", "sysarch", status: :drafted)
 
     chain =
-      chain([%Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []}])
+      chain([%Tier{name: "sysarch", draft: %{}, scope: {:singleton}}])
 
     assert ReadyScopes.ready(chain, "p1", "sysarch") == []
   end
@@ -81,13 +80,12 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
     chain =
       chain([
-        %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+        %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
         %Tier{
           name: "comparch",
-          file: "f",
           draft: %{},
           scope: {:per, "sysarch"},
-          context: [walk!("self.parent.handle")]
+          effective_context: %{"parent" => walk!("self.parent.handle")}
         }
       ])
 
@@ -100,13 +98,12 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
     chain =
       chain([
-        %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+        %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
         %Tier{
           name: "comparch",
-          file: "f",
           draft: %{},
           scope: {:per, "sysarch"},
-          context: [walk!("self.parent.handle")]
+          effective_context: %{"parent" => walk!("self.parent.handle")}
         }
       ])
 
@@ -130,101 +127,39 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
     chain =
       chain([
-        %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-        %Tier{name: "comp", file: "f", draft: %{}, scope: {:child_of, "sysarch"}, context: []}
+        %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+        %Tier{name: "comp", draft: %{}, scope: {:child_of, "sysarch"}}
       ])
 
     assert [candidate] = ReadyScopes.ready(chain, "p1", "comp")
     assert candidate.id == "comp1"
   end
 
-  test "a review is never ready on its own (chain.md #14 — no draft: of its own)" do
-    chain = chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
-    assert ReadyScopes.ready(chain, "p1", "comp_review") == []
+  test "a review is never ready via ready/3 — it is not a declared tier of its own (chain.md #14)" do
+    chain =
+      chain([
+        %Tier{
+          name: "comp",
+          draft: %{},
+          scope: {:singleton},
+          review: %{prompt: "prompts/review/comp.md.liquid", context_raw: %{}, context: %{}}
+        }
+      ])
+
+    assert ReadyScopes.ready(chain, "p1", ReadyScopes.review_tier_name("comp")) == []
   end
 
   test "cascade_visit enumerates nothing (Target — flow instances)" do
     chain =
-      chain([%Tier{name: "plan", file: "f", draft: %{}, scope: {:cascade_visit}, context: []}])
+      chain([%Tier{name: "plan", draft: %{}, scope: {:cascade_visit}}])
 
     assert ReadyScopes.ready(chain, "p1", "plan") == []
-  end
-
-  describe "scope_filter" do
-    test "a candidate failing scope_filter never appears, even with an otherwise-met context" do
-      chain =
-        chain([
-          %Tier{
-            name: "sysarch",
-            file: "f",
-            draft: %{},
-            scope: {:singleton},
-            scope_filter_raw: "has_edge(fulfills)",
-            context: []
-          }
-        ])
-
-      assert ReadyScopes.ready(chain, "p1", "sysarch") == []
-    end
-
-    test "a candidate passing scope_filter is enumerated as usual" do
-      node!("sysarch", "sysarch", status: :absent)
-      node!("resp1", "resp", scope_key: %{"n" => "resp1"})
-
-      Store.insert_edge(%{
-        id: "fulfills|sysarch|resp1",
-        project_id: "p1",
-        edge_name: "fulfills",
-        type: :reference,
-        source_node_id: "sysarch",
-        target_node_id: "resp1"
-      })
-
-      chain =
-        chain([
-          %Tier{
-            name: "sysarch",
-            file: "f",
-            draft: %{},
-            scope: {:singleton},
-            scope_filter_raw: "has_edge(fulfills)",
-            context: []
-          }
-        ])
-
-      assert [candidate] = ReadyScopes.ready(chain, "p1", "sysarch")
-      assert candidate.id == "sysarch"
-    end
-
-    test "a named predicate in Chain.predicates resolves the same way an inline one does" do
-      node!("sysarch", "sysarch", status: :drafted)
-
-      chain = %Chain{
-        name: "test",
-        tiers: %{
-          "sysarch" => %Tier{
-            name: "sysarch",
-            file: "f",
-            draft: %{},
-            scope: {:singleton},
-            scope_filter_raw: "always_true",
-            context: []
-          }
-        },
-        predicates: %{"always_true" => elem(Predicate.parse("true == true"), 1)}
-      }
-
-      # Drafted already, so scope_filter passing doesn't make it ready —
-      # this only proves the named predicate resolved (and didn't
-      # exclude it outright the way a failed resolution would).
-      assert ReadyScopes.ready(chain, "p1", "sysarch") == []
-    end
   end
 
   describe "ready_review/3" do
     test "[] for a tier that is not a review tier" do
       chain =
-        chain([%Tier{name: "comp", file: "f", draft: %{}, scope: {:singleton}, context: []}])
+        chain([%Tier{name: "comp", draft: %{}, scope: {:singleton}}])
 
       assert ReadyScopes.ready_review(chain, "p1", "comp") == []
     end
@@ -234,17 +169,35 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       draft!("draft1", "comp1")
 
       chain =
-        chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
+        chain([
+          %Tier{
+            name: "comp",
+            draft: %{},
+            scope: {:singleton},
+            review: %{prompt: "prompts/review/comp.md.liquid", context_raw: %{}, context: %{}}
+          }
+        ])
 
-      assert [candidate] = ReadyScopes.ready_review(chain, "p1", "comp_review")
+      assert [candidate] =
+               ReadyScopes.ready_review(chain, "p1", ReadyScopes.review_tier_name("comp"))
+
       assert candidate.id == "comp1"
     end
 
     test "a node with no current draft is not ready to review" do
       node!("comp1", "comp", status: :absent)
 
-      chain = chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
-      assert ReadyScopes.ready_review(chain, "p1", "comp_review") == []
+      chain =
+        chain([
+          %Tier{
+            name: "comp",
+            draft: %{},
+            scope: {:singleton},
+            review: %{prompt: "prompts/review/comp.md.liquid", context_raw: %{}, context: %{}}
+          }
+        ])
+
+      assert ReadyScopes.ready_review(chain, "p1", ReadyScopes.review_tier_name("comp")) == []
     end
 
     test "a node whose current draft already has a review is not ready to review again" do
@@ -261,8 +214,17 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
         kind: :ai
       })
 
-      chain = chain([%Tier{name: "comp_review", file: "f", reviews: "comp", context: []}])
-      assert ReadyScopes.ready_review(chain, "p1", "comp_review") == []
+      chain =
+        chain([
+          %Tier{
+            name: "comp",
+            draft: %{},
+            scope: {:singleton},
+            review: %{prompt: "prompts/review/comp.md.liquid", context_raw: %{}, context: %{}}
+          }
+        ])
+
+      assert ReadyScopes.ready_review(chain, "p1", ReadyScopes.review_tier_name("comp")) == []
     end
   end
 
@@ -278,14 +240,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+          %Tier{name: "comp", scope: {:child_of, "sysarch"}, generator: "synthesis"},
           %Tier{
             name: "reader",
-            file: "f",
             draft: %{},
             scope: {:per, "comp"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
@@ -303,14 +264,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+          %Tier{name: "comp", scope: {:child_of, "sysarch"}, generator: "synthesis"},
           %Tier{
             name: "reader",
-            file: "f",
             draft: %{},
             scope: {:per, "comp"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
@@ -335,15 +295,14 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
-          %Tier{name: "subcomp", file: "f", scope: {:child_of, "comp"}, generator: "synthesis"},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+          %Tier{name: "comp", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "subcomp", scope: {:child_of, "comp"}, generator: "synthesis"},
           %Tier{
             name: "reader",
-            file: "f",
             draft: %{},
             scope: {:per, "subcomp"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
@@ -360,16 +319,14 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
         chain([
           %Tier{
             name: "design_system",
-            file: "f",
             scope: {:singleton},
             generator: "supplied"
           },
           %Tier{
             name: "reader",
-            file: "f",
             draft: %{},
             scope: {:per, "design_system"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
@@ -384,14 +341,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       chain =
         chain(
           [
-            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
-            %Tier{name: "child", file: "f", scope: {:child_of, "driver"}, generator: "synthesis"},
+            %Tier{name: "driver", draft: %{}, scope: {:singleton}},
+            %Tier{name: "child", scope: {:child_of, "driver"}, generator: "synthesis"},
             %Tier{
               name: "reader",
-              file: "f",
               draft: %{},
               scope: {:singleton},
-              context: [walk!("all.child.handle")]
+              effective_context: %{"child" => walk!("all.child.handle")}
             }
           ],
           [fanout_edge!("decomp", "driver", "child")]
@@ -406,14 +362,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       chain =
         chain(
           [
-            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
-            %Tier{name: "child", file: "f", scope: {:child_of, "driver"}, generator: "synthesis"},
+            %Tier{name: "driver", draft: %{}, scope: {:singleton}},
+            %Tier{name: "child", scope: {:child_of, "driver"}, generator: "synthesis"},
             %Tier{
               name: "reader",
-              file: "f",
               draft: %{},
               scope: {:singleton},
-              context: [walk!("all.child.handle")]
+              effective_context: %{"child" => walk!("all.child.handle")}
             }
           ],
           [fanout_edge!("decomp", "driver", "child")]
@@ -434,14 +389,13 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       chain =
         chain(
           [
-            %Tier{name: "driver", file: "f", draft: %{}, scope: {:singleton}, context: []},
-            %Tier{name: "child", file: "f", draft: %{}, scope: {:child_of, "driver"}},
+            %Tier{name: "driver", draft: %{}, scope: {:singleton}},
+            %Tier{name: "child", draft: %{}, scope: {:child_of, "driver"}},
             %Tier{
               name: "reader",
-              file: "f",
               draft: %{},
               scope: {:singleton},
-              context: [walk!("all.child.handle")]
+              effective_context: %{"child" => walk!("all.child.handle")}
             }
           ],
           [fanout_edge!("decomp", "driver", "child")]
@@ -457,20 +411,18 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
       chain =
         chain(
           [
-            %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-            %Tier{name: "comparch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+            %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+            %Tier{name: "comparch", draft: %{}, scope: {:singleton}},
             %Tier{
               name: "policy",
-              file: "f",
               scope: {:child_of, "sysarch"},
               generator: "synthesis"
             },
             %Tier{
               name: "reader",
-              file: "f",
               draft: %{},
               scope: {:singleton},
-              context: [walk!("all.policy.handle")]
+              effective_context: %{"policy" => walk!("all.policy.handle")}
             }
           ],
           [
@@ -496,15 +448,14 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
-          %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, generator: "synthesis"},
-          %Tier{name: "comparch", file: "f", draft: %{}, scope: {:per, "comp"}, context: []},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
+          %Tier{name: "comp", scope: {:child_of, "sysarch"}, generator: "synthesis"},
+          %Tier{name: "comparch", draft: %{}, scope: {:per, "comp"}},
           %Tier{
             name: "reader",
-            file: "f",
             draft: %{},
             scope: {:singleton},
-            context: [walk!("all.comparch.handle")]
+            effective_context: %{"comparch" => walk!("all.comparch.handle")}
           }
         ])
 
@@ -524,20 +475,18 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
           %Tier{
             name: "comp",
-            file: "f",
             draft: %{},
             scope: {:per, "sysarch"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
       report = ReadyScopes.explain(chain, node)
 
       assert report.tier == "comp"
-      assert report.passes_scope_filter == true
 
       assert [%{walk: "self.parent.handle", satisfied: false, targets: [target]}] =
                report.blocking
@@ -557,39 +506,16 @@ defmodule Catapult.Engine.Projections.ReadyScopesTest do
 
       chain =
         chain([
-          %Tier{name: "sysarch", file: "f", draft: %{}, scope: {:singleton}, context: []},
+          %Tier{name: "sysarch", draft: %{}, scope: {:singleton}},
           %Tier{
             name: "comp",
-            file: "f",
             draft: %{},
             scope: {:per, "sysarch"},
-            context: [walk!("self.parent.handle")]
+            effective_context: %{"parent" => walk!("self.parent.handle")}
           }
         ])
 
       assert ReadyScopes.explain(chain, node).blocking == []
-    end
-
-    test "reports passes_scope_filter: false when the tier's scope_filter fails" do
-      node =
-        node!("sysarch", "sysarch",
-          status: :absent,
-          scope_key: %{}
-        )
-
-      chain =
-        chain([
-          %Tier{
-            name: "sysarch",
-            file: "f",
-            draft: %{},
-            scope: {:singleton},
-            scope_filter_raw: "has_edge(fulfills)",
-            context: []
-          }
-        ])
-
-      assert ReadyScopes.explain(chain, node).passes_scope_filter == false
     end
   end
 end

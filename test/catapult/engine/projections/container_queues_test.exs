@@ -24,7 +24,6 @@ defmodule Catapult.Engine.Projections.ContainerQueuesTest do
   defp workflow do
     milestone = %Type{
       name: "milestone",
-      file: "types/milestone.yaml",
       skeleton: "container",
       statuses: [
         %Status{status: "setup"},
@@ -38,7 +37,6 @@ defmodule Catapult.Engine.Projections.ContainerQueuesTest do
 
     nesting = %Type{
       name: "epic",
-      file: "types/epic.yaml",
       skeleton: "container",
       statuses: [
         %Status{status: "setup", flow: "setup"},

@@ -14,31 +14,51 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.FeatureLifecycle.Sequence
+  alias Catapult.Dsl
   alias Catapult.Dsl.Status
   alias Catapult.Dsl.Type
   alias Catapult.Dsl.Workflow
 
   describe "positions/2 against the shipped default-flow bundle" do
     setup do
-      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
       %{workflow: workflow}
     end
 
-    test "the feature type's own array, in order, up to the reachable boundary", %{
+    # `types/feature.yaml`'s single-phase shape is retired: the shipped
+    # bundle's `delta` type (an ordinary change ticket, `serves:
+    # has_delta`) is the multi-phase shape `workflow.md` #12 describes —
+    # a plan position ahead of each of the five generation phases
+    # (features/experience/requirements/architecture/implementation),
+    # each phase's own critique, and a gate on three of the five.
+    test "the delta type's own array, in order, up to the reachable boundary", %{
       workflow: workflow
     } do
-      assert Sequence.positions(workflow, "feature") == [
-               {:kind, :pending},
+      assert Sequence.positions(workflow, "delta") == [
+               {:kind, :generation},
+               {:kind, :generation},
+               {:kind, :critique},
+               {:gate, "features-review"},
+               {:kind, :generation},
                {:kind, :generation},
                {:kind, :critique},
                {:gate, "ux-review"},
+               {:kind, :generation},
+               {:kind, :generation},
+               {:kind, :critique},
+               {:kind, :generation},
+               {:kind, :generation},
+               {:kind, :critique},
                {:gate, "engineering-review"},
+               {:kind, :generation},
+               {:kind, :generation},
+               {:kind, :critique},
                {:kind, :checks}
              ]
     end
 
     test "merge, deploy and terminal sit past this phase's reach", %{workflow: workflow} do
-      positions = Sequence.positions(workflow, "feature")
+      positions = Sequence.positions(workflow, "delta")
 
       refute {:kind, :merge} in positions
       refute {:kind, :deploy} in positions
@@ -46,11 +66,12 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
     end
 
     test "an environment citation is not a resting position", %{workflow: workflow} do
-      # `types/feature.yaml` cites `staging` before its `deploy` entry
-      # (§15.5). It configures that deploy; nothing rests at it.
-      assert Enum.all?(Sequence.positions(workflow, "feature"), &match?({:kind, _}, &1)) or
+      # `workflow.yaml`'s `delta` type cites `staging` before its
+      # `deploy` entry (§15.5). It configures that deploy; nothing
+      # rests at it.
+      assert Enum.all?(Sequence.positions(workflow, "delta"), &match?({:kind, _}, &1)) or
                Enum.all?(
-                 Sequence.positions(workflow, "feature"),
+                 Sequence.positions(workflow, "delta"),
                  &(elem(&1, 0) in [:kind, :gate])
                )
     end
@@ -62,7 +83,7 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
   describe "positions/2 for an inline dispatch point (ORC-176)" do
     setup do
-      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
       %{workflow: workflow}
     end
 
@@ -109,7 +130,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
       # other's.
       forward = %Type{
         name: "forward",
-        file: "types/forward.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -121,7 +141,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
       backward = %Type{
         name: "backward",
-        file: "types/backward.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -164,7 +183,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
       # onward.
       type = %Type{
         name: "feature",
-        file: "types/feature.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -230,25 +248,66 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
   describe "annotated_positions/2 (workflow.md #6, ORC-116)" do
     setup do
-      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
       %{workflow: workflow}
     end
 
-    test "feature's own leading sub-array groups pending through its gates, anchored on generation",
+    test "delta's own generation phases each group their own critique and gates, anchored on their own generation entry",
          %{workflow: workflow} do
-      annotated = Sequence.annotated_positions(workflow, "feature")
+      annotated = Sequence.annotated_positions(workflow, "delta")
 
-      assert Enum.map(annotated, & &1.position) == Sequence.positions(workflow, "feature")
+      assert Enum.map(annotated, & &1.position) == Sequence.positions(workflow, "delta")
 
-      assert Enum.map(annotated, & &1.group_key) ==
-               ["generation", "generation", "generation", "generation", "generation", nil]
+      assert Enum.map(annotated, & &1.group_key) == [
+               nil,
+               "features",
+               "features",
+               "features",
+               nil,
+               "experience",
+               "experience",
+               "experience",
+               nil,
+               "requirements",
+               "requirements",
+               nil,
+               "architecture",
+               "architecture",
+               "architecture",
+               nil,
+               "implementation",
+               "implementation",
+               nil
+             ]
 
-      assert Enum.map(annotated, & &1.group_anchor) ==
-               [false, true, false, false, false, false]
+      assert Enum.map(annotated, & &1.group_anchor) == [
+               false,
+               true,
+               false,
+               false,
+               false,
+               true,
+               false,
+               false,
+               false,
+               true,
+               false,
+               false,
+               true,
+               false,
+               false,
+               false,
+               true,
+               false,
+               false
+             ]
     end
 
-    test "a type with no sub-array groups nothing", %{workflow: workflow} do
-      annotated = Sequence.annotated_positions(workflow, "seed")
+    test "a type with no sub-array groups nothing" do
+      # `seed` no longer names a shipped type — a synthetic, group-less
+      # type exercises the identical claim.
+      workflow = workflow_with(["pending", "generation", "checks"])
+      annotated = Sequence.annotated_positions(workflow, "t")
 
       assert Enum.all?(annotated, &(&1.group_key == nil and &1.group_anchor == false))
     end
@@ -274,7 +333,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
       # to exercise "outside the group" without a container skeleton.
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -308,19 +366,19 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
   describe "resolve_position/3 against the shipped default-flow bundle" do
     setup do
-      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
       %{workflow: workflow}
     end
 
     test "a gate name resolves to {:gate, name}, unqualified", %{workflow: workflow} do
-      assert Sequence.resolve_position(workflow, "feature", "ux-review") ==
+      assert Sequence.resolve_position(workflow, "delta", "ux-review") ==
                {{:gate, "ux-review"}, nil}
     end
 
     test "a status name resolves to {:kind, atom}, unqualified — the ordinary case", %{
       workflow: workflow
     } do
-      assert Sequence.resolve_position(workflow, "feature", "generation") ==
+      assert Sequence.resolve_position(workflow, "delta", "generation") ==
                {{:kind, :generation}, nil}
     end
   end
@@ -340,7 +398,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: [0..1//1]
@@ -362,26 +419,26 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
   describe "name/4 (workflow.md #7, ORC-155, ORC-171)" do
     setup do
-      assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+      assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
       %{workflow: workflow}
     end
 
     test "a gate's own name is its whole identity", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", {:gate, "ux-review"}, nil) == "ux-review"
+      assert Sequence.name(workflow, "delta", {:gate, "ux-review"}, nil) == "ux-review"
     end
 
     test "a status kind with no authored name: defaults to the kind", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", {:kind, :generation}, nil) == "generation"
+      assert Sequence.name(workflow, "delta", {:kind, :generation}, nil) == "generation"
     end
 
     test "nil has no name", %{workflow: workflow} do
-      assert Sequence.name(workflow, "feature", nil, nil) == nil
+      assert Sequence.name(workflow, "delta", nil, nil) == nil
     end
 
     test "a kind absent from the type's own array falls back to the kind itself", %{
       workflow: workflow
     } do
-      assert Sequence.name(workflow, "feature", {:kind, :blocked}, nil) == "blocked"
+      assert Sequence.name(workflow, "delta", {:kind, :blocked}, nil) == "blocked"
     end
   end
 
@@ -407,7 +464,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: [0..1//1]
@@ -449,7 +505,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
@@ -519,7 +574,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: []
@@ -570,7 +624,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.SequenceTest do
   defp workflow_with(status_names) do
     type = %Type{
       name: "t",
-      file: "types/t.yaml",
       skeleton: "ticket",
       statuses: Enum.map(status_names, &%Status{status: &1})
     }

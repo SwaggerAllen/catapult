@@ -19,7 +19,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
   defp workflow do
     type = %Type{
       name: "feature",
-      file: "types/feature.yaml",
       skeleton: "ticket",
       statuses: [
         %Status{status: "pending"},
@@ -182,7 +181,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     defp multi_phase_workflow do
       type = %Type{
         name: "feature",
-        file: "types/feature.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -238,7 +236,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
     test "reconcile is never passable either" do
       type = %Type{
         name: "feature",
-        file: "types/feature.yaml",
         skeleton: "ticket",
         statuses: [
           %Status{status: "pending"},
@@ -285,7 +282,6 @@ defmodule Catapult.Delivery.FeatureLifecycle.ProjectionTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: [0..1//1]
