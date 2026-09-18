@@ -402,5 +402,8 @@ reserves for exactly this namespace mismatch, and Boundary's own tasks
 (`Mix.Tasks.Compile.Boundary` and its siblings, classified to
 `Boundary.Mix`) are the shipped example. Straight to `Catapult` rather
 than a new `Catapult.Mix`: that shape holds helper modules several
-tasks share, and this is the project's only task, with no such helpers
-to hold.
+tasks share, and this task and its sibling, #ORC-250-1's
+`Mix.Tasks.Catapult.Dsl.CheckContract`, share no code — each calls the
+loader directly and measures a different thing against a different
+input — so there is no shared helper for a `Catapult.Mix` boundary to
+hold even with two tasks in the file map.
