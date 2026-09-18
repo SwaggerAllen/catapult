@@ -313,7 +313,7 @@ and edge name. Markers: **live** is read by the engine today;
   downward from the highest rung that did. `Catapult.Dsl.Flow` accepts
   these two and requires one of them. A scaffold flow runs no cascade
   and neither primitive describes it, so `full` is proposed as the
-  third: adding it is a grammar change, and `example/chain.yaml`
+  third: adding it is a grammar change, and `bundles/default/chain.yaml`
   writes it.
 - **#39 Four generator types and every context-source kind beyond
   `input` are extension vocabulary** (reserved: the registry, v5
