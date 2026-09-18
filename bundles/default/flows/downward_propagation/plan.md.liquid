@@ -11,6 +11,15 @@ scope by scope, rather than left to accumulate and surface later in
 Project framing: {{ project_doc }}
 
 What changed at the re-approved upstream scope: {{ change_summary }}
+{% comment %}
+  ORC-249 hand-back: `change_summary` is not a declared context key for
+  `downward_propagation_plan` in chain.yaml (only `project_doc`,
+  `sysarch`, and `components` are) and no `input.<role>` mapping under
+  this name exists in Catapult.Generation.ContextAssembly either —
+  this renders blank today. Left as-is rather than guessed at since
+  the fix is a chain.yaml context addition, out of scope for a
+  prompt-content-only pass.
+{% endcomment %}
 
 # Output format
 

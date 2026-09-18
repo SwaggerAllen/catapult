@@ -25,22 +25,32 @@ Component handle: {{ parent }}
 
 Responsibilities this component fulfills:
 {% for resp in fulfills %}
-- `{{ resp.id }}` — {{ resp.name }}: {{ resp.summary }}
+- `{{ resp.id }}` — {{ resp.name }}
 {% endfor %}
 
 Sibling dependencies' public surfaces (may be un-articulated — treat a
 skeletal, sysarch-seed-shaped entry as not yet architected):
-{% for dep in dependencies %}
+{% for dep in dependency %}
 - **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
 {% endfor %}
 
-Applied policies:
-{% for policy in applied_policies %}
+Binding policies (apply to this component through a fulfilled resp):
+{% for policy in binding_policies %}
+- **{{ policy.trigger }}**: {{ policy.required }} — {{ policy.rationale }}
+{% endfor %}
+
+Citable policies (project-wide; cite if this component is a candidate site):
+{% for policy in citable_policies %}
+- **{{ policy.trigger }}**: {{ policy.required }} — {{ policy.rationale }}
+{% endfor %}
+
+Non-goal policies (standing exclusions this component must not silently re-admit):
+{% for policy in non_goal_policies %}
 - **{{ policy.trigger }}**: {{ policy.required }} — {{ policy.rationale }}
 {% endfor %}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}

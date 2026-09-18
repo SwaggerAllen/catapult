@@ -18,6 +18,22 @@ The context bundle carries:
 * `sibling_features` — the project's existing feature list (name + one-sentence summary per feature): {{ sibling_features }}. Use these to keep voice, granularity, and naming convention consistent. **Your output must not duplicate an existing name.**
 * The user's `description` — a one-liner sketch: {{ description }}. This is the load-bearing input.
 * (optional) The user's `name_hint`{% if name_hint %}: {{ name_hint }}{% endif %} — if present, treat as a strong preference for the canonical `<name>` (you may polish it lightly to match the project's naming convention).
+{% comment %}
+  ORC-249 hand-back: none of `sibling_features`, `description`, or
+  `name_hint` are declared context keys for `feature_request_plan` in
+  chain.yaml — that tier's context is `project_doc`, `sysarch`,
+  `components` only — and none has an `input.<role>` mapping in
+  Catapult.Generation.ContextAssembly either, so all three render
+  blank today. This also reads as a premise mismatch, not just a
+  missing binding: this prompt's whole body is written for a
+  single-feature-add flow with no `sysarch`/`components` in scope,
+  while the tier it is now wired to (context: project_doc + sysarch +
+  components) reads like the same structural-change-scoping shape the
+  sibling flow prompts (`refactor/plan.md.liquid`,
+  `upward_propagation/plan.md.liquid`) use. Left as-is — a rewrite of
+  this prompt's premise is bigger than a variable rename and belongs
+  to whoever reconciles the tier's context with its intended shape.
+{% endcomment %}
 
 # Output contract
 

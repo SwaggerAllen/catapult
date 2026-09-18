@@ -27,12 +27,12 @@ Owning collection's private surface:
 
 Same-parent sibling leaves this one may declare dependencies on (may be
 un-articulated — treat a skeletal pubapi as not yet architected):
-{% for sib in sibling_subs %}
+{% for sib in dependency %}
 - **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
 {% endfor %}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}
