@@ -815,7 +815,8 @@ profiles.
   describe, and the loader's shape with it.** The contract is
   `bundle.md`, `chain.md` and `workflow.md`, each rule carrying an id
   and, in its `.reasons.md` sibling, the argument for it.
-  `docs/dsl/example/` is the default pair written in that grammar.
+  `bundles/default/chain.yaml` and `bundles/default-flow/workflow.yaml`
+  are the default pair written in that grammar.
   Five changes, each naming the entries it supersedes:
   1. **Each axis is one declaration file.** `chain.yaml` carries every
      tier, edge, flow and predicate; `workflow.yaml` every type, gate
@@ -874,14 +875,12 @@ profiles.
   registry is `components/substrate`'s own gate suite, rooted at the
   working directory it runs from — a task here would need
   `system:substrate` in this ticket's mutex for a registry this task
-  gains nothing from) and not a port of `docs/dsl/example/check.py`'s
-  other three jobs, which are load-time rules the loader owns once it
-  reads the grammar `docs/dsl/` states (`chain.md` #20, #21;
-  `workflow.md` #22, #23, #40; `bundle.md` #11) — reimplementing those
-  here would be a second implementation of the same load rules, which
-  is the drift this task exists to end rather than repeat.
-  `docs/dsl/example/` stays the checker's own worked example; this task
-  reads the shipped bundle, never that folder.
+  gains nothing from) and reimplements none of the load-time rules the
+  loader already owns once it reads the grammar `docs/dsl/` states
+  (`chain.md` #20, #21; `workflow.md` #22, #23, #40; `bundle.md` #11) —
+  doing so here would be a second implementation of the same load
+  rules, which is the drift this task exists to end rather than
+  repeat.
 
   The module name sits in the `Mix.Tasks` namespace, which is neither
   of the root project's two Boundary boundaries (`Catapult`,
