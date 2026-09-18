@@ -20,18 +20,18 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   flow instances themselves are `systems/engine.md`'s own
   Initial-vs-target "Target" line.
 
-  Three more reads live here, beside `ready/3` rather than as parallel
+  Two more reads live here, beside `ready/3` rather than as parallel
   implementations, because each reuses its candidate/walk machinery
   directly (`systems/engine.md`, ORC-8):
 
-    * `scope_filter` — evaluated inside `ready/3` itself. A node
-      failing its tier's `scope_filter` is not a candidate at all
-      (never appears in enumeration), distinct from appearing and
-      being not-yet-ready.
-    * `ready_review/3` — review-tier dispatch, a second and simpler
-      rule than the context walk above: a review tier has no `context:`
-      of its own to gate on (`chain.md` #14), so its readiness is
-      exactly "the reviewed tier's current draft has no review yet."
+    * `ready_review/3` — review dispatch, a second and simpler rule
+      than the context walk above: a review has no context of its own
+      to gate on beyond the tier's own effective context (`chain.md`
+      #14), so its readiness is exactly "the tier's current draft has
+      no review yet." A review is a block on the tier it reviews now,
+      not a tier of its own (`bundle.md`, `chain.md` #14), so it has no
+      name the scheduler's own `{tier, scope_key}` pairs can address
+      directly — `review_tier_name/1` gives it a synthetic one.
     * `explain/2` — "what is blocking this scope"
       (`systems/dashboard.md`'s naming), the same candidate/walk fold
       as `ready/3` replayed as a structured report instead of a
@@ -44,59 +44,80 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Dsl.Tier
   alias Catapult.Engine.Projections.ContextResolver
-  alias Catapult.Engine.Projections.PredicateEvaluator
   alias Catapult.Engine.Store
   alias Catapult.Engine.Store.Node
 
+  @review_suffix ":review"
+
+  @doc """
+  The synthetic `{tier, scope_key}` name a review of `tier_name` is
+  addressed under (`chain.md` #14): a review is a block on the tier it
+  reviews now, not a declared tier of its own, so it has no bundle name
+  the scheduler's dispatch args (`Oban`'s own uniqueness key included)
+  can use — `:` is not legal in a bundle-authored tier name
+  (`[a-z0-9_]+`), so it can never collide with a real one.
+  """
+  @spec review_tier_name(String.t()) :: String.t()
+  def review_tier_name(tier_name), do: tier_name <> @review_suffix
+
+  @doc """
+  The base tier name a synthetic review-dispatch name
+  (`review_tier_name/1`) was built from, or `nil` for a bare tier name
+  — the same reverse `Catapult.Generation.ContextAssembly` uses to
+  resolve what a dispatched `"tier"` job arg actually addresses.
+  """
+  @spec base_tier_name(String.t()) :: String.t() | nil
+  def base_tier_name(name) do
+    case String.split(name, @review_suffix) do
+      [base, ""] -> base
+      _other -> nil
+    end
+  end
+
   @doc """
   Every `(tier, scope_key)` pair for `tier_name` currently ready to
-  generate: passes the tier's `scope_filter` (if any), is not yet
-  drafted (`:absent`), and every context entry resolves to a target
-  that is itself `settled?/3` — not merely `:approved` bare, since a
-  join target reads `:approved` from the instant it mints and an
-  `all.<tier>` walk needs `drained?/3` on top of `settled?/3`, or an
-  empty tier that simply hasn't drafted yet reads as vacuously ready
-  (ORC-235, `systems/engine.md`).
+  generate: is not yet drafted (`:absent`), and every context entry
+  resolves to a target that is itself `settled?/3` — not merely
+  `:approved` bare, since a join target reads `:approved` from the
+  instant it mints and an `all.<tier>` walk needs `drained?/3` on top
+  of `settled?/3`, or an empty tier that simply hasn't drafted yet
+  reads as vacuously ready (ORC-235, `systems/engine.md`).
   """
   @spec ready(Chain.t(), binary(), String.t()) :: [Node.t()]
   def ready(%Chain{tiers: tiers} = chain, project_id, tier_name) do
-    with {:ok, tier} <- Map.fetch(tiers, tier_name), true <- generation_tier?(tier) do
+    with {:ok, tier} <- Map.fetch(tiers, tier_name), true <- Tier.kind(tier) == :generating do
       tier
       |> candidates(chain, project_id)
-      |> Enum.filter(fn node ->
-        scope_filter_passes?(chain, tier, node) and node.status == :absent and
-          ready?(chain, tier, node)
-      end)
+      |> Enum.filter(fn node -> node.status == :absent and ready?(chain, tier, node) end)
     else
       _not_a_generation_tier -> []
     end
   end
 
   @doc """
-  Review dispatch (`chain.md` #14, v5 §7.19): every node of the
-  tier `tier_name` reviews whose current draft has no review yet
-  (`Store.reviews_for_draft/1`) — fired unconditionally the cycle after
-  that draft commits, with no context walk of the review tier's own to
-  gate on. `[]` for anything that is not a review tier.
+  Review dispatch (`chain.md` #14, v5 §7.19): every node of the tier
+  `review_tier_name` names (`review_tier_name/1`'s own synthetic form)
+  whose current draft has no review yet (`Store.reviews_for_draft/1`)
+  — fired unconditionally the cycle after that draft commits, with no
+  context walk of the review's own to gate on beyond the tier's own.
+  `[]` for anything that isn't a review-carrying tier addressed this way.
   """
   @spec ready_review(Chain.t(), binary(), String.t()) :: [Node.t()]
-  def ready_review(%Chain{tiers: tiers}, project_id, tier_name) do
-    case Map.fetch(tiers, tier_name) do
-      {:ok, %Tier{reviews: reviewed}} when not is_nil(reviewed) ->
-        project_id |> Store.list_nodes(reviewed) |> Enum.filter(&unreviewed_draft?/1)
-
-      _not_a_review_tier ->
-        []
+  def ready_review(%Chain{tiers: tiers}, project_id, review_tier_name) do
+    with tier_name when not is_nil(tier_name) <- base_tier_name(review_tier_name),
+         {:ok, %Tier{review: review}} when not is_nil(review) <- Map.fetch(tiers, tier_name) do
+      project_id |> Store.list_nodes(tier_name) |> Enum.filter(&unreviewed_draft?/1)
+    else
+      _not_reviewable -> []
     end
   end
 
   @doc """
-  What is blocking `node`: whether it passes its tier's `scope_filter`,
-  and for each of its tier's context-walk entries that is not yet
-  satisfied, that walk's raw form plus its currently resolved targets
-  and their status. Reuses `ContextResolver.resolve/2` — the same
-  per-walk resolution `ready?/2` folds to a boolean — rather than
-  walking the graph a second way.
+  What is blocking `node`: for each of its tier's effective-context
+  entries (`chain.md` #20, #21) that is not yet satisfied, that walk's
+  raw form plus its currently resolved targets and their status. Reuses
+  `ContextResolver.resolve/2` — the same per-walk resolution `ready?/2`
+  folds to a boolean — rather than walking the graph a second way.
   """
   @spec explain(Chain.t(), Node.t()) :: map()
   def explain(%Chain{tiers: tiers} = chain, %Node{tier: tier_name} = node) do
@@ -105,13 +126,15 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
         %{
           tier: tier_name,
           scope_key: node.scope_key,
-          passes_scope_filter: scope_filter_passes?(chain, tier, node),
           blocking:
-            tier.context |> Enum.map(&walk_report(chain, &1, node)) |> Enum.reject(& &1.satisfied)
+            tier.effective_context
+            |> Map.values()
+            |> Enum.map(&walk_report(chain, &1, node))
+            |> Enum.reject(& &1.satisfied)
         }
 
       :error ->
-        %{tier: tier_name, scope_key: node.scope_key, passes_scope_filter: true, blocking: []}
+        %{tier: tier_name, scope_key: node.scope_key, blocking: []}
     end
   end
 
@@ -129,29 +152,13 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     end
   end
 
-  defp generation_tier?(%Tier{reviews: nil, draft: draft}), do: not is_nil(draft)
-  defp generation_tier?(%Tier{}), do: false
-
-  defp scope_filter_passes?(_chain, %Tier{scope_filter_raw: nil}, _node), do: true
-
-  defp scope_filter_passes?(chain, %Tier{scope_filter_raw: raw}, node) do
-    case Chain.resolve_predicate(chain, raw) do
-      {:ok, predicate} -> PredicateEvaluator.eval(predicate, node)
-      # Load-time validation (Chain.build/3) already rejects a
-      # scope_filter that fails to resolve; a chain that made it this
-      # far and still doesn't is excluded rather than crashing the
-      # scheduler over it.
-      {:error, _reason} -> false
-    end
-  end
-
   defp unreviewed_draft?(%Node{current_draft_id: nil}), do: false
 
   defp unreviewed_draft?(%Node{current_draft_id: draft_id}),
     do: Store.reviews_for_draft(draft_id) == []
 
   defp ready?(chain, tier, node) do
-    Enum.all?(tier.context, &walk_ready?(chain, &1, node))
+    tier.effective_context |> Map.values() |> Enum.all?(&walk_ready?(chain, &1, node))
   end
 
   defp walk_ready?(chain, walk, node) do
@@ -197,14 +204,12 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     node.status == :approved
   end
 
-  # `generator: supplied`/`generator: reference` (design_system/ref):
-  # settled unconditionally, the moment the node exists — neither has a
-  # draft anywhere in its history to be unapproved, `supplied` because
-  # its content is already final at intake and `reference` because its
-  # content is final the moment its write path writes it
+  # `generator: supplied` (design_system, and `ref` with its `source:
+  # write`): settled unconditionally, the moment the node exists — no
+  # draft anywhere in its history to be unapproved, its content already
+  # final the moment intake or the write path puts it there
   # (`systems/engine.md`'s ORC-236 entry).
-  defp tier_settled?(_chain, _project_id, %Tier{generator: generator}, _node)
-       when generator in ["supplied", "reference"] do
+  defp tier_settled?(_chain, _project_id, %Tier{generator: "supplied"}, _node) do
     true
   end
 
@@ -215,9 +220,7 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
         # `apply_mint/2`), so its absence on a join-target node is a
         # data-integrity error, not a signal to read the node as
         # settled — surfaced by log rather than by crashing the
-        # projector/sweeper process reading it, the same reason
-        # `scope_filter_passes?` excludes rather than raises on an
-        # unresolvable predicate above.
+        # projector/sweeper process reading it.
         Logger.warning(
           "node #{inspect(node.id)} (tier #{inspect(node.tier)}) has no parent_node_id, " <>
             "but its tier declares no draft: and is not generator: supplied — excluded from " <>
@@ -268,23 +271,24 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
     end
   end
 
-  # A supplied tier's population is fixed at intake, before the chain
-  # ever dispatches a single tier — there is no "not yet" state between
-  # zero and its final count for this recursion to distinguish.
-  defp tier_drained?(_chain, _project_id, %Tier{generator: "supplied", scope: {:singleton}}) do
-    true
+  # A `write`-sourced supplied tier (`ref`, `chain.md` #5, #17): never
+  # drained. An indefinite, write-path-created pool cannot tell "no
+  # more will ever be written" from "none exist yet" — `chain.md` #22
+  # refuses the two things that would ever ask this question at all (an
+  # `all.<tier>` walk against one), so this branch is never actually
+  # reached in `bundles/default`, and returning `false` here is the
+  # honest answer rather than a guess (`systems/engine.md`'s ORC-236
+  # entry).
+  defp tier_drained?(_chain, _project_id, %Tier{generator: "supplied", source_raw: "write"}) do
+    false
   end
 
-  # a `write`-sourced supplied tier (`ref`, `chain.md` #5, #17): never
-  # drained. An indefinite, write-path-created pool cannot tell "no
-  # more will ever be written" from "none exist yet" — `chain.md`
-  # #22 refuses the two things that would ever ask this question at
-  # all (an `all.<tier>` walk against one, a non-zero cardinality `min`
-  # on one), so this branch is never actually reached in
-  # `bundles/default`, and returning `false` here is the honest answer
-  # rather than a guess (`systems/engine.md`'s ORC-236 entry).
-  defp tier_drained?(_chain, _project_id, %Tier{scope: {:reference}}) do
-    false
+  # Every other supplied tier's population is fixed at intake, before
+  # the chain ever dispatches a single tier — there is no "not yet"
+  # state between zero and its final count for this recursion to
+  # distinguish.
+  defp tier_drained?(_chain, _project_id, %Tier{generator: "supplied"}) do
+    true
   end
 
   # A chain-dispatched singleton's count is exactly one once the chain

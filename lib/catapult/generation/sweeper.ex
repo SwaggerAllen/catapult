@@ -64,6 +64,7 @@ defmodule Catapult.Generation.Sweeper do
   alias Catapult.Config
   alias Catapult.Delivery
   alias Catapult.Dsl
+  alias Catapult.Dsl.ContextWalk
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
   alias Catapult.Generation.DispatchWorker
@@ -112,15 +113,15 @@ defmodule Catapult.Generation.Sweeper do
   end
 
   # `generator: supplied` (`chain.md` #8, #17) mints straight from its
-  # own pinned `input.<role>` document — no draft, no dispatch. `role`
-  # rides `generator_opts` (`Catapult.Dsl.Tier.parse_generator_opts/3`'s
-  # own `supplied` clause already resolved and validated it against
-  # `source: input.<role>` at load time), so this reads it back rather
-  # than re-parsing `source:` a second time. A role with no pinned
-  # documents yet mints nothing this tick — the ordinary "not pinned
-  # yet" case, not an error.
+  # own pinned `input.<role>` document — no draft, no dispatch. Only an
+  # `input.<role>`-sourced supplied tier mints this way (`design_system`);
+  # a `write`-sourced one (`ref`) is an outside write path's own tier and
+  # is never minted here. A role with no pinned documents yet mints
+  # nothing this tick — the ordinary "not pinned yet" case, not an error.
   defp mint_supplied(chain, project_id) do
-    for {tier_name, %{generator: "supplied", generator_opts: %{role: role}}} <- chain.tiers do
+    for {tier_name, %{generator: "supplied", source_raw: source_raw}} <- chain.tiers,
+        role = supplied_role(source_raw),
+        not is_nil(role) do
       case Delivery.get_input_documents(project_id, role) do
         [] ->
           :ok
@@ -140,23 +141,42 @@ defmodule Catapult.Generation.Sweeper do
     :ok
   end
 
-  defp sweep_tiers(chain, project_id) do
-    for {tier_name, tier} <- chain.tiers, dispatchable?(tier) do
-      for node <- ReadyScopes.ready(chain, project_id, tier_name) do
-        enqueue(project_id, tier_name, node.scope_key)
-      end
+  defp supplied_role(source_raw) do
+    case ContextWalk.parse(source_raw) do
+      {:ok, %ContextWalk{source: :input, role: role}} when is_binary(role) -> role
+      _other -> nil
+    end
+  end
 
-      for node <- ReadyScopes.ready_review(chain, project_id, tier_name) do
-        enqueue(project_id, tier_name, node.scope_key)
-      end
+  defp sweep_tiers(chain, project_id) do
+    for {tier_name, tier} <- chain.tiers do
+      if generation_dispatchable?(tier), do: sweep_generation(chain, project_id, tier_name)
+      if review_dispatchable?(tier), do: sweep_review(chain, project_id, tier_name)
     end
 
     :ok
   end
 
-  defp dispatchable?(%{reviews: reviewed}) when not is_nil(reviewed), do: true
-  defp dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft), do: true
-  defp dispatchable?(_tier), do: false
+  defp sweep_generation(chain, project_id, tier_name) do
+    for node <- ReadyScopes.ready(chain, project_id, tier_name) do
+      enqueue(project_id, tier_name, node.scope_key)
+    end
+  end
+
+  defp sweep_review(chain, project_id, tier_name) do
+    review_tier_name = ReadyScopes.review_tier_name(tier_name)
+
+    for node <- ReadyScopes.ready_review(chain, project_id, review_tier_name) do
+      enqueue(project_id, review_tier_name, node.scope_key)
+    end
+  end
+
+  defp generation_dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft),
+    do: true
+
+  defp generation_dispatchable?(_tier), do: false
+
+  defp review_dispatchable?(%{review: review}), do: not is_nil(review)
 
   defp enqueue(project_id, tier, scope_key) do
     %{project_id: project_id, tier: tier, scope_key: scope_key}

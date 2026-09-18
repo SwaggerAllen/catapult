@@ -33,7 +33,7 @@ defmodule Catapult.Engine.Projections.Staleness do
   def stale?(%Chain{tiers: tiers}, %Node{} = node) do
     case Map.fetch(tiers, node.tier) do
       :error -> false
-      {:ok, tier} -> Enum.any?(tier.context, &walk_stales?(&1, node))
+      {:ok, tier} -> tier.effective_context |> Map.values() |> Enum.any?(&walk_stales?(&1, node))
     end
   end
 
