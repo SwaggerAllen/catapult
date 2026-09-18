@@ -3,8 +3,8 @@
   The feature_request flow's planning-tier grammar. Wraps
   seed-docs/siege-prompts/propose_feature.md's single <feature> output
   contract with the plan-level <resolved/> marker this bundle's
-  completion predicate (predicates.yaml's feature_request_complete)
-  reads.
+  completion predicate (chain.yaml's `predicates:` block's
+  feature_request_complete) reads.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 

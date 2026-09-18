@@ -6,21 +6,20 @@
   seeding signals — v5 §5.3) and `<screen-collections>` (grouped by IA
   region — shared layout shell, auth context, navigation neighbourhood
   — journeys are a signal into this grouping, never a gate on it).
-  `decomposition.yaml`'s frontend_sysarch->ui_coll and
+  chain.yaml's `decomposition` edge's frontend_sysarch->ui_coll and
   frontend_sysarch->screen_coll instances mint one node per
   `<collection>` row in each block.
 
   `<ui-dependencies>`/`<screen-dependencies>` are the project-wide
-  same-tier `dependency` edges (ui_coll<->ui_coll, screen_coll<->
-  screen_coll — edges/dependency.yaml), declared here rather than
-  per-collarch for the same reason comp<->comp is declared in sysarch's
-  own draft rather than comparch's: this is the one pass that sees
-  every minted collection at once. Each `<screen-collections>/
-  <collection>`'s own `<screens>` block is the formal
-  `fulfills` `screen_coll -> screen` instance ("hosts",
-  edges/fulfills.yaml) — declared here, at mint time, since the same
-  pass that groups screens into collections is the one naming which
-  screens land in which collection.
+  same-tier `dependency` edge's instances (ui_coll<->ui_coll,
+  screen_coll<->screen_coll), declared here rather than per-collarch
+  for the same reason comp<->comp is declared in sysarch's own draft
+  rather than comparch's: this is the one pass that sees every minted
+  collection at once. Each `<screen-collections>/<collection>`'s own
+  `<screens>` block is the formal `fulfills` `screen_coll -> screen`
+  instance ("hosts", chain.yaml's `fulfills` edge) — declared here, at
+  mint time, since the same pass that groups screens into collections
+  is the one naming which screens land in which collection.
 
   `<ui-collections>/<collection>`'s own `<uses-shapes>` and
   `<screen-collections>/<collection>`'s own `<renders>`/`<calls>` are
@@ -39,7 +38,7 @@
   `<ui-dependencies>`/`<screen-dependencies>` already use for a
   same-draft target with no global id yet).
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="CompRefs">
     <xs:sequence>
@@ -51,10 +50,18 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Mints `ui_coll`, identified by `alias` (ORC-246's same fix as
+       `comp`: the retired chain.yaml declared `identity: id`, which
+       named no attribute this type actually carries). -->
   <xs:complexType name="UiCollection">
+    <xs:annotation><xs:appinfo><catapult:mints tier="ui_coll" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="uses-shapes" type="CompRefs" minOccurs="0"/>
     </xs:sequence>
     <xs:attribute name="alias" type="xs:string" use="required"/>
@@ -100,11 +107,19 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Mints `screen_coll`, identified by `alias` (same ORC-246 fix). -->
   <xs:complexType name="ScreenCollection">
+    <xs:annotation><xs:appinfo><catapult:mints tier="screen_coll" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
-      <xs:element name="ia-region" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="ia-region" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="ia_region"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="screens" type="ScreenRefs"/>
       <xs:element name="renders" type="AliasRefs" minOccurs="0"/>
       <xs:element name="calls" type="CompRefs" minOccurs="0"/>
@@ -119,9 +134,12 @@
   </xs:complexType>
 
   <xs:element name="frontend-sysarch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="introduction" type="xs:string" minOccurs="0">
+          <xs:annotation><xs:appinfo><catapult:field name="intro"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="ui-collections" type="UiCollections"/>
         <xs:element name="ui-dependencies" type="Dependencies"/>
         <xs:element name="screen-collections" type="ScreenCollections"/>

@@ -8,9 +8,9 @@
   doctrine subcomparch.xsd already carries — nothing about it is
   backend-specific), and dependencies on sibling `ui_subcomp` ids
   (the `dependency` edge's own ui_subcomp<->ui_subcomp instance,
-  edges/dependency.yaml) rather than sibling comp ids.
+  chain.yaml) rather than sibling comp ids.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Dependencies">
     <xs:sequence>
@@ -63,9 +63,12 @@
   </xs:complexType>
 
   <xs:element name="ui-subcomparch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="technical-specification" type="xs:string"/>
+        <xs:element name="technical-specification" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="role_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="public-surface" type="xs:string"/>
         <xs:element name="private-surface" type="xs:string"/>
         <xs:element name="processes" type="Processes"/>

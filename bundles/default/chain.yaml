@@ -1,0 +1,488 @@
+# The default chain bundle as one file, in the grammar `docs/dsl/
+# chain.md` states. Facts about one document live in its schema:
+# identity, fields, plain cardinality. Facts relating nodes live here.
+# A line marked `reserved:` names the consumer that will read it.
+
+name: default
+version: "1.0.0"
+kind: chain
+
+defaults:
+  # The first tiers sort and decompose rather than write prose, and a
+  # cheaper effort setting is where a decomposition loses structure.
+  executor: { effort: max }
+
+# This file names nothing in the workflow bundle. A workflow position
+# names the tiers that run at it, so which tier runs where, and in what
+# order, is read there. A review runs at the first critique position
+# after its tier's own; a reconcile block at the first reconcile
+# position.
+
+tiers:
+
+  # -- Product -----------------------------------------------------------
+
+  feature_expansion:
+    draft: { root_tag: feature-expansion }
+    scope: singleton
+    context:
+      project_doc: input.project_doc
+      mocks: input.mocks
+    review: default
+
+  non_goals:
+    draft: { root_tag: non-goals }
+    scope: singleton
+    context:
+      intake: input.*
+      non_goals: input.non_goals
+    review: default
+
+  vocab:
+    draft: { root_tag: vocab-entry }
+    scope: child_of(feature_expansion)
+    review: default
+
+  journeys:
+    scope: per(feature_expansion)
+    review: default
+
+  journey:
+    scope: child_of(journeys)
+    draft: none
+
+  screens:
+    scope: per(feature_expansion)
+    context:
+      journeys: all.journey.handle
+      mocks: input.mocks
+    review: default
+
+  screen:
+    scope: child_of(screens)
+    draft: none
+
+  requirements:
+    scope: per(feature_expansion)
+    context:
+      journeys: all.journey.handle
+      screens: all.screen.handle
+    review: default
+
+  resp:
+    scope: child_of(requirements)
+    draft: none
+
+  # -- Backend architecture ----------------------------------------------
+
+  sysarch:
+    scope: per(requirements)
+    context:
+      responsibilities: self.parent.decomposition -> resp.handle
+    review: default
+    reconcile: default
+
+  comp:
+    scope: child_of(sysarch)
+    draft: none
+    fields:
+      project_techspec: mint.parent.techspec
+      project_policies_summary: mint.parent.policies_summary
+
+  sysarch_policy:
+    scope: child_of(sysarch)
+    draft: none
+
+  non_goals_policy:
+    scope: child_of(non_goals)
+    draft: none
+
+  comparch:
+    scope: per(comp)
+    context:
+      failure_surfaces: self.parent.dependency -> comp.handle.fragments[failure_surface]
+      binding_policies: self.parent.fulfills.policy_application~ -> sysarch_policy.handle
+      citable_policies: all.sysarch_policy.handle
+      non_goal_policies: all.non_goals_policy.handle
+      vocab: all.vocab.handle
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+      policies: draft.policies
+      failure_surface: draft.failure-surface
+    review: default
+    reconcile: default
+    enforcement: []                        # reserved: enforcement profiles
+
+  subcomp:
+    scope: child_of(comparch)
+    draft: none
+    fields:
+      parent_techspec: mint.parent.techspec
+      parent_pubapi: mint.parent.pubapi
+      parent_privapi: mint.parent.privapi
+      parent_policies_summary: mint.parent.policies
+      parent_failure_surface: mint.parent.failure_surface
+
+  comparch_policy:
+    scope: child_of(comparch)
+    draft: none
+
+  subcomparch:
+    scope: per(subcomp)
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+    review: default
+
+  impl_backend:
+    scope: per(subcomp)
+    draft: { root_tag: implementation, grammar: schemas/impl.xsd }
+    prompt: prompts/impl.md.liquid
+    context:
+      features: all.feature_expansion.handle
+    review: { prompt: prompts/review/impl.md.liquid }
+
+  # -- Frontend architecture ---------------------------------------------
+
+  frontend_sysarch:
+    draft: { root_tag: frontend-sysarch }
+    scope: singleton
+    context:
+      journeys: all.journey.handle
+      screens: all.screen.handle
+      sysarch: all.sysarch.handle
+      components: all.comp.handle
+    review: default
+    reconcile: default
+
+  ui_coll:
+    scope: child_of(frontend_sysarch)
+    draft: none
+
+  screen_coll:
+    scope: child_of(frontend_sysarch)
+    draft: none
+
+  ui_collarch:
+    draft: { root_tag: ui-collarch }
+    scope: per(ui_coll)
+    context:
+      failure_surfaces: self.parent.dependency -> ui_coll.handle.fragments[failure_surface]
+      vocab: all.vocab.handle
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+      policies: draft.policies
+      failure_surface: draft.failure-surface
+    review: default
+    reconcile: default
+
+  ui_subcomp:
+    scope: child_of(ui_collarch)
+    draft: none
+    fields:
+      parent_techspec: mint.parent.techspec
+      parent_pubapi: mint.parent.pubapi
+      parent_privapi: mint.parent.privapi
+      parent_policies_summary: mint.parent.policies
+      parent_failure_surface: mint.parent.failure_surface
+
+  ui_subcomparch:
+    draft: { root_tag: ui-subcomparch }
+    scope: per(ui_subcomp)
+    context:
+      vocab: all.vocab.handle
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+    review: default
+
+  impl_ui:
+    scope: per(ui_subcomp)
+    draft: { root_tag: implementation, grammar: schemas/impl.xsd }
+    context:
+      features: all.feature_expansion.handle
+    review: default
+
+  screen_collarch:
+    draft: { root_tag: screen-collarch }
+    scope: per(screen_coll)
+    context:
+      failure_surfaces: self.parent.dependency -> screen_coll.handle.fragments[failure_surface]
+      journeys: all.journey.handle
+      vocab: all.vocab.handle
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+      policies: draft.policies
+      failure_surface: draft.failure-surface
+    review: default
+    reconcile: default
+
+  screen_subcomp:
+    scope: child_of(screen_collarch)
+    draft: none
+    fields:
+      parent_techspec: mint.parent.techspec
+      parent_pubapi: mint.parent.pubapi
+      parent_privapi: mint.parent.privapi
+      parent_policies_summary: mint.parent.policies
+      parent_failure_surface: mint.parent.failure_surface
+
+  screen_subcomparch:
+    draft: { root_tag: screen-subcomparch }
+    scope: per(screen_subcomp)
+    context:
+      vocab: all.vocab.handle
+    produces:
+      techspec: draft.technical-specification
+      pubapi: draft.public-surface
+      privapi: draft.private-surface
+    review: default
+
+  impl_screen:
+    scope: per(screen_subcomp)
+    draft: { root_tag: implementation, grammar: schemas/impl.xsd }
+    context:
+      features: all.feature_expansion.handle
+    review: default
+
+  # -- Supplied ----------------------------------------------------------
+
+  design_system:
+    generator: supplied
+    source: input.design_system
+
+  ref:
+    generator: supplied
+    source: write                          # reserved: the reference write path (ORC-236)
+
+  # -- Flow plan tiers (reserved: the flow engine) -----------------------
+
+  feature_request_plan:
+    draft: { root_tag: feature-request-plan }
+    scope: cascade_visit
+    prompt: flows/feature_request/propose.md.liquid
+    context:
+      project_doc: input.project_doc
+      sysarch: all.sysarch.handle
+      components: all.comp.handle
+
+  refactor_plan:
+    draft: { root_tag: refactor-plan }
+    scope: cascade_visit
+    prompt: flows/refactor/plan.md.liquid
+    context:
+      project_doc: input.project_doc
+      sysarch: all.sysarch.handle
+      components: all.comp.handle
+
+  bug_fix_plan:
+    draft: { root_tag: bug-fix-plan }
+    scope: cascade_visit
+    prompt: flows/bug_fix/plan.md.liquid
+    context:
+      project_doc: input.project_doc
+      components: all.comp.handle
+
+  downward_propagation_plan:
+    scope: cascade_visit
+    draft: { root_tag: propagation-plan }
+    prompt: flows/downward_propagation/plan.md.liquid
+    context:
+      project_doc: input.project_doc
+      sysarch: all.sysarch.handle
+      components: all.comp.handle
+
+  upward_propagation_plan:
+    draft: { root_tag: upward-propagation-plan }
+    scope: cascade_visit
+    prompt: flows/upward_propagation/plan.md.liquid
+    context:
+      project_doc: input.project_doc
+      sysarch: all.sysarch.handle
+      components: all.comp.handle
+
+# Edges. `context:` is the read every tier gets, by default, for each
+# instance whose source is the tier itself or its scope parent; the
+# variable is the edge name, or the instance's `as:` where two
+# instances share a source. `none` means the edge carries no context.
+
+edges:
+
+  decomposition:
+    type: fanout
+    context: none
+    instances:
+      - { source: sysarch, target: comp, declared_in: "sysarch.draft.components.component[]", when: has_foundation_child }
+      - { source: comparch, target: subcomp, declared_in: "comparch.draft.subcomponents.subcomponent[]", when: has_foundation_child }
+      - { source: feature_expansion, target: vocab, declared_in: "feature_expansion.draft.vocabulary.term[]" }
+      - { source: requirements, target: resp, declared_in: "requirements.draft.responsibility[]" }
+      - { source: sysarch, target: sysarch_policy, declared_in: "sysarch.draft.policies.policy[]" }
+      - { source: comparch, target: comparch_policy, declared_in: "comparch.draft.policies.policy[]" }
+      - { source: non_goals, target: non_goals_policy, declared_in: "non_goals.draft.candidates.candidate[]" }
+      - { source: journeys, target: journey, declared_in: "journeys.draft.journey[]" }
+      - { source: screens, target: screen, declared_in: "screens.draft.screen[]" }
+      - { source: frontend_sysarch, target: ui_coll, declared_in: "frontend_sysarch.draft.ui-collections.collection[]" }
+      - { source: frontend_sysarch, target: screen_coll, declared_in: "frontend_sysarch.draft.screen-collections.collection[]" }
+      - { source: ui_collarch, target: ui_subcomp, declared_in: "ui_collarch.draft.subcomponents.subcomponent[]" }
+      - { source: screen_collarch, target: screen_subcomp, declared_in: "screen_collarch.draft.subcomponents.subcomponent[]" }
+
+  dependency:
+    type: dependency
+    context: handle.fragments[pubapi]
+    graph_constraint: [acyclic, no_self_loop]
+    instances:
+      - { source: comp, target: comp, declared_in: "sysarch.draft.dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: subcomp, target: subcomp, declared_in: "comparch.draft.sub-dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: ui_coll, target: ui_coll, declared_in: "frontend_sysarch.draft.ui-dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: ui_subcomp, target: ui_subcomp, declared_in: "ui_collarch.draft.sub-dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: screen_coll, target: screen_coll, declared_in: "frontend_sysarch.draft.screen-dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: screen_subcomp, target: screen_subcomp, declared_in: "screen_collarch.draft.sub-dependencies.dep[]", source_ref: "@from", target_ref: "@to" }
+      - { source: ui_coll, target: design_system, declared_in: "ui_collarch.draft.primitives.design-system[]", context: handle, as: design_system }
+
+  calls:
+    type: dependency
+    context: handle.fragments[pubapi]
+    instances:
+      - { source: screen_coll, target: comp, declared_in: "frontend_sysarch.draft.screen-collections.collection[].calls.comp[]", target_ref: "@ref" }
+
+  renders:
+    type: dependency
+    context: handle.fragments[pubapi]
+    instances:
+      - { source: screen_coll, target: ui_coll, declared_in: "frontend_sysarch.draft.screen-collections.collection[].renders.dep[]", target_ref: "@to" }
+
+  uses_shapes:
+    type: dependency
+    context: handle.fragments[pubapi]
+    instances:
+      - { source: ui_coll, target: comp, declared_in: "frontend_sysarch.draft.ui-collections.collection[].uses-shapes.comp[]", target_ref: "@ref" }
+
+  fulfills:
+    type: reference
+    context: handle
+    instances:
+      - { source: comp, target: resp, declared_in: "sysarch.draft.components.component[].responsibilities.resp[]", target_ref: "@id" }
+      - { source: screen_coll, target: screen, declared_in: "frontend_sysarch.draft.screen-collections.collection[].screens.screen[]", target_ref: "@ref" }
+
+  reference:
+    type: reference
+    context: handle
+    instances:
+      - { source: comparch, target: ref, declared_in: "comparch.draft.references.reference[]", target_ref: "@target" }
+      - { source: subcomparch, target: ref, declared_in: "subcomparch.draft.references.reference[]", target_ref: "@target" }
+      - { source: impl_backend, target: ref, declared_in: "impl_backend.draft.references.reference[]", target_ref: "@target" }
+      - { source: ui_collarch, target: ref, declared_in: "ui_collarch.draft.references.reference[]", target_ref: "@target" }
+      - { source: ui_subcomparch, target: ref, declared_in: "ui_subcomparch.draft.references.reference[]", target_ref: "@target" }
+      - { source: impl_ui, target: ref, declared_in: "impl_ui.draft.references.reference[]", target_ref: "@target" }
+      - { source: screen_collarch, target: ref, declared_in: "screen_collarch.draft.references.reference[]", target_ref: "@target" }
+      - { source: screen_subcomparch, target: ref, declared_in: "screen_subcomparch.draft.references.reference[]", target_ref: "@target" }
+      - { source: impl_screen, target: ref, declared_in: "impl_screen.draft.references.reference[]", target_ref: "@target" }
+      - { source: journey, target: screen, declared_in: "screens.draft.screen[].journeys.journey[]", source_ref: "@ref", context: none }
+      - { source: resp, target: journey, declared_in: "requirements.draft.responsibility[].journeys.journey[]", target_ref: "@ref", context: none }
+      - { source: resp, target: screen, declared_in: "requirements.draft.responsibility[].screens.screen[]", target_ref: "@ref", context: none }
+      - { source: screen_coll, target: journey, declared_in: "screen_collarch.draft.journeys.journey[]", target_ref: "@ref", context: none }
+
+  navigation:
+    type: reference
+    navigation: true
+    context: none
+    instances:
+      - { source: screen, target: screen, declared_in: "screens.draft.screen[].navigation.edge[]", target_ref: "@to" }
+
+  policy_application:
+    type: policy_application
+    context: none
+    instances:
+      - { source: sysarch_policy, target: resp, declared_in: "sysarch_policy.mint.required" }
+      - { source: comparch_policy, target: comp, declared_in: "comparch_policy.mint.structural" }
+      - { source: comparch_policy, target: resp, declared_in: "comparch_policy.mint.required" }
+      - { source: non_goals_policy, target: resp, declared_in: "non_goals_policy.mint.required" }
+      - { source: comp, target: sysarch_policy, declared_in: "comparch.draft.policies.applies[]", source_ref: self.parent, target_ref: "@ref" }
+
+  plan_target:                             # reserved: the flow engine
+    type: synthesis
+    context: handle
+    instances:
+      - { source: feature_request_plan, target: [sysarch, comparch, subcomparch, impl_backend], declared_in: "feature_request_plan.cascade_target" }
+      - { source: refactor_plan, target: [sysarch, comparch, subcomparch, impl_backend], declared_in: "refactor_plan.cascade_target" }
+      - { source: bug_fix_plan, target: [comparch, subcomparch, impl_backend], declared_in: "bug_fix_plan.cascade_target" }
+      - { source: downward_propagation_plan, target: [sysarch, comparch, subcomparch, impl_backend], declared_in: "downward_propagation_plan.cascade_target" }
+      - { source: upward_propagation_plan, target: [feature_expansion, requirements, sysarch, comparch, subcomparch, impl_backend], declared_in: "upward_propagation_plan.cascade_target" }
+
+# Reserved: projection-time content invariants (fanout instance when:)
+# and flow completion, rejected at commit with a typed error. Every
+# planning tier is cascade_visit-scoped (chain.md #6) — one plan node
+# per node its flow's cascade actually visits — so completion is
+# "every visited node's plan has resolved", the universal quantifier
+# over the tier's own name as path root (chain.md #37's quantifiers).
+# `docs/dsl/example/chain.yaml`'s own predicates: block leaves these
+# five as `~` placeholders; this bundle carries the resolved
+# expressions platform_content.md's own interpretation call already
+# settled, which is the one divergence between that worked example and
+# this shipped bundle (`bundle.md`'s "if they diverge, the ticket says
+# which is wrong and why" — this bundle is right, the example is
+# illustrative and unchanged by this ticket).
+
+predicates:
+  # `docs/dsl/example/chain.yaml`'s own text for this rule
+  # ("count(decomposed_by(child) where child.is_foundation) >= 1")
+  # does not parse under this loader's grammar (chain.md #37: edge-
+  # counting is count(<edge>) <cmp> <int>; there is no
+  # decomposed_by(...) call and no where clause inside count). No
+  # predicate is commit-time typed-checked yet (that is reserved, not
+  # built by this ticket), so this is a syntactically valid placeholder
+  # for the same reserved rule rather than a working implementation of
+  # it — flagged in the hand-back as the other half of this file's
+  # divergence from the worked example.
+  has_foundation_child: "count(decomposition) >= 1"
+  feature_request_complete: all(feature_request_plan -> resolved)
+  refactor_complete: all(refactor_plan -> resolved)
+  bug_fix_complete: all(bug_fix_plan -> resolved)
+  downward_propagation_complete: all(downward_propagation_plan -> resolved)
+  upward_propagation_complete: all(upward_propagation_plan -> resolved)
+
+# Reserved: the flow engine. A flow names the workflow type it
+# dispatches into; its plan tier and plan_target edge are active in that
+# flow only. The seed flow is the whole chain with no delta.
+
+flows:
+  seed:
+    walk: full
+  feature_request:
+    delta: { tiers: [feature_request_plan], edges: [plan_target] }
+    walk: downward_cascade
+    entry: feature_expansion
+    ticket: { labels: [] }
+    completion: feature_request_complete
+  refactor:
+    delta: { tiers: [refactor_plan], edges: [plan_target] }
+    walk: downward_cascade
+    entry: sysarch
+    ticket: { labels: [] }
+    completion: refactor_complete
+  bug_fix:
+    delta: { tiers: [bug_fix_plan], edges: [plan_target] }
+    walk: downward_cascade
+    entry: impl_backend
+    ticket: { labels: [] }
+    completion: bug_fix_complete
+  downward_propagation:
+    delta: { tiers: [downward_propagation_plan], edges: [plan_target] }
+    walk: downward_cascade
+    entry: sysarch
+    ticket: { labels: [] }
+    completion: downward_propagation_complete
+  upward_propagation:
+    delta: { tiers: [upward_propagation_plan], edges: [plan_target] }
+    walk: up_then_down
+    entry: comparch
+    ticket: { labels: [] }
+    completion: upward_propagation_complete

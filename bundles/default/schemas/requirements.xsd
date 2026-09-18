@@ -5,19 +5,19 @@
   and one <feats>
   block, "nothing else — the structure is the spec" (the source
   prompt's own words). What changed is downstream: each responsibility
-  now mints a resp node (the `decomposition` edge's requirements->resp
-  instance, edges/decomposition.yaml) rather than staying a field here.
+  now mints a resp node (chain.yaml's `decomposition` edge's
+  requirements->resp instance) rather than staying a field here.
 
   ORC-109 adds two optional blocks per <responsibility>: <journeys>
   and <screens>, the resp->journey / resp->screen instances of
-  edges/reference.yaml — requirements' own integration point with the
-  product tier (v5 §4.2's "responsibilities prefer journey references
-  over screen references"; the fallback to a direct screen ref is for
-  standalone screens). <feats> is kept as the primary grounding — a
-  responsibility can be grounded in a feature with no product surface
-  yet (systems/platform_content.md's ORC-109 entry).
+  chain.yaml's `reference` edge — requirements' own integration point
+  with the product tier (v5 §4.2's "responsibilities prefer journey
+  references over screen references"; the fallback to a direct screen
+  ref is for standalone screens). <feats> is kept as the primary
+  grounding — a responsibility can be grounded in a feature with no
+  product surface yet (systems/platform_content.md's ORC-109 entry).
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Feats">
     <xs:sequence>
@@ -49,9 +49,15 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Mints `resp`. Identity placeholder (`id`) — a pre-existing gap
+       this ticket does not close, flagged in the hand-back: nothing in
+       this type's own content names a resp's identity today. -->
   <xs:complexType name="Responsibility">
+    <xs:annotation><xs:appinfo><catapult:mints tier="resp" identity="id"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="feats" type="Feats"/>
       <xs:element name="journeys" type="JourneyRefs" minOccurs="0"/>
       <xs:element name="screens" type="ScreenRefs" minOccurs="0"/>
@@ -59,9 +65,12 @@
   </xs:complexType>
 
   <xs:element name="requirements">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="introduction" type="xs:string" minOccurs="0">
+          <xs:annotation><xs:appinfo><catapult:field name="intro"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="responsibility" type="Responsibility" minOccurs="1" maxOccurs="unbounded"/>
       </xs:sequence>
     </xs:complexType>
