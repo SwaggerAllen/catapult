@@ -177,8 +177,18 @@ defmodule Catapult.Dsl.EdgeLocator do
     end
   end
 
+  # A `scope: singleton` tier, or a supplied tier (chain.md #5: "no
+  # scope at all", so it can never carry the literal scope value) —
+  # `design_system` is the concrete case: nothing else identifies which
+  # of its at-most-one nodes an instance with no explicit target_ref
+  # means, the identical shape a scope: singleton tier's own implicit
+  # resolution already covers.
   defp singleton?(side_tier, tiers) do
-    match?({:ok, %Tier{scope: {:singleton}}}, Map.fetch(tiers, side_tier))
+    case Map.fetch(tiers, side_tier) do
+      {:ok, %Tier{scope: {:singleton}}} -> true
+      {:ok, %Tier{generator: "supplied"}} -> true
+      _other -> false
+    end
   end
 
   # The (at most one, by construction — two fanout instances minting

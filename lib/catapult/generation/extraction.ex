@@ -198,11 +198,24 @@ defmodule Catapult.Generation.Extraction do
     if String.contains?(name, "_"), do: text(instance_el, String.replace(name, "_", "-"))
   end
 
+  # A join target's field sources are `fields:`'s own `mint.parent.<kind>`
+  # cross-node copies (chain.yaml-declared) plus its schema-derived own
+  # fields, each read row-local off the minting element by its actual
+  # schema tag rather than its declared name (`chain.md` #12, #32) —
+  # `Catapult.Dsl.DeclaredInSchema.mints_and_fields/2`'s own reason for
+  # keying `own_fields` by tag instead of a bare name list.
   defp tier_field_sources(%Chain{tiers: tiers}, tier_name) do
     case Map.fetch(tiers, tier_name) do
-      {:ok, %{fields: fields}} -> fields
-      :error -> %{}
+      {:ok, %{fields: fields, mint_fields: mint_fields}} ->
+        Map.merge(mint_local_sources(mint_fields), fields)
+
+      :error ->
+        %{}
     end
+  end
+
+  defp mint_local_sources(mint_fields) do
+    Map.new(mint_fields, fn {name, tag} -> {name, "mint." <> tag} end)
   end
 
   # `type: policy_application`'s two instances read a marker off the
@@ -501,23 +514,21 @@ defmodule Catapult.Generation.Extraction do
     end
   end
 
-  @doc "Every `produces:` entry whose `owner` resolves (`self`/`self.parent`) and whose `authored` source parses."
+  @doc """
+  Every `produces:` entry whose `draft_path` source parses — the owner
+  is always the scope parent now (`chain.md` #13), so this needs
+  `parent_node_id` rather than a per-entry `owner:` to resolve against.
+  """
   @spec produces(element(), [map()], binary() | nil) :: [map()]
+  def produces(_element, _produces_decls, nil), do: []
+
   def produces(element, produces_decls, parent_node_id) do
-    for %{owner_raw: owner_raw, kind: kind, authored: "draft." <> path} <- produces_decls,
-        {:ok, owner_node_id} <- [resolve_owner(owner_raw, parent_node_id)],
+    for %{kind: kind, draft_path: "draft." <> path} <- produces_decls,
         content = text(element, path),
         not is_nil(content) do
-      %{owner_node_id: owner_node_id, kind: kind, content: content}
+      %{owner_node_id: parent_node_id, kind: kind, content: content}
     end
   end
-
-  ## -- self/self.parent owner resolution --------------------------------
-
-  defp resolve_owner("self", _parent_node_id), do: {:error, :self_not_yet_known}
-  defp resolve_owner("self.parent", nil), do: {:error, :no_parent}
-  defp resolve_owner("self.parent", parent_node_id), do: {:ok, parent_node_id}
-  defp resolve_owner(_other, _parent_node_id), do: {:error, :unsupported}
 
   ## -- declared_in path parsing -------------------------------------------
 
@@ -610,7 +621,7 @@ defmodule Catapult.Generation.Extraction do
 
   defp mint_status(%{tiers: tiers}, tier_name) do
     case Map.fetch(tiers, tier_name) do
-      {:ok, %{draft: nil}} -> :approved
+      {:ok, %{draft: :none}} -> :approved
       _other -> :absent
     end
   end

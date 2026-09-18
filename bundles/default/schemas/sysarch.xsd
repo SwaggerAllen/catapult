@@ -17,7 +17,7 @@
   grains on one policy. New relative to siege's <required>-only
   grammar (v5 §4.5's third grain).
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Techspec">
     <xs:sequence>
@@ -53,14 +53,24 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- `chain.md` #32: this type mints `comp`, identified by its own
+       `alias` attribute (ORC-246) — `name`/`purpose`/`is_foundation`
+       are `comp`'s own fields, read row-local off this same element
+       at mint time (`mint.<tag>`, never `mint.parent.*`). -->
   <xs:complexType name="Component">
+    <xs:annotation><xs:appinfo><catapult:mints tier="comp" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="owned-invariants" type="Invariants"/>
       <xs:element name="primary-operations" type="Operations"/>
       <xs:element name="responsibilities" type="RespRefs"/>
       <xs:element name="foundation" minOccurs="0" maxOccurs="1">
+        <xs:annotation><xs:appinfo><catapult:field name="is_foundation"/></xs:appinfo></xs:annotation>
         <xs:complexType/>
       </xs:element>
     </xs:sequence>
@@ -73,17 +83,30 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Mints `sysarch_policy`. No natural identity attribute exists on
+       this content yet (a pre-existing gap this ticket does not close
+       — see the hand-back); `id` names the same placeholder
+       `chain.yaml`'s retired declaration already carried. -->
   <xs:complexType name="Policy">
+    <xs:annotation><xs:appinfo><catapult:mints tier="sysarch_policy" identity="id"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="trigger" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="trigger" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="trigger"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:choice minOccurs="0" maxOccurs="1">
-        <xs:element name="required" type="xs:string"/>
+        <xs:element name="required" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="required"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="structural">
           <xs:complexType/>
         </xs:element>
       </xs:choice>
-      <xs:element name="rationale" type="xs:string"/>
+      <xs:element name="rationale" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="rationale"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <!-- ORC-108, v5 §4.5: an argued deferral is the same policy
            shape carrying a revisit condition ("never, argued" / "not
            until X" are values of this one field, never two shapes).
@@ -110,10 +133,15 @@
   </xs:complexType>
 
   <xs:element name="sysarch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
-        <xs:element name="techspec" type="Techspec"/>
+        <xs:element name="introduction" type="xs:string" minOccurs="0">
+          <xs:annotation><xs:appinfo><catapult:field name="intro"/></xs:appinfo></xs:annotation>
+        </xs:element>
+        <xs:element name="techspec" type="Techspec">
+          <xs:annotation><xs:appinfo><catapult:field name="techspec"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="components" type="Components"/>
         <xs:element name="policies" type="Policies"/>
         <!-- ORC-236: a plain-string summary of this project's
@@ -121,7 +149,9 @@
              `project_policies_summary` (`mint.parent.policies_summary`,
              `chain.md` #12) — the identical mechanism
              `techspec` already rides for `project_techspec`. -->
-        <xs:element name="policies-summary" type="xs:string"/>
+        <xs:element name="policies-summary" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="policies_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="dependencies" type="Dependencies"/>
       </xs:sequence>
     </xs:complexType>

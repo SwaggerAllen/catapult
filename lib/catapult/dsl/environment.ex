@@ -1,68 +1,49 @@
 defmodule Catapult.Dsl.Environment do
   @moduledoc """
-  One `environments/<env>.yaml` declaration (`workflow.md` #39): a
-  deployment environment — which environments exist and what promotion
-  into one requires, never endpoints, credentials or hostnames (those
-  are plane bindings, v5 §7.10's store test).
+  One `environments.<name>` entry of `workflow.yaml` (`workflow.md`
+  #39): a deployment environment and what promotion into it requires —
+  never endpoints, credentials or hostnames (those are plane bindings).
 
   Position is not part of this declaration: a citing type's own
   `statuses:` array places its `environment:` entry wherever the
-  author wants it to run, ahead of the `deploy:` entry it configures
-  (§15.5).
+  author wants it to run, ahead of the `deploy:` entry it configures.
 
   Structural parsing only; `promote_from:` resolving to a declared
-  environment (with its chain acyclic) is `Catapult.Dsl.Workflow`'s
-  job.
+  environment (with its chain acyclic) is `Catapult.Dsl.Workflow`'s job.
   """
 
   alias Catapult.Dsl.Fields
 
-  @enforce_keys [:name, :file]
-  defstruct [:name, :file, :promote_from, depth: 0, lifetime: "persistent"]
+  @enforce_keys [:name]
+  defstruct [:name, :promote_from, lifetime: "persistent"]
 
-  @type t :: %__MODULE__{
-          name: String.t(),
-          file: String.t(),
-          promote_from: String.t() | nil,
-          depth: Fields.depth(),
-          lifetime: String.t()
-        }
+  @type t :: %__MODULE__{name: String.t(), promote_from: String.t() | nil, lifetime: String.t()}
 
   @lifetimes ~w(persistent per_ticket)
-  @core_keys ~w(environment promote_from depth lifetime)
+  @core_keys ~w(promote_from lifetime)
 
-  @doc "Parses one environment declaration from its YAML map."
+  @doc "Parses one `environments.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
-  def parse(file, %{} = raw) do
-    where = "environment declaration #{file}"
-    {name, name_problems} = Fields.require_string(raw, "environment", where)
-    env_where = if name, do: "environment #{inspect(name)} (#{file})", else: where
+  def parse(name, %{} = raw) do
+    where = "environment #{inspect(name)}"
 
-    {promote_from, pf_problems} = Fields.optional_string(raw, "promote_from", env_where)
-    {depth, depth_problems} = Fields.depth(raw, env_where)
+    {promote_from, pf_problems} = Fields.optional_string(raw, "promote_from", where)
 
     {lifetime, lifetime_problems} =
-      Fields.optional_one_of(raw, "lifetime", @lifetimes, env_where, "persistent")
+      Fields.optional_one_of(raw, "lifetime", @lifetimes, where, "persistent")
 
-    unknown = Fields.unknown_keys(raw, @core_keys, env_where)
+    unknown = Fields.unknown_keys(raw, @core_keys, where)
 
-    problems = name_problems ++ pf_problems ++ depth_problems ++ lifetime_problems ++ unknown
+    problems = pf_problems ++ lifetime_problems ++ unknown
 
     if problems == [] do
-      {:ok,
-       %__MODULE__{
-         name: name,
-         file: file,
-         promote_from: promote_from,
-         depth: depth,
-         lifetime: lifetime
-       }}
+      {:ok, %__MODULE__{name: name, promote_from: promote_from, lifetime: lifetime}}
     else
       {:error, problems}
     end
   end
 
-  def parse(file, other) do
-    {:error, ["environment declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
+  def parse(name, other) do
+    {:error, ["environment #{inspect(name)} is #{inspect(other)}, expected a YAML mapping"]}
   end
 end

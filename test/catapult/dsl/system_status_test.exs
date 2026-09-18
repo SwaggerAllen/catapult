@@ -3,15 +3,11 @@ defmodule Catapult.Dsl.SystemStatusTest do
 
   alias Catapult.Dsl.SystemStatus
 
-  test "the nineteen fixed kinds, workflow.md #10's order (ORC-151: implementation and " <>
-         "reconcile join, fanout retires)" do
+  test "the sixteen fixed kinds, workflow.md #10's order (#45.4: design/architecture/" <>
+         "implementation return as name: values, pending leaves the table)" do
     assert SystemStatus.kinds() == [
              :backlog,
-             :pending,
              :generation,
-             :design,
-             :architecture,
-             :implementation,
              :critique,
              :checks,
              :reconcile,
@@ -36,20 +32,11 @@ defmodule Catapult.Dsl.SystemStatusTest do
     assert SystemStatus.agent_balled?("reconcile")
   end
 
-  test "a pending precedes every generation-shaped kind and every deploy" do
-    assert SystemStatus.pending_precedes?(:generation)
-    assert SystemStatus.pending_precedes?(:design)
-    assert SystemStatus.pending_precedes?(:architecture)
-    assert SystemStatus.pending_precedes?(:implementation)
-    assert SystemStatus.pending_precedes?(:deploy)
-    refute SystemStatus.pending_precedes?(:checks)
-  end
-
-  test "generation, design, architecture and implementation are the generation-shaped kinds" do
+  test "generation is the one generation-shaped kind" do
     assert SystemStatus.generation_shaped?("generation")
-    assert SystemStatus.generation_shaped?("design")
-    assert SystemStatus.generation_shaped?("architecture")
-    assert SystemStatus.generation_shaped?("implementation")
+    refute SystemStatus.generation_shaped?("design")
+    refute SystemStatus.generation_shaped?("architecture")
+    refute SystemStatus.generation_shaped?("implementation")
     refute SystemStatus.generation_shaped?("critique")
     refute SystemStatus.generation_shaped?("merge")
   end
@@ -80,5 +67,12 @@ defmodule Catapult.Dsl.SystemStatusTest do
            ]
 
     refute SystemStatus.agent_step?(:boundary)
+  end
+
+  test "blocked?/1 reads the atom or the bundle string" do
+    assert SystemStatus.blocked?(:blocked)
+    assert SystemStatus.blocked?("blocked")
+    refute SystemStatus.blocked?(:merge)
+    refute SystemStatus.blocked?("merge")
   end
 end

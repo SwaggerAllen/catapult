@@ -35,8 +35,4 @@ defmodule Catapult.Dsl.Yaml do
   rescue
     exception -> {:error, "#{path} could not be parsed: #{Exception.message(exception)}"}
   end
-
-  @doc "Every file matching `glob` under `root`, sorted for reproducible load order."
-  @spec glob(String.t(), String.t()) :: [String.t()]
-  def glob(root, glob), do: root |> Path.join(glob) |> Path.wildcard() |> Enum.sort()
 end

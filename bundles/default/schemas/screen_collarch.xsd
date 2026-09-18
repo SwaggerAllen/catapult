@@ -4,7 +4,7 @@
   the same way ui_collarch.xsd does, with the backend-specific
   machinery dropped (no `<permissions>`/`<enforcement>`, no `<owns>`
   resp/feat claims — a screen collection fulfills no resp either, its
-  `fulfills` edge targets `screen`, edges/fulfills.yaml). No
+  `fulfills` edge targets `screen`, chain.yaml). No
   `<renders>`/`<dependencies>` elements: those carried the `renders`
   edge's UI-collection targets and the `calls` edge's backend-comp
   targets respectively — screen collections own all `calls` edges (v5
@@ -21,7 +21,7 @@
   (schemas/frontend_sysarch.xsd), since the pass that groups screens
   into collections is the one that names them.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Invariants">
     <xs:sequence>
@@ -70,10 +70,16 @@
     <xs:attribute name="grade" type="ImplementationGrade" use="required"/>
   </xs:complexType>
 
+  <!-- Mints `screen_subcomp`, identified by `alias`. -->
   <xs:complexType name="Subcomponent">
+    <xs:annotation><xs:appinfo><catapult:mints tier="screen_subcomp" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="owned-invariants" type="Invariants"/>
       <xs:element name="primary-operations" type="Operations"/>
       <xs:element name="responsibilities" type="xs:string"/>
@@ -110,6 +116,7 @@
   </xs:complexType>
 
   <xs:element name="screen-collarch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>
@@ -118,7 +125,9 @@
         <xs:element name="failure-surface" type="xs:string"/>
         <xs:element name="policies" type="xs:string"/>
         <xs:element name="journeys" type="JourneyRefs" minOccurs="0"/>
-        <xs:element name="subcomponents" type="Subcomponents"/>
+        <xs:element name="subcomponents" type="Subcomponents">
+          <xs:annotation><xs:appinfo><catapult:field name="decomposition_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="sub-dependencies" type="SubDependencies"/>
         <xs:element name="references" type="References" minOccurs="0"/>
       </xs:sequence>

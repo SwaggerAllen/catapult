@@ -113,22 +113,18 @@ defmodule Catapult.Generation.ExtractionTest do
   end
 
   describe "produces/3" do
-    test "resolves self.parent owners and skips self (unresolvable before the node exists)" do
+    test "resolves onto the scope parent (chain.md #13: the owner is always the scope parent)" do
       element = scan!("<comparch><techspec>The spec.</techspec></comparch>")
-
-      decls = [
-        %{owner_raw: "self.parent", kind: "techspec", authored: "draft.techspec"},
-        %{owner_raw: "self", kind: "techspec", authored: "draft.techspec"}
-      ]
+      decls = [%{kind: "techspec", draft_path: "draft.techspec"}]
 
       assert Extraction.produces(element, decls, "parent-1") == [
                %{owner_node_id: "parent-1", kind: "techspec", content: "The spec."}
              ]
     end
 
-    test "self.parent with no parent produces nothing" do
+    test "no parent_node_id produces nothing" do
       element = scan!("<comparch><techspec>x</techspec></comparch>")
-      decls = [%{owner_raw: "self.parent", kind: "techspec", authored: "draft.techspec"}]
+      decls = [%{kind: "techspec", draft_path: "draft.techspec"}]
       assert Extraction.produces(element, decls, nil) == []
     end
   end

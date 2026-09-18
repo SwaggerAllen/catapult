@@ -1,77 +1,29 @@
 defmodule Catapult.Dsl.SystemStatus do
   @moduledoc """
   The platform-fixed vocabulary both bundle axes reference and neither
-  declares (`workflow.md` #10, v5 §7.18-§7.19): the system-status
-  kinds and the five fixed agent steps. Referenced by a chain's
-  `delivery:` block (`phase:` against `kinds/0`, `agent_step:` against
-  `agent_steps/0`) and by a workflow's `types/<name>.yaml` `statuses:`
-  array (§15.1-§15.2), which positions everything by array index
-  rather than by a named predecessor (§15.3).
+  declares (`workflow.md` #10, v5 §7.18-§7.19): sixteen system-status
+  kinds and the five fixed agent steps. Referenced by a workflow's
+  `types.<name>` `statuses:` array, which positions everything by array
+  index rather than by a named predecessor.
 
-  Not declarable by either axis (`workflow.md` #10) — that is what
-  lets a blocked ticket re-resolve against these anchors across a
-  workflow cutover (v5 §7.19) — so this module is a closed constant
-  table, never a registry.
+  Not declarable by either axis — that is what lets a blocked ticket
+  re-resolve against these anchors across a workflow cutover (v5
+  §7.19) — so this module is a closed constant table, never a registry.
 
-  **`:design` and `:architecture` join `:generation` as named
-  generation-shaped kinds, at ORC-148's design review** (§15.1): both
-  are agent-balled, `pending`-preceded, blocked-exit-required,
-  critique-pairable and sub-array-anchor-eligible everywhere
-  `:generation` itself is — `generation_shaped?/1` is the one place
-  that set is named, rather than repeating the three-atom list at every
-  call site. Plain `:generation` is unaffected and stays correct for a
-  type with one generation-shaped visit.
-
-  **`:implementation` joins the generation-shaped set, and `:reconcile`
-  joins the fixed table as the second review-shaped kind, at ORC-151's
-  design review** (§15.1, §15.11): `:reconcile` is the kind
-  `agent_steps/0`'s own `:reconcile` step has carried since Phase 3
-  with no matching `phase:` to declare it against — `docs/v5
-  -design-decisions.md` §7.5's "reads the child PR against the child's
-  argument" — and `:merge`'s own `ball` changes from `:agent` to
-  `:plane` in the same pass: a mechanical join effected by the plane
-  once `:reconcile` approves needs no agent dispatch. `review_shaped?/1`
-  is the sibling `generation_shaped?/1` set: `:critique` and
-  `:reconcile` each review an entry rather than standing as one, which
-  is what makes `:merge` leave the agent-balled set (§15.10's sub-array
-  anchor rule) without a name check ever being added for it —
-  `Catapult.Delivery.ContainerLifecycle.inline_dispatch_point?/1`'s own
-  `status != "merge"` clause, filed as a finding against itself at
-  ORC-148, is retired along with the exception it existed to carry.
-
-  **`:fanout` retires, at the same design review** (§15.1): it named a
-  status no tier's `delivery:` ever actually dispatched from — the
-  shipped default bundle's own `types/feature.yaml` had already dropped
-  the anchor before this pass. The edge type of the identical name
-  (`Catapult.Dsl.Edge`'s `@types`) is untouched; this is a retirement of
-  the status kind alone.
-
-  **Renamed from `queue` to `pending`, at ORC-104's dev pass** (§15.1):
-  a single work item's own wait-for-dispatch status and a container's
-  own named queue position used to share one word; once both could
-  appear in the same declared array, the collision stopped being
-  theoretical. `pending` keeps the fixed-vocabulary meaning exactly —
-  "committed, awaiting dispatch capacity" — freeing "queue" for the
-  sense the rest of `workflow.md` needs it in.
-
-  **`:boundary` retired from `agent_step/0`, at the same pass** (§15.1,
-  `systems/core_dsl.md`): it used to name "the milestone pass" as a
-  single static agent step, but no tier's `delivery:` ever actually
-  named it — a container's progress is a declared sequence of queues
-  (§15.2-§15.8), not one fixed pass. The work it stood in for —
-  `retro`'s backward-looking pass and a nested container's own
-  forward-looking `setup` — dispatches as an ordinary flow instance
-  through a queue's declared `flow:`, needing no reserved slot here.
+  **`design`, `architecture` and `implementation` stop being kinds**
+  (`systems/core_dsl.md`'s #45.4): they return as `name:` values on
+  `generation` entries, so `generation` is the one generation-shaped
+  kind. **`pending` leaves the table altogether** (`workflow.md` #25):
+  it is an engine-set flag every agent-balled position carries until an
+  agent picks the work up, never a declared entry, so there is nothing
+  here — and nothing in `Catapult.Dsl.Workflow` — checking a `pending`
+  predecessor any more.
   """
 
   @typedoc "One of the fixed system-status kinds."
   @type kind ::
           :backlog
-          | :pending
           | :generation
-          | :design
-          | :architecture
-          | :implementation
           | :critique
           | :checks
           | :reconcile
@@ -90,16 +42,12 @@ defmodule Catapult.Dsl.SystemStatus do
   @typedoc "Who holds the ball while a ticket sits at a status of this kind."
   @type ball :: :author | :plane | :agent | :world | :varies
 
-  @typedoc "One of the five fixed agent steps a chain's `delivery.agent_step` may name."
+  @typedoc "One of the five fixed agent steps a chain's tier may run as."
   @type agent_step :: :design | :dev | :critique | :reconcile | :validate
 
   @statuses [
     {:backlog, :author},
-    {:pending, :plane},
     {:generation, :agent},
-    {:design, :agent},
-    {:architecture, :agent},
-    {:implementation, :agent},
     {:critique, :agent},
     {:checks, :world},
     {:reconcile, :agent},
@@ -133,31 +81,20 @@ defmodule Catapult.Dsl.SystemStatus do
   @agent_balled_names for {kind, :agent} <- @statuses, do: Atom.to_string(kind)
 
   @doc """
-  Whether the status *name* `name` is agent-balled — §15.1's `ball`
-  column reading `agent`, as a string, since a `statuses:` array entry
-  carries a bundle-authored string rather than one of this module's
-  atoms (`Catapult.Dsl.Fields`'s no-`to_atom`-on-bundle-content
-  discipline).
-
-  This is the raw ball column and nothing more. `workflow.md` #6's
-  sub-array anchor rule wants the *non-review-shaped* agent-balled
-  entries; that exclusion is drawn at its own call site, where §15.5's
-  reason for drawing it is written down, rather than folded in here
-  where a reader would have to guess which of the two questions this
-  answers.
+  Whether the status *name* `name` is agent-balled — `workflow.md`
+  #10's `ball` column reading `agent`, as a string, since a `statuses:`
+  array entry carries a bundle-authored string rather than one of this
+  module's atoms.
   """
   @spec agent_balled?(String.t()) :: boolean()
   def agent_balled?(name) when is_binary(name), do: name in @agent_balled_names
 
-  @generation_shaped_names ~w(generation design architecture implementation)
+  @generation_shaped_names ~w(generation)
 
   @doc """
-  Whether the status *name* `name` is generation-shaped —
-  `generation`, `design`, `architecture` or `implementation`
-  (`workflow.md` #10): the set every rule needing "a generation-shaped
-  entry" reads (backbone membership, `pending`-precedes, blocked-exit,
-  critique pairing, sub-array agent-balled counting), named once here
-  rather than at every call site.
+  Whether the status *name* `name` is generation-shaped — `generation`
+  alone (`workflow.md` #10): named once here rather than at every call
+  site that needs "an agent writes here."
   """
   @spec generation_shaped?(String.t()) :: boolean()
   def generation_shaped?(name) when is_binary(name), do: name in @generation_shaped_names
@@ -166,16 +103,13 @@ defmodule Catapult.Dsl.SystemStatus do
 
   @doc """
   Whether the status *name* `name` is review-shaped — `critique` or
-  `reconcile` (`workflow.md` #10, added at ORC-151): an agent run
-  judging an artifact that already exists, rather than originating one.
-  This is `generation_shaped?/1`'s sibling category, and the set
-  §15.10's sub-array anchor rule excludes from its own one-required
-  count — each reviews an entry rather than standing as one.
+  `reconcile` (`workflow.md` #10): an agent run judging an artifact
+  that already exists, rather than originating one.
   """
   @spec review_shaped?(String.t()) :: boolean()
   def review_shaped?(name) when is_binary(name), do: name in @review_shaped_names
 
-  @doc "The five fixed agent steps a chain's `delivery.agent_step` may name."
+  @doc "The five fixed agent steps a chain's tier may run as."
   @spec agent_steps() :: [agent_step()]
   def agent_steps, do: @agent_steps
 
@@ -184,41 +118,15 @@ defmodule Catapult.Dsl.SystemStatus do
   def agent_step?(name), do: name in @agent_steps
 
   @doc """
-  A `pending` precedes every generation-shaped kind
-  (`generation`/`design`/`architecture`/`implementation`) and every
-  `deploy` (`workflow.md` #12; `pending` is an engine flag under
-  #25) — a structural fact about the fixed skeleton, not something any bundle declares, so it is a
-  constant rather than a check over bundle content.
-  """
-  @spec pending_precedes?(kind()) :: boolean()
-  def pending_precedes?(kind),
-    do: kind in [:generation, :design, :architecture, :implementation, :deploy]
-
-  @doc """
   Every non-terminal status can be kicked to `:blocked` (v5 §7.19: "the
   automation kicks tickets into it" — a plane rule, not declared data).
-  This is what makes "every generation status has at least one blocked
-  exit" (`workflow.md` #12) a fact about the fixed skeleton rather than
-  about any one workflow bundle; see `Catapult.Dsl.Workflow` for where
-  that invariant is exercised at load time.
   """
   @spec can_block?(kind()) :: boolean()
   def can_block?(:terminal), do: false
   def can_block?(:blocked), do: false
   def can_block?(kind) when is_atom(kind), do: kind?(kind)
 
-  @doc """
-  Whether `name` — the atom a `position()` tuple carries or the bundle
-  string a projection column stores — names the fixed `:blocked` kind
-  (`systems/dashboard.md`'s ORC-116 entry). Blocked is a real orthogonal
-  flavor rather than an array position, so a screen branching on it is
-  correct; comparing against the literal atom or string inline, at four
-  call sites each writing the identical comparison its own way, is the
-  form ORC-151 already named as the thing to stop doing — a sixth
-  predicate here, beside `ball/1`, `agent_balled?/1`,
-  `generation_shaped?/1`, `review_shaped?/1` and `can_block?/1`, is
-  where a screen wanting this distinction grows it instead.
-  """
+  @doc "Whether `name` — an atom or the bundle string a projection column stores — names the fixed `:blocked` kind."
   @spec blocked?(term()) :: boolean()
   def blocked?(:blocked), do: true
   def blocked?("blocked"), do: true

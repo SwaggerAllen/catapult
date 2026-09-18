@@ -9,15 +9,17 @@ defmodule Catapult.Delivery.DraftResolutionTest do
   the decision directly against a real loaded workflow and real node
   rows; `handle/2` around it is the thin part.
 
-  Loads the shipped `bundles/default-flow`, whose `types/feature.yaml`
-  is the worked example this module's own moduledoc argues from:
-  `ux-review` then `engineering-review`, both citing the same leading
-  sub-array.
+  Loads the shipped `bundles/default-flow`, whose `milestone` type is
+  the worked example this module's own moduledoc argues from:
+  `milestone-signoff` then `proposals-read`, both citing the same
+  leading sub-array (`retro`'s own group — `workflow.yaml`'s
+  `[review: milestone-signoff, status: retro, review: proposals-read]`).
   """
 
   use Catapult.DataCase, async: true
 
   alias Catapult.Delivery.DraftResolution
+  alias Catapult.Dsl
   alias Catapult.Dsl.Workflow
   alias Catapult.Engine.Commands.ApproveDraft
   alias Catapult.Engine.Commands.DiscardDraft
@@ -28,7 +30,7 @@ defmodule Catapult.Delivery.DraftResolutionTest do
   @project "draft-resolution-project"
 
   setup do
-    assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+    assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
     %{workflow: workflow}
   end
 
@@ -37,7 +39,7 @@ defmodule Catapult.Delivery.DraftResolutionTest do
       project_id: @project,
       flow_id: "flow-1",
       entry_node_id: entry_node_id,
-      flow_name: "feature"
+      flow_name: "milestone"
     }
   end
 
@@ -60,7 +62,7 @@ defmodule Catapult.Delivery.DraftResolutionTest do
       event = %GateApproved{
         project_id: @project,
         flow_id: "flow-1",
-        gate: "ux-review",
+        gate: "milestone-signoff",
         actor_id: "human-1"
       }
 
@@ -74,7 +76,7 @@ defmodule Catapult.Delivery.DraftResolutionTest do
       event = %GateApproved{
         project_id: @project,
         flow_id: "flow-1",
-        gate: "engineering-review",
+        gate: "proposals-read",
         actor_id: "human-1"
       }
 
@@ -93,7 +95,7 @@ defmodule Catapult.Delivery.DraftResolutionTest do
       event = %GateApproved{
         project_id: @project,
         flow_id: "flow-1",
-        gate: "engineering-review",
+        gate: "proposals-read",
         actor_id: "human-1"
       }
 
@@ -110,8 +112,8 @@ defmodule Catapult.Delivery.DraftResolutionTest do
       event = %GateDeclined{
         project_id: @project,
         flow_id: "flow-1",
-        gate: "ux-review",
-        throwback_to: "pending",
+        gate: "milestone-signoff",
+        throwback_to: "main",
         since_sequence: nil,
         actor_id: "human-2"
       }

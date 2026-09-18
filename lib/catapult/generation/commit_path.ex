@@ -23,6 +23,7 @@ defmodule Catapult.Generation.CommitPath do
   alias Catapult.Dsl
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.RecordRunFailure
+  alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Router
   alias Catapult.Engine.Store
   alias Catapult.Generation.Extraction
@@ -32,13 +33,18 @@ defmodule Catapult.Generation.CommitPath do
   def handle_result(%{status: :other_failure}), do: :ok
   def handle_result(%{status: :success} = payload), do: commit(payload)
 
+  # Platform-wide (`chain.md` #14): every review body validates against
+  # the one shared schema, never a per-tier restatement of the identical
+  # grammar the way seventeen separate review tiers each used to.
+  @review_grammar "schemas/review.xsd"
+
   defp commit(%{body: body} = payload) when is_binary(body) do
     with {:ok, loaded} <- load_bundle(),
-         {:ok, tier} <- fetch_tier(loaded.chain, payload.tier) do
-      if review_tier?(tier) do
-        commit_review(loaded.chain, tier, payload)
-      else
-        commit_draft(loaded.chain, tier, payload)
+         {:ok, base_tier_name, mode} <- resolve_dispatch_tier(payload.tier),
+         {:ok, tier} <- fetch_tier(loaded.chain, base_tier_name) do
+      case mode do
+        :review -> commit_review(loaded.chain, tier, payload)
+        :generation -> commit_draft(loaded.chain, tier, payload)
       end
     end
   end
@@ -65,15 +71,18 @@ defmodule Catapult.Generation.CommitPath do
       end
 
       # A minted node's fields are set once, at mint time
-      # (`Reducer.apply_mint/2`); its own committed draft only ever adds
-      # `draft.<path>`-sourced values (`Extraction.fields/2` skips every
-      # other source), so merging rather than replacing is what keeps a
-      # tier that is both a mint target and a draft-committer (`vocab`,
-      # the one tier in `bundles/default` that is both) from losing its
+      # (`Reducer.apply_mint/2`, off `tier.mint_fields`); its own
+      # committed draft only ever adds `tier.draft_fields`-sourced
+      # values, so merging rather than replacing is what keeps a tier
+      # that is both a mint target and a draft-committer (`vocab`, the
+      # one tier in `bundles/default` that is both) from losing its
       # mint-set fields the moment its own draft commits
       # (`systems/engine.md`'s ORC-236 entry).
       own_fields =
-        Map.merge((node && node.fields) || %{}, Extraction.fields(element, tier.fields))
+        Map.merge(
+          (node && node.fields) || %{},
+          Extraction.fields(element, draft_field_sources(tier))
+        )
 
       own_produces = Extraction.produces(element, tier.produces, parent_node_id)
       own_produces_by_kind = Map.new(own_produces, &{&1.kind, &1.content})
@@ -132,9 +141,9 @@ defmodule Catapult.Generation.CommitPath do
 
   ## -- review-tier commit ---------------------------------------------
 
-  defp commit_review(chain, tier, payload) do
+  defp commit_review(chain, _tier, payload) do
     with :ok <-
-           Dsl.validate_draft(bundles_root(), chain.name, "review", tier.grammar, payload.body),
+           Dsl.validate_draft(bundles_root(), chain.name, "review", @review_grammar, payload.body),
          {element, _rest} <- :xmerl_scan.string(String.to_charlist(payload.body)),
          {:ok, node} <- fetch_node(payload.project_id, payload.node_id),
          draft_id when is_binary(draft_id) <- node.current_draft_id || {:error, :no_pending_draft} do
@@ -187,10 +196,26 @@ defmodule Catapult.Generation.CommitPath do
 
   ## -- shared -----------------------------------------------------------
 
+  # `tier.draft_fields` is `name => tag`, read off this same commit
+  # (`Catapult.Dsl.DeclaredInSchema.mints_and_fields/2`); `Extraction
+  # .fields/2` expects `name => "draft.<tag>"`.
+  defp draft_field_sources(%{draft_fields: draft_fields}) do
+    Map.new(draft_fields, fn {name, tag} -> {name, "draft." <> tag} end)
+  end
+
   defp load_bundle, do: Dsl.load(Config.fetch!(:generation, :bundles_root))
   defp bundles_root, do: Config.fetch!(:generation, :bundles_root) |> Path.join("bundles")
   defp clock, do: Config.fetch!(:generation, :clock)
-  defp review_tier?(%{reviews: reviewed}), do: not is_nil(reviewed)
+
+  # A review is a block on the tier it reviews now, not a tier of its
+  # own (`chain.md` #14) — `ReadyScopes.base_tier_name/1` reverses the
+  # dispatched `payload.tier` back to the tier it addresses.
+  defp resolve_dispatch_tier(dispatched_name) do
+    case ReadyScopes.base_tier_name(dispatched_name) do
+      nil -> {:ok, dispatched_name, :generation}
+      base -> {:ok, base, :review}
+    end
+  end
 
   defp fetch_tier(%{tiers: tiers}, tier_name) do
     case Map.fetch(tiers, tier_name) do

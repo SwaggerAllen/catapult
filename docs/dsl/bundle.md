@@ -96,4 +96,8 @@ lands.
   800 lines including comments with comments at most a fifth of that,
   `bundles/default-flow/workflow.yaml` at most 240, and both read in
   thirty minutes. A change that breaks the bound is a design change,
-  reviewed as one.
+  reviewed as one. `mix catapult.bundle.check` loads the shipped pair
+  through the ordinary loader path and then measures both files
+  against this bound, red on either file exceeding it or failing to
+  load at all — a PR check, not only a reviewer's read
+  (`systems/core_dsl.md`'s own entry on the task).

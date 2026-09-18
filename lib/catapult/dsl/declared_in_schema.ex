@@ -33,10 +33,10 @@ defmodule Catapult.Dsl.DeclaredInSchema do
   load over an unresolvable segment would make this walk's own
   coverage gap the bundle author's problem, so it passes through
   unverified instead. A `declared_in` value that never reaches
-  `<tier>.draft.<rest>` at all — `edges/policy_application.yaml`'s
-  mint-time `policy.structural`/`policy.required`, `edges/
-  plan_target.yaml`'s `<plan-tier>.cascade_target` — is the same kind
-  of unresolvable, and is never walked; the schema has nothing to say
+  `<tier>.draft.<rest>` at all — the `policy_application` edge's
+  mint-time `policy.structural`/`policy.required`, the `plan_target`
+  edge's `<plan-tier>.cascade_target` — is the same kind of
+  unresolvable, and is never walked; the schema has nothing to say
   about a field set at mint time rather than read from a draft body.
   """
 
@@ -60,19 +60,20 @@ defmodule Catapult.Dsl.DeclaredInSchema do
   end
 
   @doc """
-  Every `fields:`/`produces:` `"draft." <> path` source's segments,
-  checked against the *declaring* tier's own schema — the identical
-  widening `systems/core_dsl.md`'s ORC-236 entry describes: a
-  `mint.parent.<name>` field reads a committing tier's own already-
-  computed `fields:`/`produces:` value by name, so a segment spelled
-  wrong against that tier's own schema is exactly the same silent-nil
+  Every `produces:` draft-path source's segments, checked against the
+  *declaring* tier's own schema (`chain.md` #13, #32) — a fragment kind
+  spelled wrong against its own tier's schema is the same silent-nil
   failure mode a wrong `declared_in` segment already was (ORC-232).
+  `fields:` carries no schema path any more (`chain.md` #12: a join
+  target's `fields:` names only `mint.parent.<kind>`, which is a
+  cross-tier lookup `Catapult.Dsl.Chain`'s own `mint_parent_problems/2`
+  checks, not a schema path).
   """
   @spec field_problems(String.t(), %{String.t() => Catapult.Dsl.Tier.t()}) :: [String.t()]
   def field_problems(dir, tiers) do
-    for {tier_name, %{draft: %{grammar: grammar}} = tier} <- tiers,
-        {label, name, "draft." <> path} <- field_and_produces_sources(tier),
-        problem <- path_problem(dir, grammar, path, tier_name, label, name) do
+    for {tier_name, %{draft: %{grammar: grammar}, produces: produces}} <- tiers,
+        %{kind: kind, draft_path: "draft." <> path} <- produces,
+        problem <- path_problem(dir, grammar, path, tier_name, "produces", kind) do
       problem
     end
   end
@@ -134,11 +135,6 @@ defmodule Catapult.Dsl.DeclaredInSchema do
     else
       _other -> []
     end
-  end
-
-  defp field_and_produces_sources(%{fields: fields, produces: produces}) do
-    Enum.map(fields, fn {name, source} -> {"fields", name, source} end) ++
-      Enum.map(produces, fn %{kind: kind, authored: authored} -> {"produces", kind, authored} end)
   end
 
   defp path_problem(dir, grammar, path, tier_name, label, name) do
@@ -421,5 +417,194 @@ defmodule Catapult.Dsl.DeclaredInSchema do
     Enum.find_value(attrs, fn {:xmlAttribute, name, _, _, _, _, _, _, value, _} ->
       if to_string(name) == attr_name, do: to_string(value)
     end)
+  end
+
+  ## -- schema annotations (`chain.md` #32) --------------------------------
+  ##
+  ## `<catapult:mints tier="X" identity="Y"/>` on an element or the
+  ## complexType it resolves to says the element mints tier X, whose
+  ## identity is attribute Y; `<catapult:field name="Z"/>` makes an
+  ## element or attribute a field of the node it belongs to;
+  ## `<catapult:identity>id</catapult:identity>` on a generating tier's
+  ## own root element says the same for that tier. `xsd_tag/1` already
+  ## passes an unrecognized prefix through unchanged, so `catapult:*`
+  ## tags compare exactly like the `xs:*` ones above.
+
+  @doc """
+  A generating tier's own identity attribute and field map, plus every
+  tier its draft mints along the way — `%{identity:, own_fields:,
+  mints: %{tier_name => %{identity:, fields: %{}}}}` — read straight
+  off `tier`'s schema. Each `fields:` map is `field_name => schema_tag`
+  rather than a bare name list: a field's declared name and the
+  element or attribute that actually carries it can differ (`foundation`
+  carries the `is_foundation` field), so extraction at commit time
+  (`Catapult.Generation.Extraction`) has to navigate the body by the
+  schema's own tag, never by the field's name. `{:error, reason}` when
+  the schema cannot be read; every field/mint this walk cannot resolve
+  (an `xs:any`, an import, a `simpleContent`/`complexContent`
+  extension) is silently absent rather than blocking the load, the
+  same "unresolvable, not absent" split `problems/3` draws.
+  """
+  @spec mints_and_fields(String.t(), Catapult.Dsl.Tier.t()) ::
+          {:ok,
+           %{
+             identity: String.t() | nil,
+             own_fields: %{String.t() => String.t()},
+             mints: %{
+               String.t() => %{identity: String.t() | nil, fields: %{String.t() => String.t()}}
+             }
+           }}
+          | {:error, String.t()}
+  def mints_and_fields(dir, %{draft: %{grammar: grammar}}) do
+    with {:ok, schema_path} <- resolve_grammar(dir, grammar),
+         {:ok, schema} <- parse_schema(schema_path) do
+      identity = own_identity(schema.root, schema)
+      {own_fields, mints} = scan_content(schema.root, schema)
+      {:ok, %{identity: identity, own_fields: own_fields, mints: mints}}
+    else
+      _other -> {:error, "schema #{grammar} could not be read"}
+    end
+  end
+
+  def mints_and_fields(_dir, _tier), do: {:error, "tier has no draft: to read a schema for"}
+
+  # The children reachable from `el`'s own content model (its inline
+  # complexType, or the named complexType/simpleType its `type=`
+  # resolves to) — `:leaf` for a builtin/simple type or anything this
+  # walk cannot resolve, exactly like `element_content/2` above, except
+  # this returns the raw node rather than the name/attribute-only model
+  # `walk_segments/4` needs, since an annotation lives on the node.
+  defp resolved_type_node(el, schema) do
+    case xsd_attr(el, "type") do
+      nil ->
+        case Enum.find(element_children(el), &(xsd_tag(&1) == "complexType")) do
+          nil -> :leaf
+          complex_type -> {:ok, complex_type}
+        end
+
+      "xs:" <> _builtin ->
+        :leaf
+
+      type_name ->
+        cond do
+          MapSet.member?(schema.simple_types, type_name) ->
+            :leaf
+
+          Map.has_key?(schema.named_types, type_name) ->
+            {:ok, Map.fetch!(schema.named_types, type_name)}
+
+          true ->
+            :leaf
+        end
+    end
+  end
+
+  defp scan_content(el, schema) do
+    case resolved_type_node(el, schema) do
+      :leaf -> {%{}, %{}}
+      {:ok, type_node} -> scan_children(element_children(type_node), schema)
+    end
+  end
+
+  defp scan_children(children, schema) do
+    Enum.reduce(children, {%{}, %{}}, fn child, {fields, mints} ->
+      case xsd_tag(child) do
+        particle when particle in ["sequence", "choice", "all"] ->
+          {more_fields, more_mints} = scan_children(element_children(child), schema)
+          {Map.merge(fields, more_fields), Map.merge(mints, more_mints)}
+
+        "element" ->
+          scan_element(child, schema, fields, mints)
+
+        # An attribute is a leaf — it has no content model of its own
+        # to descend into, only its own possible `<catapult:field>`.
+        "attribute" ->
+          scan_attribute(child, fields, mints)
+
+        _other ->
+          {fields, mints}
+      end
+    end)
+  end
+
+  defp scan_attribute(child, fields, mints) do
+    case field_annotation(child) do
+      nil -> {fields, mints}
+      name -> {Map.put(fields, name, xsd_attr(child, "name")), mints}
+    end
+  end
+
+  defp scan_element(el, schema, fields, mints) do
+    case mints_annotation(el, schema) do
+      {tier, identity} ->
+        {child_fields, child_mints} = scan_content(el, schema)
+        entry = %{identity: identity, fields: child_fields}
+        {fields, mints |> Map.put(tier, entry) |> Map.merge(child_mints)}
+
+      nil ->
+        {more_fields, more_mints} = scan_content(el, schema)
+
+        fields =
+          case field_annotation(el) do
+            nil -> fields
+            name -> Map.put(fields, name, xsd_attr(el, "name"))
+          end
+
+        {Map.merge(fields, more_fields), Map.merge(mints, more_mints)}
+    end
+  end
+
+  defp mints_annotation(el, schema) do
+    own_mints(el) ||
+      case resolved_type_node(el, schema) do
+        {:ok, type_node} -> own_mints(type_node)
+        :leaf -> nil
+      end
+  end
+
+  defp own_identity(el, schema) do
+    own_identity_text(el) ||
+      case resolved_type_node(el, schema) do
+        {:ok, type_node} -> own_identity_text(type_node)
+        :leaf -> nil
+      end
+  end
+
+  defp own_mints(el) do
+    case Enum.find(appinfo_children(el), &(xsd_tag(&1) == "catapult:mints")) do
+      nil -> nil
+      node -> {xsd_attr(node, "tier"), xsd_attr(node, "identity")}
+    end
+  end
+
+  defp field_annotation(el) do
+    case Enum.find(appinfo_children(el), &(xsd_tag(&1) == "catapult:field")) do
+      nil -> nil
+      node -> xsd_attr(node, "name")
+    end
+  end
+
+  defp own_identity_text(el) do
+    case Enum.find(appinfo_children(el), &(xsd_tag(&1) == "catapult:identity")) do
+      nil -> nil
+      node -> element_text(node)
+    end
+  end
+
+  defp appinfo_children(el) do
+    el
+    |> element_children()
+    |> Enum.filter(&(xsd_tag(&1) == "annotation"))
+    |> Enum.flat_map(&element_children/1)
+    |> Enum.filter(&(xsd_tag(&1) == "appinfo"))
+    |> Enum.flat_map(&element_children/1)
+  end
+
+  defp element_text(el) do
+    el
+    |> xml_content()
+    |> Enum.filter(&match?({:xmlText, _, _, _, _, _}, &1))
+    |> Enum.map_join("", fn {:xmlText, _, _, _, value, _} -> List.to_string(value) end)
+    |> String.trim()
   end
 end

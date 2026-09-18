@@ -10,12 +10,12 @@ You will be given the owning subcomponent's metadata (name, techspec, public sur
 Subcomponent (its own techspec, public and private surface): {{ parent }}
 
 Dependencies' public surfaces:
-{% for dep in dependencies %}
+{% for dep in dependency %}
 - **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
 {% endfor %}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}

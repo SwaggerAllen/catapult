@@ -859,6 +859,41 @@ profiles.
      such a gate must declare one was in the contract and never in
      the loader, which tolerated nil throughout.
 
+- **#ORC-249-1 `bundle.md` #14's acceptance test is a `Mix.Task`,
+  `Mix.Tasks.Catapult.Bundle.Check`, filed at
+  `lib/catapult/dsl/bundle_check.ex`.** Mix locates a task by module
+  name, never by file path, so the path is free, and it sits inside
+  this doc's own `lib/catapult/dsl/**` map rather than opening a second,
+  unowned directory. It loads
+  `bundles/default/chain.yaml` and `bundles/default-flow/workflow.yaml`
+  through the ordinary loader path (`Catapult.Dsl.Loader.load_axes/5`),
+  which exercises every load rule the two files are held to for free,
+  and then measures both files' line counts against the bound
+  `bundle.md` #14 states, failing over it. It is a built-in of the task
+  itself, not a `Catapult.Audit.Check` (`systems/substrate.md`'s
+  registry is `components/substrate`'s own gate suite, rooted at the
+  working directory it runs from — a task here would need
+  `system:substrate` in this ticket's mutex for a registry this task
+  gains nothing from) and not a port of `docs/dsl/example/check.py`'s
+  other three jobs, which are load-time rules the loader owns once it
+  reads the grammar `docs/dsl/` states (`chain.md` #20, #21;
+  `workflow.md` #22, #23, #40; `bundle.md` #11) — reimplementing those
+  here would be a second implementation of the same load rules, which
+  is the drift this task exists to end rather than repeat.
+  `docs/dsl/example/` stays the checker's own worked example; this task
+  reads the shipped bundle, never that folder.
+
+  The module name sits in the `Mix.Tasks` namespace, which is neither
+  of the root project's two Boundary boundaries (`Catapult`,
+  `CatapultWeb`) — true at any file path, since Boundary classifies by
+  module name and an unclassified module fails `mix compile
+  --warnings-as-errors` outright (`"is not included in any boundary"`).
+  It declares `use Boundary, classify_to: Catapult`, the mechanism
+  Boundary reserves for mix tasks and protocol implementations for
+  exactly this namespace mismatch. No `Catapult.Mix` sub-boundary: that
+  shape exists to hold helper modules several tasks share, and this is
+  the project's only task with no such helpers to hold.
+
 ## #43 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

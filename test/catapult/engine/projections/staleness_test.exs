@@ -13,7 +13,7 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   end
 
   defp tier(name, opts) do
-    %Tier{name: name, file: "#{name}.yaml", context: Keyword.get(opts, :context, [])}
+    %Tier{name: name, effective_context: Keyword.get(opts, :effective_context, %{})}
   end
 
   defp node!(id, tier, opts) do
@@ -33,13 +33,13 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   end
 
   test "a never-drafted node is not stale" do
-    chain = chain([tier("comp", context: [])])
+    chain = chain([tier("comp", effective_context: %{})])
     n = node!("n1", "comp", status: :absent, committed_sequence: nil)
     refute Staleness.stale?(chain, n)
   end
 
   test "a node with no context walks is never stale" do
-    chain = chain([tier("comp", context: [])])
+    chain = chain([tier("comp", effective_context: %{})])
     n = node!("n1", "comp", committed_sequence: 5)
     refute Staleness.stale?(chain, n)
   end
@@ -47,8 +47,8 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   test "stale when a resolved context target committed later" do
     chain =
       chain([
-        tier("resp", context: []),
-        tier("comp", context: [walk!("self.fulfills -> resp.handle")])
+        tier("resp", effective_context: %{}),
+        tier("comp", effective_context: %{"fulfills" => walk!("self.fulfills -> resp.handle")})
       ])
 
     resp = node!("resp", "resp", committed_sequence: 10)
@@ -70,8 +70,8 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   test "not stale when nothing resolved committed later than the node itself" do
     chain =
       chain([
-        tier("resp", context: []),
-        tier("comp", context: [walk!("self.fulfills -> resp.handle")])
+        tier("resp", effective_context: %{}),
+        tier("comp", effective_context: %{"fulfills" => walk!("self.fulfills -> resp.handle")})
       ])
 
     node!("resp", "resp", committed_sequence: 3)
@@ -90,7 +90,7 @@ defmodule Catapult.Engine.Projections.StalenessTest do
   end
 
   test "an unresolvable/unsupported walk never contributes staleness" do
-    chain = chain([tier("comp", context: [walk!("ticket.findings")])])
+    chain = chain([tier("comp", effective_context: %{"findings" => walk!("ticket.findings")})])
     comp = node!("comp", "comp", committed_sequence: 5)
     refute Staleness.stale?(chain, comp)
   end
@@ -99,7 +99,7 @@ defmodule Catapult.Engine.Projections.StalenessTest do
     # `chain.md` #14 / v5 §7.16 (corrected): a review commits
     # no body and mints no node of its own — this is the whole of what
     # "needs no staleness treatment" means at this module's level.
-    chain = chain([tier("comp_review", context: [])])
+    chain = chain([tier("comp_review", effective_context: %{})])
     assert Map.has_key?(chain.tiers, "comp_review")
   end
 end

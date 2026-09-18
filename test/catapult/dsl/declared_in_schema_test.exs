@@ -57,21 +57,36 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
 
     Fixture.write!(dir, %{
       "bundles/default/schemas/comparch.xsd" => @schema,
-      "bundles/default/edges/probe.yaml" => edge_yaml
+      "bundles/default/chain.yaml" => """
+      name: default
+      version: "1.0.0"
+      kind: chain
+      tiers:
+        comparch:
+          scope: singleton
+      edges:
+      #{edge_yaml}
+      """
     })
   end
 
+  defp indent(yaml) do
+    yaml
+    |> String.split("\n")
+    |> Enum.map_join("\n", &("  " <> &1))
+  end
+
   test "a declared_in path whose segments all match the schema loads clean", %{tmp_dir: dir} do
-    write_bundle!(dir, """
-    edge: probe
-    type: fanout
-    source: comparch
-    target: comparch
-    declared_in: comparch.draft.widgets.widget[]
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: fanout
+        context: none
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.draft.widgets.widget[]" }
+      """)
+    )
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
@@ -79,16 +94,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "a wrong element segment is a load error naming the edge, instance and segment", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: fanout
-    source: comparch
-    target: comparch
-    declared_in: comparch.draft.widgetz.widget[]
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: fanout
+        context: none
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.draft.widgetz.widget[]" }
+      """)
+    )
 
     assert {:error, :bundle, problems} = Loader.load(dir)
 
@@ -100,16 +115,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   end
 
   test "a segment reached through a same-file type= reference resolves", %{tmp_dir: dir} do
-    write_bundle!(dir, """
-    edge: probe
-    type: reference
-    source: comparch
-    target: comparch
-    declared_in: comparch.draft.primitives.thing.@ref
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: reference
+        context: handle
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.draft.primitives.thing.@ref" }
+      """)
+    )
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
@@ -117,16 +132,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "a wrong attribute segment behind a same-file type= reference is a load error", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: reference
-    source: comparch
-    target: comparch
-    declared_in: comparch.draft.primitives.thing.@target
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: reference
+        context: handle
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.draft.primitives.thing.@target" }
+      """)
+    )
 
     assert {:error, :bundle, problems} = Loader.load(dir)
 
@@ -138,16 +153,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "a segment behind xs:simpleContent/xs:extension is unresolvable, not an error", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: reference
-    source: comparch
-    target: comparch
-    declared_in: comparch.draft.grown.@tag
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: reference
+        context: handle
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.draft.grown.@tag" }
+      """)
+    )
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
@@ -155,16 +170,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "a declared_in whose leading tier is undeclared is unresolvable, not an error", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: reference
-    source: comparch
-    target: comparch
-    declared_in: nonexistent_tier.draft.widgets.widget[]
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: reference
+        context: handle
+        instances:
+          - { source: comparch, target: comparch, declared_in: "nonexistent_tier.draft.widgets.widget[]", source_ref: "@from", target_ref: "@to" }
+      """)
+    )
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
@@ -172,16 +187,16 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "a mint-time declared_in with no draft segment at all is unresolvable, not an error", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: policy_application
-    source: comparch
-    target: comparch
-    declared_in: comparch.structural
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: policy_application
+        context: none
+        instances:
+          - { source: comparch, target: comparch, declared_in: "comparch.structural" }
+      """)
+    )
 
     assert {:ok, _loaded} = Loader.load(dir)
   end
@@ -189,25 +204,41 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
   test "the leading tier checked is the path's own, not the citing instance's source", %{
     tmp_dir: dir
   } do
-    write_bundle!(dir, """
-    edge: probe
-    type: reference
-    source: other
-    target: comparch
-    declared_in: comparch.draft.widgets.widgetz[]
-    cardinality:
-      source: { min: 0 }
-      target: { min: 0 }
-    """)
+    write_bundle!(
+      dir,
+      indent("""
+      probe:
+        type: reference
+        context: handle
+        instances:
+          - { source: other, target: comparch, declared_in: "comparch.draft.widgets.widgetz[]", target_ref: "@to" }
+      """)
+    )
 
     Fixture.write!(dir, %{
-      "bundles/default/tiers/other.yaml" => """
-      tier: other
-      scope: singleton
-      identity: id
-      generator: synthesis
-      handle:
-        fields: [id]
+      "bundles/default/chain.yaml" => """
+      name: default
+      version: "1.0.0"
+      kind: chain
+      tiers:
+        comparch:
+          scope: singleton
+        other:
+          scope: singleton
+      edges:
+        probe:
+          type: reference
+          context: handle
+          instances:
+            - { source: other, target: comparch, declared_in: "comparch.draft.widgets.widgetz[]", target_ref: "@to" }
+      """,
+      "bundles/default/schemas/other.xsd" => """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:element name="other">
+          <xs:complexType><xs:sequence><xs:element name="body" type="xs:string"/></xs:sequence></xs:complexType>
+        </xs:element>
+      </xs:schema>
       """
     })
 
@@ -217,27 +248,33 @@ defmodule Catapult.Dsl.DeclaredInSchemaTest do
 
   describe "explicit source_ref:/target_ref: @<attr> locators" do
     defp write_dependency_bundle!(dir, source_ref, target_ref) do
-      write_bundle!(dir, """
-      edge: probe
-      type: dependency
-      source: other
-      target: other
-      declared_in: comparch.draft.widgets.widget[]
-      source_ref: "#{source_ref}"
-      target_ref: "#{target_ref}"
-      cardinality:
-        source: { min: 0 }
-        target: { min: 0 }
-      """)
+      Fixture.minimal!(dir)
 
       Fixture.write!(dir, %{
-        "bundles/default/tiers/other.yaml" => """
-        tier: other
-        scope: singleton
-        identity: id
-        generator: synthesis
-        handle:
-          fields: [id]
+        "bundles/default/schemas/comparch.xsd" => @schema,
+        "bundles/default/schemas/other.xsd" => """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="other">
+            <xs:complexType><xs:sequence><xs:element name="body" type="xs:string"/></xs:sequence></xs:complexType>
+          </xs:element>
+        </xs:schema>
+        """,
+        "bundles/default/chain.yaml" => """
+        name: default
+        version: "1.0.0"
+        kind: chain
+        tiers:
+          comparch:
+            scope: singleton
+          other:
+            scope: singleton
+        edges:
+          probe:
+            type: dependency
+            context: handle
+            instances:
+              - { source: other, target: other, declared_in: "comparch.draft.widgets.widget[]", source_ref: "#{source_ref}", target_ref: "#{target_ref}" }
         """
       })
     end

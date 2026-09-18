@@ -16,7 +16,7 @@ Screen collection handle: {{ parent }}
 Screens this collection hosts (full state, affordance, and displayed-
 data content — the design contract this collection builds routes and
 data loads against):
-{% for s in screens %}
+{% for s in fulfills %}
 ### `{{ s.slug }}` (`{{ s.id }}`)
 
 {{ s.purpose }}
@@ -38,17 +38,17 @@ actually consumes; may be empty):
 UI collections available to render (public surface — assigns and slots
 contract; may be un-articulated, treat a skeletal pubapi as not yet
 architected):
-{% for ui in ui_collections %}
+{% for ui in renders %}
 - **{{ ui.name }}** (`{{ ui.id }}`): {{ ui.pubapi }}
 {% endfor %}
 
 Backend components this collection may call (public surface):
-{% for dep in backend_deps %}
+{% for dep in calls %}
 - **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
 {% endfor %}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}

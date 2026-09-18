@@ -3,21 +3,34 @@
   v5 §1.1, §4.5: intake distillation extracts candidate non-goal
   policies from the whole raft. Each <candidate> mints into the same
   `policy` pool sysarch's and comparch's own <policies> blocks mint
-  into (edges/decomposition.yaml's non_goals->policy instance) — no
-  new node kind. Distilled at intake, before anything has decomposed
-  into responsibilities or components, so a candidate carries no
+  into (chain.yaml's `decomposition` edge's non_goals->policy
+  instance) — no new node kind. Distilled at intake, before anything
+  has decomposed into responsibilities or components, so a candidate
+  carries no
   <required>/<structural/> choice at all: that xs:choice (schemas
   /sysarch.xsd, schemas/comparch.xsd) is simply absent here, the
   grammar itself enforcing project-global scope rather than a prompt
   instruction policing it. Recorded in systems/platform_content.md.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
+  <!-- Mints `non_goals_policy` (`chain.md` #28: its own family member,
+       distinct from `sysarch_policy`/`comparch_policy` even though all
+       three once shared one pool — a tier has exactly one minting
+       parent now). Identity placeholder, same pre-existing gap as the
+       other two policy families. -->
   <xs:complexType name="Candidate">
+    <xs:annotation><xs:appinfo><catapult:mints tier="non_goals_policy" identity="id"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="trigger" type="xs:string"/>
-      <xs:element name="rationale" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="trigger" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="trigger"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="rationale" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="rationale"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <!-- Every distilled candidate is an argued refusal or deferral
            by construction, so the prompt instructs always filling
            this; the schema still leaves it optional (v5 §4.5: one free-text field shared with sysarch's and
@@ -33,9 +46,12 @@
   </xs:complexType>
 
   <xs:element name="non-goals">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="introduction" type="xs:string" minOccurs="0"/>
+        <xs:element name="introduction" type="xs:string" minOccurs="0">
+          <xs:annotation><xs:appinfo><catapult:field name="intro"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="candidates" type="Candidates"/>
       </xs:sequence>
     </xs:complexType>

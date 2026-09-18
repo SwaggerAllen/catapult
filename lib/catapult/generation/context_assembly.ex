@@ -1,20 +1,25 @@
 defmodule Catapult.Generation.ContextAssembly do
   @moduledoc """
-  Evaluates a tier's context walks and renders its Liquid prompt
-  (`chain.md` #20, #35) — one path for generation and review tiers
+  Evaluates a tier's effective context and renders its Liquid prompt
+  (`chain.md` #20, #21, #35) — one path for generation and review
   alike, so "the reviewer sees exactly the generator's context plus
   the draft" (`systems/generation.md`'s per-tier triad invariant) is
-  enforced by sharing this module, not by convention. A review tier
-  carries no `context:` of its own (§3.3 — it is fixed equal to the
-  reviewed tier's at load time); this module reads the *reviewed*
-  tier's walks in that case and adds `draft`.
+  enforced by sharing this module, not by convention. A review is a
+  block on the tier it reviews now, not a tier of its own (`chain.md`
+  #14) — `Catapult.Engine.Projections.ReadyScopes.review_tier_name/1`'s
+  synthetic `"<tier>:review"` is what a dispatch job's `tier` arg
+  carries for one, and `resolve_dispatch/2` is the one place that
+  string is read back into a tier plus a rendering mode.
 
-  Variable naming follows §9: a context entry's variable name is its
-  *resolved* target tier's name, and entries landing on the same tier
-  combine into one collection — grouped here by each resolved node's
-  own `tier` field rather than re-derived from the walk's parsed
-  shape, which handles a bare self-hop and an explicit `-> tier`
-  target identically because both are read off the same place.
+  Variable naming follows `chain.md` #20, #21: a context entry's
+  Liquid variable is exactly its name in the tier's own
+  `effective_context` — the edge name (or its `as:`) for a derived
+  read, the declared key for an explicit one. A bare `self`/`self
+  .parent` projection with no edge hop (`parent`, and `self`/`draft`
+  below) renders as one object; every other walk — a hop through an
+  edge, or an `all.<tier>` read — renders as a list, even where it
+  currently holds one entry, since the chain declares it a collection
+  regardless of how many instances exist right now.
 
   **`input.<role>`/`input.*` are a second, direct read of delivery —
   never through `ContextResolver.resolve/2`'s node-collection fold**
@@ -60,6 +65,7 @@ defmodule Catapult.Generation.ContextAssembly do
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Engine.Projections.CommentFeedback
   alias Catapult.Engine.Projections.ContextResolver
+  alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Store
   alias Catapult.Engine.Store.Node
   alias Catapult.Engine.Store.Review
@@ -74,18 +80,18 @@ defmodule Catapult.Generation.ContextAssembly do
           | {:unknown_credential_names, atom(), [String.t()]}
 
   @doc """
-  Builds the dispatch request for `tier_name`/`node` (a `ReadyScopes`
-  result — either a generation-tier candidate or, for a review tier,
-  the *reviewed* tier's own node): renders the Liquid prompt and
-  returns `Catapult.Delivery.HostPort.request()`.
+  Builds the dispatch request for `dispatch_name`/`node` (a
+  `ReadyScopes` result): renders the Liquid prompt and returns
+  `Catapult.Delivery.HostPort.request()`. `dispatch_name` is either a
+  bare tier name (generation) or `ReadyScopes.review_tier_name/1`'s
+  synthetic form (a review of that tier's current draft).
   """
   @spec build(Chain.t(), binary(), String.t(), Node.t()) ::
           {:ok, Catapult.Delivery.HostPort.request()} | {:error, failure()}
-  def build(chain, project_id, tier_name, node) do
-    with {:ok, tier} <- fetch_tier(chain, tier_name),
-         {:ok, generator_tier, review?} <- resolve_generator_tier(chain, tier),
-         variables = build_variables(chain, project_id, generator_tier, node, review?),
-         {:ok, prompt_path} <- resolve_prompt(chain, tier),
+  def build(chain, project_id, dispatch_name, node) do
+    with {:ok, tier, mode} <- resolve_dispatch(chain, dispatch_name),
+         variables = build_variables(chain, project_id, tier, node, mode),
+         {:ok, prompt_path} <- resolve_prompt(chain, tier, mode),
          {:ok, template} <- parse_template(prompt_path),
          {:ok, rendered} <- render(template, variables, chain),
          {:ok, credential_names} <- bound_credential_names() do
@@ -93,9 +99,9 @@ defmodule Catapult.Generation.ContextAssembly do
        %{
          project_id: project_id,
          node_id: NodeId.resolve(node),
-         tier: tier_name,
+         tier: dispatch_name,
          scope_key: node.scope_key,
-         root_tag: root_tag(tier),
+         root_tag: root_tag(tier, mode),
          rendered_prompt: rendered,
          credential_names: credential_names,
          stub_mode: Delivery.stub_mode?(project_id)
@@ -122,73 +128,94 @@ defmodule Catapult.Generation.ContextAssembly do
     end
   end
 
-  defp fetch_tier(%Chain{tiers: tiers}, tier_name) do
-    case Map.fetch(tiers, tier_name) do
-      {:ok, tier} -> {:ok, tier}
-      :error -> {:error, {:unknown_tier, tier_name}}
-    end
-  end
-
-  # A review tier reads its context off the tier it reviews (§3.3 —
-  # load-time-checked equal); a generation tier reads its own.
-  defp resolve_generator_tier(chain, %{reviews: reviewed}) when not is_nil(reviewed) do
-    with {:ok, reviewed_tier} <- fetch_tier(chain, reviewed) do
-      {:ok, reviewed_tier, true}
-    end
-  end
-
-  defp resolve_generator_tier(_chain, tier), do: {:ok, tier, false}
-
-  defp root_tag(%{reviews: reviewed}) when not is_nil(reviewed), do: "review"
-  defp root_tag(%{draft: %{root_tag: root_tag}}), do: root_tag
-
-  defp build_variables(chain, project_id, generator_tier, node, review?) do
-    base =
-      generator_tier.context
-      |> Enum.flat_map(fn walk ->
-        case ContextResolver.resolve(walk, node) do
-          {:ok, targets} -> Enum.map(targets, &{&1, walk.projection})
-          {:error, :unsupported} -> []
+  # A review is a block on the tier it reviews (`chain.md` #14), not a
+  # tier of its own — `ReadyScopes.base_tier_name/1` reverses the
+  # synthetic dispatch name back to the tier it addresses.
+  defp resolve_dispatch(%Chain{tiers: tiers}, dispatch_name) do
+    case ReadyScopes.base_tier_name(dispatch_name) do
+      nil ->
+        case Map.fetch(tiers, dispatch_name) do
+          {:ok, tier} -> {:ok, tier, :generation}
+          :error -> {:error, {:unknown_tier, dispatch_name}}
         end
-      end)
-      |> Enum.group_by(fn {target, _projection} -> target.tier end)
-      |> Map.new(fn {tier_name, pairs} ->
-        {tier_name,
-         Enum.map(pairs, fn {target, projection} -> render_node(chain, target, projection) end)}
+
+      base ->
+        case Map.fetch(tiers, base) do
+          {:ok, %{review: review} = tier} when not is_nil(review) -> {:ok, tier, :review}
+          _not_reviewable -> {:error, {:unknown_tier, dispatch_name}}
+        end
+    end
+  end
+
+  defp root_tag(_tier, :review), do: "review"
+  defp root_tag(%{draft: %{root_tag: root_tag}}, :generation), do: root_tag
+
+  defp build_variables(chain, project_id, tier, node, mode) do
+    context = context_for(tier, mode)
+
+    base =
+      context
+      |> Enum.reduce(%{}, fn {name, walk}, acc ->
+        put_variable(acc, name, resolved_variable(chain, walk, node, project_id))
       end)
       |> Map.put("self", render_node(chain, node))
-      |> input_variables(project_id, generator_tier.context)
       |> feedback_variable(project_id, node)
       |> prior_review_variable(project_id, node)
 
-    if review?, do: Map.put(base, "draft", draft_variable(project_id, node)), else: base
+    if mode == :review, do: Map.put(base, "draft", draft_variable(project_id, node)), else: base
   end
+
+  defp context_for(tier, :generation), do: tier.effective_context
+  defp context_for(%{review: %{context: context}}, :review), do: context
+
+  # `:input`-sourced walks are a second, direct read of delivery, never
+  # through `ContextResolver` (moduledoc above) — `raft` is `input.*`'s
+  # own reserved content (`chain.md` #35), and `input.<role>`'s content
+  # is a plain string, keyed by this entry's own declared name rather
+  # than by the role, exactly like every other context variable.
+  #
+  # A bare `self`/`self.parent` projection with no edge hop (`parent`)
+  # resolves to exactly one node and renders as one object; every other
+  # walk — a hop through an edge, or an `all.<tier>` read — is a
+  # collection the chain declares regardless of how many instances
+  # exist right now, and renders as a list even when that list holds
+  # one entry.
+  defp resolved_variable(_chain, %ContextWalk{source: :input, wildcard: true}, _node, project_id) do
+    project_id |> Delivery.get_raft() |> join_input()
+  end
+
+  defp resolved_variable(_chain, %ContextWalk{source: :input, role: role}, _node, project_id)
+       when is_binary(role) do
+    project_id |> Delivery.get_input_documents(role) |> join_input()
+  end
+
+  defp resolved_variable(chain, %ContextWalk{source: :self, hops: []} = walk, node, _project_id) do
+    case ContextResolver.resolve(walk, node) do
+      {:ok, [target]} -> render_node(chain, target, walk.projection)
+      {:ok, []} -> nil
+      {:error, :unsupported} -> nil
+    end
+  end
+
+  defp resolved_variable(chain, walk, node, _project_id) do
+    case ContextResolver.resolve(walk, node) do
+      {:ok, targets} -> Enum.map(targets, &render_node(chain, &1, walk.projection))
+      {:error, :unsupported} -> []
+    end
+  end
+
+  defp join_input([]), do: nil
+  defp join_input(docs), do: Enum.join(docs, "\n\n")
+
+  # Omitted entirely rather than set to `nil`/`""`/`[]` — a role with
+  # no pinned documents, and a `self.parent` read on a tier with no
+  # scope parent, are both the honest "nothing here" shape (moduledoc).
+  defp put_variable(variables, _name, nil), do: variables
+  defp put_variable(variables, name, value), do: Map.put(variables, name, value)
 
   defp draft_variable(project_id, %Node{id: node_id}) do
     Delivery.get_draft_body(project_id, node_id) || ""
   end
-
-  # Direct delivery reads, one per `:input` walk — never through
-  # `ContextResolver` (moduledoc above). `raft` is the wildcard's own
-  # reserved variable name (`chain.md` #35); an `input.<role>` walk's
-  # variable is the role name itself.
-  defp input_variables(variables, project_id, context_walks) do
-    Enum.reduce(context_walks, variables, fn
-      %ContextWalk{source: :input, wildcard: true}, acc ->
-        put_input_variable(acc, "raft", Delivery.get_raft(project_id))
-
-      %ContextWalk{source: :input, role: role}, acc when is_binary(role) ->
-        put_input_variable(acc, role, Delivery.get_input_documents(project_id, role))
-
-      _walk, acc ->
-        acc
-    end)
-  end
-
-  defp put_input_variable(variables, _name, []), do: variables
-
-  defp put_input_variable(variables, name, docs),
-    do: Map.put(variables, name, Enum.join(docs, "\n\n"))
 
   # `CommentFeedback` itself returns atom-keyed entries (an ordinary
   # Elixir map, useful to an Elixir caller); Solid's own template
@@ -282,16 +309,23 @@ defmodule Catapult.Generation.ContextAssembly do
   defp fragment_content(node_id, kind),
     do: node_id |> Store.fragments(kind) |> Enum.map_join("\n\n", & &1.content)
 
-  defp resolve_prompt(%Chain{name: bundle_name}, %{prompt: prompt}) when is_binary(prompt) do
+  defp resolve_prompt(%Chain{name: bundle_name}, tier, mode) do
     dir = Path.join(bundles_root(), bundle_name)
 
-    case BundlePath.resolve(dir, prompt) do
-      nil -> {:error, {:prompt_not_found, prompt}}
-      path -> {:ok, path}
+    case prompt_for(tier, mode) do
+      prompt when is_binary(prompt) ->
+        case BundlePath.resolve(dir, prompt) do
+          nil -> {:error, {:prompt_not_found, prompt}}
+          path -> {:ok, path}
+        end
+
+      nil ->
+        {:error, {:prompt_not_found, inspect(tier)}}
     end
   end
 
-  defp resolve_prompt(_chain, tier), do: {:error, {:prompt_not_found, inspect(tier)}}
+  defp prompt_for(tier, :generation), do: tier.prompt
+  defp prompt_for(%{review: %{prompt: prompt}}, :review), do: prompt
 
   defp bundles_root,
     do: Catapult.Config.fetch!(:generation, :bundles_root) |> Path.join("bundles")

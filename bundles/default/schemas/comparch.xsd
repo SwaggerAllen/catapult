@@ -21,7 +21,7 @@
       loud" is the source document's own words, and an omittable
       element is exactly the silent-stub shape that doctrine forbids.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Invariants">
     <xs:sequence>
@@ -84,17 +84,27 @@
     <xs:attribute name="grade" type="ImplementationGrade" use="required"/>
   </xs:complexType>
 
+  <!-- Mints `comparch_policy`; identity placeholder, same pre-existing gap as sysarch.xsd's Policy. -->
   <xs:complexType name="Policy">
+    <xs:annotation><xs:appinfo><catapult:mints tier="comparch_policy" identity="id"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="trigger" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="trigger" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="trigger"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:choice minOccurs="0" maxOccurs="1">
-        <xs:element name="required" type="xs:string"/>
+        <xs:element name="required" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="required"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="structural">
           <xs:complexType/>
         </xs:element>
       </xs:choice>
-      <xs:element name="rationale" type="xs:string"/>
+      <xs:element name="rationale" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="rationale"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <!-- ORC-108, v5 §4.5: an argued deferral is the same policy
            shape carrying a revisit condition ("never, argued" / "not
            until X" are values of this one field, never two shapes).
@@ -103,9 +113,20 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- `applies` is new grammar this ticket adds: a comp's own explicit
+       pickup of a project-level sysarch_policy (`chain.md` #27's fifth
+       `policy_application` instance, `comp -> sysarch_policy`) — the
+       direct-scope grain a comp binds to itself rather than inheriting
+       through a resp. Distinct from `policy`, which is where this
+       comp's own component-local policies are minted. -->
   <xs:complexType name="Policies">
     <xs:sequence>
       <xs:element name="policy" type="Policy" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="applies" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="ref" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
     </xs:sequence>
   </xs:complexType>
 
@@ -146,16 +167,23 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Mints `subcomp`, identified by `alias`. -->
   <xs:complexType name="Subcomponent">
+    <xs:annotation><xs:appinfo><catapult:mints tier="subcomp" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="owned-invariants" type="Invariants"/>
       <xs:element name="primary-operations" type="Operations"/>
       <xs:element name="responsibilities" type="xs:string"/>
       <xs:element name="owns" type="Owns"/>
       <xs:element name="implementation" type="Implementation"/>
       <xs:element name="foundation" minOccurs="0" maxOccurs="1">
+        <xs:annotation><xs:appinfo><catapult:field name="is_foundation"/></xs:appinfo></xs:annotation>
         <xs:complexType/>
       </xs:element>
     </xs:sequence>
@@ -180,6 +208,7 @@
   </xs:complexType>
 
   <xs:element name="comparch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>
@@ -190,7 +219,9 @@
         <xs:element name="enforcement" type="Enforcement"/>
         <xs:element name="policies" type="Policies"/>
         <xs:element name="dependencies" type="Dependencies"/>
-        <xs:element name="subcomponents" type="Subcomponents"/>
+        <xs:element name="subcomponents" type="Subcomponents">
+          <xs:annotation><xs:appinfo><catapult:field name="decomposition_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="sub-dependencies" type="SubDependencies"/>
         <xs:element name="references" type="References" minOccurs="0"/>
       </xs:sequence>

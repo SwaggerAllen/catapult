@@ -52,7 +52,6 @@ defmodule Catapult.Dsl.WorkflowTest do
 
       type = %Type{
         name: "milestone",
-        file: "types/milestone.yaml",
         skeleton: "container",
         statuses: statuses,
         groups: [3..5//1]
@@ -175,7 +174,6 @@ defmodule Catapult.Dsl.WorkflowTest do
 
       type = %Type{
         name: "feature",
-        file: "types/feature.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: []
@@ -210,6 +208,6 @@ defmodule Catapult.Dsl.WorkflowTest do
   end
 
   defp gate(name) do
-    %Gate{name: name, file: "gates/#{name}.yaml", role: "author", escalation: "author"}
+    %Gate{name: name, role: "author", escalation: "author"}
   end
 end

@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.Fields do
   @moduledoc """
   Shared field accessors for the per-declaration parsers (tier, edge,
-  flow, gate, environment, bundle.yaml): every accessor returns
+  flow, gate, environment): every accessor returns
   `{value, problems}` rather than raising or short-circuiting, so a
   parser can read every field it needs and report every problem at
   once (the loader's all-problems-at-once style, `Catapult

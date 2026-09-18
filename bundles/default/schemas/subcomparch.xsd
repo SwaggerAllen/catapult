@@ -16,7 +16,7 @@
   :sharded) and optional VM guardrails are designed and reviewed here
   rather than improvised at impl time.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Dependencies">
     <xs:sequence>
@@ -69,9 +69,12 @@
   </xs:complexType>
 
   <xs:element name="subcomparch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="technical-specification" type="xs:string"/>
+        <xs:element name="technical-specification" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="role_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="public-surface" type="xs:string"/>
         <xs:element name="private-surface" type="xs:string"/>
         <xs:element name="processes" type="Processes"/>

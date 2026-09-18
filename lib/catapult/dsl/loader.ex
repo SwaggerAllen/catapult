@@ -1,18 +1,20 @@
 defmodule Catapult.Dsl.Loader do
   @moduledoc """
-  The whole load (`bundle.md`, `chain.md`, `workflow.md`): reads `catapult.yaml` at
-  `root`, resolves the dialect, loads the chain bundle and — under a
-  dialect that has one — the workflow bundle, and returns every
-  problem at once (`Catapult.Config`'s style, applied to the DSL).
+  The whole load (`bundle.md`, `chain.md`, `workflow.md`): reads
+  `catapult.yaml` at `root`, resolves the dialect, loads the chain
+  bundle and — under a dialect that has one — the workflow bundle
+  against it, and returns every problem at once (`Catapult.Config`'s
+  style, applied to the DSL).
 
-  The invariant this module protects and neither bundle loader can see
-  alone: **neither axis references the other.** Both `Catapult.Dsl
-  .Chain` and `Catapult.Dsl.Workflow` validate only against
-  `Catapult.Dsl.SystemStatus`'s platform-fixed vocabulary, never
-  against each other's declarations — so there is no compatibility
-  pass here beyond confirming each bundle's `kind` matches the
-  `catapult.yaml` key that named it (already checked where each loads)
-  and that the `runtime` dialect loads no workflow bundle at all.
+  **The reference runs one way** (`bundle.md` #11): the workflow names
+  the chain's tiers and flows, and checks against them at its own load
+  time (`Catapult.Dsl.Workflow`'s own cross-axis checks); the chain
+  never references the workflow, and its own load never needs one in
+  view. So the chain loads first, unconditionally, and only a
+  successfully loaded chain is handed to the workflow to check against
+  — a chain that fails to load leaves nothing to check the workflow
+  against, and is reported alone rather than paired with a workflow
+  error that would only restate the same missing tiers and flows.
   """
 
   alias Catapult.Dsl.CatapultYaml
@@ -73,25 +75,26 @@ defmodule Catapult.Dsl.Loader do
   end
 
   defp load_axes(bundles_root, catapult_yaml, dialect, registry, opts) do
-    chain_result = Chain.load(bundles_root, catapult_yaml.chain, registry)
-    workflow_result = workflow_result(bundles_root, catapult_yaml.workflow, dialect, opts)
+    case Chain.load(bundles_root, catapult_yaml.chain, registry) do
+      {:ok, chain} ->
+        case workflow_result(bundles_root, catapult_yaml.workflow, chain, dialect, opts) do
+          {:ok, workflow} -> {:ok, %__MODULE__{chain: chain, workflow: workflow}}
+          {:error, problems} -> {:error, :bundle, Enum.uniq(problems)}
+        end
 
-    case {chain_result, workflow_result} do
-      {{:ok, chain}, {:ok, workflow}} ->
-        {:ok, %__MODULE__{chain: chain, workflow: workflow}}
-
-      {chain_result, workflow_result} ->
-        {:error, :bundle, Enum.uniq(problems(chain_result) ++ problems(workflow_result))}
+      {:error, chain_problems} ->
+        # The workflow axis references the chain (`bundle.md` #11), so
+        # a broken chain leaves nothing to check it against — reported
+        # alone rather than paired with a workflow error that would
+        # only restate the same missing tiers and flows.
+        {:error, :bundle, Enum.uniq(chain_problems)}
     end
   end
 
-  defp workflow_result(_bundles_root, nil, %Dialect{loads_workflow?: false}, _opts),
+  defp workflow_result(_bundles_root, nil, _chain, %Dialect{loads_workflow?: false}, _opts),
     do: {:ok, nil}
 
-  defp workflow_result(bundles_root, name, %Dialect{loads_workflow?: true}, opts) do
-    Workflow.load(bundles_root, name, opts)
+  defp workflow_result(bundles_root, name, chain, %Dialect{loads_workflow?: true}, opts) do
+    Workflow.load(bundles_root, name, chain, opts)
   end
-
-  defp problems({:ok, _}), do: []
-  defp problems({:error, problems}), do: problems
 end

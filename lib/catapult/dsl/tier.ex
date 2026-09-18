@@ -1,231 +1,206 @@
 defmodule Catapult.Dsl.Tier do
   @moduledoc """
-  One `tiers/<tier>.yaml` declaration (`chain.md` #5): scope,
-  identity, fields, handle, draft grammar, generator, prompt, executor
-  hints, context walks, produced fragments, and the extension-provided
-  `delivery:` / `enforcement:` annotations. Or, when it carries
-  `reviews: <tier>` instead (§3.3), a **review tier**: a much smaller
-  declaration whose scope and cardinality are the reviewed tier's own
-  by construction, so `scope:`, `identity:`, `handle:`, `fields:`,
-  `draft:` and `produces:` are never restated there, and it carries a
-  new field a generation tier does not — a top-level `grammar:` (the
-  platform-wide review grammar, §10), since it has no `draft:` to nest
-  one under.
+  One `tiers.<name>` entry of `chain.yaml` (`chain.md` #5): a **generating
+  tier** has a draft an agent writes; a **join target** declares
+  `draft: none`, its nodes minted by a parent's draft; a **supplied
+  tier** declares `generator: supplied` and a `source:`, with no scope
+  at all.
 
-  `parse/2` is structural only — every field's own shape, and the
-  closed sets §3.1/§3.2 fix (`scope`, `generator`). Cross-references
-  (does `scope`'s tier exist, does a context walk's edge exist, is a
-  fragment kind in the bundle's closed vocabulary, does `delivery:`
-  resolve against the platform vocabulary, does `reviews:` name a real
-  tier, does a review tier's `context:` match the reviewed tier's) need
-  the rest of the bundle in view and are `Catapult.Dsl.Chain`'s job
-  (`chain.md` #19, #32).
+  Structural parsing only. Node identity, a node's own fields and plain
+  cardinality are the schema's now (`bundle.md` #10, `chain.md` #32) —
+  `Catapult.Dsl.DeclaredInSchema.mints_and_fields/2` reads a generating
+  tier's own schema to fill in `identity`, `draft_fields` and every
+  join target it mints; a raw `context:`/`produces:`/`fields:` entry
+  here is parsed as a string or `Catapult.Dsl.ContextWalk` but not yet
+  cross-referenced — the effective-context derivation (`chain.md` #20,
+  #21) and every other cross-reference are `Catapult.Dsl.Chain`'s job,
+  since they need the rest of the bundle (and the schema) in view.
+
+  `draft_fields` and `mint_fields` are both schema-derived, and both
+  answer "field name -> the actual element/attribute tag", never a
+  bare name list: a field's declared name and the tag that carries it
+  can differ (`is_foundation` on a `<foundation/>` marker), so
+  extraction at commit time has to navigate by the schema's own tag.
+  They differ in *when* that tag is read: `draft_fields` comes from
+  this tier's own root (read from this tier's own committed draft,
+  `chain.md` #10's "a field"), `mint_fields` from the element that
+  mints this tier on whichever tier's draft is its fanout source (read
+  at mint time, `chain.md` #12's "a mint element's own attributes") —
+  a join target only ever has the second; a tier that is both a fanout
+  target and a draft-committer (`vocab`) has both, and its `handle`
+  exposes the union of both plus `fields:`'s own `mint.parent.<kind>`
+  names.
   """
 
   alias Catapult.Dsl.ContextWalk
   alias Catapult.Dsl.Fields
 
-  @enforce_keys [:name, :file]
+  @enforce_keys [:name]
   defstruct [
     :name,
-    :file,
     :scope,
-    :scope_filter_raw,
-    :identity,
     :draft,
     :prompt,
     :executor,
-    :delivery,
-    :reviews,
-    :grammar,
-    fields: %{},
+    :review,
+    :reconcile,
+    :source_raw,
+    identity: nil,
+    draft_fields: %{},
+    mint_fields: %{},
+    handle_narrow: nil,
     handle_fields: [],
     handle_fragments: [],
     generator: "llm",
-    generator_opts: %{},
-    context: [],
+    context_raw: %{},
+    effective_context: %{},
     produces: [],
-    enforcement: [],
-    extra: %{}
+    fields: %{},
+    enforcement: []
   ]
 
-  @type scope ::
-          {:singleton}
-          | {:per, String.t()}
-          | {:child_of, String.t()}
-          | {:cascade_visit}
-          | {:reference}
+  @type scope :: {:singleton} | {:per, String.t()} | {:child_of, String.t()} | {:cascade_visit}
+
+  @type produced :: %{kind: String.t(), draft_path: String.t()}
+
+  @typedoc """
+  `context_raw` is the block's own additive walks, as written;
+  `context` is those same walks parsed and merged with the tier's own
+  `effective_context` (`chain.md` #14, #20) — filled by
+  `Catapult.Dsl.Chain`, empty until then.
+  """
+  @type review_or_reconcile :: %{
+          prompt: String.t(),
+          context_raw: %{String.t() => String.t()},
+          context: %{String.t() => Catapult.Dsl.ContextWalk.t()}
+        }
 
   @type t :: %__MODULE__{
           name: String.t(),
-          file: String.t(),
           scope: scope() | nil,
-          scope_filter_raw: String.t() | nil,
+          draft: %{root_tag: String.t(), grammar: String.t()} | nil,
           identity: String.t() | nil,
-          fields: %{String.t() => String.t()},
+          draft_fields: %{String.t() => String.t()},
+          mint_fields: %{String.t() => String.t()},
+          handle_narrow: [String.t()] | nil,
           handle_fields: [String.t()],
           handle_fragments: [String.t()],
-          draft: %{root_tag: String.t(), grammar: String.t()} | nil,
           generator: String.t(),
-          generator_opts: map(),
+          source_raw: String.t() | nil,
           prompt: String.t() | nil,
           executor: map() | nil,
-          context: [ContextWalk.t()],
-          produces: [map()],
-          delivery: %{phase: String.t(), agent_step: String.t()} | nil,
-          reviews: String.t() | nil,
-          grammar: String.t() | nil,
-          enforcement: [String.t()],
-          extra: %{String.t() => term()}
+          context_raw: %{String.t() => String.t()},
+          effective_context: %{String.t() => ContextWalk.t()},
+          produces: [produced()],
+          fields: %{String.t() => String.t()},
+          review: review_or_reconcile() | nil,
+          reconcile: review_or_reconcile() | nil,
+          enforcement: [String.t()]
         }
 
-  @identities ~w(id alias name)
-  @generators ~w(llm git_commit synthesis webhook external template supplied reference)
-  @core_keys ~w(tier scope scope_filter identity fields handle draft generator prompt
-                executor context produces delivery enforcement source)
+  @generators ~w(llm supplied external template git_commit webhook)
+  @generation_keys ~w(scope draft generator prompt review reconcile executor handle context produces enforcement)
+  @join_keys ~w(scope draft fields handle enforcement)
+  @supplied_keys ~w(generator source)
 
-  # `chain.md` #14: everything a generation tier declares that a
-  # review tier's cardinality/scope-by-construction makes redundant, and
-  # that this loader therefore rejects outright rather than silently
-  # ignoring — restating any of them is a second place for the reviewed
-  # tier's own scope to drift out of step.
-  @review_forbidden ~w(scope scope_filter identity fields handle draft produces)
-  @review_keys ~w(tier reviews generator prompt grammar executor context delivery enforcement)
+  @doc "Kind of tier this declaration is, from its own already-parsed shape."
+  @spec kind(t()) :: :generating | :join | :supplied
+  def kind(%__MODULE__{generator: "supplied"}), do: :supplied
+  def kind(%__MODULE__{draft: :none}), do: :join
+  def kind(%__MODULE__{}), do: :generating
 
-  @doc "Parses one tier declaration from its YAML map."
+  @doc "Parses one `tiers.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
-  def parse(file, %{} = raw) do
-    where = "tier declaration #{file}"
-    {name, name_problems} = Fields.require_string(raw, "tier", where)
-    tier_where = if name, do: "tier #{inspect(name)} (#{file})", else: where
+  def parse(name, %{} = raw) do
+    where = "tier #{inspect(name)}"
 
-    case Map.fetch(raw, "reviews") do
-      {:ok, reviews} when is_binary(reviews) and reviews != "" ->
-        parse_review_tier(file, raw, name, reviews, tier_where, name_problems)
-
-      {:ok, other} ->
-        {:error,
-         name_problems ++
-           ["#{tier_where} \"reviews\" is #{inspect(other)}, expected a non-empty string"]}
-
-      :error ->
-        parse_generation_tier(file, raw, name, tier_where, name_problems)
+    case Map.get(raw, "generator") do
+      "supplied" -> parse_supplied(name, raw, where)
+      _other -> parse_scoped(name, raw, where)
     end
   end
 
-  def parse(file, other) do
-    {:error, ["tier declaration #{file} is #{inspect(other)}, expected a YAML mapping"]}
+  def parse(name, other) do
+    {:error, ["tier #{inspect(name)} is #{inspect(other)}, expected a YAML mapping"]}
   end
 
-  ## Generation tiers — the ordinary case
+  ## Supplied tiers (chain.md #17): generator + source, no scope at all.
 
-  defp parse_generation_tier(file, raw, name, tier_where, name_problems) do
-    {scope, scope_problems} = parse_scope(raw, tier_where)
-    {scope_filter, sf_problems} = Fields.optional_string(raw, "scope_filter", tier_where)
+  defp parse_supplied(name, raw, where) do
+    {source, source_problems} = Fields.require_string(raw, "source", where)
+    unknown = Fields.unknown_keys(raw, @supplied_keys, where)
 
-    {identity, identity_problems} =
-      Fields.require_one_of(raw, "identity", @identities, tier_where)
+    problems = source_problems ++ unknown
 
-    {fields, fields_problems} = parse_string_map(raw, "fields", tier_where)
-    {handle_fields, handle_fragments, handle_problems} = parse_handle(raw, tier_where)
-    {draft, draft_problems} = parse_draft(raw, tier_where)
+    if problems == [] do
+      {:ok, %__MODULE__{name: name, generator: "supplied", source_raw: source}}
+    else
+      {:error, problems}
+    end
+  end
 
-    {generator, generator_problems} =
-      Fields.optional_one_of(raw, "generator", @generators, tier_where, "llm")
+  ## Generating tiers and join targets share `scope:`; `draft: none`
+  ## (a literal string) is what makes a join target (chain.md #8).
 
-    {generator_opts, opts_problems} = parse_generator_opts(raw, generator, tier_where)
-    {prompt, prompt_problems} = parse_prompt(raw, generator, tier_where)
-    {executor, _ex_problems} = Fields.optional_map(raw, "executor", tier_where)
-    {context, context_problems} = parse_context(raw, tier_where)
-    {produces, produces_problems} = parse_produces(raw, tier_where)
-    {delivery, delivery_problems} = parse_delivery(raw, tier_where)
+  defp parse_scoped(name, raw, where) do
+    {scope, scope_problems} = parse_scope(raw, where)
 
-    {enforcement, enforcement_problems} =
-      Fields.optional_string_list(raw, "enforcement", tier_where)
+    case Map.get(raw, "draft") do
+      "none" -> parse_join(name, raw, where, scope, scope_problems)
+      _other -> parse_generating(name, raw, where, scope, scope_problems)
+    end
+  end
 
-    unknown = Fields.unknown_keys(raw, @core_keys, tier_where)
-    extra = Map.drop(raw, @core_keys)
+  defp parse_join(name, raw, where, scope, scope_problems) do
+    {fields, fields_problems} = parse_fields(raw, where)
+    {handle_narrow, handle_problems} = parse_handle(raw, where)
+    unknown = Fields.unknown_keys(raw, @join_keys, where)
 
-    reference_problems = reference_scope_problems(scope, generator, draft, produces, tier_where)
-    field_source_problems = field_source_problems(scope, fields, tier_where)
-
-    problems =
-      name_problems ++
-        scope_problems ++
-        sf_problems ++
-        identity_problems ++
-        fields_problems ++
-        handle_problems ++
-        draft_problems ++
-        generator_problems ++
-        opts_problems ++
-        prompt_problems ++
-        context_problems ++
-        produces_problems ++
-        delivery_problems ++
-        enforcement_problems ++
-        reference_problems ++
-        field_source_problems ++
-        unknown
+    problems = scope_problems ++ fields_problems ++ handle_problems ++ unknown
 
     if problems == [] do
       {:ok,
        %__MODULE__{
          name: name,
-         file: file,
          scope: scope,
-         scope_filter_raw: scope_filter,
-         identity: identity,
+         draft: :none,
          fields: fields,
-         handle_fields: handle_fields,
-         handle_fragments: handle_fragments,
-         draft: draft,
-         generator: generator,
-         generator_opts: generator_opts,
-         prompt: prompt,
-         executor: executor,
-         context: context,
-         produces: produces,
-         delivery: delivery,
-         enforcement: enforcement,
-         extra: extra
+         handle_narrow: handle_narrow
        }}
     else
       {:error, problems}
     end
   end
 
-  ## Review tiers — `chain.md` #14 (which retires them as tiers)
-
-  defp parse_review_tier(file, raw, name, reviews, tier_where, name_problems) do
-    forbidden =
-      for key <- @review_forbidden, Map.has_key?(raw, key) do
-        "#{tier_where} declares #{inspect(key)}, which a review tier " <>
-          "(reviews: #{inspect(reviews)}) may not carry (chain.md #14)"
-      end
+  defp parse_generating(name, raw, where, scope, scope_problems) do
+    {draft, draft_problems} = parse_draft(raw, name, where)
 
     {generator, generator_problems} =
-      Fields.optional_one_of(raw, "generator", @generators, tier_where, "llm")
+      Fields.optional_one_of(raw, "generator", @generators, where, "llm")
 
-    {prompt, prompt_problems} = parse_prompt(raw, generator, tier_where)
-    {grammar, grammar_problems} = Fields.require_string(raw, "grammar", tier_where)
-    {executor, _ex_problems} = Fields.optional_map(raw, "executor", tier_where)
-    {context, context_problems} = parse_context(raw, tier_where)
-    {delivery, delivery_problems} = parse_delivery(raw, tier_where)
+    {prompt, prompt_problems} = parse_prompt(raw, name, generator, where)
+    {executor, _ep} = Fields.optional_map(raw, "executor", where)
+    {context_raw, context_problems} = parse_context_map(raw, where)
+    {produces, produces_problems} = parse_produces(raw, where)
+    {handle_narrow, handle_problems} = parse_handle(raw, where)
+    {review, review_problems} = parse_review_or_reconcile(raw, "review", name, where)
+    {reconcile, reconcile_problems} = parse_review_or_reconcile(raw, "reconcile", name, where)
 
     {enforcement, enforcement_problems} =
-      Fields.optional_string_list(raw, "enforcement", tier_where)
+      Fields.optional_string_list(raw, "enforcement", where)
 
-    unknown = Fields.unknown_keys(raw, @review_keys, tier_where)
+    unknown = Fields.unknown_keys(raw, @generation_keys, where)
 
     problems =
-      name_problems ++
-        forbidden ++
+      scope_problems ++
+        draft_problems ++
         generator_problems ++
         prompt_problems ++
-        grammar_problems ++
         context_problems ++
-        delivery_problems ++
+        produces_problems ++
+        handle_problems ++
+        review_problems ++
+        reconcile_problems ++
         enforcement_problems ++
         unknown
 
@@ -233,14 +208,16 @@ defmodule Catapult.Dsl.Tier do
       {:ok,
        %__MODULE__{
          name: name,
-         file: file,
-         reviews: reviews,
+         scope: scope,
+         draft: draft,
          generator: generator,
          prompt: prompt,
-         grammar: grammar,
          executor: executor,
-         context: context,
-         delivery: delivery,
+         context_raw: context_raw,
+         produces: produces,
+         handle_narrow: handle_narrow,
+         review: review,
+         reconcile: reconcile,
          enforcement: enforcement
        }}
     else
@@ -248,53 +225,7 @@ defmodule Catapult.Dsl.Tier do
     end
   end
 
-  ## scope: reference / generator: reference (§3.1, §3.2) — legal only
-  ## paired with each other, and a reference-scope tier has no draft to
-  ## validate a body against or to write a fragment's `authored:` from.
-
-  defp reference_scope_problems({:reference}, generator, _draft, _produces, where)
-       when generator != "reference" do
-    [
-      "#{where} declares scope: reference with generator: #{inspect(generator)} — " <>
-        "scope: reference and generator: reference are legal only paired with each other"
-    ]
-  end
-
-  defp reference_scope_problems(scope, "reference", _draft, _produces, where)
-       when scope != {:reference} do
-    [
-      "#{where} declares generator: reference with scope #{inspect(scope)} — " <>
-        "scope: reference and generator: reference are legal only paired with each other"
-    ]
-  end
-
-  defp reference_scope_problems({:reference}, "reference", draft, produces, where) do
-    draft_problem =
-      if is_nil(draft),
-        do: [],
-        else: ["#{where} is scope: reference and may not declare draft: (no committed body)"]
-
-    produces_problem =
-      if produces == [],
-        do: [],
-        else: ["#{where} is scope: reference and may not declare produces: (no committed body)"]
-
-    draft_problem ++ produces_problem
-  end
-
-  defp reference_scope_problems(_scope, _generator, _draft, _produces, _where), do: []
-
-  # `reference.<name>` (`chain.md` #5) is legal only on a
-  # `scope: reference` tier's own `fields:` — there is no committed
-  # draft and no minting instance anywhere else for it to mean.
-  defp field_source_problems(scope, fields, where) do
-    for {name, "reference." <> _rest} <- fields, scope != {:reference} do
-      "#{where}'s fields #{inspect(name)} names a reference.<name> source, legal only on a " <>
-        "scope: reference tier"
-    end
-  end
-
-  ## scope (§3.1) — singleton | per(X) | child_of(X) | reference | cascade_visit
+  ## scope: singleton | per(X) | child_of(X) | cascade_visit (chain.md #6)
 
   defp parse_scope(raw, where) do
     case Fields.require_string(raw, "scope", where) do
@@ -305,7 +236,6 @@ defmodule Catapult.Dsl.Tier do
 
   defp parse_scope_value("singleton", _where), do: {{:singleton}, []}
   defp parse_scope_value("cascade_visit", _where), do: {{:cascade_visit}, []}
-  defp parse_scope_value("reference", _where), do: {{:reference}, []}
 
   defp parse_scope_value(value, where) do
     case Regex.run(~r/\A(per|child_of)\(([a-z0-9_]+)\)\z/, value) do
@@ -318,193 +248,156 @@ defmodule Catapult.Dsl.Tier do
       nil ->
         {nil,
          [
-           "#{where} scope #{inspect(value)} is not singleton, per(<tier>), child_of(<tier>), reference, or cascade_visit"
+           "#{where} scope #{inspect(value)} is not singleton, per(<tier>), child_of(<tier>) or cascade_visit"
          ]}
     end
   end
 
-  ## fields:, handle:
+  ## draft: — omitted (defaults), a map (override), never `none` here
+  ## (that literal routes to parse_join/5 before this runs).
 
-  defp parse_string_map(raw, key, where) do
-    case Map.fetch(raw, key) do
+  defp parse_draft(raw, name, where) do
+    case Map.fetch(raw, "draft") do
       :error ->
-        {%{}, []}
+        {%{root_tag: name, grammar: "schemas/#{name}.xsd"}, []}
 
-      {:ok, %{} = map} ->
-        string_map_result(map, key, where)
-
-      {:ok, other} ->
-        {%{}, ["#{where} #{inspect(key)} is #{inspect(other)}, expected a map"]}
-    end
-  end
-
-  defp string_map_result(map, key, where) do
-    if Enum.all?(map, fn {k, v} -> is_binary(k) and is_binary(v) end) do
-      {map, []}
-    else
-      {%{},
-       [
-         "#{where} #{inspect(key)} has a non-string key or value (expected a map of string to string)"
-       ]}
-    end
-  end
-
-  defp parse_handle(raw, where) do
-    case Fields.require_map(raw, "handle", where) do
-      {nil, problems} ->
-        {[], [], problems}
-
-      {handle, []} ->
-        handle_where = "#{where}'s handle"
-        {fields, fp} = Fields.require_string_list(handle, "fields", handle_where)
-        {fragments, gp} = Fields.optional_string_list(handle, "fragments", handle_where)
-        unknown = Fields.unknown_keys(handle, ["fields", "fragments"], handle_where)
-        {fields, fragments, fp ++ gp ++ unknown}
-    end
-  end
-
-  ## draft: — omitted entirely for join-target tiers and review tiers
-
-  defp parse_draft(raw, where) do
-    case Fields.optional_map(raw, "draft", where) do
-      {nil, problems} ->
-        {nil, problems}
-
-      {draft, []} ->
+      {:ok, %{} = draft} ->
         draft_where = "#{where}'s draft"
-        {root_tag, rp} = Fields.require_string(draft, "root_tag", draft_where)
-        {grammar, gp} = Fields.require_string(draft, "grammar", draft_where)
+        {root_tag, rp} = Fields.optional_string(draft, "root_tag", draft_where, name)
+
+        {grammar, gp} =
+          Fields.optional_string(draft, "grammar", draft_where, "schemas/#{name}.xsd")
+
         unknown = Fields.unknown_keys(draft, ["root_tag", "grammar"], draft_where)
         problems = rp ++ gp ++ unknown
 
         if problems == [],
           do: {%{root_tag: root_tag, grammar: grammar}, []},
           else: {nil, problems}
-    end
-  end
-
-  ## generator: (§3.2) and its per-type required opts
-
-  defp parse_generator_opts(raw, "git_commit", where) do
-    {url, up} = Fields.require_string(raw, "code_repo_url", where)
-    {path, pp} = Fields.require_string(raw, "path_from_handle", where)
-    {%{code_repo_url: url, path_from_handle: path}, up ++ pp}
-  end
-
-  defp parse_generator_opts(raw, "external", where) do
-    {package, pp} = Fields.require_string(raw, "package", where)
-    {options, _op} = Fields.optional_map(raw, "options", where)
-    {%{package: package, options: options || %{}}, pp}
-  end
-
-  defp parse_generator_opts(raw, "template", where) do
-    {template, tp} = Fields.require_string(raw, "template", where)
-    {%{template: template}, tp}
-  end
-
-  defp parse_generator_opts(raw, "supplied", where) do
-    case Fields.require_string(raw, "source", where) do
-      {nil, problems} ->
-        {%{}, problems}
-
-      {source, []} ->
-        case ContextWalk.parse(source) do
-          {:ok, %ContextWalk{source: :input, role: role}} when is_binary(role) ->
-            {%{source: source, role: role}, []}
-
-          _other ->
-            {%{}, ["#{where} \"source\" #{inspect(source)} is not input.<role>"]}
-        end
-    end
-  end
-
-  defp parse_generator_opts(_raw, _other, _where), do: {%{}, []}
-
-  ## prompt: — required for the llm generator
-
-  defp parse_prompt(raw, "llm", where) do
-    case Fields.require_string(raw, "prompt", where) do
-      {nil, problems} -> {nil, problems}
-      {value, []} -> {value, []}
-    end
-  end
-
-  defp parse_prompt(raw, _generator, where), do: Fields.optional_string(raw, "prompt", where)
-
-  ## context: (§7) — a list of walk strings
-
-  defp parse_context(raw, where) do
-    case Fields.optional_string_list(raw, "context", where) do
-      {[], problems} when problems != [] ->
-        {[], problems}
-
-      {entries, []} ->
-        results = Enum.map(entries, &ContextWalk.parse/1)
-        problems = for {:error, reason} <- results, do: "#{where}'s #{reason}"
-        walks = for {:ok, walk} <- results, do: walk
-        {walks, problems}
-    end
-  end
-
-  ## produces: (§3) — fragments this draft writes on other nodes
-
-  defp parse_produces(raw, where) do
-    case Map.fetch(raw, "produces") do
-      :error ->
-        {[], []}
-
-      {:ok, entries} when is_list(entries) ->
-        results = Enum.map(entries, &parse_produced_fragment(&1, where))
-        problems = Enum.flat_map(results, &elem(&1, 1))
-        entries = for {entry, []} <- results, do: entry
-        {entries, problems}
 
       {:ok, other} ->
-        {[], ["#{where}'s produces is #{inspect(other)}, expected a list"]}
+        {nil,
+         ["#{where}'s draft is #{inspect(other)}, expected a mapping or the literal \"none\""]}
     end
   end
 
-  defp parse_produced_fragment(%{"fragment" => %{} = fragment}, where) do
-    fw = "#{where}'s produces entry"
-    {owner, op} = Fields.require_string(fragment, "owner", fw)
-    {kind, kp} = Fields.require_string(fragment, "kind", fw)
-    {authored, ap} = Fields.require_string(fragment, "authored", fw)
-    unknown = Fields.unknown_keys(fragment, ["owner", "kind", "authored"], fw)
-    problems = op ++ kp ++ ap ++ unknown
+  ## prompt: — defaults to prompts/<tier>.md.liquid (chain.md #9),
+  ## written only where the file lives elsewhere.
 
-    case {problems, owner} do
-      {[], nil} -> {nil, problems}
-      {[], owner} -> {%{owner_raw: owner, kind: kind, authored: authored}, []}
-      {problems, _owner} -> {nil, problems}
+  defp parse_prompt(raw, name, generator, where) do
+    default = if generator == "llm", do: "prompts/#{name}.md.liquid"
+    Fields.optional_string(raw, "prompt", where, default)
+  end
+
+  ## context: — a map from variable name to walk string (chain.md #21).
+  ## Parsed as strings only; `ContextWalk.parse/1` and every collision
+  ## with a derived read is `Catapult.Dsl.Chain`'s job, once the whole
+  ## bundle (and every other tier's edges) is in view.
+
+  defp parse_context_map(raw, where) do
+    case string_map(raw, "context", where, "a map of name to walk") do
+      {:ok, map} -> {map, []}
+      {:error, problem} -> {%{}, [problem]}
     end
   end
 
-  defp parse_produced_fragment(other, where) do
-    {nil,
-     ["#{where}'s produces entry #{inspect(other)} is not {fragment: {owner, kind, authored}}"]}
+  ## produces: (chain.md #13) — fragment kind -> draft path, owner is
+  ## always the scope parent (implicit; there is no owner: key anymore).
+
+  defp parse_produces(raw, where) do
+    case string_map(raw, "produces", where, "a map of fragment kind to draft path") do
+      {:ok, map} -> {for({kind, path} <- map, do: %{kind: kind, draft_path: path}), []}
+      {:error, problem} -> {[], [problem]}
+    end
   end
 
-  ## delivery: — retired by `workflow.md` #22; v5 §7.10's "an unknown phase
-  ## or agent step is a load error" and §11's "platform-fixed vocabulary
-  ## only". Structural shape only here — actual membership in
-  ## Catapult.Dsl.SystemStatus's closed sets is a bundle-level
-  ## cross-reference (Catapult.Dsl.Chain), same as every other §13 check.
+  defp string_map(raw, key, where, expected) do
+    case Map.fetch(raw, key) do
+      :error -> {:ok, %{}}
+      {:ok, %{} = map} -> string_map_result(map, key, where, expected)
+      {:ok, other} -> {:error, "#{where}'s #{key} is #{inspect(other)}, expected #{expected}"}
+    end
+  end
 
-  defp parse_delivery(raw, where) do
-    case Fields.optional_map(raw, "delivery", where) do
-      {nil, problems} ->
-        {nil, problems}
+  defp string_map_result(map, key, where, expected) do
+    if Enum.all?(map, fn {k, v} -> is_binary(k) and is_binary(v) end) do
+      {:ok, map}
+    else
+      {:error, "#{where}'s #{key} has a non-string key or value, expected #{expected}"}
+    end
+  end
 
-      {delivery, []} ->
-        dw = "#{where}'s delivery"
-        {phase, pp} = Fields.require_string(delivery, "phase", dw)
-        {agent_step, ap} = Fields.require_string(delivery, "agent_step", dw)
-        unknown = Fields.unknown_keys(delivery, ["phase", "agent_step"], dw)
-        problems = pp ++ ap ++ unknown
+  ## fields: — join-target-only, `<name>: mint.parent.<kind>` (chain.md #12)
+
+  defp parse_fields(raw, where) do
+    case Map.fetch(raw, "fields") do
+      :error ->
+        {%{}, []}
+
+      {:ok, %{} = map} ->
+        bad = for {k, v} <- map, not (is_binary(k) and is_binary(v)), do: {k, v}
+
+        cond do
+          bad != [] ->
+            {%{}, ["#{where}'s fields has a non-string key or value"]}
+
+          Enum.all?(map, fn {_k, v} -> String.starts_with?(v, "mint.parent.") end) ->
+            {map, []}
+
+          true ->
+            {%{},
+             [
+               "#{where}'s fields names a value that is not mint.parent.<kind> " <>
+                 "(chain.md #12: a join target's fields: names only cross-node copies)"
+             ]}
+        end
+
+      {:ok, other} ->
+        {%{}, ["#{where}'s fields is #{inspect(other)}, expected a map"]}
+    end
+  end
+
+  ## handle: — a narrowing list only (chain.md #11); the default (every
+  ## field plus every produced kind) is computed once the schema is read.
+
+  defp parse_handle(raw, where) do
+    case Map.fetch(raw, "handle") do
+      :error -> {nil, []}
+      {:ok, list} when is_list(list) -> Fields.require_string_list(raw, "handle", where)
+      {:ok, other} -> {nil, ["#{where}'s handle is #{inspect(other)}, expected a list of names"]}
+    end
+  end
+
+  ## review:/reconcile: — `default` (a bare string) or a map overriding
+  ## prompt/context (chain.md #14, #15).
+
+  defp parse_review_or_reconcile(raw, key, name, where) do
+    default_prompt = default_prompt_for(key, name)
+
+    case Map.fetch(raw, key) do
+      :error ->
+        {nil, []}
+
+      {:ok, "default"} ->
+        {%{prompt: default_prompt, context_raw: %{}, context: %{}}, []}
+
+      {:ok, %{} = map} ->
+        rw = "#{where}'s #{key}"
+        {prompt, pp} = Fields.optional_string(map, "prompt", rw, default_prompt)
+        {context_raw, cp} = parse_context_map(map, rw)
+        unknown = Fields.unknown_keys(map, ["prompt", "context"], rw)
+        problems = pp ++ cp ++ unknown
 
         if problems == [],
-          do: {%{phase: phase, agent_step: agent_step}, []},
+          do: {%{prompt: prompt, context_raw: context_raw, context: %{}}, []},
           else: {nil, problems}
+
+      {:ok, other} ->
+        {nil,
+         ["#{where}'s #{key} is #{inspect(other)}, expected the literal \"default\" or a mapping"]}
     end
   end
+
+  defp default_prompt_for("review", name), do: "prompts/review/#{name}.md.liquid"
+  defp default_prompt_for("reconcile", name), do: "prompts/reconcile/#{name}.md.liquid"
 end

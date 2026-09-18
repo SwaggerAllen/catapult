@@ -10,10 +10,18 @@ defmodule CatapultWeb.ExplainWhyLive do
   recomputation here, ever (`screens/explain-why.md`'s own non-goal).
 
   `review_tier?` is not part of `explain/2`'s own report; it is read
-  off the tier's `reviews:` field (`Catapult.Dsl.Tier`, non-nil only on
-  a review tier) and handed down so the component can render the
-  caveat an ordinary empty `blocking` list can't distinguish on its
-  own.
+  off the tier's `review:` block (`Catapult.Dsl.Tier`, non-nil only on
+  a tier that reviews its own draft, `chain.md` #14) and handed down so
+  the component can render the caveat an ordinary empty `blocking` list
+  can't distinguish on its own.
+
+  `passes_scope_filter` is always `true`: `chain.md` retires
+  `scope_filter:` from the grammar entirely (`systems/core_dsl.md`'s
+  #45 entry), so nothing excludes a candidate at enumeration any more.
+  `screens/explain-why.md` and the storybook component still describe
+  it as a meaningful signal — flagged in this ticket's hand-back rather
+  than rewritten here, since that screen's own prose is design's to
+  amend.
   """
   use CatapultWeb, :live_view
 
@@ -39,7 +47,7 @@ defmodule CatapultWeb.ExplainWhyLive do
         node_id: node_id,
         tier: report.tier,
         scope_key: report.scope_key,
-        passes_scope_filter: report.passes_scope_filter,
+        passes_scope_filter: true,
         blocking: report.blocking,
         review_tier?: review_tier?(chain, node.tier)
       )
@@ -50,7 +58,7 @@ defmodule CatapultWeb.ExplainWhyLive do
 
   defp review_tier?(chain, tier_name) do
     case Map.fetch(chain.tiers, tier_name) do
-      {:ok, tier} -> not is_nil(tier.reviews)
+      {:ok, tier} -> not is_nil(tier.review)
       :error -> false
     end
   end

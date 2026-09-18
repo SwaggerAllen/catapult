@@ -64,7 +64,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       entry_node_id: "sysarch"
     }
 
@@ -72,10 +72,15 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert row.entry_node_id == "sysarch"
-    assert FeatureLifecycle.status(row) == {:kind, :pending}
-    # No authored `name:` on `feature.yaml`'s own `pending` entry, so
-    # this defaults to the kind (`workflow.md` #7, ORC-155).
-    assert row.status_name == "pending"
+    # `pending` is an engine-set flag now, not a declared entry
+    # (`workflow.md` #25) — `delta`'s own first array entry is its
+    # leading `generation` position (`plan-features`), which is where a
+    # freshly opened flow with no commit yet rests before anything is
+    # passable.
+    assert FeatureLifecycle.status(row) == {:kind, :generation}
+    # `delta`'s own leading entry carries `name: plan-features`
+    # (`workflow.md` #7, ORC-155) — an authored override, not a default.
+    assert row.status_name == "plan-features"
   end
 
   test "a commit while the flow is open walks it to the first gate" do
@@ -87,7 +92,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       entry_node_id: "sysarch"
     }
 
@@ -101,10 +106,15 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(commit(project_id, "d1"), consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+    # Once anything has committed, every generation/critique position is
+    # passable regardless of which node the commit landed on (`Projection
+    # .passable?/2`'s own simplification), so the walk lands on `delta`'s
+    # own first gate — `features-review`, ahead of `ux-review`'s own
+    # later `experience` phase.
+    assert FeatureLifecycle.status(row) == {:gate, "features-review"}
     # A gate's own declared name was always its whole identity
     # (`workflow.md` #7, ORC-155) — no separate name column needed.
-    assert row.status_name == "ux-review"
+    assert row.status_name == "features-review"
   end
 
   test "GateApproved passes the gate and the ticket rests at the next entry" do
@@ -116,7 +126,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       entry_node_id: "sysarch"
     }
 
@@ -126,12 +136,12 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(commit(project_id, "d1"), consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+    assert FeatureLifecycle.status(row) == {:gate, "features-review"}
 
     approve_gate = %ApproveGate{
       project_id: project_id,
       flow_id: flow_id,
-      gate: "ux-review",
+      gate: "features-review",
       node_id: "sysarch",
       body_sha: "sha-d1",
       actor_id: "human-1"
@@ -140,7 +150,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(approve_gate, consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:gate, "engineering-review"}
+    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
   end
 
   test "GateDeclined moves the ticket straight to its throwback target" do
@@ -152,7 +162,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       entry_node_id: "sysarch"
     }
 
@@ -164,7 +174,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     approve_gate = %ApproveGate{
       project_id: project_id,
       flow_id: flow_id,
-      gate: "ux-review",
+      gate: "features-review",
       node_id: "sysarch",
       body_sha: "sha-d1",
       actor_id: "human-1"
@@ -173,7 +183,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(approve_gate, consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:gate, "engineering-review"}
+    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
 
     # A decline requires at least one comment since this gate's last
     # resolution (`Catapult.Engine.AggregateTest` covers the rejection
@@ -193,8 +203,8 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     decline_gate = %DeclineGate{
       project_id: project_id,
       flow_id: flow_id,
-      gate: "engineering-review",
-      throwback_to: "ux-review",
+      gate: "ux-review",
+      throwback_to: "features-review",
       since_sequence: nil,
       node_id: "sysarch",
       body_sha: "sha-d1",
@@ -204,7 +214,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     assert :ok = Router.dispatch(decline_gate, consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:gate, "ux-review"}
+    assert FeatureLifecycle.status(row) == {:gate, "features-review"}
   end
 
   test "RunFailed blocks the ticket, and ResumeFlow resumes it at the chosen position" do
@@ -216,14 +226,17 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       entry_node_id: "sysarch"
     }
 
     assert :ok = Router.dispatch(open, consistency: :strong)
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
-    assert FeatureLifecycle.status(row) == {:kind, :pending}
+    # See the first test's own note: `pending` is an engine flag, not a
+    # declared entry, so a fresh `delta` flow with no commit yet rests at
+    # its own leading `generation` position.
+    assert FeatureLifecycle.status(row) == {:kind, :generation}
 
     failed = %RecordRunFailure{
       project_id: project_id,
@@ -239,7 +252,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
 
     row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
     assert FeatureLifecycle.status(row) == {:kind, :blocked}
-    assert row.blocked_origin_kind == "pending"
+    assert row.blocked_origin_kind == "generation"
 
     resume = %ResumeFlow{
       project_id: project_id,
@@ -322,7 +335,7 @@ defmodule Catapult.Delivery.FeatureLifecycleTest do
         project_id: "proj-1",
         flow_id: "flow-1",
         entry_node_id: "sysarch",
-        flow_name: "feature",
+        flow_name: "delta",
         projection: %Projection{
           commit_signature: 3,
           passed: %{{:gate, "review"} => 3},

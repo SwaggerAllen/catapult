@@ -19,7 +19,7 @@
   tier still *reads* `uses_shapes` (context:, below), it no longer
   writes it.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Invariants">
     <xs:sequence>
@@ -34,7 +34,8 @@
   </xs:complexType>
 
   <!-- At most one `<design-system>` row — `design_system` mints at
-       most one node project-wide (tiers/design_system.yaml); a
+       most one node project-wide (chain.yaml's `design_system` tier
+       is `generator: supplied`, singleton by construction); a
        project supplying none simply omits this element. -->
   <xs:complexType name="Primitives">
     <xs:sequence>
@@ -72,10 +73,16 @@
     <xs:attribute name="grade" type="ImplementationGrade" use="required"/>
   </xs:complexType>
 
+  <!-- Mints `ui_subcomp`, identified by `alias`. -->
   <xs:complexType name="Subcomponent">
+    <xs:annotation><xs:appinfo><catapult:mints tier="ui_subcomp" identity="alias"/></xs:appinfo></xs:annotation>
     <xs:sequence>
-      <xs:element name="name" type="xs:string"/>
-      <xs:element name="purpose" type="xs:string"/>
+      <xs:element name="name" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="name"/></xs:appinfo></xs:annotation>
+      </xs:element>
+      <xs:element name="purpose" type="xs:string">
+        <xs:annotation><xs:appinfo><catapult:field name="purpose"/></xs:appinfo></xs:annotation>
+      </xs:element>
       <xs:element name="owned-invariants" type="Invariants"/>
       <xs:element name="primary-operations" type="Operations"/>
       <xs:element name="responsibilities" type="xs:string"/>
@@ -112,6 +119,7 @@
   </xs:complexType>
 
   <xs:element name="ui-collarch">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
         <xs:element name="technical-specification" type="xs:string"/>
@@ -120,7 +128,9 @@
         <xs:element name="failure-surface" type="xs:string"/>
         <xs:element name="policies" type="xs:string"/>
         <xs:element name="primitives" type="Primitives"/>
-        <xs:element name="subcomponents" type="Subcomponents"/>
+        <xs:element name="subcomponents" type="Subcomponents">
+          <xs:annotation><xs:appinfo><catapult:field name="decomposition_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="sub-dependencies" type="SubDependencies"/>
         <xs:element name="references" type="References" minOccurs="0"/>
       </xs:sequence>

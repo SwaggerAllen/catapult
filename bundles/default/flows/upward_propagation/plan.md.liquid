@@ -14,6 +14,15 @@ Project framing: {{ project_doc }}
 
 The downstream node's argument for why the upstream decision needs
 revisiting: {{ description }}
+{% comment %}
+  ORC-249 hand-back: `description` is not a declared context key for
+  `upward_propagation_plan` in chain.yaml (only `project_doc`,
+  `sysarch`, and `components` are) and no `input.<role>` mapping under
+  this name exists in Catapult.Generation.ContextAssembly either —
+  this renders blank today. Left as-is rather than guessed at since
+  the fix is a chain.yaml context addition, out of scope for a
+  prompt-content-only pass.
+{% endcomment %}
 
 # Output format
 
