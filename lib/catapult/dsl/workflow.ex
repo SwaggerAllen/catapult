@@ -1,75 +1,34 @@
 defmodule Catapult.Dsl.Workflow do
   @moduledoc """
   Loads and validates one `kind: workflow` bundle end to end
-  (`workflow.md`): declared gates and environments (#31, #37), and
-  the unified work-item declaration `types/<name>.yaml` (§15.2) whose
-  `statuses:` array positions everything — the skeleton's own required
-  backbone, gate/environment citations, `flow:`/`blocks:` population-
-  anchor metadata — by array index alone. There is no `after:` anywhere
-  in this grammar (§15.3): position moved from a named-predecessor
-  field on the gate/environment declaration itself to the citing
-  type's own array, so the identical gate may run at different
-  relative positions across two types without either being wrong.
+  (`workflow.md`): declared gates and environments, and the unified
+  work-item declaration `types.<name>` whose `statuses:` array positions
+  everything by array index alone.
 
-  A workflow bundle carries no `extends:` (§11, §13; `Catapult.Dsl
-  .Manifest`'s own moduledoc), the same as a chain bundle now that
-  `extends:` has retired from the DSL entirely (ORC-153) — it is
-  forked from the platform's default gates/environments/types, and
-  this loader has always read its one directory directly.
+  **The cross-axis reference runs from here** (`bundle.md` #11,
+  `workflow.md` #22, #23, #40, `systems/core_dsl.md`'s #45.2): a
+  generation position names the chain tiers that run at it, and a
+  ticket type names the chain flows it serves — the chain names
+  nothing back. So `load/4` takes the already-loaded `Catapult.Dsl
+  .Chain` and checks against it; the chain's own load never needs the
+  workflow in view.
 
-  **Backward movement resolves here, and through one predicate**
-  (§15.10). A decline's target is legal iff it is earlier in the citing
-  type's own effective sequence — the identical test §7.19 gives a
-  Blocked-return, and the identical test this loader has always run
-  over a *declared* `throwback:`. So `gate_throwback_problems/2` and
-  the runtime pick (`throwback_targets/3`, `throwback_legal?/4`) share
-  `earlier_names/2` rather than agreeing by coincidence, and
-  `throwback_default/3` supplies the landing point: the gate's own
-  declared target, else the citing sub-array's own earliest entry.
-  None of it is stored — a stored default would be a second
-  home for a fact the citing type's array already carries, and a
-  workflow cutover could not re-resolve it (§15.1).
-
-  **A `merge` entry must be preceded, earlier in the same array, by a
-  `reconcile` entry — stated positionally rather than per skeleton, at
-  ORC-151's design review** (§15.1, §15.11): nothing merges, of any
-  skeleton, without first having been read against its own argument
-  (`docs/v5-design-decisions.md` §7.5). `merge_reconcile_problems/1`
-  checks this over every declared array, `container`-skeleton ones
-  included — closing the gap the ticket-skeleton-only framing left open
-  (`types/milestone.yaml`'s own `setup`/`retro` sequences used to merge
-  twice with nothing read first).
-
-  Two of §13's checks need data this loader is never handed in Phase 3
-  — a gate's role holders live in the identity component (Phase 7,
-  v5 §7.16), and the mirror mapping lives with the outbound tracker
-  add-on (Phase 4+, v5 §7.17) — so both are **opt-in**: passed via
-  `role_holders`/`mirror_mapping` in `opts`, skipped (not failed) when
-  absent.
-
-  **A position's identity is `<anchor>.<name>` inside a sub-array, bare
-  at the top level (§15.12, ORC-155).** `Catapult.Dsl.Type
-  .namespaced_positions/1` builds every entry's bare name and its
-  namespace-qualified form once per type — moved there at ORC-116 so
-  `Catapult.Delivery.ContainerLifecycle.Sequence` can share the
-  identical computation for the container axis, rather than this
-  module being the only place it exists; `resolve_reference/2` is what
-  `gate_throwback_problems/2` and `blocks_problems/1` both call to
-  resolve a declared `throwback:`/`blocks:` string against that set —
-  bare when the bare name is unique in the type, refused as ambiguous
-  when it recurs across more than one namespace, and this is the one
-  place that decision is made. `earlier_names/2` (§15.10's own
-  backward-movement predicate) folds the identical ambiguity rule into
-  the strings it returns, so a recurring bare name never silently
-  prefers whichever occurrence comes first there either.
+  Two of the structural checks need data this loader is never handed
+  in Phase 3 — a gate's role holders live in the identity component,
+  the mirror mapping with the outbound tracker add-on — so both are
+  **opt-in**: passed via `role_holders`/`mirror_mapping` in `opts`,
+  skipped (not failed) when absent.
   """
 
+  alias Catapult.Dsl.Chain
+  alias Catapult.Dsl.Edge
   alias Catapult.Dsl.Environment
+  alias Catapult.Dsl.Fields
   alias Catapult.Dsl.Gate
   alias Catapult.Dsl.Graph, as: DslGraph
-  alias Catapult.Dsl.Manifest
   alias Catapult.Dsl.Status
   alias Catapult.Dsl.SystemStatus
+  alias Catapult.Dsl.Tier
   alias Catapult.Dsl.Type
   alias Catapult.Dsl.Yaml
 
@@ -84,129 +43,112 @@ defmodule Catapult.Dsl.Workflow do
           types: %{String.t() => Type.t()}
         }
 
+  @top_keys ~w(name version kind entry types gates environments)
   @container_required_order ~w(setup prep main retro cleanup)
-  # The full fixed vocabulary (§15.1), not the ticket-skeleton's required
-  # backbone: a ticket-skeleton array may additionally hold any other
-  # anchor (e.g. a population anchor like `retro`/`setup`), so membership
-  # here is checked against every kind, not the subset `ticket_relative_
-  # order_problems/2` requires.
-  @ticket_status_names Enum.map(SystemStatus.kinds(), &Atom.to_string/1)
 
-  @doc "Loads and validates the workflow bundle named `name` under `bundles_root`."
-  @spec load(String.t(), String.t(), keyword()) :: {:ok, t()} | {:error, [String.t()]}
-  def load(bundles_root, name, opts \\ []) do
+  @doc "Loads and validates the workflow bundle named `name` under `bundles_root`, against the already-loaded `chain`."
+  @spec load(String.t(), String.t(), Chain.t(), keyword()) :: {:ok, t()} | {:error, [String.t()]}
+  def load(bundles_root, name, %Chain{} = chain, opts \\ []) do
     dir = Path.join(bundles_root, name)
-    manifest_path = Path.join(dir, "bundle.yaml")
+    path = Path.join(dir, "workflow.yaml")
 
-    with {:ok, raw} <- Yaml.read(manifest_path),
-         {:ok, manifest} <- Manifest.parse(manifest_path, raw),
-         {:ok, manifest} <- require_kind(manifest, "workflow") do
-      build(dir, manifest, opts)
+    with {:ok, raw} <- read_yaml(path),
+         {:ok, raw} <- require_kind(raw, path) do
+      build(raw, chain, opts)
     end
   end
 
-  defp require_kind(%{kind: kind} = manifest, kind), do: {:ok, manifest}
+  defp read_yaml(path) do
+    case Yaml.read(path) do
+      {:ok, raw} -> {:ok, raw}
+      {:error, reason} -> {:error, [reason]}
+    end
+  end
 
-  defp require_kind(manifest, expected) do
+  defp require_kind(%{"kind" => "workflow"} = raw, _path), do: {:ok, raw}
+
+  defp require_kind(%{"kind" => other}, path) do
     {:error,
      [
-       "#{manifest.file} is a #{manifest.kind} bundle, expected #{expected} " <>
-         "(catapult.yaml named it on the #{expected} axis)"
+       "#{path} is a #{other} bundle, expected workflow (catapult.yaml named it on the workflow axis)"
      ]}
   end
 
-  defp build(dir, manifest, opts) do
-    gate_files = resolve_globs(dir, manifest.gate_globs)
-    env_files = resolve_globs(dir, manifest.environment_globs)
-    type_files = resolve_globs(dir, manifest.type_globs)
+  defp require_kind(_raw, path), do: {:error, ["#{path} is missing required field \"kind\""]}
 
-    {gates, gate_problems} = parse_all(gate_files, Gate)
-    {environments, env_problems} = parse_all(env_files, Environment)
-    {types, type_problems} = parse_all(type_files, Type)
+  defp build(raw, chain, opts) do
+    {name, name_p} = Fields.require_string(raw, "name", "workflow.yaml")
+    {_version, version_p} = Fields.optional_string(raw, "version", "workflow.yaml")
+    {entry, entry_p} = Fields.require_string(raw, "entry", "workflow.yaml")
+    {gates, gates_p} = parse_named(raw, "gates", Gate)
+    {environments, env_p} = parse_named(raw, "environments", Environment, optional: true)
+    {types, types_p} = parse_named(raw, "types", Type)
+    unknown = Fields.unknown_keys(raw, @top_keys, "workflow.yaml")
 
-    gate_map = index(gates)
-    env_map = index(environments)
-    type_map = index(types)
+    structural = name_p ++ version_p ++ entry_p ++ gates_p ++ env_p ++ types_p ++ unknown
 
-    problems =
-      gate_problems ++
-        env_problems ++
-        type_problems ++
-        duplicate_names(gates, "gate") ++
-        duplicate_names(environments, "environment") ++
-        duplicate_names(types, "type") ++
-        gate_throwback_problems(type_map, gate_map) ++
-        environment_promotion_problems(env_map) ++
-        naming_discipline_problems(gate_map, env_map) ++
-        role_holder_problems(gate_map, Keyword.get(opts, :role_holders)) ++
-        mirror_mapping_problems(gate_map, Keyword.get(opts, :mirror_mapping)) ++
-        generation_blocked_exit_problems() ++
-        pending_precedes_problems() ++
-        skeleton_shape_problems(type_map) ++
-        merge_reconcile_problems(type_map) ++
-        pending_precedes_generation_problems(type_map) ++
-        critique_adjacency_problems(type_map) ++
-        name_uniqueness_problems(type_map) ++
-        gate_status_disjointness_problems(type_map, gate_map) ++
-        flow_reference_problems(type_map) ++
-        review_reference_problems(type_map, gate_map) ++
-        environment_reference_problems(type_map, env_map) ++
-        blocks_problems(type_map) ++
-        declaration_graph_problems(type_map) ++
-        entry_problems(manifest.entry, type_map)
-
-    if problems == [] do
-      {:ok,
-       %__MODULE__{
-         name: manifest.name,
-         entry: manifest.entry,
-         gates: gate_map,
-         environments: env_map,
-         types: type_map
-       }}
+    if structural != [] do
+      {:error, Enum.uniq(structural)}
     else
-      {:error, Enum.uniq(problems)}
+      problems =
+        gate_throwback_problems(types, gates) ++
+          environment_promotion_problems(environments) ++
+          role_holder_problems(gates, Keyword.get(opts, :role_holders)) ++
+          mirror_mapping_problems(gates, Keyword.get(opts, :mirror_mapping)) ++
+          skeleton_shape_problems(types) ++
+          merge_reconcile_problems(types) ++
+          critique_adjacency_problems(types) ++
+          name_uniqueness_problems(types) ++
+          gate_status_disjointness_problems(types, gates) ++
+          flow_reference_problems(types) ++
+          review_reference_problems(types, gates) ++
+          environment_reference_problems(types, environments) ++
+          blocks_problems(types) ++
+          declaration_graph_problems(types) ++
+          entry_problems(entry, types) ++
+          tiers_problems(types, chain) ++
+          serves_problems(types, chain) ++
+          traversability_problems(types, chain)
+
+      if problems == [] do
+        {:ok,
+         %__MODULE__{
+           name: name,
+           entry: entry,
+           gates: gates,
+           environments: environments,
+           types: types
+         }}
+      else
+        {:error, Enum.uniq(problems)}
+      end
     end
   end
 
-  defp resolve_globs(dir, globs) do
-    globs |> Enum.flat_map(&Yaml.glob(dir, &1)) |> Enum.uniq() |> Enum.sort()
+  defp parse_named(raw, key, module, opts \\ []) do
+    fetch =
+      if Keyword.get(opts, :optional, false), do: &optional_named/3, else: &Fields.require_map/3
+
+    case fetch.(raw, key, "workflow.yaml") do
+      {nil, problems} ->
+        {%{}, problems}
+
+      {map, []} ->
+        results = for {name, entry} <- map, do: {name, module.parse(name, entry)}
+        problems = for {_name, {:error, p}} <- results, problem <- p, do: problem
+        parsed = for {name, {:ok, entry}} <- results, into: %{}, do: {name, entry}
+        {parsed, problems}
+    end
   end
 
-  defp parse_all(files, module) do
-    results =
-      for path <- files do
-        case Yaml.read(path) do
-          {:ok, raw} -> module.parse(path, raw)
-          {:error, reason} -> {:error, [reason]}
-        end
-      end
-
-    problems =
-      Enum.flat_map(results, fn
-        {:ok, _} -> []
-        {:error, p} -> p
-      end)
-
-    parsed = for {:ok, entry} <- results, do: entry
-    {parsed, problems}
+  defp optional_named(raw, key, where) do
+    case Fields.optional_map(raw, key, where) do
+      {nil, []} -> {%{}, []}
+      other -> other
+    end
   end
 
-  defp index(entries), do: Map.new(entries, &{&1.name, &1})
-
-  defp duplicate_names(entries, label) do
-    entries
-    |> Enum.frequencies_by(& &1.name)
-    |> Enum.filter(fn {_name, count} -> count > 1 end)
-    |> Enum.map(fn {name, _count} -> "two or more #{label} declarations name #{inspect(name)}" end)
-  end
-
-  ## Gate throwback (§13, §15.4, §15.8, §15.10): a declared target must
-  ## resolve to a status or another cited gate *earlier in the citing
-  ## type's own array* — position lives there now, never on the gate
-  ## itself. A gate declaring nothing has nothing to check here; its
-  ## landing point is derived at throwback time instead
-  ## (`throwback_default/3`).
+  ## -- Gate throwback (#33, #34, #35) -------------------------------------
 
   defp gate_throwback_problems(types, gates) do
     for {type_name, type} <- types,
@@ -221,61 +163,29 @@ defmodule Catapult.Dsl.Workflow do
     |> Enum.reject(&is_nil/1)
   end
 
-  # A declared `throwback:` is resolved the identical way a `blocks:`
-  # reference is (§15.12): a bare recurring across more than one
-  # namespace is its own, specific load error, distinct from "does not
-  # resolve at all" — both collapse to "not earlier" once resolved,
-  # since a resolved-but-later position is exactly as illegal as one
-  # that never resolved.
   defp gate_throwback_problem(type_name, type, index, status, gate) do
     case resolve_reference(type, gate.throwback) do
       {:ambiguous, namespaces} ->
-        "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
-          "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
-          "which resolves inside more than one namespace #{inspect(namespaces)} — qualify it " <>
-          "<anchor>.<name> (§13, §15.12)"
+        "type #{inspect(type_name)}'s #{inspect(status.review)} (#{Type.declared_path(type, index)}) " <>
+          "throwback names #{inspect(gate.throwback)}, ambiguous across #{inspect(namespaces)} — qualify it <anchor>.<name>"
 
       {:ok, %{index: target_index}} when target_index < index ->
         nil
 
       _not_earlier_or_not_found ->
-        "type #{inspect(type_name)}'s #{inspect(status.review)} " <>
-          "(#{Type.declared_path(type, index)}) throwback names #{inspect(gate.throwback)}, " <>
-          "which is not earlier in this type's own statuses: array (§13, §15.4, §15.8)"
+        "type #{inspect(type_name)}'s #{inspect(status.review)} (#{Type.declared_path(type, index)}) " <>
+          "throwback names #{inspect(gate.throwback)}, which is not earlier in this type's own statuses: array"
     end
   end
-
-  ## The one predicate (§15.10). Everything backward-moving — the load
-  ## check above, the runtime pick below — reads legality off this.
-  ## `canonical` (§15.12) is `earlier_names/2`'s bare name unless that
-  ## bare name recurs elsewhere in the same type, in which case only
-  ## the qualified form is offered — the identical "stays bare when
-  ## unambiguous" rule `resolve_reference/2` enforces on the way in,
-  ## applied here on the way out so a decline's own legal-target list
-  ## never offers a string that would refuse to resolve if written back.
 
   defp earlier_names(%Type{} = type, index) do
     type |> earlier_positions(index) |> Enum.map(& &1.canonical)
   end
 
-  # `Type.namespaced_positions/1` is the one place §15.12's bare/
-  # qualified/ambiguity computation happens — `Catapult.Delivery
-  # .ContainerLifecycle.Sequence` reads it too, for the container axis
-  # (ORC-116) — so this module only filters and reshapes what it
-  # returns, never re-derives it.
   defp earlier_positions(%Type{} = type, index) do
-    type
-    |> Type.namespaced_positions()
-    |> Enum.filter(&(&1.index < index))
+    type |> Type.namespaced_positions() |> Enum.filter(&(&1.index < index))
   end
 
-  # Resolves a `blocks:`/`throwback:` reference (or any other citation
-  # into a `statuses:` array) against `type`'s own namespaced positions
-  # (§15.12): `{:ok, position}` for an unambiguous match — bare or
-  # `<anchor>.<name>` — `{:ambiguous, namespaces}` when a bare
-  # reference matches more than one namespace, `:error` when it
-  # matches nothing at all. One level of qualification only: `ref` is
-  # split on its first `.`, never re-split further.
   defp resolve_reference(%Type{} = type, ref) do
     positions = Type.namespaced_positions(type)
 
@@ -295,78 +205,36 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  # Where in `type_name`'s array `gate_name` is cited, as `{type,
-  # index}`. The *first* citation, which is also the only one the rest
-  # of the system can express: a position is `{:gate, name}` with no
-  # index (`Catapult.Delivery.FeatureLifecycle.Sequence
-  # .resolve_position/2`, and the projection's own `status_gate`
-  # column), so a type citing one gate twice already has no way to say
-  # which citation a ticket is resting at.
-  defp citation(%__MODULE__{types: types}, type_name, gate_name) do
+  defp citation(types, type_name, gate_name) do
     with {:ok, type} <- Map.fetch(types, type_name),
-         index when not is_nil(index) <-
-           Enum.find_index(type.statuses, &(&1.review == gate_name)) do
+         index when not is_nil(index) <- Enum.find_index(type.statuses, &(&1.review == gate_name)) do
       {type, index}
     else
       _not_cited -> nil
     end
   end
 
-  @doc """
-  Every legal landing point for a decline at `gate_name` on a ticket of
-  type `type_name`: each entry earlier than that gate in the citing
-  type's own effective sequence, in array order (§15.10).
-
-  This is the whole of legality — there is no per-gate allow-list, and
-  a gate's `throwback:` bounds nothing. `[]` when `type_name` does not
-  resolve or does not cite `gate_name`, which is a caller that has
-  paired a gate with the wrong type rather than a gate no decline can
-  leave.
-  """
+  @doc "Every legal landing point for a decline at `gate_name` on a ticket of type `type_name` (#34)."
   @spec throwback_targets(t(), String.t(), String.t()) :: [String.t()]
-  def throwback_targets(%__MODULE__{} = workflow, type_name, gate_name)
-      when is_binary(type_name) and is_binary(gate_name) do
-    case citation(workflow, type_name, gate_name) do
+  def throwback_targets(%__MODULE__{types: types}, type_name, gate_name) do
+    case citation(types, type_name, gate_name) do
       {type, index} -> earlier_names(type, index)
       nil -> []
     end
   end
 
-  @doc """
-  Whether `target` is a legal decline target for `gate_name` on a
-  ticket of type `type_name` (§15.10).
-
-  This is the check `Catapult.Engine.Commands.DeclineGate`'s own
-  moduledoc assigns to the command edge — bundle content is the
-  command edge's to validate, never the aggregate's — and the same one
-  `Catapult.Delivery.ContainerLifecycle.Sequence.earlier?/4` already
-  answers for a container's own array.
-  """
+  @doc "Whether `target` is a legal decline target for `gate_name` on a ticket of type `type_name` (#34)."
   @spec throwback_legal?(t(), String.t(), String.t(), String.t()) :: boolean()
-  def throwback_legal?(%__MODULE__{} = workflow, type_name, gate_name, target)
-      when is_binary(target) do
+  def throwback_legal?(%__MODULE__{} = workflow, type_name, gate_name, target) do
     target in throwback_targets(workflow, type_name, gate_name)
   end
 
-  @doc """
-  `throwback_targets/3`, each target marked whether landing there
-  leaves the gate's own sub-array (§15.10, ORC-116) — the annotation
-  `screens/document-review.md`'s own secondary "choose a different
-  target" disclosure renders beside a target outside the gate's own
-  group, the identical distinction `screens/ticket.md`'s Blocked-return
-  control draws over the identical legality test.
-
-  `leaves_group` is `false` throughout when the gate itself sits in no
-  sub-array — there is no group to leave. When it does, a target still
-  inside that group reads `false`; every other target, including one
-  in no group at all, reads `true`.
-  """
+  @doc "`throwback_targets/3`, each target marked whether landing there leaves the gate's own sub-array."
   @spec throwback_target_details(t(), String.t(), String.t()) :: [
           %{target: String.t(), leaves_group: boolean()}
         ]
-  def throwback_target_details(%__MODULE__{} = workflow, type_name, gate_name)
-      when is_binary(type_name) and is_binary(gate_name) do
-    case citation(workflow, type_name, gate_name) do
+  def throwback_target_details(%__MODULE__{types: types}, type_name, gate_name) do
+    case citation(types, type_name, gate_name) do
       {type, index} ->
         gate_group = Type.group_at(type, index)
 
@@ -386,22 +254,10 @@ defmodule Catapult.Dsl.Workflow do
   defp leaves_group?(type, gate_group, target_index),
     do: Type.group_at(type, target_index) != gate_group
 
-  @doc """
-  Whether approving `gate_name` on a ticket of type `type_name` leaves
-  that gate's own citing sub-array — `throwback_target_details/3`'s own
-  `leaves_group` computation, read forward instead of backward
-  (§15.10, ORC-229). `false` while another `review:` entry in the same
-  group still sits ahead of this gate in the array, so only the
-  group's own last resolving gate reads `true`; `true` throughout when
-  the gate cites no sub-array at all, since there is then no group
-  left to still be inside. `false` when `type_name` does not resolve
-  or does not cite `gate_name` — a caller that has paired a gate with
-  the wrong type, the identical reading `throwback_targets/3` gives.
-  """
+  @doc "Whether approving `gate_name` on a ticket of type `type_name` leaves that gate's own citing sub-array."
   @spec approve_leaves_group?(t(), String.t(), String.t()) :: boolean()
-  def approve_leaves_group?(%__MODULE__{} = workflow, type_name, gate_name)
-      when is_binary(type_name) and is_binary(gate_name) do
-    case citation(workflow, type_name, gate_name) do
+  def approve_leaves_group?(%__MODULE__{types: types}, type_name, gate_name) do
+    case citation(types, type_name, gate_name) do
       {type, index} ->
         case Type.group_at(type, index) do
           nil -> true
@@ -413,56 +269,12 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  @doc """
-  Where a decline at `gate_name` lands by default for a ticket of type
-  `type_name` (§15.10): the gate's own declared `throwback:` when it
-  names one, otherwise the derived default — the citing sub-array's own
-  earliest entry.
-
-  Never the array position immediately before the gate. That reading
-  fails the shape §15.10 argues from, `[milestone-signoff, retro,
-  proposals-read]`: a gate sitting *after* its group's agent step would
-  fall back to the entry before it and re-ask a human a question they
-  already answered, instead of re-running the agent that produced the
-  thing being declined.
-
-  Nor is it always the group's own non-review-shaped agent step: when
-  the group's own first entry is a `pending`, dedicated to that anchor
-  (§13's pending-precedes check guarantees this for every
-  generation-shaped anchor, and a bundle may add one by convention even
-  where nothing requires it, as `types/milestone.yaml`'s `setup` group
-  does), the earliest entry is that `pending` rather than the anchor —
-  a decline then queues the repair through the same dispatch wait any
-  other `pending` entry goes through, instead of landing straight on
-  the agent step and skipping it (§15.10's fourth-pass correction). An
-  anchor with no leading `pending` of its own — `retro`'s group, in the
-  shipped bundle — still derives to itself.
-
-  `nil` when the gate declares no target and cites no sub-array. That
-  is a gate with no one-click default rather than a gate that cannot be
-  declined — `throwback_targets/3` is unaffected, and every entry it
-  lists stays legal.
-
-  Also `nil` for a gate sitting *before* its own group's agent step,
-  where the derivation would otherwise name a target later than the
-  gate and so illegal by the rule above. §15.10 does not reach this
-  case: it reasons about the agent step as "the earliest entry the
-  group has," which the shape it argues from
-  (`[milestone-signoff, retro, proposals-read]`) does not satisfy for
-  its own first gate — and does not have to, since `milestone-signoff`
-  declares `throwback: main` and never derives. Deriving nothing is the
-  narrow reading; offering a one-click default the same module would
-  reject as illegal is not a defensible alternative, and inventing a
-  second derivation rule for the case is the accretion
-  `docs/v5-design-decisions.md` §4.5 warns off. Flagged in ORC-141's
-  hand-back as a gap for the record to settle.
-  """
+  @doc "Where a decline at `gate_name` lands by default for a ticket of type `type_name` (#34)."
   @spec throwback_default(t(), String.t(), String.t()) :: String.t() | nil
-  def throwback_default(%__MODULE__{} = workflow, type_name, gate_name)
-      when is_binary(type_name) and is_binary(gate_name) do
-    case citation(workflow, type_name, gate_name) do
+  def throwback_default(%__MODULE__{types: types, gates: gates}, type_name, gate_name) do
+    case citation(types, type_name, gate_name) do
       {type, index} ->
-        case Map.get(workflow.gates, gate_name) do
+        case Map.get(gates, gate_name) do
           %Gate{throwback: declared} when is_binary(declared) -> declared
           _derived -> derived_throwback(type, index)
         end
@@ -480,11 +292,9 @@ defmodule Catapult.Dsl.Workflow do
       range ->
         case Type.anchor_index(type, range) do
           anchor_index when not is_nil(anchor_index) and anchor_index < index ->
-            target_index = fallback_index(type, range, anchor_index)
-
             type
             |> Type.namespaced_positions()
-            |> Enum.find(&(&1.index == target_index))
+            |> Enum.find(&(&1.index == anchor_index))
             |> Map.fetch!(:canonical)
 
           _nil_or_not_earlier ->
@@ -493,25 +303,7 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  # §15.10's fourth-pass correction: the sub-array's own "earliest
-  # entry" is its leading `pending` when it has one, not the anchor
-  # itself — §13's pending-precedes check guarantees a `pending` at
-  # `range.first` for every generation-shaped anchor, and
-  # `bundles/default-flow/types/milestone.yaml`'s own `setup` group
-  # carries one by convention though nothing requires it there. Either
-  # way landing on it queues the repair through the same dispatch wait
-  # any other `pending` entry does, rather than skipping straight to
-  # the agent step. An anchor with no leading `pending` — `retro`'s own
-  # group, which no check requires one for — keeps deriving to itself.
-  defp fallback_index(type, range, anchor_index) do
-    if match?(%Status{status: "pending"}, Enum.at(type.statuses, range.first)) do
-      range.first
-    else
-      anchor_index
-    end
-  end
-
-  ## environments (§15.4)
+  ## -- Environments (#39) --------------------------------------------------
 
   defp environment_promotion_problems(environments) do
     missing =
@@ -538,40 +330,7 @@ defmodule Catapult.Dsl.Workflow do
     missing ++ self_problems ++ cycle_problems
   end
 
-  ## §7.6's naming discipline over the declared set: no two declared
-  ## names differ by exactly one *inserted or removed* hyphen-separated
-  ## word (e.g. `product-review` vs `product-review-final`).
-
-  defp naming_discipline_problems(gates, environments) do
-    names = Map.keys(gates) ++ Map.keys(environments)
-
-    for {a, i} <- Enum.with_index(names),
-        {b, j} <- Enum.with_index(names),
-        i < j,
-        one_word_apart?(a, b) do
-      "#{inspect(a)} and #{inspect(b)} are one hyphen-separated word apart (§7.6's naming discipline) — pick names that read as clearly distinct"
-    end
-  end
-
-  defp one_word_apart?(a, b) do
-    wa = String.split(a, "-")
-    wb = String.split(b, "-")
-
-    case {length(wa), length(wb)} do
-      {la, lb} when abs(la - lb) == 1 -> insertion_apart?(wa, wb)
-      _same_or_far -> false
-    end
-  end
-
-  defp insertion_apart?(shorter, longer) when length(shorter) > length(longer) do
-    insertion_apart?(longer, shorter)
-  end
-
-  defp insertion_apart?(shorter, longer) do
-    Enum.any?(0..(length(longer) - 1), &(List.delete_at(longer, &1) == shorter))
-  end
-
-  ## Opt-in checks (see moduledoc)
+  ## -- Opt-in checks --------------------------------------------------------
 
   defp role_holder_problems(_gates, nil), do: []
 
@@ -585,36 +344,14 @@ defmodule Catapult.Dsl.Workflow do
 
   defp mirror_mapping_problems(gates, mapping) do
     for {name, _gate} <- gates, not Map.has_key?(mapping, name) do
-      "gate #{inspect(name)} has no counterpart in the outbound tracker's mirror mapping (v5 §7.17) — an unmapped state has halted a sweep for hours"
+      "gate #{inspect(name)} has no counterpart in the outbound tracker's mirror mapping (v5 §7.17)"
     end
   end
 
-  # `workflow.md` #12: a fact about the fixed skeleton, exercised at
-  # load time so a defect in that skeleton (not in any one bundle) is
-  # what it would catch.
-  defp generation_blocked_exit_problems do
-    for kind <- [:generation, :design, :architecture, :implementation],
-        not SystemStatus.can_block?(kind) do
-      "platform defect: the fixed system-status skeleton has no path from #{kind} to blocked"
-    end
-  end
-
-  defp pending_precedes_problems do
-    for kind <- [:generation, :design, :architecture, :implementation, :deploy],
-        not SystemStatus.pending_precedes?(kind) do
-      "platform defect: the fixed system-status skeleton has no pending precedent for #{kind}"
-    end
-  end
-
-  ## Skeleton shape (§15.1, §13): a container-skeleton type's array
-  ## holds exactly the five fixed anchors, in order, then terminal; a
-  ## ticket-skeleton type's array opens with pending, closes with
-  ## terminal, and holds generation/checks/merge/deploy at least once
-  ## each in that relative order.
+  ## -- Skeleton shape (#12, #13, #16) --------------------------------------
 
   defp skeleton_shape_problems(types) do
-    types
-    |> Enum.flat_map(fn {name, type} ->
+    Enum.flat_map(types, fn {name, type} ->
       case type.skeleton do
         "container" -> container_shape_problems(name, type)
         "ticket" -> ticket_shape_problems(name, type)
@@ -627,13 +364,6 @@ defmodule Catapult.Dsl.Workflow do
     for %Status{status: s} <- type.statuses, not is_nil(s), do: s
   end
 
-  # A skeleton fixes a required backbone, never an exclusive membership
-  # (§15.1, a seventh-pass reversal, ORC-148): `setup`, `prep`, `main`,
-  # `retro`, `cleanup` must each appear at least once, in that relative
-  # order, and `terminal` exactly once, last — what a container-skeleton
-  # type's array may *additionally* hold (a bare generation, a second
-  # population anchor, gates, environments) is unbounded by this check,
-  # symmetrically with the ticket-skeleton read below.
   defp container_shape_problems(name, type) do
     names = anchor_names(type)
     present = Enum.filter(@container_required_order, &(&1 in names))
@@ -643,18 +373,16 @@ defmodule Catapult.Dsl.Workflow do
         missing = @container_required_order -- present
 
         [
-          "type #{inspect(name)}'s statuses: is missing #{inspect(missing)} (§15.1 requires " <>
-            "setup, prep, main, retro, cleanup at least once each, in that relative order)"
+          "type #{inspect(name)}'s statuses: is missing #{inspect(missing)} (#16 requires setup, prep, main, retro, cleanup at least once each, in that relative order)"
         ]
 
       names == [] or List.last(names) != "terminal" ->
         [
-          "type #{inspect(name)}'s statuses: must close with terminal (§15.1); got " <>
-            "#{inspect(List.last(names))}"
+          "type #{inspect(name)}'s statuses: must close with terminal; got #{inspect(List.last(names))}"
         ]
 
       Enum.count(names, &(&1 == "terminal")) > 1 ->
-        ["type #{inspect(name)}'s statuses: declares terminal more than once (§15.1)"]
+        ["type #{inspect(name)}'s statuses: declares terminal more than once"]
 
       true ->
         container_relative_order_problems(name, names)
@@ -668,86 +396,68 @@ defmodule Catapult.Dsl.Workflow do
       []
     else
       [
-        "type #{inspect(name)}'s statuses: holds setup/prep/main/retro/cleanup out of their " <>
-          "required relative order (§15.1); got #{inspect(names)}"
+        "type #{inspect(name)}'s statuses: holds setup/prep/main/retro/cleanup out of their required relative order; got #{inspect(names)}"
       ]
     end
   end
 
+  # #12: at least one generation-shaped entry, then checks, reconcile,
+  # merge and deploy, in that relative order, then terminal last and once.
   defp ticket_shape_problems(name, type) do
     names = anchor_names(type)
-    invalid = Enum.uniq(names) -- @ticket_status_names
+    valid_names = Enum.map(SystemStatus.kinds(), &Atom.to_string/1)
+    invalid = Enum.uniq(names) -- valid_names
 
     cond do
       invalid != [] ->
         [
-          "type #{inspect(name)}'s statuses: names #{inspect(invalid)}, not part of the ticket " <>
-            "skeleton's fixed anchor set #{inspect(@ticket_status_names)} (§15.1)"
+          "type #{inspect(name)}'s statuses: names #{inspect(invalid)}, not part of the fixed anchor set #{inspect(valid_names)}"
         ]
 
-      names == [] or List.first(names) != "pending" ->
+      names == [] or List.last(names) != "terminal" ->
         [
-          "type #{inspect(name)}'s statuses: must open with pending (§15.1); got " <>
-            "#{inspect(List.first(names))}"
-        ]
-
-      List.last(names) != "terminal" ->
-        [
-          "type #{inspect(name)}'s statuses: must close with terminal (§15.1); got " <>
-            "#{inspect(List.last(names))}"
+          "type #{inspect(name)}'s statuses: must close with terminal; got #{inspect(List.last(names))}"
         ]
 
       Enum.count(names, &(&1 == "terminal")) > 1 ->
-        ["type #{inspect(name)}'s statuses: declares terminal more than once (§15.1)"]
+        ["type #{inspect(name)}'s statuses: declares terminal more than once"]
 
       true ->
         ticket_relative_order_problems(name, names)
     end
   end
 
-  # "At least one generation-shaped entry (generation, design or
-  # architecture, in any combination), checks, merge and deploy at
-  # least once each, in that relative order" (§15.1) — a generation-
-  # shaped kind and merge may recur; the order check below reasons over
-  # each required token's *first* occurrence, the same simplification
-  # the pre-ORC-148 check already made for `merge`'s own recurrence.
   defp ticket_relative_order_problems(name, names) do
     has_generation_shaped? = Enum.any?(names, &SystemStatus.generation_shaped?/1)
-    missing_fixed = for req <- ~w(checks merge deploy), req not in names, do: req
+    missing_fixed = for req <- ~w(checks reconcile merge deploy), req not in names, do: req
 
     if not has_generation_shaped? or missing_fixed != [] do
-      missing = if has_generation_shaped?, do: [], else: ["a generation-shaped entry"]
+      missing = if has_generation_shaped?, do: [], else: ["a generation entry"]
 
       [
-        "type #{inspect(name)}'s statuses: is missing #{inspect(missing ++ missing_fixed)} " <>
-          "(§15.1 requires at least one generation-shaped entry — generation, design or " <>
-          "architecture — plus checks, merge and deploy at least once each)"
+        "type #{inspect(name)}'s statuses: is missing #{inspect(missing ++ missing_fixed)} (#12 requires at least one generation entry, then checks, reconcile, merge and deploy)"
       ]
     else
       generation_index = Enum.find_index(names, &SystemStatus.generation_shaped?/1)
-      fixed_indices = for req <- ~w(checks merge deploy), do: Enum.find_index(names, &(&1 == req))
+
+      fixed_indices =
+        for req <- ~w(checks reconcile merge deploy), do: Enum.find_index(names, &(&1 == req))
+
       indices = [generation_index | fixed_indices]
 
       if indices == Enum.sort(indices) do
         []
       else
         [
-          "type #{inspect(name)}'s statuses: holds a generation-shaped entry/checks/merge/" <>
-            "deploy out of their required relative order (§15.1); got #{inspect(names)}"
+          "type #{inspect(name)}'s statuses: holds a generation entry/checks/reconcile/merge/deploy out of their required relative order; got #{inspect(names)}"
         ]
       end
     end
   end
 
-  ## `reconcile` before `merge` (§13, §15.11, ORC-151): a fact about the
-  ## array's own contents, checked identically whichever skeleton, if
-  ## any, the citing type declares — `merge`'s own ball is `plane`
-  ## (§15.1), so nothing merges without first having been read against
-  ## its own argument (`docs/v5-design-decisions.md` §7.5). Stated
-  ## positionally rather than folded into the ticket-skeleton backbone
-  ## list above: `reconcile` is required wherever `merge` is, not merely
-  ## once per ticket-skeleton array, and it reaches `container`-skeleton
-  ## arrays too.
+  ## `reconcile` before `merge` (#13), for the case a container's own
+  ## array carries them (a ticket type's array is already covered by
+  ## the relative-order check above).
 
   defp merge_reconcile_problems(types) do
     for {type_name, type} <- types do
@@ -759,18 +469,13 @@ defmodule Catapult.Dsl.Workflow do
         name == "merge" and "reconcile" not in Enum.take(names, i)
       end)
       |> Enum.map(fn {_name, i} ->
-        "type #{inspect(type_name)}'s #{Type.declared_path(type, anchor_index(type, i))} is " <>
-          "merge, with no earlier reconcile entry in this type's own statuses: array (§13, §15.11)"
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, anchor_index(type, i))} is merge, " <>
+          "with no earlier reconcile entry in this type's own statuses: array (#13)"
       end)
     end
     |> List.flatten()
   end
 
-  # `merge_reconcile_problems/1` walks anchor (`status:`) names alone, so
-  # its own index into that filtered list is not the effective-sequence
-  # index `Type.declared_path/2` expects — this re-finds the entry's
-  # real position, the same re-indexing `anchor_names/1`'s other callers
-  # would need if they rendered a path.
   defp anchor_index(%Type{statuses: statuses}, anchor_occurrence) do
     statuses
     |> Enum.with_index()
@@ -779,101 +484,9 @@ defmodule Catapult.Dsl.Workflow do
     |> elem(1)
   end
 
-  ## `pending` before every generation-shaped entry (§13, §15.1): the
-  ## first entry of that entry's own sub-array, when it sits in one
-  ## (§15.10); any earlier top-level `pending` otherwise — but never one
-  ## already spent on another generation-shaped entry. A single leading
-  ## `pending` used to license every later generation-shaped entry in
-  ## the same array; a design-review tightening retired that reading
-  ## (ORC-151) once `fanout` stopped giving a second such entry
-  ## somewhere else to sit meanwhile, so this walks the array in
-  ## declared order and tracks how many un-spent top-level `pending`s
-  ## have been seen — a grouped `pending` is never added to that pool,
-  ## since it is already dedicated to its own sub-array's entry.
-
-  defp pending_precedes_generation_problems(types) do
-    for {type_name, type} <- types do
-      type.statuses
-      |> Enum.with_index()
-      |> Enum.reduce({[], 0}, fn {status, index}, {problems, available} ->
-        pending_precedes_generation_step(type_name, type, status, index, problems, available)
-      end)
-      |> elem(0)
-    end
-    |> List.flatten()
-  end
-
-  defp pending_precedes_generation_step(
-         _type_name,
-         type,
-         %Status{status: "pending"},
-         index,
-         problems,
-         available
-       ) do
-    if is_nil(Type.group_at(type, index)) do
-      {problems, available + 1}
-    else
-      {problems, available}
-    end
-  end
-
-  defp pending_precedes_generation_step(
-         type_name,
-         type,
-         %Status{status: name},
-         index,
-         problems,
-         available
-       )
-       when is_binary(name) do
-    if SystemStatus.generation_shaped?(name) do
-      generation_pending_problem(type_name, type, index, problems, available)
-    else
-      {problems, available}
-    end
-  end
-
-  defp pending_precedes_generation_step(_type_name, _type, %Status{}, _index, problems, available) do
-    {problems, available}
-  end
-
-  defp generation_pending_problem(type_name, type, index, problems, available) do
-    case Type.group_at(type, index) do
-      nil ->
-        if available > 0 do
-          {problems, available - 1}
-        else
-          problem =
-            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
-              "generation-shaped, with no earlier pending entry left un-spent by another " <>
-              "generation-shaped entry in this type's own statuses: array (§13, §15.1) — one " <>
-              "pending per generation-shaped entry, never shared"
-
-          {[problem | problems], available}
-        end
-
-      range ->
-        if match?(%Status{status: "pending"}, Enum.at(type.statuses, range.first)) do
-          {problems, available}
-        else
-          problem =
-            "type #{inspect(type_name)}'s #{Type.declared_path(type, index)} is " <>
-              "generation-shaped and grouped in a sub-array whose first entry is not pending " <>
-              "(§13, §15.1, §15.10)"
-
-          {[problem | problems], available}
-        end
-    end
-  end
-
-  ## Critique adjacency (§13, §15.5): must sit immediately after a
-  ## generation-shaped entry (generation, design or architecture) in
-  ## the same type's array — no skeleton check needed, since whether a
-  ## given array has one to pair with is a fact about that array's own
-  ## contents, never about which skeleton the citing type declares
-  ## (ORC-148: a container-skeleton or skeleton-less type may hold a
-  ## bare generation-shaped entry now too, §15.2).
+  ## Critique adjacency (#26): a critique-shaped position follows the
+  ## generation position it reviews with no other generation-shaped
+  ## position between; checks, gates and environments may sit between.
 
   defp critique_adjacency_problems(types) do
     for {type_name, type} <- types do
@@ -885,45 +498,34 @@ defmodule Catapult.Dsl.Workflow do
         label == {:status, "critique"} and not critique_adjacent?(labels, i)
       end)
       |> Enum.map(fn {_label, i} ->
-        "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, which must " <>
-          "sit immediately after a generation-shaped entry, or that entry's own checks (§13, §15.5)"
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, i)} is critique, with no generation " <>
+          "position earlier in this array and no other generation position between them (#26)"
       end)
     end
     |> List.flatten()
   end
 
-  # A `critique` is adjacent when it directly follows a generation-shaped
-  # entry, or directly follows that entry's own `checks` — never before
-  # it (a fifth-design-review addition, ORC-151): `checks` runs first,
-  # so neither an agent's critique nor a human gate reads a draft CI has
-  # not yet validated.
   defp critique_adjacent?(labels, i) do
-    i > 0 and
-      (generation_shaped_label?(labels, i - 1) or
-         (checks_label?(labels, i - 1) and i > 1 and generation_shaped_label?(labels, i - 2)))
-  end
-
-  defp generation_shaped_label?(labels, index) do
-    case Enum.at(labels, index) do
+    labels
+    |> Enum.take(i)
+    |> Enum.reverse()
+    |> Enum.find(&generation_or_critique_label?/1)
+    |> case do
       {:status, name} -> SystemStatus.generation_shaped?(name)
-      _review_or_environment -> false
+      _other -> false
     end
   end
 
-  defp checks_label?(labels, index), do: Enum.at(labels, index) == {:status, "checks"}
+  defp generation_or_critique_label?({:status, name}),
+    do: SystemStatus.generation_shaped?(name) or name == "critique"
+
+  defp generation_or_critique_label?(_other), do: false
 
   defp entry_label(%Status{status: s}) when not is_nil(s), do: {:status, s}
   defp entry_label(%Status{review: r}) when not is_nil(r), do: {:review, r}
   defp entry_label(%Status{environment: e}) when not is_nil(e), do: {:environment, e}
 
-  ## Name uniqueness within a namespace (§13, §15.12, ORC-155): the
-  ## top-level array is one namespace, and each sub-array is its own —
-  ## the sub-array's own anchor counts as a member of its own
-  ## namespace, exactly as much as anything else inside it. A default
-  ## that would collide (two undeclared `checks` entries in one
-  ## sub-array, both defaulting to the name `checks`) is exactly as
-  ## much a load error as a declared collision naming the same string
-  ## twice on purpose.
+  ## Name uniqueness within a namespace (#7)
 
   defp name_uniqueness_problems(types) do
     for {type_name, type} <- types do
@@ -937,8 +539,7 @@ defmodule Catapult.Dsl.Workflow do
     |> Type.namespaced_positions()
     |> Enum.filter(&(&1.namespace == :top_level))
     |> duplicate_bare_name_problems(fn bare ->
-      "type #{inspect(type_name)}'s top-level statuses: array names #{inspect(bare)} more " <>
-        "than once (§13, §15.12 requires unique names within a namespace)"
+      "type #{inspect(type_name)}'s top-level statuses: array names #{inspect(bare)} more than once"
     end)
   end
 
@@ -948,19 +549,14 @@ defmodule Catapult.Dsl.Workflow do
       |> Enum.map(&{&1, Status.name(Enum.at(type.statuses, &1))})
       |> duplicate_bare_name_pairs()
       |> Enum.map(fn bare ->
-        "type #{inspect(type_name)}'s #{Type.declared_path(type, range.first)} sub-array names " <>
-          "#{inspect(bare)} more than once (§13, §15.10, §15.12 requires unique names within a " <>
-          "namespace)"
+        "type #{inspect(type_name)}'s #{Type.declared_path(type, range.first)} sub-array names #{inspect(bare)} more than once"
       end)
     end
     |> List.flatten()
   end
 
   defp duplicate_bare_name_problems(positions, message) do
-    positions
-    |> Enum.map(& &1.bare)
-    |> duplicate_bare_names()
-    |> Enum.map(message)
+    positions |> Enum.map(& &1.bare) |> duplicate_bare_names() |> Enum.map(message)
   end
 
   defp duplicate_bare_name_pairs(pairs) do
@@ -974,15 +570,7 @@ defmodule Catapult.Dsl.Workflow do
     |> Enum.map(fn {bare, _count} -> bare end)
   end
 
-  ## Gate/status name disjointness (§13, §15.12, ORC-155):
-  ## `Catapult.Delivery.FeatureLifecycle.Sequence.resolve_position/2`
-  ## decides gate-vs-status by membership in the workflow's own
-  ## declared gate set alone, safe only as long as a gate's own name
-  ## never collides with any addressable status name — bare or
-  ## namespace-qualified — in the loaded union. Without this check a
-  ## collision resolves to `{:gate, name}` unconditionally and an
-  ## unrecognized name raises inside `String.to_existing_atom`, both on
-  ## the throwback path and both invisible until a decline fires.
+  ## Gate/status name disjointness (#7)
 
   defp gate_status_disjointness_problems(types, gates) do
     for {type_name, type} <- types,
@@ -999,21 +587,18 @@ defmodule Catapult.Dsl.Workflow do
          type,
          %{bare: bare, qualified: bare} = position,
          gate_name,
-         gate
+         _gate
        ) do
-    "gate #{inspect(gate_name)} (#{gate.file}) collides with type #{inspect(type_name)}'s " <>
-      "status name #{inspect(bare)} (#{Type.declared_path(type, position.index)}) — a declared " <>
-      "gate's own name must stay disjoint from every addressable status name (§13, §15.12)"
+    "gate #{inspect(gate_name)} collides with type #{inspect(type_name)}'s status name #{inspect(bare)} " <>
+      "(#{Type.declared_path(type, position.index)}) — a declared gate's own name must stay disjoint from every addressable status name"
   end
 
-  defp gate_status_collision_problem(type_name, type, position, gate_name, gate) do
-    "gate #{inspect(gate_name)} (#{gate.file}) collides with type #{inspect(type_name)}'s " <>
-      "status name #{inspect(position.bare)} in the #{inspect(position.namespace)} namespace " <>
-      "(#{inspect(position.qualified)}, #{Type.declared_path(type, position.index)}) — a " <>
-      "declared gate's own name must stay disjoint from every addressable status name (§13, §15.12)"
+  defp gate_status_collision_problem(type_name, type, position, gate_name, _gate) do
+    "gate #{inspect(gate_name)} collides with type #{inspect(type_name)}'s status name #{inspect(position.bare)} " <>
+      "in the #{inspect(position.namespace)} namespace (#{inspect(position.qualified)}, #{Type.declared_path(type, position.index)})"
   end
 
-  ## `flow:`/`review:`/`environment:` cross-references (§13)
+  ## `flow:`/`review:`/`environment:` cross-references
 
   defp flow_reference_problems(types) do
     for {type_name, type} <- types,
@@ -1042,14 +627,7 @@ defmodule Catapult.Dsl.Workflow do
     end
   end
 
-  ## `blocks:` scoping (§13, §15.7, §15.10, ORC-148 design review): a
-  ## `blocks:` entry names an entry that is unique within the citing
-  ## type's own array — a bare top-level entry, or one that belongs to
-  ## a sub-array, in which case the reference is to the whole sub-array
-  ## (resolved by containment, since a sub-array is referenced through
-  ## an entry it contains, never by a name of its own). Uniqueness is a
-  ## property of the reference, not the declaration it lands on: zero
-  ## matches or two-or-more is the load error.
+  ## `blocks:` scoping (#18)
 
   defp blocks_problems(types) do
     for {type_name, type} <- types,
@@ -1062,7 +640,7 @@ defmodule Catapult.Dsl.Workflow do
   end
 
   defp blocks_problem(type_name, _type, status, target) when target == status.status do
-    "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names itself (§13, §15.7)"
+    "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names itself"
   end
 
   defp blocks_problem(type_name, type, status, target) do
@@ -1071,21 +649,14 @@ defmodule Catapult.Dsl.Workflow do
         nil
 
       {:ambiguous, namespaces} ->
-        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
-          "which resolves inside more than one namespace #{inspect(namespaces)} — qualify it " <>
-          "<anchor>.<name> (§13, §15.7, §15.12)"
+        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, ambiguous across #{inspect(namespaces)}"
 
       :error ->
-        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, " <>
-          "which does not resolve to any entry in this type's own statuses: array (§13, §15.7, §15.10)"
+        "type #{inspect(type_name)}'s #{inspect(status.status)} blocks: names #{inspect(target)}, which does not resolve to any entry in this type's own statuses: array"
     end
   end
 
-  ## Declaration graph (§13, §15.6): nodes are every type with a
-  ## population anchor of its own (a fact about that type's own
-  ## declared entries, never about which skeleton, if any, it declares
-  ## — ORC-148), edges are `flow:` references between them; must be
-  ## acyclic.
+  ## Declaration graph (#30)
 
   defp declaration_graph_nodes(types) do
     for {name, type} <- types, Enum.any?(type.statuses, &Status.queue_shaped?/1), do: name
@@ -1106,7 +677,7 @@ defmodule Catapult.Dsl.Workflow do
 
     self_problems =
       for {from, to} <- edges, from == to do
-        "type #{inspect(from)}'s flow: names itself — a container/skeleton-less type may not nest its own kind (§15.6)"
+        "type #{inspect(from)}'s flow: names itself"
       end
 
     cycle_problems =
@@ -1114,7 +685,7 @@ defmodule Catapult.Dsl.Workflow do
         []
       else
         [
-          "the declaration graph (types' flow: references) has a cycle: #{inspect(DslGraph.find_cycle(edges))} (§13, §15.6)"
+          "the declaration graph (types' flow: references) has a cycle: #{inspect(DslGraph.find_cycle(edges))}"
         ]
       end
 
@@ -1127,10 +698,6 @@ defmodule Catapult.Dsl.Workflow do
     nodes -- Enum.uniq(targeted)
   end
 
-  ## `entry:` (§2, §13, §15.2, §15.6): names the type a fresh project
-  ## dispatches from — resolves, carries a queue-shaped anchor, and is
-  ## a root in the declaration graph.
-
   defp entry_problems(entry_name, types) do
     case Map.fetch(types, entry_name) do
       :error ->
@@ -1139,20 +706,250 @@ defmodule Catapult.Dsl.Workflow do
       {:ok, %Type{}} ->
         cond do
           entry_name not in declaration_graph_nodes(types) ->
-            [
-              "entry #{inspect(entry_name)} names a type with no population anchor of its own " <>
-                "(§13, §15.2, §15.6) — it has nothing to start a project from"
-            ]
+            ["entry #{inspect(entry_name)} names a type with no population anchor of its own"]
 
           entry_name not in declaration_graph_roots(types) ->
-            [
-              "entry #{inspect(entry_name)} is not a root in the declaration graph — some other " <>
-                "type's flow: already targets it"
-            ]
+            ["entry #{inspect(entry_name)} is not a root in the declaration graph"]
 
           true ->
             []
         end
     end
   end
+
+  ## -- Cross-axis: tiers: (workflow.md #22) --------------------------------
+
+  defp tiers_problems(types, chain) do
+    Enum.flat_map(types, fn {type_name, type} -> type_tiers_problems(type_name, type, chain) end)
+  end
+
+  defp type_tiers_problems(type_name, type, chain) do
+    seen = tier_positions(type)
+
+    name_problems =
+      for tier_name <- Enum.uniq(Enum.flat_map(type.statuses, & &1.tiers)) do
+        tier_name_problem(type_name, tier_name, chain)
+      end
+
+    duplicate_problems =
+      for {tier_name, indices} <- seen,
+          length(Enum.uniq(indices)) > 1,
+          not cascade_visit?(tier_name, chain) do
+        "type #{inspect(type_name)} lists tier #{inspect(tier_name)} at more than one position (workflow.md #22)"
+      end
+
+    Enum.reject(name_problems, &is_nil/1) ++ duplicate_problems
+  end
+
+  defp tier_positions(type) do
+    type.statuses
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {status, index}, acc -> record_tier_positions(status, index, acc) end)
+  end
+
+  defp record_tier_positions(status, index, acc) do
+    Enum.reduce(status.tiers, acc, fn t, acc -> Map.update(acc, t, [index], &[index | &1]) end)
+  end
+
+  defp tier_name_problem(type_name, tier_name, chain) do
+    case Map.fetch(chain.tiers, tier_name) do
+      :error ->
+        "type #{inspect(type_name)} lists #{inspect(tier_name)}, which is not a declared tier of the paired chain"
+
+      {:ok, tier} ->
+        if Tier.kind(tier) == :generating do
+          nil
+        else
+          "type #{inspect(type_name)} lists #{inspect(tier_name)}, a #{Tier.kind(tier)} tier — only generating tiers run at a position"
+        end
+    end
+  end
+
+  defp cascade_visit?(tier_name, chain) do
+    match?({:ok, %Tier{scope: {:cascade_visit}}}, Map.fetch(chain.tiers, tier_name))
+  end
+
+  ## -- Cross-axis: serves: (workflow.md #40) -------------------------------
+
+  defp serves_problems(types, chain) do
+    outright_claims =
+      for {type_name, %Type{serves: {:list, flows}}} <- types,
+          flow <- flows,
+          do: {flow, type_name}
+
+    duplicate_claims =
+      outright_claims
+      |> Enum.group_by(fn {flow, _type} -> flow end, fn {_flow, type} -> type end)
+      |> Enum.filter(fn {_flow, claimants} -> length(claimants) > 1 end)
+      |> Enum.map(fn {flow, claimants} ->
+        "flow #{inspect(flow)} is claimed outright by more than one type: #{inspect(claimants)}"
+      end)
+
+    unknown_flow_claims =
+      for {flow, type_name} <- outright_claims, not Map.has_key?(chain.flows, flow) do
+        "type #{inspect(type_name)}'s serves: names flow #{inspect(flow)}, which is not declared in the paired chain"
+      end
+
+    unclaimed =
+      for {flow_name, flow} <- chain.flows,
+          serving_type(flow_name, flow, types, outright_claims) == :none do
+        "flow #{inspect(flow_name)} is served by no type"
+      end
+
+    duplicate_claims ++ unknown_flow_claims ++ unclaimed
+  end
+
+  defp has_delta?(%{delta_tiers: [], delta_edges: []}), do: false
+  defp has_delta?(_flow), do: true
+
+  # A type naming a flow outright beats one matching it by predicate
+  # (workflow.md #40); `:none` when nothing serves it at all.
+  defp serving_type(flow_name, flow, types, outright_claims) do
+    case Enum.find(outright_claims, fn {f, _t} -> f == flow_name end) do
+      {_flow, type_name} -> type_name
+      nil -> serving_type_by_predicate(flow, types)
+    end
+  end
+
+  defp serving_type_by_predicate(flow, types) do
+    want = if has_delta?(flow), do: "has_delta", else: "no_delta"
+
+    case Enum.filter(types, fn {_name, t} -> t.serves == {:predicate, want} end) do
+      [{type_name, _type}] -> type_name
+      _none_or_many -> :none
+    end
+  end
+
+  ## -- Cross-axis: traversability (workflow.md #23) ------------------------
+
+  defp traversability_problems(types, chain) do
+    all_delta = for {_name, flow} <- chain.flows, t <- flow.delta_tiers, uniq: true, do: t
+
+    generating =
+      for {name, tier} <- chain.tiers, Tier.kind(tier) == :generating, uniq: true, do: name
+
+    layouts = for {name, type} <- types, into: %{}, do: {name, layout(type)}
+
+    outright_claims =
+      for {type_name, %Type{serves: {:list, flows}}} <- types,
+          flow <- flows,
+          do: {flow, type_name}
+
+    Enum.flat_map(chain.flows, fn {flow_name, flow} ->
+      case serving_type(flow_name, flow, types, outright_claims) do
+        :none ->
+          []
+
+        type_name ->
+          flow_traversability_problems(
+            flow_name,
+            flow,
+            type_name,
+            layouts,
+            generating,
+            all_delta,
+            chain
+          )
+      end
+    end)
+  end
+
+  defp flow_traversability_problems(
+         flow_name,
+         flow,
+         type_name,
+         layouts,
+         generating,
+         all_delta,
+         chain
+       ) do
+    tier_at = Map.get(layouts, type_name, %{})
+    active = (generating -- all_delta) ++ flow.delta_tiers
+
+    Enum.flat_map(Enum.uniq(active), fn tier_name ->
+      unfit_problem(flow_name, type_name, tier_name, tier_at) ++
+        ordering_problems(flow_name, type_name, tier_name, tier_at, active, chain)
+    end)
+  end
+
+  # `{position index by tier}`, from every position that names `tiers:`.
+  defp layout(type) do
+    type.statuses
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {status, index}, acc ->
+      Enum.reduce(status.tiers, acc, fn t, acc -> Map.put_new(acc, t, index) end)
+    end)
+  end
+
+  defp unfit_problem(flow_name, type_name, tier_name, tier_at) do
+    if Map.has_key?(tier_at, tier_name) do
+      []
+    else
+      [
+        "flow #{inspect(flow_name)} -> type #{inspect(type_name)}: tier #{inspect(tier_name)} runs in this flow and no position lists it (workflow.md #22)"
+      ]
+    end
+  end
+
+  # Every structural read (a walk from self or the parent) must resolve
+  # to a node whose generating tier sits at the same or an earlier
+  # position (workflow.md #23) — `all.<tier>` reads are global and
+  # ordered as a note only in the reference checker, never an error
+  # here (a flow's plan tier reads the graph it is about to regenerate).
+  defp ordering_problems(flow_name, type_name, tier_name, tier_at, active, chain) do
+    tier = Map.fetch!(chain.tiers, tier_name)
+    parent = scope_parent_name(tier)
+
+    walk_targets =
+      for {_var, walk} <- tier.effective_context,
+          walk.source == :self,
+          target = structural_target(walk, parent),
+          not is_nil(target),
+          uniq: true,
+          do: target
+
+    for target <- walk_targets,
+        generating_ancestor = generating_ancestor(target, chain),
+        generating_ancestor in active,
+        Map.has_key?(tier_at, generating_ancestor),
+        Map.has_key?(tier_at, tier_name),
+        tier_at[generating_ancestor] > tier_at[tier_name] do
+      "flow #{inspect(flow_name)} -> type #{inspect(type_name)}: #{tier_name} reads #{target}, generated at a later position"
+    end
+  end
+
+  defp scope_parent_name(%Tier{scope: {:per, ref}}), do: ref
+  defp scope_parent_name(%Tier{scope: {:child_of, ref}}), do: ref
+  defp scope_parent_name(%Tier{}), do: nil
+
+  defp structural_target(%{target_tier: target}, _parent) when not is_nil(target), do: target
+  defp structural_target(%{source: :self, parent: true, target_tier: nil}, parent), do: parent
+  defp structural_target(_walk, _parent), do: nil
+
+  # A join target's position is its minting tier's; a supplied tier has none.
+  defp generating_ancestor(tier_name, chain, seen \\ MapSet.new()) do
+    cond do
+      MapSet.member?(seen, tier_name) or not Map.has_key?(chain.tiers, tier_name) ->
+        nil
+
+      Tier.kind(Map.fetch!(chain.tiers, tier_name)) == :generating ->
+        tier_name
+
+      true ->
+        case minting_source(tier_name, chain.edges) do
+          nil -> nil
+          source -> generating_ancestor(source, chain, MapSet.put(seen, tier_name))
+        end
+    end
+  end
+
+  defp minting_source(tier_name, edges) do
+    Enum.find_value(edges, fn {_name, edge} -> fanout_source_for(edge, tier_name) end)
+  end
+
+  defp fanout_source_for(%Edge{type: "fanout", instances: instances}, tier_name) do
+    Enum.find_value(instances, fn i -> if i.target == tier_name, do: i.source end)
+  end
+
+  defp fanout_source_for(_edge, _tier_name), do: nil
 end

@@ -1,4 +1,0 @@
-environment: prod
-promote_from: staging
-depth: 0
-lifetime: persistent

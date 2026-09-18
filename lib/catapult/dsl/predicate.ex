@@ -30,10 +30,10 @@ defmodule Catapult.Dsl.Predicate do
       comparator := "==" | "!=" | "<" | ">" | "<=" | ">="
       path       := ident ("." ident)*
 
-  `predicates.yaml` composes these under a name (`chain.md` #37); a
-  named reference (`scope_filter: is_domain`) is not itself predicate
-  syntax and is resolved by the loader against that file, not by this
-  parser.
+  `chain.yaml`'s `predicates:` block composes these under a name
+  (`chain.md` #37); a named reference (a fanout instance's `when:` or
+  a flow's `completion:`) is not itself predicate syntax and is
+  resolved by the loader against that block, not by this parser.
   """
 
   @type path :: [String.t()]
