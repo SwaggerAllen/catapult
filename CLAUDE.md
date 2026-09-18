@@ -86,6 +86,7 @@ mix compile --warnings-as-errors     # boundary compiler is in the set
 mix xref graph --format cycles --fail-above 0
 mix xref graph --label compile-connected --fail-above 0   # the ratchet
 mix catapult.audit                   # root project ONLY — see below
+mix catapult.bundle.check            # root project ONLY — bundle.md #14's acceptance bound
 mix test                             # needs Postgres; sandbox, async
 cd components/substrate && mix deps.get --check-locked && \
   mix hex.audit && mix format --check-formatted && \
