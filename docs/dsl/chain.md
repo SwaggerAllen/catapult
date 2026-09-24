@@ -280,7 +280,7 @@ and edge name. Markers: **live** is read by the engine today;
   (Reserved: the flow engine, v5 §7.2.) A flow declares its `walk`
   (#41), the `entry` tier a cascade enters at, the `delta` of tiers
   and edges active only while it is open, a `completion` predicate,
-  and a `ticket:` block carrying the labels that select among flows.
+  and a `ticket:` block whose `labels:` select among flows.
   It names no workflow type and no position: which type serves a flow
   is derived from whether its `delta` is empty, and that derivation is
   the workflow's to declare (`workflow.md` #40). An empty `delta` is

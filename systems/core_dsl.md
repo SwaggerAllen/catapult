@@ -910,51 +910,80 @@ profiles.
 
   **The loader's key inventory is derived, never a second list.** Every
   place a construct parser closes its key set runs the raw map through
-  `Catapult.Dsl.Fields.unknown_keys/3` — 19 call sites today, across
-  `catapult_yaml.ex`; `chain.ex` and `workflow.ex` (each doc's
-  top-level keys, `chain.md` #2, `workflow.md` #2); `tier.ex` (three:
-  generating, join, supplied); `edge.ex` (two: the declaration, an
-  instance); `flow.ex` (three: the declaration, `delta`, `ticket`);
-  `gate.ex`; `type.ex`; `environment.ex`; and `status.ex` (three) — and
-  that call's second argument, whether a `~w(...)` sigil, a list
-  literal, or a same-module `@attr` reference, is the accepted set at
-  that spot. The task reads each of those source files, walks its AST,
-  and resolves every `Fields.unknown_keys/3` call site's second
-  argument into a flat key list, rather than hand-listing the grammar's
-  keys a second time (`docs/non-goals.md`'s "no hand-maintained
-  inventories"). A construct that grows a key without threading it
-  through `Fields.unknown_keys/3` stays invisible to the task exactly
-  as it is already invisible to the loader's own closed-key check — the
-  scope this task inherits rather than duplicates. `predicate.ex`
-  closes no map through `Fields.unknown_keys/3` (its grammar is a
-  recursive-descent parser over an expression string, not a keyed map,
-  `chain.md` #37) and contributes nothing to the inventory.
+  `Catapult.Dsl.Fields.unknown_keys/3` — 20 call sites today:
+  `catapult_yaml.ex` (1, the bundle manifest); `chain.ex` (2: the
+  top-level keys, `chain.md` #2, and `defaults:`'s own keys, `chain.md`
+  #3); `tier.ex` (5: generating, join, supplied, `draft:`'s
+  `root_tag`/`grammar`, and `review:`/`reconcile:`'s `prompt`/
+  `context`); `edge.ex` (2: the declaration, an instance); `flow.ex`
+  (3: the declaration, `delta`, `ticket`); `gate.ex` (1); `type.ex`
+  (1); `environment.ex` (1); `status.ex` (3: the status entry,
+  `review:`, `environment:`); and `workflow.ex` (1, the top-level keys,
+  `workflow.md` #2). The task reads each of those ten source files,
+  walks its AST, and resolves every `Fields.unknown_keys/3` call
+  site's second argument into a flat key list, rather than
+  hand-listing the grammar's keys a second time (`docs/non-goals.md`'s
+  "no hand-maintained inventories"). A construct that grows a key
+  without threading it through `Fields.unknown_keys/3` stays invisible
+  to the task exactly as it is already invisible to the loader's own
+  closed-key check — the scope this task inherits rather than
+  duplicates. `predicate.ex` closes no map through
+  `Fields.unknown_keys/3` (its grammar is a recursive-descent parser
+  over an expression string, not a keyed map, `chain.md` #37) and
+  contributes nothing to the inventory.
+
+  Nineteen of those twenty sites pass a `~w(...)` sigil, a list
+  literal, or a same-module `@attr` reference as the second argument,
+  and all three resolve by reading the literal. The twentieth,
+  `status.ex:132`, passes neither: a locally-bound `known`, built by
+  `++`-concatenating list literals under `if/else` — the key set a
+  `status:` entry accepts varies with its own `kind` (a queue-shaped
+  entry also accepts `flow`/`blocks`; a `fills`-kind entry also
+  accepts `fills`; a tiered kind also accepts `tiers`). The task
+  resolves this fourth form, and any later call site shaped like it,
+  by walking the bound expression's AST and collecting every string
+  literal reachable down *any* branch of every `if`/`case`/`++` it
+  contains, rather than the branch one fixed input would take — the
+  union across every `status:` kind, six keys (`status`, `name`,
+  `flow`, `blocks`, `fills`, `tiers`) rather than the two or three any
+  one kind accepts. A per-kind value has no single right flat answer,
+  and the question this task asks is "does the loader ever accept this
+  key", not "does this one kind accept it" — the union is the literal
+  answer to that question, computed the same way regardless of which
+  branch a given YAML document happens to exercise.
 
   **The doc side is matched by construct, against the same three files
-  the contract itself already splits into** (`bundle.md` #1):
-  `catapult_yaml.ex`'s keys against `bundle.md`; `chain.ex`, `tier.ex`,
-  `edge.ex`, `flow.ex` against `chain.md`; `workflow.ex`, `type.ex`,
-  `gate.ex`, `environment.ex`, `status.ex` against `workflow.md`. A key
-  is named by its file when the file's text, read as one string,
-  carries a backtick span that is either exactly `` `key` `` or opens
-  `` `key:` ``. Both forms are already live in the contract's own
-  prose — `` `tiers` `` bare in `chain.md` #2 beside `` `kind: chain` ``
-  and `` `consistency: eventual | transactional` `` value-qualified in
-  the same doc — and the task reads both rather than forcing every rule
-  onto whichever form it happens not to use today.
+  the contract itself already splits into**: `catapult_yaml.ex`'s keys
+  against `bundle.md`; `chain.ex`, `tier.ex`, `edge.ex`, `flow.ex`
+  against `chain.md`; `workflow.ex`, `type.ex`, `gate.ex`,
+  `environment.ex`, `status.ex` against `workflow.md`. A key is named
+  by its file when the file's text, read as one string, carries a
+  backtick span that is exactly `` `key` ``, opens `` `key:` ``, or
+  opens `` `{key:` ``. The third form is how `workflow.md` #5 spells a
+  `status:` entry's own three discriminators inline —
+  `` `{status: <kind>}` ``, `` `{review: <gate>}` ``,
+  `` `{environment: <env>}` `` — and `status` and `review` are named
+  nowhere else in that doc, so without it both read as undocumented on
+  every run despite being documented there. All three forms are
+  already live in the contract's own prose — `` `tiers` `` bare in
+  `chain.md` #2 beside `` `kind: chain` `` and
+  `` `consistency: eventual | transactional` `` value-qualified in the
+  same doc, `` `{status: <kind>}` `` brace-wrapped in `workflow.md` #5
+  — and the task reads all three rather than forcing every rule onto
+  whichever form it happens not to use today.
 
   **Findings run both ways, and the two directions are not held to the
-  same strictness.** A key the loader accepts that no span, bare or
-  colon-form, names in its mapped file is a finding — the direction
-  that has actually bitten (this entry's own ORC-236 citation above).
-  A key that appears in colon-form only (`` `key:` `` or
-  `` `key: value` ``) and names nothing the mapped modules accept is a
-  finding the other way; a bare span (`` `key` ``) never triggers this
-  direction on its own, because the contract's prose bare-mentions
-  values and tier names too (`` `singleton` ``, `` `llm` ``,
-  `` `vocab` ``) that were never meant to become keys, and a scrape
-  that could not tell the two apart would fail on every run rather than
-  on a drift.
+  same strictness.** A key the loader accepts that no span — bare,
+  colon-form or brace-form — names in its mapped file is a finding —
+  the direction that has actually bitten (this entry's own ORC-236
+  citation above). A key that appears in colon-form or brace-form only
+  (`` `key:` ``, `` `key: value` ``, or `` `{key: ...}` ``) and names
+  nothing the mapped modules accept is a finding the other way; a bare
+  span (`` `key` ``) never triggers this direction on its own, because
+  the contract's prose bare-mentions values and tier names too
+  (`` `singleton` ``, `` `llm` ``, `` `vocab` ``) that were never meant
+  to become keys, and a scrape that could not tell the two apart would
+  fail on every run rather than on a drift.
 
 ## #43 Initial vs target
 
