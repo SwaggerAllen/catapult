@@ -54,9 +54,26 @@ defmodule Catapult.Dsl.Status do
         }
 
   @entry_keys ~w(status review environment)
+
+  # What each kind of `statuses:` entry accepts (`workflow.md` #5, #17),
+  # as paths under the `$entry` shape `workflow.md` declares once.
+  # `queue` is added on a population anchor, `fills` on `setup`/`retro`
+  # and `tiers` on `generation`/`setup`/`retro`.
+  @keys %{
+    status: ~w($entry.status $entry.name),
+    queue: ~w($entry.flow $entry.blocks),
+    fills: ~w($entry.fills),
+    tiers: ~w($entry.tiers),
+    review: ~w($entry.review $entry.depth),
+    environment: ~w($entry.environment)
+  }
   @population_anchor_names ~w(prep main cleanup)
   @tiered_kinds ~w(generation setup retro)
   @fills_kinds ~w(setup retro)
+
+  @doc "Every key a `statuses:` entry accepts under any kind, as `$entry.<key>` (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys |> Map.values() |> List.flatten() |> Enum.uniq()
 
   @doc """
   Parses one `statuses:` array entry. `path` is the entry's own
@@ -124,12 +141,12 @@ defmodule Catapult.Dsl.Status do
     {tiers, tiers_problems} = parse_tiers(raw, kind, where)
 
     known =
-      ["status", "name"] ++
-        if(queue_shaped?, do: ["flow", "blocks"], else: []) ++
-        if(kind in @fills_kinds, do: ["fills"], else: []) ++
-        if(kind in @tiered_kinds, do: ["tiers"], else: [])
+      @keys.status ++
+        if(queue_shaped?, do: @keys.queue, else: []) ++
+        if(kind in @fills_kinds, do: @keys.fills, else: []) ++
+        if(kind in @tiered_kinds, do: @keys.tiers, else: [])
 
-    unknown = Fields.unknown_keys(raw, known, where)
+    unknown = Fields.unknown_keys(raw, {known, "$entry"}, where)
 
     problems =
       kind_problems ++
@@ -160,7 +177,7 @@ defmodule Catapult.Dsl.Status do
   defp parse_review_entry(where, raw) do
     {name, name_problems} = Fields.require_string(raw, "review", where)
     {depth, depth_problems} = Fields.depth(raw, where)
-    unknown = Fields.unknown_keys(raw, ["review", "depth"], where)
+    unknown = Fields.unknown_keys(raw, {@keys.review, "$entry"}, where)
     problems = name_problems ++ depth_problems ++ unknown
 
     if problems == [],
@@ -170,7 +187,7 @@ defmodule Catapult.Dsl.Status do
 
   defp parse_environment_entry(where, raw) do
     {name, name_problems} = Fields.require_string(raw, "environment", where)
-    unknown = Fields.unknown_keys(raw, ["environment"], where)
+    unknown = Fields.unknown_keys(raw, {@keys.environment, "$entry"}, where)
     problems = name_problems ++ unknown
 
     if problems == [], do: {:ok, %__MODULE__{environment: name}}, else: {:error, problems}

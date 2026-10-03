@@ -99,9 +99,22 @@ defmodule Catapult.Dsl.Tier do
         }
 
   @generators ~w(llm supplied external template git_commit webhook)
-  @generation_keys ~w(scope draft generator prompt review reconcile executor handle context produces enforcement)
-  @join_keys ~w(scope draft fields handle enforcement)
-  @supplied_keys ~w(generator source)
+
+  # The keys each of a tier's three kinds accepts (`chain.md` #5),
+  # path-qualified the way `docs/dsl/chain.md`'s declarations are.
+  @keys %{
+    supplied: ~w(tiers.*.generator tiers.*.source),
+    join: ~w(tiers.*.scope tiers.*.draft tiers.*.fields tiers.*.handle tiers.*.enforcement),
+    generating: ~w(tiers.*.scope tiers.*.draft tiers.*.draft.root_tag tiers.*.draft.grammar
+                   tiers.*.generator tiers.*.prompt tiers.*.review tiers.*.review.prompt
+                   tiers.*.review.context tiers.*.reconcile tiers.*.reconcile.prompt
+                   tiers.*.reconcile.context tiers.*.executor tiers.*.handle tiers.*.context
+                   tiers.*.produces tiers.*.enforcement)
+  }
+
+  @doc "Every key a tier accepts under any kind, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys |> Map.values() |> List.flatten() |> Enum.uniq()
 
   @doc "Kind of tier this declaration is, from its own already-parsed shape."
   @spec kind(t()) :: :generating | :join | :supplied
@@ -128,7 +141,7 @@ defmodule Catapult.Dsl.Tier do
 
   defp parse_supplied(name, raw, where) do
     {source, source_problems} = Fields.require_string(raw, "source", where)
-    unknown = Fields.unknown_keys(raw, @supplied_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys.supplied, "tiers.*"}, where)
 
     problems = source_problems ++ unknown
 
@@ -154,7 +167,7 @@ defmodule Catapult.Dsl.Tier do
   defp parse_join(name, raw, where, scope, scope_problems) do
     {fields, fields_problems} = parse_fields(raw, where)
     {handle_narrow, handle_problems} = parse_handle(raw, where)
-    unknown = Fields.unknown_keys(raw, @join_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys.join, "tiers.*"}, where)
 
     problems = scope_problems ++ fields_problems ++ handle_problems ++ unknown
 
@@ -189,7 +202,7 @@ defmodule Catapult.Dsl.Tier do
     {enforcement, enforcement_problems} =
       Fields.optional_string_list(raw, "enforcement", where)
 
-    unknown = Fields.unknown_keys(raw, @generation_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys.generating, "tiers.*"}, where)
 
     problems =
       scope_problems ++
@@ -268,7 +281,7 @@ defmodule Catapult.Dsl.Tier do
         {grammar, gp} =
           Fields.optional_string(draft, "grammar", draft_where, "schemas/#{name}.xsd")
 
-        unknown = Fields.unknown_keys(draft, ["root_tag", "grammar"], draft_where)
+        unknown = Fields.unknown_keys(draft, {@keys.generating, "tiers.*.draft"}, draft_where)
         problems = rp ++ gp ++ unknown
 
         if problems == [],
@@ -385,7 +398,7 @@ defmodule Catapult.Dsl.Tier do
         rw = "#{where}'s #{key}"
         {prompt, pp} = Fields.optional_string(map, "prompt", rw, default_prompt)
         {context_raw, cp} = parse_context_map(map, rw)
-        unknown = Fields.unknown_keys(map, ["prompt", "context"], rw)
+        unknown = Fields.unknown_keys(map, {@keys.generating, "tiers.*.#{key}"}, rw)
         problems = pp ++ cp ++ unknown
 
         if problems == [],

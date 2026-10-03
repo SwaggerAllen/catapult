@@ -53,6 +53,33 @@ defmodule Catapult.Dsl do
   end
 
   @doc """
+  The paths the loader accepts in the `doc` declaration file
+  (`:bundle` for `catapult.yaml`, `:chain`, `:workflow`), path-qualified
+  as `docs/dsl/`'s declarations are. Each construct parser states its
+  keys as data and closes its maps against them
+  (`Catapult.Dsl.Fields.unknown_keys/3`); this is that same data,
+  read by `mix catapult.dsl.keys` (`systems/core_dsl.md` #ORC-253-1).
+  """
+  @spec key_paths(:bundle | :chain | :workflow) :: [String.t()]
+  defexport key_paths(doc) do
+    doc |> parsers() |> Enum.flat_map(& &1.key_paths()) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp parsers(:bundle), do: [Catapult.Dsl.CatapultYaml]
+
+  defp parsers(:chain),
+    do: [Catapult.Dsl.Chain, Catapult.Dsl.Tier, Catapult.Dsl.Edge, Catapult.Dsl.Flow]
+
+  defp parsers(:workflow),
+    do: [
+      Catapult.Dsl.Workflow,
+      Catapult.Dsl.Type,
+      Catapult.Dsl.Status,
+      Catapult.Dsl.Gate,
+      Catapult.Dsl.Environment
+    ]
+
+  @doc """
   Validates `body` against the grammar named by `root_tag` +
   `grammar_path` for `bundle_name` under `bundles_root` (`chain.md`
   #33). See `Catapult.Dsl.Grammar.validate/5`. One validator source:

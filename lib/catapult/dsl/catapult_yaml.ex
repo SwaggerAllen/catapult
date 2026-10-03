@@ -13,10 +13,16 @@ defmodule Catapult.Dsl.CatapultYaml do
 
   alias Catapult.Dsl.Fields
 
+  @keys ~w(chain workflow)
+
   @enforce_keys [:chain]
   defstruct [:chain, :workflow]
 
   @type t :: %__MODULE__{chain: String.t(), workflow: String.t() | nil}
+
+  @doc "Every key `catapult.yaml` accepts (`bundle.md` #ORC-253-3)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses catapult.yaml's map for `dialect` (`Catapult.Dsl.Dialect`)."
   @spec parse(map(), Catapult.Dsl.Dialect.t()) :: {:ok, t()} | {:error, [String.t()]}
@@ -24,7 +30,7 @@ defmodule Catapult.Dsl.CatapultYaml do
     where = "catapult.yaml"
     {chain, chain_problems} = Fields.require_string(raw, "chain", where)
     {workflow, workflow_problems} = workflow_field(raw, dialect, where)
-    unknown = Fields.unknown_keys(raw, ["chain", "workflow"], where)
+    unknown = Fields.unknown_keys(raw, {@keys, ""}, where)
 
     problems = chain_problems ++ workflow_problems ++ unknown
 
