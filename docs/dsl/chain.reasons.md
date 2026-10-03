@@ -337,9 +337,8 @@ started.
 The list is stated against `Catapult.Dsl.Flow`, which accepts three
 walks and requires one of them. A scaffold declaring
 `downward_cascade` states nothing true, which is the gap `full`
-fills, and the shipped bundle's `seed` flow writes it. The record
-once called `full` proposed after the loader had gained it; the
-list is the loader's, so it is stated to match `@walks`.
+fills, and the shipped bundle's `seed` flow writes it. The list is
+the loader's, so it is stated to match `@walks`.
 
 `up_then_down` repairs as it climbs rather than assessing first and
 writing once. The cheaper design is an assessment climb that predicts

@@ -246,5 +246,5 @@ A normative contract the code is built to match is not a mirror of
 the code: it enumerates its keys as declarations (`bundle.md`
 #ORC-253-2), checked for equality against the loader's own key lists
 (`systems/core_dsl.md` #ORC-253-1), and the JSON Schema compiled from
-them is generated. That satisfies this entry's own reason: silent
-drift is what the check removes.
+them is generated. Silent drift, this entry's reason, is what the
+check removes.
