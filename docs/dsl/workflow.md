@@ -31,6 +31,13 @@ type and gate name. Markers: **live** is read by the engine today;
   `gates`, and the reserved `environments` (#38). `entry:` names the
   root type, the one a project instance is (`project`). A key outside
   this set, at any level, is a load error.
+- key `name`: string, required
+- key `version`: string, optional
+- key `kind`: "workflow", required
+- key `entry`: string, required
+- key `types`: map, required
+- key `gates`: map, required
+- key `environments`: map, optional
 
 ## #3 Types
 
@@ -108,6 +115,39 @@ type and gate name. Markers: **live** is read by the engine today;
   gives its generation positions (`plan`, `features`, `experience`,
   `requirements`, `architecture`, `implementation`) are `name:`
   values on `generation` entries, not kinds.
+- key `types.*`: map
+- key `types.*.skeleton`: "ticket" | "container", optional
+- key `types.*.serves`: string | list, optional
+- key `types.*.serves[]`: string
+- key `types.*.statuses`: list, required
+- key `types.*.statuses[]`: map | list
+- key `types.*.statuses[].status`: string, optional
+- key `types.*.statuses[].name`: string, optional
+- key `types.*.statuses[].tiers`: list, optional
+- key `types.*.statuses[].tiers[]`: string
+- key `types.*.statuses[].flow`: string, optional
+- key `types.*.statuses[].blocks`: list, optional
+- key `types.*.statuses[].blocks[]`: string
+- key `types.*.statuses[].fills`: list, optional
+- key `types.*.statuses[].fills[]`: string
+- key `types.*.statuses[].review`: string, optional
+- key `types.*.statuses[].depth`: integer | list, optional
+- key `types.*.statuses[].depth[]`: integer
+- key `types.*.statuses[].environment`: string, optional
+- key `types.*.statuses[][]`: map
+- key `types.*.statuses[][].status`: string, optional
+- key `types.*.statuses[][].name`: string, optional
+- key `types.*.statuses[][].tiers`: list, optional
+- key `types.*.statuses[][].tiers[]`: string
+- key `types.*.statuses[][].flow`: string, optional
+- key `types.*.statuses[][].blocks`: list, optional
+- key `types.*.statuses[][].blocks[]`: string
+- key `types.*.statuses[][].fills`: list, optional
+- key `types.*.statuses[][].fills[]`: string
+- key `types.*.statuses[][].review`: string, optional
+- key `types.*.statuses[][].depth`: integer | list, optional
+- key `types.*.statuses[][].depth[]`: integer
+- key `types.*.statuses[][].environment`: string, optional
 
 ## #11 The ticket skeleton
 
@@ -276,6 +316,10 @@ type and gate name. Markers: **live** is read by the engine today;
 - **#36 A gate's review set is whatever the chain produced at the
   position it follows, at the depths it applies.** Nothing on the
   gate names a tier.
+- key `gates.*`: map
+- key `gates.*.role`: string, required
+- key `gates.*.escalation`: string, required
+- key `gates.*.throwback`: string, optional
 
 ## #37 Environments
 
@@ -287,3 +331,6 @@ type and gate name. Markers: **live** is read by the engine today;
   from; `lifetime: persistent` is the shipped value and `per_ticket`
   is the PR-environment case, its semantics fixed when delivery
   builds it.
+- key `environments.*`: map
+- key `environments.*.promote_from`: string, optional
+- key `environments.*.lifetime`: "persistent" | "per_ticket", optional

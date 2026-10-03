@@ -35,6 +35,15 @@ and edge name. Markers: **live** is read by the engine today;
   block: the first tiers sort and decompose rather than write prose,
   and a cheaper effort setting is where a decomposition loses
   structure.
+- key `name`: string, required
+- key `version`: string, optional
+- key `kind`: "chain", required
+- key `tiers`: map, required
+- key `edges`: map, required
+- key `predicates`: map, optional
+- key `flows`: map, optional
+- key `defaults`: map, optional
+- key `defaults.executor`: map, optional
 
 ## #4 Tiers
 
@@ -121,6 +130,30 @@ and edge name. Markers: **live** is read by the engine today;
   path, `systems/core_dsl.md`) is content written by a path outside
   the chain (`ref`). Re-pinning a source is what re-drains what reads
   it.
+- key `tiers.*`: map
+- key `tiers.*.scope`: string, required, when generator is not "supplied"
+- key `tiers.*.draft`: map | "none", optional, when generator is not "supplied"
+- key `tiers.*.draft.root_tag`: string, optional
+- key `tiers.*.draft.grammar`: string, optional
+- key `tiers.*.prompt`: string, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.executor`: map, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.handle`: list, optional, when generator is not "supplied"
+- key `tiers.*.handle[]`: string
+- key `tiers.*.fields`: map, optional, when draft is "none"
+- key `tiers.*.fields.*`: string
+- key `tiers.*.produces`: map, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.produces.*`: string
+- key `tiers.*.review`: string | map, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.review.prompt`: string, optional
+- key `tiers.*.review.context`: map, optional
+- key `tiers.*.review.context.*`: string
+- key `tiers.*.reconcile`: string | map, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.reconcile.prompt`: string, optional
+- key `tiers.*.reconcile.context`: map, optional
+- key `tiers.*.reconcile.context.*`: string
+- key `tiers.*.enforcement`: list, optional, when generator is not "supplied"
+- key `tiers.*.enforcement[]`: string
+- key `tiers.*.source`: string, required, when generator is "supplied"
 
 ## #18 Context
 
@@ -171,6 +204,9 @@ and edge name. Markers: **live** is read by the engine today;
 - **#23 A `navigation: true` edge carries no context and no
   readiness in either direction.** `navigation` in the default
   connects screens for the journey's sake and is read by nothing.
+- key `tiers.*.context`: map, optional, when generator is not "supplied" and draft is not "none"
+- key `tiers.*.context.*`: string
+- key `edges.*.navigation`: boolean, optional
 
 ## #24 Edges
 
@@ -232,6 +268,23 @@ and edge name. Markers: **live** is read by the engine today;
   the instances it declares.** `acyclic` and `no_self_loop` on
   `dependency` reject a body whose dependencies would close a cycle,
   with a typed error the agent can retry against.
+- key `edges.*`: map
+- key `edges.*.type`: string, required
+- key `edges.*.context`: string, required
+- key `edges.*.graph_constraint`: list, optional
+- key `edges.*.graph_constraint[]`: string
+- key `edges.*.consistency`: "eventual" | "transactional", optional
+- key `edges.*.instances`: list, required
+- key `edges.*.instances[]`: map
+- key `edges.*.instances[].source`: string, required
+- key `edges.*.instances[].target`: string | list, required
+- key `edges.*.instances[].target[]`: string
+- key `edges.*.instances[].declared_in`: string, required
+- key `edges.*.instances[].source_ref`: string, optional
+- key `edges.*.instances[].target_ref`: string, optional
+- key `edges.*.instances[].context`: string, optional
+- key `edges.*.instances[].as`: string, optional
+- key `edges.*.instances[].when`: string, optional
 
 ## #31 The schema's half
 
@@ -275,7 +328,11 @@ and edge name. Markers: **live** is read by the engine today;
   is named here and cited by a `fanout` instance's `when:` or a flow's
   `completion:`. The default names `has_foundation_child` for the
   rule that every level of decomposition has a foundation child,
-  which `minOccurs` cannot count.
+  which `minOccurs` cannot count. A value is an expression string,
+  or `~` for a name a flow's `completion:` cites before its
+  expression is written; `any` is declared because the schema
+  vocabulary has no null type, and the loader refuses every other
+  shape.
 - **#38 `flows:` declares the traversals a ticket may open.**
   (Reserved: the flow engine, v5 §7.2.) A flow declares its `walk`
   (#41), the `entry` tier a cascade enters at, the `delta` of tiers
@@ -324,3 +381,17 @@ and edge name. Markers: **live** is read by the engine today;
   `webhook` take a node's body from a repository commit or an inbound
   post, so that repository history and external events can serve as
   context and as flow triggers.
+- key `predicates.*`: any
+- key `flows.*`: map
+- key `flows.*.walk`: string, required
+- key `flows.*.entry`: string, optional
+- key `flows.*.delta`: map, optional
+- key `flows.*.delta.tiers`: list, optional
+- key `flows.*.delta.tiers[]`: string
+- key `flows.*.delta.edges`: list, optional
+- key `flows.*.delta.edges[]`: string
+- key `flows.*.ticket`: map, optional
+- key `flows.*.ticket.labels`: list, optional
+- key `flows.*.ticket.labels[]`: string
+- key `flows.*.completion`: string, optional
+- key `tiers.*.generator`: string, optional, when draft is not "none"

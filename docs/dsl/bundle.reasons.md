@@ -117,3 +117,28 @@ the measurement mean something — a bundle that fails to load has
 nothing worth counting lines on — and folding both into one gate
 means the acceptance test runs the same way on every PR rather than
 on whichever ones a reviewer remembers to check by eye.
+
+## #ORC-253-1
+
+A contract that enumerates its keys in prose is checked by nobody, and
+one that does it in a form a tool reads is checked by whoever runs the
+tool. The heading carries the id the audit requires of a section.
+
+## #ORC-253-2
+
+Putting the obligation in the contract meets a design pass in the doc it
+is editing, where a prompt-borne reminder would have to reach every pass
+and could fall out of one. A key stated twice, once in a declaration
+and once in prose, is the second statement nothing checks, which is the
+drift the declarations exist to end.
+
+## #ORC-253-3
+
+Equality both ways is what makes a loader key with no declaration (the
+ORC-232/235/236 shape: grammar the contract never admitted) and a
+declaration with no loader key (a contract promising what nothing
+reads) each a failure. `when` is how a kind-dependent key set is stated
+once instead of as three lists; a condition testing a sibling's value
+and not its legality is what lets `generator` and `draft` gate each
+other and refuse `generator` on a join target.
+
