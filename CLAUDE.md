@@ -27,7 +27,10 @@ a checker that derives what the rules say is derived;
 
 ## Toolchain
 
-Pinned in `.tool-versions` (Elixir 1.17.3-otp-27 / OTP 27.3.4 —
+Pinned in `.tool-versions` (Go 1.24 — `mix catapult.dsl.keys` shells
+out to the `pipeline` binary, which is built with it; `erlef/setup-beam`
+reads that file and ignores the lines for tools it does not install;
+Elixir 1.17.3-otp-27 / OTP 27.3.4 —
 27.2 and earlier reject builds.hex.pm's TLS cert with
 `key_usage_mismatch`); CI enforces it, and `mix.exs` floors match
 (`~> 1.17`). Dep series ride current stable — the `deps.audit` gate
@@ -87,6 +90,7 @@ mix xref graph --format cycles --fail-above 0
 mix xref graph --label compile-connected --fail-above 0   # the ratchet
 mix catapult.audit                   # root project ONLY — see below
 mix catapult.bundle.check            # root project ONLY — bundle.md #14's acceptance bound
+mix catapult.dsl.keys                # root project ONLY — docs/dsl/'s declared keys == the loader's; needs `pipeline` on PATH
 mix test                             # needs Postgres; sandbox, async
 cd components/substrate && mix deps.get --check-locked && \
   mix hex.audit && mix format --check-formatted && \
@@ -224,13 +228,6 @@ Each of these cost a wrong diagnosis before it was written down.
   for publishing previews from the harness rather than a
   push-watcher. A push under ordinary credentials is what restores
   them.
-- **The id/reasons audit does not see `docs/dsl/`.** Orchestration's
-  check is scoped to `systems/` and `screens/`, so a rule in
-  `bundle.md`, `chain.md` or `workflow.md` whose `.reasons.md` entry
-  is missing or unamended passes the audit silently, and
-  `pipeline reasons chain#22` does not resolve. The convention binds
-  regardless — it is the contract's own rules that carry the ids —
-  and the gap closes when that scope widens.
 - **A stale `_build` fails `--warnings-as-errors` for a lie.** A
   half-finished compile leaves a dependency's modules missing, and
   the gate then reports them undefined at their call sites — which

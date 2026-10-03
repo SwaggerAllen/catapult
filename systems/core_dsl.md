@@ -894,6 +894,44 @@ profiles.
   shape exists to hold helper modules several tasks share, and this is
   the project's only task with no such helpers to hold.
 
+- **#ORC-253-1 The loader's accepted keys are declared as data, one
+  list per construct, and `Mix.Tasks.Catapult.Dsl.Keys` fails the
+  build when that data and `docs/dsl/`'s declarations differ.** Each
+  construct parser (`chain.ex`, `tier.ex`, `edge.ex`, `flow.ex`,
+  `workflow.ex`, `type.ex`, `status.ex`, `gate.ex`, `environment.ex`,
+  `catapult_yaml.ex`) states its accepted keys as a path-qualified
+  module attribute in the form the declarations use
+  (`tiers.*.review.prompt`, `edges.*.instances[].source`), and
+  `Fields.unknown_keys/3` closes each map against that list, so the
+  parser and the gate read one list and nothing is derived from a
+  parser's source. A tier's three kinds (`chain.md` #5) and a status
+  entry's kinds (`workflow.md` #5) each have a declared table keyed
+  by kind rather than an expression built inline. The task is filed at
+  `lib/catapult/dsl/keys_check.ex` for `#ORC-249-1`'s reason, runs
+  `pipeline schema --root . dsl:<doc>` for `bundle`, `chain` and
+  `workflow`, reads the declared paths out of each schema
+  (`properties`, `additionalProperties` for `*`, `items` for `[]`,
+  `$defs` through `$ref`, and members inside `if`/`then`), and
+  compares them with the loader's lists in both directions, naming
+  every path and the side that lacks it. A `$shape` a schema names
+  (`workflow.md`'s `$entry`) is compared once, as `$entry.fills`
+  against `status.ex`'s list, and is not expanded into each place it
+  is used. It compares keys only: a type
+  or condition disagreement is the loader's own load error on a
+  bundle that exercises it. With `pipeline` absent from `PATH` it
+  fails, never skips; its tests read fixture schemas, so `mix test`
+  never needs the binary. A bundle validating against the compiled
+  schemas catches the type and value drift the key comparison cannot;
+  its validator must implement draft 2020-12 including
+  `unevaluatedProperties`, be proven on `bundle.md`
+  #ORC-253-3's gated discriminator before it is adopted, and be a
+  dev/test-only dependency whose call site is compiled only where the
+  dependency is, so that production carries neither the validator nor
+  a runtime reading of a generated artifact. The loader never
+  validates a bundle against the schema at runtime: the key
+  comparison staying red between "the contract admits a key" and "the
+  loader handles it" is the gate this entry exists for.
+
 ## #43 Initial vs target
 
 Initial (Phase 3): core vocabulary, loader, design-dialect extension

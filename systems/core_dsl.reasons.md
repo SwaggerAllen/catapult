@@ -404,3 +404,29 @@ reserves for exactly this namespace mismatch, and Boundary's own tasks
 than a new `Catapult.Mix`: that shape holds helper modules several
 tasks share, and this is the project's only task, with no such helpers
 to hold.
+
+## #ORC-253-1
+
+The loader and the retired DSL spec drifted for a milestone with
+nothing noticing, and ORC-232, ORC-235 and ORC-236 landed in the gap.
+Scraping keys from the contract's prose cannot close it: prose quotes
+keys, values, author-chosen names and foreign syntax in identical
+backticks, and 16 of the loader's 59 key names mean different things at
+different sites (ORC-250). A declaration is a structure a check can
+bind to, so the check compares two declared lists instead of
+interpreting prose. The loader's list is data read by the parser
+itself because a list derived from the parser's source is a second
+parser, and one the parser could drift from. A shape's members are compared once because
+expanding them into every use would make each side list the same keys
+twice. Keys only, because a
+presence or type rule the loader enforces already fails a bundle at
+load; a key admitted by one side alone is the disagreement no load
+error ever reports. Fails rather than skips without the binary: a
+skipping gate goes silent on exactly the author branches that rewrite
+grammar (the precedent is `mix catapult.audit.all`). The validator is
+dev/test-only because a runtime reading of a generated artifact would
+add a dependency and an error-translation layer for bundle authors
+that nothing yet needs; revisit when hosted-tier authors need load
+errors citing the governing rule, and land that together with a check
+that every declared path is consumed by the loader. Elixir and a `mix`
+task for `#ORC-249-1`'s reasons.

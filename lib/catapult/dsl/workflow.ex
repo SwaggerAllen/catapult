@@ -43,7 +43,11 @@ defmodule Catapult.Dsl.Workflow do
           types: %{String.t() => Type.t()}
         }
 
-  @top_keys ~w(name version kind entry types gates environments)
+  @keys ~w(name version kind entry types gates environments)
+
+  @doc "Every key `workflow.yaml's top level` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
   @container_required_order ~w(setup prep main retro cleanup)
 
   @doc "Loads and validates the workflow bundle named `name` under `bundles_root`, against the already-loaded `chain`."
@@ -83,7 +87,7 @@ defmodule Catapult.Dsl.Workflow do
     {gates, gates_p} = parse_named(raw, "gates", Gate)
     {environments, env_p} = parse_named(raw, "environments", Environment, optional: true)
     {types, types_p} = parse_named(raw, "types", Type)
-    unknown = Fields.unknown_keys(raw, @top_keys, "workflow.yaml")
+    unknown = Fields.unknown_keys(raw, {@keys, ""}, "workflow.yaml")
 
     structural = name_p ++ version_p ++ entry_p ++ gates_p ++ env_p ++ types_p ++ unknown
 

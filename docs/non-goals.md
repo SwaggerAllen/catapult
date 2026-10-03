@@ -241,3 +241,10 @@ docs (the code is the inventory), no hand-written permission
 matrices, no hand-written API docs where generation exists.
 Documents that mirror code drift silently; every such document is
 generated or absent.
+
+A normative contract the code is built to match is not a mirror of
+the code: it enumerates its keys as declarations (`bundle.md`
+#ORC-253-2), checked for equality against the loader's own key lists
+(`systems/core_dsl.md` #ORC-253-1), and the JSON Schema compiled from
+them is generated. Silent drift, this entry's reason, is what the
+check removes.

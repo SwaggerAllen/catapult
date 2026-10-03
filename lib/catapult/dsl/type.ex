@@ -41,7 +41,11 @@ defmodule Catapult.Dsl.Type do
 
   @skeletons ~w(ticket container)
   @serves_predicates ~w(has_delta no_delta)
-  @core_keys ~w(skeleton serves statuses)
+  @keys ~w(types.*.skeleton types.*.serves types.*.statuses)
+
+  @doc "Every key `types.<name>` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses one `types.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -53,7 +57,7 @@ defmodule Catapult.Dsl.Type do
     {raw_statuses, statuses_field_problems} = require_status_list(raw, where)
     {statuses, groups, statuses_problems} = parse_statuses(where, raw_statuses, skeleton)
 
-    unknown = Fields.unknown_keys(raw, @core_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys, "types.*"}, where)
 
     problems =
       skeleton_problems ++

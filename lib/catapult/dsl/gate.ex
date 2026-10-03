@@ -29,7 +29,11 @@ defmodule Catapult.Dsl.Gate do
           escalation: String.t()
         }
 
-  @core_keys ~w(role throwback escalation)
+  @keys ~w(gates.*.role gates.*.throwback gates.*.escalation)
+
+  @doc "Every key `gates.<name>` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses one `gates.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -40,7 +44,7 @@ defmodule Catapult.Dsl.Gate do
     {throwback, tb_problems} = Fields.optional_string(raw, "throwback", where)
     {escalation, esc_problems} = Fields.require_string(raw, "escalation", where)
 
-    unknown = Fields.unknown_keys(raw, @core_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys, "gates.*"}, where)
 
     problems = role_problems ++ tb_problems ++ esc_problems ++ unknown
 

@@ -20,7 +20,11 @@ defmodule Catapult.Dsl.Environment do
   @type t :: %__MODULE__{name: String.t(), promote_from: String.t() | nil, lifetime: String.t()}
 
   @lifetimes ~w(persistent per_ticket)
-  @core_keys ~w(promote_from lifetime)
+  @keys ~w(environments.*.promote_from environments.*.lifetime)
+
+  @doc "Every key `environments.<name>` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses one `environments.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -32,7 +36,7 @@ defmodule Catapult.Dsl.Environment do
     {lifetime, lifetime_problems} =
       Fields.optional_one_of(raw, "lifetime", @lifetimes, where, "persistent")
 
-    unknown = Fields.unknown_keys(raw, @core_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys, "environments.*"}, where)
 
     problems = pf_problems ++ lifetime_problems ++ unknown
 

@@ -35,7 +35,12 @@ defmodule Catapult.Dsl.Flow do
         }
 
   @walks ~w(downward_cascade up_then_down full)
-  @core_keys ~w(walk entry delta ticket completion)
+  @keys ~w(flows.*.walk flows.*.entry flows.*.delta flows.*.delta.tiers flows.*.delta.edges
+           flows.*.ticket flows.*.ticket.labels flows.*.completion)
+
+  @doc "Every key `flows.<name>` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses one `flows.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -48,7 +53,7 @@ defmodule Catapult.Dsl.Flow do
     {labels, ticket_problems} = parse_ticket(raw, where)
     {completion, completion_problems} = Fields.optional_string(raw, "completion", where)
 
-    unknown = Fields.unknown_keys(raw, @core_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys, "flows.*"}, where)
 
     problems =
       walk_problems ++
@@ -83,7 +88,7 @@ defmodule Catapult.Dsl.Flow do
         dw = "#{where}'s delta"
         {tiers, tp} = Fields.optional_string_list(delta, "tiers", dw)
         {edges, ep} = Fields.optional_string_list(delta, "edges", dw)
-        unknown = Fields.unknown_keys(delta, ["tiers", "edges"], dw)
+        unknown = Fields.unknown_keys(delta, {@keys, "flows.*.delta"}, dw)
         {tiers, edges, tp ++ ep ++ unknown}
     end
   end
@@ -96,7 +101,7 @@ defmodule Catapult.Dsl.Flow do
       {ticket, []} ->
         tw = "#{where}'s ticket"
         {labels, lp} = Fields.optional_string_list(ticket, "labels", tw)
-        unknown = Fields.unknown_keys(ticket, ["labels"], tw)
+        unknown = Fields.unknown_keys(ticket, {@keys, "flows.*.ticket"}, tw)
         {labels, lp ++ unknown}
     end
   end

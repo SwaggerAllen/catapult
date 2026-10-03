@@ -31,6 +31,13 @@ type and gate name. Markers: **live** is read by the engine today;
   `gates`, and the reserved `environments` (#38). `entry:` names the
   root type, the one a project instance is (`project`). A key outside
   this set, at any level, is a load error.
+- key `name`: string, required
+- key `version`: string, optional
+- key `kind`: "workflow", required
+- key `entry`: string, required
+- key `types`: map, required
+- key `gates`: map, required
+- key `environments`: map, optional
 
 ## #3 Types
 
@@ -108,6 +115,33 @@ type and gate name. Markers: **live** is read by the engine today;
   gives its generation positions (`plan`, `features`, `experience`,
   `requirements`, `architecture`, `implementation`) are `name:`
   values on `generation` entries, not kinds.
+- key `types.*`: map
+- key `types.*.skeleton`: "ticket" | "container", optional
+- key `types.*.serves`: string | list, optional
+- key `types.*.serves[]`: string
+- key `types.*.statuses`: list, required
+- key `types.*.statuses[]`: $entry | list
+- key `types.*.statuses[][]`: $entry
+- key `$entry`: map
+- key `$entry.status`: string, optional
+- key `$entry.name`: string, optional
+- key `$entry.tiers`: list, optional, when status is "generation" | "setup" | "retro"
+- key `$entry.tiers[]`: string
+- key `$entry.flow`: string, optional
+- key `$entry.blocks`: list, optional
+- key `$entry.blocks[]`: string
+- key `$entry.fills`: list, optional, when status is "setup" | "retro"
+- key `$entry.fills[]`: string
+- key `$entry.review`: string, optional
+- key `$entry.depth`: integer | list, optional
+- key `$entry.depth[]`: integer
+- key `$entry.environment`: string, optional
+- A shape's members are declared once and the loader's list carries
+  them once. `flow` and `blocks` stay ungated because they depend on
+  `population_anchor?(name, skeleton)`, which reads the parent type's
+  `skeleton`, not a sibling. `depth`, and the exclusion between
+  `status`, `review` and `environment`, are decided by which key is
+  present, which `when` has no test for; the loader enforces them.
 
 ## #11 The ticket skeleton
 
@@ -276,6 +310,10 @@ type and gate name. Markers: **live** is read by the engine today;
 - **#36 A gate's review set is whatever the chain produced at the
   position it follows, at the depths it applies.** Nothing on the
   gate names a tier.
+- key `gates.*`: map
+- key `gates.*.role`: string, required
+- key `gates.*.escalation`: string, required
+- key `gates.*.throwback`: string, optional
 
 ## #37 Environments
 
@@ -287,3 +325,6 @@ type and gate name. Markers: **live** is read by the engine today;
   from; `lifetime: persistent` is the shipped value and `per_ticket`
   is the PR-environment case, its semantics fixed when delivery
   builds it.
+- key `environments.*`: map
+- key `environments.*.promote_from`: string, optional
+- key `environments.*.lifetime`: "persistent" | "per_ticket", optional
