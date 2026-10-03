@@ -361,17 +361,17 @@ and edge name. Markers: **live** is read by the engine today;
   position (`workflow.md` #22). A plan node that read the approved
   graph alone would plan a subcomponent against the component this
   same cascade is about to rewrite.
-- **#41 Two walk primitives are built and a third is proposed.**
-  `downward_cascade` enters at the flow's `entry` tier and follows
-  downstream edges to enumerate the scopes a change reaches.
-  `up_then_down` starts where a finding was raised, walks upstream
-  repairing each rung against what its children now say, halting on
-  the first rung whose own document does not change, then cascades
-  downward from the highest rung that did. `Catapult.Dsl.Flow` accepts
-  these two and requires one of them. A scaffold flow runs no cascade
-  and neither primitive describes it, so `full` is proposed as the
-  third: adding it is a grammar change, and `example/chain.yaml`
-  writes it.
+- **#41 Three walks are accepted: `downward_cascade`, `up_then_down`
+  and `full`.** `downward_cascade` enters at the flow's `entry` tier
+  and follows downstream edges to enumerate the scopes a change
+  reaches. `up_then_down` starts where a finding was raised, walks
+  upstream repairing each rung against what its children now say,
+  halting on the first rung whose own document does not change, then
+  cascades downward from the highest rung that did. `full` is the
+  scaffold flow's walk: it runs no cascade, and the whole chain is
+  its extent. `Catapult.Dsl.Flow` accepts these three and requires
+  one of them; flows are reserved (#38), so the engine does not yet
+  run any of them.
 - **#39 Four generator types and every context-source kind beyond
   `input` are extension vocabulary** (reserved: the registry, v5
   §9). `external` resolves a node's content from the component
@@ -383,7 +383,7 @@ and edge name. Markers: **live** is read by the engine today;
   context and as flow triggers.
 - key `predicates.*`: any
 - key `flows.*`: map
-- key `flows.*.walk`: string, required
+- key `flows.*.walk`: "downward_cascade" | "up_then_down" | "full", required
 - key `flows.*.entry`: string, optional
 - key `flows.*.delta`: map, optional
 - key `flows.*.delta.tiers`: list, optional

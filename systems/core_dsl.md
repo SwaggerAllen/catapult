@@ -913,7 +913,10 @@ profiles.
   (`properties`, `additionalProperties` for `*`, `items` for `[]`,
   `$defs` through `$ref`, and members inside `if`/`then`), and
   compares them with the loader's lists in both directions, naming
-  every path and the side that lacks it. It compares keys only: a type
+  every path and the side that lacks it. A `$shape` a schema names
+  (`workflow.md`'s `$entry`) is compared once, as `$entry.fills`
+  against `status.ex`'s list, and is not expanded into each place it
+  is used. It compares keys only: a type
   or condition disagreement is the loader's own load error on a
   bundle that exercises it. With `pipeline` absent from `PATH` it
   fails, never skips; its tests read fixture schemas, so `mix test`

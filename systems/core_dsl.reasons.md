@@ -416,7 +416,9 @@ different sites (ORC-250). A declaration is a structure a check can
 bind to, so the check compares two declared lists instead of
 interpreting prose. The loader's list is data read by the parser
 itself because a list derived from the parser's source is a second
-parser, and one the parser could drift from. Keys only, because a
+parser, and one the parser could drift from. A shape's members are compared once because
+expanding them into every use would make each side list the same keys
+twice. Keys only, because a
 presence or type rule the loader enforces already fails a bundle at
 load; a key admitted by one side alone is the disagreement no load
 error ever reports. Fails rather than skips without the binary: a

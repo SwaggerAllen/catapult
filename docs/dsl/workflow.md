@@ -120,34 +120,28 @@ type and gate name. Markers: **live** is read by the engine today;
 - key `types.*.serves`: string | list, optional
 - key `types.*.serves[]`: string
 - key `types.*.statuses`: list, required
-- key `types.*.statuses[]`: map | list
-- key `types.*.statuses[].status`: string, optional
-- key `types.*.statuses[].name`: string, optional
-- key `types.*.statuses[].tiers`: list, optional
-- key `types.*.statuses[].tiers[]`: string
-- key `types.*.statuses[].flow`: string, optional
-- key `types.*.statuses[].blocks`: list, optional
-- key `types.*.statuses[].blocks[]`: string
-- key `types.*.statuses[].fills`: list, optional
-- key `types.*.statuses[].fills[]`: string
-- key `types.*.statuses[].review`: string, optional
-- key `types.*.statuses[].depth`: integer | list, optional
-- key `types.*.statuses[].depth[]`: integer
-- key `types.*.statuses[].environment`: string, optional
-- key `types.*.statuses[][]`: map
-- key `types.*.statuses[][].status`: string, optional
-- key `types.*.statuses[][].name`: string, optional
-- key `types.*.statuses[][].tiers`: list, optional
-- key `types.*.statuses[][].tiers[]`: string
-- key `types.*.statuses[][].flow`: string, optional
-- key `types.*.statuses[][].blocks`: list, optional
-- key `types.*.statuses[][].blocks[]`: string
-- key `types.*.statuses[][].fills`: list, optional
-- key `types.*.statuses[][].fills[]`: string
-- key `types.*.statuses[][].review`: string, optional
-- key `types.*.statuses[][].depth`: integer | list, optional
-- key `types.*.statuses[][].depth[]`: integer
-- key `types.*.statuses[][].environment`: string, optional
+- key `types.*.statuses[]`: $entry | list
+- key `types.*.statuses[][]`: $entry
+- key `$entry`: map
+- key `$entry.status`: string, optional
+- key `$entry.name`: string, optional
+- key `$entry.tiers`: list, optional, when status is "generation" | "setup" | "retro"
+- key `$entry.tiers[]`: string
+- key `$entry.flow`: string, optional
+- key `$entry.blocks`: list, optional
+- key `$entry.blocks[]`: string
+- key `$entry.fills`: list, optional, when status is "setup" | "retro"
+- key `$entry.fills[]`: string
+- key `$entry.review`: string, optional
+- key `$entry.depth`: integer | list, optional
+- key `$entry.depth[]`: integer
+- key `$entry.environment`: string, optional
+- A shape's members are declared once and the loader's list carries
+  them once. `flow` and `blocks` stay ungated because they depend on
+  `population_anchor?(name, skeleton)`, which reads the parent type's
+  `skeleton`, not a sibling. `depth`, and the exclusion between
+  `status`, `review` and `environment`, are decided by which key is
+  present, which `when` has no test for; the loader enforces them.
 
 ## #11 The ticket skeleton
 
