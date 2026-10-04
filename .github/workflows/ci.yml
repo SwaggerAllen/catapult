@@ -184,6 +184,13 @@ jobs:
       # neither. The key parses from head_ref, never GITHUB_REF_NAME:
       # under pull_request the ref is refs/pull/N/merge, and "N/merge"
       # silently audits nothing (orchestration's stubs README).
+      #
+      # The binary is installed whenever the token exists, on every
+      # branch, and only the audit waits for a ticket key. `mix
+      # catapult.dsl.keys` below shells out to `pipeline schema`, and it
+      # has to run on author branches too: a grammar change lands there as
+      # often as on a ticket, and an install gated on the ticket key left
+      # the binary off exactly those branches.
       - name: gate the pipeline audit
         id: audit_gate
         env:
@@ -191,6 +198,12 @@ jobs:
           BRANCH: ${{ github.head_ref }}
         run: |
           KEY=$(echo "$BRANCH" | grep -oiE 'orc-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]' || true)
+          if [ -n "$TOKEN" ]; then
+            echo "token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=false" >> "$GITHUB_OUTPUT"
+            echo "pipeline binary not installed: no PIPELINE_REPO_TOKEN, so mix catapult.dsl.keys will fail below"
+          fi
           if [ -n "$TOKEN" ] && [ -n "$KEY" ]; then
             { echo "run=true"; echo "key=$KEY"; } >> "$GITHUB_OUTPUT"
           else
@@ -198,10 +211,18 @@ jobs:
             echo "pipeline audit skipped:${TOKEN:+}${TOKEN:- no PIPELINE_REPO_TOKEN;}${KEY:+}${KEY:- no ticket key in branch '$BRANCH'}"
           fi
       - name: set up the pipeline
-        if: steps.audit_gate.outputs.run == 'true'
+        if: steps.audit_gate.outputs.token == 'true'
         uses: SwaggerAllen/orchestration/.github/actions/setup-pipeline@main
         with:
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
+      # docs/dsl/'s declared keys against the loader's, both directions
+      # (systems/core_dsl.md #ORC-253-1). No `if:`, deliberately: without
+      # the binary the task fails rather than skips, because a skipping
+      # gate goes silent on exactly the branches that rewrite the grammar.
+      # Root project only — the grammar and its loader live here, not in
+      # components/substrate.
+      - name: dsl keys (docs/dsl/ declarations == the loader's accepted keys)
+        run: mix catapult.dsl.keys
       # --ticket makes the audit fetch the issue's labels and text from
       # Linear (the class check reads both), so it needs the key here —
       # the stubs README's recipe omits this and the first armed run

@@ -110,9 +110,8 @@ bound is the author's original estimate of 600 to 800 for the chain,
 leaving room for the reasons a rule carries beside its declaration.
 
 A bound stated only as "reviewed as one" holds exactly as long as
-every reviewer happens to count lines; `docs/dsl/example/check.py`
-already measured it once, by hand, outside the loader it was checking
-against. Loading the shipped pair before measuring it is what makes
+every reviewer happens to count lines; a count measured once, by hand,
+outside the loader is what this gate replaces. Loading the shipped pair before measuring it is what makes
 the measurement mean something — a bundle that fails to load has
 nothing worth counting lines on — and folding both into one gate
 means the acceptance test runs the same way on every PR rather than

@@ -20,8 +20,9 @@ Architecture: `systems/*.md`, one doc per system with a file map.
 DSL grammar: `docs/dsl/bundle.md`, `chain.md` and `workflow.md`
 (normative; each rule carries an id and a reason in its
 `.reasons.md` sibling, and wins over the v4 spec).
-`docs/dsl/example/` is the default pair written in that grammar, with
-a checker that derives what the rules say is derived;
+`bundles/default/chain.yaml` and `bundles/default-flow/workflow.yaml`
+are the default pair written in that grammar, and `mix
+catapult.bundle.check` holds them to the acceptance bound;
 `docs/dsl/retired-spec-index.md` maps the sections of the retired
 `docs/dsl-syntax.md` onto the rules that replaced them.
 
