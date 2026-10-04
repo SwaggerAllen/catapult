@@ -13,13 +13,12 @@ defmodule Mix.Tasks.Catapult.Bundle.Check do
   This is a built-in of the task itself, not a `Catapult.Audit.Check`
   (`systems/substrate.md`'s registry is `components/substrate`'s own
   gate suite, rooted at the working directory it runs from — this task
-  gains nothing from it) and not a port of `docs/dsl/example/check.py`'s
+  gains nothing from it) and not a port of the retired example checker's
   other three jobs, which are load-time rules the loader now owns
   (`chain.md` #20, #21; `workflow.md` #22, #23, #40; `bundle.md` #11) —
   reimplementing those here would be a second implementation of the
   same load rules (`systems/core_dsl.md`'s #ORC-249-1 entry).
-  `docs/dsl/example/` stays that checker's own worked example; this
-  task reads the shipped bundle, never that folder.
+  This task reads the shipped bundle.
   """
 
   use Mix.Task

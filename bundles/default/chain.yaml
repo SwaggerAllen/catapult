@@ -423,25 +423,18 @@ edges:
 # per node its flow's cascade actually visits — so completion is
 # "every visited node's plan has resolved", the universal quantifier
 # over the tier's own name as path root (chain.md #37's quantifiers).
-# `docs/dsl/example/chain.yaml`'s own predicates: block leaves these
-# five as `~` placeholders; this bundle carries the resolved
-# expressions platform_content.md's own interpretation call already
-# settled, which is the one divergence between that worked example and
-# this shipped bundle (`bundle.md`'s "if they diverge, the ticket says
-# which is wrong and why" — this bundle is right, the example is
-# illustrative and unchanged by this ticket).
+# These five are resolved expressions, per platform_content.md's own
+# interpretation call.
 
 predicates:
-  # `docs/dsl/example/chain.yaml`'s own text for this rule
-  # ("count(decomposed_by(child) where child.is_foundation) >= 1")
+  # The text "count(decomposed_by(child) where child.is_foundation) >= 1"
   # does not parse under this loader's grammar (chain.md #37: edge-
   # counting is count(<edge>) <cmp> <int>; there is no
   # decomposed_by(...) call and no where clause inside count). No
   # predicate is commit-time typed-checked yet (that is reserved, not
   # built by this ticket), so this is a syntactically valid placeholder
   # for the same reserved rule rather than a working implementation of
-  # it — flagged in the hand-back as the other half of this file's
-  # divergence from the worked example.
+  # it.
   has_foundation_child: "count(decomposition) >= 1"
   feature_request_complete: all(feature_request_plan -> resolved)
   refactor_complete: all(refactor_plan -> resolved)
