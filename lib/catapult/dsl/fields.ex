@@ -190,9 +190,39 @@ defmodule Catapult.Dsl.Fields do
     end
   end
 
-  @doc "Every key in `map` outside `known`, as an unknown-field problem list."
-  @spec unknown_keys(map(), [String.t()], String.t()) :: problems()
-  def unknown_keys(map, known, where) do
+  @typedoc """
+  A construct's declared key set: every path the loader accepts for
+  the construct, qualified the way `docs/dsl/`'s declarations are
+  (`tiers.*.review.prompt`, `edges.*.instances[].source`), and the
+  path of the map being closed (`""` for a document's top level).
+  """
+  @type key_set :: {[String.t()], String.t()}
+
+  @doc """
+  The keys `paths` declares directly under `prefix`: `"tiers.*.review"`
+  over `["tiers.*.review.prompt", "tiers.*.review.context.*"]` is
+  `["prompt"]`. The one list per construct is read here by the parser
+  and by `mix catapult.dsl.keys` as paths, so neither derives it from
+  the other's source.
+  """
+  @spec keys_at([String.t()], String.t()) :: [String.t()]
+  def keys_at(paths, ""), do: Enum.reject(paths, &String.contains?(&1, [".", "["]))
+
+  def keys_at(paths, prefix) do
+    lead = prefix <> "."
+
+    for path <- paths,
+        String.starts_with?(path, lead),
+        rest = binary_part(path, byte_size(lead), byte_size(path) - byte_size(lead)),
+        not String.contains?(rest, [".", "["]),
+        do: rest
+  end
+
+  @doc "Every key in `map` outside the declared `key_set`, as an unknown-field problem list."
+  @spec unknown_keys(map(), key_set(), String.t()) :: problems()
+  def unknown_keys(map, {paths, prefix}, where) do
+    known = keys_at(paths, prefix)
+
     for key <- Map.keys(map), key not in known do
       "#{where} carries unknown field #{inspect(key)} (known: #{inspect(known)})"
     end

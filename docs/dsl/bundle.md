@@ -45,6 +45,8 @@ lands.
   registry, for bundle pinning) and `kind: chain | workflow`**; a
   bundle of the wrong kind on an axis, an unknown top-level key, and
   a bundle that names `extends:` are each a load error.
+- key `chain`: string, required
+- key `workflow`: string, required
 
 ## #6 Fork, tailor, merge upstream
 
@@ -101,3 +103,26 @@ lands.
   against this bound, red on either file exceeding it or failing to
   load at all — a PR check, not only a reviewer's read
   (`systems/core_dsl.md`'s own entry on the task).
+
+## #ORC-253-1 The declared key set
+
+- **#ORC-253-2 A rule that admits, renames or drops a key changes its
+  declaration in the same commit.** The declaration is a line under
+  the rule, `- key `tiers.*.review`: string | map, optional`, and it
+  is the only statement of the key's type, presence and `when`
+  condition; prose names a declared key as `chain@tiers.*.review` and
+  never restates what the line says. `pipeline schema dsl:<doc>`
+  compiles a doc's declarations, and a rule edited without its
+  declaration leaves the loader's key list and the contract unequal.
+- **#ORC-253-3 Every key the loader accepts is declared in the doc
+  that owns its file, and every declaration is a key the loader
+  accepts.** `bundle.md` declares `catapult.yaml`'s keys, `chain.md`
+  `chain.yaml`'s and `workflow.md` `workflow.yaml`'s. A gate that
+  differs between kinds of one construct is declared with `when`, as
+  a tier's keys are by `generator` and `draft`: a condition tests a
+  sibling's value, never whether that sibling was itself allowed.
+  `mix catapult.dsl.keys` fails on a path declared and not accepted or
+  accepted and not declared, naming both, and fails when the `pipeline`
+  binary is not on `PATH` (`systems/core_dsl.md`
+  #ORC-253-1).
+

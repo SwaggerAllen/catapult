@@ -50,8 +50,15 @@ defmodule Catapult.Dsl.Edge do
   @types ~w(fanout reference dependency policy_application synthesis)
   @graph_constraints ~w(acyclic no_self_loop)
   @consistencies ~w(eventual transactional)
-  @core_keys ~w(type context graph_constraint consistency navigation instances)
-  @instance_keys ~w(source target declared_in source_ref target_ref context as when)
+  @keys ~w(edges.*.type edges.*.context edges.*.graph_constraint edges.*.consistency
+           edges.*.navigation edges.*.instances edges.*.instances[].source
+           edges.*.instances[].target edges.*.instances[].declared_in
+           edges.*.instances[].source_ref edges.*.instances[].target_ref
+           edges.*.instances[].context edges.*.instances[].as edges.*.instances[].when)
+
+  @doc "Every key `edges.<name>`, instances included` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
 
   @doc "Parses one `edges.<name>` entry from its already-keyed YAML map."
   @spec parse(String.t(), map()) :: {:ok, t()} | {:error, [String.t()]}
@@ -65,7 +72,7 @@ defmodule Catapult.Dsl.Edge do
     {consistency, consistency_problems} = parse_consistency(raw, type, where)
     {navigation, nav_problems} = Fields.optional_boolean(raw, "navigation", where, false)
 
-    unknown = Fields.unknown_keys(raw, @core_keys, where)
+    unknown = Fields.unknown_keys(raw, {@keys, "edges.*"}, where)
 
     problems =
       type_problems ++
@@ -120,7 +127,7 @@ defmodule Catapult.Dsl.Edge do
   end
 
   defp parse_instance(%{} = entry, where) do
-    unknown = Fields.unknown_keys(entry, @instance_keys, where)
+    unknown = Fields.unknown_keys(entry, {@keys, "edges.*.instances[]"}, where)
     {source, sp} = Fields.require_string(entry, "source", where)
     {target, tp} = parse_target(entry, where)
     {declared_in, dp} = Fields.require_string(entry, "declared_in", where)

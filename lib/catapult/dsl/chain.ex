@@ -35,7 +35,11 @@ defmodule Catapult.Dsl.Chain do
           predicates: %{String.t() => Predicate.t() | nil}
         }
 
-  @top_keys ~w(name version kind defaults tiers edges predicates flows)
+  @keys ~w(name version kind defaults defaults.executor tiers edges predicates flows)
+
+  @doc "Every key `chain.yaml's top level and `defaults:`` accepts, path-qualified (`systems/core_dsl.md` #ORC-253-1)."
+  @spec key_paths() :: [String.t()]
+  def key_paths, do: @keys
   @reserved_names ~w(self draft feedback prior_review)
 
   @doc """
@@ -89,7 +93,7 @@ defmodule Catapult.Dsl.Chain do
     {edges, edges_p} = parse_named(raw, "edges", Edge)
     {predicates, predicates_p} = parse_predicates(raw)
     {flows, flows_p} = parse_named(raw, "flows", Flow, optional: true)
-    unknown = Fields.unknown_keys(raw, @top_keys, "chain.yaml")
+    unknown = Fields.unknown_keys(raw, {@keys, ""}, "chain.yaml")
 
     structural =
       name_p ++
@@ -126,7 +130,7 @@ defmodule Catapult.Dsl.Chain do
 
       {defaults, []} ->
         {executor, ep} = Fields.optional_map(defaults, "executor", "chain.yaml's defaults")
-        unknown = Fields.unknown_keys(defaults, ["executor"], "chain.yaml's defaults")
+        unknown = Fields.unknown_keys(defaults, {@keys, "defaults"}, "chain.yaml's defaults")
         {%{executor: executor}, ep ++ unknown}
 
       {nil, problems} ->
