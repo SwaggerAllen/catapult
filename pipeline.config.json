@@ -53,6 +53,7 @@
     "mix xref graph --format cycles --fail-above 0",
     "mix xref graph --label compile-connected --fail-above 0",
     "mix catapult.audit.all",
+    "mix catapult.dsl.keys",
     "mix test"
   ],
   "deploy": {
