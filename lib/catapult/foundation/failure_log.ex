@@ -58,7 +58,8 @@ defmodule Catapult.Foundation.FailureLog do
   # infrastructure fault while the plane had in fact answered and said
   # why. Measured on App Platform; nobody has read whether Render's edge
   # does the same, and the rule stands either way — `:stop` costs nothing
-  # if the body survives, and the reason is unreachable if it does not. The body is only readable on `:stop`, and only because
+  # if the body survives, and the reason is unreachable if it does not.
+  # The body is only readable on `:stop`, and only because
   # `Plug.Telemetry` fires it from a `register_before_send` callback:
   # `Plug.Conn.send_resp/1` runs those before handing the body to the
   # adapter, then sets `resp_body` to whatever the adapter returns —

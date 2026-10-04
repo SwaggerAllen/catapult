@@ -33,7 +33,8 @@ defmodule CatapultWeb.Router do
     # answer that 301 and fail the deploy. That second half is why this
     # is permanent rather than vendor-specific, and why it survived the
     # move off App Platform unchanged: a probe reaching the container
-    # directly is how a container health check works anywhere. So the redirect half buys nothing and risks the
+    # directly is how a container health check works anywhere. So the
+    # redirect half buys nothing and risks the
     # rollout; HSTS, the half the edge does not supply, is real and
     # belongs on the browser surface alone. `/health` and `/dispatch/*`
     # are served by `Catapult.Foundation.DispatchPlug` ahead of this
