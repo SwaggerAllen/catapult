@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Commands.CloseContainer do
   @moduledoc """
-  Closes an active container instance (dsl-syntax.md §15.6). Aggregate
+  Closes an active container instance (`workflow.md` #16). Aggregate
   id: `project_id`.
   """
 

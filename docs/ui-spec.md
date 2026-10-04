@@ -103,7 +103,7 @@ machine has the ball, and the screen links to `explain-why`.
 
 - lanes are the effective sequence for the selected ticket type
   (§7.19), so the board *is* the workflow, read left to right — and
-  where that sequence declares a sub-array (`dsl-syntax.md` §15.10),
+  where that sequence declares a sub-array (`workflow.md` #6),
   the lanes it groups render inside a visible boundary rather than
   flattening into the run, because a throwback's destination is only
   legible as *this is the loop you fell back into* when the loop is
@@ -125,10 +125,7 @@ flight and what state their components are in** — everything below
 that is expansion, not default content. Note the grouping is *per
 lane*, and only within one shared lane set: one feature's components
 legitimately sit in several lanes at once, so each lane rolls up only
-the children it holds — but a component/subcomponent child reads its
-own position off a wholly separate declared type (`dsl-syntax.md`
-§15.11), sharing no lane set with `feature` at all, so that per-lane
-roll-up only applies to same-type nesting (a subcomponent inside a
+the children it holds — but a child runs the declared sequence filtered to its depth (`workflow.md` #28) rather than a separate declared type, so which lane set a child shares with its parent follows from depth rather than from type (a subcomponent inside a
 component). A feature's own component children roll up as a single
 aggregate count on the card instead, since there is no lane of theirs
 to place a per-lane chip against.
@@ -161,8 +158,7 @@ Phase 4's own workflow declares reviews a prose artifact, so a card's
 pass-forward/pass-back links into `document-review` (or `ticket`, for
 the same reason that screen's own gate action defers there) instead
 of dispatching from where it stands; the card still names that a gate
-is waiting. `dsl-syntax.md` §15.10 gives a passed gate's approval a
-structural node to pin *content identity* against, answering §7.16's
+is waiting. `workflow.md` #6 gives a passed gate's approval a structural node to pin *content identity* against, answering §7.16's
 "what a passed gate pins" — a staleness question, derivable from the
 log with no body view. That is a different mechanism from the
 command-side `body_sha` compare a dispatch needs — "the body the
@@ -178,16 +174,12 @@ what the node derivation actually unlocks.
 - the *argument* (the human-readable case for the work, §7.2)
 - position in the effective sequence, with what has passed and what
   remains, and the depth this ticket sits at — grouped the same way
-  `board`'s lanes are, where the sequence declares a sub-array
-  (`dsl-syntax.md` §15.10), so a ticket sitting inside one reads as
+  `board`'s lanes are, where the sequence declares a sub-array (`workflow.md` #6), so a ticket sitting inside one reads as
   *inside this loop* rather than at an anonymous point in a flat row
   (ORC-116)
 - the gate action, when this user's role holds it: **approve**
   (transition forward) or **throw back** — one click to whatever
-  `Catapult.Dsl.Workflow.throwback_default/3` resolves (the gate's own
-  declared landing point when it names one, `dsl-syntax.md` §15.4,
-  otherwise the derived default, §15.10 — rendered here, not
-  restated), or the same earlier-prefix picker J4 gives Blocked-return
+  `Catapult.Dsl.Workflow.throwback_default/3` resolves (the gate's own declared landing point when it names one, otherwise the derived default — `workflow.md` #34, #35, rendered here, not restated), or the same earlier-prefix picker J4 gives Blocked-return
   (§7.19) for any other target: one legality rule for both entry
   points, never bounded by a per-gate declaration — only the one-click
   *default* may be
@@ -269,8 +261,7 @@ ORC-105 from a single boundary point to a declared queue sequence).
   already requires
 - which queue (`setup`/`prep`/`main`/`retro`/`cleanup`) is current, and
   — since `blocks:` is an entry guard, checked once at the transition
-  into the entry it guards, never a standing hold on an already-current
-  one (`dsl-syntax.md` §15.7, ORC-148 design review) — whichever
+  into the entry it guards, never a standing hold on an already-current one (`workflow.md` #18, ORC-148 design review) — whichever
   `blocks:` condition is *keeping the next queue from becoming current*,
   if the position sits at an entry a later one's `blocks:` names
 
@@ -291,8 +282,7 @@ other reason the native surface wins (§7.17).
 - comments anchored at sentence granularity, feeding the harvesting
   rule (§7.4) — the bucket key becomes the anchored span
 - approve / throw back — one click to the gate's own declared landing
-  point when it names one, otherwise the derived default
-  (`dsl-syntax.md` §15.4, §15.10), or pick any earlier status from the
+  point when it names one, otherwise the derived default (`workflow.md` #34, #35), or pick any earlier status from the
   same prefix J4 gives Blocked-return (§7.19, ORC-115 second design
   review: one legality rule for both movements, never bounded by a
   gate's own declared list — only the one-click default may be, ORC-115
@@ -409,8 +399,7 @@ empty queue is legible as "the machine has it."
 
 **J2 — sign off a design gate.** `my-queue` → `document-review` →
 per-sentence comments → approve, or throw back — one click to the
-gate's own declared target if it names one, otherwise the one
-`dsl-syntax.md` §15.10 derives, or pick any earlier status from the
+gate's own declared target if it names one, otherwise the one `workflow.md` #34 derives, or pick any earlier status from the
 same prefix J4 uses (§7.19). On throwback, everything downstream
 reopens (§7.19), and staleness derivation makes the re-pass free where
 nothing that gate saw changed.
@@ -485,12 +474,9 @@ Recorded so nobody adds them back as conveniences:
   agent steps are platform-fixed; a container's own five queue
   positions (`setup`/`prep`/`main`/`retro`/`cleanup`, v5 §7.8) are
   equally fixed, whatever container they belong to — only the
-  project's own queue list, and what each anchor entry's `flow:`
-  points at (a registered work-item type, `docs/dsl-syntax.md`
-  §15.2), is workflow-bundle content, same as a gate or an
+  project's own queue list, and what each anchor entry's `flow:` points at (a registered work-item type, `workflow.md` #9), is workflow-bundle content, same as a gate or an
   environment, both of which are cited by position rather than a
-  fixed predecessor field as of ORC-105's fourth pass (`docs/
-  dsl-syntax.md` §15.3) — a distinction this UI never surfaces, since
+  fixed predecessor field as of ORC-105's fourth pass (`workflow.md` #5) — a distinction this UI never surfaces, since
   it never offers to add a container anchor or reorder one either way
   (§7.18).
 - **Parallel review UI.** Review is sequential by decision (§7.19);

@@ -22,6 +22,7 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
 
   alias Catapult.Delivery.ContainerLifecycle
   alias Catapult.Delivery.ContainerLifecycle.Ids
+  alias Catapult.Dsl
   alias Catapult.Dsl.Workflow
   alias Catapult.Engine.Commands.ActivateContainer
   alias Catapult.Engine.Commands.AdvanceContainerQueue
@@ -36,7 +37,7 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
   @project "cl-project"
 
   setup do
-    assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+    assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
     %{workflow: workflow}
   end
 
@@ -130,13 +131,13 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
       assert [%ActivateContainer{} = cmd] = ContainerLifecycle.next_commands(workflow, container)
       assert cmd.container_id == "c-groomed"
       # Its own first declared entry, never a value carried on the
-      # parent's dispatching entry (§15.8). `pending` licenses the
-      # deploy-bound runs `setup`/`retro` each need further down the
-      # array (§15.2), so it — not `setup` — is milestone's own first
-      # position now — carrying its own namespace-qualified identity
-      # (ORC-171), since `retro`'s own leading `pending` recurs the
-      # bare name elsewhere in this type's array.
-      assert cmd.queue == "setup.pending"
+      # parent's dispatching entry (§15.8). `pending` is retired from
+      # the grammar (`workflow.md` #25 — an engine-set flag every
+      # agent-balled position carries, never a declared entry), so
+      # `setup` itself is milestone's own first position, and it
+      # recurs nowhere else in this type's array, so its canonical
+      # identity stays bare.
+      assert cmd.queue == "setup"
     end
 
     test "an active child neither re-mints nor re-activates", %{workflow: workflow} do
@@ -280,7 +281,6 @@ defmodule Catapult.Delivery.ContainerLifecycleTest do
   defp blocking_workflow do
     type = %Catapult.Dsl.Type{
       name: "held-type",
-      file: "types/held-type.yaml",
       skeleton: nil,
       statuses: [
         %Catapult.Dsl.Status{status: "generation"},

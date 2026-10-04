@@ -6,12 +6,14 @@ defmodule Catapult.Engine.Scheduler do
   nothing else initiates work.
 
   `trigger/2` is all three scheduler rules run together: enumerate every
-  tier in `chain` (both a generation tier's own context-walk readiness,
-  `Catapult.Engine.Projections.ReadyScopes.ready/3`, and a review
-  tier's simpler rule, `.ready_review/3`), fold the two into one set of
-  `{tier, scope_key}` pairs, and broadcast — never a materialized
-  `ready_scopes` table (the standing "never materialized" decision
-  applies to the scheduler's own output too).
+  tier in `chain` (both its own context-walk readiness,
+  `Catapult.Engine.Projections.ReadyScopes.ready/3`, and — for a tier
+  that declares `review:` (`chain.md` #14) — the simpler review rule,
+  `.ready_review/3`, addressed under `ReadyScopes.review_tier_name/1`'s
+  synthetic name since a review is no longer a tier of its own), fold
+  every one into one set of `{tier, scope_key}` pairs, and broadcast —
+  never a materialized `ready_scopes` table (the standing "never
+  materialized" decision applies to the scheduler's own output too).
 
   The scheduler holds no memory of what it last broadcast. Diffing
   against a remembered ready-set to announce only deltas would grow
@@ -68,15 +70,24 @@ defmodule Catapult.Engine.Scheduler do
   def triggering_project_id(%ActiveBundleFlipped{project_id: id, axis: :chain}), do: id
   def triggering_project_id(_event), do: nil
 
-  defp ready_pairs(chain, project_id, %Tier{reviews: nil, draft: draft, name: name})
-       when not is_nil(draft) do
-    for node <- ReadyScopes.ready(chain, project_id, name), do: {name, node.scope_key}
-  end
+  defp ready_pairs(chain, project_id, %Tier{name: name} = tier) do
+    generation_pairs =
+      if Tier.kind(tier) == :generating do
+        for node <- ReadyScopes.ready(chain, project_id, name), do: {name, node.scope_key}
+      else
+        []
+      end
 
-  defp ready_pairs(chain, project_id, %Tier{reviews: reviewed, name: name})
-       when not is_nil(reviewed) do
-    for node <- ReadyScopes.ready_review(chain, project_id, name), do: {name, node.scope_key}
-  end
+    review_pairs =
+      if Tier.kind(tier) == :generating and not is_nil(tier.review) do
+        review_tier = ReadyScopes.review_tier_name(name)
 
-  defp ready_pairs(_chain, _project_id, _tier), do: []
+        for node <- ReadyScopes.ready_review(chain, project_id, review_tier),
+            do: {review_tier, node.scope_key}
+      else
+        []
+      end
+
+    generation_pairs ++ review_pairs
+  end
 end

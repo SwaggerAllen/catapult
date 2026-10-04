@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Store.Review do
   @moduledoc """
-  Review records (`engine_reviews`, dsl-syntax.md §10): the
+  Review records (`engine_reviews`, `chain.md` #14): the
   platform-wide review grammar's `<score>` and `<finding id>` list,
   landed with the run's result event. `kind` defaults to `:ai` —
   `ReviewWritten` v1 carried no `kind` at all (every review was the

@@ -14,8 +14,8 @@ that move it from there (`docs/ui-spec.md` §3.1).
 The human-readable case for the work (v5 §7.2) opens the screen, above the mechanics.
 
 Rendered off `Catapult.Delivery.Store.tickets_for_project/1`'s own `argument` field (ORC-114) —
-`fields["argument"]` off the node at the flow's `entry_node_id`, the reserved `fields:` name
-`docs/dsl-syntax.md` §3 gives exactly this screen. Blank until a type's entry tier declares it,
+`fields["argument"]` off the node at the flow's `entry_node_id`, the reserved field name `chain.md` #32 gives
+exactly this screen. Blank until a type's entry tier declares it,
 the same unset-is-empty behavior `prior_review` already has; a blank argument is rendered as
 such, not hidden.
 
@@ -28,20 +28,21 @@ This is the same data `board` renders as columns; here it renders as a single ti
 them, which is what makes "how far along is this, and what's next" answerable without cross-
 referencing the board.
 
-**Where the sequence declares a sub-array (`docs/dsl-syntax.md` §15.10), the rail groups the
+**Where the sequence declares a sub-array (`workflow.md` #6), the rail
+groups the
 identical way `board`'s lanes do** (ORC-116, `screens/board.md`): the positions it spans sit inside
 a shared boundary, and one entry inside it carries the same anchor badge `board` gives its own
-groups — whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group
-(`docs/dsl-syntax.md` §15.10 has the derivation), rendered rather than restated here. A ticket
+groups — whatever `Catapult.Dsl.Workflow.throwback_default/3` resolves for the group (`workflow.md` #34 has the
+derivation), rendered rather than restated here. A ticket
 standing at a position inside a group reads as *inside this loop*, not at an anonymous point in a
 flat row.
 
 **A ticket whose own tree position is not the root never shows a `merge`/`deploy`/`terminal` entry
-of its own on this rail** (ORC-116, `docs/dsl-syntax.md` §15.11, `systems/dashboard.md`). Its own
+of its own on this rail** (ORC-116, `workflow.md` #28, `systems/dashboard.md`). Its own
 effective sequence stops at its own last reachable position; the rail simply ends there, and the
 ticket closes as `terminal` the moment its parent's `reconcile` merges it — v5 §7.6's `Merged →
-Done` — with no intermediate rail entry standing in for that. What a non-root ticket's own `deploy`
-means, if anything, is `docs/dsl-syntax.md` §15.11's open question, not this screen's to answer by
+Done` — with no intermediate rail entry standing in for that. What a non-root ticket's own `deploy` means, if anything, is still
+open, not this screen's to answer by
 inventing a rail entry for it.
 
 **Depth is shown, not explained.** A ticket's fan-out depth (v5 §7.19 — 0 top level, 1 components,
@@ -109,10 +110,10 @@ establish, not a new mechanism, and not required for the conflict to render corr
   position is a workflow-bundle change, which is a PR, not a click here (v5 §7.19).
 
 **An earlier option that sits outside the origin's own sub-array is marked as leaving it**
-(ORC-116): the origin default here and a gate's own derived default (its citing sub-array's anchor,
-`docs/dsl-syntax.md` §15.10) are both a visible fall-back to the head of a box the screen already
+(ORC-116): the origin default here and a gate's own derived default (its citing sub-array's generation position,
+`workflow.md` #34) are both a visible fall-back to the head of a box the screen already
 draws, but the picker's remaining options reach earlier than that box too — the earlier-prefix
-legality test (§15.10) never stops at a group boundary. An option inside the current group renders
+legality test (`workflow.md` #8) never stops at a group boundary. An option inside the current group renders
 plainly; one outside it carries a small "leaves this loop" note, so choosing it reads as an arrow
 leaving the box rather than a silent landing somewhere else. `screens/document-review.md`'s own
 throwback picker draws the identical distinction over the identical test, and cites this section

@@ -17,11 +17,20 @@ pipeline for the projects it builds. Design source of truth:
 carries its reason. Negative space: `docs/non-goals.md` — proposing
 against it means arguing with a recorded decision, and saying so.
 Architecture: `systems/*.md`, one doc per system with a file map.
-DSL grammar: `docs/dsl-syntax.md` (normative; wins over the v4 spec).
+DSL grammar: `docs/dsl/bundle.md`, `chain.md` and `workflow.md`
+(normative; each rule carries an id and a reason in its
+`.reasons.md` sibling, and wins over the v4 spec).
+`docs/dsl/example/` is the default pair written in that grammar, with
+a checker that derives what the rules say is derived;
+`docs/dsl/retired-spec-index.md` maps the sections of the retired
+`docs/dsl-syntax.md` onto the rules that replaced them.
 
 ## Toolchain
 
-Pinned in `.tool-versions` (Elixir 1.17.3-otp-27 / OTP 27.3.4 —
+Pinned in `.tool-versions` (Go 1.24 — `mix catapult.dsl.keys` shells
+out to the `pipeline` binary, which is built with it; `erlef/setup-beam`
+reads that file and ignores the lines for tools it does not install;
+Elixir 1.17.3-otp-27 / OTP 27.3.4 —
 27.2 and earlier reject builds.hex.pm's TLS cert with
 `key_usage_mismatch`); CI enforces it, and `mix.exs` floors match
 (`~> 1.17`). Dep series ride current stable — the `deps.audit` gate
@@ -38,7 +47,7 @@ toolchain is the only supported one.
   suite that CI runs separately** — run both.
 - `bundles/` — DSL bundle content, both axes (v5 §7.18), each a
   single forked-and-tailored directory rather than a loader-composed
-  layer (`dsl-syntax.md` §11): the chain bundle (`default`) and the
+  layer (`bundle.md` #7): the chain bundle (`default`) and the
   platform workflow bundle (`default-flow`: default review sequence,
   `dev`/`staging`).
 - `screens/` and `storybook/` — **design-owned** (`pipeline
@@ -73,6 +82,8 @@ mix compile --warnings-as-errors     # boundary compiler is in the set
 mix xref graph --format cycles --fail-above 0
 mix xref graph --label compile-connected --fail-above 0   # the ratchet
 mix catapult.audit                   # root project ONLY — see below
+mix catapult.bundle.check            # root project ONLY — bundle.md #14's acceptance bound
+mix catapult.dsl.keys                # root project ONLY — docs/dsl/'s declared keys == the loader's; needs `pipeline` on PATH
 mix test                             # needs Postgres; sandbox, async
 cd components/substrate && mix deps.get --check-locked && \
   mix hex.audit && mix format --check-formatted && \
@@ -242,7 +253,7 @@ Each of these cost a wrong diagnosis before it was written down.
   noticed. Leaving the source of truth stating the superseded rule is
   how the next pass re-derives it.
 - **A rule stated in more than one place is amended in every place,
-  in the same change.** `docs/dsl-syntax.md` states each load-time
+  in the same change.** The retired v5 DSL spec stated each load-time
   rule at least twice by construction — §13's checklist and the §15.x
   section that owns it — and often a third time, in a worked example
   or §15.1's lifecycle mapping. Six consecutive design-review rounds
@@ -308,7 +319,8 @@ Each of these cost a wrong diagnosis before it was written down.
   site, or state the predicate that finds them — a partial list reads
   as a checklist rather than as an example.
 - **A rule carries an id, and its reason lives beside the doc.** In
-  `systems/*.md` and `screens/*.md` every h2-or-deeper heading and every
+  `systems/*.md`, `screens/*.md` and `docs/dsl/*.md` every
+  h2-or-deeper heading and every
   standing decision opens with an id — `#17` from the port or the
   author, `#ORC-247-2` from a ticket's design pass, which mints one
   above the highest it has minted in that doc, because two tickets
@@ -326,7 +338,7 @@ Each of these cost a wrong diagnosis before it was written down.
   decline.
 - **Cite by a registered shorthand or by path.** Two thirds of this
   repo's section citations name their document by a project shorthand
-  — `v5 §7.8`, `conventions §2`, `dsl-syntax.md §15.10` —
+  — `v5 §7.8`, `conventions §2`, `chain.md` #22 —
   rather than by path. `pipeline.config.json`'s `citationShorthands`
   is what maps each to a file; an entry that cannot resolve in this
   tree (`DESIGN`, `orchestration`, `AGPL`) carries the reason on

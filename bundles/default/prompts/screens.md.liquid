@@ -19,7 +19,7 @@ walks) are legal and expected; author them too.
 Feature expansion handle: {{ parent }}
 
 Journeys (each with its ordered screen walk and state block):
-{% for j in journey %}
+{% for j in journeys %}
 - `{{ j.id }}` — **{{ j.name }}**: {{ j.argument }}
   - walk: {% for slug in j.screen_walk %}`{{ slug }}`{% unless forloop.last %} → {% endunless %}{% endfor %}
   - carries: {{ j.state.carries }}

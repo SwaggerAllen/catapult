@@ -11,7 +11,7 @@ defmodule Catapult.Storybook.Screens.Board do
   `group_collapsed: boolean` — `board_live.ex` computes end to end (dev's diff, ORC-116), still
   read `Map.get`-style rather than required so a lane carrying none of the three (a bundle with no
   sub-array at all) renders exactly as before grouping existed. `group_key` is shared by every lane a
-  declared sub-array groups (`docs/dsl-syntax.md` §15.10) and absent (or `nil`) for a lane no
+  declared sub-array groups (`workflow.md` #6) and absent (or `nil`) for a lane no
   sub-array cites; `group_anchor` marks the one lane inside a group that is where a throwback in
   that group falls back to by default — whatever `Catapult.Dsl.Workflow.throwback_default/3`
   resolves, rendered rather than restated here. Contiguous lanes sharing a `group_key` render
@@ -30,7 +30,7 @@ defmodule Catapult.Storybook.Screens.Board do
   child_summary: nil | %{count:, label:}, blocked: nil | %{flavor:, origin_label:}, gate: nil |
   %{role:}}` — a card's own lane is `blocked.origin_label`'s lane when `blocked` is set, never a
   separate "blocked" lane. `children` is same-type roll-up only (a subcomponent inside a
-  component, `docs/dsl-syntax.md` §15.11) since only same-type nesting shares this board's own
+  component, `workflow.md` #28) since only same-type nesting shares this board's own
   lane set, each carrying its own `lane_label`; `child_summary`, when set, is a single aggregate
   count for children of a different declared type (a feature's own components) — there is no lane
   of theirs on this board to attach a `lane_label` to, so it renders as a plain chip instead of a
@@ -73,7 +73,7 @@ defmodule Catapult.Storybook.Screens.Board do
     """
   end
 
-  # A contiguous run of lanes sharing a `group_key` (`docs/dsl-syntax.md` §15.10) renders inside
+  # A contiguous run of lanes sharing a `group_key` (`workflow.md` #6) renders inside
   # one bounded box; a lane with no `group_key` renders on its own, exactly as before grouping
   # existed. This is a pure grouping of the flat, ordered list already handed down — it resolves
   # no data, only which box a lane's column draws inside. `group_key` is read with `Map.get/2`

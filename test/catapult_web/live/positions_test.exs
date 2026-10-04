@@ -1,7 +1,7 @@
 defmodule CatapultWeb.Live.PositionsTest do
   @moduledoc """
   `key/2`'s own round-trip, with and without a namespace-qualifying
-  anchor (dsl-syntax.md §15.12, ORC-155) — the encoding this ticket
+  anchor (`workflow.md` #7, ORC-155) — the encoding this ticket
   extends so `ORC-116` has vocabulary to consume rather than derive
   its own (`docs/ui-spec.md` §2 rule 2). Every other function here is
   a pure reshape already covered end to end through `board_live_test

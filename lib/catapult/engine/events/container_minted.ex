@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.ContainerMinted do
   @moduledoc """
-  A container instance exists (dsl-syntax.md §15.8, v5 §7.8). Version 1.
+  A container instance exists (`workflow.md` #19, v5 §7.8). Version 1.
 
   **Mint is not activation.** Work gets scheduled into a milestone long
   before that milestone opens — grooming the next milestone's `prep`
@@ -12,7 +12,7 @@ defmodule Catapult.Engine.Events.ContainerMinted do
 
   `parent_container_id`/`parent_queue` are `nil` for the outermost
   instance — the project's own, minted from the workflow bundle's
-  `entry:` type (dsl-syntax.md §2) with nothing above it — and set for
+  `entry:` type (`workflow.md` #2) with nothing above it — and set for
   every nested one, naming the queue entry whose `flow:` resolved to
   this container's type.
   """

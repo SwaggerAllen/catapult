@@ -16,7 +16,13 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
   end
 
   defp instance_edge(name, type, instance) do
-    %Edge{name: name, file: "f", type: type, instances: [instance], graph_constraint: []}
+    %Edge{
+      name: name,
+      type: type,
+      context_raw: "none",
+      instances: [instance],
+      graph_constraint: []
+    }
   end
 
   defp node!(id, tier, opts) do
@@ -52,8 +58,8 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
       chain =
         chain(
           [
-            %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}},
-            %Tier{name: "resp", file: "f", scope: {:child_of, "requirements"}}
+            %Tier{name: "comp", scope: {:child_of, "sysarch"}},
+            %Tier{name: "resp", scope: {:child_of, "requirements"}}
           ],
           [
             instance_edge("fulfills", "reference", %{
@@ -83,9 +89,9 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
       chain =
         chain(
           [
-            %Tier{name: "sysarch", file: "f", scope: {:singleton}, draft: %{}},
-            %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}},
-            %Tier{name: "resp", file: "f", scope: {:child_of, "requirements"}}
+            %Tier{name: "sysarch", scope: {:singleton}, draft: %{}},
+            %Tier{name: "comp", scope: {:child_of, "sysarch"}},
+            %Tier{name: "resp", scope: {:child_of, "requirements"}}
           ],
           [
             instance_edge("fulfills", "reference", %{
@@ -118,9 +124,9 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
       chain =
         chain(
           [
-            %Tier{name: "sysarch", file: "f", scope: {:singleton}, draft: %{}},
-            %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}},
-            %Tier{name: "resp", file: "f", scope: {:child_of, "requirements"}}
+            %Tier{name: "sysarch", scope: {:singleton}, draft: %{}},
+            %Tier{name: "comp", scope: {:child_of, "sysarch"}},
+            %Tier{name: "resp", scope: {:child_of, "requirements"}}
           ],
           [
             instance_edge("fulfills", "reference", %{
@@ -148,9 +154,9 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
       chain =
         chain(
           [
-            %Tier{name: "sysarch", file: "f", scope: {:singleton}, draft: %{}},
-            %Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}},
-            %Tier{name: "resp", file: "f", scope: {:child_of, "requirements"}}
+            %Tier{name: "sysarch", scope: {:singleton}, draft: %{}},
+            %Tier{name: "comp", scope: {:child_of, "sysarch"}},
+            %Tier{name: "resp", scope: {:child_of, "requirements"}}
           ],
           [
             instance_edge("fulfills", "reference", %{
@@ -180,12 +186,12 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
 
       chain =
         chain(
-          [%Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, draft: %{}}],
+          [%Tier{name: "comp", scope: {:child_of, "sysarch"}, draft: %{}}],
           [
             %Edge{
               name: "dependency",
-              file: "f",
               type: "dependency",
+              context_raw: "none",
               graph_constraint: ["no_self_loop"],
               instances: [
                 %{
@@ -216,12 +222,12 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
 
       chain =
         chain(
-          [%Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}, draft: %{}}],
+          [%Tier{name: "comp", scope: {:child_of, "sysarch"}, draft: %{}}],
           [
             %Edge{
               name: "dependency",
-              file: "f",
               type: "dependency",
+              context_raw: "none",
               graph_constraint: ["acyclic"],
               instances: [
                 %{
@@ -246,12 +252,12 @@ defmodule Catapult.Engine.Projections.GraphConstraintsTest do
     test "no violation when nothing cites the constraint's edge" do
       chain =
         chain(
-          [%Tier{name: "comp", file: "f", scope: {:child_of, "sysarch"}}],
+          [%Tier{name: "comp", scope: {:child_of, "sysarch"}}],
           [
             %Edge{
               name: "dependency",
-              file: "f",
               type: "dependency",
+              context_raw: "none",
               graph_constraint: ["acyclic", "no_self_loop"],
               instances: [
                 %{

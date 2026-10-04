@@ -1,10 +1,10 @@
 defmodule Catapult.Dsl.Fields do
   @moduledoc """
   Shared field accessors for the per-declaration parsers (tier, edge,
-  flow, gate, environment, bundle.yaml): every accessor returns
+  flow, gate, environment): every accessor returns
   `{value, problems}` rather than raising or short-circuiting, so a
   parser can read every field it needs and report every problem at
-  once (dsl-syntax.md §13's all-problems-at-once style, `Catapult
+  once (the loader's all-problems-at-once style, `Catapult
   .Config`'s idiom applied to YAML maps).
 
   YAML maps keep string keys throughout (`Catapult.Dsl.Yaml`):
@@ -163,7 +163,7 @@ defmodule Catapult.Dsl.Fields do
   @type depth :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}
 
   @doc """
-  A `depth:` field (dsl-syntax.md §13): a non-negative integer, or a
+  A `depth:` field (`workflow.md` #33): a non-negative integer, or a
   2-element list of non-negative integers (`[first, rest]`, §7.19) —
   the same grammar checked the same way on a gate, an environment and
   `critique.yaml` (§15.2, §15.4, §15.5). Omitted defaults to `0`.
@@ -190,9 +190,39 @@ defmodule Catapult.Dsl.Fields do
     end
   end
 
-  @doc "Every key in `map` outside `known`, as an unknown-field problem list."
-  @spec unknown_keys(map(), [String.t()], String.t()) :: problems()
-  def unknown_keys(map, known, where) do
+  @typedoc """
+  A construct's declared key set: every path the loader accepts for
+  the construct, qualified the way `docs/dsl/`'s declarations are
+  (`tiers.*.review.prompt`, `edges.*.instances[].source`), and the
+  path of the map being closed (`""` for a document's top level).
+  """
+  @type key_set :: {[String.t()], String.t()}
+
+  @doc """
+  The keys `paths` declares directly under `prefix`: `"tiers.*.review"`
+  over `["tiers.*.review.prompt", "tiers.*.review.context.*"]` is
+  `["prompt"]`. The one list per construct is read here by the parser
+  and by `mix catapult.dsl.keys` as paths, so neither derives it from
+  the other's source.
+  """
+  @spec keys_at([String.t()], String.t()) :: [String.t()]
+  def keys_at(paths, ""), do: Enum.reject(paths, &String.contains?(&1, [".", "["]))
+
+  def keys_at(paths, prefix) do
+    lead = prefix <> "."
+
+    for path <- paths,
+        String.starts_with?(path, lead),
+        rest = binary_part(path, byte_size(lead), byte_size(path) - byte_size(lead)),
+        not String.contains?(rest, [".", "["]),
+        do: rest
+  end
+
+  @doc "Every key in `map` outside the declared `key_set`, as an unknown-field problem list."
+  @spec unknown_keys(map(), key_set(), String.t()) :: problems()
+  def unknown_keys(map, {paths, prefix}, where) do
+    known = keys_at(paths, prefix)
+
     for key <- Map.keys(map), key not in known do
       "#{where} carries unknown field #{inspect(key)} (known: #{inspect(known)})"
     end

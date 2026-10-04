@@ -12,15 +12,19 @@ defmodule CatapultWeb.ExplainWhyLiveTest do
   test "a review tier renders the caveat instead of claiming readiness", %{conn: conn} do
     project_id = "explain-#{System.unique_integer([:positive])}"
 
+    # `sysarch` carries `review: default` in the new single-tier
+    # grammar (`chain.md` #14) — the retired bundle's separate
+    # `sysarch_review` tier no longer exists, since a review is now a
+    # block on the tier it reviews rather than a tier of its own.
     Store.upsert_node(%{
-      id: "sysarch_review:root",
+      id: "sysarch:root",
       project_id: project_id,
-      tier: "sysarch_review",
+      tier: "sysarch",
       scope_key: %{},
       status: :absent
     })
 
-    {:ok, _view, html} = live(conn, "/projects/#{project_id}/explain-why/sysarch_review:root")
+    {:ok, _view, html} = live(conn, "/projects/#{project_id}/explain-why/sysarch:root")
 
     assert html =~ "review tier"
     assert html =~ "Nothing in scope is blocking this node."

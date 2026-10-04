@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.ContainerQueueAdvanced do
   @moduledoc """
-  An active container's current queue moved (dsl-syntax.md §15.7-§15.8).
+  An active container's current queue moved (`workflow.md` #17 through #19).
   Version 1.
 
   Forward and backward are the same event with a different `reason`,

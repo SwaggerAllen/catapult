@@ -1,13 +1,12 @@
 defmodule Catapult.Dsl.TypeTest do
   @moduledoc """
-  `namespaced_positions/1` and `anchor_index/2` (dsl-syntax.md §15.12,
+  `namespaced_positions/1` and `anchor_index/2` (`workflow.md` #7,
   ORC-116) at the struct grain — the one place §15.10/§15.12's
   bare/qualified/ambiguity computation lives, shared by
   `Catapult.Dsl.Workflow` (ticket axis) and `Catapult.Delivery
   .ContainerLifecycle.Sequence` (container axis). No shipped
   `types/*.yaml` recurs a bare name across two sub-arrays today
-  (`docs/dsl-syntax.md` §15.2's own note on `types/milestone.yaml`'s
-  asymmetry), so the ambiguous case below is exercised only here,
+  (`workflow.md` #7, and `types/milestone.yaml`'s own asymmetry), so the ambiguous case below is exercised only here,
   against a hand-built struct.
   """
 
@@ -25,7 +24,7 @@ defmodule Catapult.Dsl.TypeTest do
         %Status{review: "ux-review"}
       ]
 
-      type = %Type{name: "t", file: "types/t.yaml", statuses: statuses, groups: [0..3//1]}
+      type = %Type{name: "t", statuses: statuses, groups: [0..3//1]}
 
       assert Type.anchor_index(type, 0..3//1) == 1
     end
@@ -40,7 +39,7 @@ defmodule Catapult.Dsl.TypeTest do
         %Status{status: "checks"}
       ]
 
-      type = %Type{name: "t", file: "types/t.yaml", statuses: statuses, groups: [0..2//1]}
+      type = %Type{name: "t", statuses: statuses, groups: [0..2//1]}
 
       assert type
              |> Type.namespaced_positions()
@@ -57,7 +56,7 @@ defmodule Catapult.Dsl.TypeTest do
     test "canonical qualifies only the recurring name, leaving every other bare name alone" do
       # `[[pending, setup], [pending, retro]]` — the exact shape
       # `types/milestone.yaml` avoids today by omitting `retro`'s own
-      # leading `pending` (`docs/dsl-syntax.md` §15.2). Built here
+      # leading `pending`. Built here
       # because nothing shipped recurs a name, and the ambiguity rule
       # needs a case that does.
       statuses = [
@@ -69,7 +68,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }
@@ -101,7 +99,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }
@@ -131,7 +128,6 @@ defmodule Catapult.Dsl.TypeTest do
 
       type = %Type{
         name: "t",
-        file: "types/t.yaml",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
       }

@@ -17,10 +17,11 @@ defmodule Catapult.Engine.Projections.CommentFeedback do
   found wrong on design review: a comment posted mid-regeneration must
   not be discarded by that regeneration's own commit before it ever
   renders, and a workflow declaring more than one gate (the shipped
-  `bundles/default-flow/types/feature.yaml` already does) makes
-  "the resolution before the most recent one" land on the wrong event
-  the moment a decline-then-approve-elsewhere-then-decline-again path
-  happens, which it ordinarily does. The boundary that survives both
+  `bundles/default-flow/workflow.yaml`'s `delta` type already does)
+  makes "the resolution before the most recent one" land on the wrong
+  event the moment a
+  decline-then-approve-elsewhere-then-decline-again path happens,
+  which it ordinarily does. The boundary that survives both
   findings: the most recent `GateApproved`/`GateDeclined` in the
   project's log, **unfiltered by which gate it names** (Phase 4's one
   pre-gate `generation` status is what makes "whichever gate" safe

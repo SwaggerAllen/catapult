@@ -33,14 +33,14 @@ UI collection handle: {{ parent }}
 Sibling UI collections this collection may declare a dependency on
 (same-tier, project-wide — may be un-articulated; treat a skeletal
 pubapi as not yet architected):
-{% for sib in siblings %}
+{% for sib in dependency %}
 - **{{ sib.name }}** (`{{ sib.id }}`): {{ sib.pubapi }}
 {% endfor %}
 
 Backend component shapes available for `uses_shapes` (types and handle
 shapes only — never call these; the public surface below is the only
 thing you may read):
-{% for dep in backend_deps %}
+{% for dep in uses_shapes %}
 - **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
 {% endfor %}
 
@@ -49,7 +49,7 @@ top of rather than reinvent):
 {{ design_system }}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}

@@ -13,10 +13,10 @@ defmodule Catapult.Dsl.EdgeLocatorTest do
   end
 
   defp fanout_edge(name, instances) do
-    %Edge{name: name, file: "f", type: "fanout", instances: instances}
+    %Edge{name: name, type: "fanout", context_raw: "none", instances: instances}
   end
 
-  defp tier(name, scope), do: %Tier{name: name, file: "f", scope: scope}
+  defp tier(name, scope), do: %Tier{name: name, scope: scope}
 
   describe "parse/1" do
     test "self, self.parent and fanout(<edge>) are the closed keywords" do

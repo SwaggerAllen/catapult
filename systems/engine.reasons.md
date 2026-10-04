@@ -32,13 +32,13 @@ possible" standing decision exists to prevent.
 ## #14
 
 The bullet above's premise — every minted child eventually earns `:approved` through `DraftApproved`
-— does not hold for exactly the tiers dsl-syntax.md §3 calls a **join-target tier** — one declared
+— does not hold for exactly the tiers `chain.md` #5 calls a **join-target tier** — one declared
 with no `draft:` block (`comp`, `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
 synthesis` today, though the condition that matters is "no `draft:`," not the generator kind — see
 below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
 and `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{}, _)`) can never name it.
 Minted at `:absent`, a join target sits there forever, and `walk_ready?/2`'s `status == :approved` —
-dsl-syntax.md §7's "readiness requires all targets ready; context is the only readiness signal" —
+`chain.md` #22's "readiness requires all targets ready; context is the only readiness signal" —
 never turns true for any tier whose context walk reaches it (`comparch`'s `per(comp)`
 `self.parent.handle`, and the same shape for `subcomparch`). The chain stalls at the first join
 target and never reaches the tiers downstream of it.
@@ -46,10 +46,10 @@ target and never reaches the tiers downstream of it.
 **Why the condition is "no `draft:`," not "`generator: synthesis`."** Every join-target tier in
 `bundles/default` happens to declare `generator: synthesis`, but the causal fact is the missing
 `draft:` block: that's what makes `DraftCommitted`/`DraftApproved` structurally unable to name the
-node, and dsl-syntax.md §3 already has a name for a tier in that shape — "join-target tier" —
+node, and `chain.md` #5 already has a name for a tier in that shape — "join-target tier" —
 independent of which `generator:` it declares. Keying the mint-time default on `tiers
 .<target>.draft == nil` rather than on the generator atom is what makes the default generalise to a
-future `generator:` kind that also produces no draft (`external`, `template` per dsl-syntax.md §3.2,
+future `generator:` kind that also produces no draft (`external`, `template` per `chain.md` #39,
 neither of which happens to omit `draft:` in `bundles/default` today) without revisiting this
 decision when one arrives: any tier a bundle author writes with no `draft:` gets the same mint-time
 `:approved`, whatever its `generator:` says.
@@ -156,7 +156,7 @@ fold can, since that is a fact about the scope/fanout graph, not about position 
 sequence would therefore buy no simplification over deriving order from the graph
 `context:`/`scope:` already declare, while adding a second, independently-authored representation of
 the same fact — exactly the drift a declared order and a declared graph disagreeing would invite,
-and exactly what `docs/dsl-syntax.md` §7/§7.2's "context is the only readiness signal" already
+and exactly what `chain.md` #22's "context is the only readiness signal" already
 commits this system to not needing. `ready_scopes` stays derived from one graph, not two.
 
 ## #24
@@ -179,20 +179,20 @@ extraction or mint-time-value question.
 ## #26
 
 A `supplied` node is settled the moment it exists because nothing upstream in the generation chain
-produced it and could still revise it; a `reference` node (`ref`, the tier `dsl-syntax.md` §3.1's
-`reference` scope kind exists for) has the identical property for a different reason — its content
-is written once, by a write path outside the chain, with no draft anywhere in its history to be
-unapproved. Both clauses read "settled unconditionally, the moment the node exists," keyed on the
+produced it and could still revise it. `ref` is supplied too (`chain.md` #5, #17), for a different
+reason — its content is written once, by a write path outside the chain (`source: write`), with no
+draft anywhere in its history to be
+unapproved. The clause reads "settled unconditionally, the moment the node exists," keyed on the
 tier's own generator declaration rather than on `parent_node_id == nil`, for the reason the
 three-way match above keeps the check declaration-keyed. This is what makes a `self.reference ->
-ref.handle` walk (`docs/dsl-syntax.md` §3.3's own worked example) resolvable at all: a `ref` node
+ref.handle` walk (`chain.md` #19's own walk forms) resolvable at all: a `ref` node
 has no draft anywhere in its history, so there is no approval for `settled?` to wait on — it has to
 read the node's `generator: reference` declaration and say "settled" the moment the node exists, the
 same way it already reads `generator: supplied` for `design_system`.
 
 ## #27
 
-`dsl-syntax.md` §13 places this at "projection time," not load time; which moment of projection time
+`chain.md` #25 places this at "projection time," not load time; which moment of projection time
 is the load-bearing part, because the naive answer ("check on every `DraftCommitted`") produces
 exactly this failure: `fulfills`'s `source: {min: 1}` ("every comp fulfills ≥1 resp") reads as
 violated on every comp that hasn't drafted its `fulfills` edge yet, which is every comp for some
@@ -224,10 +224,11 @@ against this timing rule, not a new engine primitive.
 
 `walk_ready?/2`'s own predicate — `Enum.all?(targets, &(&1.status == :approved))` — already requires
 every node a context walk reaches to be `:approved` before the tier reading that walk can dispatch;
-§7 states the same fact from the grammar side ("readiness requires all targets ready. Context is the
-only readiness signal"). So a tier positioned in a workflow sub-array *after* a gate can never
-become ready while the tier(s) the gate's own sub-array pins remain unapproved — not because
-anything checks the workflow-axis grouping against the chain-axis node, but because there is no path
+`chain.md` #22 states the same fact from the grammar side ("readiness requires all targets
+ready. Context is the only readiness signal"). So a tier positioned in a workflow sub-array
+*after* a gate can never become ready while the tier(s) the gate's own sub-array pins remain
+unapproved — not because anything checks the workflow-axis grouping against the chain-axis
+node, but because there is no path
 to `:approved` for the later tier that does not first satisfy the earlier one's own context walk.
 **What this is not:** a claim that this system reads or enforces sub-array membership at all — it
 doesn't, and gains no new code from this entry. The invariant is chain-axis readiness, restated for
@@ -267,7 +268,7 @@ named process.
 ORC-6 fixed the id column's *type* at `:string` rather than `:binary_id` deliberately, to leave the
 scheme open — but fixed the primary key to `id` alone in the same migration, which only one of the
 two legal schemes supports. Per-project is the scheme that holds. `scope_key` and `handle` are
-already how a node is addressed *within* a project (`dsl-syntax.md` §3), and neither the command
+already how a node is addressed *within* a project (`chain.md` #6, #11), and neither the command
 edge nor a bundle's own vocabulary promises more than that. A caller-supplied string unique across
 every project the plane will ever build is not a constraint anyone picks on purpose, and both
 alternatives are worse: reopen the UUID door ORC-6 deliberately shut for no gain the DSL asks for,
@@ -500,7 +501,7 @@ staleness-of-a-passed-gate question `systems/delivery.md`'s ORC-32 entry and thi
 "does what this gate approved still match what's downstream of it" — is likewise open; Phase 4's own
 shipped `feature.yaml` runs exactly one `generation` status ahead of its gates, so nothing here
 needs the general answer to work today. **The node(s)-per-gate answer is structural since ORC-115,
-and the join is Phase 7's to build:** `docs/dsl-syntax.md` §15.10's sub-array grammar gives "which
+and the join is Phase 7's to build:** `workflow.md` #6's sub-array grammar gives "which
 node(s) a gate reviews" a structural answer — the citing sub-array's own one non-review-shaped
 agent-balled entry, at the gate's declared `depth:` (`docs/v5-design-decisions.md` §7.16) — but
 neither event gains a field from that alone; until the join is built, this entry's own claim (no

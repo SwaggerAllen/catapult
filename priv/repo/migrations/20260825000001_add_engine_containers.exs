@@ -2,7 +2,7 @@ defmodule Catapult.Repo.Migrations.AddEngineContainers do
   use Ecto.Migration
 
   # Containers as plane state (ORC-104; systems/engine.md's design
-  # pass, dsl-syntax.md §15.6-§15.8). Two new tables and two new
+  # pass, `workflow.md` #16 through #19). Two new tables and two new
   # columns on an existing one, all keyed `(project_id, id)` like every
   # other engine table post-ORC-87.
   #
@@ -16,7 +16,7 @@ defmodule Catapult.Repo.Migrations.AddEngineContainers do
       add :id, :string, primary_key: true
       add :project_id, :string, primary_key: true
       # The declared `types/<name>.yaml` this instance is one of
-      # (dsl-syntax.md §15.2). Carried on the row rather than resolved
+      # (`workflow.md` #4). Carried on the row rather than resolved
       # on read: the reducer folds under the bundle semantics active
       # when the event was committed, never whatever core_dsl currently
       # has loaded.
@@ -26,7 +26,7 @@ defmodule Catapult.Repo.Migrations.AddEngineContainers do
       add :parent_container_id, :string, null: true
       add :parent_queue, :string, null: true
       # minted -> active -> closed. Mint is not activation
-      # (dsl-syntax.md §15.8): an instance accepts groomed work into
+      # (`workflow.md` #19): an instance accepts groomed work into
       # its own future queues long before its parent's position reaches
       # it, which is what makes grooming next milestone's `prep` during
       # this milestone's `main` legal.

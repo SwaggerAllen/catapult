@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Projections.ContainerQueuesTest do
   @moduledoc """
-  The queue-as-query (dsl-syntax.md §15.7, v5 §7.8): a queue's
+  The queue-as-query (`workflow.md` #30, v5 §7.8): a queue's
   population is computed from the work items themselves, and the three
   things that hold a queue open — its own population, a nested
   instance still running, and a sibling that `blocks:` it — are checked
@@ -24,7 +24,6 @@ defmodule Catapult.Engine.Projections.ContainerQueuesTest do
   defp workflow do
     milestone = %Type{
       name: "milestone",
-      file: "types/milestone.yaml",
       skeleton: "container",
       statuses: [
         %Status{status: "setup"},
@@ -38,7 +37,6 @@ defmodule Catapult.Engine.Projections.ContainerQueuesTest do
 
     nesting = %Type{
       name: "epic",
-      file: "types/epic.yaml",
       skeleton: "container",
       statuses: [
         %Status{status: "setup", flow: "setup"},

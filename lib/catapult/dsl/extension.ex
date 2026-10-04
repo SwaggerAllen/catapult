@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Extension do
   @moduledoc """
-  The platform surface (dsl-syntax.md §12, v5 §9): a platform-shipped
+  The platform surface (`bundle.md` #8, v5 §9): a platform-shipped
   module (never bundle content) registers annotation namespaces,
   declaration kinds, generator types, context sources and enforcement
   profiles here. The core is frozen; this is where growth happens
@@ -27,7 +27,7 @@ defmodule Catapult.Dsl.Extension do
   @typedoc "One declaration kind this extension adds (a new bundle file type)."
   @type declaration_kind :: String.t()
 
-  @typedoc "One generator type this extension adds, beyond dsl-syntax.md §3.2's closed set."
+  @typedoc "One generator type this extension adds, beyond chain.md #8's closed set."
   @type generator_type :: String.t()
 
   @typedoc "One context-source kind this extension adds, beyond `self`/`input`/`ticket`."

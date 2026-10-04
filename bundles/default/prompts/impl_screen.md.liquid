@@ -20,12 +20,12 @@ sequencing, edge-cases, tests, and references (optional).
 Leaf (its own techspec, public and private surface): {{ parent }}
 
 Backend dependencies' public surfaces:
-{% for dep in dependencies %}
+{% for dep in dependency %}
 - **{{ dep.name }}** (`{{ dep.id }}`): {{ dep.pubapi }}
 {% endfor %}
 
 Attached references:
-{% for ref in refs %}
+{% for ref in reference %}
 ### {{ ref.title }}
 
 {{ ref.body }}

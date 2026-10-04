@@ -17,16 +17,16 @@ defmodule CatapultWeb.MyQueueLive do
   `:unblock` for the fixed `:blocked` kind (`Catapult.Dsl.SystemStatus
   .blocked?/1`, ORC-116 — never a literal `:blocked` atom compared
   inline) and `:sign_off` for any gate; everything else, `:triage`
-  included, falls through to `nil`. Not an omission: `bundles/default-flow/types/*.yaml`
-  declares six ticket types (feature, milestone, project, retro, seed,
-  setup) and none of them is a machinery-filed shape (the
-  enforcement/swap/maintenance filings v5 §7.3 describes), so Phase 4
-  has no protocol position that could ever resolve to "machinery-filed
-  work awaiting batch-accept." The storybook component still renders
-  and exercises a `:triage` row (`component.story.exs`) — the kind
-  stays real vocabulary, not dead code, per `screens/my-queue.md`'s
-  fixed three — but nothing in this system produces one until a
-  machinery-filed type is declared.
+  included, falls through to `nil`. Not an omission:
+  `bundles/default-flow/workflow.yaml` declares four ticket types
+  (`scaffold`, `delta`, `milestone`, `project`) and none of them is a
+  machinery-filed shape (the enforcement/swap/maintenance filings v5
+  §7.3 describes), so Phase 4 has no protocol position that could ever
+  resolve to "machinery-filed work awaiting batch-accept." The
+  storybook component still renders and exercises a `:triage` row
+  (`component.story.exs`) — the kind stays real vocabulary, not dead
+  code, per `screens/my-queue.md`'s fixed three — but nothing in this
+  system produces one until a machinery-filed type is declared.
 
   This screen issues no commands (`screens/my-queue.md`): every row is
   a pointer into `document-review` (a `sign_off` row — every Phase 4

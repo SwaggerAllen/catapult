@@ -7,8 +7,8 @@
   <xs:element name="refactor-plan">
     <xs:complexType>
       <xs:sequence>
-        <!-- The ticket surface's own headline (ORC-114, docs/dsl-syntax.md
-             §3's reserved `argument` fields: name) — one or two sentences,
+        <!-- The ticket surface's own headline (ORC-114, `chain.md` #38's
+             reserved `argument` fields: name) — one or two sentences,
              why this work exists, not a restatement of <rationale>. -->
         <xs:element name="argument" type="xs:string"/>
         <xs:element name="scope" type="xs:string"/>

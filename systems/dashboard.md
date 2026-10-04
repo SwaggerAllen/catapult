@@ -93,7 +93,7 @@ conventions §13).
   for a *declared* target, generalized to every runtime pick, since a
   gate's declared `throwback:` is a single-target override on the
   derived default and not a legality bound (ORC-115;
-  `docs/dsl-syntax.md` §15.10, §15.4). `document-review`'s throwback
+  `workflow.md` #34). `document-review`'s throwback
   picker offers the same full earlier-prefix Blocked-return's picker
   gives (`docs/ui-spec.md` J4), one click landing on the gate's own
   declared `throwback:` when the gate names one, or its citing
@@ -143,8 +143,8 @@ conventions §13).
   (`docs/ui-spec.md` §6) — the same bundle/projection- content split every other command edge on
   this aggregate draws. `screens/ticket.md` carries the detail.
 - **#14 A ticket's title/argument, and the read both `board` and `my-queue` place a ticket
-  from.** `argument` is a reserved `fields:` name on a flow's entry tier (`docs/dsl-syntax.md`
-  §3, `systems/platform_content.md`), folded into `Catapult.Delivery.Store
+  from.** `argument` is a reserved `fields:` name on a flow's entry tier (`chain.md`
+  #12, #32, `systems/platform_content.md`), folded into `Catapult.Delivery.Store
   .tickets_for_project/1` — one project-scoped read returning `id`, `ticket_ref`, `flow_name`,
   `entry_node_id`, `status_kind`, `status_gate`, `blocked_origin_kind`, `blocked_origin_gate`
   and `argument` per open flow, which is what `board`'s lanes and `my-queue`'s three action
@@ -155,8 +155,8 @@ conventions §13).
   whether a node's current `body_sha` matches what the gate's approval event recorded, because
   `GateApproved`/ `GateDeclined` carry no content identity, deliberately: what a passed gate
   pins is its citing sub-array's one non-review-shaped agent-balled entry, at the gate's
-  declared `depth:`, derived rather than stamped on the event (ORC-115; `docs/dsl-syntax.md`
-  §15.10; `docs/v5-design-decisions.md` §7.16), and reading staleness off that derivation is the
+  declared `depth:`, derived rather than stamped on the event (ORC-115; `workflow.md`
+  #6, #36; `docs/v5-design-decisions.md` §7.16), and reading staleness off that derivation is the
   log join `systems/delivery.md`'s Phase 7 carries.
   `Catapult.Delivery.Store.get_previous_draft_body/2` (one previous body, not a log) answers the
   per-sentence **diff** `document-review` renders — a narrower question ("what changed since the
@@ -174,25 +174,24 @@ conventions §13).
   apart), and `board`'s `assignee` filter has no source to filter against — deferred beside
   `milestone` and `mutex label` for the identical reason.
 - **#17 A lane/rail key is a position's own namespaced identity
-  (`docs/dsl-syntax.md` §15.12), rendered through `CatapultWeb.Live
+  (`workflow.md` #7), rendered through `CatapultWeb.Live
   .Positions.key/2` rather than paired by this system** (ORC-116,
   superseding this bullet's own prior scan-and-pair scheme after
   ORC-155 landed the namespacing rule this system had been assembling
-  by hand). §15.10's own anchor predicate — a sub-array's one
-  non-review-shaped agent-balled entry (`generation`, `design`,
-  `architecture`, `implementation`, `retro` or `setup`) — still picks
-  the entry a group keys off; what §15.12 changes is what supplies the
-  *other half* of the key. A `status:` entry now carries a
+  by hand). `workflow.md` #6's anchor predicate — a sub-array's one
+  non-review-shaped agent-balled entry, a generation position or a
+  container's `setup` or `retro` — still picks the entry a group keys
+  off; what #7 changes is what supplies the *other half* of the key. A `status:` entry now carries a
   bundle-authored `name:` (defaulting to its kind), and an anchor's own
   name *is* the sub-array's namespace: every other entry sharing that
   sub-array addresses as `<anchor-name>.<its-own-name>`, a top-level
   entry addresses bare, and the loader refuses a colliding pair before
-  a bundle ever ships (§15.12's own uniqueness check). `Positions
+  a bundle ever ships (`workflow.md` #7's uniqueness check). `Positions
   .key/2` already encodes exactly this — `"kind:" <> anchor <> "." <>
   name` when given an anchor, the identical bare `"kind:" <> name` it
   has always produced otherwise — so a lane or rail key is that string,
   not a runtime identity this system derives.
-- **#18 The anchor for a *resting* ticket — the gap §15.12 left open by its own admission — is
+- **#18 The anchor for a *resting* ticket — the case `workflow.md` #7 leaves to this system — is
   `Positions.resting_key/2`** (ORC-116). `Catapult.Delivery.FeatureLifecycle.Projection`'s
   `passed`/ `pinned_to`/`blocked_from` all still key on the bare `position()` tuple, with no
   namespace attached, so `resting_key/2` resolves this as a lookup against the loaded
@@ -205,7 +204,7 @@ conventions §13).
   position-tracking the projection does not carry, which stays open the same way
   `Sequence.name/3` already admits it for the declared-lane case.
 - **#19 A non-root instance's own lane sequence ends at its last reachable position — never at
-  a `merge` or `deploy` of its own** (ORC-116, `docs/dsl-syntax.md` §15.11). `merge` is depth-0
+  a `merge` or `deploy` of its own** (ORC-116, `workflow.md` #28). `merge` is depth-0
   by rule and a non-root ticket merges only through its parent's `reconcile`, so `board` and
   `ticket` render no `merge`, `deploy` or `terminal` lane for one; its own effective sequence
   simply stops short of that machinery, the same way `Sequence`'s own `@reachable_boundary`
@@ -214,9 +213,9 @@ conventions §13).
   settled independent of tree position — with no lane in between to render it in.
 - **#20 `board`'s lane set is derived per tree shape, not per declared
   type** (ORC-116, reversing ORC-129's own "wait for fan-out-as-
-  separate-flows" — `docs/dsl-syntax.md` §15.11 is that). A leaf and
+  separate-flows" — `workflow.md` #28 is that). A leaf and
   an instance with children read different effective sequences off the
-  identical array (§15.11's own "a leaf instance has nothing to join"),
+  identical array (`workflow.md` #28 — a leaf instance has nothing to join),
   so a lane set keyed on `type_name` alone shows a `reconcile` column
   no leaf card ever reaches. `board` resolves this the way `ticket`
   already resolves fan-out depth for one ticket (`screens/ticket.md`'s
@@ -225,14 +224,15 @@ conventions §13).
   card whose own resolved sequence excludes it — `screens/board.md`'s
   existing "a lane never shows a child it does not itself hold" rule,
   extended from membership to shape.
-- **#21 Cross-type fan-out roll-up is a card-level count, not a per-lane
-  one** (ORC-116). `docs/dsl-syntax.md` §15.11 gives `component`/
-  `subcomponent` their own declared type, sharing no array with
-  `feature` ("two type declarations, not one spanning the whole
-  tree"), so a component's own position has no corresponding lane on a
-  feature's board at all — `docs/ui-spec.md` §3.1's "each lane rolls up
-  only the children it holds" assumed children read off the parent's
-  own lane set, which no longer holds across this boundary. Same-type
+- **#21 Fan-out roll-up is per lane, because a child reads its
+  position off the same declared sequence its parent does**
+  (ORC-116). A child ticket runs the declared sequence filtered to its
+  depth (`workflow.md` #28), so a component's architecture position is
+  the feature's architecture lane at depth 1 rather than a position
+  with no lane to sit in, and `docs/ui-spec.md` §3.1's "each lane
+  rolls up only the children it holds" holds across the boundary that
+  once broke it. What a lane still has to distinguish is depth, since
+  one lane now holds the feature's own work and its children's. Same-type
   nesting — a subcomponent inside a component — keeps the per-lane
   roll-up `screens/board.md` already describes, since both instances
   read the identical array; a feature's own component children instead

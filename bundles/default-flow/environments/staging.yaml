@@ -1,4 +1,0 @@
-environment: staging
-promote_from: dev
-depth: 0
-lifetime: persistent

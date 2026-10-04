@@ -65,7 +65,7 @@ validation-loop source is. Now that intake exists, `input.<role>`/`input.*` reso
 always: `walk_report/2` folds that to `satisfied: true, targets: []`, the identical shape a fully
 satisfied ordinary walk has, so `Enum.reject(& &1.satisfied)` drops it out of `blocking` entirely.
 An input-role walk therefore never appears on this screen at all, satisfied or not — which is the
-correct rendering of "a role with no documents never blocks readiness" (`dsl-syntax.md` §7):
+correct rendering of "a role with no documents never blocks readiness" (`chain.md` #22):
 nothing here has an "input roles aren't ready yet" row to accidentally show, because the row
 never existed to begin with.
 

@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Commands.MintContainer do
   @moduledoc """
-  Creates a container instance (dsl-syntax.md §15.8). Aggregate id:
+  Creates a container instance (`workflow.md` #19). Aggregate id:
   `project_id`.
 
   Issued by business logic or a person — never only by the parent's

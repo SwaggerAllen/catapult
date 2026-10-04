@@ -33,7 +33,7 @@ defmodule CatapultWeb.TicketLiveTest do
     open = %OpenFlow{
       project_id: project_id,
       flow_id: flow_id,
-      flow_name: "feature",
+      flow_name: "delta",
       ticket_ref: "ORC-#{flow_id}",
       entry_node_id: "sysarch"
     }
@@ -88,8 +88,8 @@ defmodule CatapultWeb.TicketLiveTest do
 
     assert html =~ "Blocked"
     assert html =~ "usage_limit"
-    assert html =~ "Return to ux-review"
-    assert html =~ "Return to Pending"
+    assert html =~ "Return to features-review"
+    assert html =~ "Return to Critique"
   end
 
   test "resuming a blocked ticket dispatches ResumeFlow and clears the block", %{conn: conn} do
@@ -98,12 +98,12 @@ defmodule CatapultWeb.TicketLiveTest do
     block(project_id)
 
     {:ok, view, _html} = live(conn, "/projects/#{project_id}/tickets/flow-1")
-    html = render_click(view, "resume", %{"target" => "gate:ux-review"})
+    html = render_click(view, "resume", %{"target" => "gate:features-review"})
 
     refute html =~ "Blocked"
 
     row = DeliveryStore.get_feature_lifecycle(project_id, "flow-1")
-    assert row.status_gate == "ux-review"
+    assert row.status_gate == "features-review"
     assert row.status_kind == nil
   end
 
@@ -115,14 +115,14 @@ defmodule CatapultWeb.TicketLiveTest do
     block(project_id)
 
     {:ok, view, _html} = live(conn, "/projects/#{project_id}/tickets/flow-1")
-    render_click(view, "resume", %{"target" => "gate:ux-review"})
+    render_click(view, "resume", %{"target" => "gate:features-review"})
 
-    html = render_click(view, "resume", %{"target" => "kind:pending"})
+    html = render_click(view, "resume", %{"target" => "kind:generation"})
 
     assert html =~ "Rejected"
   end
 
-  test "the rail groups feature's own leading sub-array with the derived-throwback badge", %{
+  test "the rail groups delta's own leading sub-array with the derived-throwback badge", %{
     conn: conn
   } do
     project_id = "ticket-#{System.unique_integer([:positive])}"
@@ -130,10 +130,11 @@ defmodule CatapultWeb.TicketLiveTest do
 
     {:ok, _view, html} = live(conn, "/projects/#{project_id}/tickets/flow-1")
 
-    # `pending`/`generation`/`critique`/`ux-review`/`engineering-review`
-    # (`types/feature.yaml`'s own sub-array) render inside one bounded
-    # box on the rail, with `generation` — the derived-throwback anchor
-    # — badged (`screens/ticket.md`'s own grouping, ORC-116).
+    # `generation`/`critique`/`features-review` (`delta`'s own
+    # `features` sub-array) render inside one bounded box on the rail,
+    # with `generation` — the derived-throwback anchor, since none of
+    # these gates declares its own `throwback:` — badged
+    # (`screens/ticket.md`'s own grouping, ORC-116).
     assert html =~ "rounded-box border border-dashed border-primary/40"
     assert html =~ "Default throwback landing point for this group"
   end

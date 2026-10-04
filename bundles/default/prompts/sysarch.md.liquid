@@ -22,9 +22,9 @@ any SaaS project is probably too generic.
 
 Requirements handle: {{ parent }}
 
-Responsibility catalog (each with a name and role paragraph):
-{% for resp in resp_catalog %}
-- `{{ resp.id }}` — {{ resp.name }}: {{ resp.summary }}
+Responsibility catalog (each an id and a name):
+{% for resp in responsibilities %}
+- `{{ resp.id }}` — {{ resp.name }}
 {% endfor %}
 
 Your output is a single `<sysarch>` block containing five sections in

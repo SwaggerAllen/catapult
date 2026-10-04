@@ -1,6 +1,6 @@
 defmodule Catapult.Engine.Events.DraftCommitted do
   @moduledoc """
-  A draft body was committed for a node (dsl-syntax.md §3).
+  A draft body was committed for a node (`chain.md` #8).
   Version 1.
 
   The payload is fully self-describing: `mints`, `edges` and
@@ -46,7 +46,7 @@ defmodule Catapult.Engine.Events.DraftCommitted do
   `source_node_id` is optional — absent means "the committing node
   itself", the ordinary self-sourced shape; a `policy_application`
   marker or a locator-resolved `fanout(<edge>)`/`self.parent` endpoint
-  (dsl-syntax.md §4.2, `systems/core_dsl.md`'s ORC-236 entry) names a
+  (`chain.md` #27, `systems/core_dsl.md`'s ORC-236 entry) names a
   different node as its own source and supplies it explicitly.
   """
   @type declared_edge :: %{

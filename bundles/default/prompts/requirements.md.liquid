@@ -22,12 +22,12 @@ each one with the feature IDs that implicate it.
 Feature expansion handle: {{ parent }}
 
 Journeys (each an end-to-end path through the product):
-{% for j in journey %}
+{% for j in journeys %}
 - `{{ j.id }}` — {{ j.name }}: {{ j.argument }}
 {% endfor %}
 
 Screens (every defined surface, journey-linked and standalone alike):
-{% for s in screen %}
+{% for s in screens %}
 - `{{ s.id }}` — {{ s.slug }}: {{ s.purpose }}
 {% endfor %}
 

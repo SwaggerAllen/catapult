@@ -23,14 +23,14 @@ each other's output.
 # Input
 
 Journeys (each with its ordered screen walk):
-{% for j in journey %}
+{% for j in journeys %}
 - `{{ j.id }}` — **{{ j.name }}**: {{ j.argument }}
   - walk: {% for slug in j.screen_walk %}`{{ slug }}`{% unless forloop.last %} → {% endunless %}{% endfor %}
 {% endfor %}
 
 Screens (each with its purpose, states, affordances, displayed data,
 and its own author-supplied screen group signal):
-{% for s in screen %}
+{% for s in screens %}
 - `{{ s.id }}` — **{{ s.slug }}**: {{ s.purpose }}
   - screen group: {{ s.screen_group }}
   - states: {% for st in s.states %}`{{ st }}`{% unless forloop.last %}, {% endunless %}{% endfor %}
@@ -47,7 +47,7 @@ Backend components available for `<uses-shapes>`/`<calls>` (name and
 purpose only — this is a grouping-level decision, not the component's
 full public surface; a UI collection may only read a backend
 component's shapes, never call it, a screen collection may call it):
-{% for c in comp %}
+{% for c in components %}
 - **{{ c.name }}** (`{{ c.id }}`): {{ c.purpose }}
 {% endfor %}
 

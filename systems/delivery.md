@@ -104,8 +104,8 @@ generating as scope-runs inside one ticket.
   already stands on (a bound repo carries fixed plane-required paths; nothing here makes
   this one configurable that wasn't already). Every file directly under it is one input
   document, and the filename minus its extension is the role tag — no manifest, no
-  per-role declaration anywhere, which is `dsl-syntax.md` §7's "the mechanism has no
-  closed registry to violate" carried into storage rather than contradicted by it: a
+  per-role declaration anywhere, which is `chain.md` #19's `input.<role>` with no
+  closed registry to violate, carried into storage rather than contradicted by it: a
   project tagging a document is a project naming a file.
 - **#9 An extension-stem collision under one role is legal and ordered.**
   `InputDocument`'s key — `(project_id, role, filename)` — already stores more than one
@@ -120,7 +120,7 @@ generating as scope-runs inside one ticket.
   than promise an order, though, and both feed a concatenated-string render
   (`systems/generation.md`'s entry): `get_input_documents/2` returns every row pinned
   under the role for `input.<role>`, `get_raft/1` returns every row pinned under the
-  project for the `raft` wildcard (`dsl-syntax.md` §9), and an unspecified order on
+  project for the `raft` wildcard (`chain.md` #19), and an unspecified order on
   either would let two renders of the same frozen pin disagree — the exact instability
   the freeze in v5 §1.1 exists to prevent. Both queries carry **`ORDER BY filename`**:
   it costs nothing (the row count sharing a role is one in the overwhelmingly common
@@ -199,12 +199,12 @@ generating as scope-runs inside one ticket.
   doc (engine is state of record, delivery is the protocol interpreting it).
 - **#19 No boundary ticket, generalized: containers and the project alike carry their
   own progress — but the project is not a container** (ORC-105;
-  `docs/v5-design-decisions.md` §7.8; `docs/ dsl-syntax.md` §15.6-§15.9). A container's
+  `docs/v5-design-decisions.md` §7.8; `workflow.md` #16, #30). A container's
   or a project's status is which of its declared queues is current; a queue is a derived
   query, never a stored bucket, so there is no per-queue pending set for this system to
   own the way `ready_scopes` is engine's. Two relations this system dispatches against:
   a queue's `flow:` target resolves against a work-item-type registry shared by
-  container and plain-type declarations alike (`docs/dsl-syntax.md` §15.2) — no new
+  container and plain-type declarations alike (`workflow.md` #9) — no new
   dispatch mechanism whichever it resolves to, a `retro` or `setup` ticket opening a
   flow instance exactly like any other type, `setup` dispatching as its own anchor
   entry, first in the newly minted container's own sequence, never a value carried on
@@ -222,14 +222,14 @@ generating as scope-runs inside one ticket.
   at" is `engine_containers.current_queue`/`current_queue_sequence`
   (`lib/catapult/engine/store/container.ex`); the `blocks:`-aware dispatcher is
   `Catapult.Delivery.ContainerLifecycle` (below); and the declaration-graph acyclicity
-  check that bounds nesting (`docs/dsl-syntax.md` §13) is
+  check that bounds nesting (`systems/core_dsl.md` #15) is
   `Catapult.Dsl.Workflow.declaration_graph_problems/1`, skeleton-agnostic (ORC-148).
   There is no separate scan/setup/retro machinery: `setup`/`retro` fold directly into
   `milestone`'s own array as inline agent-balled entries, with no separate scan step
   (ORC-148, below).
 - **#20 Mint is not activation, and this system's dispatcher is the one
-  that has to hold the two apart** (ORC-105; `docs/dsl-syntax.md`
-  §15.8; `docs/v5-design-decisions.md` §7.8). A container instance can
+  that has to hold the two apart** (ORC-105; `workflow.md`
+  #19; `docs/v5-design-decisions.md` §7.8). A container instance can
   exist — created by business logic or a person, accepting groomed
   work into its own future queues — before its parent's own position
   ever reaches it; only reaching it makes it *active*, and only
@@ -246,15 +246,15 @@ generating as scope-runs inside one ticket.
   `ContainerLifecycle.Sequence.earlier?/4` — the live half of the
   check the loader can only make statically. A container's position
   moves backward on a gate's own throwback: a container's anchor
-  entries carry gates and environments (`docs/dsl-syntax.md` §15.2,
-  §15.4, §15.8), so they have a `throwback:` of their own to honor. A
+  entries carry gates and environments (`workflow.md` #5, #19,
+  #34), so they have a `throwback:` of their own to honor. A
   queue un-resolving when its population refills is *not* a backward
   move (ORC-148's `blocks:` entries below). A milestone sign-off gate
   between `main` and `retro` can throw back to `main`, and this
   system's dispatcher honors that path exactly this way.
 - **#21 A fifth ORC-105 pass gave the dispatcher a cardinality bound to respect and
   closed a hole in the loader's own acyclicity check that this system's dispatcher would
-  otherwise have inherited** (`docs/dsl-syntax.md` §15.6-§15.7;
+  otherwise have inherited** (`systems/core_dsl.md` #15;
   `docs/v5-design-decisions.md` §7.8). `milestone`'s `setup` and `retro` queues are
   declared `singleton: true` — a bound the loader cannot check (a queue's population is
   live ticket state) and that is therefore this system's own dispatcher's job; what the
@@ -270,7 +270,7 @@ generating as scope-runs inside one ticket.
 - **#22 A sixth ORC-105 pass corrected the fifth pass's own singleton
   reading and gave this system's dispatcher a fact to check that the
   loader cannot: which type a fresh project actually starts from**
-  (`docs/dsl-syntax.md` §2, §13, §15.6-§15.7; `docs/
+  (`workflow.md` #2; `docs/
   v5-design-decisions.md` §7.8). `singleton:` bounds a queue to at
   most one work item **ever assigned**, not 0-or-1 unresolved at any
   moment — a queue whose sole work item has reached `terminal` is
@@ -293,8 +293,8 @@ generating as scope-runs inside one ticket.
 - **#23 ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and names,
   without yet answering, whether a container instance can be a
-  dispatch target in its own right** (`docs/dsl-syntax.md` §15.4,
-  §15.10; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19; answered at
+  dispatch target in its own right** (`workflow.md` #6, #34,
+  #35; `docs/v5-design-decisions.md` §7.8, §7.16, §7.19; answered at
   ORC-148, below). The dispatcher's own throwback handling resolves
   every decline's *legality* the same way, regardless of declaration —
   checked against "earlier in the citing type's own effective
@@ -306,8 +306,7 @@ generating as scope-runs inside one ticket.
   single optional status: the dispatcher reads it when the gate names
   one, and falls back otherwise to the citing sub-array's own earliest
   entry as the one-click default — its own leading `pending`, when the
-  sub-array has one (every generation-shaped sub-array does,
-  `docs/dsl-syntax.md` §13's tightened check), its own
+  sub-array has one (every generation-shaped sub-array does), its own
   non-review-shaped agent-balled entry directly otherwise — either way
   computed from the loaded workflow bundle at throwback time, never
   stored. This is the same shape `flow:` resolution and the
@@ -315,12 +314,12 @@ generating as scope-runs inside one ticket.
   cache a derived fact). A gate sitting first in its own sub-array, or
   in no sub-array at all, has no earlier entry there to fall back to,
   so the dispatcher derives no default for it and the gate must
-  declare `throwback:` explicitly (ORC-181, `docs/dsl-syntax.md`
-  §15.4, §13, §15.10).
+  declare `throwback:` explicitly (ORC-181; superseded by #125's
+  third rule, which lets an ungrouped gate have none).
 - **#24 A container instance is an agent dispatch target on the identical footing as a
   ticket instance (ORC-148).** Dispatching from a work item with a queue and one without
   were never different operations, only different status flows attached to the same
-  mechanism (`docs/dsl-syntax.md` §15.2, `docs/v5-design-decisions.md` §7.8) — the queue
+  mechanism (`workflow.md` #4, `docs/v5-design-decisions.md` §7.8) — the queue
   was never what made something a dispatch target, so this system does not need a
   container-shaped answer distinct from the ticket-shaped one it already has. With
   `setup` and `retro` inline (ORC-148, below), `setup`/`retro` dispatch
@@ -333,11 +332,11 @@ generating as scope-runs inside one ticket.
   branch or file-map field, and `store/dispatch_run.ex` keys on `flow_id`, never a
   container id.
 - **#25 ORC-148 (design pass) retires `singleton:` and the fold that motivated it,
-  closing the open question the two bullets above left standing** (`docs/dsl-syntax.md`
-  §13, §15.1, §15.2, §15.7, §15.10; `docs/v5-design-decisions.md` §7.8).
+  closing the open question the two bullets above left standing** (`workflow.md`
+  #16, #17, #19; `docs/v5-design-decisions.md` §7.8).
 - **#26 A design review on ORC-148 changed the shape of this system's own
   `blocks:`-aware dispatcher work, filed above**
-  (`docs/dsl-syntax.md` §13, §15.1, §15.7; `docs/v5-design-decisions.md`
+  (`workflow.md` #18; `docs/v5-design-decisions.md`
   §7.8). `blocks:` is an entry guard, checked once, at the transition
   into the entry it guards, never rechecked against the same occupancy
   — not a standing hold this system's dispatcher recomputes for as
@@ -368,7 +367,7 @@ generating as scope-runs inside one ticket.
   narrower than whatever `blocks:` relations a bundle happened to
   author, so a queue nobody named in any `blocks:` list still cannot
   be closed over on the way to `terminal`. Neither rule adds a loader
-  check (`docs/dsl-syntax.md` §13 is unaffected by the terminal guard,
+  check (`workflow.md` #8 is unaffected by the terminal guard,
   and the entry-guard reading is a semantics rule on a check that
   already exists). The terminal guard's enforcement is the `close/2`
   precondition the bullet below states, landed with the
@@ -376,8 +375,8 @@ generating as scope-runs inside one ticket.
 - **#27 A third design review on ORC-148 found the `blocks:` inversion above left a
   contradiction standing: a container's position still moved backward on a queue
   refilling, restated rather than removed — and a fourth found the third's own fix
-  over-corrected** (`docs/dsl-syntax.md` §15.8; `docs/v5-design-decisions.md` §7.8). A
-  queue un-resolving is not one of §15.8's ways a container's position moves backward —
+  over-corrected** (`workflow.md` #26, #34; `docs/v5-design-decisions.md` §7.8). A
+  queue un-resolving is not one of the ways a container's position moves backward —
   it would be the identical defect the bullet above retired from `blocks:` itself,
   reappearing one level up. **This system's dispatcher never moves a container's
   position backward because a queue refilled.** "An authored transition" alone would
@@ -397,8 +396,8 @@ generating as scope-runs inside one ticket.
   back in `main` and un-resolves it.
 
   **What replaces the walk** — two questions, both closed by record
-  already settled rather than by new mechanism (`docs/dsl-syntax.md`
-  §15.7, §15.8).
+  already settled rather than by new mechanism (`workflow.md`
+  #16, #19).
 
   The terminal guard is enforced at `close/2`, as a second precondition
   beside the one it already carries, every finding adjudicated — the
@@ -413,7 +412,7 @@ generating as scope-runs inside one ticket.
   unadjudicated finding already does: logged, `[]` returned,
   re-evaluated on the next relevant event rather than polled. The
   check runs over the type's whole declared array, never scoped to
-  entries behind `current` — the concrete shape of §15.7's "unconditional,
+  entries behind `current` — the concrete shape of the terminal guard's "unconditional,
   reaches every queue-shaped anchor... whether or not any of them is
   also named in some other entry's `blocks:`": a queue long past
   `current` and named in no `blocks:` list is checked identically to
@@ -421,7 +420,7 @@ generating as scope-runs inside one ticket.
   `flow:`-less inline dispatch points `Status.queue_shaped?/1` already
   excludes — need no place in this check: `ContainerQueues.admits?/3`
   bounds each to at most one assignment ever, so once resolved neither
-  can un-resolve, which is exactly why §15.7's own guard text names
+  can un-resolve, which is exactly why that guard text names
   "every queue-shaped anchor" rather than every positioned entry.
 
   No new loader check, no new event, no new command: a precondition on an existing
@@ -588,7 +587,7 @@ generating as scope-runs inside one ticket.
   the two axes' consumers read alike.
 - **#38 Reachability, settled: `checks` is this phase's last reachable
   position; `merge`, `deploy`, `validating` and `terminal` arrive with
-  Phase 7** (ORC-32; `dsl-syntax.md` §15.1). The kinds themselves
+  Phase 7** (ORC-32; `workflow.md` #10). The kinds themselves
   are never in question — `Catapult.Dsl.SystemStatus`'s closed table
   fixes them all up front, so nothing here adds or removes one. What
   is open is which of them this process manager's own callbacks ever
@@ -600,12 +599,12 @@ generating as scope-runs inside one ticket.
   `pending → generation → [critique] → [gate] → … → checks` and
   *recognizes* the later kinds without ever driving a ticket into them
   — a bundle declaring gates or environments after `deploy` still
-  loads and validates (§13), unaffected. A ticket reaching `checks`
+  loads and validates (`workflow.md` #5, #12), unaffected. A ticket reaching `checks`
   sits there under this phase; what moves it again is Phase 7's own
   dispatcher.
 
-  **`checks` can recur, once per generation-shaped sub-array (`dsl-syntax.md` §15.1,
-  §15.11) — the boundary is the last such occurrence in the type's own array that
+  **`checks` can recur, once per generation-shaped sub-array (`workflow.md` #6,
+  #7) — the boundary is the last such occurrence in the type's own array that
   precedes the array's own `merge` entry, not the first** (ORC-182).
 
   **The last-occurrence boundary reaches a second gap, in
@@ -615,15 +614,15 @@ generating as scope-runs inside one ticket.
   `checks` (always last, on the shipped bundle) never hits the missing
   clause: `take_through_boundary/1`'s first-occurrence anchor was
   load-bearing for this too. Moving the boundary to the last
-  occurrence makes every earlier `checks` — and, on §15.2's shape,
+  occurrence makes every earlier `checks` — and, on a type declaring them,
   `design`, `architecture`, `implementation`, and every `reconcile`
   ahead of the final `checks` — a *non-last* position `resting/3` does
   test, raising `FunctionClauseError` out of a clause list never asked
   to answer for them. Two answers were coherent; the rule is:
 
   - `design`, `architecture` and `implementation` are generation-shaped
-    the identical way `generation` already is (`dsl-syntax.md` §13,
-    §15.1) and this projection draws no distinction between the four
+    the identical way `generation` already is (`workflow.md` #10)
+    and this projection draws no distinction between the four
     anywhere else (`Sequence.to_position/1` maps all of them through
     the same `{:kind, atom}` shape) — the clause's `kind in [...]`
     list names all four, not `generation` alone.
@@ -640,7 +639,7 @@ generating as scope-runs inside one ticket.
     exactly like the boundary always has. Consequence: a ticket
     resting at a non-final `checks` or `reconcile` does not advance
     into that phase's own `critique`/gates under today's event
-    vocabulary — real on §15.2's documented shape, not on the shipped
+    vocabulary — real on a type declaring them, not on the shipped
     bundle. Giving this phase a signal for an intermediate checks or
     reconcile outcome is new Phase 4 advancement behaviour, a design
     of its own; it is unbuilt.
@@ -746,7 +745,7 @@ generating as scope-runs inside one ticket.
   re-mint of an instance that already exists — are the manager re-deriving a decision
   already made, and Commanded's default is to stop on them. The convergence loop is the
   resulting events coming back around to the same manager. Dispatch stays uniform per
-  `dsl-syntax.md` §15.7: whatever a queue's resolved `flow:` turns out to be, this
+  `workflow.md` #9: whatever a queue's resolved `flow:` turns out to be, this
   process manager treats identically — a `ticket`-skeleton resolution opens an ordinary
   flow instance through the existing `OpenFlow` path (unchanged, still driven only by
   `ready_scopes` on the chain-axis side), a `container`-skeleton or skeleton-less
@@ -774,7 +773,7 @@ generating as scope-runs inside one ticket.
 - **#49 Every carried finding leaves adjudicated, enforced as the container's own
   close — not a check keyed to the queue name `retro`, and not a separate check bolted
   on afterward** (ORC-104, ORC-148). `retro` is an ordinary agent-balled entry directly
-  in `milestone`'s own array (`dsl-syntax.md` §15.1-§15.2, §15.10) — dispatched against
+  in `milestone`'s own array (`workflow.md` #19) — dispatched against
   the milestone container instance itself, a legal dispatch target on the identical
   footing as a ticket (`v5-design-decisions.md` §7.8) — never a separately minted ticket
   or a `flow:` of its own. Its dispatched run reads the findings this milestone carried
@@ -786,8 +785,9 @@ generating as scope-runs inside one ticket.
   this container is still holding — but the check is attached to the container's own
   close, not to a queue recognized by the name `retro`: naming the queue would mean the
   dispatcher branching on the word `retro`, which is the implicit anchor meaning
-  `dsl-syntax.md` §15.2 refuses ("nothing in the loader branches on any of the three
-  words") and which §15.9's admission rule is written to keep out of plane logic.
+  `workflow.md` #4 refuses (`skeleton:` names the shape; nothing in the loader
+  branches on a type's own name) and which `workflow.md` #10's admission rule is
+  written to keep out of plane logic.
 
 - **#50 The aggregated flag set flips through the ordinary intent → idempotent effect
   → observed completion discipline (§7.1), because a flag flip is an external effect
@@ -797,7 +797,7 @@ generating as scope-runs inside one ticket.
   by-reference projection) once the container is otherwise ready to advance past it —
   after the `:live` gate has cleared (already enforced structurally: a red `:live`
   verdict counts as `main` still carrying unresolved work, so `main`'s declared `blocks:
-  [retro]` keeps `retro` from being *entered* at all until it clears, §15.7's
+  [retro]` keeps `retro` from being *entered* at all until it clears, `workflow.md` #18's
   entry-guard reading — `retro` never begins mid-red, so nothing has to hold its result
   back after the fact) and the author's own manual pass. The flip is not a
   plane-internal event alone: it is a `FunWithFlags`-backed enable call, so it follows
@@ -997,9 +997,9 @@ generating as scope-runs inside one ticket.
   array" check before dispatch — the identical predicate `Catapult.Dsl.Workflow
   .gate_throwback_problems/2` already runs at load time against a *declared*
   `throwback:` (unaffected by ORC-115's narrowing of that field to a single target,
-  `docs/dsl-syntax.md` §15.4), reused at the command edge as a second, runtime instance
+  `workflow.md` #34), reused at the command edge as a second, runtime instance
   of the same check against whatever the human actually picked — declared override,
-  derived default, or an earlier-prefix choice alike (`docs/dsl-syntax.md` §15.10).
+  derived default, or an earlier-prefix choice alike (`workflow.md` #6, #34).
 
 - **#66 Draft approval/discard is a second write-side process manager, not
   a third `FeatureLifecycle` clause** (ORC-229; `systems/engine.md`'s
@@ -1090,17 +1090,17 @@ generating as scope-runs inside one ticket.
   once per project the actor has standing in — the rule forbids a projectless read, not
   a screen showing more than one project's rows.
 - **#73 A ticket's title or argument is bundle content, not a plane mechanism**
-  (`docs/dsl-syntax.md` §3, `systems/platform_content.md`). The work surface reads
+  (`chain.md` #12, #32, `systems/platform_content.md`). The work surface reads
   `fields["argument"]` off the node at a flow's own `entry_node_id`, and renders blank
   until bundle content supplies one.
 - **#74 What a passed gate pins is no longer open here.** It was §7.16's standing
-  question and the reason gate events carry no `body_sha`; `docs/dsl-syntax.md` §15.10
+  question and the reason gate events carry no `body_sha`; `workflow.md` #36
   answers it structurally (ORC-115), so a surface needing gate staleness derives it
   there rather than reintroducing a pinned field on the event.
 
 - **#75 ORC-151 (design pass) retires the one named exception
   `inline_dispatch_point?/1` has carried since ORC-148, by removing what made it
-  necessary** (`docs/dsl-syntax.md` §15.1, §15.11; `docs/v5-design-decisions.md` §7.5,
+  necessary** (`workflow.md` #10, #13; `docs/v5-design-decisions.md` §7.5,
   §7.19). `merge`'s own `ball` is `plane`, not `agent` — the mechanical join into the
   parent branch, effected by the plane once the `reconcile` kind approves, barring a
   conflict — so `merge` leaves the agent-balled set this function filters over entirely.
@@ -1111,10 +1111,9 @@ generating as scope-runs inside one ticket.
 
 - **#76 A third design review on this same ticket adds two facts this
   system's own dispatcher will carry, past what the pass above scoped
-  as "not this pass's to build"** (`docs/dsl-syntax.md` §15.1, §15.11;
-  `docs/v5-design-decisions.md` §7.2, §7.10, §7.15, §7.19). First,
-  architecture's own fan-out (sysarch/comparch/subcomparch) spawns a
-  ticket per tree level, the identical spawn rule this system states
+  as "not this pass's to build"** (`chain.md` #42; `docs/v5-design-decisions.md`
+  §7.2, §7.10, §7.15, §7.19). First, architecture's own fan-out
+  (sysarch/comparch/subcomparch) spawns a ticket per tree level, the identical spawn rule this system states
   for a feature's component and subcomponent children (above,
   "children spawn when the plan node names them, not at a status
   transition"; `v5-design-decisions.md` §7.15 states the same rule) —
@@ -1129,7 +1128,7 @@ generating as scope-runs inside one ticket.
   `Catapult.Delivery.ContainerLifecycle`'s own entry-guard (its
   `blocks:` rule, ORC-148, above) is the nearest existing shape a
   dispatcher implementation extends, not a new concept this system
-  invents; there is no `fanout` status (`dsl-syntax.md` §15.1) —
+  invents; there is no `fanout` status (`workflow.md` #10) —
   `Catapult.Delivery.FeatureLifecycle.Sequence` described it as
   vestigial, and nothing ever dispatched from it, so its absence needs
   no mechanism here. **Phase 7's:** the tree-spawn recursion into
@@ -1138,13 +1137,15 @@ generating as scope-runs inside one ticket.
 
 - **#77 A fourth design review on this same ticket names two facts this system's own
   dispatcher will carry that the third pass's own worked example got wrong, past what
-  either pass scoped as "not this pass's to build"** (`docs/dsl-syntax.md` §13, §15.1,
-  §15.2, §15.11; `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
-  architecture's own fan-out spawns run a second, distinct type from the feature ticket
-  itself, not the feature's own array at a deeper tree position** — the feature ticket
-  dispatches through `types/feature.yaml` (design → architecture → implementation →
-  merge, one instance ever); a comparch or subcomparch ticket dispatches through a
-  second declared type with no `design` phase of its own, recurring per tree level,
+  either pass scoped as "not this pass's to build"** (`workflow.md` #28, #41, `chain.md` #42;
+  `docs/v5-design-decisions.md` §7.6, §7.19). First, **the tickets
+  architecture's own fan-out spawns run the same declared type as the
+  ticket above them, at a deeper tree position** — a position's depths
+  are the depths of the tiers it lists, and a ticket occupies a
+  position only when its own depth is in that set, so a comparch or
+  subcomparch ticket runs the architecture and implementation
+  positions and stands at no product position at all, there being no
+  ticket-spawning fan-out above those,
   which is `v5-design-decisions.md` §7.6's "Child" lifecycle. This system's own
   type-registry lookup (above, "the loaded workflow is a parameter, never resolved")
   already resolves whichever type a spawn names, so the fact that a spawned child names
@@ -1152,7 +1153,7 @@ generating as scope-runs inside one ticket.
   grow — it is a fact about which type a spawn cites, `bundles/**` content against this
   record. Second, **`implementation` is a real dispatch phase, a kind of its own in the
   fixed vocabulary alongside `design`/`architecture`, not a vestigial `checks`
-  occurrence** (`dsl-syntax.md` §15.1; "Reachability, settled", above, ORC-32) — a
+  occurrence** (`workflow.md` #10; "Reachability, settled", above, ORC-32) — a
   ticket's own code generation dispatches at `status: implementation` the identical way
   its own architecture phase dispatches at `status: architecture`, both inline
   agent-balled entries this process manager's existing uniform dispatch already reaches,
@@ -1160,14 +1161,13 @@ generating as scope-runs inside one ticket.
 
 - **#78 ORC-155 (design pass) gives `Sequence.resolve_position/3` a disjointness check
   it has been trusting rather than enforcing, and gives every `position()` a namespaced
-  identity beyond kind or gate name alone** (`dsl-syntax.md` §13, §15.1, §15.4, §15.12;
+  identity beyond kind or gate name alone** (`workflow.md` #7, #8, #42;
   `v5-design-decisions.md` §7.19).
 - **#79 Separately, and for the reason `CatapultWeb.Live.Positions`' own moduledoc
   already gives** — a card, a rail entry, a `throwback:` and a `blocks:` reference all
-  name a position that may recur (three `pending`, three `checks`, two `reconcile` in
-  `dsl-syntax.md` §15.2's `types/feature.yaml` worked example alone) — **a bare
+  name a position that may recur (a `critique` and a `checks` once per group) — **a bare
   `position()` is no longer a sufficient identity on its own.** `<anchor>.<name>`
-  (§15.12) is the qualified form; this system's own `status_kind`/`status_gate`
+  (`workflow.md` #7) is the qualified form; this system's own `status_kind`/`status_gate`
   projection columns (`Store.tickets_for_project/1`) are unaffected in shape — a gate's
   name was always its whole identity, and a status's kind is still what every downstream
   branch here reads — and gain a `name` column beside `status_kind`, read for display
@@ -1182,25 +1182,25 @@ generating as scope-runs inside one ticket.
 
 - **#80 ORC-116 widens to give `ContainerLifecycle.Sequence` the identical namespace
   awareness the entry above gave this system's ticket-axis positions**
-  (`docs/dsl-syntax.md` §15.2, §15.12) — the container axis has the identical gap, and a
+  (`workflow.md` #7, #8) — the container axis has the identical gap, and a
   bundle shaped to avoid recurring names only dodges it.
 - **#81 The fix mirrors the ticket-axis one rather than inventing a second mechanism,
   and the data it needs is on `Type`, not on `Status`.** `%Catapult.Dsl.Type{}` already
   carries `groups: [Range.t()]` — one `Range` per sub-array, over `statuses` — beside
   `statuses` itself (its own moduledoc: "`groups` holds one `Range` per sub-array over
   that sequence"); a group has no identity of its own beyond that span and the anchor
-  sitting inside it (§15.10). `steps/2` reads only `%Type{statuses: statuses}` and drops
-  `groups` on the pattern match — the field is not missing there, it is discarded. The
-  lookup reads `groups` alongside `statuses` to resolve a qualified `<anchor>.<name>`
-  identity the same way the loader does; `next_step/3`, `step/3` and `earlier?/4`
-  compare against that qualified identity instead of the bare name `name/1` returns, and
-  a caller naming an unambiguous (non-recurring) position resolves exactly as a bare
-  name always did.
+  sitting inside it (`workflow.md` #6). `steps/2` reads only
+  `%Type{statuses: statuses}` and drops `groups` on the pattern match — the field is
+  not missing there, it is discarded. The lookup reads `groups` alongside `statuses`
+  to resolve a qualified `<anchor>.<name>` identity the same way the loader does;
+  `next_step/3`, `step/3` and `earlier?/4` compare against that qualified identity
+  instead of the bare name `name/1` returns, and a caller naming an unambiguous
+  (non-recurring) position resolves exactly as a bare name always did.
 - **#82 One hazard the fix has to hold, not create: `groups`' ranges index into
   `statuses`, and `steps/2`'s output does not share that indexing.** `to_step/1` returns
   `nil` for an `environment:` entry and `steps/2` rejects every `nil`, so a step's
   position in `steps/2`'s output is only the same as its index in `statuses` when no
-  `environment:` entry sits ahead of it. §15.10 admits an `environment:` wherever a
+  `environment:` entry sits ahead of it. `workflow.md` #6 admits an `environment:` wherever a
   `review:` is legal — inside a sub-array, not only after one — so a lookup that walks
   `groups`' `Range`s against `statuses` directly (never against the filtered `steps/2`
   list) holds regardless; one that reuses `steps/2`'s existing index space would break
@@ -1213,8 +1213,8 @@ generating as scope-runs inside one ticket.
   nothing rather than to the wrong occurrence.
 
 - **#84 ORC-171 gives runtime position-tracking, on both axes, the
-  identical canonical identity ORC-116 gave `Sequence`'s own lookups**
-  (`docs/dsl-syntax.md` §15.2, §15.12).
+  identical canonical identity ORC-116 gave `Sequence`'s own
+  lookups** (`workflow.md` #7, #8).
 - **#85 Container axis.** `Catapult.Delivery.ContainerLifecycle`'s dispatcher carries
   `Type.namespaced_positions/1`'s own `canonical` identity throughout, never
   `Sequence.name/1`'s display label: `container.current_queue` is populated with it,
@@ -1244,7 +1244,7 @@ generating as scope-runs inside one ticket.
   keep reading exactly that — with the qualifying anchor consulted only where recurrence
   needs telling apart.
 - **#90 The loader is not where this closes, and no load-time warning is the decision
-  here.** §15.12's own uniqueness-within-a-namespace check already refuses the one shape
+  here.** `workflow.md` #7's uniqueness-within-a-namespace check already refuses the one shape
   that is actually a grammar error; two occurrences of one kind in two distinct
   namespaces are legal DSL, correctly so — recurrence across sub-arrays is exactly what
   namespacing exists to permit.
@@ -1252,7 +1252,7 @@ generating as scope-runs inside one ticket.
 - **#91 ORC-176 (design pass) gives `Sequence.positions/2` a way to place an inline
   dispatch point's own flow, closing a gap ORC-148 opened when it folded `setup`/`retro`
   into `milestone`'s own array with no backing `types/<name>.yaml` for either**
-  (`dsl-syntax.md` §15.1, §15.7, §15.11). `ContainerLifecycle.open_inline/3` opens such
+  (`workflow.md` #19). `ContainerLifecycle.open_inline/3` opens such
   a flow with `flow_name: entry.status` — the entry's own literal name, since an inline
   entry carries no `flow:` for `flow_name` to resolve through a declared type instead
   (that function's own moduledoc comment). `FeatureLifecycle` subscribes to every
@@ -1267,8 +1267,8 @@ generating as scope-runs inside one ticket.
   `ContainerLifecycle` opens this flow inline in the first place, read directly rather
   than re-derived. If so, the flow's own effective sequence is fixed rather than
   resolved from any declared array: `[{:kind, :pending}, {:kind, <kind>}]` — the same
-  "immediately preceded by its own pending, as that entry's sub-array head" shape §15.1
-  already gives every generation-shaped entry — and nothing after it, for the reason
+  "immediately preceded by its own pending, as that entry's sub-array head" shape
+  already given every generation-shaped entry (superseded by #125's first rule) — and nothing after it, for the reason
   named above: an inline dispatch point has no `checks`/`reconcile`/`merge`/`deploy`
   position to place it at. **A `flow_name` naming neither a declared type nor one of
   these closed kinds is still the authoring bug `warn_unplaceable/3` describes** — a
@@ -1279,15 +1279,14 @@ generating as scope-runs inside one ticket.
 - **#93 ORC-198 (design pass) corrects three `FeatureLifecycle.Sequence` call sites,
   carrying four instances of the same bug between them, that stayed keyed on the
   reference-ambiguity test after `systems/core_dsl.md`'s own ORC-198 entry splits it
-  from the runtime-collision one ORC-155's `name:` made distinct** (this system's own
-  ORC-171 entry, above; `docs/dsl-syntax.md` §15.12).
+  from the runtime-collision one ORC-155's `name:` made distinct** (this system's own ORC-171 entry, above; `workflow.md` #42).
 
   All four read `kind_ambiguous`.
 
 - **#94 ORC-202 (author decision) settles what a recurring kind is
   disambiguated *by*, and the qualifier reads `qualified` rather than
-  `namespace` in consequence** (`docs/dsl-syntax.md` §15.12). The rule:
-  **a kind may recur freely; a *name* may not.** §15.12 already says
+  `namespace` in consequence** (`workflow.md` #7). The rule: **a kind may recur
+  freely; a *name* may not.** `workflow.md` #7 already says
   so — "two `critique` entries in one array, three `pending` entries,
   or two `checks` entries" are legal and `name:` is what tells them
   apart — and its uniqueness check binds names within a namespace,
@@ -1296,7 +1295,7 @@ generating as scope-runs inside one ticket.
 
   `qualified` is the field that identifies an occurrence uniquely, by
   construction: `<anchor>.<name>` inside a sub-array, the bare name
-  outside one, over names §15.12 already forces to be unique within
+  outside one, over names `workflow.md` #7 already forces to be unique within
   their namespace. `Sequence.qualifier/1` is the one place that choice
   is made, and `annotate/4`, `resolve_kind_reference/3` and
   `find_kind_entry/3` all read it, so the qualifier a position is
@@ -1511,7 +1510,7 @@ generating as scope-runs inside one ticket.
   dispatches `DiscardDraft`. A ticket teaching the live suite to exercise a discard path
   is free to add one; this operation doesn't build the half it doesn't use.
 - **#108 Approval is unconditional, not driven by a stubbed review score.**
-  `docs/dsl-syntax.md` §15.10 parks threshold-based gating as "not bundle content"
+  Threshold-based gating stays parked as a scheduler item rather than bundle content
   (`docs/v5-design-decisions.md` §7.19); driving `ApproveDraft` off `WriteReview`'s own
   `score` would unpark that decision as a side effect of making a test run, rather than
   through a design of its own. `approve_drafts/2` reads no review body and no score — it
@@ -1652,6 +1651,26 @@ generating as scope-runs inside one ticket.
   …/git/refs/heads/{branch}` joins the same bullet — Contents alone, since the workflow
   file never touches the Git Data path and so needs nothing beyond the Contents scope
   this token already holds.
+- **#125 The DSL redesign reverses three rules the entries above
+  restate, and this entry is where they are superseded rather than
+  each site being rewritten** (`systems/core_dsl.md` #45, whose
+  reason argues the form). Three, each naming what it reaches:
+  1. **`pending` is an engine flag, not an entry** (`workflow.md`
+     #25). Every agent-balled position carries a waiting state until
+     an agent picks the work up; nothing declares it, no sub-array
+     leads with it, and no rule counts it. This reaches every
+     statement above of the once-per-sub-array rule, the
+     sub-array-head shape and the `[pending, kind]` inline sequence.
+  2. **`design`, `architecture` and `implementation` are `name:`
+     values on generation entries, not kinds** (`workflow.md` #10).
+     The fixed table is the set of shapes plane logic branches on, so
+     a projection that draws no distinction between the four keeps
+     drawing none — it branches on generation-shaped, which is what
+     it wanted.
+  3. **An ungrouped gate may carry no `throwback:`** (`workflow.md`
+     #34, #35), the decline landing on a human-chosen earlier
+     position. The rule that it must declare one was in the contract
+     and never in the dispatcher, which tolerated nil throughout.
 
 ## #123 Initial vs target
 
@@ -1668,7 +1687,7 @@ Phase 7's two-grain delivery machinery (child lifecycle, mutex,
 dispatch, reconciliation, escalations, the maintenance watcher), for
 the reason the ticket record gives: no ticket before Phase 7 otherwise
 demonstrates the authoring loop closes over a container rather than
-remaining a claim about individual tickets. `docs/dsl-syntax.md` §15's
+remaining a claim about individual tickets. `workflow.md`'s
 grammar itself — the `types/<name>.yaml`/`gates/`/`environments/`
 loader, the declaration-graph acyclicity check, the `blocks:`
 structural acceptance — is `systems/core_dsl.md`'s own file map
@@ -1680,10 +1699,11 @@ engine + this system + `platform_content`, not three.** The shipped
 `bundle.yaml` carries no `entry:`, its gates and environments still
 carry the retired `after:` field, and `gates/ux-review.yaml` throws
 back to `queue`, a name this same ticket's dev pass retires — so
-landing §15's loader without migrating that content in the identical
-change fails every workflow bundle's load, before anything else this
-ticket builds ever runs. `bundles/**` is `platform_content`'s own
-file map (unchanged, no map edit needed there either);
+landing `workflow.md`'s loader without migrating that content in the
+identical change fails every workflow bundle's load, before anything
+else this ticket builds ever runs. `bundles/**` is
+`platform_content`'s own file map (unchanged, no map edit needed there
+either);
 `systems/platform_content.md` records what the migration must carry,
 so dev has an argued shape rather than a blank file to guess at. The
 touch is four systems, not three; the mutex label set grows to
@@ -1746,9 +1766,16 @@ gate pins," which `systems/engine.md`'s own entry names as untouched
 by the mechanism above.
 Target
 (Phase 7): the whole of v5 §7,
-including the delivery-DSL extension registered with core_dsl, the
-declared review sequences and environments of §7.19, and the outbound
-mirror in place of the Linear adapter.
+including the declared review sequences and environments of §7.19 and
+the outbound mirror in place of the Linear adapter. The reserved
+grammar this phase gives a consumer to, all of it parsed and checked
+at load already (`core_dsl` #43): `enforcement:` on a tier and
+`consistency:` on an edge (`chain.md` #16, #25); the ticket
+skeleton's relative order enforced against dispatch, a gate's
+`escalation`, and `environment:` entries with every environment key
+(`workflow.md` #12, #32, #38). What does *not* arrive with it is a
+tier-side annotation block: the cross-axis binding is the workflow's,
+and a tier carries no delivery key at all (`bundle.md` #11).
 
 ## #124 Depends on
 

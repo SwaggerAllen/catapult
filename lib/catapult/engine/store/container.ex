@@ -6,7 +6,7 @@ defmodule Catapult.Engine.Store.Container do
   (ORC-87), the same shape every other engine table takes.
 
   **This is the projection that distinguishes "instances that exist"
-  from "the instance that is current"** (dsl-syntax.md §15.8) — the
+  from "the instance that is current"** (`workflow.md` #19) — the
   storage question `systems/delivery.md`'s ORC-105 entries left open,
   answered here rather than in a second delivery-owned table. It is
   deliberately the same two-fact shape the ninth projection

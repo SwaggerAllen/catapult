@@ -67,8 +67,8 @@ reader does not mistake them for oversights:
   tier's auto-review a **system status and agent step**, run as a
   second dispatched agent reading the PR's already-committed state,
   producing **comments, not a committed artifact** — there is nothing
-  for a `review_path:` to point at. Per-tier review (dsl-syntax.md
-  §3.3 — its own tier, `reviews: <tier>`, not v4's nested block) and
+  for a `review_path:` to point at. Per-tier review (`chain.md` #14 —
+  a `review:` block on the tier it reviews, not v4's nested block) and
   the platform-wide review grammar (`<score>`, each `<finding id>` —
   `seed-docs/catapult-spec-v4.md` §B.3.2) carry forward unchanged;
   only the path concept is void.
@@ -103,7 +103,7 @@ error, not a design question.
   tree (line 26) and bundle.yaml example (line 149, `plan_rule:
   plan.yaml`) both name it. v5 §6 drops the phase machinery entirely
   — no `phased:` tiers, no phase-plan projection, no plan rule — and
-  `dsl-syntax.md` §1's canonical layout does not list it.
+  `bundle.md` #3's bundle layout does not list it.
 
 ## Licensing
 

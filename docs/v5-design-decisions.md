@@ -78,7 +78,7 @@ distillation pass extracts candidate non-goal policies from the
 *whole raft* — an explicit non-goals document is strong signal,
 never a requirement — and the author reviews the extracted set like
 any tier output. No walk may require a role's presence (§6-adjacent
-readiness rule in `dsl-syntax.md` §7): a missing role is an empty
+readiness rule in `chain.md` #22): a missing role is an empty
 collection, never a readiness block. Post-intake, new non-goals
 enter as new policy nodes via tickets, like all graph change (the
 seed raft is frozen, §1.1 below). **Argued deferrals are the same
@@ -519,7 +519,7 @@ milestone's own `main → retro` transition (§7.8)**, not at the
 project level and not at every nesting level a
 future container kind might add. Results post on the milestone,
 failures file as milestone blockers held against `retro`'s declared
-`blocks:` relation to `main` (§7.8, `dsl-syntax.md` §15.7), and the
+`blocks:` relation to `main` (§7.8, `workflow.md` #18), and the
 flag flip (§7.8) stays strictly downstream of a green run. A
 project's own queues are too coarse-grained a cadence for this check
 (`build-out` and `iteration` each span many milestones) and nothing
@@ -1266,10 +1266,10 @@ no lifecycle for the same reason it carries no per-use kind, below: it
 is an escape hatch for content that does not fit the
 draft→review→approve model this document describes for every
 generated tier, and forcing that model onto it would be a second
-mechanism wearing the first one's shape. A ref's scope is `reference`
-(`docs/dsl-syntax.md` §3.1): `id` identity over a literal singleton
-would be meaningless, and `scope: reference` names exactly what a ref
-is — a flat pool. Out-of-cycle
+mechanism wearing the first one's shape. A ref is a supplied tier and has no scope at all (`chain.md` #17): `id`
+identity over a literal singleton would be meaningless, and a tier
+whose content is pinned from outside the chain has nothing for a scope
+expression to range over. Out-of-cycle
 iteration is re-authoring the node in place through the same write
 path that created it, surfaced through the staleness projection: a ref
 edit surfaces its consumers (§7.11 — stale is derived, never stored; no
@@ -1535,7 +1535,7 @@ bundle merged in.
 
 **`platform-elixir` is not a layer; its content lives in
 `bundles/default/`** (§6 carries the decision and its rationale;
-`dsl-syntax.md` §11 the mechanism). Its only content,
+`bundle.md` #7 the mechanism). Its only content,
 `schemas/review.xsd` — a platform-wide review grammar belonging to no
 language — lives in the chain bundle's own `schemas/`. It was
 `extends:`'s last user, and the DSL has no `extends:` field in
@@ -1550,7 +1550,7 @@ yet: React, the only other platform on the roadmap, doesn't land until
 Phase 7 with `platform-client-ts` (§5.6, `docs/build-plan.md`'s Phase
 7 entry) — a selector built against one platform is a constant, not a
 selector. Candidates for the first, named without being chosen: a
-mint-time field on the node, a fragment, or a `dsl-syntax.md` §12
+mint-time field on the node, a fragment, or a `bundle.md` #8
 context source. The second follows from the first rather than sitting
 beside it — whether the split is a tier axis or a prompt-content axis
 is exactly what the selector's shape decides. The third asks the same
@@ -1640,7 +1640,7 @@ declares**:
   store subcomparchs, skeletons, and other tiers where templating
   beats designing; cheaper, byte-reproducible, nothing to review).
 - **Bundle content: fork, tailor, merge upstream — no bundle layer,
-  on either axis** (`dsl-syntax.md` §11). A project's chain and
+  on either axis** (`bundle.md` #7). A project's chain and
   workflow bundles are both templates it forks from and tailors,
   pulling later platform revisions in by ordinary git merge; a loader
   composes nothing underneath either at load time, and `extends:` is
@@ -1697,13 +1697,40 @@ declares**:
   and which gates each entry skips; the plan-tier → child-spawn-list
   join point; mutex-label derivation from scopes; the branch/PR
   topology (child PR → feature branch, feature PR → main); gate → CI
-  label mappings. Shape settled in §7.10: tier-side `delivery:`
-  annotations and flow ticket faces extend the existing syntax
-  (membership declared at the member, protocol defining only the
-  slots); spawn is a plane rule, keyed to the plan naming its own
-  children rather than to a status transition (§7.10's own amendment);
-  only `states.yaml` / `types.yaml` / `escalation.yaml` remain
-  standalone — the files with no design-graph counterpart.
+  label mappings. Shape settled in §7.10: the join is a workflow
+  declaration, a generation position naming the tiers that run at it
+  and a ticket type naming the flows it serves, with flow ticket faces
+  carrying labels only; spawn is a plane rule, keyed to the plan
+  naming its own children rather than to a status transition (§7.10's
+  own amendment).
+- **One declaration file per axis.** `bundles/<name>/chain.yaml`
+  carries every tier, edge, flow and predicate, and
+  `bundles/<name>/workflow.yaml` every type, gate and environment
+  (`bundle.md` #3, #4). The per-tier and per-type file trees go, with
+  the manifest and the standalone `states` / `types` / `escalation`
+  files folded in; what stays outside a declaration file is content
+  the declaration names — schemas, prompts and a flow's own prompts.
+  The reason is the acceptance test (`bundle.md` #14): a bundle a
+  project is expected to tailor has to be readable in one sitting, and
+  a tree of 51 tier files with the tier's name repeated in three paths
+  is not.
+- **The cross-axis reference runs from the workflow** (§7.10,
+  `bundle.md` #11). A generation position lists its tiers and a ticket
+  type names the chain flows it serves; the chain names no position,
+  gate or type, so a chain bundle is valid on its own. Position names
+  are the bundle pair's rather than the protocol's, which is what lets
+  a fork put a gate between two tiers that shipped batched together
+  (§7.19).
+- **A review and a reconcile are blocks on the tier they belong to**,
+  not tiers of their own (§7.19, `chain.md` #14, #15), and a tier's
+  context is derived from the edges it and its parent declare, with
+  `context:` adding to the derivation rather than replacing it
+  (`chain.md` #20, #21).
+- **A fact about one document lives in that document's schema**
+  (`bundle.md` #10): node identity, which elements are fields, and
+  plain cardinality are XSD annotations and occurrence bounds, since
+  the commit path already validates every draft against its schema and
+  the DSL's parallel rows were never the thing enforced.
 
 **Bundle evolution over a populated graph is a cutover, not an
 edit** (docs review pass). Additive changes — new tiers, new edges —
@@ -2007,7 +2034,7 @@ beside it.
   against the feature's argument, merges to main. The composition
   check orchestration's pre-merge placement "genuinely lost" comes
   back at the feature level. **"Reconcile" here names the `reconcile`
-  system status** (`dsl-syntax.md` §15.1, §15.11; §7.19 below) — the
+  system status** (`workflow.md` #10, #13; §7.19 below) — the
   read is a distinct, required step from the mechanical merge that
   follows it, not a description of `merge` doing both.
 - **Deploys are per-feature.** Features merge dark behind their flag
@@ -2039,7 +2066,7 @@ state.
   Shipped/Done`, `Blocked` anywhere. Two author gates, per
   orchestration's touchpoint budget; entry tier (§7.3) determines which
   early states are skipped. **No `Building` state between architecture
-  review and `Implementation`** (`dsl-syntax.md` §15.1, §15.11): the
+  review and `Implementation`** (`workflow.md` #10): the
   feature's own implementation is real dispatched work,
   `Implementation`, immediately after architecture review passes — not
   a wait. What a `Building` state would mark, children still in
@@ -2053,22 +2080,20 @@ state.
   `Ready for rework / Reworking`, design states gone: children are
   born past design (their design is the parent's approved docs),
   entering at `Ready for dev` by construction — which is how
-  every-ticket-gets-a-design-pass is satisfied at the parent. **This is
-  the generic shape — one undifferentiated generation-shaped visit —
-  and it is a second declared type, never the feature type
-  depth-filtered** (`dsl-syntax.md` §15.11): `design`/`Product design`
-  is feature-only vocabulary with no depth-based way to no-op below the
-  root, so a component or subcomponent instance cannot legally be
-  running `types/feature.yaml`'s own array. **A child spawned by
-  architecture's own recursive fan-out (comparch/subcomparch,
-  `dsl-syntax.md` §15.11) runs a third, richer type instead of this
-  one** — `In progress` split into its own `Architecting`/
-  `Implementation` pair, each with its own review, the identical split
-  the feature lifecycle above takes — because that child's own
-  artifact needs the same reading before it merges that the feature's
-  does. An ordinary child entering directly at implementation, with no
-  architecture review of its own to run (§7.3's entry-tier taxonomy),
-  still runs this simpler bullet's own shape unchanged.
+  every-ticket-gets-a-design-pass is satisfied at the parent. **This is the generic shape — one undifferentiated
+  generation-shaped visit — and a child reaches it by running the
+  declared sequence filtered to its depth** (`workflow.md` #28). A
+  child spawned by architecture's own recursive fan-out
+  (comparch/subcomparch) occupies the architecture and implementation
+  positions of that same sequence, its `In progress` splitting into
+  `Architecting`/`Implementation` with each position's own review,
+  because that child's own artifact needs the same reading before it
+  merges that the feature's does. It stands at no product position,
+  and not because a filter removes one: the fan-outs at the product
+  tiers mint pools nobody generates from, so no ticket is opened below
+  them at all (`chain.md` #42). An ordinary child entering directly at
+  implementation, with no architecture of its own to run (§7.3's
+  entry-tier taxonomy), runs the same sequence from further in.
 - **`Stubbed`** — machinery-filed swap tickets only (§2.16):
   committed work deliberately waiting on an external timeline. Passes
   the admission test with a distinct who-has-the-ball answer — the
@@ -2122,7 +2147,7 @@ both true only because orchestration has no tracker of its own to
 hold either directly; Catapult's ticket state is its own event log
 (§7.1, §7.17), so a container carries its own progress and the record
 of its own history without proxying through a ticket. The grammar
-this section is built from is `dsl-syntax.md` §15.1-§15.9.
+this section is built from is `workflow.md` #4, #10-§15.9.
 
 **A work-item type names its own gates; a gate names no types.** A
 type's effective status sequence is its own declared array, not
@@ -2150,33 +2175,31 @@ generation, and they are otherwise interchangeable** — a milestone
 with a `main` queue, then a human sign-off gate, then a staging
 deployment, then `retro` is an ordinary sentence. One declaration
 shape holds all three cases — `ticket`, `container` and the
-skeleton-less project — distinguished by the `skeleton:` field rather
-than by which file a declaration lives in (`dsl-syntax.md`
-§15.1-§15.2).
+skeleton-less project — distinguished by the `skeleton:` field, and
+all of them entries of the one `types:` block (`workflow.md` #4).
 
 **`skeleton:` is optional, and rootness is derived rather than
 declared.** `ticket` and `container` are the only two values, and a
-type declaring neither has no anchors at all (`dsl-syntax.md` §15.1);
+type declaring neither has no anchors at all (`workflow.md` #4, #30);
 a `skeleton: none` value would be spent on exactly the fact its own
 absence already states. Nothing polices rootness with a load check
 either — it falls out of the declaration graph (below). **Gates and
 environments are declarable on every type, skeleton-less ones
-included**: "all review happens at lower levels" (`dsl-syntax.md`
-§15.1) is the argument for why a project needs no *re-resolution
+included**: "all review happens at lower levels" (`workflow.md` #5, #30) is the argument for why a project needs no *re-resolution
 anchor*, not a claim about what its array may contain, and a human
 sign-off between two of a project's own queues is the milestone
 example's own logic one level up. **Critique is the one carve-out**,
 because its depth selects which tiers a generation fanned into, and
 only a `generation` anchor — which neither a `container`- nor a
 skeleton-less type has — gives it something to select within
-(`dsl-syntax.md` §15.5).
+(`workflow.md` #26).
 
 **There is no `after:` on a gate: array position says everything a
 predecessor field would, and more precisely.** A predecessor field on
 a gate requires one linear order for the whole bundle; with order
 living on each citing type's own array instead, two types may run the
 same two gates in different relative order, which a single bundle-wide
-order cannot express without contradiction (`dsl-syntax.md` §15.3).
+order cannot express without contradiction (`workflow.md` #5).
 This reaches gates and environments generally, not merely containers,
 and the grammar section is where the full argument lives.
 
@@ -2186,8 +2209,7 @@ generally, because git has a merge story hex does not, and a workflow
 bundle (§7.18) is exactly this shape: `bundles/`'s platform workflow
 content is a template a project forks from and pulls later revisions
 into by git merge, never a base layer the loader composes underneath a
-leaf bundle. The chain axis takes the same shape (§6): `dsl-syntax.md`
-§11 carries the full argument for both axes and the load-time
+leaf bundle. The chain axis takes the same shape (§6): `bundle.md` #7 carries the full argument for both axes and the load-time
 consequence — a bundle declaring `extends:` at all is a load error.
 
 **A project is not a container, even though the two share one
@@ -2202,7 +2224,7 @@ container's `skeleton:` is one kind, arbitrarily nestable, and every
 instance carries the identical required anchor sequence** — `setup` →
 `prep` → `main` → `retro` → `cleanup`, platform-fixed, declarable by
 neither axis, for the identical re-resolution reason ticket skeletons
-aren't (`dsl-syntax.md` §15.1): the anchor a container parked
+aren't (`workflow.md` #10, #16): the anchor a container parked
 mid-sequence falls back to when a workflow cutover changes what a
 queue dispatches underneath it. This is a required backbone, never an
 exclusive membership: a container's array may additionally hold a
@@ -2211,7 +2233,7 @@ environments around that backbone. What varies per declared container
 is its **name** and what each of its population-anchor entries'
 `flow:` *points at* — a registered ticket-skeleton type (a **work
 flow**) or another declared container's name (a **container flow**),
-the same registry either way (`dsl-syntax.md` §15.2) — never the
+the same registry either way (`workflow.md` #9) — never the
 anchor names or their required relative order. Nothing requires a
 container's queues to bottom out in tickets at all: with more than one
 work type, "is this a ticket" stops being definable, and a queue
@@ -2228,7 +2250,7 @@ a runtime check over container *instances*.** It is a static check of
 the declaration graph itself — **nodes are every type with a
 queue-shaped anchor, edges are `flow:` references between them** —
 which must be acyclic, with a type naming itself the degenerate
-one-node case of the same rule (`dsl-syntax.md` §13). A `flow:` edge
+one-node case of the same rule (`workflow.md` #9, `systems/core_dsl.md` #15). A `flow:` edge
 whose target resolves to a `ticket`-skeleton type takes no part in
 this graph — a `ticket`-skeleton type declares no further `flow:` of
 its own, so it is always a leaf. Skeleton-less types are nodes
@@ -2284,7 +2306,7 @@ a boundary ticket solves only narrowly: work in a blocking queue
 cannot be quietly closed over. A `blocks:` entry may only name an
 entry declared in the same type's own `statuses:` array — a
 container's other four anchor entries, or another entry in the
-project's own array (`dsl-syntax.md` §15.7) — reaching into a nested
+project's own array (`workflow.md` #8, #18) — reaching into a nested
 container's own queues would make its internals part of its interface
 to whatever blocks it, exactly backwards from composability. To block
 on something nested, block on the queue entry whose `flow:` opens it.
@@ -2296,8 +2318,7 @@ the engine store (`systems/engine.md`) — every table carries it,
 active-bundle-version projection keys current bundle versions per
 project per axis (`systems/engine.md`'s ninth projection). The project
 isn't a new concept acquiring a workflow; it's the existing outermost
-scope having one, declared with no `skeleton:` at all (`dsl-syntax.md`
-§15.1) rather than borrowing the container's fixed anchors. Its
+scope having one, declared with no `skeleton:` at all (`workflow.md` #4, #30) rather than borrowing the container's fixed anchors. Its
 queues, in order:
 `initialization` → `scaffolding` → `build-out` → `iteration` →
 `maintenance` → `deprecating` → `sunsetting` — the default bundle's
@@ -2316,12 +2337,12 @@ to mean anything against. **The root has statuses because it is a
 project like any other** (§6), with its own declared queue list, and
 closing it means that list's last entry (`sunsetting`, in the default
 bundle's own ordering) resolving with nothing open behind it
-(`dsl-syntax.md` §15.6) — not because the root is a container reaching
+(`workflow.md` #30) — not because the root is a container reaching
 a fixed terminal kind, which is a mechanism only `container`-skeleton
 declarations have.
 
 **Milestone queues, and why there is no debt milestone.** `milestone`
-is a declared **`container`-skeleton type** (`dsl-syntax.md` §15.1) —
+is a declared **`container`-skeleton type** (`workflow.md` #4) —
 one instance of the one container skeleton, not a platform-registered
 second kind — whose five fixed anchor entries point, in order, at:
 `setup` → `prep` → `main` → `retro` → `cleanup`. `setup` constitutes
@@ -2341,14 +2362,14 @@ test is invoked reads it this way.
 
 **Two agents, dispatched as ordinary work items, and what stays
 human.** There is no chain-level `boundary` agent step
-(`dsl-syntax.md` §15.1); its work is `retro`, dispatched from
+(`workflow.md` #10); its work is `retro`, dispatched from
 `milestone`'s own array — a single static boundary pass never names
 anything a tier's `delivery:` actually uses, and it is exactly what
 the queue model replaces. A `setup` flow joins it, dispatched as
 `milestone`'s own `setup` entry once a milestone instance becomes the
 *active* one at whichever of the project's own queues a workflow
 bundle assigns it to (`build-out`, `iteration`, ...) — **not once it
-is minted** (`dsl-syntax.md` §15.8). Minting a milestone instance and
+is minted** (`workflow.md` #19). Minting a milestone instance and
 activating it are different events: the instance can exist, and accept
 groomed work into its own future queues, well before the project's own
 queue reaches it — "we set blockers for and groom the tickets of the
@@ -2369,21 +2390,19 @@ aggregated flag set (below); `setup` — forward — grooms, sets
 blockers, and fills `prep`. **Both are ordinary agent-balled entries
 directly in `milestone`'s own array**: `retro` inside the sub-array it
 shares with the sign-off gates around it, `setup` needing no sub-array
-of its own (`dsl-syntax.md` §15.2, §15.10). Neither carries `flow:`,
+of its own (`workflow.md` #6, #19). Neither carries `flow:`,
 and neither is dispatched as a separately minted child; each runs once
 per pass through its own position in `milestone`'s array, the
 identical guarantee "runs once, at activation" gives `main` or `prep`
 (§15.8) — a guarantee that needs no declared bound, because there is
 exactly one `milestone` instance and exactly one array position for
-each to occupy. This is also why there is no `singleton: true` on a
-queue (`dsl-syntax.md` §15.7): it would bound a *queue*'s lifetime
-cardinality, a mechanism `setup` and `retro` would need only as a
+each to occupy. This is also why a queue carries no cardinality field: one would bound
+a *queue*'s lifetime cardinality, a mechanism `setup` and `retro` would need only as a
 `flow:` naming a separately minted, ticket-skeleton child; an inline
 entry is not a queue, so there is no cardinality to bound. Both are
-still **ordinary work items**: what's absent is the *pause-proxy* — a
-ticket standing in for container state a borrowed tracker had nowhere
-else to hold (`dsl-syntax.md` §14's corresponding entry draws this
-distinction explicitly). What's present is dispatched work, with the
+still **ordinary work items**: what's absent is the *pause-proxy* — a ticket standing in for container state a
+borrowed tracker had nowhere else to hold, which this design has no
+need of and does not provide. What's present is dispatched work, with the
 same chain-bundle machinery any other agent-balled entry uses (§7.10's
 "opening a ticket IS opening a flow instance" generalizes to "reaching
 an agent-balled entry IS dispatching a flow instance") — `milestone`'s
@@ -2402,7 +2421,7 @@ identical footing as a ticket instance.** The question needs no
 container-specific answer: dispatching from a work item with a queue
 and dispatching from one without are the same operation, attached to
 different status flows — the container/ticket split is semantic,
-never functional (`dsl-syntax.md` §15.2) — and the queue was never
+never functional (`workflow.md` #4) — and the queue was never
 what made a work item a dispatch target. Concretely, this reaches the
 executor (it runs against the container instance's own branch and PR,
 not a child ticket's), the mutex mapping (a container instance's own
@@ -2413,12 +2432,11 @@ also gives `main` blocking `retro` (§15.7) its meaning when `retro` is
 tickets: `retro` cannot be *entered* while `main`'s own queue still
 carries unresolved work — the entry-guard reading `blocks:` takes
 generally (below), applied to a guarded entry that is not itself a
-queue. `dsl-syntax.md` and `systems/delivery.md` carry the grammar and
+queue. `workflow.md` and `systems/delivery.md` carry the grammar and
 the dispatcher's mechanism.
 
 **Five rules govern how the platform-fixed vocabulary and the
-dispatcher read a container's array** (`dsl-syntax.md` §13, §15.1,
-§15.5, §15.7, §15.8, §15.10); none widens what a bundle may declare.
+dispatcher read a container's array** (`workflow.md` #6, #16, #17, #18, #19); none widens what a bundle may declare.
 
 **First, `blocks:` is an entry guard, checked once at the transition
 it guards, never a standing hold a projection recomputes.** `main
@@ -2457,26 +2475,31 @@ coverage. The dispatcher, not the loader, enforces it
 (`systems/delivery.md`), the identical split every other
 undeclarable-but-checked fact in this section takes.
 
-**Third, `generation`'s closed vocabulary carries two further named
-kinds: `design` and `architecture`.** One `generation` kind cannot
-carry what a workflow with more than one generation-shaped visit needs
-to say — the feature lifecycle (§7.6) describes two, *Product design*
-then *Architecting*, which plain `generation` alone would tell apart
-only by array position and by which review follows each, never by the
-entry itself. `design` and `architecture` say it directly,
-platform-fixed in the same table `generation` sits in, not
-bundle-authored: that is what keeps a blocked ticket's re-resolution
-anchor set intact, since the set it re-resolves against can only be
-what it is *because* it is not declarable, and a bundle-invented
-generation-phase label would be exactly the undeclarable set acquiring
-a declarable member. Plain `generation` stays correct for a single
-visit — `setup`, `retro` and the seed pass all use it. Which of a
-bundle's own generation-shaped chain tiers (`sysarch`, `impl`, `ref`,
-and the rest of `bundles/default/tiers/**`) picks `generation`,
-`design` or `architecture` is bundle content, not platform vocabulary.
+**Third, a generation entry carries a `name:`, and the names are the
+bundle pair's.** One `generation` kind cannot carry what a workflow
+with more than one generation-shaped visit needs to say — the feature
+lifecycle (§7.6) describes two, *Product design* then *Architecting*,
+which the kind alone would tell apart only by array position and by
+which review follows each, never by the entry itself. `name:` says it
+directly, and the names are authored rather than platform-fixed
+because no plane logic branches on one: the engine branches on the
+shape (§7.19), and a name is what the board shows and what a position
+is cited by.
+
+A blocked ticket's re-resolution anchor set survives this. It
+re-resolves against the entries the type declares, resolved by name
+within that type (`workflow.md` #8), and a workflow cutover
+re-resolves it rather than replaying a stored landing point — so the
+set does not have to be undeclarable to be stable, it has to be
+resolvable, which naming makes it. A single-visit type needs no name
+at all: `setup`, `retro` and the scaffold pass leave the kind bare.
+Which tiers run at which named position is the workflow's to list
+(§7.10), and the names the default pair chooses — `plan`, `features`,
+`experience`, `requirements`, `architecture`, `implementation` — are
+bundle content, not platform vocabulary.
 
 **Fourth, a sub-array is referenced by an entry it contains, never by
-a name of its own.** Sub-arrays are anonymous (`dsl-syntax.md` §15.10
+a name of its own.** Sub-arrays are anonymous (`workflow.md` #6
 — no `name:`, no `id:`), and `blocks:` (and any future reference into
 one) resolves by finding the one entry the reference names and
 reaching whatever contains it: `main blocks: [retro]` reaches the
@@ -2485,7 +2508,7 @@ top-level `retro`. Uniqueness is a property of the reference, not the
 declaration — a reference resolving to zero or to two or more matches
 is the load error; duplicate entries the reference itself never
 reaches are unaffected. This is what makes the worked example this
-section describes and `dsl-syntax.md` §15.2/§15.10 carry — `main`'s
+section describes and `workflow.md` #8/§15.10 carry — `main`'s
 `blocks: [retro]` naming a `retro` that carries no `flow:` of its own
 — load cleanly: a `blocks:` target need not be a population anchor.
 
@@ -2508,7 +2531,7 @@ stated as *what* moves the position rather than *who*, because a
 gate — one mechanism, not two, for regeneration feedback. This is also
 the reason the `terminal` guard above is reachable at all: the shipped
 `milestone`'s only throwback to `main` is `milestone-signoff`, placed
-*before* `retro` (`dsl-syntax.md` §15.10), so without the manual
+*before* `retro` (`workflow.md` #34), so without the manual
 return `retro` filing work into `main` would leave `cleanup`/`terminal`
 blocked with no declared path back.
 
@@ -2525,8 +2548,8 @@ milestone lights up together.
 container's old work items is a user action, and optionally a status
 for operators who want a button rather than immediate archival — it
 exists in orchestration because of a borrowed tracker's ticket cap,
-which is not a protocol concern here and is never load-checked to
-precede anything (`dsl-syntax.md` §14's corresponding entry). What
+which is not a protocol concern here and is
+never load-checked to precede anything. What
 protocol *does* guarantee: **containers and projects alike keep
 references to their work items even once archived**, so either is
 always a path to its own history. That is what makes a retro note
@@ -2547,10 +2570,10 @@ that declares `epic` without ever nesting it under something else has
 *two* roots the moment it does, since `epic` was already one before
 `milestone` joined it as another. Roots are not projects, and "the
 project is a project by convention" names nothing the loader can
-check. **`entry:`, a required key on a workflow bundle's own
-`bundle.yaml`, names the type a fresh project actually dispatches
-from** (`dsl-syntax.md` §2): a reference, the identical shape
-`catapult.yaml` has pinning one bundle per axis, not a second copy of
+check. **`entry:`, a required key on a workflow declaration, names the type a
+fresh project actually dispatches from** (`workflow.md` #2): a
+reference, the identical shape `catapult.yaml` has pinning one bundle
+per axis, not a second copy of
 a fact the graph produces on its own. The loader checks it in full —
 the name resolves, the resolved type carries a population anchor of
 its own, and it is a root in the declaration graph — so a bundle that
@@ -2668,31 +2691,39 @@ classifies impact: a tenancy flip routes through §3.4's upgrade flow;
 a threshold tweak is maintenance-grade). Review stays in the PR; the
 composer never bypasses a gate.
 
-**The join to the design graph extends the existing syntax rather
-than paralleling it.** Forced, not aesthetic: projects can add tiers
-by authoring their own bundle content but cannot edit the protocol, so
-membership must be declared at the member, with the protocol defining
-only the slots:
+**The join to the design graph is a workflow declaration, not a chain
+annotation.** Forced, not aesthetic: position names are the bundle
+pair's rather than the protocol's (§7.19), so there is no fixed
+vocabulary for a chain to annotate itself against, and the workflow is
+the file a project forks when it wants its review posture changed.
+Binding a file that is already project-specific costs nothing, because
+nobody ports a fork; binding the file a project takes from upstream
+unchanged is what charges rent.
 
-- **Tiers gain a `delivery:` block** — `phase:` (status shown while
-  the tier generates) and the agent step that generates it. This
-  block names *only* platform-fixed vocabulary (§7.18): a chain
-  cannot name a gate, because gates are workflow-bundle declarations
-  and the two axes must compose without a shared vocabulary. A
-  gate's review set is derived, keyed on position — a gate reviews
-  whatever the chain produced at the fixed step it follows.
-  Bundle-load validates
-  annotations against the protocol vocabulary: an unknown phase or
-  agent step is a load error; one loader spans both worlds.
+- **A generation position names the tiers that run at it**, with
+  `tiers:`, and a ticket type names the chain flows it serves, with
+  `serves:` (`workflow.md` #22, #40). A tier, an edge and a flow name
+  no position, gate or type, so a chain bundle is valid on its own and
+  any workflow listing the tiers it needs runs it. Bundle-load checks
+  the pair: a position naming a tier the chain does not declare, and a
+  tier of a served flow that no position lists, are each a load error;
+  one loader spans both worlds.
+- **A gate names no tier even so.** A gate's review set stays derived
+  and keyed on position — a gate reviews whatever the chain produced
+  at the position it follows, at the depths it applies. Who signs off
+  and when is organisation policy, which §7.16 keeps out of the
+  document graph, so gates are workflow declarations and nothing on
+  one reaches into the chain.
 - **Flows gain a ticket face.** Entry types (§7.3) and v4's flow
   catalog are one list — opening a ticket IS opening a flow instance.
-  A flow's `flow.yaml` adds `ticket: { entry: <tier>, labels: [...] }`
-  alongside its schema delta and walk primitive; its planning tiers
-  carry `delivery:` annotations like any tier. Flow completion maps
-  onto phase transitions ("phase complete" = no ready or in-flight
-  scopes with this phase within this flow instance). Scaffolding
-  keeps its v4 status as "a flow with an empty delta" — the base
-  schema wearing a ticket face.
+  A flow's declaration adds `ticket: { labels: [...] }` alongside its
+  entry tier, schema delta and walk primitive, and names no ticket
+  type: which type serves a flow is derived from whether its schema
+  delta is empty (`chain.md` #38). Flow completion maps onto position
+  transitions ("position complete" = no ready or in-flight scopes at
+  that position within this flow instance). Scaffolding keeps its v4
+  status as "a flow with an empty delta" — the base schema wearing a
+  ticket face — and that is now the fact the derivation reads.
 - **Spawn is a plane rule, not a declaration.** Spawning is
   partitioned by the fanout structure of the impacted scope set
   (plan/staleness data), one child per impacted component, nesting to
@@ -2736,10 +2767,12 @@ only the slots:
   under gate phases, not Building. The grain rule is a platform
   constant.
 
-**What remains standalone** is exactly the files with no design-graph
-counterpart:
+**What remains outside a declaration file** is exactly the content
+with no design-graph counterpart. Each is a block of `workflow.yaml`
+rather than a file of its own (`bundle.md` #4), and the names below
+are what those blocks carry:
 
-- `states.yaml` — the status vocabulary with owners and the **writer
+- the **status vocabulary** with owners and the **writer
   matrix** (`moved_by: author | machine | ci | deploy | nobody` per
   transition — one field, and it makes the state-admission test
   executable by the sim ring), plus which states are gates, plus
@@ -2770,28 +2803,29 @@ counterpart:
   not green** — finished work is out of mind, and green is spent on
   work in flight. Nothing reads colors back; they exist so the
   author sees the queue without reading it. **There is no `Building`
-  status and no green row for one** (`dsl-syntax.md` §15.1): a
-  feature runs its own `Implementation` (violet, above — real
-  dispatched work), then sits at `Checks` while its own children
+  status and no green row for one** (`workflow.md` #10): a ticket stands
+  at its implementation position (violet, above), generating there
+  when it has a tier at its own depth and holding its children's
+  branch when it does not, then sits at `Checks` while those children
   build, and `Checks` already carries the yellow row above — no
   separate wait-status, no separate color for it.
-- `types.yaml` — ticket types, per-type lifecycles, PR topology
-  (feature: base main, squash; child: base parent branch, merge).
-- `escalation.yaml` — thresholds routing to `Blocked`, with `tunable`
+- the **ticket types** with their position sequences and PR topology
+  (a top-level ticket: base main, squash; a child: base parent
+  branch, merge).
+- **escalation thresholds** routing to `Blocked`, with `tunable`
   markers as the only project-override surface.
 
-CI suite selection is *derived*, not declared: gate phases are
-docs-phases → `ci:docs`; a ticket's own `implementation` phase
-(`dsl-syntax.md` §15.1 — real dispatched work, not bare `checks`) →
-`ci:code`. A `ci.yaml` exists only if a real exception ever forces
+CI suite selection is *derived*, not declared: gate positions are
+docs-positions → `ci:docs`; a ticket's own implementation position
+(real dispatched work, not bare `checks`) → `ci:code`. A `ci.yaml` exists only if a real exception ever forces
 it.
 
 **Agents are three layers, changing at three rates.** The writer
 matrix carries *roles* only — authority, invariant across
 implementations. The protocol names *agent kinds* (design, dev,
 reconcile, validation, and — dispatched through a milestone's
-declared queues rather than a tier's `delivery:` block, §7.8 — retro
-and setup) as vocabulary. Tier declarations may carry an *executor
+declared queues rather than through a ticket type's positions, §7.8 —
+retro and setup) as vocabulary. Tier declarations may carry an *executor
 profile* (model, effort, harness requirements —
 v4's per-tier `thinking_effort` is the precedent). The project
 bindings file maps kind → runtime (orchestration's `agents:` config,
@@ -3237,7 +3271,7 @@ never at a status transition (§7.10).
 **For the architecture tree specifically, scope and ticket are the
 same grain.** A `critique` decline needs to land
 on the one tier that produced what it declined, never on a sibling or
-a parent (`dsl-syntax.md` §15.5, §15.11) — which a ticket sitting in
+a parent (`workflow.md` #26, `chain.md` #14) — which a ticket sitting in
 one status covering several fanned-out scopes at once cannot give it,
 since a ticket has one status at a time (§7.19). So sysarch, each
 comparch and each subcomparch dispatches through its own ticket
@@ -3414,7 +3448,7 @@ regenerates underneath, the ticket is already downstream and the
 judgment it carries is stale while nothing says so. §7.11's
 staleness-is-derived machinery is the home — a passed gate goes stale
 when what it approved does, and reopens — and that needs the gate to
-have a derivable referent. `dsl-syntax.md` §15.10's sub-array
+have a derivable referent. `workflow.md` #6's sub-array
 grouping gives it one: a gate's citing sub-array holds exactly one
 non-review-shaped agent-balled entry, by its own load-time check, so
 what the gate approves is that entry's own committed content, read at
@@ -3433,15 +3467,15 @@ declared workflow gates.
 
 The object pinned is the declared *workflow* gate this section
 defines above ("Approval is a status, and review states are
-declared"), never a chain-axis review tier. `reviews: <tier>` is 1:1
-with the tier it reviews, its staleness already falls out of §7.11,
-and it declares no committed artifact, so there is nothing for the
-derivation to anchor on — a review tier needs no staleness treatment
-at all (`systems/engine.md`). §7.19 draws exactly this line: a
-throwback reopening "the two approvals before it" names workflow
-gates, and separately exempts a review *tier* by name — "It therefore
-has no throwback semantics: there is no passed gate downstream of it
-to reopen".
+declared"), never the chain's own auto-review. A `review:` block is a
+property of the tier it reviews, its staleness already falls out of
+§7.11, and it commits no artifact, so there is nothing for the
+derivation to anchor on — a review needs no staleness treatment at all
+(`systems/engine.md`). §7.19 draws exactly this line: a throwback
+reopening "the two approvals before it" names workflow gates, and
+separately exempts the chain's own review — "It therefore has no
+throwback semantics: there is no passed gate downstream of it to
+reopen".
 
 ### 7.17 The tracker is ours; the host is an adapter
 
@@ -3560,15 +3594,15 @@ one requires, is the organization's shape, not the automation's.
 **There is no second bundle system, and adding one would contradict
 §9.** The instinct to give delivery configuration its own bundle
 mechanism parallel to the prompt bundles is the thing §9 already
-refused: one DSL, core plus extensions. The existing split does the
-whole job, and the two halves are already named in `dsl-syntax.md`:
+refused: one DSL, core plus extensions. The existing split does the whole job, and the two halves are already
+named in `bundle.md`:
 
-- **Vocabulary is an extension** (`dsl-syntax.md` §12) —
+- **Vocabulary is an extension** (`bundle.md` #8) —
   platform-shipped modules registering annotation namespaces,
   declaration kinds, and enforcement profiles. A gate kind and an
   environment kind are new declaration kinds registered exactly this
-  way. Extensions compose the *language*.
-- **Instances are content** (`dsl-syntax.md` §11) — a project's
+  way (`bundle.md` #8). Extensions compose the *language*.
+- **Instances are content** (`bundle.md` #7) — a project's
   actual gates and environments are versioned in the repo, changed by
   PR, the same as a chain bundle's tiers and prompts — **never
   composed from a platform base at load time.** Neither axis carries
@@ -3603,51 +3637,52 @@ split exists to prevent.
 
 **One language, two documents.** This is not a second bundle system
 (§9 again): same loader, same validation pass. Neither axis carries an
-`extends:` field (§6, `dsl-syntax.md` §11) — both are forked,
+`extends:` field (§6, `bundle.md` #5, #7) — both are forked,
 tailored, and merged upstream, never composed by the loader.
 `catapult.yaml` names one of each instead of one bundle, and a bundle
 manifest declares its `kind`. The declaration kinds a workflow bundle
-contains are registered exactly like any other (`dsl-syntax.md` §12).
+contains are registered exactly like any other (`bundle.md` #8).
 
-**The invariant that makes the split real: neither axis references
-the other. Both reference only the platform's fixed vocabulary —
-statuses, queues, and agent steps.** A chain says which agent step
-generates a tier and which status shows while it does. A workflow
-says how its own steps relate to those same fixed positions: this
-gate sits after that agent step, this environment is promoted into at
-that status. Neither names anything the other declares.
+**The invariant that makes the split real: the reference runs one
+way, from the workflow to the chain.** A generation position names
+the tiers that run at it and a ticket type names the chain flows it
+serves; a tier, an edge and a flow name no position, gate or type
+(§7.10, `bundle.md` #11). A chain bundle is therefore valid on its
+own, and the pairing is a load-time check rather than a convention.
 
-The consequence is the strong form of the split: **any workflow
-bundle composes with any chain bundle**, with no shared gate or
-environment vocabulary and no compatibility contract between them.
-Tiers naming their gate would make the workflow's gate names a
-published interface and the pairing a thing to check — a coupling
-that buys nothing, since a gate does not need to know which tier it
-is reviewing to review it.
+The direction is chosen, not incidental. The workflow is the file a
+project forks when it wants its review posture changed, and binding a
+file that is already project-specific costs nothing, since nobody
+ports a fork; the chain is what a project takes from upstream
+unchanged, and binding that is what charges rent. Running the
+reference the other way, a tier naming its own position, is the shape
+to argue for and it fails on the case free position names exist for:
+splitting a position to put a gate inside it renames that position,
+which edits every tier that named it.
 
-**The review set is derived from position, not from naming.** A gate
-placed after a fixed step reviews whatever the chain produced at that
-step — one tier or six, and the gate is unchanged either way (§7.10).
-This is what lets a decomposition grow a tier without any workflow
-noticing.
+**A gate still names no tier, and the review set is derived from
+position.** A gate placed after a position reviews whatever the chain
+produced there — one tier or eight, and the gate is unchanged either
+way (§7.10). Tiers naming their gate would make the workflow's gate
+names a published interface in the other direction, and it would buy
+nothing, since a gate does not need to know which tier it is reviewing
+to review it. It would also put who signs off, and when, into the
+document graph, which §7.16 keeps out of it.
 
-**The cost, stated plainly: review granularity is bounded by the
-fixed vocabulary.** If two tiers generate at the same step, no
-workflow can gate them separately — the knob is the platform's phase
-set, not the project's. That is the intended trade and it is the same
-sentence as §7.16's rule: we fix the shape of the automation, not the
-shape of the organization. Finer granularity is a *platform* change,
-reviewed as one, which is exactly where the design wants that
-decision to sit. It also means the fixed vocabulary has to be rich
-enough to carry the gates people actually want — §7.6's lifecycle
-already separates product-tier from architecture-tier generation,
-which is what makes the two default gates expressible without any
-project-specific reference.
+**Review granularity is the project's, and that is the point.** If
+two tiers should be gated separately, the workflow splits its position
+and lists one tier at each; the knob costs an edit in one file. The
+fixed vocabulary is the set of *shapes* the engine branches on, and a
+position's name is not one of them (§7.19). Fixing the position set
+platform-side instead would price that knob in platform releases, and
+how much review an organization wants is exactly what §7.16 says we do
+not fix: we fix the shape of the automation, not the shape of the
+organization.
 
 **What looks like a leak and is not:** comparch's `enforcement:`
 block names profiles like
 `codegen: restricted`, which bind delivery gates. Those profiles are
-platform-shipped (`dsl-syntax.md` §12), so the chain is naming fixed
+platform-shipped (`bundle.md` #8), so the chain is naming installed
 vocabulary there too, not a workflow bundle's declaration. The rule
 holds; the resemblance is what makes it worth a sentence.
 
@@ -3663,7 +3698,7 @@ merge — never composed from two files by a loader at runtime (v5
 §3.1's fork-tailor-merge). Delivery shares no vocabulary with any one
 language binding, and the default gates (a UX review and an
 engineering review) and environments (`dev`, `staging`) are where a
-fresh project's workflow bundle starts from (`dsl-syntax.md` §11
+fresh project's workflow bundle starts from (`bundle.md` #7
 carries the load-time consequence: `extends:` is an unknown field on
 any bundle's manifest).
 
@@ -3675,7 +3710,7 @@ accept it.
 
 **Two recorded absences read narrowly**, on the same reading
 `docs/non-goals.md` gives §7.16 and for the same reason:
-`dsl-syntax.md` §11's "the protocol's own files never override" and
+`bundle.md` #7's "the protocol's own files never override" and
 §14's "per-project protocol restructuring, deliberately absent". What
 they protect — that no project rewires the automation graph — holds:
 a declared gate or environment adds a node the plane parks at, and
@@ -3688,11 +3723,16 @@ rule over the declared set.
 
 ### 7.19 System statuses, review sequences, and fan-out depth
 
-**The fixed vocabulary is the set of *system statuses*** — `pending`
-(one name for a wait position, shared with a container's own queue
-positions — `dsl-syntax.md` §15.1), generation, checks, merge, deploy.
-These are the platform's, they are what both bundle axes reference
-(§7.18), and they are the anchors everything else positions against.
+**The fixed vocabulary is the set of *shapes* an entry can have** —
+generation-shaped, review-shaped, and the plane and world states
+(`checks`, `merge`, `deploy`, `terminal` and the rest), with the
+container queue kinds beside them (`workflow.md` #10). These are the
+platform's, because plane logic branches on them. What an entry is
+*called* is the bundle pair's: a `name:` on a generation entry is a
+position, and the positions are the anchors everything else positions
+against. `pending` is neither — it is an engine flag every
+agent-balled position carries until an agent picks the work up, not an
+entry anyone declares (`workflow.md` #25).
 Review is positioned against any of them, not only between
 generation steps: a security review before merge and an approval
 before a staging deploy are both obviously wanted and neither sits
@@ -3738,16 +3778,15 @@ derivation, and all-reopen degrades into re-reviewing everything by
 hand every time.
 
 **"Downstream of the regeneration" is structural, not prose.**
-`dsl-syntax.md` §15.10's sub-array grouping is the mechanism: a
-throwback's default fallback is its citing sub-array's own earliest
-entry — its own leading `pending` for a generation-shaped group
-(§13's check), never straight to the agent step — so "everything
-downstream of the regeneration" *is* "everything in this sub-array,"
-derived from the same structure that already answers §7.16's open
-item above. A gate sitting first in its own sub-array, or in no
-sub-array at all, has no earlier entry there to fall back to, so this
-derivation gives it no default and it must declare `throwback:`
-explicitly (`dsl-syntax.md` §15.4, §13, §15.10). The derivation
+Sub-array grouping is the mechanism (`workflow.md` #6): a throwback's
+default fallback is its citing sub-array's own generation position,
+which the ticket enters in its waiting substate rather than
+mid-dispatch — so "everything downstream of the regeneration" *is*
+"everything in this sub-array," derived from the same structure that
+already answers §7.16's open item above. A gate sitting first in its
+own sub-array, or in no sub-array at all, has no earlier entry there
+to fall back to, so this derivation gives it no default and it must
+declare `throwback:` explicitly (`workflow.md` #34, #35). The derivation
 supplies the sub-array's own default landing point, and `throwback:`
 (below) is a single, explicit override for the gate that wants a
 different one — never a second, narrower *legality* rule (§4.5's
@@ -3805,7 +3844,7 @@ distinct from this section's rule, and nothing in the plane enforces
 one: `Catapult.Engine.Aggregate`'s `DeclineGate` clause carries no
 membership check against a gate's declared list — a decline's target
 is validated at the command edge, against this section's own test
-(`dsl-syntax.md` §15.10). A gate's decline and a Blocked-return are
+(`workflow.md` #34). A gate's decline and a Blocked-return are
 the same movement on both counts: reopen scope, from this section,
 and target legality — any earlier status in the ticket's effective
 sequence, never narrower — from the same "earlier" prefix this
@@ -3815,7 +3854,7 @@ section defines above.
 declared list of several targets would say "any of these is legal,"
 which is exactly the bound the rule above refuses. But a landing
 point is a different fact from a legal-target set: `throwback:`
-(`dsl-syntax.md` §15.4) is a single, optional status, the explicit
+(`workflow.md` #34) is a single, optional status, the explicit
 override a gate declares when its citing sub-array's own earliest
 entry — the derived default, above — is not the one-click landing
 point it wants. Blocked-return has no equivalent override; its
@@ -3908,11 +3947,10 @@ bundle paired every LLM tier's generation prompt with a review prompt
 (`review_comparch.md` and its siblings), and the whole reason the
 per-tier triad invariant is worded as "generation and review receive
 identical context plus `draft`" is that both runs read the same
-graph. `delivery:` gives a tier exactly one `phase:` and one
-`agent_step:`, so a tier that both generates and is reviewed needs
-somewhere for the second run's own schedule position to live — and
-the review sequence's *human* gates, declared on the workflow axis,
-are not it: an agent critiquing a draft is neither a human gate nor a
+graph. A tier that both generates and is reviewed needs somewhere for
+the second run's own schedule position to live — and the review
+sequence's *human* gates, declared on the workflow axis, are not it:
+an agent critiquing a draft is neither a human gate nor a
 generation.
 
 **`validating`/`validate` is not its home**, though the names invite
@@ -3923,62 +3961,61 @@ word, opposite end of the lifecycle, different subject — folding them
 together would conflate "did the shipped thing work" with "is this
 draft any good."
 
-**A review is a tier, not a nested block on the tier it reviews.**
-`critique` is an ordinary system status — the agent step a review
-tier's own `delivery:` names, exactly as `generation` is the status a
-generation tier's `delivery:` names. There is no `review:` sub-block
-anywhere and nothing materializes positionally: a review tier is
-declared, scheduled and dispatched the same way as any other tier,
-because it is one.
+**A review is a property of the tier it reviews, declared as
+`review:`.** The block names a prompt and, where it needs one, its own
+`context:`; its position is derived, the first critique-shaped
+position after the one its tier is listed at (`chain.md` #14).
+`critique` stays an ordinary system status: it is the shape the engine
+branches on, and what runs there is the review block of every tier
+listed at the preceding position.
 
-The shape this refuses is a nested `review: {prompt, grammar,
-required:}` block on the generation tier, with the platform wrapping
-every generation step as `queue → generation → ⟨critique⟩` and
-materializing the critique slot only when a tier declared one. That
-wrapper exists solely to compensate for review not being a tier — a
-generation tier declares its prompt, grammar, **context** and a
-status; the nested block declares a prompt and grammar with **no
-context of its own and no status**. Making review a tier deletes the
-asymmetry along with the machinery built to paper over it, and buys a
-second thing along the way: **the triad invariant becomes checkable.**
-"Generation and review receive identical context plus `draft`" is
-otherwise a runtime discipline living in a shared assembly path; a
-review tier declares its own `context:`, so the loader verifies it
-against the reviewed tier's walk at load time instead of trusting the
-assembly code to keep them in step forever.
+The shape this refuses is a parallel review *tier* per reviewed tier,
+and the count is the argument. The default's seventeen review tiers
+carried seven keys each, of which four were constants and one was a
+byte-identical copy of the reviewed tier's walks. The load rule
+checking that the copy was exact existed only because the copy
+existed, and `ContextAssembly` ignored the copy in any case and
+recomputed from the reviewed tier — so the declaration a review tier
+bought was never read, and the check it bought compared a duplicate
+against its own original.
+
+The triad invariant survives and gets cheaper. "Generation and review
+receive identical context plus `draft`" is the block's default rather
+than a load-time comparison between two declarations: a review with no
+`context:` of its own reads the reviewed tier's effective context, so
+there is nothing to hold in step. A review that one day needs
+different context takes a `context:` key, which is the case the tier
+form was defending.
 
 Two things are independent of this, and not the reason for it:
 per-tier review prompts (`prompts/review/comparch.md.liquid` is
 declared per tier) and chain-side ownership of the review
-declaration. Both hold with review as a tier.
+declaration. Both hold either way.
 
-**This does not leak across the axis.** A chain may declare a review
-tier that the active workflow never runs — declaring, or not
-declaring, a `critique` entry after a given generation status is how
-a workflow turns review on or off, and that is the right direction of
-decoupling. But the match is on **platform-fixed vocabulary only**:
-`critique` after `generation` is a legal workflow declaration, and
-naming a review tier — `comparch_review` — from the workflow side is
-the cross-axis leak §7.18 exists to prevent, precisely as a chain may
-never name a workflow's gate. It is symmetric with `pending`, which is
-likewise a platform-fixed position nobody's content declares by name.
+**Turning review off is the workflow's, and it does it
+positionally.** Declaring, or not declaring, a `critique` entry after
+a generation position is how a workflow runs or skips the reviews of
+the tiers listed there. It names no review: a position lists
+generating tiers, and what each of those declares as its `review:` is
+the chain's. That is symmetric with `pending`, a position nobody's
+content declares by name, and with the rule that a chain may never
+name a workflow's gate.
 
 **It is a second dispatched run, and it reads committed state.** Not
 a phase inside the generation run: a critique whose output lived only
 in an agent transcript would be invisible to the plane, so nothing
 could show it, act on it, or count it. It runs against the current
 state of the ticket's PR. The cost is honest — a tier that pairs with
-a review tier doubles its dispatches, which is a real draw on
+a review doubles its dispatches, which is a real draw on
 §7.12.1's per-instance concurrency cap.
 
 **Its output is comments, not a committed artifact — a deliberate
-break from v4, and the thing review-as-a-tier puts most at risk.**
-Every other tier has a `draft:` and commits a body; the v4 bundles
-commit `review.md` beside `body.md` and give tier declarations a
-`review_path:` next to `body_path:`. v5 does not port that, and
-making review an ordinary tier does not reopen it: a review tier
-declares prompt, grammar, context and scope **without** a `draft:` and
-without a committed artifact. Do not infer one because every sibling
+break from v4.** Every other tier has a `draft:` and commits a body;
+the v4 bundles commit `review.md` beside `body.md` and give tier
+declarations a `review_path:` next to `body_path:`. v5 does not port
+that, and the block form keeps it shut: a `review:` block names a
+prompt, a grammar and at most a `context:`, and there is no `draft:`
+in its vocabulary to commit through. Do not infer one because every sibling
 tier has one. A critique decline should be structurally identical to a
 human decline, so that regeneration feedback has **one** mechanism
 rather than two: §7.4's decline harvesting already buckets review
@@ -4000,13 +4037,13 @@ id="...">` is what becomes one anchored comment. The score lands in
 the log with the run's result event, which is where a threshold or a
 cycle count is answerable from.
 
-**Position and loop.** A review tier is dispatched immediately after
-the generation tier it reviews and before every workflow gate
-downstream of that generation status, so the default shape is one
-generation → critique → generation cycle before a human sees anything.
-It therefore has **no throwback semantics**: there is no passed gate
-downstream of it to reopen, and this section's all-reopen rule never
-engages. A review tier carries no gating flag of its own — its verdict
+**Position and loop.** A review is dispatched immediately after the
+tier it reviews and before every workflow gate downstream of that
+tier's position, so the default shape is one generation → critique →
+generation cycle before a human sees anything. It therefore has **no
+throwback semantics**: there is no passed gate downstream of it to
+reopen, and this section's all-reopen rule never engages. A review
+carries no gating flag of its own — its verdict
 is recorded and available to a downstream predicate, and nothing stops
 the chain from proceeding on a low score; gating on the score is the
 threshold-passing item below.
@@ -4018,9 +4055,9 @@ this needs, so it is a scheduler decision rather than a content one.
 
 Scheduling — where `critique` sits in the dispatch machinery and how a
 cycle terminates — belongs with the workflow axis, not with the chain.
-The chain carries only the review tiers themselves (prompt, grammar,
-context, `delivery: {phase: critique, agent_step: critique}`) and the
-platform-wide review grammar.
+The chain carries only the review blocks themselves (a prompt, a
+grammar and, where it needs one, a `context:`) and the platform-wide
+review grammar.
 
 **Depth generalizes to a pair, and `critique`'s own participation has
 a declaration form.** A bare integer is one ceiling, with no way to
@@ -4051,7 +4088,7 @@ and a named position would undo that for the one case that needs it
 least.
 
 **`critique` is an entry in a type's own array, not a file**
-(`dsl-syntax.md` §15.5): a `critique` entry, immediately following a
+(`workflow.md` #5, #26): a `critique` entry, immediately following a
 `generation` entry — or that entry's own `checks` (below) — in a
 `ticket`-skeleton type's own `statuses:` array, carrying the `depth:`
 grammar above. The fixed-vocabulary kind (`critique`, §15.1) is
@@ -4072,7 +4109,7 @@ equivalent: turning critique on is an ordinary addition, exactly the
 shape a gate or an environment already takes, and it never needs to
 un-declare anything. Consequence, stated because it is not free: a
 workflow that declares no `critique` entry next to a generation has
-been asked, plainly, whether it wants the chain's review tiers, and
+been asked, plainly, whether it wants the chain's own reviews, and
 has answered no — they stay declared on the chain and unscheduled.
 Which entries the default workflow declares is bundle content, not
 this decision (`systems/platform_content.md`).
@@ -4090,25 +4127,24 @@ one change**, because updating content ahead of the parser fails
 every bundle load, including the reference deployment's.
 
 **A second review status category, `reconcile`, joins `critique` as
-review-shaped.** `dsl-syntax.md` §15.1's fixed table records what an
-entry *does to the artifact*, as opposed to who holds the ball while
-at it. Every kind is either
-**generation-shaped** (`generation`, `design`, `architecture`) —
-originates an artifact — or **review-shaped** (`critique`,
-`reconcile`) — judges one that already exists. `reconcile` names what
-§7.5 above describes as reading a produced PR against its own
-argument before merge, and what `Catapult.Dsl.SystemStatus
-.agent_steps/0` carries as `:reconcile`; the judgment and the
-mechanical join it precedes are two kinds, never one `merge`.
-`dsl-syntax.md` §15.1, §15.11 carries the grammar; the decision
-recorded here is the split itself and why it is a table growth rather
-than a bundle-declarable addition, the identical shape §7.8 above uses
-for `design`/`architecture`: `docs/non-goals.md`'s "No per-project
-restructuring of the automation protocol" entry covers it without
-amendment, because the admission rule it states ("a state may be
-declared iff no plane logic branches on it") is about what a bundle
-may declare, and nothing here grows that — the platform-fixed table
-itself is growing, the same way it grew for `design`/`architecture`.
+review-shaped.** The fixed table records what an entry *does to the
+artifact*, as opposed to who holds the ball while at it. Every kind is
+either **generation-shaped** (`generation`) — originates an artifact —
+or **review-shaped** (`critique`, `reconcile`) — judges one that
+already exists. `reconcile` names what §7.5 above describes as reading
+a produced PR against its own argument before merge, and what
+`Catapult.Dsl.SystemStatus.agent_steps/0` carries as `:reconcile`; the
+judgment and the mechanical join it precedes are two kinds, never one
+`merge`. `workflow.md` #10 carries the grammar; the decision recorded
+here is the split itself and why `reconcile` is a growth of the fixed
+table rather than a bundle-declarable addition. `docs/non-goals.md`'s
+"No per-project restructuring of the automation protocol" entry covers
+it without amendment, and the admission rule it states — a state may
+be declared iff no plane logic branches on it — is what draws the line
+in both directions at once. Plane logic branches on `reconcile`, which
+performs the join the moment it approves, so `reconcile` is the
+platform's. No plane logic branches on what a generation position is
+*called*, so the names are the bundle pair's (§7.19).
 
 **`merge`'s own `ball` is `plane`, not `agent`.** With `reconcile`
 carrying the judgment, the join into the parent branch is mechanical
@@ -4122,7 +4158,7 @@ dispatch point, and once it is not agent-balled, "agent-balled and
 not review-shaped" already excludes it.
 
 **`reconcile` is required wherever `merge` appears, stated
-positionally.** `dsl-syntax.md` §15.11: a `merge` entry must be
+positionally.** `workflow.md` #13: a `merge` entry must be
 preceded, earlier in the same array, by a `reconcile` entry, a fact
 about that array's own contents rather than one keyed to which
 skeleton, if any, the citing type declares — so it reaches
@@ -4135,7 +4171,7 @@ does. A generation-shaped entry with no adjacent `critique` simply
 runs no auto-review — a workflow's prerogative; nothing merges, of any
 skeleton, without having been read against its own argument first.
 `reconcile` may also recur, the way a generation-shaped entry and
-`merge` already can — `dsl-syntax.md` §15.11's own worked example
+`merge` already can — `workflow.md` #13's own worked example
 carries two, one per phase closed, rather than one pinned between
 `checks` and a single `merge`.
 
@@ -4148,13 +4184,13 @@ approves what the nearer one has already read and accepted, superseded
 again by whichever `reconcile` follows it later in the array — and
 approves content already merged onto the citing instance's own branch
 (below), not merely read by the reconcile agent. This settles nothing
-about what a passed gate *pins* — `dsl-syntax.md` §15.10's own answer
+about what a passed gate *pins* — `workflow.md` #34's own answer
 to that (the sub-array's one generation-shaped entry) is unaffected
 for a gate inside a sub-array — it gives the *other* case, a gate
 positioned relative to a join rather than to a single draft, a
 structural answer. No new field: a `scope:` field restating what
 array position already determines is refused on the identical
-reasoning `throwback:`'s own narrowing uses (`dsl-syntax.md` §15.10)
+reasoning `throwback:`'s own narrowing uses (`workflow.md` #6)
 — a fact computable from position does not need a bundle author to
 restate it.
 
@@ -4164,8 +4200,7 @@ dispatching from it, has no job a real status kind needs — a real
 status kind needs a dispatch of its own to justify existing. The one
 thing it marked, the wait before a ticket's own implementation-phase
 `reconcile` can run, is a load-bearing *precondition on entering that
-`reconcile`* (below), not a status to sit in meanwhile. `dsl-syntax.md`
-§15.1, §15.11 carries the grammar; the edge type of the identical name
+`reconcile`* (below), not a status to sit in meanwhile. `workflow.md` #12, #13 carries the grammar; the edge type of the identical name
 (`Catapult.Dsl.Edge`'s `@types`, node-id minting "at fanout time") is
 a different thing — a status kind is absent, while the minting
 mechanism architecture's own generation tier uses stays.
@@ -4208,7 +4243,7 @@ identical declaration means "merge, once your parent says so."
 Implying `merge` from tree shape is not plane logic branching on
 grouping, and it is not in tension with `docs/non-goals.md`'s
 automation-protocol entry — that entry's own admission rule is about
-*states*, extended by `dsl-syntax.md` §15.10 to *groupings* of
+*states*, extended by `workflow.md` #6 to *groupings* of
 already-legal entries because a sub-array is an authored choice; the
 trigger this decision actually uses is the doc-graph tree's own
 shape, a runtime fact the plane observes the identical way spawning
@@ -4228,25 +4263,26 @@ whether that level has children at all. With no ceiling to set too
 shallow, there is nothing for a chain's deeper fan-out to silently
 drop.
 
-**A chain bundle may attach a synthesis tier to a `reconcile`
-position, and does not have to.** The `synthesis` edge type
-(`dsl-syntax.md` §4, `Catapult.Dsl.Edge`'s `@types`) already exists
-for exactly this: a generation tier with edges to child nodes and/or
-their critiques, plus the tier it synthesizes into, declaring `phase:
-reconcile`. `reconcile` the status needs no such tier to mean
+**A fan-out tier may carry a `reconcile:` block, and does not have
+to.** The block names the prompt an agent runs when its children's PRs
+are joined, and its position is derived: the first reconcile-shaped
+position after the children's (`chain.md` #15). The `synthesis` edge
+type (`chain.md` #26, `Catapult.Dsl.Edge`'s `@types`) is the
+correspondence a plan tier's cascade rides on, not the mechanism
+here. `reconcile` the status needs no such tier to mean
 something — the mechanical merge and the reconcile agent's own read
 (§7.5 above) happen regardless, so a bundle declaring none still gets
 a real, structurally present fan-in for gate-scope and staleness
 derivation; declaring one only decides whether a human reading the
 post-join gate sees an authored document or the composed diff alone.
 
-**`implementation` is in the fixed table as a third named generation
-kind.** A bare `checks` entry cannot stand in for it: `checks` is
-world-balled CI against produced work, and nothing in that shape ever
-writes the code `checks` then runs against. `implementation` names
-the generation run that actually produces it, generation-shaped on
-the identical footing `design` and `architecture` already stand on
-(`dsl-syntax.md` §15.1). It is deliberately gateless in the default
+**`implementation` is a generation position of its own, and a
+`checks` entry cannot stand in for it.** `checks` is world-balled CI
+against produced work, and nothing in that shape ever writes the code
+`checks` then runs against. `implementation` names the generation run
+that actually produces it, generation-shaped on the identical footing
+`design` and `architecture` stand on, and like them it is a name the
+bundle pair chooses rather than a kind (§7.19, `workflow.md` #10). It is deliberately gateless in the default
 bundle: the touchpoint budget (§7.10 above) calibrates a feature to
 two author gates, product and architecture, and a third keyed to
 implementation is the "restricted scopes carry a third touchpoint"
@@ -4254,42 +4290,51 @@ exception rather than the ordinary case — architecture and policy are
 what constrain intention narrowly enough that no ordinary scope needs
 a human reading the code it produces.
 
-**Two type declarations, not one array depth-filtered.** One declared
-type instantiated once per node the plan names, the feature ticket
-included at depth 0 of its own array, cannot be the feature's own
-type: `design` and its product review are feature-only, and neither
-`design` nor a bare `status:` entry carries a `depth:` field to make
-it no-op below the root the way a gate or `critique` already can. The
-feature type (design → architecture → implementation → merge, one
-instance, ever) and the type architecture's own fan-out spawns
-(architecture → implementation, recurring per tree level) are
-therefore two separate declarations sharing the vocabulary, never one
-array read two ways. This is v5 §7.6's own "Child" lifecycle: a child
-spawned by architecture's own recursive fan-out runs this second,
-richer type — its own `In progress` split into
-`Architecting`/`Implementation`, mirroring the feature's own split —
-while an ordinary child entering directly at implementation, with no
-architecture review of its own to run, still runs §7.6's simpler
-generic shape unchanged. It is also the exercised case behind the
-"two types declaring different ceilings" precedent (`dsl-syntax.md`
-§13's never-validated-against-the-chain posture for `depth:`): the
-fan-out type's own gates reach one level deeper than the feature
-type's ever need to, because the two types fan to different depths by
-declaration, not by anything the chain claims.
+**One type declaration across depths, and depth is computed rather
+than declared.** A position's depths are the depths of the tiers it
+lists, and a tier's depth is the number of ticket-spawning fan-outs
+above it (`workflow.md` #28, `chain.md` #42). A ticket occupies a
+position only when its own depth is in that position's set, so one
+array serves every level and nothing has to carry a `depth:` field to
+no-op itself below the root. Nothing declares a depth on a generation
+entry at all: the tier list already says which levels have work there,
+and a second statement of that fact could only disagree with it.
 
-**`pending` recurs, once per generation-shaped entry's own
-sub-array.** A single leading `pending` licensing every later
-generation-shaped entry in the same array would satisfy a load-time
-check while leaving a second or third such entry nowhere to wait for
-dispatch capacity — and with no `fanout` status (above), `pending` is
-the only plane-balled wait position there is. `dsl-syntax.md` §13
-states the check in full; the consequence that matters here is
-throwback's own derived default (§15.10), which falls back to a
-generation-shaped sub-array's own leading `pending` rather than
-straight to the generation-shaped entry itself — matching this
-section's own repair-loop mapping, `Ready for rework`(pending) /
-`Reworking`(generation), rather than skipping the queued wait every
-other entry into that status goes through.
+A ticket stands at a position for either of two reasons, and both are
+reasons to be able to gate it: it has a tier of its own there at its
+own depth, or it holds the branch into which its children's work at
+that position merges. Every implementation tier in the default is
+scoped to a subcomponent, so on generation alone a feature and a
+component would skip the implementation position entirely — and with
+it the gate and the PR boundary at those granularities, leaving
+produced code reviewable only at the bottom of the tree. Both stand
+there instead.
+
+The product positions stay at depth 0 without being filtered out of
+anything: a child ticket exists only where a fan-out spawns one, six
+of the default's thirteen do, and all six are at system architecture
+or below. The fan-outs at the product tiers mint pools nobody
+generates from, so no ticket is opened below them and none stands at a
+product position.
+
+Gate depth is a different fact and stays declared (`workflow.md` #33):
+it narrows where a *review* applies, not where the work is, which is
+why `delta` writes `depth: 1` on its engineering review while
+`scaffold` leaves it at every depth.
+
+**`pending` is an engine flag, not an entry.** Every agent-balled
+position carries it until an agent picks the work up, so it is what a
+ticket rests in between reaching a position and dispatch, what a
+throwback lands in, and what the board renders as that position's
+waiting substate (`workflow.md` #25). Declaring it per sub-array was
+the earlier shape and it bought a load-time check over something no
+bundle had a reason to vary: a second or third generation-shaped entry
+in one array needs somewhere to wait for dispatch capacity, and the
+flag gives every one of them the same somewhere without a declaration
+to keep in step. The repair-loop mapping is unchanged — `Ready for
+rework` is the waiting substate of the position `Reworking` runs at —
+and throwback's derived default is the citing sub-array's own
+generation position, which the ticket enters waiting.
 
 **The same declared gate may be cited twice within one type's own
 array — but only when the two citations land in distinguishable
@@ -4301,7 +4346,7 @@ about the declaration, so two citations of the same gate can compute
 two different answers from the identical declared
 `role:`/`escalation:`/`throwback:` only when something actually
 distinguishes the two positions. A status entry can carry a
-bundle-authored name of its own (`dsl-syntax.md` §15.12), so a
+bundle-authored name of its own (`workflow.md` #7), so a
 position's identity is namespaced by the sub-array it sits in, one
 level deep — and two citations sharing one sub-array are not
 distinguished by that scheme merely because one sits before a
@@ -4321,10 +4366,10 @@ rule, not a new field.** Machine validation runs first: neither an
 agent's `critique` nor a human gate should spend a read on a draft
 that fails CI, and `checks` placed after `critique` — or after the
 human gate — lets a reviewer sign off on a draft CI has not yet run
-against. `dsl-syntax.md` §13 and §15.5 carry the grammar —
+against. `workflow.md` #12 and #26 carry the grammar —
 `critique`'s own adjacency rule reads "immediately after a
 generation-shaped entry, or immediately after that entry's own
-`checks`, never before it" — and `dsl-syntax.md` §15.1's own mapping
+`checks`, never before it" — and `workflow.md` #26's own mapping
 onto this section's lifecycles matches, one `Checks` per
 generation-shaped visit, positioned before its review.
 
@@ -4577,11 +4622,11 @@ start, each need becomes a fork and the dialects drift apart
   handles, context walks, grammars, readiness, generators, the
   predicate language, bundle layout.
 - **An extension** is *platform-shipped* code that registers with the
-  loader: new annotation namespaces on existing declaration kinds
-  (the `delivery:` block, the `enforcement:` block), new declaration
-  kinds and files (the flow ticket face; `states.yaml`), new
-  generator types (`external`, `template`), new context-source kinds
-  (`ticket.findings`), and new audit/enforcement profiles. Each
+  loader: new annotation namespaces on existing declaration kinds (the
+  `enforcement:` block), new declaration kinds (the gate and the
+  environment), new generator types (`external`, `template`), new
+  context-source kinds (`ticket.findings`), and new audit/enforcement
+  profiles. Each
   extension carries its own validation schema; the loader validates
   the union; type-level checks run over the union. **Never
   bundle-side code** — bundles declare instances against whatever
@@ -4594,7 +4639,7 @@ start, each need becomes a fork and the dialects drift apart
   generation runtime, §10). Same vocabulary, different profiles.
 - **Extensions compose the language; bundle content is never composed
   by the DSL at all — it is authored, forked and tailored through git**
-  (`dsl-syntax.md` §11). The loader validates the union of what a
+  (`bundle.md` #7). The loader validates the union of what a
   bundle declares against the installed extension set; it composes
   nothing itself. What vocabulary a bundle may use is a platform
   decision (extensions); what a project's bundle actually contains is

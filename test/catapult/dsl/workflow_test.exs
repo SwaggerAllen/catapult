@@ -1,7 +1,7 @@
 defmodule Catapult.Dsl.WorkflowTest do
   @moduledoc """
-  `Catapult.Dsl.Workflow`'s throwback resolution (dsl-syntax.md
-  §15.10), at the struct grain. Loading a bundle off disk is
+  `Catapult.Dsl.Workflow`'s throwback resolution (`workflow.md`
+  #34), at the struct grain. Loading a bundle off disk is
   `Catapult.Dsl.LoaderTest`'s job and stays there; what needs a
   hand-built `%Workflow{}` is the one shape the loader cannot yet
   accept — see the milestone-shape test below.
@@ -52,7 +52,6 @@ defmodule Catapult.Dsl.WorkflowTest do
 
       type = %Type{
         name: "milestone",
-        file: "types/milestone.yaml",
         skeleton: "container",
         statuses: statuses,
         groups: [3..5//1]
@@ -175,7 +174,6 @@ defmodule Catapult.Dsl.WorkflowTest do
 
       type = %Type{
         name: "feature",
-        file: "types/feature.yaml",
         skeleton: "ticket",
         statuses: statuses,
         groups: []
@@ -210,6 +208,6 @@ defmodule Catapult.Dsl.WorkflowTest do
   end
 
   defp gate(name) do
-    %Gate{name: name, file: "gates/#{name}.yaml", role: "author", escalation: "author"}
+    %Gate{name: name, role: "author", escalation: "author"}
   end
 end

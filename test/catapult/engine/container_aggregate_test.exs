@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.ContainerAggregateTest do
   @moduledoc """
-  Command validation for ORC-104's container edge (dsl-syntax.md
-  §15.6-§15.8, v5 §7.1, §7.8) — pure `execute/2`/`apply/2` against the
+  Command validation for ORC-104's container edge (`workflow.md`
+  #16 through #19, v5 §7.1, §7.8) — pure `execute/2`/`apply/2` against the
   same single per-project aggregate every chain-axis command already
   lands on, never a second one.
   """

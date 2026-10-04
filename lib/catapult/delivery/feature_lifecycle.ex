@@ -100,7 +100,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
           flow_id: binary(),
           entry_node_id: binary() | nil,
           # The workflow-axis type name this flow's sequence is read
-          # off (dsl-syntax.md §15.2) — `FlowOpened.flow_name` is the
+          # off (`workflow.md` #9) — `FlowOpened.flow_name` is the
           # convention-checked pairing point between the chain axis's
           # ticket face and the workflow axis's registry (§13's "no
           # cross-axis load-time check binds a queue's flow: value to
@@ -201,7 +201,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   # `GateDeclined` moves the ticket straight to `throwback_to` — no
   # lookup against `passed` needed, the event already names the
   # resolved target (checked earlier-in-sequence at the command edge,
-  # `Catapult.Dsl.Workflow.throwback_legal?/4`; dsl-syntax.md §15.10).
+  # `Catapult.Dsl.Workflow.throwback_legal?/4`; `workflow.md` #34).
   def apply(%__MODULE__{} = pm, %GateDeclined{throwback_to: throwback_to}) do
     case load_workflow() do
       {:ok, workflow} ->
@@ -304,7 +304,7 @@ defmodule Catapult.Delivery.FeatureLifecycle do
       Logger.warning(
         "flow #{pm.flow_id} opened as #{inspect(pm.flow_name)}, which names no declared " <>
           "work-item type in the loaded workflow bundle — it is projected without a position " <>
-          "(dsl-syntax.md §15.7)",
+          "(workflow.md #30)",
         component: :delivery
       )
     end
@@ -342,8 +342,9 @@ defmodule Catapult.Delivery.FeatureLifecycle do
   `nil` when the row carries no position at all, which happens for
   exactly one reason and is worth naming: the flow's `flow_name` does
   not resolve to a declared type in the loaded workflow bundle. No
-  load-time check binds the two axes (dsl-syntax.md §13, §15.7 — the
-  same non-binding §11 holds everywhere else), so this is a defined
+  load-time check binds the two axes here (`workflow.md` #9 — the
+  flow name is the type's own, and `bundle.md` #11's binding is on the
+  position/tier pairing rather than on this), so this is a defined
   outcome rather than a defect: the work item exists and is open, and
   the workflow axis simply has no sequence to place it in. §15.7 names
   it "the residual failure this leaves" and records it as the accepted

@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.Projections.ContainerQueues do
   @moduledoc """
-  A container's queues, computed on every call (dsl-syntax.md
-  §15.6-§15.8, v5 §7.8) — the same "pure query against current
+  A container's queues, computed on every call (`workflow.md`
+  #16 through #19, v5 §7.8) — the same "pure query against current
   projections rather than a maintained table" shape
   `Catapult.Engine.Projections.ReadyScopes` already establishes, one
   level up from the chain axis.

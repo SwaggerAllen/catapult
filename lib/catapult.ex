@@ -102,7 +102,7 @@ defmodule Catapult do
       JokenJwks,
       JokenJwks.DefaultStrategyTemplate,
       JokenJwks.SignerMatchStrategy,
-      # Liquid prompt rendering (ORC-9, `dsl-syntax.md` §9): context
+      # Liquid prompt rendering (ORC-9, `chain.md` #35): context
       # assembly's own templating library (`Catapult.Generation
       # .ContextAssembly`).
       Solid,

@@ -4,8 +4,8 @@
      downstream propagation_plan opened after the upstream re-
      approves). Simplified here to one combined planning tier —
      argued in systems/platform_content.md — since this bundle's
-     scope stops at the DSL loader (dsl-syntax.md's declaration
-     kinds), and a two-stage sequenced planning tier needs the
+     scope stops at the DSL loader (`bundle.md` #3's declaration
+     file), and a two-stage sequenced planning tier needs the
      flow-instance state machine (which planning tier is currently
      open, whether the upstream stage has closed) that this ticket's
      scope explicitly excludes ("projection-time instance checks" is

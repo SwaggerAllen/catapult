@@ -1,6 +1,6 @@
 defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   @moduledoc """
-  Array-index navigation (dsl-syntax.md §15.3): "what comes next" is
+  Array-index navigation (`workflow.md` #12): "what comes next" is
   literally the next element. Run against the shipped
   `bundles/default-flow`, so a change to the declared types is caught
   here.
@@ -9,11 +9,12 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   use ExUnit.Case, async: true
 
   alias Catapult.Delivery.ContainerLifecycle.Sequence
+  alias Catapult.Dsl
   alias Catapult.Dsl.Status
   alias Catapult.Dsl.Workflow
 
   setup do
-    assert {:ok, workflow} = Workflow.load("bundles", "default-flow")
+    assert {:ok, %{workflow: %Workflow{} = workflow}} = Dsl.load(".")
     %{workflow: workflow}
   end
 
@@ -22,14 +23,16 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   } do
     names = workflow |> Sequence.steps("milestone") |> Enum.map(&Sequence.name/1)
 
+    # `pending` is retired from the grammar (`workflow.md` #25 — an
+    # engine-set flag every agent-balled position carries, never a
+    # declared entry), so `setup`/`retro` are milestone's own leading
+    # positions in their respective sub-arrays now.
     assert names == [
-             "pending",
              "setup",
              "kickoff-review",
              "prep",
              "main",
              "milestone-signoff",
-             "pending",
              "retro",
              "proposals-read",
              "cleanup",
@@ -55,14 +58,14 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
   end
 
   test "first_step/2 is what an activation starts at", %{workflow: workflow} do
-    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "pending"
+    assert Sequence.first_step(workflow, "milestone") |> Sequence.name() == "setup"
     assert Sequence.first_step(workflow, "project") |> Sequence.name() == "initialization"
   end
 
   test "next_step/3 walks by index, gates included", %{workflow: workflow} do
     assert Sequence.next_step(workflow, "milestone", "main") == {:gate, "milestone-signoff"}
 
-    assert {:queue, %Status{status: "pending"}} =
+    assert {:queue, %Status{status: "retro"}} =
              Sequence.next_step(workflow, "milestone", "milestone-signoff")
 
     assert {:queue, %Status{status: "deploy"}} =
@@ -84,13 +87,12 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     assert Sequence.next_step(workflow, "no-such-type", "anything") == nil
   end
 
-  describe "a bare name recurring across two sub-arrays (dsl-syntax.md §15.2, ORC-116)" do
+  describe "a bare name recurring across two sub-arrays (workflow.md #7, ORC-116)" do
     # `types/milestone.yaml` avoids this today by omitting `retro`'s own
     # leading `pending`, precisely because this module's own bare-name
-    # lookup used to have no namespace awareness (`docs/dsl-syntax.md`
-    # §15.2's own note). Built here as a struct — the loader accepts
-    # this shape (§15.12 only refuses a collision *within* one
-    # sub-array) — to prove the fix rather than the workaround.
+    # lookup used to have no namespace awareness. Built here as a
+    # struct — the loader accepts this shape (`workflow.md` #7 only
+    # refuses a collision *within* one namespace) — to prove the fix rather than the workaround.
     setup do
       statuses = [
         %Status{status: "pending"},
@@ -102,7 +104,6 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
 
       type = %Catapult.Dsl.Type{
         name: "t",
-        file: "types/t.yaml",
         skeleton: "container",
         statuses: statuses,
         groups: [0..1//1, 2..3//1]
@@ -117,8 +118,8 @@ defmodule Catapult.Delivery.ContainerLifecycle.SequenceTest do
     } do
       # The bug this fix retires: `next_step/3` used to walk `pending`
       # backward to `setup`'s own successor for a container that had
-      # actually reached `retro`'s own `pending` (`docs/dsl-syntax.md`
-      # §15.2's own reproduction). Resolving nothing is the safe
+      # actually reached `retro`'s own `pending` (`workflow.md` #8's
+      # ambiguity rule). Resolving nothing is the safe
       # failure — the qualified name below is what a caller needs once
       # a bare one is ambiguous.
       assert Sequence.step(workflow, "t", "pending") == nil

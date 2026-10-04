@@ -1,0 +1,182 @@
+# The default workflow bundle as one file, in the grammar
+# `docs/dsl/workflow.md` states. Positions are this file's own
+# names, and each generation position names the chain tiers that run
+# at it: which tier runs where, and in what order, is read here and
+# nowhere else. A ticket type names the chain flows it serves. The
+# chain file names nothing in this one. `pending` is an engine flag,
+# not an entry. Gate depth defaults to every depth; `0` is written
+# where the top level alone is meant.
+
+name: default-flow
+version: "1.0.0"
+kind: workflow
+entry: project
+
+types:
+
+  # The scaffolding pass (v5 §7.9): the whole chain in one ticket,
+  # reviewed at every depth, since this is the one pass that reads the
+  # tree as a whole. It serves every chain flow carrying no schema
+  # delta, which is what a scaffold is.
+
+  scaffold:
+    skeleton: ticket
+    serves: no_delta
+    statuses:
+      - - status: generation
+          name: features
+          tiers: [feature_expansion, non_goals, vocab]
+        - status: critique
+        - review: features-review
+      - - status: generation
+          name: experience
+          tiers: [journeys, screens]
+        - status: critique
+        - review: ux-review
+      - - status: generation
+          name: requirements
+          tiers: [requirements]
+        - status: critique
+      - - status: generation
+          name: architecture
+          tiers: [sysarch, comparch, subcomparch, frontend_sysarch,
+                  ui_collarch, ui_subcomparch, screen_collarch,
+                  screen_subcomparch]
+        - status: critique
+        - review: engineering-review
+      - - status: generation
+          name: implementation
+          tiers: [impl_backend, impl_ui, impl_screen]
+        - status: critique
+      - status: checks
+      - status: reconcile
+      - status: merge
+      - status: deploy
+      - status: terminal
+
+  # A change ticket: a plan position before each generation position,
+  # so the cascade plans one rung at a time against what the rung above
+  # just wrote, then the same five positions the scaffold pass uses,
+  # reviewed at the component level rather than at every depth. Each
+  # plan position lists all five plan tiers; a flow's delta activates
+  # the one it carries. It serves every chain flow with a schema delta.
+  # A sub-array groups a position with what reviews it, and is the
+  # gate's default throwback.
+
+  delta:
+    skeleton: ticket
+    serves: has_delta
+    statuses:
+      - status: generation
+        name: plan-features
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
+      - - status: generation
+          name: features
+          tiers: [feature_expansion, non_goals, vocab]
+        - status: critique
+        - review: features-review
+      - status: generation
+        name: plan-experience
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
+      - - status: generation
+          name: experience
+          tiers: [journeys, screens]
+        - status: critique
+        - review: ux-review
+      - status: generation
+        name: plan-requirements
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
+      - - status: generation
+          name: requirements
+          tiers: [requirements]
+        - status: critique
+      - status: generation
+        name: plan-architecture
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
+      - - status: generation
+          name: architecture
+          tiers: [sysarch, comparch, subcomparch, frontend_sysarch,
+                  ui_collarch, ui_subcomparch, screen_collarch,
+                  screen_subcomparch]
+        - status: critique
+        - review: engineering-review
+          depth: 1
+      - status: generation
+        name: plan-implementation
+        tiers: [feature_request_plan, refactor_plan, bug_fix_plan,
+                downward_propagation_plan, upward_propagation_plan]
+      - - status: generation
+          name: implementation
+          tiers: [impl_backend, impl_ui, impl_screen]
+        - status: critique
+      - status: checks
+      - status: reconcile
+      - status: merge
+      - environment: staging
+      - status: deploy
+      - status: terminal
+
+  # A milestone: setup fills prep, main runs the work and holds retro
+  # open, retro files into this milestone's cleanup and the next one's
+  # prep (a queue earlier than the filling position is the next
+  # instance's), then the whole promotes to prod. A container is
+  # opened by a queue of another type, never by a chain flow, so it
+  # declares no `serves:`.
+
+  milestone:
+    skeleton: container
+    statuses:
+      - - status: setup
+          fills: [prep]
+        - review: kickoff-review
+      - status: prep
+        flow: delta
+      - status: main
+        flow: delta
+        blocks: [retro]
+      - - review: milestone-signoff
+        - status: retro
+          fills: [cleanup, prep]
+        - review: proposals-read
+      - status: cleanup
+        flow: delta
+      - environment: prod
+      - status: deploy
+      - status: terminal
+
+  # The project: a queue sequence with no skeleton and no terminal;
+  # all but scaffolding dispatch the same work for now (v5 §7.8).
+
+  project:
+    statuses:
+      - { status: initialization, flow: delta }
+      - { status: scaffolding, flow: scaffold }
+      - { status: build-out, flow: milestone }
+      - { status: iteration, flow: milestone }
+      - { status: maintenance, flow: delta }
+      - { status: deprecating, flow: delta }
+      - { status: sunsetting, flow: delta }
+
+# Gates: who signs off and where a decline lands. A gate inside a
+# sub-array throws back to the group's generation position unless it
+# says otherwise; a gate outside one may have no throwback at all.
+
+gates:
+  features-review: { role: design, escalation: author }
+  ux-review: { role: design, escalation: author }
+  engineering-review: { role: engineering, escalation: author }
+  kickoff-review: { role: author, escalation: author }
+  milestone-signoff: { role: author, escalation: author, throwback: main }
+  proposals-read: { role: author, escalation: author }
+
+# Reserved: delivery Phase 7 deploy. `lifetime: per_ticket` is the
+# PR-environment case, semantics not yet fixed.
+
+environments:
+  dev: { lifetime: persistent }
+  staging: { promote_from: dev, lifetime: persistent }
+  prod: { promote_from: staging, lifetime: persistent }

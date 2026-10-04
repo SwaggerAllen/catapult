@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.Events.FlowCompleted do
   @moduledoc """
-  A flow instance's completion predicate resolved true (dsl-syntax.md
-  §6, §8). Version 1.
+  A flow instance's completion predicate resolved true (`chain.md`
+  #37, #38). Version 1.
   """
 
   @enforce_keys [:project_id, :flow_id]

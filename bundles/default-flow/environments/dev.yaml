@@ -1,6 +1,0 @@
-environment: dev
-depth: 0
-lifetime: persistent
-# No after: (§15.3): an environment sits wherever a citing type's own
-# statuses: array places it, ahead of the `deploy` entry it is a
-# promotion target for (§15.5).

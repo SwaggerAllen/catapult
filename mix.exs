@@ -189,7 +189,7 @@ defmodule Catapult.MixProject do
   def application do
     [
       # `:xmerl` (OTP-shipped) backs `Catapult.Dsl.Grammar`'s root_tag +
-      # XSD validation (dsl-syntax.md §10) — no Hex dependency needed,
+      # XSD validation (`chain.md` #33) — no Hex dependency needed,
       # and, like `:httpc`, a pure Erlang application Boundary cannot
       # restrain (`systems/foundation.md`), so it carries no `boundary:
       # default: check: apps:` entry.
@@ -218,7 +218,7 @@ defmodule Catapult.MixProject do
       {:plug_cowboy, "~> 2.8"},
       {:jason, "~> 1.4"},
       # Type-level acyclicity over the edge-instance graph and the
-      # workflow gate/environment ordering (dsl-syntax.md §4, §13) —
+      # workflow gate/environment ordering (`chain.md` #25, #30) —
       # conventions §1's blessed graph library, ORC-5.
       {:libgraph, "~> 0.16"},
       # The bundle loader's YAML reader (ORC-5, systems/core_dsl.md):
@@ -255,7 +255,7 @@ defmodule Catapult.MixProject do
       # lands"). Now an ordinary runtime dep.
       {:req, "~> 0.7"},
       # Liquid templates (conventions §1's blessed choice for prompt
-      # rendering; `dsl-syntax.md` §9, `systems/generation.md`) — named
+      # rendering; `chain.md` #35, `systems/generation.md`) — named
       # in ORC-9's own scope text ("Liquid/Solid, ordered walks").
       {:solid, "~> 1.3"},
       # JWT + JWKS verification for GitHub Actions OIDC (v5 §7.12.1: "JWT

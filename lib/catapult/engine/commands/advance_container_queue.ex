@@ -1,7 +1,7 @@
 defmodule Catapult.Engine.Commands.AdvanceContainerQueue do
   @moduledoc """
   Moves an active container's current queue, forward or backward
-  (dsl-syntax.md §15.7-§15.8). Aggregate id: `project_id`.
+  (`workflow.md` #17 through #19). Aggregate id: `project_id`.
 
   `from_queue` is not decoration: the aggregate rejects the command
   when it does not match the container's current queue, which is v5

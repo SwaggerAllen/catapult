@@ -1,6 +1,6 @@
 defmodule Catapult.Dsl.Graph do
   @moduledoc """
-  Type-level acyclicity, via `libgraph` (dsl-syntax.md §4, §13,
+  Type-level acyclicity, via `libgraph` (`chain.md` #25, #30,
   conventions §1's blessed graph library): the edge-instance graph
   (tiers as nodes, every declared edge as a `source -> target` arrow)
   and the workflow gate/environment ordering each reduce to "does this
@@ -10,7 +10,7 @@ defmodule Catapult.Dsl.Graph do
   edge between components of one tier) are excluded from the
   edge-instance check: a type-level self-loop says nothing about a
   cross-tier cycle, and instance-level self-reference cycles are
-  `graph_constraint: acyclic`'s job at projection time (dsl-syntax.md
+  `graph_constraint: acyclic`'s job when a draft commits (`chain.md`
   §4), not this loader's.
   """
 

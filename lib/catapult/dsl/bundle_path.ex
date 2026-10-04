@@ -2,7 +2,7 @@ defmodule Catapult.Dsl.BundlePath do
   @moduledoc """
   Resolves a bundle-relative content path (a prompt, a schema —
   anything a tier names by path rather than by declaration) against
-  the one directory a bundle now is (dsl-syntax.md §11: no `extends:`
+  the one directory a bundle now is (`bundle.md` #7: no `extends:`
   layering on either axis).
 
   **A path that escapes its bundle directory resolves to `nil`**, so a

@@ -13,7 +13,7 @@
   reconciliation nothing to check, which is the gap this element
   closes.
 -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:catapult="urn:catapult:dsl">
 
   <xs:complexType name="Test">
     <xs:simpleContent>
@@ -40,9 +40,12 @@
   </xs:complexType>
 
   <xs:element name="implementation">
+    <xs:annotation><xs:appinfo><catapult:identity>id</catapult:identity></xs:appinfo></xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="behavior" type="xs:string"/>
+        <xs:element name="behavior" type="xs:string">
+          <xs:annotation><xs:appinfo><catapult:field name="behavior_summary"/></xs:appinfo></xs:annotation>
+        </xs:element>
         <xs:element name="invariants" type="xs:string"/>
         <xs:element name="sequencing" type="xs:string"/>
         <xs:element name="edge-cases" type="xs:string"/>
