@@ -801,7 +801,8 @@ started (`application.ex`). Three grades, smallest first: a long-poll
 same route, same bearer auth, degrading to today's behavior when the wait budget
 expires); SSE over a chunked response; or a second websocket, since the endpoint
 declares only `socket "/live", Phoenix.LiveView.Socket` today. Which grade fits turns
-on how long App Platform's edge holds an idle HTTP response open, which is unmeasured
+on how long the platform's edge holds an idle HTTP response open, which is unmeasured
+on Render as it was on App Platform
 — answering it is a design of its own, not a side effect of widening `remaining`.
 
 ## #113

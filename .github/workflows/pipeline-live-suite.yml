@@ -161,7 +161,7 @@ jobs:
         if: failure()
         env:
           TOKEN: ${{ secrets.FOUNDATION_OPERATOR_TOKEN }}
-          CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app
+          CATAPULT_BASE_URL: https://catapult-REPLACE-AT-PROVISION.onrender.com
         run: |
           if [ -z "$TOKEN" ]; then
             echo "FOUNDATION_OPERATOR_TOKEN is not set on this repo (SETUP.md §3); skipping."

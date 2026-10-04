@@ -31,12 +31,6 @@ mutex; nothing else arbitrates.
   (`screens/<name>/component.ex` plus its `.story.exs`), and it is on
   `elixirc_paths` in every environment deliberately — off it the gate
   set would be blind to exactly the code no dev pass reviewed.
-- **`bin/**`** — `preview-build.sh` and its siblings: the branch
-  preview's build command, named by `pipeline.config.json`'s
-  `preview.buildCommand` rather than by any system. It installs its
-  own OTP/Elixir because agent runners carry no BEAM, which is what
-  keeps it outside every mix-project file map — it is infrastructure
-  for running the tree, not part of it.
 - **`seed-docs/**`** — vendored upstream reference from SiegeEngine
   (the v4 spec and bundle documents, and siege's own prompt chain),
   frozen at a named commit and never edited. Unowned because it is

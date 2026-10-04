@@ -74,7 +74,7 @@ permissions:
   contents: read
 
 env:
-  CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app # SETUP.md §2 / config/test.exs's :live_base_url
+  CATAPULT_BASE_URL: https://catapult-REPLACE-AT-PROVISION.onrender.com # SETUP.md §2 / config/test.exs's :live_base_url
 
 jobs:
   dispatch:

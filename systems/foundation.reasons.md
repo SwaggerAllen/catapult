@@ -308,10 +308,13 @@ set, so that is a gate of its own, not a loose end the ratchet covers.
 ## #31
 
 `Catapult.Delivery.Provisioning`'s 502 answers `{"error": inspect(
-reason)}` and never raises, and App Platform replaces the body of an
-upstream 502 with its own error page, so that reason reaches no caller and
-exists nowhere else; five live-suite runs were read as an infrastructure
-fault on that basis. Only `:stop` can supply it — `Plug.Telemetry` fires
+reason)}` and never raises, and App Platform replaced the body of an
+upstream 502 with its own error page, so that reason reached no caller and
+existed nowhere else; five live-suite runs were read as an infrastructure
+fault on that basis. That measurement was taken on App Platform and nobody
+has read Render's behaviour here — the incident is what the rule is for and
+stands whatever the new edge does, since `:stop` costs nothing if the body
+survives. Only `:stop` can supply it — `Plug.Telemetry` fires
 from a `register_before_send` callback, and `Plug.Conn.send_resp/1` runs
 those callbacks before handing the body to the adapter, then replaces
 `resp_body` with whatever that adapter returns (verified against

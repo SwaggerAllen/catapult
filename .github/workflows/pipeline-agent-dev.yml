@@ -100,7 +100,5 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Publishes this branch's storybook export. Drop both
           # lines to run agents without previews.
-          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           github_token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}

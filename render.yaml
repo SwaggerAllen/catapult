@@ -1,0 +1,113 @@
+# The reference instance, as a Render Blueprint (v5 §8, SETUP.md §2).
+#
+# Replaces the App Platform app whose spec was deliberately never
+# committed — SETUP.md §2 records that one existed, was read by nothing,
+# and drifted from reality five times in an afternoon. This file is not
+# that: Render creates the services *from* it and re-reads it on every
+# push, so it cannot drift without the deploy saying so. The dashboard is
+# still the authority on anything set outside it, which is why every
+# secret below is `sync: false` and lives only there.
+#
+# **Nothing here has run yet.** It is written from Render's Blueprint
+# reference, not from a deploy, and the first `render.yaml` sync is its
+# first test. The values marked REPLACE-AT-PROVISION are the ones that
+# cannot be known until it has.
+
+previews:
+  # Every PR gets a preview, which is what Design review reads now that
+  # the Cloudflare Pages storybook is gone (DESIGN §4, orchestration's
+  # ops-free-pipeline.md §7.3). The pipeline does not create these and
+  # does not need to: Render represents each one as a GitHub deployment
+  # on the PR, and the sweep announces it on the ticket from there.
+  generation: automatic
+  # Days of *inactivity* before Render deletes a preview. One, because a
+  # preview costs its lifetime rather than its existence (~$0.043 per
+  # preview-hour across the web service and its database), and the
+  # measured shape of a ticket's life says most of that lifetime is the
+  # author's response latency rather than the agent's work — a ticket
+  # sitting in Design review overnight is billing for a preview nobody is
+  # looking at. A push rebuilds it, so the cost of being wrong here is one
+  # rebuild, not lost work.
+  expireAfterDays: 1
+
+databases:
+  - name: catapult-db
+    databaseName: catapult
+    user: catapult
+    # **Not the smallest paid tier, and this is a deviation from the
+    # cutover's own cost table** (ops-free-pipeline.md §7.1, which priced
+    # the 256 MB tier). §7.2 flagged that tier as a guess and very likely
+    # undersized: this plane runs an EventStore alongside Oban and
+    # application data, three workloads in one cluster. The failure mode of
+    # undersizing is production Postgres refusing connections, which is
+    # the shape SETUP.md §2's connection budget already records happening
+    # once.
+    #
+    # It is also the line that multiplies: a preview environment copies
+    # the datastore, so this plan is paid per live preview as well as for
+    # production. That is the reason to revisit it with a measurement
+    # rather than to leave it at a guess in either direction.
+    plan: 0.5c-1g
+
+services:
+  - type: web
+    name: catapult
+    runtime: docker
+    # The same image App Platform ran, unchanged. Its CMD migrates and
+    # then starts, and that ordering is load-bearing — see the Dockerfile,
+    # which records the four live-suite runs that answered 500 against an
+    # unmigrated database when the migration step was a separate job.
+    dockerfilePath: ./Dockerfile
+    plan: 1c-2g
+    region: oregon
+    # `/health` is the one route that loads nothing, which is what makes
+    # it a health check rather than a smoke test. Render destroys a new
+    # instance that fails this and keeps the old one serving, which is the
+    # behaviour the Dockerfile's CMD was already relying on App Platform
+    # for.
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      # Render supplies the connection string from the database above.
+      # The name stays DATABASE_URL — it is declared `external: true` in
+      # `Catapult.Foundation` precisely because it is the one name the
+      # slug spine does not get to choose.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: catapult-db
+          property: connectionString
+      # The app binds FOUNDATION_HEALTH_PORT (default 8080) and does not
+      # read PORT at all — deliberately, since that variable is the app's
+      # own HTTP listener rather than the platform's idea of one. Both are
+      # set to the same number so the platform's probe and the app's
+      # listener cannot disagree; leaving either implicit is how they do.
+      - key: PORT
+        value: "8080"
+      - key: FOUNDATION_HEALTH_PORT
+        value: "8080"
+      # SETUP.md §2's connection budget: peak = 2 x containers x (both
+      # pools + 2), and the service runs one container. **The 22 that
+      # budget is measured against was App Platform's cluster.** Render's
+      # limit for the plan above has not been read yet, so these carry
+      # forward the values that were correct there and the arithmetic must
+      # be redone against the new cluster's Overview graph before they are
+      # trusted. They are also the code defaults, so setting them here
+      # changes nothing today and only makes the pair visible in one
+      # place.
+      - key: FOUNDATION_POOL_SIZE
+        value: "2"
+      - key: ENGINE_EVENT_STORE_POOL_SIZE
+        value: "2"
+      # Required, no default: a build without any of these fails at boot
+      # with the config report naming it (SETUP.md §2's
+      # `catapult:required-env` block, which the audit gates). Set in the
+      # dashboard and never here — `sync: false` is what keeps a secret
+      # out of the repo while still failing the sync if it was never set.
+      - key: DELIVERY_GITHUB_TOKEN
+        sync: false
+      - key: DELIVERY_PROVISIONING_TOKEN
+        sync: false
+      - key: FOUNDATION_ENDPOINT_SECRET_KEY_BASE
+        sync: false
+      - key: FOUNDATION_OPERATOR_TOKEN
+        sync: false
