@@ -40,6 +40,16 @@ ORC-3's coherence pass, done ahead of the pipeline). An out-of-band
 toolchain older than the pin cannot compile the deps; the pinned
 toolchain is the only supported one.
 
+`pipeline` is orchestration's binary (`cmd/pipeline`). Locally, build
+it from a checkout of orchestration with `go build -o
+<a directory on PATH>/pipeline ./cmd/pipeline`; CI builds it with
+orchestration's `setup-pipeline` action on every branch whenever
+`PIPELINE_REPO_TOKEN` exists. Without the binary `mix
+catapult.dsl.keys` fails rather than skips, so a repo or fork lacking
+that secret is red on the `dsl keys` step of every PR. The fix is the
+secret, never an `if:` on the step: a skipping gate goes silent on
+exactly the branches that rewrite the grammar.
+
 ## Layout
 
 - `lib/catapult/` — plane systems (see `systems/*.md` for the map).
@@ -219,7 +229,8 @@ Each of these cost a wrong diagnosis before it was written down.
   on the PR.
 - **The pipeline audit only runs on ticket branches.** `ci.yml`'s
   `gate the pipeline audit` step greps the branch for `orc-[0-9]+`
-  and skips the whole audit without one. So mutex, doc lint, class
+  and skips the whole audit without one (or without
+  `PIPELINE_REPO_TOKEN`). So mutex, doc lint, class
   and design-ownership checks **never see an author branch** — a
   clean CI run on one is not evidence those checks passed.
 - **A push made with `GITHUB_TOKEN` starts no workflow.** GitHub

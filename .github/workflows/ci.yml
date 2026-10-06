@@ -148,6 +148,13 @@ jobs:
       - name: audit
         run: mix catapult.audit
 
+      # bundle.md #14's acceptance test (systems/core_dsl.md #ORC-249-1):
+      # the shipped default pair loads through the ordinary loader path
+      # and stays inside its readability bound. Root project only — the
+      # bundles and their loader live here, not in components/substrate.
+      - name: bundle check (the default pair loads and stays inside its readability bound)
+        run: mix catapult.bundle.check
+
       - name: test
         run: mix test
 

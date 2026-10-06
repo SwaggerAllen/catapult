@@ -47,7 +47,8 @@ journeys, screens) into an architecture chain — `vocab` → `sysarch` → `com
 
 - **The DSL is small and has a grammar.** YAML bundles declare tiers, edges, schemas, flows and
   prompts, with a separate workflow axis for ticket types, gates and environments. Normative
-  grammar documentation lives in `docs/dsl/`, with a worked example and a checker.
+  grammar documentation lives in `docs/dsl/`, and every key the loader accepts is declared
+  there: CI fails when the two disagree in either direction.
 - **Generation is reactive, not scheduled.** The graph is an event log; `ready_scopes` — what is
   eligible to generate next — is a projection that enqueues work rather than a queue anything
   polls. Readiness is derived state, so it cannot drift from the graph it describes.
@@ -115,16 +116,18 @@ each with its own full gate suite.
 
 | Area | State |
 | --- | --- |
-| `core.dsl` | Bundle loader, core vocabulary, extension registry, type-level acyclicity validation, path-escape guard on bundle-relative content paths |
+| `core.dsl` | Bundle loader, core vocabulary, extension registry, type-level acyclicity validation, path-escape guard on bundle-relative content paths, key-set check against `docs/dsl/`'s declarations |
 | `core.engine` | Aggregate, router, commands and events, reducer, projections, reactive scheduler and sweeper, EventStore-backed log |
 | `generation` | Context assembly, Liquid rendering, dispatch worker, commit path, schema validation at commit, regeneration-with-feedback |
 | `delivery` | Feature and container lifecycles as process managers, host port with an in-memory fake, GitHub Actions OIDC verification for dispatched runs, decline harvesting from PR review into regeneration feedback |
 | Dashboard | LiveView: queue, board, ticket, sentence-granularity document review, event-log inspection, and an `explain-why` screen answering what is blocking a scope. **Unreliable; under active work.** |
-| Default bundle | 21 XSD schemas, ~18 Liquid prompts plus review prompts and partials, six edge families, five plan flows |
+| Default bundle | 21 XSD schemas, 17 Liquid generation prompts each with a review prompt plus two shared partials, ten edge types, five plan flows |
 
 CI enforces the whole gate set on both projects: format, Credo strict, Sobelow,
 warnings-as-errors, the boundary compiler, xref cycles at zero, a compile-connected ratchet at
-zero, the custom audit, dependency auditing, and the test suite.
+zero, the custom audit, dependency auditing, and the test suite. The plane also runs two DSL
+checks: the default bundle loads and stays inside its readability bound, and the loader's
+accepted keys match the keys `docs/dsl/` declares.
 
 **Not built yet, deliberately, with phases attached:** identity (7), the LLM adapter component
 (8 — the plane's own chain never uses it), registry-as-service, the React/TypeScript client
