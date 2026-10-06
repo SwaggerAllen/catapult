@@ -183,9 +183,9 @@ defmodule Catapult.Audit.License do
   ## What it honestly claims
 
   That no dependency in a checked tree *declares* terms nobody accepted.
-  Hex metadata is the publisher's own assertion, and the counsel pass
-  `LICENSING.md` schedules is what verification means. What this buys is
-  noticing, at merge time, cheaply, forever.
+  Hex metadata is the publisher's own assertion, and nothing here
+  verifies it. What this buys is noticing, at merge time, cheaply,
+  forever.
   """
 
   alias Catapult.Component.Licensing

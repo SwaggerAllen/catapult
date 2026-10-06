@@ -12,7 +12,7 @@ defmodule Catapult.Generation do
   alias Catapult.Generation.Runtime
 
   @impl Catapult.Component
-  def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
+  def licensing, do: [distribution: :service, license: "AGPL-3.0-or-later"]
 
   @impl Catapult.Component
   def config do

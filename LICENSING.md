@@ -1,9 +1,8 @@
 # Licensing
 
-**Status:** posture adopted 2026-08-12, ahead of the first public
-release. The repo is private today; `LICENSE` files carrying the
-full texts land when it opens, and a counsel pass happens before
-that. This document is the policy and the map; it is not legal
+**Status:** posture adopted 2026-08-12. The full license texts are
+in `LICENSE` files, one per license boundary (the map below names
+them). This document is the policy and the map; it is not legal
 advice.
 
 ## The split, and why it exists
@@ -12,7 +11,7 @@ Catapult is two kinds of code with opposite licensing needs:
 
 - **The plane** — the control plane itself (engine, delivery,
   generation coordination, dashboard, DSL loader) — is
-  **AGPL-3.0-only**. The plane is internal-use, network-facing
+  **AGPL-3.0-or-later**. The plane is internal-use, network-facing
   software: plain GPL would impose nothing on anyone, and
   permissive licensing would donate the hosted product to whoever
   wants to run it. AGPL §13 is the provision that makes copyleft
@@ -33,7 +32,13 @@ Catapult is two kinds of code with opposite licensing needs:
 | `components/**` (substrate today; every future shipped component) | Apache-2.0 |
 | `bundles/**` (platform layer, default chain, prompts, templates) | Apache-2.0 |
 | Future client corpus packages (`platform-client-ts`) and all registry-published artifacts | Apache-2.0 |
-| Everything else — `lib/`, `priv/`, `test/`, `docs/`, `systems/`, repo root | AGPL-3.0-only |
+| Everything else — `lib/`, `priv/`, `test/`, `docs/`, `systems/`, repo root | AGPL-3.0-or-later |
+
+The texts live where the boundaries do: `LICENSE` at the repo root
+(AGPL-3.0-or-later), `components/substrate/LICENSE` and `bundles/LICENSE`
+(Apache-2.0). A shipped component is its own mix project and is
+fetched on its own, so each one carries its own `LICENSE` beside its
+`mix.exs` — a copy at `components/` would never reach a consumer.
 
 New files take their directory's license. **The table above is
 descriptive, not the rule** — it records where things happen to live
@@ -100,7 +105,7 @@ The policy, which is ours and which another project would replace:
 | `distribution` | our code | dependencies |
 | --- | --- | --- |
 | `:distributed` | Apache-2.0 | **permissive only** (Apache-2.0, MIT, BSD-2/3, ISC). A copyleft dependency here reaches every generated application; this is the rule the whole document exists for. |
-| `:service`, ours | AGPL-3.0-only | anything — we offer source, so nothing a dependency asks for is a cost we are not already paying. |
+| `:service`, ours | AGPL-3.0-or-later | anything — we offer source, so nothing a dependency asks for is a cost we are not already paying. |
 | `:service`, proprietary (hosted tier) | proprietary (`LicenseRef-*`) | **the same list**, and for its own reason: AGPL §13 would oblige us to offer source to our own users, defeating the point of the component being closed. Not "no copyleft" — "everything except copyleft" cannot be enumerated, so a denylist would have the check deciding the copyleft-ness of identifiers it has never seen, which is a guess running in the permissive direction. `MPL-2.0` and `EPL-2.0` are therefore outside this row until a project's list says otherwise, which is a line in one `mix.exs` rather than a release of the check. |
 | `:internal` | anything | anything |
 
@@ -123,7 +128,7 @@ gets to `:internal` is not silly — the plane conveys nothing and we
 operate it — which is why the answer is written down rather than left
 to be re-derived. The plane is reached over a network by people who
 are not its operator: the sole case `:service` exists to name, and the
-entire reason this document chose AGPL-3.0-only over plain GPL. §13 is
+entire reason this document chose AGPL-3.0-or-later over plain GPL. §13 is
 the provision that makes copyleft mean anything for this shape of
 program, and declaring `:internal` would assert that it does not reach
 the one program it was chosen for.
@@ -185,8 +190,8 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
   there is no per-dependency waiver, and none is coming
   (`systems/substrate.md`). What the check honestly claims is that no
   dependency in a checked tree **declares** terms nobody accepted —
-  hex metadata is the publisher's own assertion, and the counsel pass
-  below is what verification would mean.
+  hex metadata is the publisher's own assertion, and the check does
+  not verify it.
 
   **A dependency with no hex metadata is not an automatic failure**
   (ORC-74) — git-distributed dependencies, Catapult's own components
@@ -229,52 +234,20 @@ shipped mix project. Enforcement, on the v5 §4.5 ladder:
 
 ## Contributions
 
-**No outside contribution is accepted without a signed CLA** —
-individual or entity as appropriate — granting rights sufficient to
-distribute the contribution under licenses of the project's
-choosing (the Project Harmony "any license" grant or equivalent).
-DCO sign-off alone is not sufficient. This is not bureaucracy for
-its own sake: the CLA is what keeps the licensing options above
-(and any future commercial license) available at all, and it cannot
-be retrofitted after the first un-covered contribution lands. The
-agreements and signature capture (CLA Assistant or equivalent) must
-be live before the repository opens.
-
 **Registry contributions** (community bundles, prompts, policies,
 templates — v5 §8): inbound under Apache-2.0 or a compatible
 permissive grant, because community artifacts compile into customer
-applications. The central registry accepts nothing before these
-terms are posted.
+applications.
 
-## Choices recorded for counsel review
+## Why a proprietary `:service` component takes the shipped list
 
-- **AGPL-3.0-only, not -or-later**: with a CLA in hand the project
-  can relicense deliberately, so "-or-later" buys nothing and cedes
-  control to hypothetical future license versions.
-- The Apache-2.0/AGPL-3.0 boundary as drawn above (in particular:
-  prompts and templates as Apache-2.0 content).
-- Trademark: the name and marks are not licensed by any of the
-  above; a trademark policy is wanted by first release (the AGPL
-  fork keeping the name is the scenario to preclude).
-- **Attribution in our own files is unanswered, deliberately**
-  (deferred at ORC-16). The dependency inventory above answers what
-  the *dependencies* impose; what carries attribution for our own
-  source — a header in every file, or a `NOTICE` at each project
-  root — is a separate decision with a real cost either way, and
-  taking it now would stamp thousands of lines against a posture
-  counsel has not reviewed. The revisit condition is dated rather
-  than open: the repository opening to outside contributions, which
-  is when the `LICENSE` texts and the CLA above land and when the
-  attribution question has to be answered anyway.
-- **Dependency licenses inside a proprietary `:service` component.**
-  The table above bans AGPL there on the reasoning that §13 obliges
-  an offer of source to network users, which is the same argument we
-  rely on for choosing AGPL ourselves and is safe to act on. Plain
-  GPL arguably imposes nothing on a service that conveys nothing, and
-  that is the open question — but it is a *permission* rather than a
-  restriction, and the cost of being wrong about it is a component we
-  cannot keep closed, so the row holds proprietary `:service` to the
-  same list as the shipped layer until counsel says otherwise. A list
-  is cheap to widen and expensive to narrow after something has
-  shipped against it, and widening it is now one reviewed line in one
-  project's `mix.exs` rather than a change to the check.
+The table above bans AGPL there on the reasoning that §13 obliges an
+offer of source to network users, which is the same argument we rely
+on for choosing AGPL ourselves. Plain GPL arguably imposes nothing on
+a service that conveys nothing — but that would be a *permission*
+rather than a restriction, and the cost of being wrong about it is a
+component we cannot keep closed, so the row holds proprietary
+`:service` to the same list as the shipped layer. A list is cheap to
+widen and expensive to narrow after something has shipped against
+it, and widening it is one reviewed line in one project's `mix.exs`
+rather than a change to the check.
