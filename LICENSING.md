@@ -1,10 +1,10 @@
 # Licensing
 
 **Status:** posture adopted 2026-08-12, ahead of the first public
-release. The repo is private today; `LICENSE` files carrying the
-full texts land when it opens, and a counsel pass happens before
-that. This document is the policy and the map; it is not legal
-advice.
+release. The repo is private today, and a counsel pass happens
+before it opens. The full license texts are in `LICENSE` files, one
+per license boundary (the map below names them). This document is
+the policy and the map; it is not legal advice.
 
 ## The split, and why it exists
 
@@ -34,6 +34,12 @@ Catapult is two kinds of code with opposite licensing needs:
 | `bundles/**` (platform layer, default chain, prompts, templates) | Apache-2.0 |
 | Future client corpus packages (`platform-client-ts`) and all registry-published artifacts | Apache-2.0 |
 | Everything else — `lib/`, `priv/`, `test/`, `docs/`, `systems/`, repo root | AGPL-3.0-only |
+
+The texts live where the boundaries do: `LICENSE` at the repo root
+(AGPL-3.0-only), `components/substrate/LICENSE` and `bundles/LICENSE`
+(Apache-2.0). A shipped component is its own mix project and is
+fetched on its own, so each one carries its own `LICENSE` beside its
+`mix.exs` — a copy at `components/` would never reach a consumer.
 
 New files take their directory's license. **The table above is
 descriptive, not the rule** — it records where things happen to live
@@ -264,7 +270,7 @@ terms are posted.
   taking it now would stamp thousands of lines against a posture
   counsel has not reviewed. The revisit condition is dated rather
   than open: the repository opening to outside contributions, which
-  is when the `LICENSE` texts and the CLA above land and when the
+  is when the CLA above lands and when the
   attribution question has to be answered anyway.
 - **Dependency licenses inside a proprietary `:service` component.**
   The table above bans AGPL there on the reasoning that §13 obliges
