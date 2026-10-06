@@ -417,7 +417,7 @@ seeds release task.
 
   One consequence, named because it reads as a bug the first time: a project's `allow:` list contains
   its own license too, even where nothing is checked — a plane that states a policy at all lists
-  `AGPL-3.0-only` beside identifiers no dependency will ever be measured against.
+  `AGPL-3.0-or-later` beside identifiers no dependency will ever be measured against.
 - **#58 "Ours" and "proprietary" are read off the identifier, not declared again.** SPDX already
   spells "no listed license applies": `LicenseRef-<id>`. So a `:service` component under
   `LicenseRef-Catapult-Hosted` is the closed case and one under any listed identifier is the open one,

@@ -186,27 +186,27 @@ reached only through their APIs per v5 §2.4).
   ticket that breaks it will edit.
 - **#23 The plane declares a licensing policy rather than staying inert**
   (ORC-51). Two declarations and no new mechanism: `licensing: [allow:
-  ~w(AGPL-3.0-only Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]` in
+  ~w(AGPL-3.0-or-later Apache-2.0 MIT BSD-2-Clause BSD-3-Clause ISC)]` in
   the root `mix.exs`, and `licensing/0` on `Catapult.Foundation`
-  returning `[distribution: :service, license: "AGPL-3.0-only"]`.
+  returning `[distribution: :service, license: "AGPL-3.0-or-later"]`.
   `arming/2` maps `{:service, :listed}` to `[]`, so the plane's
   dependency closure stays unchecked exactly as `LICENSING.md`'s table
   says it should — the engine's `commanded` and `eventstore` are
   unchecked either way, and correctly.
 - **#24 The plane's `allow:` list is Catapult's five plus its own
   identifier, and the five are not decoration** (ORC-51). The list has
-  to contain `AGPL-3.0-only` or `bucket/2` reads the subject as
+  to contain `AGPL-3.0-or-later` or `bucket/2` reads the subject as
   unplaceable and reports it: the self-check and the bucket rule are
   one rule, which is what `systems/substrate.md` means by a project's
   list containing its own license even where nothing is checked.
 - **#25 Every subject in the root project is `:service` under
-  `AGPL-3.0-only`; a subject that is not belongs in another mix
+  `AGPL-3.0-or-later`; a subject that is not belongs in another mix
   project** (ORC-51). This is what keeps the seam above closed — the
   plane states one policy because the plane is one class — and it is a
   one-line consequence rather than a decision each system re-takes:
   engine, delivery, generation, registry, dashboard, core_dsl and
   harness each declare `[distribution: :service, license:
-  "AGPL-3.0-only"]` when they land, and the audit is what asks.
+  "AGPL-3.0-or-later"]` when they land, and the audit is what asks.
 - **#26 ORC-74 and v5 §3.5 are in view, and neither moves this** (ORC-51).
   §3.5 adoption forks a *component* into a customer's graph and tree,
   which is legitimate precisely because `components/**` is Apache-2.0;

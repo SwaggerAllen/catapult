@@ -4425,9 +4425,8 @@ but declaring one is its own decision.
   Everything else (fleet provisioning, upgrade train, the auth
   flows, billing) is deferred entirely. **License posture is
   decided** and recorded in `LICENSING.md` at the repo root:
-  AGPL-3.0-only plane, Apache-2.0 for everything that ships into
-  generated projects (the hard requirement), CLA-before-open (which
-  preserves the commercial-license option without offering it).
+  AGPL-3.0-or-later plane, Apache-2.0 for everything that ships into
+  generated projects (the hard requirement).
   Hosted is the monetization path; self-hosting is the budget path;
   hosted tiers are business-targeted.
 - **Restore-from-backup semantics** (**settled at the evidence

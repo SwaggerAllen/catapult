@@ -157,7 +157,7 @@ result-report calls. Instance specifics live in `SETUP.md` §2.
 
 ## Licensing
 
-Two kinds of code with opposite needs. The plane is **AGPL-3.0-only**: network-facing software
+Two kinds of code with opposite needs. The plane is **AGPL-3.0-or-later**: network-facing software
 where plain GPL would impose nothing. Everything that ships into a generated project —
 `components/**` and `bundles/**` — is **Apache-2.0**, because generated applications link the
 substrate and receive template content verbatim, and copyleft there would propagate into every

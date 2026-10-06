@@ -183,7 +183,7 @@ the closure" is the whole point and a claim worth checking: before,
 `licensing: inert — this project states no licensing policy, so nothing
 was checked`; after, `licensing: unchecked against 6 identifiers — no
 subject arms a dependency check (Catapult.Foundation :service
-"AGPL-3.0-only")`. The verdict acquires a subject and a reason somebody
+"AGPL-3.0-or-later")`. The verdict acquires a subject and a reason somebody
 asserted, in place of a sentence about the absence of one.
 
 **The half that is worth a ticket is the other one.**
@@ -221,12 +221,12 @@ consulted the instant any subject in this project arms the check, and
 against the six identifiers above the plane's whole closure produces
 exactly **one** problem — `cowboy_telemetry`, which declares `["Apache
 2.0"]` and is the near-miss `systems/substrate.md` already names. Against
-`["AGPL-3.0-only"]` alone it produces one per dependency. A list that is
+`["AGPL-3.0-or-later"]` alone it produces one per dependency. A list that is
 correct only for as long as it is unused is a policy that gets written
 under time pressure, inside the diff that first needed it and for reasons
 that diff supplies.
 
-**The seam this leaves.** `AGPL-3.0-only` is on the list, so if this
+**The seam this leaves.** `AGPL-3.0-or-later` is on the list, so if this
 project's check ever armed for the *proprietary-`:service`* reason — AGPL
 §13 obliging an offer of source to our own users — an AGPL dependency
 would pass a check whose entire reason is that it must not. That is
@@ -252,7 +252,7 @@ class is the day it is not in the plane's own tree.
 ORC-74 would teach `Catapult.Audit.License` to resolve a **git**
 dependency's terms from its own `licensing/0`, since a git dep has no
 `hex_metadata.config`. Foundation's declaration is correct under both
-readings — the terms this code carries are `AGPL-3.0-only` whether the
+readings — the terms this code carries are `AGPL-3.0-or-later` whether the
 reader is this project's own audit or a consumer resolving a git dep — so
 the two tickets are order-independent and this one adds no second spelling
 for that resolver to disagree with. The coincidence is what makes the

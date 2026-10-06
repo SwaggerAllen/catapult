@@ -17,7 +17,7 @@ defmodule Catapult.Dsl do
   alias Catapult.Dsl.Loader
 
   @impl Catapult.Component
-  def licensing, do: [distribution: :service, license: "AGPL-3.0-only"]
+  def licensing, do: [distribution: :service, license: "AGPL-3.0-or-later"]
 
   @impl Catapult.Component
   def errors do
