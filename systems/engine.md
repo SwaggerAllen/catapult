@@ -159,9 +159,10 @@ them.
   `chain.tiers[instance.target].draft` in hand carries one more field on the entry it returns,
   threaded unchanged through `Catapult.Engine .Commands.CommitDraft`'s `mints:` and onto
   `DraftCommitted`'s own `mint()` type.
-- **#18 The same default reaches `policy`, and staleness needs no change.** `policy`
-  (`bundles/default/tiers/policy.yaml`) is `generator: synthesis` with no `draft:`, structurally
-  identical to `comp`/`subcomp`/`resp`, so it gets the identical mint-time `:approved`.
+- **#18 The same default reaches the policy tiers, and staleness needs no change.**
+  `sysarch_policy`, `comparch_policy` and `non_goals_policy` (`bundles/default/chain.yaml`) each declare
+  `draft: none`, structurally identical to `comp`/`subcomp`/`resp`, so each gets the identical
+  mint-time `:approved`.
 
 - **#19 A node's readiness-effective status is resolved, not read bare —
   a join target defers to whichever node minted it, recursively**

@@ -43,12 +43,12 @@ never turns true for any tier whose context walk reaches it (`comparch`'s `per(c
 `self.parent.handle`, and the same shape for `subcomparch`). The chain stalls at the first join
 target and never reaches the tiers downstream of it.
 
-**Why the condition is "no `draft:`," not "`generator: synthesis`."** Every join-target tier in
-`bundles/default` happens to declare `generator: synthesis`, but the causal fact is the missing
-`draft:` block: that's what makes `DraftCommitted`/`DraftApproved` structurally unable to name the
+**Why the condition is "no draft," not the tier's `generator:`.** Every join-target tier in
+`bundles/default` declares `draft: none` and the default `generator:`, and the causal fact is the
+missing draft: that's what makes `DraftCommitted`/`DraftApproved` structurally unable to name the
 node, and `chain.md` #5 already has a name for a tier in that shape — "join-target tier" —
 independent of which `generator:` it declares. Keying the mint-time default on `tiers
-.<target>.draft == nil` rather than on the generator atom is what makes the default generalise to a
+.<target>.draft == :none` rather than on the generator atom is what makes the default generalise to a
 future `generator:` kind that also produces no draft (`external`, `template` per `chain.md` #39,
 neither of which happens to omit `draft:` in `bundles/default` today) without revisiting this
 decision when one arrives: any tier a bundle author writes with no `draft:` gets the same mint-time
@@ -71,7 +71,7 @@ That `Extraction.mints/4`'s `id`/`alias` identity fallback is verified only agai
 `<component alias="...">` shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise (the
 module's own comment on `identity_value/2`, and `test/catapult/generation/toy_seed_chain_test.exs`'s
 moduledoc, which is why that test seeds those three by hand) is a real but separate gap in *identity
-extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/tiers/vocab.yaml`)
+extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/chain.yaml`)
 declares a `draft:` block and is unaffected. And `Catapult.Engine .Projections.Staleness.stale?/2`'s
 early `:absent` clause ("not stale, merely not drafted") does not match a join target once it mints
 at `:approved`, which is safe because every join-target tier in `bundles/default` declares no

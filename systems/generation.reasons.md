@@ -233,10 +233,10 @@ compare- and-swap succeeded.
 
 ## #44
 
-`bundles/default/tiers/*.yaml`'s downward-cascade graph fixes the walk's *approval
+`bundles/default/chain.yaml`'s downward-cascade graph fixes the walk's *approval
 depth* — how many sequential approve-then-dispatch rounds a complete walk takes —
 because every join-target tier (`comp`, `subcomp`, `screen_coll`, `ui_coll`,
-`ui_subcomp`, `screen_subcomp` and the rest) has no `draft:` block at all, so
+`ui_subcomp`, `screen_subcomp` and the rest) declares `draft: none`, so
 `Extraction.mint_status/2` returns `:approved` for it at mint time rather than
 `:absent`, and it never dispatches or needs a human (or `approve_drafts/2`) to move
 it. Every context walk this bundle writes — `self.parent`, `self.reference`,

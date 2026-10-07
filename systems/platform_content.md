@@ -80,10 +80,10 @@ loader tickets carry `system:core_dsl`.
   with its own prompt and failure mode; folding it into resp asks one prompt
   to do two jobs (a previous ORC-7 pass made exactly this mistake and it is
   not repeated here). `comp`/`subcomp` are projection tiers (no draft, no
-  prompt, `generator: synthesis`), minted by the `decomposition` edge's
+  prompt, `draft: none`), minted by the `decomposition` edge's
   sysarch→comp and comparch→subcomp instances (one edge name, several sites
-  sharing the mechanism — `chain.md` #27's `instances:` form;
-  `edges/decomposition.yaml`) from their parent decomposition's row. `resp`
+  sharing the mechanism — `chain.md` #27's `instances:` form, in
+  `bundles/default/chain.yaml`) from their parent decomposition's row. `resp`
   gets the same treatment: v5 restores it as a real tier
   (`seed-docs/README.md`'s first known delta) by minting one node per atom
   `requirements` emits (`decomposition`'s requirements→resp instance),
@@ -174,8 +174,8 @@ loader tickets carry `system:core_dsl`.
   **`ref` may attach anywhere, any parent, any child** — a general
   rule rather than v4's "comparch and below" restriction: no per-use
   kinds, no special-case lifecycles. The attachment sites
-  (`edges/reference.yaml`'s three instances — comparch, subcomparch,
-  impl, one edge name per `chain.md` #27) are wired only where content
+  (`reference`'s `<arch> → ref` instances in `bundles/default/chain.yaml`, one edge
+  name per `chain.md` #27) are wired only where content
   is actually consumed, matching v4's own choice of sites — the general
   rule is about the `ref` tier's own shape carrying no restriction, not
   a mandate to pre-wire every tier against a need nothing has yet.
@@ -237,7 +237,7 @@ loader tickets carry `system:core_dsl`.
 - **#19 `all.policy` reads every scope indiscriminately, so the
   project-global grain is not added to any scoped tier's context.**
 - **#20 `mint.<name>` and `mint.parent.<name>` together are the field
-  source for every join-target tier** — every `generator: synthesis`
+  source for every join-target tier** — every `draft: none`
   tier, the predicate that finds them, plus the mint-time identity
   fields on `vocab`, which is not a join target and carries a draft of
   its own. A given field on a given tier uses one or the other, never
@@ -292,10 +292,10 @@ loader tickets carry `system:core_dsl`.
   the same move already used for `mint.<name>`, not a reason to ship without
   the capability. `cascade_visit` (`chain.md` #6) is that proposal, landed
   (`systems/core_dsl.md` records the grammar side); every `<flow>_plan` tier
-  uses it, and `edges/plan_target.yaml` supplies the live pointer from a
+  uses it, and the `plan_target` edge supplies the live pointer from a
   plan instance to the specific scaffold node it is planning for — the
   schema delta is where plan→target lives. Completion follows the same
-  shape: `all(<flow>_plan -> resolved)` (`predicates.yaml`) reads "every
+  shape: `all(<flow>_plan -> resolved)` (`bundles/default/chain.yaml`'s `predicates:`) reads "every
   visited node's plan has resolved," the universal quantifier over the
   tier's own name as path root (`chain.md` #37) — not v4's
   `count(open_visit) == 0` (unparseable under
@@ -512,7 +512,7 @@ loader tickets carry `system:core_dsl`.
   every `<responsibility>` in one draft rather than one LLM call per
   responsibility. `journey` and `screen` are each a bare
   `child_of(journeys)` / `child_of(screens)` projection — `mint.<name>`
-  fields only, `generator: synthesis`, no draft, no prompt, no review
+  fields only, `draft: none`, no prompt, no review
   — minted by two `decomposition` instances (`journeys.draft
   .journey[]`, `screens.draft.screen[]`), the same join-target shape
   `resp` already has relative to `requirements` and `comp` has
@@ -669,7 +669,7 @@ loader tickets carry `system:core_dsl`.
   (`ui_coll`/`ui_collarch`/`ui_subcomp`/`ui_subcomparch`/`impl_ui`) and
   screen (`screen_coll`/`screen_collarch`/`screen_subcomp`/
   `screen_subcomparch`/`impl_screen`). `ui_coll` and `screen_coll` are
-  `scope: child_of(frontend_sysarch)`, `generator: synthesis` join
+  `scope: child_of(frontend_sysarch)`, `draft: none` join
   targets — no draft, no prompt, `mint.<name>` fields, excluded from
   dispatch by `ReadyScopes.generation_tier?/1` — the same shape `comp`
   already has relative to `sysarch`. `ui_collarch`/`screen_collarch`
@@ -818,7 +818,8 @@ loader tickets carry `system:core_dsl`.
   name, and `all.sysarch.handle`'s own handle (`[id, intro, techspec]`)
   names no component at all. The bare handle, not
   `.handle.fragments[pubapi]`: `comp`'s handle fields (`name`, `purpose`,
-  `is_foundation` — `tiers/comp.yaml`) are `mint.<name>`, set directly from
+  `is_foundation` — `schemas/sysarch.xsd`'s `catapult:field`s on the minted
+  component) are `mint.<name>`, set directly from
   `sysarch`'s own decomposition at mint time, and already enough to decide
   *which* component a dependency should name; the pubapi text itself is a
   `comparch`-written fragment `comp`'s bare handle carries no promise about
@@ -826,16 +827,15 @@ loader tickets carry `system:core_dsl`.
   a fragment read is a different, and currently moot, question from a handle
   read).
 - **#47 Backend's terminal tier carries its family-qualified name.**
-  `bundles/default/tiers/impl.yaml` is `impl_backend.yaml` (`tier:
-  impl_backend`), and `impl_review.yaml` follows it
-  (`impl_backend_review.yaml`, `reviews: impl_backend`) — ORC-106's rule
+  It is `impl_backend` in `bundles/default/chain.yaml`, and its review is the
+  `review:` block on it — ORC-106's rule
   that the qualification lands once the other three families' `impl` tiers
   exist alongside it, and `impl_ui`/`impl_screen` are the first two. No
   other backend tier, edge or prompt differs in shape for it — the
   qualification is a name, not a restructuring.
 - **#48 Minting two target tiers from one source is the loader's existing
-  shape.** `edges/decomposition.yaml`'s `sysarch` source already fans into
-  two different targets, `comp` and `policy`, as two `instances:` entries
+  shape.** `decomposition`'s `sysarch` source already fans into
+  two different targets, `comp` and `sysarch_policy`, as two `instances:` entries
   under one edge name — the same source fanning out to several different
   target tiers, which is one instance sharing a source with another instance
   of the same edge (`chain.md` #27), and already load-bearing.
@@ -893,26 +893,26 @@ loader tickets carry `system:core_dsl`.
   (`test/catapult/generation/fixtures/toy_seed/frontend_sysarch.xml`)
   carries the hyphenated form. Six distinct segments named below match
   no element the schema declares under that spelling, across nine
-  `declared_in` instances across three edge files —
+  `declared_in` instances across three edges —
   `Extraction.descend/2` (`lib/catapult/generation/extraction.ex`)
   resolves a segment by exact string equality, with no hyphen/
   underscore normalization, so every one of the nine matched nothing
   in a committed body and the edge instance it named minted or
   resolved nothing, for every project on this bundle. A tenth instance,
-  in a fourth file, carries the same consequence from a different
+  in a fourth edge, carries the same consequence from a different
   defect shape — a spelled-right segment that names no element at all
   rather than one the schema spells differently — found only once the
   load-time check below actually ran against the whole bundle rather
   than by inspection:
 
-  - `edges/decomposition.yaml`'s `frontend_sysarch → ui_coll` and
+  - `decomposition`'s `frontend_sysarch → ui_coll` and
     `frontend_sysarch → screen_coll` instances — `ui_collections` and
     `screen_collections`, where the schema spells `ui-collections` and
     `screen-collections`.
-  - `edges/fulfills.yaml`'s `screen_coll → screen` instance —
+  - `fulfills`'s `screen_coll → screen` instance —
     `screen_collections`, where the schema spells `screen-collections`
     (the `screens.screen[].@ref` tail matches the schema).
-  - `edges/dependency.yaml`'s `subcomp → subcomp`, `ui_subcomp →
+  - `dependency`'s `subcomp → subcomp`, `ui_subcomp →
     ui_subcomp` and `screen_subcomp → screen_subcomp` sibling-scope
     reads — `sub_dependencies` at three sites (`comparch`'s,
     `ui_collarch`'s and `screen_collarch`'s own drafts), where the
@@ -924,12 +924,12 @@ loader tickets carry `system:core_dsl`.
     subcomp.handle.fragments[pubapi]`) has been reading nothing back
     since the tier landed, generating every `subcomparch` document
     without the dependency context it was written to carry.
-  - `edges/dependency.yaml`'s `ui_coll → ui_coll` and
+  - `dependency`'s `ui_coll → ui_coll` and
     `screen_coll → screen_coll` project-wide reads — `ui_dependencies`
     and `screen_dependencies` (both declared in `frontend_sysarch`'s
     own draft), where the schema spells `ui-dependencies` and
     `screen-dependencies`.
-  - `edges/dependency.yaml`'s `ui_coll → design_system` instance —
+  - `dependency`'s `ui_coll → design_system` instance —
     `design_system`, where the schema declares the `<design-system>`
     element inside the `Primitives` complexType. The path's own second
     segment, `primitives`, is a single word and matches the schema;
@@ -946,7 +946,7 @@ loader tickets carry `system:core_dsl`.
     here landing on one line instead of three sites, which is exactly
     why it reads as a typo rather than a distinction without this
     sentence.
-  - `edges/reference.yaml`'s `impl_backend → ref`, `impl_ui → ref` and
+  - `reference`'s `impl_backend → ref`, `impl_ui → ref` and
     `impl_screen → ref` instances — the tenth, differently-shaped
     instance. Each `declared_in` repeated `implementation` as its own
     second segment
@@ -1009,7 +1009,7 @@ loader tickets carry `system:core_dsl`.
   than a `draft.title`/`draft.body` this tier has no draft to hold.
   The payload shape itself is the write tool's to define when it is
   built, not this tier declaration's — only the key names are fixed
-  here. There is no `ref_review.yaml`: nothing commits a draft for it
+  here. There is no `review:` block on `ref`: nothing commits a draft for it
   to review. There is no `prompts/ref.md.liquid` and no
   `schemas/ref.xsd` either, since no field names them, and
   `systems/generation.md`'s `@root_tag_fixtures` entry counts neither

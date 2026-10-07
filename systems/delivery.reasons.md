@@ -334,7 +334,7 @@ merge-forward machinery nothing to do.
 
 ## #57
 
-No tier in `bundles/default/tiers/*.yaml` declares a target-repo location for its own
+No tier in `bundles/default/chain.yaml` declares a target-repo location for its own
 draft — `draft:`'s `root_tag`/`grammar` name a validation contract, not a place in a
 shipped project's tree, and nothing else in `chain.md` fills that gap either.
 Deciding the real one — whether a shipped project ever sees this XML at all, or
