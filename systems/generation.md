@@ -524,6 +524,17 @@ and validation logic and must not fork it.
   classified outcome already reports in — no new status on
   `DispatchRun`, no new branch in `Dispatch.simulate_result/2`, because
   `other_failure` is already a terminal report.
+
+  So holding a run in flight is reserved for a body the plane refused,
+  and `CommitPath` answers `:ok` for any commit whose events are
+  appended. A `:strong` dispatch that returns
+  `{:error, :consistency_timeout}` is one of those: Commanded answers it
+  only after the append, when a strongly consistent handler misses the
+  wait, and the projection catches up on its own. `CommitPath` logs the
+  lag and reports the commit. A stub-mode run never retries at all — the
+  retry needs an agent to re-invoke — so a stub the grammar refuses ends
+  non-terminal until the in-flight guard's cutoff, which is why #48
+  holds every stub to its tier's schema.
 - **#37 Stub mode is a per-dispatch workflow input, tied to test-project state —
   never a repository variable on the fixture repo** (ORC-223, author's decision).
 
@@ -759,14 +770,18 @@ and validation logic and must not fork it.
   `after`-block reason the poll-deadline entry above gives.
 
   On top of the number, the failure path: a `flunk/1`
-  on timeout reports the tier set that ran, every node
-  `Store.list_nodes/2` still shows `:drafted` project-wide, how many
-  `approve_drafts/2` calls fired and how many approvals each reported,
-  and the per-run `duration_ms` `systems/delivery.md`'s `runs/2`
-  carries — enough to tell a genuinely stuck graph from a slow one
-  without re-running it by hand, and the thing that stands against the
+  on timeout reports the last `remaining` value `runs/2` answered,
+  every run not yet `completed` (its tier, `node_id`, status and
+  outcome), the tier set that ran with each run's `duration_ms`
+  `systems/delivery.md`'s `runs/2` carries, and how many
+  `approve_drafts/2` calls fired and how many approvals each reported
+  — enough to tell a genuinely stuck graph from a slow one, and a run
+  held in flight from a scope read ready and never dispatched, without
+  re-running it by hand, and the thing that stands against the
   pressure a tight, unexplained timeout creates to shorten the suite
-  back down.
+  back down. Everything in it comes off `runs/2` and
+  `approve_drafts/2`'s own answers: `Provisioning` exposes no
+  node-status read, so the message cannot list `:drafted` nodes.
 
 - **#45 A full walk is the first exercise of `@root_tag_fixtures`'s
   previously-unreached stubs.** A walk capped at two rounds leaves
@@ -836,7 +851,9 @@ and validation logic and must not fork it.
   *.xsd` — not an empty placeholder, since the plane validates a
   reported body against the tier's grammar exactly as it would a real
   model response, the schema a tier's own `draft:` block already commits
-  it to regardless of who produces the body.
+  it to regardless of who produces the body. A schema change therefore
+  changes its stub in the same commit: an element a schema drops, a
+  stub still carrying it fails that schema.
 
   The filename convention has two cases, not one, because a `root_tag`
   is not always owned by a single tier: of the 20 distinct generation

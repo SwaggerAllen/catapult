@@ -18,6 +18,8 @@ defmodule Catapult.Generation.CommitPath do
 
   @behaviour Catapult.Delivery.ResultHandler
 
+  require Logger
+
   alias Catapult.Config
   alias Catapult.Delivery
   alias Catapult.Dsl
@@ -129,7 +131,7 @@ defmodule Catapult.Generation.CommitPath do
   end
 
   defp dispatch_and_cache(%CommitDraft{} = cmd, payload) do
-    case Router.dispatch(cmd, consistency: :strong) do
+    case dispatch(cmd) do
       :ok ->
         Delivery.put_draft_body(payload.project_id, payload.node_id, payload.body, cmd.body_sha)
         :ok
@@ -157,7 +159,7 @@ defmodule Catapult.Generation.CommitPath do
         kind: :ai
       }
 
-      Router.dispatch(cmd, consistency: :strong)
+      dispatch(cmd)
     end
   rescue
     error -> {:error, {:malformed_xml, Exception.format(:error, error, __STACKTRACE__)}}
@@ -191,10 +193,36 @@ defmodule Catapult.Generation.CommitPath do
       occurred_at: clock().utc_now()
     }
 
-    Router.dispatch(cmd, consistency: :strong)
+    dispatch(cmd)
   end
 
   ## -- shared -----------------------------------------------------------
+
+  # `:strong`, so a caller reads its own write back once the projector
+  # has applied it — but `{:error, :consistency_timeout}` is Commanded's
+  # answer *after* the events are appended
+  # (`Commanded.Middleware.ConsistencyGuarantee.after_dispatch/1`): the
+  # write is durable and the projection catches up on its own; only the
+  # wait gave up. Reported as a failure, it told
+  # `Catapult.Delivery.Dispatch` a committed draft had been rejected,
+  # and a rejected `:success` report stays in flight waiting for a
+  # resubmission that never comes — run 32 of the live suite timed out
+  # holding 21 such runs, all from the part of the walk that fans out
+  # and reports in bursts, where the five-second wait runs out.
+  defp dispatch(cmd) do
+    case Router.dispatch(cmd, consistency: :strong) do
+      {:error, :consistency_timeout} ->
+        Logger.warning(
+          "#{inspect(cmd.__struct__)} committed; its projection lagged the consistency wait",
+          component: :generation
+        )
+
+        :ok
+
+      other ->
+        other
+    end
+  end
 
   # `tier.draft_fields` is `name => tag`, read off this same commit
   # (`Catapult.Dsl.DeclaredInSchema.mints_and_fields/2`); `Extraction
