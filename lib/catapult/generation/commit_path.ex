@@ -207,8 +207,8 @@ defmodule Catapult.Generation.CommitPath do
   # `Catapult.Delivery.Dispatch` a committed draft had been rejected,
   # and a rejected `:success` report stays in flight waiting for a
   # resubmission that never comes — run 32 of the live suite timed out
-  # holding 21 such runs, all from the half of the walk where reports
-  # land several to a second and the five-second wait runs out.
+  # holding 21 such runs, all from the part of the walk that fans out
+  # and reports in bursts, where the five-second wait runs out.
   defp dispatch(cmd) do
     case Router.dispatch(cmd, consistency: :strong) do
       {:error, :consistency_timeout} ->

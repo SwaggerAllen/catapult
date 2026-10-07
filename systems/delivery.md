@@ -1430,7 +1430,10 @@ generating as scope-runs inside one ticket.
   context-walk rule) **and** `ReadyScopes.ready_review/3` (review-tier readiness — "the
   reviewed tier's current draft has no review yet," a separate rule no generation-side
   filter covers), each joined against `Store.list_nodes/2` for nodes with no terminal
-  `DispatchRun` yet, plus any run already in flight, summed.
+  `DispatchRun` yet, plus any run already in flight, summed. Each read is asked the way
+  `sweep_tiers/2` asks it: generation readiness under the tier's own name, review
+  readiness under `ReadyScopes.review_tier_name/1`'s `"<tier>:review"` — the same name
+  the review's `DispatchRun` row carries, so the in-flight subtraction matches it.
 
   **`Catapult.Generation.Quiescence` has no caller and is gone.**
 

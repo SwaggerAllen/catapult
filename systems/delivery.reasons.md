@@ -727,6 +727,13 @@ hedge, reintroduced through the read meant to remove it. Zero across both means
 nothing is dispatchable on either axis and nothing is running — a fact read directly
 off plane state, the thing a green run of this test depends on.
 
+The addressing is named because naming the two reads was not enough. A review stopped
+being a tier of its own and became a `review:` block addressed as `"<tier>:review"`,
+and `ready_review/3` answers `[]` for a bare tier name — so a `remaining` that still
+asked it with the bare name compiled, passed a shape-only assertion, and counted no
+review at all, the exact zero this rule exists to rule out. `ProvisioningTest` pins
+the count rather than the shape.
+
 Its quiet-since arithmetic (`test/support/quiescence.ex`) hedged exactly the race
 `remaining == 0` reads directly — a sweep tick that fired but had not yet produced a
 visible row — by waiting out a margin instead of seeing the ready node itself.

@@ -13,8 +13,8 @@ defmodule Catapult.Generation.CommitPathTest do
   committed, and whose children the walk went on to dispatch, held
   its run at `:context_fetched` for good, and the live suite's
   `remaining` with it: run 32 timed out with 21 runs in exactly that
-  state, every one from the later, burstier half of the walk where
-  reports land several to a second.
+  state, every one from the part of the walk that fans out and
+  reports in bursts.
 
   The default wait is five seconds, which this suite never exceeds
   sequentially, so these tests shrink it to zero to make the wait

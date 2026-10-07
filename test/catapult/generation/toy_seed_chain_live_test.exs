@@ -89,10 +89,12 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   run is the fact this test can actually observe.
 
   **The tier set the walk reaches is checked against a predicate, not
-  a fixed number.** `bundles/default/tiers/*.yaml`'s own shape fixes
-  which tiers a complete walk dispatches: every tier the sweeper would
-  ever consider (`reviews:` set, or `draft:` present with
-  `generator: "llm"`) minus the ones scoped `cascade_visit` — Target,
+  a fixed number.** `bundles/default/chain.yaml`'s own shape fixes
+  which dispatch names a complete walk produces: every generation tier
+  the sweeper would ever consider (a `draft:` map with
+  `generator: "llm"` — a join target's `draft: none` is not one), and
+  `"<tier>:review"` for every tier carrying a `review:` block, minus
+  `@unminted_tiers` and the tiers scoped `cascade_visit` — Target,
   not Initial (`Catapult.Engine.Projections.ReadyScopes`'s own
   moduledoc) — since `ReadyScopes`'s own candidate enumeration returns
   `[]` for that scope unconditionally, so a `cascade_visit`-scoped tier

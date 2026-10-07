@@ -170,6 +170,20 @@ attempts (the entry below), each against that same 1800s timeout — up to anoth
 `:success`; three hours is that ceiling with room for GitHub's own queue/startup
 delay before the job even begins running, not a second independent guess.
 
+## #36
+
+A rejected `:success` report stays in flight because the harness is expected to
+resubmit; a rejection with nothing to fix in the body is a wait for a resubmission
+that never comes. `CommitPath` used to pass `{:error, :consistency_timeout}` through
+as exactly that. In live-suite run 32 21 runs sat at `:context_fetched` until the
+deadline, every one from `frontend_sysarch` onward, the part of the walk that fans
+out and reports in bursts (about twenty reports inside forty seconds on run 31). The
+commits had landed: the walk had already dispatched the children of
+`frontend_sysarch`, `ui_collarch` and `screen_collarch`, each off nodes those
+commits minted. Commanded documents the timeout as a post-append answer
+(`Commanded.Middleware.ConsistencyGuarantee.after_dispatch/1`), and
+`CommitPathTest` reproduces it deterministically by setting the wait to zero.
+
 ## #37
 
 A `vars.STUB_MODE` set once on `SwaggerAllen/catapult-test` is out-of-band state
@@ -247,6 +261,13 @@ what a draft itself mints, which the tier bundle alone cannot predict, so the
 number of *nodes* dispatched within a wave stays unmeasured and the deadline still
 needs headroom for it — depth fixes how many waves the suite must wait through, not
 how much work each wait costs.
+
+The failure message names which half of `remaining` held the walk open because three
+consecutive timeouts (live-suite runs 29, 30 and 31) reported only tiers and
+durations, which cannot separate a run stuck in flight from a ready scope nobody
+dispatched — and the two have unrelated causes. Run 32, the first to carry the
+unfinished runs, showed 21 runs at `:context_fetched` whose drafts had committed,
+which pointed straight at `CommitPath` (the #36 entry).
 
 **Under `settled?`/`drained?` (ORC-235), no walk in the raft costs more than this
 floor prices.** `comp` mints at `sysarch`'s `DraftCommitted` (`CommitPath`'s own
@@ -361,6 +382,14 @@ A missing key is not a gap the live suite tolerates by exercising a narrower cha
 — the entry above keys the lookup by `root_tag` rather than by tier precisely so
 one fixture serves every tier sharing a root_tag, and that same collapse means a
 single missing key fails every tier that shares it, not just one.
+
+A stale stub fails less visibly than a missing one. ORC-235 moved `renders`,
+`calls` and `uses_shapes` onto `frontend_sysarch`'s draft and dropped those elements
+from `ui_collarch.xsd` and `screen_collarch.xsd`, and the two stubs kept them. Both
+failed `missing_mandatory_elements` on every report, the harness exited green
+because stub mode never retries (#36), and live-suite runs 29 and 30 each timed out
+at 33 minutes with the walk stalled after those two tiers and an empty failure
+buffer.
 
 ## #49
 
