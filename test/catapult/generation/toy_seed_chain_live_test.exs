@@ -253,7 +253,8 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
       awaiting_effect?: false,
       advanced?: false,
       log: [],
-      last_runs: []
+      last_runs: [],
+      last_remaining: nil
     }
 
     poll_walk!(base, headers, project_id, deadline, state)
@@ -263,8 +264,22 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     if System.monotonic_time(:millisecond) >= deadline do
       tiers_and_durations = Enum.map(state.last_runs, &{&1["tier"], &1["duration_ms"]})
 
+      # Which half of `remaining` held it above zero. A run still
+      # listed here is in flight and never reported terminal (a
+      # rejected `:success` report stays in flight by design); none
+      # listed means every run finished and the count is a scope the
+      # plane reads ready but never dispatched. Runs 29-31 timed out
+      # with only tier and duration in this message, which could not
+      # tell those two apart.
+      unfinished =
+        for run <- state.last_runs, run["status"] != "completed" do
+          {run["tier"], run["node_id"], run["status"], run["outcome"]}
+        end
+
       flunk(
         "timed out waiting for the toy raft's downward-cascade walk to finish — " <>
+          "remaining at the last poll: #{inspect(state.last_remaining)}; " <>
+          "runs not completed (tier, node_id, status, outcome): #{inspect(unfinished)}; " <>
           "tier set observed so far (tier, duration_ms): #{inspect(tiers_and_durations)}; " <>
           "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(state.log))}"
       )
@@ -279,7 +294,14 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     if remaining > 0 do
       Process.sleep(@poll_interval)
 
-      next_state = %{state | seen_ids: ids, advanced?: advanced?, last_runs: runs}
+      next_state = %{
+        state
+        | seen_ids: ids,
+          advanced?: advanced?,
+          last_runs: runs,
+          last_remaining: remaining
+      }
+
       poll_walk!(base, headers, project_id, deadline, next_state)
     else
       approved = approve_drafts!(base, headers, project_id)
@@ -301,7 +323,8 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
             awaiting_effect?: true,
             advanced?: advanced?,
             log: [approved | state.log],
-            last_runs: runs
+            last_runs: runs,
+            last_remaining: remaining
         }
 
         poll_walk!(base, headers, project_id, deadline, next_state)
