@@ -4,7 +4,6 @@
   <private-surface>Internal formatting helpers for a click count and a truncated target URL.</private-surface>
   <failure-surface>An invalid target URL renders inline under the input; nothing here ever raises to its caller.</failure-surface>
   <policies>Every rendered target URL is truncated and escaped before display, never interpolated raw.</policies>
-  <dependencies/>
   <primitives/>
   <subcomponents>
     <subcomponent alias="link_row">
