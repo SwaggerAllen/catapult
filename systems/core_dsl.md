@@ -28,8 +28,9 @@ profiles.
   non-Turing-complete (v5 §6). This is a correctness property the
   scheduler and audit lean on, not a style choice.
 - **#4 All validation at load time where possible**: type-level
-  acyclicity (libgraph), cross-references, cardinality shapes,
-  extension schemas. A bundle that loads is a bundle the engine can
+  acyclicity (libgraph), cross-references, extension schemas
+  (occurrence bounds are a draft's schema's, enforced when it commits —
+  `chain.md` #33). A bundle that loads is a bundle the engine can
   run; instance-level checks (dependency cycles) run at projection
   time.
 - **#5 Destructive bundle change over a populated graph is a cutover,
@@ -103,7 +104,7 @@ profiles.
   (ORC-8, named here because the reactive scheduler is the first
   runtime consumer). `Chain.build/3` already resolves and validates
   every named predicate a bundle's four slots (`scope_filter`,
-  `cardinality.when`, an edge `constraint`, a flow `completion`,
+  a `fanout` instance's `when:`, an edge `constraint`, a flow `completion`,
   `chain.md` #37) reference — then discards the map once load-time
   validation passes. Nothing downstream can evaluate a `scope_filter`
   reference against live graph state without it; re-parsing

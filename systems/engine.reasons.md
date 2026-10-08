@@ -191,6 +191,20 @@ same way it already reads `generator: supplied` for `design_system`.
 
 ## #27
 
+retired: an edge instance's `{min, max}` cardinality and its
+`graph_constraint` were evaluated by `Catapult.Engine.Projections
+.GraphConstraints` once the bound side drained, and reported as a
+non-blocking finding. Edge instances no longer carry cardinality: a
+bound on one document is an occurrence bound in its schema, enforced at
+commit (`chain.md` #33), and a count no `minOccurs` can state is a
+`when:` predicate (#37). Graph constraints are checked when a draft
+commits, with a typed error the agent retries against (`chain.md` #30)
+— the opposite of a deferred finding. `GraphConstraints` is still in
+the tree with no caller.
+
+The reason it carried, which still describes why a cross-node count
+cannot be checked on every intermediate state:
+
 `chain.md` #25 places this at "projection time," not load time; which moment of projection time
 is the load-bearing part, because the naive answer ("check on every `DraftCommitted`") produces
 exactly this failure: `fulfills`'s `source: {min: 1}` ("every comp fulfills ≥1 resp") reads as

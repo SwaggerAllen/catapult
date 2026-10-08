@@ -518,13 +518,12 @@ loader tickets carry `system:core_dsl`.
     `sysarch`'s own draft rather than either comp's; by the time
     `screens` runs, every `journey` node already exists, so this is an
     ordinary reference to already-minted nodes, never a forward
-    reference to ones that don't exist yet — cardinality `source:
-    {min: 1}` \[a journey walks through ≥1 screen\], `target: {min: 0}`
-    \[standalone screens are legal\]), and `source: resp, target:
-    journey` / `source: resp, target: screen` (requirements'
-    integration point, below — both permissive, `{min: 0}` each side,
-    since a backend-only responsibility grounds in no product surface
-    at all) — three more sites under the one mechanism this edge
+    reference to ones that don't exist yet — a screen's `<journeys>` is
+    optional in `schemas/screens.xsd`, so standalone screens are legal),
+    and `source: resp, target: journey` / `source: resp, target: screen`
+    (requirements' integration point, below — both optional, since a
+    backend-only responsibility grounds in no product surface at all) —
+    three more sites under the one mechanism this edge
     already names, not a new edge.
   - **A new `navigation` edge**: `type: reference`, `navigation: true`,
     `source: screen, target: screen`, `declared_in: screens.draft
@@ -719,10 +718,11 @@ loader tickets carry `system:core_dsl`.
   implementation locus for the screens it groups, the identical
   relationship `fulfills`' existing `comp → resp` instance already
   states for the backend ("this architecture node is the one that
-  implements this responsibility"), and the cardinality matches exactly
-  (`source: {min: 1}` — a collection must group ≥1 screen to justify
-  existing, `target: {min: 1, max: 1}` — a screen is hosted by exactly
-  one collection). `fulfills` is in `instances:` form to carry both.
+  implements this responsibility"), and the shape matches: a collection
+  must group ≥1 screen to justify existing (`<screen>` is
+  `minOccurs="1"` under each collection in `schemas/frontend_sysarch.xsd`,
+  as `<resp>` is under each component in `schemas/sysarch.xsd`).
+  `fulfills` is in `instances:` form to carry both.
   Declared inside `frontend_sysarch`'s own `screen-collections
   .collection[].screens.screen[].@ref` rows — the same pass that groups
   screens into collections is the one naming which screens land in
@@ -732,7 +732,7 @@ loader tickets carry `system:core_dsl`.
 
   `screen_coll → journey` ("consumes journey state") is a `reference`
   instance, `declared_in: screen_collarch.draft.journeys
-  .journey[].@ref`, both sides `{min: 0}` — a collection may consume no
+  .journey[].@ref`, optional in `schemas/screen_collarch.xsd` — a collection may consume no
   journey's live state, and a journey may back no screen collection
   directly (it already reaches its screens through the product-tier
   `journey → screen` reference `reference.yaml` already carries).
@@ -769,7 +769,7 @@ loader tickets carry `system:core_dsl`.
   `design_system` mints
   at most one node project-wide (ORC-110), so a project supplying none
   simply has no instance of this edge to declare — absence, not a
-  zero-cardinality edge naming a node that doesn't exist.
+  dependency naming a node that doesn't exist.
 - **#45 Chain placement and per-family tiers.** `frontend_sysarch` is
   `scope: singleton` (the closed scope set — `chain.md` #6 — has a real kind
   for exactly this: no `per(X)` parent it would otherwise need a context
@@ -807,13 +807,12 @@ loader tickets carry `system:core_dsl`.
   of the same edge (`chain.md` #27), and already load-bearing.
   `frontend_sysarch` carries two `decomposition` instances the identical
   way: `source: frontend_sysarch, target: ui_coll, declared_in:
-  frontend_sysarch.draft.ui-collections.collection[]` (`cardinality: source:
-  {min: 0}` — a project may recurrence-seed no shared widgets — `target:
-  {min: 1, max: 1}`) and `source: frontend_sysarch, target: screen_coll,
+  frontend_sysarch.draft.ui-collections.collection[]` (`minOccurs="0"` in
+  `schemas/frontend_sysarch.xsd` — a project may recurrence-seed no shared
+  widgets) and `source: frontend_sysarch, target: screen_coll,
   declared_in: frontend_sysarch .draft.screen-collections.collection[]`
-  (`source: {min: 1}` — every project's screens need at least one hosting
-  collection, mirroring `screens`' own `{min: 1}` — `target: {min: 1, max:
-  1}`). `ui_collarch → ui_subcomp` and `screen_collarch → screen_subcomp`
+  (`minOccurs="1"` — every project's screens need at least one hosting
+  collection, mirroring `screens`' own `<screen minOccurs="1">`). `ui_collarch → ui_subcomp` and `screen_collarch → screen_subcomp`
   are two further `decomposition` instances, the same shape `comparch →
   subcomp` already has. `decomposition` (`bundles/default/chain.yaml`)
   names `sysarch→comp`, `comparch→subcomp`,
@@ -1033,8 +1032,7 @@ loader tickets carry `system:core_dsl`.
   other `declared_in` segment is (ORC-232's entry above). Across those
   seven edge files, only these six instances carry an explicit
   `source_ref:`/`target_ref:`; every instance's
-  `source`/`target`/`declared_in`/`cardinality` values stand as
-  declared.
+  `source`/`target`/`declared_in` values stand as declared.
 - **#61 `comp`, `subcomp`, `ui_subcomp` and `screen_subcomp` gain
   `mint.parent.<name>` values in place of `mint.<name>` on exactly the
   fields that were never row-local** (ORC-236;

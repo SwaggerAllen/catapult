@@ -72,7 +72,7 @@ them.
   because a `scope_filter` predicate (`has_edge`, `count`, `exists`,
   `all`/`any`, `reaches`) needs live graph state the same way a context
   walk does. Built as the shared home for the predicate language's
-  other three slots (`cardinality.when`, an edge `constraint`, a flow
+  other three slots (a `fanout` instance's `when:`, an edge `constraint`, a flow
   `completion`, `chain.md` #37) when their own tickets land, not a
   one-off for this slot alone.
 - **#8 `input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
@@ -250,14 +250,11 @@ them.
     upstream tier whose own exhaustion would settle the question, and
     no chain event marks the pool complete. Rather than leave that
     recursion hang the first time anything asks, `chain.md` #22
-    refuses two things at load time instead: an `all.<tier>` walk
-    targeting such a tier, and a non-zero cardinality `min`
-    on the side of an edge instance that names one (below) — nothing in
-    `bundles/default` needs either (every `ref` read is a named
-    `reference`/`fulfills` citation resolved by id, never a population
-    walk, and every `→ ref` instance's cardinality is `{min: 0}` on both
-    ends), so both refusals cost no shipped content and this branch of
-    `drained?/1` is never actually called;
+    refuses an `all.<tier>` walk targeting such a tier at load time
+    instead — nothing in `bundles/default` needs one (every `ref` read
+    is a named `reference`/`fulfills` citation resolved by id, never a
+    population walk), so the refusal costs no shipped content and this
+    branch of `drained?/1` is never actually called;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
@@ -316,10 +313,6 @@ them.
   guarantee `mint.status` relies on.
 - **#26 `settled?/2`'s `generator: supplied` clause widens to `generator: reference`,
   unconditionally, for the identical reason** (ORC-236; the three-way match above).
-- **#27 Cardinality and instance-level `graph_constraint` are evaluated once the edge's own bound
-  side is drained — except a `max` bound, which needs no such gate and is evaluated as soon as it can
-  be violated — and a violation is a reported, non-blocking finding — never a retried draft and never
-  a blocking gate** (ORC-236).
 - **#28 A declared edge now resolves to the node it names, closing the
   chain this ticket's own audit found empty — from two independent
   directions, not one fix gating the other.** Every `<arch> → ref`
