@@ -234,7 +234,7 @@ out twice over: v5 §4.5 already says a supplied design system "rides §5.4's
 node rather than a ref," and independently, a ref attaches via *reference*
 edges from a singleton pool with no per-use kinds (§4.5's own "stay general
 on purpose"), while `ui_coll → design_system` (§5.4's edge inventory) is a
-typed *dependency* edge carrying cardinality and layering semantics a
+typed *dependency* edge carrying layering semantics a
 reference edge was never built to hold.
 
 ## #31

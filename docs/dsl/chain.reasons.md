@@ -182,7 +182,7 @@ is `drained?` per tier plus every walk target approved. `all.<tier>` inside the 
 adding `all.policy.handle` to `comparch`'s context was a permanent
 deadlock when `policy` had `comparch` among its three fanout drivers
 (ORC-247, review 3); single-sourcing `child_of` (#28) is what makes
-`drained?` decidable at all. The `write`-sourced refusals are
+`drained?` decidable at all. The `write`-sourced refusal is
 ORC-236's, for the same shape of reason: an indefinite pool an outside
 path accretes cannot tell "no more will ever be written" from "none
 exist yet", and no chain event marks it complete, so a reader of one

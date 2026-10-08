@@ -70,9 +70,12 @@ entirely (impl attaching directly to the comp); expressing that as a scope
 needs a union this ticket's closed scope-expression set (`singleton |
 per(X) | child_of(X)`, `chain.md` #6) has no form for (`per(subcomp) OR
 per(comp where count(subcomponents)==0)`). Dropped as a content
-simplification, not carried forward silently: `decomposition`'s
-comparch→subcomp instance declares `source: {min: 1}`, making every comp
-fan out into at least one subcomponent.
+simplification, not carried forward silently: every comp fans out into
+at least one subcomponent. That is a count across the comp's children,
+not a bound on one document — `schemas/comparch.xsd` lets
+`<subcomponents>` be empty — so it is `decomposition`'s comparch→subcomp
+instance's `when: has_foundation_child` (`count(decomposition) >= 1`,
+`chain.md` #37), whose evaluation is reserved to the commit path.
 
 ## #11
 
@@ -360,9 +363,10 @@ locators (`chain.md` #27, `systems/core_dsl.md`'s ORC-236
 entry): `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
 `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
 `target_ref:` at all, so this instance extracts and resolves with no
-explicit locator — a same-tier locator pair, since the edge's own `{min:
-0, max: 1}` cardinality is a fact about *this* `ui_coll`'s dependency,
-which a project-wide pool read can't carry.
+explicit locator — a same-tier locator pair, since "at most one design
+system" (`<design-system>` is `minOccurs="0" maxOccurs="1"` in
+`schemas/ui_collarch.xsd`) is a fact about *this* `ui_coll`'s
+dependency, which a project-wide pool read can't carry.
 
 ## #51
 
