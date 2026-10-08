@@ -9,8 +9,9 @@ paths:
 
 The DSL: the frozen core vocabulary (tiers, scopes, edges, fragments,
 handles, context walks, grammars, readiness, generators, the
-predicate language), the bundle loader (`bundle.yaml` + registered
-files → validated union, single directory per bundle — no `extends:`
+predicate language), the bundle loader (one file per bundle —
+`chain.yaml` or `workflow.yaml` — plus the schemas and prompts it names,
+→ validated union, single directory per bundle — no `extends:`
 layering, `bundle.md` #7), and the **extension registry** (v5 §9)
 through which platform extensions add annotation namespaces,
 declaration kinds, generator types, context-source kinds, and audit

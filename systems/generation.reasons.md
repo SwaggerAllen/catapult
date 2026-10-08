@@ -43,15 +43,17 @@ ordering. `systems/platform_content.md`'s ORC-232 entry records the
 `subcomp↔subcomp` instance of this as live and broken; the same `source`-identity
 gate excludes every instance above, not only the ones typed `dependency`.
 
-The two `type: policy_application` instances
-(`bundles/default/edges/policy_application.yaml:24,35`) are a third shape, not a
-second instance of the class above. Their `declared_in` values are
-`policy.structural` and `policy.required` — not a `<tier>.draft....` path at all,
+The four `type: policy_application` instances declared on a mint path
+(`bundles/default/chain.yaml`'s `sysarch_policy.mint.required`,
+`comparch_policy.mint.structural`, `comparch_policy.mint.required` and
+`non_goals_policy.mint.required`) are a third shape, not a second instance of the
+class above. A mint path (`chain.md` #29) is not a `<tier>.draft....` path at all,
 so `self_sourced_path/2` has nothing to navigate: it returns `:skip` on the shape
-mismatch before `instance.source == tier_name` is even asked. Both are set at mint
+mismatch before `instance.source == tier_name` is even asked. Each is set at mint
 time off a marker the minting draft itself carries (a `<policy>` element's
-`<structural/>` vs. `<required>` child — that edge file's own comments), never
-extracted from any committing tier's draft body at all.
+`<structural/>` vs. `<required>` child), never extracted from any committing tier's
+draft body at all. The fifth instance, `comp → sysarch_policy`, is declared on a
+`comparch` draft path and is not this shape.
 
 ## #17
 
@@ -302,11 +304,12 @@ mint-ancestry and approval-ancestry, does not move the count everywhere it appli
 the same way, and it applies in three places above, not one.
 
 At the `ui_collarch`/`screen_collarch` step, it happens not to move the count.
-`ui_collarch` walks `self.parent.uses_shapes -> comp .handle.fragments[pubapi]` and
-`screen_collarch` walks `self.parent.calls -> comp.handle.fragments[pubapi]`
-(`bundles/default/tiers/ui_collarch.yaml:38`, `screen_collarch.yaml:45`), and
-`comp`'s `pubapi` fragment is authored by `comparch`'s own `produces:`
-(`comparch.yaml:58`), not by `sysarch` — so `comp` reaches `:approved` at
+`ui_collarch` walks `self.parent.uses_shapes -> comp.handle.fragments[pubapi]` and
+`screen_collarch` walks `self.parent.calls -> comp.handle.fragments[pubapi]` —
+derived from the `uses_shapes` and `calls` edges' own `context:` rather than
+written in either tier (`chain.md` #20) — and `comp`'s `pubapi` fragment is
+authored by `comparch`'s own `produces:` (`pubapi: draft.public-surface`), not by
+`sysarch` — so `comp` reaches `:approved` at
 `sysarch`'s mint (mint-ancestry) and needs no wait on `comparch`'s own approval
 (approval-ancestry), but the *content* the front end actually reads is written by
 `comparch`'s draft (fragment-authorship). It does not move the count *at this one

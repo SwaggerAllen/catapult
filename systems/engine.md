@@ -275,10 +275,11 @@ them.
     `docs/v5-design-decisions.md`), so once every possible minting
     source has committed and been approved, no further instance of
     `<tier>` will ever appear and the current list is final, whatever
-    its length. The second conjunct costs nothing at the ten
+    its length. The second conjunct costs nothing at the twelve
     `child_of` tiers that are join targets (`comp`, `subcomp`,
-    `journey`, `screen`, `resp`, `policy`, `ui_coll`, `ui_subcomp`,
-    `screen_coll`, `screen_subcomp`), whose rows are `:approved` from
+    `journey`, `screen`, `resp`, `sysarch_policy`, `comparch_policy`,
+    `non_goals_policy`, `ui_coll`, `ui_subcomp`, `screen_coll`,
+    `screen_subcomp`), whose rows are `:approved` from
     mint and whose `settled?` already defers to the very `Xi` this
     branch checks. It is load-bearing at the eleventh: `vocab` is the
     one `child_of` tier in `bundles/default` carrying a `draft:` of

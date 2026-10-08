@@ -32,10 +32,9 @@ possible" standing decision exists to prevent.
 ## #14
 
 The bullet above's premise — every minted child eventually earns `:approved` through `DraftApproved`
-— does not hold for exactly the tiers `chain.md` #5 calls a **join-target tier** — one declared
-with no `draft:` block (`comp`, `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
-synthesis` today, though the condition that matters is "no `draft:`," not the generator kind — see
-below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
+— does not hold for exactly the tiers `chain.md` #5 calls a **join-target tier** — one declaring
+`draft: none` (`comp`, `subcomp`, `resp` and the three policy tiers in `bundles/default`, among
+others; the condition that matters is the missing draft, not the generator kind — see below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
 and `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{}, _)`) can never name it.
 Minted at `:absent`, a join target sits there forever, and `walk_ready?/2`'s `status == :approved` —
 `chain.md` #22's "readiness requires all targets ready; context is the only readiness signal" —
@@ -68,7 +67,7 @@ declaration is already being read).
 ## #18
 
 That `Extraction.mints/4`'s `id`/`alias` identity fallback is verified only against `sysarch`'s own
-`<component alias="...">` shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise (the
+`<component alias="...">` shape, and mints `resp`/`vocab`/the policy tiers a `nil` scope_key otherwise (the
 module's own comment on `identity_value/2`, and `test/catapult/generation/toy_seed_chain_test.exs`'s
 moduledoc, which is why that test seeds those three by hand) is a real but separate gap in *identity
 extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/chain.yaml`)

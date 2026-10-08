@@ -1696,15 +1696,11 @@ loader, the declaration-graph acyclicity check, the `blocks:`
 structural acceptance — is `systems/core_dsl.md`'s own file map
 (`lib/catapult/dsl/**`) and
 lands with this same ticket; no file-map change is needed for either
-half. **Corrected here, on author review: the touch is core_dsl +
-engine + this system + `platform_content`, not three.** The shipped
-`bundles/default-flow` predates every ORC-105 grammar pass —
-`bundle.yaml` carries no `entry:`, its gates and environments still
-carry the retired `after:` field, and `gates/ux-review.yaml` throws
-back to `queue`, a name this same ticket's dev pass retires — so
-landing `workflow.md`'s loader without migrating that content in the
-identical change fails every workflow bundle's load, before anything
-else this ticket builds ever runs. `bundles/**` is
+half. **The touch is core_dsl + engine + this system +
+`platform_content`.** `workflow.md`'s loader and the shipped
+`bundles/default-flow` content it loads change in one commit: a loader
+that lands without migrating that content fails every workflow
+bundle's load, before anything else this ticket builds ever runs. `bundles/**` is
 `platform_content`'s own file map (unchanged, no map edit needed there
 either);
 `systems/platform_content.md` records what the migration must carry,
