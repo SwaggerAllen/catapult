@@ -140,8 +140,8 @@ Catapult does not build itself — self-bootstrapping was explicitly descoped an
 delivered by **[orchestration](https://github.com/SwaggerAllen/orchestration)**, a Go pipeline
 built for the purpose: one agent designs against review, another implements, a third reconciles
 what was built against what was approved, and a fourth reviews at milestone boundaries for
-accumulated tech debt. 72 tickets are archived across six milestone retrospectives
-(`docs/retros/`), with roughly fifteen more since.
+accumulated tech debt. Finished milestones are archived as retrospectives in
+`docs/retros/`.
 
 The acceptance test for the whole thing, at phase 8, is a real prior application rebuilt end to
 end from its documentation alone, delivered by Catapult.
