@@ -9,8 +9,9 @@ paths:
 
 The DSL: the frozen core vocabulary (tiers, scopes, edges, fragments,
 handles, context walks, grammars, readiness, generators, the
-predicate language), the bundle loader (`bundle.yaml` + registered
-files → validated union, single directory per bundle — no `extends:`
+predicate language), the bundle loader (one file per bundle —
+`chain.yaml` or `workflow.yaml` — plus the schemas and prompts it names,
+→ validated union, single directory per bundle — no `extends:`
 layering, `bundle.md` #7), and the **extension registry** (v5 §9)
 through which platform extensions add annotation namespaces,
 declaration kinds, generator types, context-source kinds, and audit
@@ -187,7 +188,7 @@ profiles.
   does the plane dispatch a fresh project from" — a bundle declaring `epic`
   without nesting it under anything else already has two roots, so "the
   project is a project by convention" names nothing the loader can check.
-  `entry:`, a required key on a workflow bundle's own `bundle.yaml`, names
+  `entry:`, a required key on a workflow bundle's own `workflow.yaml`, names
   that type instead, checked at load the same way `role_holders:` and
   `mirror_mapping:` are checked when supplied: the name resolves, the
   resolved type carries a queue-shaped anchor, and it is a root in the
@@ -617,8 +618,8 @@ profiles.
   draft in the first place.
   `design_system` itself mints directly from the pinned raft artifact
   rather than by a fanout edge — no `child_of(X)` to declare, the same
-  shape `ref` already has and for the same reason (`tiers/ref.yaml`'s
-  own comment: nothing mints it and it mints nothing) — and mints
+  shape `ref` already has and for the same reason (`ref` is
+  `generator: supplied` in `bundles/default/chain.yaml`: nothing mints it and it mints nothing) — and mints
   **at most one**: a role with no pinned document mints no node at
   all, the same optionality every
   `input.<role>` carries (v5 §1.1: a role "never blocks readiness"),

@@ -1426,14 +1426,12 @@ partials (§6), not by merging tiers.
 
 **A family is two authored tiers plus a shared `impl`, not five
 authored tiers.** `comp`/`subcomp` and their per-family equivalents
-are `generator: synthesis` join targets — no draft, no prompt,
+are `draft: none` join targets — no draft, no prompt,
 excluded from dispatch by `ReadyScopes.ready/3`'s own
 `generation_tier?/1` filter (`systems/platform_content.md`). They are
 declarations, not design work; only the two arch tiers and `impl`
-itself carry a prompt. Backend's terminal tier is bare `impl`
-(`bundles/default/tiers/impl.yaml`) while it has no siblings; it
-takes the family-qualified name `impl_backend` once the other three
-families' `impl` tiers exist alongside it.
+itself carry a prompt. Backend's terminal tier is `impl_backend`,
+family-qualified like `impl_ui` and `impl_screen` beside it.
 
 ### 5.2 The layering rule
 

@@ -554,7 +554,7 @@ and validation logic and must not fork it.
   up by — pushed under their checked-in names, they would miss the
   lookup on exactly the tier `ToySeedChainLiveTest` dispatches first.
   The mapping, checked against
-  each tier's own `root_tag:` in `bundles/default/tiers/*.yaml` and
+  each tier's own `draft.root_tag` in `bundles/default/chain.yaml` and
   each fixture's own root element:
 
   | fixture (as checked in) | its `root_tag` |
@@ -694,10 +694,11 @@ and validation logic and must not fork it.
   `feature_expansion`'s approval unlocks `journeys`, `screens` and
   `requirements` together, but `screens`'s context reads
   `all.journey.handle` and `requirements`'s reads `all.screen.handle`
-  (`bundles/default/tiers/screens.yaml`, `requirements.yaml`), and both
+  (`screens`'s and `requirements`'s own `context:` in `bundles/default/chain.yaml`), and both
   are populated by `journey`/`screen` child nodes minted from the
   upstream tier's own **draft**
-  (`bundles/default/edges/decomposition.yaml:70,78`) — so `screens`
+  (`decomposition`'s `journeys → journey` and `screens → screen`
+  instances) — so `screens`
   cannot dispatch until `journeys` has drafted, and `requirements`
   cannot dispatch until `screens` has, whatever a reviewer's own
   wall-clock happens to overlap with the next tier's draft. Costed
@@ -823,7 +824,7 @@ and validation logic and must not fork it.
   `FileNotFoundError: .catapult-stub/<root_tag>.xml`, one per root_tag
   `Catapult.ToySeed.@root_tag_fixtures` had never been given). The map's
   key set is exactly the 21 values `ContextAssembly.root_tag/1` can
-  return across every dispatchable tier in `bundles/default/tiers/*.yaml`
+  return across every dispatchable tier in `bundles/default/chain.yaml`
   — the 20 distinct `draft.root_tag`s the 22 generation tiers declare
   (the three `impl_*` tiers collapsing to the one `implementation`),
   plus the single literal `"review"` every review tier collapses to:
@@ -860,20 +861,19 @@ and validation logic and must not fork it.
   `root_tag`s, nineteen are declared by exactly one tier and the
   twentieth, `implementation`, is collapsed across the three
   `impl_*` tiers — nineteen single-tier `root_tag`s and two collapsed
-  ones (`implementation`, plus the seventeen review tiers' shared
-  `review`). For the nineteen
+  ones (`implementation`, plus the `review` all seventeen `review:`
+  blocks share). For the nineteen
   `root_tag`s each declared by exactly one tier, the filename is that
-  tier's own bundle YAML basename
-  with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →
-  `bug_fix_plan.xml`, `downward_propagation_plan.yaml` →
+  tier's own name with `.xml` appended (`bug_fix_plan` →
+  `bug_fix_plan.xml`, `downward_propagation_plan` →
   `downward_propagation_plan.xml`, and so on for the rest) — a filename
   namespace that tracks the bundle's own tier names, which is why it
   does not equal the differently-punctuated `root_tag` namespace;
   `@root_tag_fixtures`'s value side is exactly what
   translates between the two. For the two collapsed `root_tag`s —
-  `implementation` (`impl_backend.yaml`, `impl_screen.yaml`,
-  `impl_ui.yaml` all declare it) and `review` (all seventeen `*_review
-  .yaml` tiers declare it) — no single tier basename applies, so the
+  `implementation` (`impl_backend`, `impl_screen` and `impl_ui` all
+  declare it) and `review` (every one of the seventeen `review:` blocks
+  dispatches under it) — no single tier name applies, so the
   filename names the `root_tag` rather than any one owning tier:
   `impl.xml` and `review_approve.xml` are read as exactly that rather
   than as derived from a tier that does not exist.

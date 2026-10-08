@@ -279,15 +279,15 @@ generating as scope-runs inside one ticket.
   `Blocked`, once one work item has ever been assigned to a singleton
   queue; "admit and file `Blocked`" and "reject outright" dispatch
   differently on the same input. Separately, `entry:` on a workflow
-  bundle's own `bundle.yaml` names the type onboarding dispatches a
+  bundle's own `workflow.yaml` names the type onboarding dispatches a
   fresh project from — this system reads it rather than inferring a
   starting point from which declaration looks project-shaped, an
   inference the loader never checks. Neither rule changes this
   system's shape, only what its dispatcher and its onboarding path
   each read and enforce. The singleton-lifetime rejection is
   superseded rather than built (ORC-148, below). The `entry:` read is
-  built at load time — `Catapult.Dsl.Manifest` reads it off
-  `bundle.yaml` and `Workflow.entry_problems/2` validates it resolves
+  built at load time — `Catapult.Dsl.Workflow` reads it off
+  `workflow.yaml` and its `entry_problems/2` validates it resolves
   to a declaration-graph root — and an onboarding path dispatching a
   fresh project from it is Target (Phase 7), unticketed.
 - **#23 ORC-115 (design pass, corrected on two later design reviews) gives
@@ -1468,8 +1468,8 @@ generating as scope-runs inside one ticket.
   unattended run, `ApproveDraft` — dispatched only by
   `Catapult.Delivery.DraftResolution` in reaction to a human's `GateApproved`
   (`systems/engine.md`'s ORC-229 entry) — never fires, and every tier whose readiness
-  runs through a `self.parent`-style walk requiring `:approved` (most of
-  `bundles/default/tiers/*.yaml`) stays permanently unready — the sweeper alone reaches
+  runs through a `self.parent`-style walk requiring `:approved` (most of the tiers in
+  `bundles/default/chain.yaml`) stays permanently unready — the sweeper alone reaches
   only the tiers whose full `context:` resolves vacuously regardless of any node's
   approval status, a fixed and small set. `Provisioning.approve_drafts/2`, below,
   dispatches `ApproveDraft` directly, bypassing `DraftResolution`'s own `GateApproved`
@@ -1696,15 +1696,11 @@ loader, the declaration-graph acyclicity check, the `blocks:`
 structural acceptance — is `systems/core_dsl.md`'s own file map
 (`lib/catapult/dsl/**`) and
 lands with this same ticket; no file-map change is needed for either
-half. **Corrected here, on author review: the touch is core_dsl +
-engine + this system + `platform_content`, not three.** The shipped
-`bundles/default-flow` predates every ORC-105 grammar pass —
-`bundle.yaml` carries no `entry:`, its gates and environments still
-carry the retired `after:` field, and `gates/ux-review.yaml` throws
-back to `queue`, a name this same ticket's dev pass retires — so
-landing `workflow.md`'s loader without migrating that content in the
-identical change fails every workflow bundle's load, before anything
-else this ticket builds ever runs. `bundles/**` is
+half. **The touch is core_dsl + engine + this system +
+`platform_content`.** `workflow.md`'s loader and the shipped
+`bundles/default-flow` content it loads change in one commit: a loader
+that lands without migrating that content fails every workflow
+bundle's load, before anything else this ticket builds ever runs. `bundles/**` is
 `platform_content`'s own file map (unchanged, no map edit needed there
 either);
 `systems/platform_content.md` records what the migration must carry,
