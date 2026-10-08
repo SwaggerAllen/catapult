@@ -55,6 +55,22 @@ time off a marker the minting draft itself carries (a `<policy>` element's
 draft body at all. The fifth instance, `comp → sysarch_policy`, is declared on a
 `comparch` draft path and is not this shape.
 
+## #13
+
+The check moved here from a projection module, `GraphConstraints`,
+that evaluated after the bound side drained and reported a finding —
+and that nothing called, so no constraint was ever checked.
+`chain.md` #30 puts it at commit because a cycle declared in one body
+is that body's author's to fix, and only a commit-time rejection can
+hand it back to the agent still running.
+
+It ranges over the committing body's own instances, not the committed
+graph, because a redraft never retracts the edges its superseded draft
+declared: a revision that reverses a dependency would otherwise read
+as a cycle no resubmission can clear. Every `dependency` instance in
+`bundles/default` is declared within one tier's draft, so that body is
+the whole graph the constraint applies to.
+
 ## #17
 
 The deciding reason is the retry promise below: a grammar-invalid commit returns a

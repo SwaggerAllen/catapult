@@ -257,12 +257,8 @@ defmodule Catapult.Engine.Projections.ReadyScopes do
   # node's row appears at its parent's mint, so once every minting
   # source is exhausted the current row count is already final.
   #
-  # Public: `Catapult.Engine.Projections.GraphConstraints` reuses this
-  # exact "has everything that could ever exist already committed and
-  # settled" question to gate a `min` cardinality bound the identical
-  # way `all.<tier>` readiness already does (`systems/engine.md`'s
-  # ORC-236 entry) — one recursion, not two independently maintained
-  # copies of it.
+  # Public so `ready_scopes_test.exs` can pin the drainage rule on its
+  # own, apart from the `all.<tier>` walk that is its only caller here.
   @spec drained?(Chain.t(), binary(), String.t()) :: boolean()
   def drained?(chain, project_id, tier_name) do
     case Map.fetch(chain.tiers, tier_name) do

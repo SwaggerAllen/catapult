@@ -199,8 +199,8 @@ bound on one document is an occurrence bound in its schema, enforced at
 commit (`chain.md` #33), and a count no `minOccurs` can state is a
 `when:` predicate (#37). Graph constraints are checked when a draft
 commits, with a typed error the agent retries against (`chain.md` #30)
-— the opposite of a deferred finding. `GraphConstraints` is still in
-the tree with no caller.
+— the opposite of a deferred finding; `Catapult.Generation.CommitPath`
+runs it (`generation#13`), and the projection module is gone.
 
 The reason it carried, which still describes why a cross-node count
 cannot be checked on every intermediate state:

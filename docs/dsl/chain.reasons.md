@@ -254,9 +254,10 @@ a policy's own `<required>` child is what binds it.
 
 Enforcement rejects a violation at commit with a typed error the
 agent can retry against, rather than leaving it to be discovered at
-projection after the body is in the graph. The
-`GraphConstraints` module carried this check with no caller in the
-first tree; the commit path is its caller.
+projection after the body is in the graph. The first tree carried
+this check in a projection module nothing called, deferred until the
+graph drained; it now runs in `Catapult.Generation.CommitPath`, before
+the commit lands.
 
 ## #32
 

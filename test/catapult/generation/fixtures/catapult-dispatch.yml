@@ -322,8 +322,10 @@ jobs:
       # comment already promises ("a further report_result/2 call for
       # the same run_key is expected next") — a promise the harness
       # never kept until now (ORC-223, systems/generation.md's ORC-223
-      # entry). Only a `:success` report the grammar rejects (422,
-      # decoding to one of the four grammar-class reasons) is
+      # entry). Only a `:success` report the plane rejects as fixable
+      # by a resubmitted body (422, decoding to one of the four
+      # grammar-class reasons or a `graph_constraint` violation the
+      # body's own dependencies close — chain.md #30) is
       # retried — same credential, no failover, the same rendered
       # prompt plus the decoded error appended as a corrective turn.
       # Bounded at two retries (three submission attempts total);
@@ -351,6 +353,7 @@ jobs:
               "{:root_tag_mismatch,",
               "{:malformed_xml,",
               "{:schema_not_found,",
+              "{:graph_constraint_violated,",
           )
           SECRET_ENV_VARS = {
               "claude_code_oauth_token": "CLAUDE_CODE_OAUTH_TOKEN",
