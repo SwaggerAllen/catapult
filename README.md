@@ -148,9 +148,10 @@ end from its documentation alone, delivered by Catapult.
 
 ## Reference instance
 
-One deployment runs as the reference instance: the control plane running against its own
-repository on DigitalOcean App Platform. It isn't a demo — it's the plane that works this repo's
-tickets, so the pipeline's deploy step is checking a real running system. `GET /health` is the
+One deployment runs as the reference instance: this repo's `main`, deployed to DigitalOcean App
+Platform. It doesn't work this repo's tickets — orchestration does (above). It isn't a demo either:
+orchestration's deploy step checks it after every merge, and the live suite provisions its test
+projects through it, so both are exercising a real running system. `GET /health` is the
 contract everything else reads, returning the build's git SHA, an overall `ok`, and per-component
 readiness as JSON. `/dispatch/*` serves the agent-dispatch host port's context-fetch and
 result-report calls. Instance specifics live in `SETUP.md` §2.
