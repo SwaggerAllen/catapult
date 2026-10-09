@@ -23,6 +23,7 @@ defmodule Catapult.Generation.CommitPath do
   alias Catapult.Config
   alias Catapult.Delivery
   alias Catapult.Dsl
+  alias Catapult.Dsl.Graph, as: DslGraph
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Projections.ReadyScopes
@@ -124,10 +125,73 @@ defmodule Catapult.Generation.CommitPath do
         produces: own_produces
       }
 
-      dispatch_and_cache(cmd, payload)
+      with :ok <- graph_constraint_check(chain, cmd.edges) do
+        dispatch_and_cache(cmd, payload)
+      end
     end
   rescue
     error -> {:error, {:malformed_xml, Exception.format(:error, error, __STACKTRACE__)}}
+  end
+
+  # `chain.md` #30: an edge's `graph_constraint` is checked when a draft
+  # commits, against the instances that draft declares, and a violation
+  # is a typed error the agent retries against — so it is rejected here,
+  # before the commit lands, like a body that fails its grammar.
+  #
+  # Only the committing body's own instances, never the committed graph
+  # as a whole: a redraft does not retract the edges its superseded
+  # draft declared, so a revision that reverses a dependency would
+  # otherwise read as a cycle the agent has no way to resolve. Every
+  # `dependency` instance in `bundles/default` is declared within one
+  # tier's draft (`sysarch`'s comp→comp, `comparch`'s subcomp→subcomp,
+  # `frontend_sysarch`'s collection→collection, and the rest), so that
+  # body is the whole graph the constraint ranges over.
+  defp graph_constraint_check(chain, declared_edges) do
+    declared_edges
+    |> Enum.group_by(& &1.edge_name)
+    |> Enum.find_value(:ok, fn {edge_name, edges} ->
+      pairs =
+        for e <- edges, not is_nil(e.source_node_id), do: {e.source_node_id, e.target_node_id}
+
+      chain.edges
+      |> Map.get(edge_name, %{graph_constraint: []})
+      |> Map.fetch!(:graph_constraint)
+      # A self-loop violates both; `no_self_loop` is the precise name
+      # to hand back, so it is asked first whenever it is declared.
+      |> Enum.sort_by(&(&1 != "no_self_loop"))
+      |> Enum.find_value(&graph_constraint_violation(&1, edge_name, pairs))
+    end)
+  end
+
+  defp graph_constraint_violation("no_self_loop", edge_name, pairs) do
+    case Enum.find(pairs, fn {source, target} -> source == target end) do
+      nil -> nil
+      {node_id, _} -> violated(edge_name, "no_self_loop", %{node_id: node_id})
+    end
+  end
+
+  # A self-loop is a cycle of one, which `DslGraph.find_cycle/1` sets
+  # aside before it searches — an edge declaring `acyclic` without
+  # `no_self_loop` still has to reject one.
+  defp graph_constraint_violation("acyclic", edge_name, pairs) do
+    case Enum.find(pairs, fn {source, target} -> source == target end) do
+      {node_id, _} -> violated(edge_name, "acyclic", %{cycle: [node_id, node_id]})
+      nil -> acyclic_violation(edge_name, pairs)
+    end
+  end
+
+  defp graph_constraint_violation(_constraint, _edge_name, _pairs), do: nil
+
+  defp acyclic_violation(edge_name, pairs) do
+    case DslGraph.find_cycle(pairs) do
+      nil -> nil
+      cycle -> violated(edge_name, "acyclic", %{cycle: cycle})
+    end
+  end
+
+  defp violated(edge_name, constraint, detail) do
+    {:error,
+     {:graph_constraint_violated, Map.merge(%{edge: edge_name, constraint: constraint}, detail)}}
   end
 
   defp dispatch_and_cache(%CommitDraft{} = cmd, payload) do

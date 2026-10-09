@@ -159,13 +159,14 @@ and validation logic and must not fork it.
   `systems/core_dsl.md`'s ORC-236 entry), so `render_node/2`'s
   projection match is total over `:handle`/`{:fragments, kind}` with
   nothing left unhandled.
-- **#13 Cardinality/graph_constraint evaluation is engine's, not this
-  system's.** `systems/engine.md`'s
-  ORC-236 entry owns the check (`drained?/1`-gated projection time,
-  surfaced as a reported finding); `CommitPath` and `Extraction` carry
-  nothing for it, because it runs against the committed edge/node
-  state those two modules already produce, on whatever schedule the
-  sweeper (or a dedicated projection-time pass) invokes it.
+- **#13 `CommitPath` checks an edge's `graph_constraint` before a
+  draft commits** (`chain.md` #30), against the instances that draft
+  declares: `acyclic` and `no_self_loop` reject the body with
+  `{:graph_constraint_violated, %{edge, constraint, ...}}`, which
+  `report_result/2` answers 422 for, so the harness retries it like a
+  grammar failure (#36). Cardinality has no check here: a bound on one
+  document is its schema's (`chain.md` #33), enforced by the same
+  validation that rejects a malformed body.
 
 - **#14 The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
@@ -498,20 +499,23 @@ and validation logic and must not fork it.
   always reaches terminal** (ORC-223; this is the "further
   `report_result/2` call for the same `run_key`" that
   `Dispatch.simulate_result/2`'s own comment says "is expected next").
-  Only a `:success` report that the grammar rejects stays in flight
+  Only a `:success` report the plane rejects stays in flight
   (`Catapult.Delivery.Dispatch`'s own `mark_failure/3` clauses — a
   `:limit_class_failure`/`:other_failure` report always completes);
-  the four reasons `report_result/2`
-  answers 422 for are exactly the grammar-class failures named in
-  `Catapult.Delivery.Dispatch`'s `status_for/1` (`schema_invalid`,
-  `malformed_xml`, `root_tag_mismatch`, `schema_not_found`), and none
+  the five reasons `report_result/2`
+  answers 422 for are exactly the failures a resubmitted body can fix,
+  named in `Catapult.Delivery.Dispatch`'s `status_for/1`: the four
+  grammar-class ones (`schema_invalid`, `malformed_xml`,
+  `root_tag_mismatch`, `schema_not_found`) and a `graph_constraint`
+  its own declared instances violate (`graph_constraint_violated`,
+  #13), and none
   of the others (`missing_bearer`, `run_not_found`, a repository/run-id
   mismatch) is fixable by asking the agent to resubmit — the harness
   does not retry those, and a run that fails one of them ends
   non-terminal, which is what the in-flight guard
   above exists to bound regardless of cause.
 
-  On a 422 whose body decodes to one of the four grammar reasons, the
+  On a 422 whose body decodes to one of those five reasons, the
   report step re-invokes the agent — same credential, no failover
   (grammar rejection is not a usage signal), the same 1800s subprocess
   timeout as the original call, prompted with the original rendered

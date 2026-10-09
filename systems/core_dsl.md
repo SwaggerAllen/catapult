@@ -68,17 +68,6 @@ profiles.
   `all.<tier>.<projection>` (#19 — every declared instance of a tier, no
   edge); and edges gaining an `instances:` list, several source/target
   sites sharing one name and mechanism (`chain.md` #27).
-- **#9 A fifth core-grammar growth event, same daylight, same ticket**
-  (ORC-84, author decision revising `docs/v5-design-decisions.md` §7.19): a
-  tier declaration gains `reviews: <tier>` (retired by #45), marking it a
-  review tier for the named tier rather than a generation tier of its own.
-  Unlike the four above, this isn't a new scope kind, edge form, or
-  context-walk source — it's a new relation *between two tier declarations*:
-  `reviews:` fixes the declaring tier's scope and cardinality to the named
-  tier's, 1:1, without restating `scope:`, and it obligates a load-time check
-  with no precedent in the closed sets the load rules already validate — that the
-  review tier's own `context:` names the same set of walks as the reviewed
-  tier's `context:`.
 - **#10 Depth's grammar generalizes to a pair, and a new declarable form
   configures `critique`'s participation** (ORC-92; `workflow.md` #26, #33;
   `docs/v5-design-decisions.md` §7.19 — both grammar sections' own shape
