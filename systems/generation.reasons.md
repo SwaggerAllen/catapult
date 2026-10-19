@@ -43,15 +43,33 @@ ordering. `systems/platform_content.md`'s ORC-232 entry records the
 `subcomp↔subcomp` instance of this as live and broken; the same `source`-identity
 gate excludes every instance above, not only the ones typed `dependency`.
 
-The two `type: policy_application` instances
-(`bundles/default/edges/policy_application.yaml:24,35`) are a third shape, not a
-second instance of the class above. Their `declared_in` values are
-`policy.structural` and `policy.required` — not a `<tier>.draft....` path at all,
+The four `type: policy_application` instances declared on a mint path
+(`bundles/default/chain.yaml`'s `sysarch_policy.mint.required`,
+`comparch_policy.mint.structural`, `comparch_policy.mint.required` and
+`non_goals_policy.mint.required`) are a third shape, not a second instance of the
+class above. A mint path (`chain.md` #29) is not a `<tier>.draft....` path at all,
 so `self_sourced_path/2` has nothing to navigate: it returns `:skip` on the shape
-mismatch before `instance.source == tier_name` is even asked. Both are set at mint
+mismatch before `instance.source == tier_name` is even asked. Each is set at mint
 time off a marker the minting draft itself carries (a `<policy>` element's
-`<structural/>` vs. `<required>` child — that edge file's own comments), never
-extracted from any committing tier's draft body at all.
+`<structural/>` vs. `<required>` child), never extracted from any committing tier's
+draft body at all. The fifth instance, `comp → sysarch_policy`, is declared on a
+`comparch` draft path and is not this shape.
+
+## #13
+
+The check moved here from a projection module, `GraphConstraints`,
+that evaluated after the bound side drained and reported a finding —
+and that nothing called, so no constraint was ever checked.
+`chain.md` #30 puts it at commit because a cycle declared in one body
+is that body's author's to fix, and only a commit-time rejection can
+hand it back to the agent still running.
+
+It ranges over the committing body's own instances, not the committed
+graph, because a redraft never retracts the edges its superseded draft
+declared: a revision that reverses a dependency would otherwise read
+as a cycle no resubmission can clear. Every `dependency` instance in
+`bundles/default` is declared within one tier's draft, so that body is
+the whole graph the constraint applies to.
 
 ## #17
 
@@ -170,6 +188,20 @@ attempts (the entry below), each against that same 1800s timeout — up to anoth
 `:success`; three hours is that ceiling with room for GitHub's own queue/startup
 delay before the job even begins running, not a second independent guess.
 
+## #36
+
+A rejected `:success` report stays in flight because the harness is expected to
+resubmit; a rejection with nothing to fix in the body is a wait for a resubmission
+that never comes. `CommitPath` used to pass `{:error, :consistency_timeout}` through
+as exactly that. In live-suite run 32 21 runs sat at `:context_fetched` until the
+deadline, every one from `frontend_sysarch` onward, the part of the walk that fans
+out and reports in bursts (about twenty reports inside forty seconds on run 31). The
+commits had landed: the walk had already dispatched the children of
+`frontend_sysarch`, `ui_collarch` and `screen_collarch`, each off nodes those
+commits minted. Commanded documents the timeout as a post-append answer
+(`Commanded.Middleware.ConsistencyGuarantee.after_dispatch/1`), and
+`CommitPathTest` reproduces it deterministically by setting the wait to zero.
+
 ## #37
 
 A `vars.STUB_MODE` set once on `SwaggerAllen/catapult-test` is out-of-band state
@@ -219,10 +251,10 @@ compare- and-swap succeeded.
 
 ## #44
 
-`bundles/default/tiers/*.yaml`'s downward-cascade graph fixes the walk's *approval
+`bundles/default/chain.yaml`'s downward-cascade graph fixes the walk's *approval
 depth* — how many sequential approve-then-dispatch rounds a complete walk takes —
 because every join-target tier (`comp`, `subcomp`, `screen_coll`, `ui_coll`,
-`ui_subcomp`, `screen_subcomp` and the rest) has no `draft:` block at all, so
+`ui_subcomp`, `screen_subcomp` and the rest) declares `draft: none`, so
 `Extraction.mint_status/2` returns `:approved` for it at mint time rather than
 `:absent`, and it never dispatches or needs a human (or `approve_drafts/2`) to move
 it. Every context walk this bundle writes — `self.parent`, `self.reference`,
@@ -247,6 +279,13 @@ what a draft itself mints, which the tier bundle alone cannot predict, so the
 number of *nodes* dispatched within a wave stays unmeasured and the deadline still
 needs headroom for it — depth fixes how many waves the suite must wait through, not
 how much work each wait costs.
+
+The failure message names which half of `remaining` held the walk open because three
+consecutive timeouts (live-suite runs 29, 30 and 31) reported only tiers and
+durations, which cannot separate a run stuck in flight from a ready scope nobody
+dispatched — and the two have unrelated causes. Run 32, the first to carry the
+unfinished runs, showed 21 runs at `:context_fetched` whose drafts had committed,
+which pointed straight at `CommitPath` (the #36 entry).
 
 **Under `settled?`/`drained?` (ORC-235), no walk in the raft costs more than this
 floor prices.** `comp` mints at `sysarch`'s `DraftCommitted` (`CommitPath`'s own
@@ -281,11 +320,12 @@ mint-ancestry and approval-ancestry, does not move the count everywhere it appli
 the same way, and it applies in three places above, not one.
 
 At the `ui_collarch`/`screen_collarch` step, it happens not to move the count.
-`ui_collarch` walks `self.parent.uses_shapes -> comp .handle.fragments[pubapi]` and
-`screen_collarch` walks `self.parent.calls -> comp.handle.fragments[pubapi]`
-(`bundles/default/tiers/ui_collarch.yaml:38`, `screen_collarch.yaml:45`), and
-`comp`'s `pubapi` fragment is authored by `comparch`'s own `produces:`
-(`comparch.yaml:58`), not by `sysarch` — so `comp` reaches `:approved` at
+`ui_collarch` walks `self.parent.uses_shapes -> comp.handle.fragments[pubapi]` and
+`screen_collarch` walks `self.parent.calls -> comp.handle.fragments[pubapi]` —
+derived from the `uses_shapes` and `calls` edges' own `context:` rather than
+written in either tier (`chain.md` #20) — and `comp`'s `pubapi` fragment is
+authored by `comparch`'s own `produces:` (`pubapi: draft.public-surface`), not by
+`sysarch` — so `comp` reaches `:approved` at
 `sysarch`'s mint (mint-ancestry) and needs no wait on `comparch`'s own approval
 (approval-ancestry), but the *content* the front end actually reads is written by
 `comparch`'s draft (fragment-authorship). It does not move the count *at this one
@@ -361,6 +401,14 @@ A missing key is not a gap the live suite tolerates by exercising a narrower cha
 — the entry above keys the lookup by `root_tag` rather than by tier precisely so
 one fixture serves every tier sharing a root_tag, and that same collapse means a
 single missing key fails every tier that shares it, not just one.
+
+A stale stub fails less visibly than a missing one. ORC-235 moved `renders`,
+`calls` and `uses_shapes` onto `frontend_sysarch`'s draft and dropped those elements
+from `ui_collarch.xsd` and `screen_collarch.xsd`, and the two stubs kept them. Both
+failed `missing_mandatory_elements` on every report, the harness exited green
+because stub mode never retries (#36), and live-suite runs 29 and 30 each timed out
+at 33 minutes with the walk stalled after those two tiers and an empty failure
+buffer.
 
 ## #49
 

@@ -9,8 +9,9 @@ paths:
 
 The DSL: the frozen core vocabulary (tiers, scopes, edges, fragments,
 handles, context walks, grammars, readiness, generators, the
-predicate language), the bundle loader (`bundle.yaml` + registered
-files → validated union, single directory per bundle — no `extends:`
+predicate language), the bundle loader (one file per bundle —
+`chain.yaml` or `workflow.yaml` — plus the schemas and prompts it names,
+→ validated union, single directory per bundle — no `extends:`
 layering, `bundle.md` #7), and the **extension registry** (v5 §9)
 through which platform extensions add annotation namespaces,
 declaration kinds, generator types, context-source kinds, and audit
@@ -27,8 +28,9 @@ profiles.
   non-Turing-complete (v5 §6). This is a correctness property the
   scheduler and audit lean on, not a style choice.
 - **#4 All validation at load time where possible**: type-level
-  acyclicity (libgraph), cross-references, cardinality shapes,
-  extension schemas. A bundle that loads is a bundle the engine can
+  acyclicity (libgraph), cross-references, extension schemas
+  (occurrence bounds are a draft's schema's, enforced when it commits —
+  `chain.md` #33). A bundle that loads is a bundle the engine can
   run; instance-level checks (dependency cycles) run at projection
   time.
 - **#5 Destructive bundle change over a populated graph is a cutover,
@@ -66,17 +68,6 @@ profiles.
   `all.<tier>.<projection>` (#19 — every declared instance of a tier, no
   edge); and edges gaining an `instances:` list, several source/target
   sites sharing one name and mechanism (`chain.md` #27).
-- **#9 A fifth core-grammar growth event, same daylight, same ticket**
-  (ORC-84, author decision revising `docs/v5-design-decisions.md` §7.19): a
-  tier declaration gains `reviews: <tier>` (retired by #45), marking it a
-  review tier for the named tier rather than a generation tier of its own.
-  Unlike the four above, this isn't a new scope kind, edge form, or
-  context-walk source — it's a new relation *between two tier declarations*:
-  `reviews:` fixes the declaring tier's scope and cardinality to the named
-  tier's, 1:1, without restating `scope:`, and it obligates a load-time check
-  with no precedent in the closed sets the load rules already validate — that the
-  review tier's own `context:` names the same set of walks as the reviewed
-  tier's `context:`.
 - **#10 Depth's grammar generalizes to a pair, and a new declarable form
   configures `critique`'s participation** (ORC-92; `workflow.md` #26, #33;
   `docs/v5-design-decisions.md` §7.19 — both grammar sections' own shape
@@ -102,7 +93,7 @@ profiles.
   (ORC-8, named here because the reactive scheduler is the first
   runtime consumer). `Chain.build/3` already resolves and validates
   every named predicate a bundle's four slots (`scope_filter`,
-  `cardinality.when`, an edge `constraint`, a flow `completion`,
+  a `fanout` instance's `when:`, an edge `constraint`, a flow `completion`,
   `chain.md` #37) reference — then discards the map once load-time
   validation passes. Nothing downstream can evaluate a `scope_filter`
   reference against live graph state without it; re-parsing
@@ -187,7 +178,7 @@ profiles.
   does the plane dispatch a fresh project from" — a bundle declaring `epic`
   without nesting it under anything else already has two roots, so "the
   project is a project by convention" names nothing the loader can check.
-  `entry:`, a required key on a workflow bundle's own `bundle.yaml`, names
+  `entry:`, a required key on a workflow bundle's own `workflow.yaml`, names
   that type instead, checked at load the same way `role_holders:` and
   `mirror_mapping:` are checked when supplied: the name resolves, the
   resolved type carries a queue-shaped anchor, and it is a root in the
@@ -617,8 +608,8 @@ profiles.
   draft in the first place.
   `design_system` itself mints directly from the pinned raft artifact
   rather than by a fanout edge — no `child_of(X)` to declare, the same
-  shape `ref` already has and for the same reason (`tiers/ref.yaml`'s
-  own comment: nothing mints it and it mints nothing) — and mints
+  shape `ref` already has and for the same reason (`ref` is
+  `generator: supplied` in `bundles/default/chain.yaml`: nothing mints it and it mints nothing) — and mints
   **at most one**: a role with no pinned document mints no node at
   all, the same optionality every
   `input.<role>` carries (v5 §1.1: a role "never blocks readiness"),

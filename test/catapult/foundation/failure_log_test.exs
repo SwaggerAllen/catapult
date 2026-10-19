@@ -130,8 +130,10 @@ defmodule Catapult.Foundation.FailureLogTest do
   end
 
   # The reason a deliberate 5xx gives is in its body and nowhere else:
-  # it never raises, so there is no trace, and App Platform replaces an
-  # upstream 502's body before any caller sees it.
+  # it never raises, so there is no trace, and App Platform replaced an
+  # upstream 502's body before any caller saw it. Nobody has read whether
+  # Render's edge does the same; the module's own comment says why the
+  # rule stands either way.
   test ":stop records the response body, which is where a deliberate 5xx says why", %{name: name} do
     Logger.metadata(request_id: "req-body")
 

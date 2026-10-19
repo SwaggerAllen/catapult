@@ -32,10 +32,9 @@ possible" standing decision exists to prevent.
 ## #14
 
 The bullet above's premise — every minted child eventually earns `:approved` through `DraftApproved`
-— does not hold for exactly the tiers `chain.md` #5 calls a **join-target tier** — one declared
-with no `draft:` block (`comp`, `subcomp`, `resp`, `policy` in `bundles/default`, all `generator:
-synthesis` today, though the condition that matters is "no `draft:`," not the generator kind — see
-below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
+— does not hold for exactly the tiers `chain.md` #5 calls a **join-target tier** — one declaring
+`draft: none` (`comp`, `subcomp`, `resp` and the three policy tiers in `bundles/default`, among
+others; the condition that matters is the missing draft, not the generator kind — see below). Such a tier commits no draft, so no `DraftCommitted`/`ApproveDraft` pair ever runs for it,
 and `Store.approve_node/2`'s one caller (`Reducer.apply(%DraftApproved{}, _)`) can never name it.
 Minted at `:absent`, a join target sits there forever, and `walk_ready?/2`'s `status == :approved` —
 `chain.md` #22's "readiness requires all targets ready; context is the only readiness signal" —
@@ -43,12 +42,12 @@ never turns true for any tier whose context walk reaches it (`comparch`'s `per(c
 `self.parent.handle`, and the same shape for `subcomparch`). The chain stalls at the first join
 target and never reaches the tiers downstream of it.
 
-**Why the condition is "no `draft:`," not "`generator: synthesis`."** Every join-target tier in
-`bundles/default` happens to declare `generator: synthesis`, but the causal fact is the missing
-`draft:` block: that's what makes `DraftCommitted`/`DraftApproved` structurally unable to name the
+**Why the condition is "no draft," not the tier's `generator:`.** Every join-target tier in
+`bundles/default` declares `draft: none` and the default `generator:`, and the causal fact is the
+missing draft: that's what makes `DraftCommitted`/`DraftApproved` structurally unable to name the
 node, and `chain.md` #5 already has a name for a tier in that shape — "join-target tier" —
 independent of which `generator:` it declares. Keying the mint-time default on `tiers
-.<target>.draft == nil` rather than on the generator atom is what makes the default generalise to a
+.<target>.draft == :none` rather than on the generator atom is what makes the default generalise to a
 future `generator:` kind that also produces no draft (`external`, `template` per `chain.md` #39,
 neither of which happens to omit `draft:` in `bundles/default` today) without revisiting this
 decision when one arrives: any tier a bundle author writes with no `draft:` gets the same mint-time
@@ -68,10 +67,10 @@ declaration is already being read).
 ## #18
 
 That `Extraction.mints/4`'s `id`/`alias` identity fallback is verified only against `sysarch`'s own
-`<component alias="...">` shape, and mints `resp`/`vocab`/`policy` a `nil` scope_key otherwise (the
+`<component alias="...">` shape, and mints `resp`/`vocab`/the policy tiers a `nil` scope_key otherwise (the
 module's own comment on `identity_value/2`, and `test/catapult/generation/toy_seed_chain_test.exs`'s
 moduledoc, which is why that test seeds those three by hand) is a real but separate gap in *identity
-extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/tiers/vocab.yaml`)
+extraction*, orthogonal to a join target's *status*. `vocab` (`bundles/default/chain.yaml`)
 declares a `draft:` block and is unaffected. And `Catapult.Engine .Projections.Staleness.stale?/2`'s
 early `:absent` clause ("not stale, merely not drafted") does not match a join target once it mints
 at `:approved`, which is safe because every join-target tier in `bundles/default` declares no
@@ -191,6 +190,20 @@ read the node's `generator: reference` declaration and say "settled" the moment 
 same way it already reads `generator: supplied` for `design_system`.
 
 ## #27
+
+retired: an edge instance's `{min, max}` cardinality and its
+`graph_constraint` were evaluated by `Catapult.Engine.Projections
+.GraphConstraints` once the bound side drained, and reported as a
+non-blocking finding. Edge instances no longer carry cardinality: a
+bound on one document is an occurrence bound in its schema, enforced at
+commit (`chain.md` #33), and a count no `minOccurs` can state is a
+`when:` predicate (#37). Graph constraints are checked when a draft
+commits, with a typed error the agent retries against (`chain.md` #30)
+— the opposite of a deferred finding; `Catapult.Generation.CommitPath`
+runs it (`generation#13`), and the projection module is gone.
+
+The reason it carried, which still describes why a cross-node count
+cannot be checked on every intermediate state:
 
 `chain.md` #25 places this at "projection time," not load time; which moment of projection time
 is the load-bearing part, because the naive answer ("check on every `DraftCommitted`") produces

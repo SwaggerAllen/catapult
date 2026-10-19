@@ -239,8 +239,7 @@ defmodule Catapult.Delivery.Provisioning do
 
         ready_count =
           chain.tiers
-          |> Enum.filter(fn {_name, tier} -> sweeper_dispatchable?(tier) end)
-          |> Enum.flat_map(fn {name, _tier} -> ready_scope_keys(chain, project_id, name) end)
+          |> Enum.flat_map(fn {name, tier} -> ready_scope_keys(chain, project_id, name, tier) end)
           |> Enum.reject(&MapSet.member?(in_flight, &1))
           |> length()
 
@@ -251,28 +250,46 @@ defmodule Catapult.Delivery.Provisioning do
     end
   end
 
-  # `{tier_name, scope_key}` for every scope `name` would dispatch —
-  # `tier_name` is always `name` itself, the same key `Sweeper.enqueue/3`
-  # writes into the resulting `DispatchRun` row: for `ready/3` that
-  # already matches `node.tier` (a generation-tier candidate's own tier
-  # is the tier being asked about), but `ready_review/3` returns nodes
-  # off the *reviewed* tier (`Store.list_nodes(project_id, reviewed)`),
-  # so its own `node.tier` names the wrong axis — the review dispatch
-  # itself runs under `name` (the review tier), never under what it
-  # reviews.
-  defp ready_scope_keys(chain, project_id, name) do
-    (ReadyScopes.ready(chain, project_id, name) ++
-       ReadyScopes.ready_review(chain, project_id, name))
-    |> Enum.map(&{name, &1.scope_key})
+  # `{dispatch_tier, scope_key}` for every scope the sweeper would
+  # dispatch off `name` — the same key `Sweeper.enqueue/3` writes into
+  # the resulting `DispatchRun` row, so the in-flight subtraction above
+  # matches it. Two axes, asked exactly as `Sweeper.sweep_tiers/2` asks
+  # them: generation under the tier's own name, and review under
+  # `ReadyScopes.review_tier_name/1`'s synthetic `"<tier>:review"` —
+  # a review is a block on the tier it reviews (`chain.md` #14), and
+  # `ready_review/3` answers `[]` for a bare tier name. Asking it with
+  # the bare name, as this read did once reviews stopped being tiers of
+  # their own, counted no review at all: `remaining` then read zero in
+  # the window between a draft committing and its review dispatching,
+  # and the live suite approved the draft unreviewed or stopped early.
+  defp ready_scope_keys(chain, project_id, name, tier) do
+    generation =
+      if generation_dispatchable?(tier),
+        do: Enum.map(ReadyScopes.ready(chain, project_id, name), &{name, &1.scope_key}),
+        else: []
+
+    review =
+      if tier.review do
+        review_name = ReadyScopes.review_tier_name(name)
+
+        chain
+        |> ReadyScopes.ready_review(project_id, review_name)
+        |> Enum.map(&{review_name, &1.scope_key})
+      else
+        []
+      end
+
+    generation ++ review
   end
 
   # Duplicated from `Catapult.Generation.Sweeper`'s own private
   # predicate deliberately — the same "what would the sweeper dispatch"
   # question asked from a different module, on the same footing this
   # file's own `authenticate/1` duplication note already stands on.
-  defp sweeper_dispatchable?(%{reviews: reviewed}) when not is_nil(reviewed), do: true
-  defp sweeper_dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft), do: true
-  defp sweeper_dispatchable?(_tier), do: false
+  defp generation_dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft),
+    do: true
+
+  defp generation_dispatchable?(_tier), do: false
 
   @doc """
   Approves every node currently `:drafted`, across every tier —

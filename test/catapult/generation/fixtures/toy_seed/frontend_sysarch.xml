@@ -16,6 +16,12 @@
         <screen ref="link_list"/>
         <screen ref="link_create"/>
       </screens>
+      <renders>
+        <dep to="link_admin_ui"/>
+      </renders>
+      <calls>
+        <comp ref="link_admin"/>
+      </calls>
     </collection>
   </screen-collections>
   <screen-dependencies/>

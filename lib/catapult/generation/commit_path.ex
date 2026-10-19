@@ -18,9 +18,12 @@ defmodule Catapult.Generation.CommitPath do
 
   @behaviour Catapult.Delivery.ResultHandler
 
+  require Logger
+
   alias Catapult.Config
   alias Catapult.Delivery
   alias Catapult.Dsl
+  alias Catapult.Dsl.Graph, as: DslGraph
   alias Catapult.Engine.Commands.CommitDraft
   alias Catapult.Engine.Commands.RecordRunFailure
   alias Catapult.Engine.Projections.ReadyScopes
@@ -122,14 +125,77 @@ defmodule Catapult.Generation.CommitPath do
         produces: own_produces
       }
 
-      dispatch_and_cache(cmd, payload)
+      with :ok <- graph_constraint_check(chain, cmd.edges) do
+        dispatch_and_cache(cmd, payload)
+      end
     end
   rescue
     error -> {:error, {:malformed_xml, Exception.format(:error, error, __STACKTRACE__)}}
   end
 
+  # `chain.md` #30: an edge's `graph_constraint` is checked when a draft
+  # commits, against the instances that draft declares, and a violation
+  # is a typed error the agent retries against — so it is rejected here,
+  # before the commit lands, like a body that fails its grammar.
+  #
+  # Only the committing body's own instances, never the committed graph
+  # as a whole: a redraft does not retract the edges its superseded
+  # draft declared, so a revision that reverses a dependency would
+  # otherwise read as a cycle the agent has no way to resolve. Every
+  # `dependency` instance in `bundles/default` is declared within one
+  # tier's draft (`sysarch`'s comp→comp, `comparch`'s subcomp→subcomp,
+  # `frontend_sysarch`'s collection→collection, and the rest), so that
+  # body is the whole graph the constraint ranges over.
+  defp graph_constraint_check(chain, declared_edges) do
+    declared_edges
+    |> Enum.group_by(& &1.edge_name)
+    |> Enum.find_value(:ok, fn {edge_name, edges} ->
+      pairs =
+        for e <- edges, not is_nil(e.source_node_id), do: {e.source_node_id, e.target_node_id}
+
+      chain.edges
+      |> Map.get(edge_name, %{graph_constraint: []})
+      |> Map.fetch!(:graph_constraint)
+      # A self-loop violates both; `no_self_loop` is the precise name
+      # to hand back, so it is asked first whenever it is declared.
+      |> Enum.sort_by(&(&1 != "no_self_loop"))
+      |> Enum.find_value(&graph_constraint_violation(&1, edge_name, pairs))
+    end)
+  end
+
+  defp graph_constraint_violation("no_self_loop", edge_name, pairs) do
+    case Enum.find(pairs, fn {source, target} -> source == target end) do
+      nil -> nil
+      {node_id, _} -> violated(edge_name, "no_self_loop", %{node_id: node_id})
+    end
+  end
+
+  # A self-loop is a cycle of one, which `DslGraph.find_cycle/1` sets
+  # aside before it searches — an edge declaring `acyclic` without
+  # `no_self_loop` still has to reject one.
+  defp graph_constraint_violation("acyclic", edge_name, pairs) do
+    case Enum.find(pairs, fn {source, target} -> source == target end) do
+      {node_id, _} -> violated(edge_name, "acyclic", %{cycle: [node_id, node_id]})
+      nil -> acyclic_violation(edge_name, pairs)
+    end
+  end
+
+  defp graph_constraint_violation(_constraint, _edge_name, _pairs), do: nil
+
+  defp acyclic_violation(edge_name, pairs) do
+    case DslGraph.find_cycle(pairs) do
+      nil -> nil
+      cycle -> violated(edge_name, "acyclic", %{cycle: cycle})
+    end
+  end
+
+  defp violated(edge_name, constraint, detail) do
+    {:error,
+     {:graph_constraint_violated, Map.merge(%{edge: edge_name, constraint: constraint}, detail)}}
+  end
+
   defp dispatch_and_cache(%CommitDraft{} = cmd, payload) do
-    case Router.dispatch(cmd, consistency: :strong) do
+    case dispatch(cmd) do
       :ok ->
         Delivery.put_draft_body(payload.project_id, payload.node_id, payload.body, cmd.body_sha)
         :ok
@@ -157,7 +223,7 @@ defmodule Catapult.Generation.CommitPath do
         kind: :ai
       }
 
-      Router.dispatch(cmd, consistency: :strong)
+      dispatch(cmd)
     end
   rescue
     error -> {:error, {:malformed_xml, Exception.format(:error, error, __STACKTRACE__)}}
@@ -191,10 +257,36 @@ defmodule Catapult.Generation.CommitPath do
       occurred_at: clock().utc_now()
     }
 
-    Router.dispatch(cmd, consistency: :strong)
+    dispatch(cmd)
   end
 
   ## -- shared -----------------------------------------------------------
+
+  # `:strong`, so a caller reads its own write back once the projector
+  # has applied it — but `{:error, :consistency_timeout}` is Commanded's
+  # answer *after* the events are appended
+  # (`Commanded.Middleware.ConsistencyGuarantee.after_dispatch/1`): the
+  # write is durable and the projection catches up on its own; only the
+  # wait gave up. Reported as a failure, it told
+  # `Catapult.Delivery.Dispatch` a committed draft had been rejected,
+  # and a rejected `:success` report stays in flight waiting for a
+  # resubmission that never comes — run 32 of the live suite timed out
+  # holding 21 such runs, all from the part of the walk that fans out
+  # and reports in bursts, where the five-second wait runs out.
+  defp dispatch(cmd) do
+    case Router.dispatch(cmd, consistency: :strong) do
+      {:error, :consistency_timeout} ->
+        Logger.warning(
+          "#{inspect(cmd.__struct__)} committed; its projection lagged the consistency wait",
+          component: :generation
+        )
+
+        :ok
+
+      other ->
+        other
+    end
+  end
 
   # `tier.draft_fields` is `name => tag`, read off this same commit
   # (`Catapult.Dsl.DeclaredInSchema.mints_and_fields/2`); `Extraction

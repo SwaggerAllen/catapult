@@ -47,7 +47,8 @@ journeys, screens) into an architecture chain — `vocab` → `sysarch` → `com
 
 - **The DSL is small and has a grammar.** YAML bundles declare tiers, edges, schemas, flows and
   prompts, with a separate workflow axis for ticket types, gates and environments. Normative
-  grammar documentation lives in `docs/dsl/`, with a worked example and a checker.
+  grammar documentation lives in `docs/dsl/`, and every key the loader accepts is declared
+  there: CI fails when the two disagree in either direction.
 - **Generation is reactive, not scheduled.** The graph is an event log; `ready_scopes` — what is
   eligible to generate next — is a projection that enqueues work rather than a queue anything
   polls. Readiness is derived state, so it cannot drift from the graph it describes.
@@ -115,16 +116,18 @@ each with its own full gate suite.
 
 | Area | State |
 | --- | --- |
-| `core.dsl` | Bundle loader, core vocabulary, extension registry, type-level acyclicity validation, path-escape guard on bundle-relative content paths |
+| `core.dsl` | Bundle loader, core vocabulary, extension registry, type-level acyclicity validation, path-escape guard on bundle-relative content paths, key-set check against `docs/dsl/`'s declarations |
 | `core.engine` | Aggregate, router, commands and events, reducer, projections, reactive scheduler and sweeper, EventStore-backed log |
 | `generation` | Context assembly, Liquid rendering, dispatch worker, commit path, schema validation at commit, regeneration-with-feedback |
 | `delivery` | Feature and container lifecycles as process managers, host port with an in-memory fake, GitHub Actions OIDC verification for dispatched runs, decline harvesting from PR review into regeneration feedback |
 | Dashboard | LiveView: queue, board, ticket, sentence-granularity document review, event-log inspection, and an `explain-why` screen answering what is blocking a scope. **Unreliable; under active work.** |
-| Default bundle | 21 XSD schemas, ~18 Liquid prompts plus review prompts and partials, six edge families, five plan flows |
+| Default bundle | 21 XSD schemas, 17 Liquid generation prompts each with a review prompt plus two shared partials, ten edge types, five plan flows |
 
 CI enforces the whole gate set on both projects: format, Credo strict, Sobelow,
 warnings-as-errors, the boundary compiler, xref cycles at zero, a compile-connected ratchet at
-zero, the custom audit, dependency auditing, and the test suite.
+zero, the custom audit, dependency auditing, and the test suite. The plane also runs two DSL
+checks: the default bundle loads and stays inside its readability bound, and the loader's
+accepted keys match the keys `docs/dsl/` declares.
 
 **Not built yet, deliberately, with phases attached:** identity (7), the LLM adapter component
 (8 — the plane's own chain never uses it), registry-as-service, the React/TypeScript client
@@ -137,24 +140,25 @@ Catapult does not build itself — self-bootstrapping was explicitly descoped an
 delivered by **[orchestration](https://github.com/SwaggerAllen/orchestration)**, a Go pipeline
 built for the purpose: one agent designs against review, another implements, a third reconciles
 what was built against what was approved, and a fourth reviews at milestone boundaries for
-accumulated tech debt. 72 tickets are archived across six milestone retrospectives
-(`docs/retros/`), with roughly fifteen more since.
+accumulated tech debt. Finished milestones are archived as retrospectives in
+`docs/retros/`.
 
 The acceptance test for the whole thing, at phase 8, is a real prior application rebuilt end to
 end from its documentation alone, delivered by Catapult.
 
 ## Reference instance
 
-One deployment runs as the reference instance: the control plane running against its own
-repository on Render. It isn't a demo — it's the plane that works this repo's
-tickets, so the pipeline's deploy step is checking a real running system. `GET /health` is the
-contract everything else reads, returning the build's git SHA, an overall `ok`, and per-component
-readiness as JSON. `/dispatch/*` serves the agent-dispatch host port's context-fetch and
-result-report calls. Instance specifics live in `SETUP.md` §2.
+One deployment runs as the reference instance: this repo's `main`, deployed to Render. It doesn't
+work this repo's tickets — orchestration does (above). It isn't a demo either: orchestration's
+deploy step checks it after every merge, and the live suite provisions its test projects through it,
+so both are exercising a real running system. `GET /health` is the contract everything else reads,
+returning the build's git SHA, an overall `ok`, and per-component readiness as JSON. `/dispatch/*`
+serves the agent-dispatch host port's context-fetch and result-report calls. Instance specifics live
+in `SETUP.md` §2.
 
 ## Licensing
 
-Two kinds of code with opposite needs. The plane is **AGPL-3.0-only**: network-facing software
+Two kinds of code with opposite needs. The plane is **AGPL-3.0-or-later**: network-facing software
 where plain GPL would impose nothing. Everything that ships into a generated project —
 `components/**` and `bundles/**` — is **Apache-2.0**, because generated applications link the
 substrate and receive template content verbatim, and copyleft there would propagate into every

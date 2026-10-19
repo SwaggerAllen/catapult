@@ -159,13 +159,14 @@ and validation logic and must not fork it.
   `systems/core_dsl.md`'s ORC-236 entry), so `render_node/2`'s
   projection match is total over `:handle`/`{:fragments, kind}` with
   nothing left unhandled.
-- **#13 Cardinality/graph_constraint evaluation is engine's, not this
-  system's.** `systems/engine.md`'s
-  ORC-236 entry owns the check (`drained?/1`-gated projection time,
-  surfaced as a reported finding); `CommitPath` and `Extraction` carry
-  nothing for it, because it runs against the committed edge/node
-  state those two modules already produce, on whatever schedule the
-  sweeper (or a dedicated projection-time pass) invokes it.
+- **#13 `CommitPath` checks an edge's `graph_constraint` before a
+  draft commits** (`chain.md` #30), against the instances that draft
+  declares: `acyclic` and `no_self_loop` reject the body with
+  `{:graph_constraint_violated, %{edge, constraint, ...}}`, which
+  `report_result/2` answers 422 for, so the harness retries it like a
+  grammar failure (#36). Cardinality has no check here: a bound on one
+  document is its schema's (`chain.md` #33), enforced by the same
+  validation that rejects a malformed body.
 
 - **#14 The execution substrate is an adapter behind the host port**
   (v5 §7.12.1, §8): Actions (the default) and the worker pool (BYO
@@ -498,20 +499,23 @@ and validation logic and must not fork it.
   always reaches terminal** (ORC-223; this is the "further
   `report_result/2` call for the same `run_key`" that
   `Dispatch.simulate_result/2`'s own comment says "is expected next").
-  Only a `:success` report that the grammar rejects stays in flight
+  Only a `:success` report the plane rejects stays in flight
   (`Catapult.Delivery.Dispatch`'s own `mark_failure/3` clauses — a
   `:limit_class_failure`/`:other_failure` report always completes);
-  the four reasons `report_result/2`
-  answers 422 for are exactly the grammar-class failures named in
-  `Catapult.Delivery.Dispatch`'s `status_for/1` (`schema_invalid`,
-  `malformed_xml`, `root_tag_mismatch`, `schema_not_found`), and none
+  the five reasons `report_result/2`
+  answers 422 for are exactly the failures a resubmitted body can fix,
+  named in `Catapult.Delivery.Dispatch`'s `status_for/1`: the four
+  grammar-class ones (`schema_invalid`, `malformed_xml`,
+  `root_tag_mismatch`, `schema_not_found`) and a `graph_constraint`
+  its own declared instances violate (`graph_constraint_violated`,
+  #13), and none
   of the others (`missing_bearer`, `run_not_found`, a repository/run-id
   mismatch) is fixable by asking the agent to resubmit — the harness
   does not retry those, and a run that fails one of them ends
   non-terminal, which is what the in-flight guard
   above exists to bound regardless of cause.
 
-  On a 422 whose body decodes to one of the four grammar reasons, the
+  On a 422 whose body decodes to one of those five reasons, the
   report step re-invokes the agent — same credential, no failover
   (grammar rejection is not a usage signal), the same 1800s subprocess
   timeout as the original call, prompted with the original rendered
@@ -524,6 +528,17 @@ and validation logic and must not fork it.
   classified outcome already reports in — no new status on
   `DispatchRun`, no new branch in `Dispatch.simulate_result/2`, because
   `other_failure` is already a terminal report.
+
+  So holding a run in flight is reserved for a body the plane refused,
+  and `CommitPath` answers `:ok` for any commit whose events are
+  appended. A `:strong` dispatch that returns
+  `{:error, :consistency_timeout}` is one of those: Commanded answers it
+  only after the append, when a strongly consistent handler misses the
+  wait, and the projection catches up on its own. `CommitPath` logs the
+  lag and reports the commit. A stub-mode run never retries at all — the
+  retry needs an agent to re-invoke — so a stub the grammar refuses ends
+  non-terminal until the in-flight guard's cutoff, which is why #48
+  holds every stub to its tier's schema.
 - **#37 Stub mode is a per-dispatch workflow input, tied to test-project state —
   never a repository variable on the fixture repo** (ORC-223, author's decision).
 
@@ -543,7 +558,7 @@ and validation logic and must not fork it.
   up by — pushed under their checked-in names, they would miss the
   lookup on exactly the tier `ToySeedChainLiveTest` dispatches first.
   The mapping, checked against
-  each tier's own `root_tag:` in `bundles/default/tiers/*.yaml` and
+  each tier's own `draft.root_tag` in `bundles/default/chain.yaml` and
   each fixture's own root element:
 
   | fixture (as checked in) | its `root_tag` |
@@ -683,10 +698,11 @@ and validation logic and must not fork it.
   `feature_expansion`'s approval unlocks `journeys`, `screens` and
   `requirements` together, but `screens`'s context reads
   `all.journey.handle` and `requirements`'s reads `all.screen.handle`
-  (`bundles/default/tiers/screens.yaml`, `requirements.yaml`), and both
+  (`screens`'s and `requirements`'s own `context:` in `bundles/default/chain.yaml`), and both
   are populated by `journey`/`screen` child nodes minted from the
   upstream tier's own **draft**
-  (`bundles/default/edges/decomposition.yaml:70,78`) — so `screens`
+  (`decomposition`'s `journeys → journey` and `screens → screen`
+  instances) — so `screens`
   cannot dispatch until `journeys` has drafted, and `requirements`
   cannot dispatch until `screens` has, whatever a reviewer's own
   wall-clock happens to overlap with the next tier's draft. Costed
@@ -759,14 +775,18 @@ and validation logic and must not fork it.
   `after`-block reason the poll-deadline entry above gives.
 
   On top of the number, the failure path: a `flunk/1`
-  on timeout reports the tier set that ran, every node
-  `Store.list_nodes/2` still shows `:drafted` project-wide, how many
-  `approve_drafts/2` calls fired and how many approvals each reported,
-  and the per-run `duration_ms` `systems/delivery.md`'s `runs/2`
-  carries — enough to tell a genuinely stuck graph from a slow one
-  without re-running it by hand, and the thing that stands against the
+  on timeout reports the last `remaining` value `runs/2` answered,
+  every run not yet `completed` (its tier, `node_id`, status and
+  outcome), the tier set that ran with each run's `duration_ms`
+  `systems/delivery.md`'s `runs/2` carries, and how many
+  `approve_drafts/2` calls fired and how many approvals each reported
+  — enough to tell a genuinely stuck graph from a slow one, and a run
+  held in flight from a scope read ready and never dispatched, without
+  re-running it by hand, and the thing that stands against the
   pressure a tight, unexplained timeout creates to shorten the suite
-  back down.
+  back down. Everything in it comes off `runs/2` and
+  `approve_drafts/2`'s own answers: `Provisioning` exposes no
+  node-status read, so the message cannot list `:drafted` nodes.
 
 - **#45 A full walk is the first exercise of `@root_tag_fixtures`'s
   previously-unreached stubs.** A walk capped at two rounds leaves
@@ -808,7 +828,7 @@ and validation logic and must not fork it.
   `FileNotFoundError: .catapult-stub/<root_tag>.xml`, one per root_tag
   `Catapult.ToySeed.@root_tag_fixtures` had never been given). The map's
   key set is exactly the 21 values `ContextAssembly.root_tag/1` can
-  return across every dispatchable tier in `bundles/default/tiers/*.yaml`
+  return across every dispatchable tier in `bundles/default/chain.yaml`
   — the 20 distinct `draft.root_tag`s the 22 generation tiers declare
   (the three `impl_*` tiers collapsing to the one `implementation`),
   plus the single literal `"review"` every review tier collapses to:
@@ -836,27 +856,28 @@ and validation logic and must not fork it.
   *.xsd` — not an empty placeholder, since the plane validates a
   reported body against the tier's grammar exactly as it would a real
   model response, the schema a tier's own `draft:` block already commits
-  it to regardless of who produces the body.
+  it to regardless of who produces the body. A schema change therefore
+  changes its stub in the same commit: an element a schema drops, a
+  stub still carrying it fails that schema.
 
   The filename convention has two cases, not one, because a `root_tag`
   is not always owned by a single tier: of the 20 distinct generation
   `root_tag`s, nineteen are declared by exactly one tier and the
   twentieth, `implementation`, is collapsed across the three
   `impl_*` tiers — nineteen single-tier `root_tag`s and two collapsed
-  ones (`implementation`, plus the seventeen review tiers' shared
-  `review`). For the nineteen
+  ones (`implementation`, plus the `review` all seventeen `review:`
+  blocks share). For the nineteen
   `root_tag`s each declared by exactly one tier, the filename is that
-  tier's own bundle YAML basename
-  with `.xml` in place of `.yaml` (`bug_fix_plan.yaml` →
-  `bug_fix_plan.xml`, `downward_propagation_plan.yaml` →
+  tier's own name with `.xml` appended (`bug_fix_plan` →
+  `bug_fix_plan.xml`, `downward_propagation_plan` →
   `downward_propagation_plan.xml`, and so on for the rest) — a filename
   namespace that tracks the bundle's own tier names, which is why it
   does not equal the differently-punctuated `root_tag` namespace;
   `@root_tag_fixtures`'s value side is exactly what
   translates between the two. For the two collapsed `root_tag`s —
-  `implementation` (`impl_backend.yaml`, `impl_screen.yaml`,
-  `impl_ui.yaml` all declare it) and `review` (all seventeen `*_review
-  .yaml` tiers declare it) — no single tier basename applies, so the
+  `implementation` (`impl_backend`, `impl_screen` and `impl_ui` all
+  declare it) and `review` (every one of the seventeen `review:` blocks
+  dispatches under it) — no single tier name applies, so the
   filename names the `root_tag` rather than any one owning tier:
   `impl.xml` and `review_approve.xml` are read as exactly that rather
   than as derived from a tier that does not exist.

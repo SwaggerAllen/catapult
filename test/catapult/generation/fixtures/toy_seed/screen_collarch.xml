@@ -4,12 +4,6 @@
   <private-surface>Internal form-state assigns; nothing another collection reads.</private-surface>
   <failure-surface>A failed validation re-renders the form with the error inline; a failed retire redirects back to the list unchanged.</failure-surface>
   <policies>Every mutating action confirms before it retires a link, since retirement is immediate and not soft-deleted.</policies>
-  <renders>
-    <dep to="link_admin_ui"/>
-  </renders>
-  <dependencies>
-    <dep to="link_admin"/>
-  </dependencies>
   <journeys>
     <journey ref="Create and monitor a link"/>
   </journeys>

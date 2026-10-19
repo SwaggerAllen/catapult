@@ -33,7 +33,14 @@ to be carrying it.
 
 ## #9
 
-It landed in the same ticket as the four above for the identical reason:
+retired: a tier declaration gained `reviews: <tier>`, making it a
+review tier for the named tier, with a load rule that its `context:`
+name the same walks as the reviewed tier's. #45 item 3 retires both: a
+review is a `review:` block on the tier it reviews (`chain.md` #14),
+which takes that tier's scope and context by construction, so there is
+no second declaration to keep in step.
+
+The reason it carried: it landed in the same ticket as the four above for the identical reason:
 the author's decision on the chain's review mechanism is ticket direction,
 reaching the branch before the pass that carries it starts, so the
 `v5-design-decisions.md` edit is that pass's to make. `reviews:` is
@@ -234,7 +241,7 @@ out twice over: v5 §4.5 already says a supplied design system "rides §5.4's
 node rather than a ref," and independently, a ref attaches via *reference*
 edges from a singleton pool with no per-use kinds (§4.5's own "stay general
 on purpose"), while `ui_coll → design_system` (§5.4's edge inventory) is a
-typed *dependency* edge carrying cardinality and layering semantics a
+typed *dependency* edge carrying layering semantics a
 reference edge was never built to hold.
 
 ## #31

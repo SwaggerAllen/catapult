@@ -166,5 +166,6 @@ defmodule Catapult.Delivery.Dispatch do
   defp status_for({:root_tag_mismatch, _}), do: 422
   defp status_for({:malformed_xml, _}), do: 422
   defp status_for({:schema_not_found, _}), do: 422
+  defp status_for({:graph_constraint_violated, _}), do: 422
   defp status_for(_other), do: 400
 end

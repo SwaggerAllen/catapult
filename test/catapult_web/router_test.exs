@@ -31,7 +31,7 @@ defmodule CatapultWeb.RouterTest do
     end
 
     # The load-bearing half. HSTS lives on the `:browser` pipeline
-    # rather than the endpoint precisely so that App Platform's own
+    # rather than the endpoint precisely so that the platform's own
     # health probe — which hits the container's port directly rather
     # than through the edge that terminates TLS — is untouched. Moving
     # it to an endpoint-wide `force_ssl:` would put `Plug.SSL` ahead of

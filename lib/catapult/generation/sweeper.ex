@@ -28,7 +28,7 @@ defmodule Catapult.Generation.Sweeper do
 
   Only `generator: "llm"` tiers dispatch through this executor
   (`systems/generation.md`'s own scope: agent-dispatch generation).
-  `generator: synthesis` tiers (join targets, no `draft:`) are already
+  `draft: none` tiers (join targets) are already
   excluded by `ReadyScopes.ready/3`'s own `generation_tier?/1` filter;
   a tier with a `draft:` block under `template`/`git_commit`/`webhook`/
   `external` would not be, and is skipped here explicitly — a

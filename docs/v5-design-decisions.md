@@ -1426,14 +1426,12 @@ partials (§6), not by merging tiers.
 
 **A family is two authored tiers plus a shared `impl`, not five
 authored tiers.** `comp`/`subcomp` and their per-family equivalents
-are `generator: synthesis` join targets — no draft, no prompt,
+are `draft: none` join targets — no draft, no prompt,
 excluded from dispatch by `ReadyScopes.ready/3`'s own
 `generation_tier?/1` filter (`systems/platform_content.md`). They are
 declarations, not design work; only the two arch tiers and `impl`
-itself carry a prompt. Backend's terminal tier is bare `impl`
-(`bundles/default/tiers/impl.yaml`) while it has no siblings; it
-takes the family-qualified name `impl_backend` once the other three
-families' `impl` tiers exist alongside it.
+itself carry a prompt. Backend's terminal tier is `impl_backend`,
+family-qualified like `impl_ui` and `impl_screen` beside it.
 
 ### 5.2 The layering rule
 
@@ -4425,9 +4423,8 @@ but declaring one is its own decision.
   Everything else (fleet provisioning, upgrade train, the auth
   flows, billing) is deferred entirely. **License posture is
   decided** and recorded in `LICENSING.md` at the repo root:
-  AGPL-3.0-only plane, Apache-2.0 for everything that ships into
-  generated projects (the hard requirement), CLA-before-open (which
-  preserves the commercial-license option without offering it).
+  AGPL-3.0-or-later plane, Apache-2.0 for everything that ships into
+  generated projects (the hard requirement).
   Hosted is the monetization path; self-hosting is the budget path;
   hosted tiers are business-targeted.
 - **Restore-from-backup semantics** (**settled at the evidence

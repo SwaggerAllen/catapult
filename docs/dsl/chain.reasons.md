@@ -182,7 +182,7 @@ is `drained?` per tier plus every walk target approved. `all.<tier>` inside the 
 adding `all.policy.handle` to `comparch`'s context was a permanent
 deadlock when `policy` had `comparch` among its three fanout drivers
 (ORC-247, review 3); single-sourcing `child_of` (#28) is what makes
-`drained?` decidable at all. The `write`-sourced refusals are
+`drained?` decidable at all. The `write`-sourced refusal is
 ORC-236's, for the same shape of reason: an indefinite pool an outside
 path accretes cannot tell "no more will ever be written" from "none
 exist yet", and no chain event marks it complete, so a reader of one
@@ -254,9 +254,10 @@ a policy's own `<required>` child is what binds it.
 
 Enforcement rejects a violation at commit with a typed error the
 agent can retry against, rather than leaving it to be discovered at
-projection after the body is in the graph. The
-`GraphConstraints` module carried this check with no caller in the
-first tree; the commit path is its caller.
+projection after the body is in the graph. The first tree carried
+this check in a projection module nothing called, deferred until the
+graph drained; it now runs in `Catapult.Generation.CommitPath`, before
+the commit lands.
 
 ## #32
 

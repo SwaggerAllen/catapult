@@ -39,7 +39,7 @@ defmodule Catapult.ToySeed do
   # carries it (ORC-223, widened to total coverage by ORC-225 —
   # `systems/generation.md`'s ORC-225 entry): the 20 distinct
   # `draft.root_tag`s the 22 generation tiers declare
-  # (`bundles/default/tiers/*.yaml`), plus the single literal
+  # (`bundles/default/chain.yaml`), plus the single literal
   # `"review"` every review tier collapses to
   # (`ContextAssembly.root_tag/1`) — 21 keys. `ref`'s own `reference`
   # root_tag retired at ORC-236: `ref` no longer carries a `draft:` at
@@ -49,14 +49,14 @@ defmodule Catapult.ToySeed do
   # Keyed by `root_tag`, not by the fixture's own checked-in filename,
   # because the two namespaces were never made to agree. For the
   # nineteen `root_tag`s each declared by exactly one tier, the filename
-  # is that tier's own bundle YAML basename with `.xml` in place of
-  # `.yaml` (`bug_fix_plan.yaml` => `bug_fix_plan.xml`), which is why
+  # is that tier's own name with `.xml` appended (`bug_fix_plan` =>
+  # `bug_fix_plan.xml`), which is why
   # it differs from `root_tag` wherever a tier's own name uses
   # underscores against a hyphenated `root_tag`. The two collapsed
-  # `root_tag`s — `implementation` (`impl_backend.yaml`,
-  # `impl_screen.yaml`, `impl_ui.yaml` all declare it) and `review`
-  # (all seventeen `*_review.yaml` tiers declare it) — have no single
-  # owning tier to name a basename from, so the filename names the
+  # `root_tag`s — `implementation` (`impl_backend`, `impl_screen` and
+  # `impl_ui` all declare it) and `review` (every one of the seventeen
+  # `review:` blocks dispatches under it) — have no single owning tier
+  # to name a file after, so the filename names the
   # `root_tag` instead: `impl.xml` and `review_approve.xml`.
   @root_tag_fixtures %{
     "bug-fix-plan" => "bug_fix_plan.xml",

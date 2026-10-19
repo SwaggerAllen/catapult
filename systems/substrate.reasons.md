@@ -366,7 +366,7 @@ and `:identity` columns — the reason the table exists — sit empty, and the f
 a row it must skip. That is the `function_exported?/3` guard the no-optional-callbacks decision
 refused, wearing a hat: an aggregation that is total is one that cannot silently miss a component.
 `config/0`'s own reason then applies unchanged — a consumer, and error messages worth their
-specificity, which "your `:distributed` component declares `AGPL-3.0-only` for itself" is and no
+specificity, which "your `:distributed` component declares `AGPL-3.0-or-later` for itself" is and no
 uniform table report could be. One shape hazard: a keyword list *is* a list of two-tuples, so a
 table-driven aggregator reads one declaration as two entries, and holding it in the table would mean
 teaching `split/2` a no-positional-fields spelling.
@@ -383,7 +383,7 @@ the same words.
 
 The self-check passes (a subject is held to the standard it holds its dependencies to), the whole
 arrangement is readable in one file, and the case such a row would pass in silence — `GPL-2.0-only`
-inside an `AGPL-3.0-only` work, a real incompatibility — fails. Nothing in this repo sits on that
+inside an `AGPL-3.0-or-later` work, a real incompatibility — fails. Nothing in this repo sits on that
 case either way: the plane is `:service`, substrate is `Apache-2.0` conveyed.
 
 That is the self-check and the bucket rule being one rule instead of two, and it is what the list
@@ -414,7 +414,7 @@ and one a generated project can act on without arguing with us.
 
 ## #62
 
-A `:distributed` component declaring `AGPL-3.0-only` in a project whose list does not contain it is
+A `:distributed` component declaring `AGPL-3.0-or-later` in a project whose list does not contain it is
 the defect one level up and strictly worse than a copyleft dependency: a dependency is one package a
 consumer could route around, and the component *is* the thing shipping. It is free because it is not
 a second predicate — the same list, with the subject's own identifier in place of the dependency's —
@@ -469,8 +469,8 @@ leaving them off cheap: the day a real dependency asks, the answer is a line in 
 `allow:` list rather than a release of this package.
 
 **What the check honestly claims** is that no dependency in a checked tree *declares* terms nobody
-accepted. That is not verification — hex metadata is the publisher's own assertion, and the counsel
-pass `LICENSING.md` schedules is what verification means. Saying so is the difference between a rung
+accepted. That is not verification — hex metadata is the publisher's own assertion, and nothing here
+verifies it. Saying so is the difference between a rung
 on the v5 §4.5 ladder and a gate that flatters itself; what it buys is noticing, at merge time,
 cheaply, forever.
 
@@ -517,13 +517,13 @@ and nowhere else.
 
 ## #70
 
-A plane stating `licensing: [allow: ["AGPL-3.0-only"]]` places its own subject, prints the same
+A plane stating `licensing: [allow: ["AGPL-3.0-or-later"]]` places its own subject, prints the same
 `unchecked` census and is exactly as green today as the full list, so the shorter one looks like the
 one that claims less — and the no-hand-maintained-inventories rule looks like it applies. It does
 not: the list is a policy statement about acceptable terms, not a mirror of anything in the tree.
 The cost lands entirely on the day some subject first arms the check, and it is measured — against
-Catapult's five plus `AGPL-3.0-only` the plane's closure produces one problem; against
-`["AGPL-3.0-only"]` alone, one per dependency. That is a licensing policy written under time
+Catapult's five plus `AGPL-3.0-or-later` the plane's closure produces one problem; against
+`["AGPL-3.0-or-later"]` alone, one per dependency. That is a licensing policy written under time
 pressure inside a diff that had another purpose. A list is stated once and read whenever the check
 arms; writing it while nothing is at stake is the only time it is cheap.
 

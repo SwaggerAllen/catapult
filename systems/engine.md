@@ -72,7 +72,7 @@ them.
   because a `scope_filter` predicate (`has_edge`, `count`, `exists`,
   `all`/`any`, `reaches`) needs live graph state the same way a context
   walk does. Built as the shared home for the predicate language's
-  other three slots (`cardinality.when`, an edge `constraint`, a flow
+  other three slots (a `fanout` instance's `when:`, an edge `constraint`, a flow
   `completion`, `chain.md` #37) when their own tickets land, not a
   one-off for this slot alone.
 - **#8 `input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
@@ -159,9 +159,10 @@ them.
   `chain.tiers[instance.target].draft` in hand carries one more field on the entry it returns,
   threaded unchanged through `Catapult.Engine .Commands.CommitDraft`'s `mints:` and onto
   `DraftCommitted`'s own `mint()` type.
-- **#18 The same default reaches `policy`, and staleness needs no change.** `policy`
-  (`bundles/default/tiers/policy.yaml`) is `generator: synthesis` with no `draft:`, structurally
-  identical to `comp`/`subcomp`/`resp`, so it gets the identical mint-time `:approved`.
+- **#18 The same default reaches the policy tiers, and staleness needs no change.**
+  `sysarch_policy`, `comparch_policy` and `non_goals_policy` (`bundles/default/chain.yaml`) each declare
+  `draft: none`, structurally identical to `comp`/`subcomp`/`resp`, so each gets the identical
+  mint-time `:approved`.
 
 - **#19 A node's readiness-effective status is resolved, not read bare —
   a join target defers to whichever node minted it, recursively**
@@ -249,14 +250,11 @@ them.
     upstream tier whose own exhaustion would settle the question, and
     no chain event marks the pool complete. Rather than leave that
     recursion hang the first time anything asks, `chain.md` #22
-    refuses two things at load time instead: an `all.<tier>` walk
-    targeting such a tier, and a non-zero cardinality `min`
-    on the side of an edge instance that names one (below) — nothing in
-    `bundles/default` needs either (every `ref` read is a named
-    `reference`/`fulfills` citation resolved by id, never a population
-    walk, and every `→ ref` instance's cardinality is `{min: 0}` on both
-    ends), so both refusals cost no shipped content and this branch of
-    `drained?/1` is never actually called;
+    refuses an `all.<tier>` walk targeting such a tier at load time
+    instead — nothing in `bundles/default` needs one (every `ref` read
+    is a named `reference`/`fulfills` citation resolved by id, never a
+    population walk), so the refusal costs no shipped content and this
+    branch of `drained?/1` is never actually called;
   - `per(X)`: drained once X is drained *and* every node `Store
     .list_nodes(X)` names (trustworthy as the final list only because X
     is already confirmed drained) has its corresponding `per(X)` node
@@ -274,10 +272,11 @@ them.
     `docs/v5-design-decisions.md`), so once every possible minting
     source has committed and been approved, no further instance of
     `<tier>` will ever appear and the current list is final, whatever
-    its length. The second conjunct costs nothing at the ten
+    its length. The second conjunct costs nothing at the twelve
     `child_of` tiers that are join targets (`comp`, `subcomp`,
-    `journey`, `screen`, `resp`, `policy`, `ui_coll`, `ui_subcomp`,
-    `screen_coll`, `screen_subcomp`), whose rows are `:approved` from
+    `journey`, `screen`, `resp`, `sysarch_policy`, `comparch_policy`,
+    `non_goals_policy`, `ui_coll`, `ui_subcomp`, `screen_coll`,
+    `screen_subcomp`), whose rows are `:approved` from
     mint and whose `settled?` already defers to the very `Xi` this
     branch checks. It is load-bearing at the eleventh: `vocab` is the
     one `child_of` tier in `bundles/default` carrying a `draft:` of
@@ -314,10 +313,6 @@ them.
   guarantee `mint.status` relies on.
 - **#26 `settled?/2`'s `generator: supplied` clause widens to `generator: reference`,
   unconditionally, for the identical reason** (ORC-236; the three-way match above).
-- **#27 Cardinality and instance-level `graph_constraint` are evaluated once the edge's own bound
-  side is drained — except a `max` bound, which needs no such gate and is evaluated as soon as it can
-  be violated — and a violation is a reported, non-blocking finding — never a retried draft and never
-  a blocking gate** (ORC-236).
 - **#28 A declared edge now resolves to the node it names, closing the
   chain this ticket's own audit found empty — from two independent
   directions, not one fix gating the other.** Every `<arch> → ref`

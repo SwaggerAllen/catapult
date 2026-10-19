@@ -70,9 +70,12 @@ entirely (impl attaching directly to the comp); expressing that as a scope
 needs a union this ticket's closed scope-expression set (`singleton |
 per(X) | child_of(X)`, `chain.md` #6) has no form for (`per(subcomp) OR
 per(comp where count(subcomponents)==0)`). Dropped as a content
-simplification, not carried forward silently: `decomposition`'s
-comparch→subcomp instance declares `source: {min: 1}`, making every comp
-fan out into at least one subcomponent.
+simplification, not carried forward silently: every comp fans out into
+at least one subcomponent. That is a count across the comp's children,
+not a bound on one document — `schemas/comparch.xsd` lets
+`<subcomponents>` be empty — so it is `decomposition`'s comparch→subcomp
+instance's `when: has_foundation_child` (`count(decomposition) >= 1`,
+`chain.md` #37), whose evaluation is reserved to the commit path.
 
 ## #11
 
@@ -85,7 +88,7 @@ entry), so there is no second intake of the same raft to re-propose from.
 
 The raft may well argue for a responsibility- or component-scoped refusal,
 not only a project-global one, but grains two and three
-(`policy_application`'s policy→resp and policy→comp instances) need a
+(`policy_application`'s `<x>_policy → resp` and `comparch_policy → comp` instances) need a
 `resp` or `comp` id to scope through, and intake mints neither — nothing
 has been decomposed yet when `non_goals` runs, by construction (it is a
 chain root). A scoped refusal is real and expected; it enters the way v5
@@ -106,15 +109,19 @@ its consumers, unrelated to distillation.
 
 ## #19
 
-`comparch.yaml`'s own comment records why: `all.policy` is unfiltered by
-construction (`chain.md` #19) and would return every resp- and comp-scoped
-policy too, indiscriminate noise next to the grains a tier already reads
-explicitly. A scope-filtered "only the unscoped grain" read has no
-expression in this DSL, and supplying one is a `core_dsl` question, not
-bundle content; a consumer that wants `all.policy`'s indiscriminate
-reading on its own merits (reconciliation, whose job is project-wide by
-nature, is the plausible first taker) wires it against its own need.
+retired: the rule kept the project-global grain out of every scoped
+tier's context because `all.policy` returned every scope at once.
+`chain.md` #28 split the pool into one tier per minting draft, and
+`comparch` now reads `all.sysarch_policy.handle` and
+`all.non_goals_policy.handle` as `citable_policies` and
+`non_goal_policies`. While `policy` had `comparch` among its drivers
+that read was a permanent deadlock (`chain.reasons.md` #22); with one
+driver per pool it is not.
 
+The reason it carried: `comparch.yaml`'s own comment recorded that
+`all.policy` was unfiltered by construction (`chain.md` #19) and would
+return every resp- and comp-scoped policy too, indiscriminate noise
+next to the grains a tier already read explicitly.
 ## #21
 
 Flow instance state becoming a real, checkable loader or engine concept is
@@ -130,18 +137,22 @@ padded to match `feature_request`'s length.
 
 ## #24
 
-This is the smallest stub that makes the reference resolve; the
-elixir-target layer's real content (convention grammars, template tiers,
-enforcement profiles) is a separate ticket's job. The platform-wide review
-grammar (`schemas/review.xsd`) lives on this stub layer per this ticket's
-own instruction — worth noting for a future reader that nothing in the
-Phase 3 loader (`lib/catapult/dsl/chain.ex`) actually checks a
-`draft.grammar` or `review.grammar` path resolves to a file at all yet
-("prompt rendering, XSD body validation at commit" is this ticket's own
-stated out-of-scope), so this placement is not load-bearing today — it is
-the ticket-instructed shape, validated only as "does not break the
-loader," not as "is read by anything yet."
+`catapult.yaml` names the two bundles a project runs on, and
+`core_dsl`'s file map claimed the path before anything filled it. The
+`platform-elixir` stub this entry once shipped beside the chain bundle,
+the smallest layer that made an `extends:` reference resolve, folded
+into `bundles/default/` when `extends:` retired (#35); its only
+content, the platform-wide `schemas/review.xsd`, lives in the chain
+bundle's own `schemas/`.
+## #25
 
+`chain.reasons.md` #14 measured the shape this replaced: all 17 review
+tiers were seven keys, four of them constants and one a byte-identical
+copy of the reviewed tier's context, held exact by a load rule, while
+`ContextAssembly` ignored the copy and recomputed from the reviewed tier
+anyway. The single review grammar has the same cause: each of those
+tiers restated one identical schema (`Catapult.Generation.CommitPath`'s
+`@review_grammar` comment).
 ## #26
 
 **What this closes is silence, not a wrong number.** `critique` is opt-in
@@ -256,6 +267,15 @@ and `entry.id` resolves. The store round trip performs the conversion the
 sibling function performs explicitly, which is why the asymmetry between
 them is not the bug it looks like.
 
+## #34
+
+retired: tiers carried a `delivery: {phase, agent_step}` pair, and
+the rule held every `agent_step: design` tier's phase at `generation`
+until the work-item type split it. Tiers no longer name a position at
+all: the workflow names the tiers that run at each of its positions
+(`workflow.md` #22), for `bundle.md` #11's reason, recorded as
+`chain.reasons.md` #7's retirement of `phase:`.
+
 ## #36
 
 This is also why `screens` cannot be `child_of(journey)`: a screen
@@ -343,9 +363,10 @@ locators (`chain.md` #27, `systems/core_dsl.md`'s ORC-236
 entry): `source_ref: self.parent` names `ui_coll` (`ui_collarch` is
 `per(ui_coll)`) and `design_system` being `scope: singleton` needs no
 `target_ref:` at all, so this instance extracts and resolves with no
-explicit locator — a same-tier locator pair, since the edge's own `{min:
-0, max: 1}` cardinality is a fact about *this* `ui_coll`'s dependency,
-which a project-wide pool read can't carry.
+explicit locator — a same-tier locator pair, since "at most one design
+system" (`<design-system>` is `minOccurs="0" maxOccurs="1"` in
+`schemas/ui_collarch.xsd`) is a fact about *this* `ui_coll`'s
+dependency, which a project-wide pool read can't carry.
 
 ## #51
 

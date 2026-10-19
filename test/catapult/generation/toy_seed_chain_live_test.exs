@@ -89,10 +89,12 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   run is the fact this test can actually observe.
 
   **The tier set the walk reaches is checked against a predicate, not
-  a fixed number.** `bundles/default/tiers/*.yaml`'s own shape fixes
-  which tiers a complete walk dispatches: every tier the sweeper would
-  ever consider (`reviews:` set, or `draft:` present with
-  `generator: "llm"`) minus the ones scoped `cascade_visit` — Target,
+  a fixed number.** `bundles/default/chain.yaml`'s own shape fixes
+  which dispatch names a complete walk produces: every generation tier
+  the sweeper would ever consider (a `draft:` map with
+  `generator: "llm"` — a join target's `draft: none` is not one), and
+  `"<tier>:review"` for every tier carrying a `review:` block, minus
+  `@unminted_tiers` and the tiers scoped `cascade_visit` — Target,
   not Initial (`Catapult.Engine.Projections.ReadyScopes`'s own
   moduledoc) — since `ReadyScopes`'s own candidate enumeration returns
   `[]` for that scope unconditionally, so a `cascade_visit`-scoped tier
@@ -126,6 +128,7 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   alias Catapult.Config.Secret
   alias Catapult.Delivery
   alias Catapult.Dsl
+  alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.ToySeed
 
   @moduletag :live
@@ -155,6 +158,17 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
   @poll_deadline :timer.minutes(33)
 
   @entry_tier "feature_expansion"
+
+  # Generation tiers the toy raft never mints a node for, so the walk
+  # cannot reach them however long it runs. `vocab` is minted off
+  # `feature_expansion`'s `<vocabulary>/<term>`, and the toy seed's
+  # `feature_expansion` stub declares none: a `<term>` carries no
+  # `id`/`alias`, so its mint resolves a `nil` identity (the gap
+  # `ToySeedChainTest`'s moduledoc records), and the offline test seeds
+  # its one vocab node by hand for that reason. The test below also
+  # asserts the walk never reaches these, so the day the stub mints a
+  # term this list fails loudly instead of hiding the tier.
+  @unminted_tiers ["vocab"]
 
   # Wider than `@poll_deadline` so a genuine timeout ends the test via
   # `flunk/1` — a real assertion failure — rather than ExUnit's own
@@ -193,6 +207,10 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
 
       observed_tiers = runs |> Enum.map(& &1["tier"]) |> MapSet.new()
       expected_tiers = expected_tier_names()
+
+      assert MapSet.disjoint?(observed_tiers, MapSet.new(@unminted_tiers)),
+             "the walk reached #{inspect(@unminted_tiers)}, which @unminted_tiers says it " <>
+               "cannot — the toy raft mints them now, so drop them from that list"
 
       assert observed_tiers == expected_tiers,
              "expected the walk to reach exactly #{inspect(Enum.sort(MapSet.to_list(expected_tiers)))}, " <>
@@ -237,7 +255,8 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
       awaiting_effect?: false,
       advanced?: false,
       log: [],
-      last_runs: []
+      last_runs: [],
+      last_remaining: nil
     }
 
     poll_walk!(base, headers, project_id, deadline, state)
@@ -247,8 +266,22 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     if System.monotonic_time(:millisecond) >= deadline do
       tiers_and_durations = Enum.map(state.last_runs, &{&1["tier"], &1["duration_ms"]})
 
+      # Which half of `remaining` held it above zero. A run still
+      # listed here is in flight and never reported terminal (a
+      # rejected `:success` report stays in flight by design); none
+      # listed means every run finished and the count is a scope the
+      # plane reads ready but never dispatched. Runs 29-31 timed out
+      # with only tier and duration in this message, which could not
+      # tell those two apart.
+      unfinished =
+        for run <- state.last_runs, run["status"] != "completed" do
+          {run["tier"], run["node_id"], run["status"], run["outcome"]}
+        end
+
       flunk(
         "timed out waiting for the toy raft's downward-cascade walk to finish — " <>
+          "remaining at the last poll: #{inspect(state.last_remaining)}; " <>
+          "runs not completed (tier, node_id, status, outcome): #{inspect(unfinished)}; " <>
           "tier set observed so far (tier, duration_ms): #{inspect(tiers_and_durations)}; " <>
           "approve_drafts/2 calls so far (oldest first): #{inspect(Enum.reverse(state.log))}"
       )
@@ -263,7 +296,14 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     if remaining > 0 do
       Process.sleep(@poll_interval)
 
-      next_state = %{state | seen_ids: ids, advanced?: advanced?, last_runs: runs}
+      next_state = %{
+        state
+        | seen_ids: ids,
+          advanced?: advanced?,
+          last_runs: runs,
+          last_remaining: remaining
+      }
+
       poll_walk!(base, headers, project_id, deadline, next_state)
     else
       approved = approve_drafts!(base, headers, project_id)
@@ -285,7 +325,8 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
             awaiting_effect?: true,
             advanced?: advanced?,
             log: [approved | state.log],
-            last_runs: runs
+            last_runs: runs,
+            last_remaining: remaining
         }
 
         poll_walk!(base, headers, project_id, deadline, next_state)
@@ -293,25 +334,39 @@ defmodule Catapult.Generation.ToySeedChainLiveTest do
     end
   end
 
-  # Every tier the sweeper would ever consider — `ready/3` and
-  # `ready_review/3`'s own eligibility, replayed here rather than
-  # imported (this module's own moduledoc: the same small duplication
-  # `Catapult.Delivery.Provisioning`'s `remaining` computation carries)
-  # — minus `cascade_visit`-scoped tiers, structurally unreachable from
-  # this walk regardless of `draft:`/`reviews:` shape. Loaded straight
-  # off the bundle so this assertion moves with it instead of a
-  # hand-maintained list drifting the next time a tier is added.
+  # Every dispatch name the sweeper would ever produce — the same two
+  # axes `Catapult.Generation.Sweeper.sweep_tiers/2` asks, replayed
+  # here rather than imported (this module's own moduledoc: the same
+  # small duplication `Catapult.Delivery.Provisioning`'s `remaining`
+  # computation carries): a generation tier under its own name, and
+  # every tier carrying a `review:` block under
+  # `ReadyScopes.review_tier_name/1`'s `"<tier>:review"`, since a
+  # review is a block on the tier it reviews rather than a tier of its
+  # own (`chain.md` #14). Minus `cascade_visit`-scoped tiers,
+  # structurally unreachable from this walk, and minus
+  # `@unminted_tiers`. Loaded straight off the bundle so this assertion
+  # moves with it instead of a hand-maintained list drifting the next
+  # time a tier is added.
+  #
+  # A join target declares `draft: none`, which is not `nil` — so the
+  # generation predicate matches a draft *map*, or every join target
+  # (`comp`, `journey`, `screen`, ...) would be expected to dispatch.
   defp expected_tier_names do
     {:ok, %{chain: chain}} = Dsl.load(".")
 
     chain.tiers
-    |> Enum.filter(fn {_name, tier} -> dispatchable?(tier) and tier.scope != {:cascade_visit} end)
-    |> Enum.map(fn {name, _tier} -> name end)
+    |> Enum.reject(fn {name, tier} ->
+      tier.scope == {:cascade_visit} or name in @unminted_tiers
+    end)
+    |> Enum.flat_map(fn {name, tier} ->
+      generation = if dispatchable?(tier), do: [name], else: []
+      review = if tier.review, do: [ReadyScopes.review_tier_name(name)], else: []
+      generation ++ review
+    end)
     |> MapSet.new()
   end
 
-  defp dispatchable?(%{reviews: reviewed}) when not is_nil(reviewed), do: true
-  defp dispatchable?(%{draft: draft, generator: "llm"}) when not is_nil(draft), do: true
+  defp dispatchable?(%{draft: draft, generator: "llm"}) when is_map(draft), do: true
   defp dispatchable?(_tier), do: false
 
   defp fetch_runs!(base, headers, project_id) do
