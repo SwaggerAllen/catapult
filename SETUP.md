@@ -80,12 +80,18 @@ quietly, which is the only reason they are allowed to sit in the tree:
    (`srv-…`). Unreplaced, `pipeline setup` fails its deploy check naming
    the endpoint, which is why that check runs at hookup rather than on
    the first ticket to reach `Merged`.
-2. **The public URL**, in `config/test.exs`'s `:live_base_url` and the
-   three workflows that read `CATAPULT_BASE_URL`. Unreplaced, the
-   `:live` suite fails at the milestone boundary naming the host.
+2. **The public URL**, in `config/test.exs`'s `:live_base_url`, the
+   three workflows that read `CATAPULT_BASE_URL`
+   (`catapult-failures.yml`, `catapult-test-project.yml`,
+   `pipeline-live-suite.yml`), and the generated-workflow fixture
+   `test/catapult/generation/fixtures/catapult-dispatch.yml`.
+   Unreplaced, the `:live` suite fails at the milestone boundary naming
+   the host.
 
-The order is: create the Blueprint from `render.yaml`, set the four
-secrets below in the dashboard, replace both values, then merge. Merging
+The order is: create the Blueprint from `render.yaml` — pointed at the
+branch carrying it, since `main` does not until this merges — set the
+four secrets below in the dashboard, replace both values, merge, then
+point the Blueprint at `main`. Merging
 first leaves the sweep unable to see deploys and every `Merged` ticket
 rides to the deploy timeout — a symptom naming neither the endpoint nor
 the token.
