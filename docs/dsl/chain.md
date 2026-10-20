@@ -79,7 +79,7 @@ and edge name. Markers: **live** is read by the engine today;
   `template`, `git_commit` and `webhook` are reserved (#39).
 - **#9 `prompt:` defaults to `prompts/<tier>.md.liquid`** and is
   written only where the file lives elsewhere, as the five flow plan
-  tiers do (`flows/<flow>/plan.md.liquid`).
+  tiers do (`flows/<flow>/plan.md.liquid`; `propose.md.liquid` for `feature_request`).
 - **#10 `executor:` is the profile the runtime binds a tier's agent
   run to** (reserved: the LLM bindings in `systems/llm.md`), a map of
   `effort` and whatever a binding reads; it defaults to

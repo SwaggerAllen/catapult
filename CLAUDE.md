@@ -82,7 +82,7 @@ exactly the branches that rewrite the grammar.
   it was never in `v5-design-decisions.md`), the v4 default-bundle
   reference, and siege's own prompt chain. Read it when working on
   bundle content; `docs/v5-design-decisions.md` wins wherever they
-  disagree, and `seed-docs/README.md` lists the three places they
+  disagree, and `seed-docs/README.md` lists the seven places they
   knowingly do. Siege is AGPL and `bundles/**` is Apache-2.0, but
   carrying text across is **authorized** (sole copyright holder, no
   third-party contributors, no users) — see its README; ORC-7 still
@@ -197,7 +197,7 @@ suite path.
   `mix.exs`). Pure Erlang applications cannot be restrained — that gap
   is `systems/foundation.md`'s and is deliberate, not forgotten.
 - A **bundle-relative content path stays inside its own layer**.
-  `Catapult.Dsl.Extends.resolve_content_path/2` expands both sides
+  `Catapult.Dsl.BundlePath.resolve/2` expands both sides
   and refuses any candidate that escapes, so an escaping `prompt:`
   reads as "not found" rather than as a file. The value is
   bundle-authored, and a bundle is the customer's own content at the

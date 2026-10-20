@@ -808,7 +808,7 @@ profiles.
   and, in its `.reasons.md` sibling, the argument for it.
   `bundles/default/chain.yaml` and `bundles/default-flow/workflow.yaml`
   are the default pair written in that grammar.
-  Five changes, each naming the entries it supersedes:
+  Six changes, each naming the entries it supersedes:
   1. **Each axis is one declaration file.** `chain.yaml` carries every
      tier, edge, flow and predicate; `workflow.yaml` every type, gate
      and environment (`bundle.md` #3, #4). The per-file declaration

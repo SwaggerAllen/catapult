@@ -3701,7 +3701,7 @@ carries the load-time consequence: `extends:` is an unknown field on
 any bundle's manifest).
 
 **A consequence worth keeping straight: the `runtime` dialect loads
-no workflow bundle at all.** §12 defines it as having no review
+no workflow bundle at all.** §9 defines it as having no review
 lifecycle and no git bodies, so a workflow bundle there is not merely
 unused but incoherent, and the loader should say so rather than
 accept it.

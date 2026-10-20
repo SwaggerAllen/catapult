@@ -175,7 +175,7 @@ port pattern, in Elixir); the feature-ticket lifecycle projection —
 states rendered on Catapult's own surface (`screens/board.md`,
 `screens/ticket.md`, `screens/my-queue.md`), gate states drawn from
 the ticket type's own declaration (v5 §7.16;
-`bundles/default-flow/types/feature.yaml`) with gate skip-on-no-diff;
+`bundles/default-flow/workflow.yaml`) with gate skip-on-no-diff;
 bodies committed to a feature branch with one PR; gate review on the
 native `document-review` screen, at sentence granularity (v5 §7.17;
 `screens/document-review.md`); decline harvesting (comments since the

@@ -680,7 +680,7 @@ generating as scope-runs inside one ticket.
   orchestration's decisionless pass generalized" framing §7.3 already
   gives it.
 - **#42 Blocked carries no new mechanism either** (ORC-32, design pass). `:blocked` is
-  one of the twenty fixed kinds (`Catapult.Dsl.SystemStatus`) with `ball: :varies`; this
+  one of the sixteen fixed kinds (`Catapult.Dsl.SystemStatus`) with `ball: :varies`; this
   process manager enters it as any other transition, and the flavor label plus origin
   are read the same way v5 §7.19 already settles for the platform generally — off the
   ticket's own projected history, never stamped onto a comment (this doc's

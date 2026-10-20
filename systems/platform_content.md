@@ -1083,7 +1083,7 @@ loader tickets carry `system:core_dsl`.
   together with each bundle's manifest and the standalone status,
   type and escalation files. What stays beside them is what the
   declaration names: `schemas/<tier>.xsd`, the prompt families, and a
-  flow's own prompts (`bundle.md` #3, #4). Four consequences for this
+  flow's own prompts (`bundle.md` #3, #4). Five consequences for this
   bundle's own content, each naming what it supersedes:
   1. **No tier names a position.** A generation position lists the
      tiers that run at it, and a ticket type names the chain flows it
