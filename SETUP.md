@@ -73,25 +73,28 @@ in the repo and valued only there.
 ### Before this merges — the two values nothing can derive
 
 `render.yaml` is written and the Render service does not exist yet. Two
-values are `REPLACE-AT-PROVISION`, and both fail loudly rather than
-quietly, which is the only reason they are allowed to sit in the tree:
+values cannot be known until it does:
 
 1. **`pipeline.config.json`'s `deploy.endpoint`** — needs the service id
    (`srv-…`). Unreplaced, `pipeline setup` fails its deploy check naming
    the endpoint, which is why that check runs at hookup rather than on
    the first ticket to reach `Merged`.
-2. **The public URL**, in `config/test.exs`'s `:live_base_url`, the
-   three workflows that read `CATAPULT_BASE_URL`
-   (`catapult-failures.yml`, `catapult-test-project.yml`,
-   `pipeline-live-suite.yml`), and the generated-workflow fixture
-   `test/catapult/generation/fixtures/catapult-dispatch.yml`.
-   Unreplaced, the `:live` suite fails at the milestone boundary naming
-   the host.
+2. **The public URL** — the `CATAPULT_BASE_URL` repo variable (§3),
+   not a value in the tree. `catapult-failures.yml`,
+   `catapult-test-project.yml` and `pipeline-live-suite.yml` read it,
+   the last handing it to `config/test.exs` as `CATAPULT_LIVE_BASE_URL`,
+   and each refuses by name when it is unset. The one literal copy is
+   the fixture `test/catapult/generation/fixtures/catapult-dispatch.yml`,
+   still `REPLACE-AT-PROVISION`: it runs in the fixture repo, which
+   cannot read this repo's variables. **That copy is the quiet one**:
+   unreplaced, the `:live` chain test's dispatched run fails its first
+   call back to the plane, and the evidence is in the fixture repo's
+   run log rather than in the suite's failure.
 
 The order is: create the Blueprint from `render.yaml` — pointed at the
 branch carrying it, since `main` does not until this merges — set the
-four secrets below in the dashboard, replace both values, merge, then
-point the Blueprint at `main`. Merging
+four secrets below in the dashboard, set the variable, replace the two
+literals, merge, then point the Blueprint at `main`. Merging
 first leaves the sweep unable to see deploys and every `Merged` ticket
 rides to the deploy timeout — a symptom naming neither the endpoint nor
 the token.
@@ -140,7 +143,7 @@ The facts a future session needs, recorded as facts:
 
 - Service `catapult`, region `oregon` (`render.yaml`); the service id
   is in `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
-  `:live_base_url` key in `config/test.exs`. **`/health` is no longer
+  `CATAPULT_BASE_URL` repo variable (§3). **`/health` is no longer
   the only served path** (ORC-9, widened by ORC-35): a second path,
   `/dispatch/*`, serves the agent-dispatch host port's
   context-fetch/result-report calls (`systems/generation.md`,
@@ -153,13 +156,17 @@ The facts a future session needs, recorded as facts:
   plugs in `CatapultWeb.Endpoint`'s own pipeline, which is now this
   instance's one public listener (`Catapult.Application`) — the raw
   `Plug.Cowboy` mount ORC-9 built is retired, not duplicated, so the
-  "one public port" fact below is unchanged. The hostname's home moved
-  to `:live_base_url` when
-  the `:live` suite acquired a code consumer for it (ORC-29): prose
-  cannot be dereferenced, and a value the boundary suite reads once a
-  milestone goes red and names itself when it drifts, which is the
-  property this section could never have. Still one home, not two
-  (`docs/non-goals.md` records the amendment to ORC-40's rule).
+  "one public port" fact below is unchanged. The hostname's home is a
+  repo variable because it has code consumers (ORC-29): prose cannot be
+  dereferenced, and a value the boundary suite reads once a milestone
+  goes red and names itself when it drifts, which is the property this
+  section could never have. It is a variable rather than a key in the
+  tree because the consumers are three workflows and the `:live` suite,
+  and a key in `config/test.exs` reached only the last — the three
+  workflows each carried their own literal beside it, four copies of a
+  vendor-assigned hostname in the tree and five with the fixture. One
+  home, plus the fixture's copy, which cannot read it
+  (`docs/non-goals.md` records the amendments to ORC-40's rule).
 - **Public port is 8080, set on both sides** — the prod listener
   defaults to it (foundation's `config/0` declaration;
   `FOUNDATION_HEALTH_PORT` overrides, and was `HEALTH_PORT` before
@@ -370,6 +377,13 @@ from tracker/host as signals before resuming authority).
     (§2's own entry); it has to be the identical value the reference
     instance holds under the same name, or every run fails at the
     first request with a 401.
+- Actions **variable** on this repo (Settings → Secrets and variables →
+  Actions → Variables): `CATAPULT_BASE_URL`, the reference instance's
+  public URL with no trailing slash — `https://<service>.onrender.com`,
+  read off the Render dashboard. A variable rather than a secret because
+  it is public, and the run logs that print it are the evidence when a
+  request fails. Every workflow reading it refuses by name when it is
+  unset; the fixture's literal copy has to match it (§2).
 - **`SwaggerAllen/catapult-test` (the bound fixture repo — a
   *different* repository, its own Actions secrets) needs its own
   model credentials, the ones `catapult-dispatch.yml`'s `run-agent`

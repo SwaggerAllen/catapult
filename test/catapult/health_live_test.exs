@@ -16,8 +16,8 @@ defmodule Catapult.HealthLiveTest do
   @moduletag :live
 
   # One request, one bounded timeout, no polling and no retry. Deploy
-  # detection is the plane's job and already exists (poll the App
-  # Platform API, compare SHAs); a live check that waits out a rollout is
+  # detection is the plane's job and already exists (poll the deploy
+  # provider's API, compare SHAs); a live check that waits out a rollout is
   # a second, slower deploy detector, and its long timeout is exactly
   # where a real outage hides.
   @timeout :timer.seconds(10)

@@ -74,7 +74,12 @@ permissions:
   contents: read
 
 env:
-  CATAPULT_BASE_URL: https://catapult-REPLACE-AT-PROVISION.onrender.com # SETUP.md §2 / config/test.exs's :live_base_url
+  # The one literal copy of the reference instance's URL, and it has to
+  # be one: this file runs in the fixture repo, which cannot read this
+  # repo's CATAPULT_BASE_URL variable, and a variable set on the fixture
+  # repo instead is the out-of-band state generation#37 already declined
+  # there. Must equal that variable (SETUP.md §2).
+  CATAPULT_BASE_URL: https://catapult-REPLACE-AT-PROVISION.onrender.com
 
 jobs:
   dispatch:

@@ -89,6 +89,12 @@ jobs:
       # the same "test-token" sentinel and the plane answers 401 on
       # the first request — which reads exactly like a wrong token.
       DELIVERY_PROVISIONING_TOKEN: ${{ secrets.DELIVERY_PROVISIONING_TOKEN }}
+      # The reference instance every `:live` test targets. Its one home is
+      # the CATAPULT_BASE_URL repo variable (SETUP.md §2/§3); config/test.exs
+      # reads it under this name at config-load time, which is why it is
+      # job-level like the two tokens above. Unlike them it has no
+      # fallback: the step below refuses by name when it is unset.
+      CATAPULT_LIVE_BASE_URL: ${{ vars.CATAPULT_BASE_URL }}
     services:
       postgres:
         image: postgres:16
@@ -104,6 +110,16 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+
+      # Before the toolchain, so an unset variable costs seconds rather
+      # than a full deps fetch and compile — and fails naming itself, not
+      # as a suite failure the report step would file against the ticket.
+      - name: the reference instance's URL is set
+        run: |
+          if [ -z "$CATAPULT_LIVE_BASE_URL" ]; then
+            echo "The CATAPULT_BASE_URL repo variable is not set on this repo (SETUP.md §3)." >&2
+            exit 1
+          fi
 
       # ---- this project's toolchain, before the agent runs --------------
       # The suite is this project's own test command, so its toolchain
@@ -161,10 +177,14 @@ jobs:
         if: failure()
         env:
           TOKEN: ${{ secrets.FOUNDATION_OPERATOR_TOKEN }}
-          CATAPULT_BASE_URL: https://catapult-REPLACE-AT-PROVISION.onrender.com
+          CATAPULT_BASE_URL: ${{ vars.CATAPULT_BASE_URL }}
         run: |
           if [ -z "$TOKEN" ]; then
             echo "FOUNDATION_OPERATOR_TOKEN is not set on this repo (SETUP.md §3); skipping."
+            exit 0
+          fi
+          if [ -z "$CATAPULT_BASE_URL" ]; then
+            echo "The CATAPULT_BASE_URL repo variable is not set on this repo (SETUP.md §3); skipping."
             exit 0
           fi
 
