@@ -61,7 +61,7 @@
   ],
   "deploy": {
     "provider": "render",
-    "endpoint": "https://api.render.com/v1/services/srv-REPLACE-AT-PROVISION/deploys",
+    "endpoint": "https://api.render.com/v1/services/srv-dbcgeet9fdbs73cp4he0/deploys",
     "timeout": "30m"
   },
   "state": {
