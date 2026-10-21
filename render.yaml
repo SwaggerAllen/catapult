@@ -50,6 +50,13 @@ databases:
     # production. That is the reason to revisit it with a measurement
     # rather than to leave it at a guess in either direction.
     plan: 0.5c-1g
+    # Pinned, and to the major CI's Postgres service runs (ci.yml). Unset,
+    # Render chose its own default at creation — 18 — while CI tested 16,
+    # and nothing said so until someone read the dashboard. Moving to 16
+    # would have meant recreating the database, which cannot be
+    # downgraded; moving CI was free, and the suite was measured green
+    # on 18.6 first. A string, per Render's Blueprint schema.
+    postgresMajorVersion: "18"
 
 services:
   - type: web
