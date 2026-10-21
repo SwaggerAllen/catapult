@@ -104,15 +104,23 @@ jobs:
       # exit code rather than a report nobody reads.
       #
       # `Config.HTTPS` is ignored permanently, not pending a condition
-      # (ORC-131). App Platform terminates TLS and coerces HTTP to
-      # HTTPS at its edge, with no setting to disable it, so a public
-      # request never reaches this app over http and `Plug.SSL`'s
-      # redirect could never fire on one. The one path that does not
-      # come through the edge is App Platform's own health probe, which
-      # hits the container's port directly — an endpoint `force_ssl:`
-      # sits ahead of `Catapult.Foundation.DispatchPlug` and would
-      # answer that probe with a 301, failing the deploy. So the
-      # redirect buys nothing and risks the rollout.
+      # (ORC-131). Render terminates TLS and redirects every HTTP request
+      # to HTTPS at its edge — its own TLS documentation, read rather
+      # than measured — so a public request never reaches this app over
+      # http and `Plug.SSL`'s redirect could never fire on one. The one
+      # path that does not come through the edge is the platform's health
+      # probe, which hits the container's port directly over plain http:
+      # an endpoint `force_ssl:` sits ahead of
+      # `Catapult.Foundation.DispatchPlug` and would answer that probe
+      # with a 301, failing the deploy. So the redirect buys nothing and
+      # risks the rollout.
+      #
+      # **The health-probe half is the load-bearing one**, and it is the
+      # half that survived the move off App Platform without needing a
+      # new fact about a new vendor: a probe that reaches the container
+      # directly is how a container health check works anywhere. Whether
+      # Render's HTTP-to-HTTPS redirect can be turned off is not
+      # documented and has not been read; it would not change this.
       #
       # HSTS — the half the edge does not supply — is set on
       # `CatapultWeb.Router`'s `:browser` pipeline instead, which this

@@ -62,8 +62,11 @@ reached only through their APIs per v5 §2.4).
   The substrate's rule is that a name off the slug spine is legal only with
   `external: true`, and that the flag confers nothing — "an `external: true`
   on a name nobody else imposes is a lie a reviewer can see". Only
-  `DATABASE_URL` is imposed: App Platform injects it under a name we do not
-  choose. Marking the other two external to keep a bare spelling would
+  `DATABASE_URL` is imposed: the platform supplies the connection string under
+  that name and `FOUNDATION_DATABASE_URL` is not on offer. Render binds it in
+  `render.yaml` rather than injecting it, which narrows the reason without
+  removing it — the value still comes from the datastore rather than from
+  anything the spine names. Marking the other two external to keep a bare spelling would
   falsify that argument on the check's only three subjects. Neither is set
   on the reference instance, both carry their defaults (`10`, `8080`), and
   `SETUP.md` §2 names the spelling for the override. The rule: `external:
@@ -398,17 +401,20 @@ because each has a cheaper alternative that is wrong (ORC-29).
   the one direction that matters. `.github/workflows/**` is
   author-owned (systems/README.md), so the decision is recorded here
   and executed there.
-- **The reference instance's public base URL moves into the tree, as
+- **The reference instance's public base URL lives in the
+  `CATAPULT_BASE_URL` repo variable, and reaches the suite as
   `config/test.exs`'s `:live_base_url`.** It has to be dereferenced
-  by code now, and prose cannot be dereferenced; SETUP.md §2 keeps
-  every other fact and names this key in place of the value, so the
-  hostname's home moves rather than multiplies (amending ORC-40 —
-  see `docs/non-goals.md`). Test config rather than `config.exs`
-  because prod code must not be able to read the app's own public
-  URL: the first use anyone finds for such a value is building links
-  out of it, and the instance is then effectively in the tree twice
-  again. `CATAPULT_LIVE_BASE_URL` overrides it, so the suite can be
-  aimed at another deployment without a commit.
+  by code, and prose cannot be dereferenced; SETUP.md §2 keeps every
+  other fact and names the variable in place of the value, so the
+  hostname's home moves rather than multiplies (amending ORC-40 — see
+  `docs/non-goals.md`). The live-suite job passes it as
+  `CATAPULT_LIVE_BASE_URL`, and `config/test.exs` sets the key only
+  when that is present: no default, so a run without it fails at
+  `Application.fetch_env!/2` naming the key rather than against a
+  guessed host. Test config rather than `config.exs` because prod
+  code must not be able to read the app's own public URL: the first
+  use anyone finds for such a value is building links out of it, and
+  the instance is then effectively in the tree twice again.
 - **The check asserts the endpoint's contract, not agreement with
   this checkout.** 200, `ok: true`, every configured component
   ready, and a SHA that is not the `"dev"` fallback — never

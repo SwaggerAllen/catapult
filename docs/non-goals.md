@@ -72,10 +72,15 @@ is added: **no doc-lint holding two files in agreement.** A lint is
 what a second copy needs; one home needs nothing.
 
 **A fact acquiring a code consumer moves rather than multiplies**
-(ORC-29). The live suite must dereference the public hostname and
-prose cannot be dereferenced, so it lives in `config/test.exs`'s
-`:live_base_url` and §2 names the key instead of printing the URL.
-Still one home.
+(ORC-29). The live suite and three workflows must dereference the
+public hostname and prose cannot be dereferenced, so it lives in the
+`CATAPULT_BASE_URL` repo variable and §2 names the variable instead of
+printing the URL. A key in `config/test.exs` was its home first, and
+reached only the suite: each workflow carried its own literal beside
+it, which is the multiplying this rule exists to stop. Still one home —
+the fixture workflow that runs in another repo keeps a literal, because
+nothing in that repo can read this one's variables, and SETUP.md §2
+names it as the copy.
 
 ## No self-bootstrap
 scope: universal

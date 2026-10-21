@@ -129,7 +129,7 @@ A runbook, not tickets: `SETUP.md` at the repo root. Already in
 place: the Linear team/project with states and labels (shared with
 orchestration's test project), and the Cloudflare Worker metronome
 (Cloudflare side — our side is a config value and one action run).
-Remaining attended work: the App Platform deploy artifacts and app,
+Remaining attended work: the Render blueprint and service,
 `pipeline.config.json`, stub workflows + secrets + branch
 protection, and the agent-facing CLAUDE.md **copied from
 orchestration's template** — maintained there, because orchestration
@@ -137,10 +137,16 @@ runs the agents; this repo hosts the copy.
 
 Orchestration-side items (its build is not finished): the **generic
 health-endpoint deploy adapter** (off Catapult's critical path — the
-App Platform adapter covers the reference instance; still wanted for
-DOKS-target projects), remaining PLAN milestones. Settled: `preview`
-stays mandatory (optional-now-mandatory-later is the painful
-direction) — Catapult ships a placeholder export per SETUP.md. The
+Render adapter covers the reference instance; still wanted for
+DOKS-target projects), remaining PLAN milestones. Settled: **the
+`preview` block is optional and is being retired.** Design review reads
+the storybook from the running Render preview, which the platform builds
+per pull request and reports as a GitHub deployment; the pipeline reads
+it from there and announces it on the ticket. The earlier reading — that
+optional-now-mandatory-later is the painful direction, so it should stay
+mandatory — held while the pipeline was the publisher. It stopped
+holding when the publisher became the deploy platform, because a
+required block then describes machinery no project runs. The
 **boundary live-suite step** is done (shipped with the live-suite
 change).
 
@@ -326,16 +332,21 @@ documentation**, delivered by Catapult, running on DOKS.
   ported prompts meet the Polyphony seed).
 - Orchestration finish-line inventory (Phase 2) — enumerate against
   its PLAN.md when hookup starts.
-- Where Catapult's reference instance deploys — **settled: DO App
-  Platform.** DOKS was blessed for *generated projects* (v5 §2.5);
-  Catapult is not a Catapult project — its plane is IO-bound
-  coordination (agent compute lives on runners), needs no
-  clustering, and App Platform is near-zero ops with orchestration's
-  deploy adapter already built, making Phase 2's hookup the shortest
-  path. Known cost, accepted: ephemeral disk means the git clone
-  cache rebuilds per deploy — it is a cache, refetchable; it is also
-  the canary. **Revisit when the DOKS manifests skeleton ships
-  (Phase 7)**: migrating then is cheap (OTP release + env + Postgres;
-  the health contract keeps deploy detection indifferent) and buys
-  dogfooding of the deliverable — decide with data on whether the
-  App Platform pain points materialized.
+- Where Catapult's reference instance deploys — **settled: Render.**
+  DOKS was blessed for *generated projects* (v5 §2.5); Catapult is not a
+  Catapult project — its plane is IO-bound coordination (agent compute
+  lives on runners), needs no clustering, and a near-zero-ops platform
+  with an orchestration deploy adapter is the shortest path. That
+  reasoning picked App Platform first and then picked Render, on one
+  thing App Platform does not offer: **per-pull-request preview
+  environments.** The manual-test gate needs a running instance of the
+  change under review, and a preview built by different machinery from
+  production is a review of something other than what ships. One
+  deployment setup, not two.
+  Known cost, accepted: ephemeral disk means the git clone cache
+  rebuilds per deploy — it is a cache, refetchable; it is also the
+  canary. A preview costs its lifetime rather than its existence, which
+  `render.yaml`'s `expireAfterDays` is the control for. **Revisit when
+  the DOKS manifests skeleton ships (Phase 7)**: migrating then is cheap
+  (OTP release + env + Postgres; the health contract keeps deploy
+  detection indifferent) and buys dogfooding of the deliverable.

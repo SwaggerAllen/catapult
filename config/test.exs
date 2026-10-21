@@ -90,13 +90,21 @@ config :catapult, Catapult.Engine.Application,
   event_store: [adapter: Commanded.EventStore.Adapters.InMemory]
 
 # The reference instance's public base URL: the `:live` suite's one
-# target (systems/foundation.md). Test config rather than config.exs on
-# purpose — prod code must not be able to read the app's own public URL,
-# because the first use anyone finds for it is building links out of it,
-# and the instance would then be in the tree twice again. Overridable so
-# the suite can be aimed at another deployment without a commit.
-config :catapult,
-       :live_base_url,
-       System.get_env("CATAPULT_LIVE_BASE_URL", "https://catapult-ezten.ondigitalocean.app")
+# target (systems/foundation.md). Its home is the CATAPULT_BASE_URL repo
+# variable (SETUP.md §2), which the live-suite job hands over under this
+# name; locally, export it to aim the suite at any deployment. Test
+# config rather than config.exs on purpose — prod code must not be able
+# to read the app's own public URL, because the first use anyone finds
+# for it is building links out of it, and the instance would then be in
+# the tree twice again.
+#
+# No default, and the key is left unset rather than nil: a `:live` test's
+# `Application.fetch_env!(:catapult, :live_base_url)` then raises naming
+# the key, which leads here. A default would be a guess at a hostname,
+# and a sentinel is the failure the live-suite job's own comments record
+# twice — a fallback that fails as something it is not.
+if base_url = System.get_env("CATAPULT_LIVE_BASE_URL") do
+  config :catapult, :live_base_url, base_url
+end
 
 config :logger, level: :warning

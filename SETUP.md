@@ -55,16 +55,57 @@ Do the steps in order; values you create early are consumed late.
   that's easy to forget; a beat that can't reach the repo just logs
   404s hourly.
 
-## 2. The reference instance (App Platform) — LIVE; facts recorded
+## 2. The reference instance (Render) — MID-CUTOVER; facts recorded
 
-**Done, through DO's dashboard** — `/health` answers with
-`foundation: true` and main's real SHA. **The live app is the
-authority on its own configuration**: there is deliberately no
-committed app-spec file (one existed, was never read by anything,
-and drifted from reality five times in one afternoon — the
-no-hand-maintained-inventories rule applies to us too). Export the
-current spec from the dashboard if it's ever needed; that export is
-generated, therefore trustworthy.
+**`render.yaml` is the service's shape** — a Blueprint Render creates
+the services from and re-reads on every push, so it cannot drift
+without the deploy saying so. That is not the committed app-spec file
+this section used to warn about: that one was a *copy* of a live
+configuration nothing read, and it drifted from reality five times in
+one afternoon. A Blueprint is the configuration, not a description of
+it. The no-hand-maintained-inventories rule is why the difference
+matters rather than an argument against this file.
+
+**The dashboard stays the authority on everything the Blueprint does
+not set**, which is every secret: each is `sync: false`, so it is named
+in the repo and valued only there.
+
+### Before this merges — the two values nothing can derive
+
+`render.yaml` is written and the Render service does not exist yet. Two
+values cannot be known until it does:
+
+1. **`pipeline.config.json`'s `deploy.endpoint`** — needs the service id
+   (`srv-…`). Unreplaced, `pipeline setup` fails its deploy check naming
+   the endpoint, which is why that check runs at hookup rather than on
+   the first ticket to reach `Merged`.
+2. **The public URL** — the `CATAPULT_BASE_URL` repo variable (§3),
+   not a value in the tree. `catapult-failures.yml`,
+   `catapult-test-project.yml` and `pipeline-live-suite.yml` read it,
+   the last handing it to `config/test.exs` as `CATAPULT_LIVE_BASE_URL`,
+   and each refuses by name when it is unset. The one literal copy is
+   the fixture `test/catapult/generation/fixtures/catapult-dispatch.yml`:
+   it runs in the fixture repo, which cannot read this repo's
+   variables. **That copy is the quiet one**: if it and the variable
+   ever disagree, the `:live` chain test's dispatched run fails its
+   first call back to the plane, and the evidence is in the fixture
+   repo's run log rather than in the suite's failure. Change both
+   together.
+
+The order is: create the Blueprint from `render.yaml` — pointed at the
+branch carrying it, since `main` does not until this merges — set the
+four secrets below in the dashboard, set the variable, replace the two
+literals, merge, then point the Blueprint at `main`. Merging
+first leaves the sweep unable to see deploys and every `Merged` ticket
+rides to the deploy timeout — a symptom naming neither the endpoint nor
+the token.
+
+Two things to read off the dashboard on the first deploy, because both
+are claims this file cannot currently make: **the database's connection
+limit** (the budget below is measured against App Platform's 22, and the
+arithmetic has to be redone against the new one), and **whether a
+preview environment can take a smaller database plan than production** —
+a preview copies the datastore, so that plan is paid per live preview.
 
 ### Required variables this codebase invented — the manifest
 
@@ -93,15 +134,17 @@ FOUNDATION_OPERATOR_TOKEN
 ```
 
 `DATABASE_URL` is deliberately absent: it is declared `external: true`
-because App Platform injects it under a name this codebase does not
+because the platform supplies it under a name this codebase does not
 choose, and the audit excludes those — they are required, and nobody
-here sets them.
+here sets them. `render.yaml` binds it from the database rather than
+injecting it, which narrows the reason without removing it: the value is
+still the datastore's.
 
 The facts a future session needs, recorded as facts:
 
-- App `catapult`, region `sfo`; app id is in
-  `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
-  `:live_base_url` key in `config/test.exs`. **`/health` is no longer
+- Service `catapult`, region `oregon` (`render.yaml`); the service id
+  is in `pipeline.config.json`'s `deploy.endpoint`. Public URL: the
+  `CATAPULT_BASE_URL` repo variable (§3). **`/health` is no longer
   the only served path** (ORC-9, widened by ORC-35): a second path,
   `/dispatch/*`, serves the agent-dispatch host port's
   context-fetch/result-report calls (`systems/generation.md`,
@@ -114,20 +157,27 @@ The facts a future session needs, recorded as facts:
   plugs in `CatapultWeb.Endpoint`'s own pipeline, which is now this
   instance's one public listener (`Catapult.Application`) — the raw
   `Plug.Cowboy` mount ORC-9 built is retired, not duplicated, so the
-  "one public port" fact below is unchanged. The hostname's home moved
-  to `:live_base_url` when
-  the `:live` suite acquired a code consumer for it (ORC-29): prose
-  cannot be dereferenced, and a value the boundary suite reads once a
-  milestone goes red and names itself when it drifts, which is the
-  property this section could never have. Still one home, not two
-  (`docs/non-goals.md` records the amendment to ORC-40's rule).
-- **Public port is 8080, fixed by App Platform** — the prod listener
+  "one public port" fact below is unchanged. The hostname's home is a
+  repo variable because it has code consumers (ORC-29): prose cannot be
+  dereferenced, and a value the boundary suite reads once a milestone
+  goes red and names itself when it drifts, which is the property this
+  section could never have. It is a variable rather than a key in the
+  tree because the consumers are three workflows and the `:live` suite,
+  and a key in `config/test.exs` reached only the last — the three
+  workflows each carried their own literal beside it, four copies of a
+  vendor-assigned hostname in the tree and five with the fixture. One
+  home, plus the fixture's copy, which cannot read it
+  (`docs/non-goals.md` records the amendments to ORC-40's rule).
+- **Public port is 8080, set on both sides** — the prod listener
   defaults to it (foundation's `config/0` declaration;
   `FOUNDATION_HEALTH_PORT` overrides, and was `HEALTH_PORT` before
-  ORC-4 put env var names on the slug spine — it is not set on the
-  instance, so the rename changed nothing there).
+  ORC-4 put env var names on the slug spine). It was App Platform's
+  fixed public port and nothing about it was wrong, so it stayed:
+  `render.yaml` sets `PORT` and `FOUNDATION_HEALTH_PORT` to the same
+  number, because the app deliberately does not read `PORT` and leaving
+  either side implicit is how a probe and a listener come to disagree.
 - **`FOUNDATION_ENDPOINT_SECRET_KEY_BASE` — `CatapultWeb.Endpoint`'s own
-  secret, set as an App Platform environment variable, encrypted**
+  secret, set as a Render environment variable, encrypted**
   (ORC-35). Declared by foundation with no default, so a build without
   it fails at boot with the config report naming it, the same shape
   `DELIVERY_GITHUB_TOKEN` below already documents. Signs the LiveView
@@ -136,7 +186,7 @@ The facts a future session needs, recorded as facts:
   requires it regardless of whether a session is ever meaningfully
   read.
 - **`FOUNDATION_OPERATOR_TOKEN` — `Catapult.Foundation.Failures`'s own
-  bearer secret, set as an App Platform environment variable,
+  bearer secret, set as a Render environment variable,
   encrypted** (ORC-218). Declared by foundation with no default, the
   same shape `FOUNDATION_ENDPOINT_SECRET_KEY_BASE` above already has.
   A bearer secret, not a GitHub token: it authenticates `GET
@@ -152,17 +202,21 @@ The facts a future session needs, recorded as facts:
   reads it from its own environment and sends it as the bearer token, so
   the two have to agree or every run fails at the first request with a
   401.
-- Database: managed PG 16, component/cluster
-  `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
-  bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted
-  (encryption breaks substitution). The declared cast on
+- Database: Render Postgres `catapult-db` (`render.yaml`), whose
+  connection string `render.yaml` binds to the service's
+  `DATABASE_URL` with `fromDatabase`. The declared cast on
   `DATABASE_URL` strips the URL's `sslmode` query and configures TLS
   itself — `runtime.exs` did this until ORC-4, and no longer reads the
-  environment at all. `DATABASE_URL` keeps its name because App
-  Platform injects it: it is the one declaration flagged
-  `external: true`.
-- **The cluster allows 22 connections, and that is a budget four
-  consumers share**: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
+  environment at all. `DATABASE_URL` keeps its name because the value
+  is the datastore's rather than anything the slug spine names: it is
+  the one declaration flagged `external: true` (`Catapult.Foundation`'s
+  comment on it says the same).
+- **The cluster's connection limit is a budget four consumers share.**
+  The figures in this bullet and the next were worked out against App
+  Platform's cluster, which allowed 22; Render's limit for
+  `render.yaml`'s plan has not been read, and until it has, they are
+  App Platform's (`render.yaml` carries the same warning on the pool
+  sizes). The consumers: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
   event store's own Postgrex pool (`ENGINE_EVENT_STORE_POOL_SIZE`),
   and one connection each for Oban's and the event store's
   notification listeners. Each of those is per *container*, and two
@@ -171,13 +225,13 @@ The facts a future session needs, recorded as facts:
 
       peak = 2 × containers × (both pools + 2)
 
-  **The service runs one container.** That count multiplies the
-  entire budget rather than being a capacity knob turnable on its
-  own: it reached two once, which put the peak at 32 against this
-  22-connection cluster and had Postgres refusing connections while
-  the sizing below still read as correct, because a formula carrying
-  no term for it makes a second container look free. Raise it only by
-  dividing the pools by the same factor.
+  **The service runs one container.** That count multiplies the entire
+  budget rather than being a capacity knob turnable on its own: it
+  reached two once, which put the peak at 32 against App Platform's
+  22-connection cluster and had Postgres refusing connections while the
+  sizing below still read as correct, because a formula carrying no term
+  for it makes a second container look free. Raise it only by dividing
+  the pools by the same factor.
 
   The migrator's own two close before the service opens its pools —
   it runs first in the same container's start command — overlapping
@@ -203,8 +257,8 @@ The facts a future session needs, recorded as facts:
   which meant merging the fix re-broke the deploy on its own. The only
   deployment this code has is this one. Raising the plan raises the
   ceiling, which is why the ceiling lives here and not in a comment.
-- **`DELIVERY_GITHUB_TOKEN` — the plane's own GitHub token, set as an
-  App Platform environment variable, encrypted.** Declared by delivery
+- **`DELIVERY_GITHUB_TOKEN` — the plane's own GitHub token, set as a
+  Render environment variable (`sync: false` in `render.yaml`).** Declared by delivery
   with no default (`lib/catapult/delivery.ex`), so a build without it
   fails at boot with the config report naming it — which is how ORC-9's
   first deploy failed. It is **not** an Actions secret: the plane reads
@@ -269,7 +323,7 @@ The facts a future session needs, recorded as facts:
   `DELIVERY_DISPATCH_REF` (`main`) — both resolved against the *target*
   repository, not this one.
 - **`DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
-  suite own credential, set as an App Platform environment variable,
+  suite own credential, set as a Render environment variable,
   encrypted.** Declared by delivery with no default
   (`lib/catapult/delivery.ex`), the same shape `DELIVERY_GITHUB_TOKEN`
   above already has. A bearer secret, not a GitHub token: it
@@ -294,10 +348,10 @@ The facts a future session needs, recorded as facts:
   check never answers, and the deploy fails with the previous one
   still serving. **The component's Run Command stays blank** — a
   value there replaces the `CMD`, migrator included. There is no
-  job component, and none should be added: a job carries its own
+  pre-deploy job, and none should be added: a job carries its own
   copy of every required variable, and the copy is what goes stale.
-- The `DIGITALOCEAN_TOKEN` repo secret wants **read-only App
-  scope** — deploy detection is a single GET.
+- The `RENDER_API_KEY` repo secret only ever reads: deploy detection is
+  a single GET against the service's deploys.
 
 Remaining here: verify **daily backups + PITR** on the cluster
 (restore semantics: v5 §8 — after any restore the plane resyncs
@@ -314,11 +368,9 @@ from tracker/host as signals before resuming authority).
     (Contents read-only on the orchestration repo)
   - `AGENT_GITHUB_TOKEN` — **add this repo to that token's
     repository list**; without it agents fall back to `GITHUB_TOKEN`
-    and degrade loudly (CI never triggers on agent pushes, previews
-    don't build, deploys aren't recorded, bot PRs wait for manual
-    check approval)
-  - `CLOUDFLARE_API_TOKEN` (Pages-scoped) + `CLOUDFLARE_ACCOUNT_ID`
-  - `DIGITALOCEAN_TOKEN` (deploy detection against the App Platform
+    and degrade loudly (CI never triggers on agent pushes, deploys
+    aren't recorded, bot PRs wait for manual check approval)
+  - `RENDER_API_KEY` (deploy detection against the Render
     API)
   - `DELIVERY_PROVISIONING_TOKEN` — the milestone boundary's live
     suite job reads this and sends it as the provisioning surface's
@@ -330,6 +382,13 @@ from tracker/host as signals before resuming authority).
     (§2's own entry); it has to be the identical value the reference
     instance holds under the same name, or every run fails at the
     first request with a 401.
+- Actions **variable** on this repo (Settings → Secrets and variables →
+  Actions → Variables): `CATAPULT_BASE_URL`, the reference instance's
+  public URL with no trailing slash — `https://<service>.onrender.com`,
+  read off the Render dashboard. A variable rather than a secret because
+  it is public, and the run logs that print it are the evidence when a
+  request fails. Every workflow reading it refuses by name when it is
+  unset; the fixture's literal copy has to match it (§2).
 - **`SwaggerAllen/catapult-test` (the bound fixture repo — a
   *different* repository, its own Actions secrets) needs its own
   model credentials, the ones `catapult-dispatch.yml`'s `run-agent`
@@ -364,9 +423,13 @@ from tracker/host as signals before resuming authority).
   the flag set still refuses inside the binary, so the two agree
   instead of one covering for the other. Clear it before expecting
   work: a parked project looks exactly like a broken pipeline.
-- Then run **pipeline-pages-provision** once (Actions → Run
-  workflow) — creates the `catapult-storybook` Pages project named
-  in the config. Needs the Cloudflare secrets above.
+- **No preview provisioning step.** Render creates a preview
+  environment per pull request from `render.yaml`'s `previews` block and
+  reports it as a GitHub deployment on the PR; the sweep reads it from
+  there and announces it on the ticket in `Design review` (DESIGN §4).
+  Nothing here creates, publishes or cleans one up, which is the point —
+  the Cloudflare Pages project, its provisioning workflow, its cleanup
+  workflow and `bin/preview-build.sh` are all gone.
 
 ## 4. Verification (Phase 2's exit)
 

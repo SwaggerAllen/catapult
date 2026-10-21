@@ -282,16 +282,12 @@ conventions §13).
   `phoenix_storybook` are direct dependencies and `phoenix` is transitive, all three named in
   `boundary: check: apps:`; `elixirc_paths` includes `storybook` in every environment;
   `.formatter.exs`'s `inputs` glob it too, with `:phoenix`/`:phoenix_live_view` in `import_deps`
-  so `attr`, `slot` and `~H` format as markup; and `pipeline.config.json`'s
-  `preview.buildCommand` runs `bash bin/preview-build.sh`. Components authored under this
-  placement compile, format and gate like any other source in the tree.
-- **#26 The export renders stories directly and never boots the application** (ORC-113) — a
-  choice against a buildable alternative, not a rule-out.
+  so `attr`, `slot` and `~H` format as markup. Components authored under this placement
+  compile, format and gate like any other source in the tree.
 - **#27 The CSS build is Tailwind's standalone CLI, wrapped by the `:tailwind` Mix package,
   with daisyUI vendored rather than resolved through npm** (ORC-183). No Node or npm dependency
-  anywhere in the toolchain — the same discipline `bin/preview-build.sh` keeps for OTP/Elixir
-  itself (`Where things actually run`, `CLAUDE.md`), and the standalone CLI has no npm
-  resolution to lean on in the first place. daisyUI ships as two vendored plugin files,
+  anywhere in the toolchain, and the standalone CLI has no npm resolution to lean on in the
+  first place. daisyUI ships as two vendored plugin files,
   `assets/vendor/daisyui.js` and `assets/vendor/daisyui-theme.js`, referenced from
   `assets/css/app.css` by a relative `@plugin` — Tailwind v4's CSS-native plugin/import syntax,
   no `tailwind.config.js` needed — the same shape Phoenix's own 1.8 generator settled on for the
@@ -309,11 +305,13 @@ conventions §13).
   — so an application with no `only:` restriction is reachable regardless, and `:tailwind` names
   `Elixir.*` modules Boundary can restrain.
 - **#29 `--ignore Config.HTTPS` on the sobelow gate is permanent, and is not waiting on this
-  system's endpoint** (ORC-131). The endpoint (ORC-35) changes nothing: App Platform terminates
-  TLS and coerces HTTP to HTTPS at its edge with no setting to disable it, so a public request
-  never reaches this app over http and `Plug.SSL`'s redirect could never fire on one — while the
-  one path that does not come through the edge, App Platform's own health probe, would be
-  answered with a 301 and fail the deploy. HSTS, the half the edge does not supply, is set on
+  system's endpoint** (ORC-131). The endpoint (ORC-35) changes nothing: Render terminates TLS
+  and redirects HTTP to HTTPS at its edge, so a public request never reaches this app over http
+  and `Plug.SSL`'s redirect could never fire on one — while the one path that does not come
+  through the edge, the platform's own health probe, would be answered with a 301 and fail the
+  deploy. The second half is what makes this permanent rather than vendor-specific: a probe
+  reaching the container directly is how a container health check works anywhere, which is why
+  the rule moved off App Platform intact. HSTS, the half the edge does not supply, is set on
   `CatapultWeb.Router`'s `:browser` pipeline, which the check cannot see because it reads
   endpoint config. `ci.yml`'s own comment carries this, and `test/catapult_web/router_test.exs`
   asserts HSTS is absent on `/health` so moving it to the endpoint turns a test red rather than

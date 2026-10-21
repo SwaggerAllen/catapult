@@ -53,7 +53,11 @@ permissions:
   contents: read
 
 env:
-  CATAPULT_BASE_URL: https://catapult-ezten.ondigitalocean.app # SETUP.md §2 / config/test.exs's :live_base_url
+  # A repo variable, not a literal: the reference instance's URL has one
+  # home, and it is this repo's Settings (SETUP.md §2/§3). Unset reads as
+  # empty, so the step below refuses by name rather than curling a bare
+  # path.
+  CATAPULT_BASE_URL: ${{ vars.CATAPULT_BASE_URL }}
 
 jobs:
   run:
@@ -72,6 +76,10 @@ jobs:
           set -euo pipefail
           if [ -z "$TOKEN" ]; then
             echo "DELIVERY_PROVISIONING_TOKEN is not set on this repo (SETUP.md §3)." >&2
+            exit 1
+          fi
+          if [ -z "$CATAPULT_BASE_URL" ]; then
+            echo "The CATAPULT_BASE_URL repo variable is not set on this repo (SETUP.md §3)." >&2
             exit 1
           fi
           case "$ACTION" in
