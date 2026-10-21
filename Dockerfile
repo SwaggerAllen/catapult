@@ -26,7 +26,9 @@ RUN mix deps.get --only prod
 # against it (v5 §2.13) — a build without it deploys but is invisible
 # to the pipeline's deploy check. Sources, in order: the GIT_SHA build
 # arg, the .git directory if the build context carries one, else "dev"
-# (the runbook's verify step catches that).
+# — which the CMD below replaces at start when the platform names the
+# commit (RENDER_GIT_COMMIT), and the runbook's verify step catches
+# otherwise.
 ARG GIT_SHA=""
 RUN sha="$GIT_SHA"; \
     if [ -z "$sha" ] && [ -d .git ]; then sha="$(git rev-parse HEAD 2>/dev/null || true)"; fi; \
@@ -94,4 +96,12 @@ COPY --from=build /app/bundles /app/bundles
 #
 # GIT_SHA is exported at start rather than baked as ENV: /health is
 # its only reader, and the file is the build's one stamping site.
-CMD ["/bin/sh", "-c", "/app/bin/catapult eval Catapult.Release.migrate && GIT_SHA=$(cat /app/GIT_SHA) exec /app/bin/catapult start"]
+#
+# Render's Docker build context carries no .git and passes no GIT_SHA
+# arg, so the first Render deploy stamped "dev" — measured: /health
+# answered `"sha":"dev"` with every component ready. Render names the
+# commit at runtime instead, as RENDER_GIT_COMMIT (from its documented
+# default variables, not yet read off a running container). So a "dev"
+# stamp yields to it when present; a real stamp always wins, and with
+# neither the answer is "dev" exactly as before.
+CMD ["/bin/sh", "-c", "/app/bin/catapult eval Catapult.Release.migrate && sha=$(cat /app/GIT_SHA) && if [ \"$sha\" = dev ] && [ -n \"$RENDER_GIT_COMMIT\" ]; then sha=$RENDER_GIT_COMMIT; fi && GIT_SHA=$sha exec /app/bin/catapult start"]
