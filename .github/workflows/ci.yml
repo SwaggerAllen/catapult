@@ -35,7 +35,10 @@ jobs:
       PGPASSWORD: catapult
     services:
       postgres:
-        image: postgres:16
+        # The reference instance's major version, which render.yaml pins:
+        # a suite against another major says nothing about production.
+        # Every workflow below that starts a database copies this line.
+        image: postgres:18
         env:
           POSTGRES_USER: catapult
           POSTGRES_PASSWORD: catapult

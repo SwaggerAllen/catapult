@@ -97,7 +97,7 @@ jobs:
       CATAPULT_LIVE_BASE_URL: ${{ vars.CATAPULT_BASE_URL }}
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: catapult
           POSTGRES_PASSWORD: catapult

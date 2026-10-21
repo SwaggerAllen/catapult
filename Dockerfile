@@ -100,8 +100,8 @@ COPY --from=build /app/bundles /app/bundles
 # Render's Docker build context carries no .git and passes no GIT_SHA
 # arg, so the first Render deploy stamped "dev" — measured: /health
 # answered `"sha":"dev"` with every component ready. Render names the
-# commit at runtime instead, as RENDER_GIT_COMMIT (from its documented
-# default variables, not yet read off a running container). So a "dev"
+# commit at runtime instead, as RENDER_GIT_COMMIT — measured: the deploy
+# carrying this line answered with its own full commit SHA. So a "dev"
 # stamp yields to it when present; a real stamp always wins, and with
 # neither the answer is "dev" exactly as before.
 CMD ["/bin/sh", "-c", "/app/bin/catapult eval Catapult.Release.migrate && sha=$(cat /app/GIT_SHA) && if [ \"$sha\" = dev ] && [ -n \"$RENDER_GIT_COMMIT\" ]; then sha=$RENDER_GIT_COMMIT; fi && GIT_SHA=$sha exec /app/bin/catapult start"]
