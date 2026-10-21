@@ -8,10 +8,12 @@
 # still the authority on anything set outside it, which is why every
 # secret below is `sync: false` and lives only there.
 #
-# **Nothing here has run yet.** It is written from Render's Blueprint
-# reference, not from a deploy, and the first `render.yaml` sync is its
-# first test. The values marked REPLACE-AT-PROVISION are the ones that
-# cannot be known until it has.
+# Written from Render's Blueprint reference, and synced: the first
+# deploy from it answered /health with every component ready. What that
+# deploy could not show is listed where it applies — the database's
+# connection limit and plan below, and the commit stamp, which the
+# Dockerfile's CMD now takes from RENDER_GIT_COMMIT because the first
+# deploy reported "dev".
 
 previews:
   # Every PR gets a preview, which is what Design review reads now that

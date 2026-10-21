@@ -84,12 +84,13 @@ values cannot be known until it does:
    `catapult-test-project.yml` and `pipeline-live-suite.yml` read it,
    the last handing it to `config/test.exs` as `CATAPULT_LIVE_BASE_URL`,
    and each refuses by name when it is unset. The one literal copy is
-   the fixture `test/catapult/generation/fixtures/catapult-dispatch.yml`,
-   still `REPLACE-AT-PROVISION`: it runs in the fixture repo, which
-   cannot read this repo's variables. **That copy is the quiet one**:
-   unreplaced, the `:live` chain test's dispatched run fails its first
-   call back to the plane, and the evidence is in the fixture repo's
-   run log rather than in the suite's failure.
+   the fixture `test/catapult/generation/fixtures/catapult-dispatch.yml`:
+   it runs in the fixture repo, which cannot read this repo's
+   variables. **That copy is the quiet one**: if it and the variable
+   ever disagree, the `:live` chain test's dispatched run fails its
+   first call back to the plane, and the evidence is in the fixture
+   repo's run log rather than in the suite's failure. Change both
+   together.
 
 The order is: create the Blueprint from `render.yaml` — pointed at the
 branch carrying it, since `main` does not until this merges — set the
