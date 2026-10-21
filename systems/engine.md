@@ -77,7 +77,7 @@ them.
   one-off for this slot alone.
 - **#8 `input.<role>` and `input.*` resolve to `{:ok, []}`, always — never
   a real target, never `{:error, :unsupported}`** (ORC-107, closing the
-  gap `systems/generation.md`'s ORC-10 entry names). `ContextResolver.resolve/2`
+  gap `systems/generation.md` #31 names). `ContextResolver.resolve/2`
   gives `:input` its own clause rather than folding it into a shared
   `when source in [:input, :ticket]` guard with `:ticket`, because the
   two sources are unsupported for different reasons — `:ticket` stays
