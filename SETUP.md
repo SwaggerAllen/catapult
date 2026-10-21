@@ -201,17 +201,21 @@ The facts a future session needs, recorded as facts:
   reads it from its own environment and sends it as the bearer token, so
   the two have to agree or every run fails at the first request with a
   401.
-- Database: managed PG 16, component/cluster
-  `db-pgsql-sfo2-33976`; both components' `DATABASE_URL` use the
-  bindable ref `${db-pgsql-sfo2-33976.DATABASE_URL}`, unencrypted
-  (encryption breaks substitution). The declared cast on
+- Database: Render Postgres `catapult-db` (`render.yaml`), whose
+  connection string `render.yaml` binds to the service's
+  `DATABASE_URL` with `fromDatabase`. The declared cast on
   `DATABASE_URL` strips the URL's `sslmode` query and configures TLS
   itself — `runtime.exs` did this until ORC-4, and no longer reads the
-  environment at all. `DATABASE_URL` keeps its name because App
-  Platform injects it: it is the one declaration flagged
-  `external: true`.
-- **The cluster allows 22 connections, and that is a budget four
-  consumers share**: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
+  environment at all. `DATABASE_URL` keeps its name because the value
+  is the datastore's rather than anything the slug spine names: it is
+  the one declaration flagged `external: true` (`Catapult.Foundation`'s
+  comment on it says the same).
+- **The cluster's connection limit is a budget four consumers share.**
+  The figures in this bullet and the next were worked out against App
+  Platform's cluster, which allowed 22; Render's limit for
+  `render.yaml`'s plan has not been read, and until it has, they are
+  App Platform's (`render.yaml` carries the same warning on the pool
+  sizes). The consumers: `Catapult.Repo` (`FOUNDATION_POOL_SIZE`), the
   event store's own Postgrex pool (`ENGINE_EVENT_STORE_POOL_SIZE`),
   and one connection each for Oban's and the event store's
   notification listeners. Each of those is per *container*, and two
@@ -220,13 +224,13 @@ The facts a future session needs, recorded as facts:
 
       peak = 2 × containers × (both pools + 2)
 
-  **The service runs one container.** That count multiplies the
-  entire budget rather than being a capacity knob turnable on its
-  own: it reached two once, which put the peak at 32 against this
-  22-connection cluster and had Postgres refusing connections while
-  the sizing below still read as correct, because a formula carrying
-  no term for it makes a second container look free. Raise it only by
-  dividing the pools by the same factor.
+  **The service runs one container.** That count multiplies the entire
+  budget rather than being a capacity knob turnable on its own: it
+  reached two once, which put the peak at 32 against App Platform's
+  22-connection cluster and had Postgres refusing connections while the
+  sizing below still read as correct, because a formula carrying no term
+  for it makes a second container look free. Raise it only by dividing
+  the pools by the same factor.
 
   The migrator's own two close before the service opens its pools —
   it runs first in the same container's start command — overlapping
