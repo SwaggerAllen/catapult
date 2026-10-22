@@ -981,7 +981,10 @@ action dispatches `ApproveDraft` directly and reads no flow.
 The Phase 5 exit criterion has the author review and decline through
 `document-review`; a decline reaches regeneration only through `GateDeclined`
 (`DraftResolution`), which needs a flow with a gate. Bare `OpenFlow` is the
-smallest change and avoids the dispatcher manufacturing ticket work. A `:` in
+smallest change and avoids the dispatcher manufacturing ticket work. Its
+`entry_node_id` is nil because the column is a foreign key to nodes and none exists
+at provision time (`engine#ORC-269-2`); a flow id standing in for a node fails the
+projection. A `:` in
 the id would make every publish fail on an invalid ref name, silently behind
 the Oban retry. Opening for every test project, not just the proof's, keeps one
 provisioning path; scoping on `stub_mode` would tie a flow's existence to a

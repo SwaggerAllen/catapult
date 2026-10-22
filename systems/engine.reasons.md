@@ -634,3 +634,16 @@ projections, exactly the "state-driven" shape the scheduler standing decision ab
 later ticket's scheduler process has something to call rather than something to build from scratch.
 Filed here rather than silently: this is a deviation from this doc's own Initial line, argued for in
 ORC-6's hand-back.
+
+## #ORC-269-2
+
+`engine_flows.entry_node_id` was NOT NULL with a composite foreign key to
+`engine_nodes`, so a flow whose id stood in for a node (`open_inline/3`'s
+convention) raised `engine_flows_entry_node_id_fkey` the moment the projection
+applied `FlowOpened`; the inline tests only inspected emitted commands and never
+projected them. A flow covering whole tiers has no single entry node, and none
+exists at provision time, so the honest shape is no value. The readers
+(`tickets_for_project/1`'s left join, `DraftResolution`'s `get_node`) already
+tolerate a missing node. Nullability is the change that fits the follow-on
+node-set gates; creating a placeholder node would invent engine state to satisfy a
+constraint.

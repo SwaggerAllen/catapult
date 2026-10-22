@@ -1694,12 +1694,13 @@ generating as scope-runs inside one ticket.
   The flow's id is `scaffold-<project_id>` — derived, so a second open is the
   aggregate's rejection (`#16`), and free of `:` because `FeaturePublishWorker` builds
   the branch name `feature/<slug>-<flow_id>` from it and `:` is illegal in a git ref.
-  `entry_node_id` is the same value as `flow_id`, the convention an inline dispatch
-  point already keeps (`ContainerLifecycle`'s `open_inline`): it names no node, because
-  the scaffold flow walks `seed` with no single entry tier. Readers of `entry_node_id`
-  (`DraftResolution`, `DocumentReviewLive`, `Store.tickets_for_project/1`) find no node
-  and degrade to their no-node answer; a gate covering a node set replaces that read
-  rather than depending on this value.
+  `entry_node_id` is `nil` (`engine#ORC-269-2`): the scaffold flow walks `seed` with no
+  single entry tier, and no engine node exists at provision time to point at — singleton
+  tiers are virtual until their first draft, and the column is a foreign key to nodes.
+  An inline dispatch point's flow (`open_inline/3`) opens with `nil` for the same reason.
+  Readers of `entry_node_id` (`DraftResolution`, `DocumentReviewLive`,
+  `Store.tickets_for_project/1`) find no node and degrade to their no-node answer; a gate
+  covering a node set replaces that read.
 
   The `OpenFlow`'s `actor_id` is `"live-suite"` — `Provisioning`'s own `@actor_id`,
   the literal `approve_drafts/2` already carries (`#106`): opening a ticket is an

@@ -12,9 +12,21 @@ elsewhere) after `reset_and_intake/2` succeeds and **before**
 - `flow_id: "scaffold-" <> project_id` — derived (re-open is the aggregate's
   rejection) and **colon-free**: `FeaturePublishWorker` builds
   `feature/<slug>-<flow_id>` from it.
-- `entry_node_id: flow_id` — names no node; same convention as
-  `ContainerLifecycle.open_inline/3`. The follow-on ticket (gates over node sets)
-  replaces readers of it.
+- `entry_node_id: nil` (`engine#ORC-269-2`) — a flow id is not a node, and
+  `engine_flows.entry_node_id` is a NOT NULL FK to `engine_nodes`, so the projection
+  would raise. The follow-on ticket (gates over node sets) replaces readers of it.
+
+## Engine change (`system:engine`, `engine#ORC-269-2`)
+
+- New migration under `priv/repo/migrations/`: drop NOT NULL on
+  `engine_flows.entry_node_id`; keep the composite FK (null skips it).
+- Relax `@enforce_keys` on `OpenFlow` and `FlowOpened` (no version bump; the field
+  is still present). `Engine.Reducer`/`Store.insert_flow/1` pass nil through.
+- `ContainerLifecycle.open_inline/3` opens with `entry_node_id: nil` too; add a test
+  that projects (`consistency: :strong`) an inline open and the scaffold open, since
+  the existing tests only inspected commands.
+- Audit readers of `Flow.entry_node_id` for nil (`DraftResolution`, `DocumentReviewLive`,
+  `FeatureLifecycle` state, `Store.tickets_for_project/1`, the ticket argument read).
 - An open failure takes the existing failure branch (`release_test_project/1`,
   502), never leaving an `:active` project without its ticket. Put the id
   derivation beside the other derived ids (e.g. `ContainerLifecycle.Ids` or a
