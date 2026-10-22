@@ -22,7 +22,7 @@
 #
 # Provisioning is deliberately not here: it needs the fixture files
 # from a checkout, which is the live-suite job's business
-# (pipeline-live-suite.yml, its `command` input).
+# (pipeline-live-suite.yml, its `suite` input).
 #
 # Not a `pipeline: …` run-name on purpose: orchestration's sweep
 # correlates agent runs by that prefix, and this is not one.

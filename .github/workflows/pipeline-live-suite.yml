@@ -25,17 +25,28 @@ on:
           another marker comment on the same verdict would be noise.
         required: false
         type: string
-      command:
-        # The boundary suite by default. The Phase 5 proof selects
-        # `mix test --only live_todo_app_proof` instead — that tag is
-        # excluded from `--only live` on purpose, because the two would
-        # race for the one `:active` test-project slot if they ran in
-        # the same batch (test/test_helper.exs, docs/build-plan.md's
-        # Phase 5 section). One workflow, two suites, never both.
-        description: The test command to run (default is the boundary suite)
+      suite:
+        # Which ExUnit tag runs — `mix test --only <suite>`. A dropdown
+        # rather than a free command: the two suites are the only things
+        # this job exists to run, and a typed command is one typo away
+        # from reporting a verdict on something else.
+        #
+        # `live` is the boundary suite and the default, which is also
+        # what the sweep gets: it dispatches with `ticket` alone. The
+        # Phase 5 proof is `live_todo_app_proof`, excluded from `--only
+        # live` on purpose, because the two would race for the one
+        # `:active` test-project slot if they ran in the same batch
+        # (test/test_helper.exs, docs/build-plan.md's Phase 5 section).
+        # One workflow, two suites, never both. Whichever runs, the
+        # ticket's marker names the command (orchestration DESIGN §10),
+        # so a proof run fired against a boundary is visible as one.
+        description: Which suite to run (mix test --only <suite>)
         required: false
-        type: string
-        default: "mix test --only live"
+        type: choice
+        default: live
+        options:
+          - live
+          - live_todo_app_proof
 
 # Every pipeline command builds a snapshot first, and the snapshot has a
 # fixed read-set: the agent run list (actions), the open PRs
@@ -153,8 +164,8 @@ jobs:
           ticket: ${{ inputs.ticket }}
           # The project's :live-tagged tests: real network, real
           # providers, budget-capped. Once per milestone — or the Phase
-          # 5 proof, when the `command` input selects it.
-          command: ${{ inputs.command }}
+          # 5 proof, when the `suite` input selects it.
+          command: mix test --only ${{ inputs.suite }}
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
           github_token: ${{ github.token }}
           pipeline_repo_token: ${{ secrets.PIPELINE_REPO_TOKEN }}
