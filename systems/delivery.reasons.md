@@ -954,3 +954,34 @@ The citations in those entries are repointed at the rules that replaced the
 retired spec's sections, since a citation is a pointer rather than a claim a
 pass made. `docs/dsl/retired-spec-index.md` maps the retired sections for a
 reader holding an older citation out of git history.
+
+## #11
+
+Intake is a pure read-and-pin; whether a project has a ticket to review its
+pinned documents at is a separate fact. Folding the flow open into
+`intake_raft/2` would give its single legal call a second effect and a second
+way to fail after the pin had already happened.
+
+## #22
+
+A test project is the one project this plane creates without onboarding, and
+the Phase 5 proof needs a gate to review and decline at. Waiting for the
+Phase 7 onboarding path would leave the proof unrunnable, so the one caller
+that already owns a project's creation opens its scaffold ticket.
+
+## #105
+
+The approval is still not a step toward a gate: `approve_drafts/2` dispatches
+`ApproveDraft` directly and reads no flow. Only the premise changed — a test
+project now has a ticket, and this actor deliberately goes around it.
+
+## #ORC-269-1
+
+The Phase 5 exit criterion has the author review and decline through
+`document-review`; a decline reaches regeneration only through `GateDeclined`
+(`DraftResolution`), which needs a flow with a gate. Bare `OpenFlow` is the
+smallest change and avoids the dispatcher manufacturing ticket work. A `:` in
+the id would make every publish fail on an invalid ref name, silently behind
+the Oban retry. Opening for every test project, not just the proof's, keeps one
+provisioning path; scoping on `stub_mode` would tie a flow's existence to a
+per-dispatch input.

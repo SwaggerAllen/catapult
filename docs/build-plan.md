@@ -262,8 +262,10 @@ deployment involved.
 Concretely, the seed's project is a **test project** in
 `systems/delivery.md`'s ORC-216 sense: provisioned through
 `Catapult.Delivery.Provisioning`'s `POST /dispatch/test-project`
-(which binds it to `catapult-test` and intakes the todo-app raft at
-the ref that call produces), carried forward by the sweeper as gates
+(which binds it to `catapult-test`, intakes the todo-app raft at
+the ref that call produces, and opens the project's `scaffold` ticket
+so there is a gate to review at — `systems/delivery.md`
+`#ORC-269-1`), carried forward by the sweeper as gates
 pass, released through `POST
 /dispatch/test-project/:project_id/release` once the author is done
 reviewing, and later deleted like the boundary's own test project —
