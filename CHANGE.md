@@ -8,7 +8,7 @@ elsewhere) after `reset_and_intake/2` succeeds and **before**
 `Store.activate_test_project/1`:
 
 - `flow_name: "scaffold"`, `container_id: nil`, `queue: nil`, `ticket_ref: nil`,
-  `actor_id` the module's existing `@actor_id`-style literal or nil.
+  `actor_id: @actor_id` (`"live-suite"`, the literal `approve_drafts/2` uses).
 - `flow_id: "scaffold-" <> project_id` — derived (re-open is the aggregate's
   rejection) and **colon-free**: `FeaturePublishWorker` builds
   `feature/<slug>-<flow_id>` from it.
@@ -42,3 +42,23 @@ project" wording in `lib/` comments (e.g. `Provisioning` moduledoc).
 
 Multi-node gates, position-aware advancement, gating dispatch on position, `entry:`
 onboarding, `setup` tickets.
+
+## Cleanup of the publication (review finding 1, `#ORC-269-1`)
+
+Every provisioned project leaves branch `feature/<slug>-scaffold-<project_id>` and an
+open PR in `catapult-test`. Cleanup is at **reclaim**: in `provision/1`'s loop over
+`Store.list_released_test_projects()`, *before* `Store.delete_test_project/1`, read
+`Store.get_feature_publication(project_id, "scaffold-" <> project_id)` and, if present,
+call two new `HostPort` callbacks (add to the behaviour, `Actions`, and `Fake`):
+
+- `close_pr(project_id, pr_number)` — `PATCH …/pulls/{n}` `%{state: "closed"}`.
+- `delete_branch(project_id, branch)` — `DELETE …/git/refs/heads/{branch}`.
+
+2xx, 404 and 422 are success (already closed / already gone); any other error keeps
+the row for the next reclaim and never fails the current `provision/1`. `release/2`
+is unchanged. No new token scope (Pull requests and Contents already held); dev
+amends `SETUP.md` §2's bullets to name both endpoints (not design-owned). Tests: Fake
+publication closed and branch removed on reclaim; already-gone is success; a failing
+delete keeps the row.
+
+The `": scaffold artifact set"` PR title is left alone.

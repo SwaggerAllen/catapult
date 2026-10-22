@@ -971,9 +971,10 @@ that already owns a project's creation opens its scaffold ticket.
 
 ## #105
 
-The approval is still not a step toward a gate: `approve_drafts/2` dispatches
-`ApproveDraft` directly and reads no flow. Only the premise changed — a test
-project now has a ticket, and this actor deliberately goes around it.
+A test project has a ticket, and `approve_drafts/2` bypasses its gate on purpose:
+the unattended walk only advances and never judges (`#107`), so routing it through
+a gate would make the suite stand in for the reviewer the gate exists for. The
+action dispatches `ApproveDraft` directly and reads no flow.
 
 ## #ORC-269-1
 
@@ -985,3 +986,14 @@ the id would make every publish fail on an invalid ref name, silently behind
 the Oban retry. Opening for every test project, not just the proof's, keeps one
 provisioning path; scoping on `stub_mode` would tie a flow's existence to a
 per-dispatch input.
+
+Cleanup is at reclaim, not `release/2`, because `#ORC-216` puts the reset before a
+run and never after: the finished run's branch and PR are the evidence a Phase 5
+reviewer reads, and a publish retry that lands after `release/2` would re-create
+the branch it had just deleted. Treating 404/422 as done makes the reclaim
+idempotent, and keeping the row on any other failure is what stops a transient
+GitHub error from leaking the branch permanently: the delete of the row is the
+point of no return, so the cleanup precedes it. Both new calls fall under scopes
+the token already holds, so the `SETUP.md` footgun (a second act on the token) does
+not widen. The actor is `"live-suite"` because `#106` wants one visibly non-human
+literal for the unattended run; a second literal would split its writes.

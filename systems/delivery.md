@@ -1657,7 +1657,10 @@ generating as scope-runs inside one ticket.
   …/git/ref/heads/{ref}` and `POST …/git/refs` entries already there, and `PATCH
   …/git/refs/heads/{branch}` joins the same bullet — Contents alone, since the workflow
   file never touches the Git Data path and so needs nothing beyond the Contents scope
-  this token already holds.
+  this token already holds. The same bullets name
+  `PATCH …/pulls/{n}` (`close_pr/2`, under Pull requests) and `DELETE
+  …/git/refs/heads/{branch}` (`delete_branch/2`, under Contents), the reclaim of a test
+  project's publication (`#ORC-269-1`).
 - **#125 The DSL redesign reverses three rules the entries above
   restate, and this entry is where they are superseded rather than
   each site being rewritten** (`systems/core_dsl.md` #45, whose
@@ -1698,6 +1701,11 @@ generating as scope-runs inside one ticket.
   and degrade to their no-node answer; a gate covering a node set replaces that read
   rather than depending on this value.
 
+  The `OpenFlow`'s `actor_id` is `"live-suite"` — `Provisioning`'s own `@actor_id`,
+  the literal `approve_drafts/2` already carries (`#106`): opening a ticket is an
+  unattended write, and the same literal keeps everything the unattended run does
+  attributable to one visibly non-human actor.
+
   Opening failure follows `#114`: it releases the project like an intake failure, so a
   test project is never `:active` without its ticket. The opening is unconditional on
   `stub_mode` (`#109`, `generation#38`): a flow's existence is not a dispatch input.
@@ -1710,6 +1718,28 @@ generating as scope-runs inside one ticket.
   `#54`), on a repo `reset_repo/2` already owns. The worker is an Oban outbox, so a
   failed push retries without blocking generation or the sweeper, which stays
   position-blind.
+
+  **Reclaiming a test project closes its publication.** Every `provision/1` mints a
+  fresh project and so a fresh flow, whose publication leaves branch
+  `feature/<slug>-scaffold-<project_id>` and an open PR in the fixture repo;
+  `reset_repo/2` resets only the default branch, so without cleanup they accumulate
+  without bound. The cleanup happens at the next `provision/1`, in the loop that
+  already deletes released test projects, and not in `release/2`: reset happens before
+  a run, never after (`#ORC-216`, `#95`), so a finished run's branch and PR stay
+  readable until the next run replaces them, and a late publish worker cannot
+  re-create a branch behind a `release/2` that already closed it. For each released
+  project, before its row is deleted, the plane reads its publication
+  (`Store.get_feature_publication/2` at the derived flow id) and calls two new host-port
+  operations: `close_pr(project_id, pr_number)` — `PATCH …/pulls/{n}` with
+  `state: closed`, **Pull requests: Read and write**, already held — and
+  `delete_branch(project_id, branch)` — `DELETE …/git/refs/heads/{branch}`, **Contents:
+  Read and write**, already held (Git Data refs are Contents, `#122`). Neither widens
+  `DELIVERY_GITHUB_TOKEN`'s scope; `SETUP.md` §2's bullets name both endpoints, and
+  `HostPort.Fake` implements both. A PR already closed answers 2xx and a branch or PR
+  already gone answers 404 or 422; each counts as done, so cleanup is idempotent and a
+  project with no publication (no draft ever committed) has nothing to do. Any other
+  failure keeps the row, and the next `provision/1` retries it — a leaked branch is
+  retried, never forgotten, and never fails the provision that is reclaiming it.
 
 ## #123 Initial vs target
 
