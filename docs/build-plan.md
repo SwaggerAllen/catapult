@@ -283,9 +283,9 @@ days, which no bounded test spans. What starts it is the provisioning
 call above, posting the todo-app fixture and leaving the project
 active; the sweeper carries the chain forward as gates pass, the
 author reviews and declines at each one, and releases the project
-when the proof is done. What triggers the provisioning call is a
-dispatch input on `pipeline-live-suite.yml` selecting this proof
-rather than the boundary suite; that file is author-owned
+when the proof is done. What triggers the provisioning call is the
+`suite` dispatch input on `pipeline-live-suite.yml` selecting this
+proof (`live_todo_app_proof`) rather than the boundary suite; that file is author-owned
 (`systems/README.md`).
 
 Nothing the run produces reaches the tree: the run still commits —
