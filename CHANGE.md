@@ -25,8 +25,15 @@ elsewhere) after `reset_and_intake/2` succeeds and **before**
 - `ContainerLifecycle.open_inline/3` opens with `entry_node_id: nil` too; add a test
   that projects (`consistency: :strong`) an inline open and the scaffold open, since
   the existing tests only inspected commands.
-- Audit readers of `Flow.entry_node_id` for nil (`DraftResolution`, `DocumentReviewLive`,
-  `FeatureLifecycle` state, `Store.tickets_for_project/1`, the ticket argument read).
+- **Required:** `DraftResolution.dispatch_next/2` (`draft_resolution.ex:173`) must guard
+  the read: `node = pm.entry_node_id && EngineStore.get_node(pm.project_id, pm.entry_node_id)`
+  (the `ticket_live.ex:109` pattern). `Repo.get_by(id: nil)` raises `ArgumentError`; with
+  the guard `next_command/4`'s nil-node clauses return nil and nothing is dispatched.
+  The other readers are already nil-safe (`TicketLive`, `DocumentReviewLive`,
+  `engine/store.ex:563`, `tickets_for_project/1`).
+- **Acceptance test:** on a flow opened with `entry_node_id: nil`, dispatch `ApproveGate`
+  and, separately, `DeclineGate`; the `DraftResolution` process manager must survive and
+  dispatch nothing (fails with the `ArgumentError` without the guard).
 - An open failure takes the existing failure branch (`release_test_project/1`,
   502), never leaving an `:active` project without its ticket. Put the id
   derivation beside the other derived ids (e.g. `ContainerLifecycle.Ids` or a
@@ -41,8 +48,6 @@ elsewhere) after `reset_and_intake/2` succeeds and **before**
 - Boundary-suite provisioning tests must still pass unchanged. If a test counts
   `DraftCommitted`-driven Oban jobs or Fake-host branches, it will now see the
   `FeaturePublishWorker` branch/PR; adjust only such counts, and say why.
-- Check `DocumentReviewLive` / `Store.tickets_for_project/1` / `DraftResolution`
-  tolerate an `entry_node_id` naming no node (they read `get_node` → nil).
 
 ## Records amended in this pass
 

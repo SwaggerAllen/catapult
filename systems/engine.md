@@ -937,8 +937,11 @@ them.
 - **#ORC-269-2 A flow's `entry_node_id` is optional: a flow covering whole tiers names no
   entry node.** `OpenFlow`/`FlowOpened` accept `entry_node_id: nil`, and
   `engine_flows.entry_node_id` is nullable, keeping its `(project_id, id)` foreign key to
-  `engine_nodes` for the non-nil case. A flow with an entry node is unchanged. Readers of the
-  column treat nil as "no entry node" (`Store.tickets_for_project/1` already left-joins the node).
+  `engine_nodes` for the non-nil case. A flow with an entry node is unchanged. Every reader of the
+  column treats nil as "no entry node": `Store.tickets_for_project/1` (SQL left join),
+  `DocumentReviewLive`, `TicketLive`, and `DraftResolution`, whose `get_node` read is guarded
+  on a nil id because `Repo.get_by` raises on one, so a gate resolved on such a flow dispatches
+  nothing.
   An inline dispatch point's flow (`ContainerLifecycle.open_inline/3`) and a test project's
   scaffold flow (`delivery#ORC-269-1`) open with nil rather than a flow id standing in for a node.
 

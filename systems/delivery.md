@@ -1698,9 +1698,10 @@ generating as scope-runs inside one ticket.
   single entry tier, and no engine node exists at provision time to point at — singleton
   tiers are virtual until their first draft, and the column is a foreign key to nodes.
   An inline dispatch point's flow (`open_inline/3`) opens with `nil` for the same reason.
-  Readers of `entry_node_id` (`DraftResolution`, `DocumentReviewLive`,
-  `Store.tickets_for_project/1`) find no node and degrade to their no-node answer; a gate
-  covering a node set replaces that read.
+  Every reader of `entry_node_id` (`DraftResolution`, `DocumentReviewLive`, `TicketLive`,
+  `Store.tickets_for_project/1`) treats nil as no entry node: `DraftResolution` guards its
+  node read on a nil id and dispatches nothing for a gate on such a flow. A gate covering a
+  node set replaces that read.
 
   The `OpenFlow`'s `actor_id` is `"live-suite"` — `Provisioning`'s own `@actor_id`,
   the literal `approve_drafts/2` already carries (`#106`): opening a ticket is an

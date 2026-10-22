@@ -642,8 +642,9 @@ ORC-6's hand-back.
 convention) raised `engine_flows_entry_node_id_fkey` the moment the projection
 applied `FlowOpened`; the inline tests only inspected emitted commands and never
 projected them. A flow covering whole tiers has no single entry node, and none
-exists at provision time, so the honest shape is no value. The readers
-(`tickets_for_project/1`'s left join, `DraftResolution`'s `get_node`) already
-tolerate a missing node. Nullability is the change that fits the follow-on
+exists at provision time, so the honest shape is no value. `DraftResolution`
+tolerated a missing node but not a nil id (`Repo.get_by` raises `ArgumentError` on
+`id: nil`), so its read is guarded; the other readers already treat nil as absent.
+Nullability is the change that fits the follow-on
 node-set gates; creating a placeholder node would invent engine state to satisfy a
 constraint.
