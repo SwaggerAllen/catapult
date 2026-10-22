@@ -18,11 +18,10 @@ defmodule Catapult.Generation.TodoAppProofLiveTest do
   the rug out from under the other. `:live_todo_app_proof` is its own
   tag, excluded by default in `test/test_helper.exs` exactly like
   `:live` is, and re-included on its own: `mix test --only
-  live_todo_app_proof`. This is the "dispatch input on
-  `pipeline-live-suite.yml` selecting this proof rather than the
-  boundary suite" `docs/build-plan.md`'s Phase 5 section names as
-  author-owned and still to be wired — this test is the command that
-  input has to run once it exists.
+  live_todo_app_proof`. That command is what `pipeline-live-suite.yml`'s
+  `suite` dispatch input runs when set to `live_todo_app_proof` — the
+  input `docs/build-plan.md`'s Phase 5 section names as selecting this
+  proof rather than the boundary suite.
 
   **Why this test stops at provisioning, and touches neither polling
   nor release.** The proof's own middle is the author reviewing and
