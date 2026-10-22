@@ -939,7 +939,8 @@ them.
   `engine_flows.entry_node_id` is nullable, keeping its `(project_id, id)` foreign key to
   `engine_nodes` for the non-nil case. A flow with an entry node is unchanged. Every reader of the
   column treats nil as "no entry node": `Store.tickets_for_project/1` (SQL left join),
-  `DocumentReviewLive`, `TicketLive`, and `DraftResolution`, whose `get_node` read is guarded
+  `Engine.Store.blocking_edges_unresolved?/2`, `DocumentReviewLive`, `TicketLive`, and
+  `DraftResolution`, whose `get_node` read is guarded
   on a nil id because `Repo.get_by` raises on one, so a gate resolved on such a flow dispatches
   nothing.
   An inline dispatch point's flow (`ContainerLifecycle.open_inline/3`) and a test project's

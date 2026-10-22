@@ -1699,7 +1699,8 @@ generating as scope-runs inside one ticket.
   tiers are virtual until their first draft, and the column is a foreign key to nodes.
   An inline dispatch point's flow (`open_inline/3`) opens with `nil` for the same reason.
   Every reader of `entry_node_id` (`DraftResolution`, `DocumentReviewLive`, `TicketLive`,
-  `Store.tickets_for_project/1`) treats nil as no entry node: `DraftResolution` guards its
+  `Store.tickets_for_project/1`, `Engine.Store.blocking_edges_unresolved?/2`) treats nil
+  as no entry node: `DraftResolution` guards its
   node read on a nil id and dispatches nothing for a gate on such a flow. A gate covering a
   node set replaces that read.
 
