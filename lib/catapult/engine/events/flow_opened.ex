@@ -30,6 +30,9 @@ defmodule Catapult.Engine.Events.FlowOpened do
   Both are `nil` for a work item belonging to no container, which is
   what every version-1 event upcasts to
   (`Catapult.Engine.Events.FlowOpenedV1`).
+
+  `entry_node_id` is `nil` for a flow covering whole tiers
+  (`systems/engine.md` #ORC-269-2).
   """
 
   @enforce_keys [:project_id, :flow_id, :flow_name, :entry_node_id]

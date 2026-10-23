@@ -281,7 +281,9 @@ The facts a future session needs, recorded as facts:
     joined by `reset_repo/2`'s own Git Data calls (ORC-228): the same
     `GET …/git/ref/heads/{ref}` `create_branch/3` already uses,
     `GET …/git/commits/{sha}`, `POST …/git/trees`, `POST …/git/commits`
-    and `PATCH …/git/refs/heads/{branch}`. GitHub lists all four Git
+    and `PATCH …/git/refs/heads/{branch}` — plus `DELETE
+    …/git/refs/heads/{branch}` (`delete_branch/2`, the reclaim of a
+    test project's publication). GitHub lists all four Git
     Data write endpoints under Contents alone — the workflow file never
     touches this path, so nothing here needs the Workflows scope below.
   - **Workflows: Read and write** — the same `PUT …/contents/{path}`
@@ -291,7 +293,8 @@ The facts a future session needs, recorded as facts:
     Contents and Workflows and requires both; a token with Contents
     alone is refused on exactly the file the whole mechanism needs.
   - **Pull requests: Read and write** — `POST …/pulls` (`open_pr/2`),
-    `GET`/`PATCH …/pulls/{n}` (`read_diff/2`, `update_pr_body/3`),
+    `GET`/`PATCH …/pulls/{n}` (`read_diff/2`, `update_pr_body/3`,
+    `close_pr/2`),
     `GET …/pulls/{n}/comments` (`read_review_comments/3`), and the
     two issues-API calls made on a PR number —
     `GET`/`POST …/issues/{n}/comments` (`write_marker_comment/4`) and

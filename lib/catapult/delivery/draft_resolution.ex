@@ -170,7 +170,9 @@ defmodule Catapult.Delivery.DraftResolution do
 
   defp dispatch_next(%__MODULE__{} = pm, event) do
     with {:ok, workflow} <- load_workflow() do
-      node = EngineStore.get_node(pm.project_id, pm.entry_node_id)
+      # `Repo.get_by` raises on a nil id; a flow with no entry node
+      # (`systems/engine.md` #ORC-269-2) resolves to no node, so no command.
+      node = pm.entry_node_id && EngineStore.get_node(pm.project_id, pm.entry_node_id)
 
       case next_command(workflow, pm, node, event) do
         nil -> :ok

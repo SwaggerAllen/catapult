@@ -20,15 +20,25 @@ defmodule Catapult.Delivery.ProvisioningTest do
   import Plug.Test
 
   alias Catapult.Delivery
+  alias Catapult.Delivery.DraftResolution
   alias Catapult.Delivery.HostPort.Fake, as: FakeHostPort
   alias Catapult.Delivery.HostPort.Fake.Forge
+  alias Catapult.Delivery.Store, as: DeliveryStore
   alias Catapult.Dsl
+  alias Catapult.Engine.Events.GateApproved
+  alias Catapult.Engine.Events.GateDeclined
   alias Catapult.Engine.Projections.ReadyScopes
+  alias Catapult.Engine.Store, as: EngineStore
   alias Catapult.Foundation.DispatchPlug
   alias Catapult.Generation.ContextAssembly
   alias Catapult.ToySeed
+  alias Ecto.Adapters.SQL.Sandbox
 
   setup do
+    # The `FeatureLifecycle` process manager is a real, already-started
+    # process that must see the opening write through its own checkout.
+    Sandbox.mode(Catapult.Repo, {:shared, self()})
+    on_exit(fn -> Sandbox.mode(Catapult.Repo, :manual) end)
     on_exit(fn -> Application.delete_env(:catapult, :fake_dispatch_result) end)
   end
 
@@ -74,5 +84,99 @@ defmodule Catapult.Delivery.ProvisioningTest do
            ]
 
     assert body["remaining"] == 2
+  end
+
+  defp provision! do
+    conn =
+      :post
+      |> conn("/dispatch/test-project", Jason.encode!(%{files: %{}}))
+      |> put_req_header("authorization", "Bearer test-token")
+      |> DispatchPlug.call(DispatchPlug.init([]))
+
+    assert conn.status == 200
+    Jason.decode!(conn.resp_body)["project_id"]
+  end
+
+  defp release!(project_id) do
+    conn =
+      :post
+      |> conn("/dispatch/test-project/#{project_id}/release", "")
+      |> put_req_header("authorization", "Bearer test-token")
+      |> DispatchPlug.call(DispatchPlug.init([]))
+
+    assert conn.status == 200
+  end
+
+  describe "the scaffold ticket (delivery#ORC-269-1)" do
+    setup do
+      {:ok, _pid} = start_supervised({Forge, name: Forge})
+      :ok
+    end
+
+    test "provision/1 leaves one open scaffold flow at the type's first position" do
+      project_id = provision!()
+      flow_id = "scaffold-" <> project_id
+
+      assert %{id: ^flow_id, flow_name: "scaffold", entry_node_id: nil, status: :open} =
+               EngineStore.get_flow(project_id, flow_id)
+
+      assert %{entry_node_id: nil} =
+               row = DeliveryStore.get_feature_lifecycle(project_id, flow_id)
+
+      assert row.status_kind != nil
+    end
+
+    test "reclaiming a released project closes its publication and removes its branch" do
+      first = provision!()
+      Forge.seed_branch(Forge, "feature/scaffold-#{first}", %{})
+
+      assert {:ok, %{number: number}} =
+               Forge.open_pr(Forge, %{
+                 head: "feature/scaffold-#{first}",
+                 base: "main",
+                 title: "t",
+                 body: "b"
+               })
+
+      DeliveryStore.upsert_feature_publication(%{
+        id: "scaffold-" <> first,
+        project_id: first,
+        branch_name: "feature/scaffold-#{first}",
+        base_ref: "main",
+        pr_number: number
+      })
+
+      release!(first)
+      second = provision!()
+
+      assert second != first
+      assert %{state: :closed} = Forge.get_pr(Forge, number)
+      assert {:error, :no_such_branch} = Forge.branch_files(Forge, "feature/scaffold-#{first}")
+      assert DeliveryStore.get_feature_publication(first, "scaffold-" <> first) == nil
+    end
+
+    test "a gate resolved on a flow with no entry node dispatches nothing" do
+      project_id = provision!()
+
+      pm = %DraftResolution{
+        project_id: project_id,
+        flow_id: "scaffold-" <> project_id,
+        entry_node_id: nil,
+        flow_name: "scaffold"
+      }
+
+      for event <- [
+            %GateApproved{project_id: project_id, flow_id: pm.flow_id, gate: "document-review"},
+            %GateDeclined{
+              project_id: project_id,
+              flow_id: pm.flow_id,
+              gate: "document-review",
+              throwback_to: nil,
+              since_sequence: 0
+            }
+          ] do
+        assert DraftResolution.handle(pm, event) == []
+      end
+    end
   end
 end

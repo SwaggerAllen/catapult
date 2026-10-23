@@ -547,7 +547,7 @@ defmodule Catapult.Delivery.ContainerLifecycle do
             project_id: container.project_id,
             flow_id: flow_id,
             flow_name: entry.status,
-            entry_node_id: flow_id,
+            entry_node_id: nil,
             container_id: container.id,
             queue: entry.status
           }
