@@ -117,6 +117,14 @@ defmodule Catapult.Delivery.HostPort.Fake do
   @impl Catapult.Delivery.HostPort
   def open_pr(_project_id, request), do: Forge.open_pr(forge!(), request)
 
+  @doc "Closes the fake PR; one the forge never held is already gone, which is done."
+  @impl Catapult.Delivery.HostPort
+  def close_pr(_project_id, pr_number), do: Forge.close_pr(forge!(), pr_number)
+
+  @doc "Removes the fake branch; an absent one is already gone, which is done."
+  @impl Catapult.Delivery.HostPort
+  def delete_branch(_project_id, branch), do: Forge.delete_branch(forge!(), branch)
+
   @impl Catapult.Delivery.HostPort
   def merge_forward(_project_id, source_branch, target_branch) do
     Forge.merge_forward(forge!(), source_branch, target_branch)

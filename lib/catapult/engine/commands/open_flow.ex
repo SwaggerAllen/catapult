@@ -7,9 +7,12 @@ defmodule Catapult.Engine.Commands.OpenFlow do
   .FlowOpened`'s moduledoc). Both `nil` opens a work item belonging to
   no container, which is every flow opened before ORC-104 and every
   one opened outside a container since.
+
+  `entry_node_id` is `nil` for a flow covering whole tiers, which has
+  no single entry node (`systems/engine.md` #ORC-269-2).
   """
 
-  @enforce_keys [:project_id, :flow_id, :flow_name, :entry_node_id]
+  @enforce_keys [:project_id, :flow_id, :flow_name]
   defstruct [
     :project_id,
     :flow_id,

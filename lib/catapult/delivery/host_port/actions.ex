@@ -282,6 +282,38 @@ defmodule Catapult.Delivery.HostPort.Actions do
   end
 
   @doc """
+  Closes PR `pr_number` unmerged. A PR already closed answers 2xx and one
+  already gone 404 or 422; each counts as done, so a retried cleanup is
+  idempotent (`systems/delivery.md` #ORC-269-1).
+  """
+  @impl Catapult.Delivery.HostPort
+  def close_pr(project_id, pr_number) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      url = "#{repo_url(binding)}/pulls/#{pr_number}"
+
+      case Req.patch(url, auth: auth(), headers: json_headers(), json: %{state: "closed"}) do
+        {:ok, %{status: status}} when status in 200..299 or status in [404, 422] -> :ok
+        {:ok, resp} -> {:error, {:close_pr_failed, resp.status, resp.body}}
+        {:error, reason} -> {:error, {:close_pr_failed, reason}}
+      end
+    end
+  end
+
+  @doc "Deletes `branch`; an already-absent ref (404, 422) is done, as for `close_pr/2`."
+  @impl Catapult.Delivery.HostPort
+  def delete_branch(project_id, branch) do
+    with {:ok, binding} <- fetch_binding(project_id) do
+      url = "#{repo_url(binding)}/git/refs/heads/#{branch}"
+
+      case Req.delete(url, auth: auth(), headers: json_headers()) do
+        {:ok, %{status: status}} when status in 200..299 or status in [404, 422] -> :ok
+        {:ok, resp} -> {:error, {:delete_branch_failed, resp.status, resp.body}}
+        {:error, reason} -> {:error, {:delete_branch_failed, reason}}
+      end
+    end
+  end
+
+  @doc """
   Absorbs `source_branch`'s drift into `target_branch` (v5 §7.5: main
   into open feature branches, feature branches into their children).
   A 409 is a real conflict, surfaced as `{:error, {:conflict, _}}`

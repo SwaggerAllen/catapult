@@ -202,6 +202,11 @@ defmodule Catapult.Delivery.HostPort do
   @callback update_pr_body(project_id :: binary(), pr_number(), body :: String.t()) ::
               :ok | {:error, term()}
 
+  @callback close_pr(project_id :: binary(), pr_number()) :: :ok | {:error, term()}
+
+  @callback delete_branch(project_id :: binary(), branch :: String.t()) ::
+              :ok | {:error, term()}
+
   @callback read_directory(project_id :: binary(), ref :: String.t(), path :: String.t()) ::
               {:ok, files()} | {:error, term()}
 end

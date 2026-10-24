@@ -141,7 +141,8 @@ generating as scope-runs inside one ticket.
   intake's concern: a caller already holding a `project_id` and a `ref` is assumed, the
   same boundary Phase 5's own exit criterion draws (scaffolding its seed raft, whatever
   it is, needs exactly those two facts supplied, regardless of how a real project's
-  author eventually supplies them).
+  author eventually supplies them). Opening the scaffold ticket is likewise the
+  caller's: `intake_raft/2` dispatches no engine command (`#ORC-269-1`).
 - **#12 Ruled out**: reading the raft from anywhere other than the bound repo — a
   dashboard upload, a second config channel for pasted-in prose.
 - **#13 The frozen-edit notice is narrower here than v5 §1.1 describes.** §1.1's
@@ -288,8 +289,11 @@ generating as scope-runs inside one ticket.
   superseded rather than built (ORC-148, below). The `entry:` read is
   built at load time — `Catapult.Dsl.Workflow` reads it off
   `workflow.yaml` and its `entry_problems/2` validates it resolves
-  to a declaration-graph root — and an onboarding path dispatching a
-  fresh project from it is Target (Phase 7), unticketed.
+  to a declaration-graph root — and onboarding a fresh
+  project from it — minting the root container and walking `initialization`
+  into `scaffolding` — is Target (Phase 7), unticketed. A *test project* does
+  not wait for it: `Provisioning.provision/1` opens the scaffold ticket itself
+  (`#ORC-269-1`).
 - **#23 ORC-115 (design pass, corrected on two later design reviews) gives
   this system's dispatcher a derived throwback default and names,
   without yet answering, whether a container instance can be a
@@ -1497,7 +1501,7 @@ generating as scope-runs inside one ticket.
   draft_id: node.current_draft_id, actor_id: "live-suite"}` and returns
   the count it approved, so a caller can tell "something moved" from
   "nothing left to approve."
-- **#105 With no ticket and no gate, one call against a drafted node is itself the
+- **#105 Bypassing the ticket's gate, one call against a drafted node is itself the
   approval, not a step toward one** — there is no two-approve-calls-per-ticket nuance,
   and `systems/generation.md`'s entry states the assertion built on that.
 - **#106 `actor_id` is a literal, not a call to `CatapultWeb.Live .Actor.id/0`.** That
@@ -1653,7 +1657,10 @@ generating as scope-runs inside one ticket.
   …/git/ref/heads/{ref}` and `POST …/git/refs` entries already there, and `PATCH
   …/git/refs/heads/{branch}` joins the same bullet — Contents alone, since the workflow
   file never touches the Git Data path and so needs nothing beyond the Contents scope
-  this token already holds.
+  this token already holds. The same bullets name
+  `PATCH …/pulls/{n}` (`close_pr/2`, under Pull requests) and `DELETE
+  …/git/refs/heads/{branch}` (`delete_branch/2`, under Contents), the reclaim of a test
+  project's publication (`#ORC-269-1`).
 - **#125 The DSL redesign reverses three rules the entries above
   restate, and this entry is where they are superseded rather than
   each site being rewritten** (`systems/core_dsl.md` #45, whose
@@ -1674,6 +1681,68 @@ generating as scope-runs inside one ticket.
      #34, #35), the decline landing on a human-chosen earlier
      position. The rule that it must declare one was in the contract
      and never in the dispatcher, which tolerated nil throughout.
+
+- **#ORC-269-1 `provision/1` opens the project's scaffold ticket: one bare `OpenFlow`,
+  for every test project, after intake and before activation.** The flow is the
+  `scaffold` type (`bundles/default-flow/workflow.yaml`) with `container_id` and `queue`
+  both `nil`. No root `project` container is minted: `ContainerLifecycle` opens nothing
+  for a ticket-skeleton queue (`#46`), so a minted container would skip `scaffolding`
+  or make the dispatcher manufacture ticket work, which it refuses; general onboarding
+  stays `#22`'s Target. `FeatureLifecycle` places the flow at its first position
+  (`#35`).
+
+  The flow's id is `scaffold-<project_id>` — derived, so a second open is the
+  aggregate's rejection (`#16`), and free of `:` because `FeaturePublishWorker` builds
+  the branch name `feature/<slug>-<flow_id>` from it and `:` is illegal in a git ref.
+  `entry_node_id` is `nil` (`engine#ORC-269-2`): the scaffold flow walks `seed` with no
+  single entry tier, and no engine node exists at provision time to point at — singleton
+  tiers are virtual until their first draft, and the column is a foreign key to nodes.
+  An inline dispatch point's flow (`open_inline/3`) opens with `nil` for the same reason.
+  Every reader of `entry_node_id` (`DraftResolution`, `DocumentReviewLive`, `TicketLive`,
+  `Store.tickets_for_project/1`, `Engine.Store.blocking_edges_unresolved?/2`) treats nil
+  as no entry node: `DraftResolution` guards its
+  node read on a nil id and dispatches nothing for a gate on such a flow. A gate covering a
+  node set replaces that read.
+
+  The `OpenFlow`'s `actor_id` is `"live-suite"` — `Provisioning`'s own `@actor_id`,
+  the literal `approve_drafts/2` already carries (`#106`): opening a ticket is an
+  unattended write, and the same literal keeps everything the unattended run does
+  attributable to one visibly non-human actor.
+
+  Opening failure follows `#114`: it releases the project like an intake failure, so a
+  test project is never `:active` without its ticket. The opening is unconditional on
+  `stub_mode` (`#109`, `generation#38`): a flow's existence is not a dispatch input.
+
+  **Harmless to the boundary suite.** `approve_drafts/2` reads and writes no flow, and
+  `DraftResolution` reacts only to `GateApproved`/`GateDeclined`, so the open flow sits
+  at its first gate untouched. What changes is that `FeaturePublisher` now sees a flow:
+  the first `DraftCommitted` enqueues `FeaturePublishWorker`, which opens a feature
+  branch and PR in the bound fixture repo — the ordinary behavior of any ticket (`#53`,
+  `#54`), on a repo `reset_repo/2` already owns. The worker is an Oban outbox, so a
+  failed push retries without blocking generation or the sweeper, which stays
+  position-blind.
+
+  **Reclaiming a test project closes its publication.** Every `provision/1` mints a
+  fresh project and so a fresh flow, whose publication leaves branch
+  `feature/<slug>-scaffold-<project_id>` and an open PR in the fixture repo;
+  `reset_repo/2` resets only the default branch, so without cleanup they accumulate
+  without bound. The cleanup happens at the next `provision/1`, in the loop that
+  already deletes released test projects, and not in `release/2`: reset happens before
+  a run, never after (`#ORC-216`, `#95`), so a finished run's branch and PR stay
+  readable until the next run replaces them, and a late publish worker cannot
+  re-create a branch behind a `release/2` that already closed it. For each released
+  project, before its row is deleted, the plane reads its publication
+  (`Store.get_feature_publication/2` at the derived flow id) and calls two new host-port
+  operations: `close_pr(project_id, pr_number)` — `PATCH …/pulls/{n}` with
+  `state: closed`, **Pull requests: Read and write**, already held — and
+  `delete_branch(project_id, branch)` — `DELETE …/git/refs/heads/{branch}`, **Contents:
+  Read and write**, already held (Git Data refs are Contents, `#122`). Neither widens
+  `DELIVERY_GITHUB_TOKEN`'s scope; `SETUP.md` §2's bullets name both endpoints, and
+  `HostPort.Fake` implements both. A PR already closed answers 2xx and a branch or PR
+  already gone answers 404 or 422; each counts as done, so cleanup is idempotent and a
+  project with no publication (no draft ever committed) has nothing to do. Any other
+  failure keeps the row, and the next `provision/1` retries it — a leaked branch is
+  retried, never forgotten, and never fails the provision that is reclaiming it.
 
 ## #123 Initial vs target
 

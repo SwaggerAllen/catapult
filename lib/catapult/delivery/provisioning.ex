@@ -29,12 +29,16 @@ defmodule Catapult.Delivery.Provisioning do
     live-suite job's own `Catapult.ToySeed.reset_files/0` — this
     module never reads a fixture off its own disk, the same "a fixture
     is the caller's fact, not the port's" rule `HostPort.reset_repo/2`
-    already follows), and intakes the raft at the ref reset produced.
-    Only once that succeeds does `Store.activate_test_project/1`
+    already follows), and intakes the raft at the ref reset produced, then opens the
+    project's scaffold ticket — one bare `OpenFlow`, so its drafts have
+    a gate to be reviewed and declined at (`systems/delivery.md`
+    #ORC-269-1). Only once all of that succeeds does `Store.activate_test_project/1`
     promote the row to `:active` — the point it finally becomes safe
     to sweep. A project that fails to reset or intake is released
     rather than left dangling `:provisioning` — the next `provision/1`
-    call reclaims it.
+    call reclaims it. Reclaiming a released project first closes the PR
+    and deletes the branch its scaffold flow published in the fixture
+    repo; a cleanup that fails keeps the project for the next call.
   - `release/2` — releases a test project the caller is done watching.
   - `status/3` — the terminal-status read for a project's most
     recently dispatched run on a tier (`Catapult.Delivery.Store
@@ -63,6 +67,7 @@ defmodule Catapult.Delivery.Provisioning do
   alias Catapult.Delivery.Store
   alias Catapult.Dsl
   alias Catapult.Engine.Commands.ApproveDraft
+  alias Catapult.Engine.Commands.OpenFlow
   alias Catapult.Engine.Projections.ReadyScopes
   alias Catapult.Engine.Router
   alias Catapult.Engine.Store, as: EngineStore
@@ -97,7 +102,7 @@ defmodule Catapult.Delivery.Provisioning do
     with {:ok, conn} <- authenticate(conn),
          {:ok, raw, conn} <- read_body(conn),
          {:ok, files, stub_mode} <- decode_files(raw) do
-      Store.list_released_test_projects() |> Enum.each(&Store.delete_test_project/1)
+      Store.list_released_test_projects() |> Enum.each(&reclaim/1)
 
       project_id = Ecto.UUID.generate()
       Store.mint_test_project(project_id, stub_mode)
@@ -125,8 +130,54 @@ defmodule Catapult.Delivery.Provisioning do
 
     with {:ok, ref} <- adapter.reset_repo(project_id, files),
          {:ok, raft_files} <- adapter.read_directory(project_id, ref, @raft_path),
-         :ok <- Store.pin_input_documents(project_id, ref, raft_files) do
+         :ok <- Store.pin_input_documents(project_id, ref, raft_files),
+         :ok <- open_scaffold_flow(project_id) do
       {:ok, ref}
+    end
+  end
+
+  # The project's scaffold ticket (`systems/delivery.md` #ORC-269-1): one
+  # bare flow, so the drafts the sweeper produces have a gate to be
+  # reviewed and declined at. `entry_node_id` is nil — the flow covers
+  # whole tiers (`systems/engine.md` #ORC-269-2).
+  defp open_scaffold_flow(project_id) do
+    command = %OpenFlow{
+      project_id: project_id,
+      flow_id: scaffold_flow_id(project_id),
+      flow_name: "scaffold",
+      entry_node_id: nil,
+      actor_id: @actor_id
+    }
+
+    Router.dispatch(command, consistency: :strong)
+  end
+
+  # Free of `:` — `FeaturePublishWorker` builds a git branch name from it.
+  defp scaffold_flow_id(project_id), do: "scaffold-" <> project_id
+
+  # Reclaims a released test project: closes and deletes the publication
+  # its scaffold flow left in the fixture repo, then purges the rows. A
+  # cleanup that fails keeps the project's rows, so the next `provision/1`
+  # retries it; it never fails the provision that is reclaiming it.
+  defp reclaim(project_id) do
+    adapter = host_port_adapter()
+
+    with :ok <- close_publication(adapter, project_id) do
+      Store.delete_test_project(project_id)
+    end
+
+    :ok
+  end
+
+  defp close_publication(adapter, project_id) do
+    case Store.get_feature_publication(project_id, scaffold_flow_id(project_id)) do
+      nil ->
+        :ok
+
+      publication ->
+        with :ok <- adapter.close_pr(project_id, publication.pr_number) do
+          adapter.delete_branch(project_id, publication.branch_name)
+        end
     end
   end
 

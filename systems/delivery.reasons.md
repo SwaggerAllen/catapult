@@ -954,3 +954,49 @@ The citations in those entries are repointed at the rules that replaced the
 retired spec's sections, since a citation is a pointer rather than a claim a
 pass made. `docs/dsl/retired-spec-index.md` maps the retired sections for a
 reader holding an older citation out of git history.
+
+## #11
+
+Intake is a pure read-and-pin; whether a project has a ticket to review its
+pinned documents at is a separate fact. Folding the flow open into
+`intake_raft/2` would give its single legal call a second effect and a second
+way to fail after the pin had already happened.
+
+## #22
+
+A test project is the one project this plane creates without onboarding, and
+the Phase 5 proof needs a gate to review and decline at. Waiting for the
+Phase 7 onboarding path would leave the proof unrunnable, so the one caller
+that already owns a project's creation opens its scaffold ticket.
+
+## #105
+
+A test project has a ticket, and `approve_drafts/2` bypasses its gate on purpose:
+the unattended walk only advances and never judges (`#107`), so routing it through
+a gate would make the suite stand in for the reviewer the gate exists for. The
+action dispatches `ApproveDraft` directly and reads no flow.
+
+## #ORC-269-1
+
+The Phase 5 exit criterion has the author review and decline through
+`document-review`; a decline reaches regeneration only through `GateDeclined`
+(`DraftResolution`), which needs a flow with a gate. Bare `OpenFlow` is the
+smallest change and avoids the dispatcher manufacturing ticket work. Its
+`entry_node_id` is nil because the column is a foreign key to nodes and none exists
+at provision time (`engine#ORC-269-2`); a flow id standing in for a node fails the
+projection. A `:` in
+the id would make every publish fail on an invalid ref name, silently behind
+the Oban retry. Opening for every test project, not just the proof's, keeps one
+provisioning path; scoping on `stub_mode` would tie a flow's existence to a
+per-dispatch input.
+
+Cleanup is at reclaim, not `release/2`, because `#ORC-216` puts the reset before a
+run and never after: the finished run's branch and PR are the evidence a Phase 5
+reviewer reads, and a publish retry that lands after `release/2` would re-create
+the branch it had just deleted. Treating 404/422 as done makes the reclaim
+idempotent, and keeping the row on any other failure is what stops a transient
+GitHub error from leaking the branch permanently: the delete of the row is the
+point of no return, so the cleanup precedes it. Both new calls fall under scopes
+the token already holds, so the `SETUP.md` footgun (a second act on the token) does
+not widen. The actor is `"live-suite"` because `#106` wants one visibly non-human
+literal for the unattended run; a second literal would split its writes.

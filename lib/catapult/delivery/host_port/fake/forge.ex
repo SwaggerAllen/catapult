@@ -74,6 +74,14 @@ defmodule Catapult.Delivery.HostPort.Fake.Forge do
     GenServer.call(server, {:arm_merge_conflict, source, target})
   end
 
+  @doc "Marks a PR closed; an unknown or already-closed PR is `:ok`, as GitHub's 404/422/2xx are done."
+  @spec close_pr(GenServer.server(), pos_integer()) :: :ok
+  def close_pr(server, number), do: GenServer.call(server, {:close_pr, number})
+
+  @doc "Removes a branch's stored content; an absent branch is `:ok`."
+  @spec delete_branch(GenServer.server(), String.t()) :: :ok
+  def delete_branch(server, branch), do: GenServer.call(server, {:delete_branch, branch})
+
   @spec merge_forward(GenServer.server(), String.t(), String.t()) ::
           :ok | {:error, {:conflict, map()}} | {:error, :no_such_branch}
   def merge_forward(server, source, target) do
@@ -189,6 +197,20 @@ defmodule Catapult.Delivery.HostPort.Fake.Forge do
 
   def handle_call({:get_pr, number}, _from, state) do
     {:reply, Map.get(state.prs, number), state}
+  end
+
+  def handle_call({:close_pr, number}, _from, state) do
+    case Map.fetch(state.prs, number) do
+      {:ok, %{state: :open} = pr} ->
+        {:reply, :ok, %{state | prs: Map.put(state.prs, number, %{pr | state: :closed})}}
+
+      _closed_merged_or_unknown ->
+        {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:delete_branch, branch}, _from, state) do
+    {:reply, :ok, %{state | branches: Map.delete(state.branches, branch)}}
   end
 
   def handle_call({:arm_merge_conflict, source, target}, _from, state) do
