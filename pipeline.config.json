@@ -1,8 +1,8 @@
 {
   "version": 1,
   "tracker": {
-    "teamId": "94b1977f-5b88-4aae-9a0e-c4d7d00ebf85",
-    "projectId": "2bdba291-161c-4cf4-bbe2-6eab216a2985"
+    "teamId": "${LINEAR_TEAM_ID}",
+    "projectId": "${LINEAR_PROJECT_ID}"
   },
   "states": {
     "backlog": "Backlog",
@@ -65,16 +65,16 @@
     "timeout": "30m"
   },
   "state": {
-    "url": "https://pipeline-metronome.allen-strut.workers.dev",
+    "url": "${PIPELINE_STATE_URL}",
     "project": "catapult"
   },
   "staleClaimGrace": "20m",
   "actors": {
     "author": [
-      "35acc20f-05b8-4931-8cc2-3b4a5dffe6da"
+      "${LINEAR_AUTHOR_ID}"
     ],
     "controlplane": [
-      "35acc20f-05b8-4931-8cc2-3b4a5dffe6da"
+      "${LINEAR_AUTHOR_ID}"
     ]
   },
   "agents": {

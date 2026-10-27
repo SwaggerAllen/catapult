@@ -6,10 +6,13 @@ attended. Everything code-shaped already lives in the repo:
 - `Dockerfile` + `Catapult.Release.migrate` (the deploy artifacts;
   the image's own start command runs the migrator ahead of `start`,
   and the `CMD` comment carries why it is not a PRE_DEPLOY job)
-- `pipeline.config.json` — tracker ids, the state mapping (read live
-  from the team), actors (author = controlplane, the sanctioned
-  solo-workspace exception), gates, preview, agents, and the live
-  app's `deploy.endpoint`.
+- `pipeline.config.json` — tracker ids and the state store's URL as
+  `${…}` references to the Actions variables in §3 (orchestration's
+  DESIGN §5: the ids that identify the author's accounts are not
+  lines in the tree), the state mapping (read live from the team),
+  actors (author = controlplane, the sanctioned solo-workspace
+  exception, the same reference), gates, preview, agents, and the
+  live app's `deploy.endpoint`.
 - The ten pipeline stubs under `.github/workflows/` (toolchain blocks
   read `.tool-versions`; live-suite runs `mix test --only live`, which
   the foundation's `/health` smoke test now answers — ORC-29). **The
@@ -382,8 +385,18 @@ from tracker/host as signals before resuming authority).
     (§2's own entry); it has to be the identical value the reference
     instance holds under the same name, or every run fails at the
     first request with a 401.
-- Actions **variable** on this repo (Settings → Secrets and variables →
-  Actions → Variables): `CATAPULT_BASE_URL`, the reference instance's
+- Actions **variables** on this repo (Settings → Secrets and variables →
+  Actions → Variables), which only collaborators can read:
+  `PIPELINE_STATE_URL` (the metronome Worker's origin,
+  `https://pipeline-metronome.<subdomain>.workers.dev`),
+  `LINEAR_TEAM_ID` and `LINEAR_PROJECT_ID` (the ORC team and the
+  Catapult project) and `LINEAR_AUTHOR_ID` (your Linear user id, the
+  config's `author` and `controlplane` actor). `pipeline.config.json`
+  names each as a `${…}` reference, the stubs and `ci.yml` hand them
+  over in one top-level `env:` block, and a `pipeline` command run with
+  one unset fails naming it; the three read-only commands (`reasons`,
+  `schema`, `non-asks`) run without them. And
+  `CATAPULT_BASE_URL`, the reference instance's
   public URL with no trailing slash — `https://<service>.onrender.com`,
   read off the Render dashboard. A variable rather than a secret because
   it is public, and the run logs that print it are the evidence when a
