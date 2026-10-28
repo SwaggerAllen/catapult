@@ -385,8 +385,10 @@ from tracker/host as signals before resuming authority).
     (§2's own entry); it has to be the identical value the reference
     instance holds under the same name, or every run fails at the
     first request with a 401.
-- Actions **variables** on this repo (Settings → Secrets and variables →
-  Actions → Variables), which only collaborators can read:
+- Actions **secrets** the config reads (Settings → Secrets and
+  variables → Actions → Secrets; secrets rather than variables because
+  a public repository's run logs print each step's environment and
+  mask only secrets, and the stubs are kept in step with Oneiroi's):
   `PIPELINE_STATE_URL` (the metronome Worker's origin,
   `https://pipeline-metronome.<subdomain>.workers.dev`),
   `LINEAR_TEAM_ID` and `LINEAR_PROJECT_ID` (the ORC team and the
@@ -395,7 +397,9 @@ from tracker/host as signals before resuming authority).
   names each as a `${…}` reference, the stubs and `ci.yml` hand them
   over in one top-level `env:` block, and a `pipeline` command run with
   one unset fails naming it; the three read-only commands (`reasons`,
-  `schema`, `non-asks`) run without them. And
+  `schema`, `non-asks`) run without them. The stubs also pass
+  `RENDER_SERVICE_ID`, which this config does not reference and which
+  may stay unset. And the Actions **variable**
   `CATAPULT_BASE_URL`, the reference instance's
   public URL with no trailing slash — `https://<service>.onrender.com`,
   read off the Render dashboard. A variable rather than a secret because
