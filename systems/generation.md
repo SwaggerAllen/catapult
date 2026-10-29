@@ -342,7 +342,7 @@ and validation logic and must not fork it.
 - **#28 `ContextAssembly` renders an `input.<role>`/`input.*` entry from a
   second, direct read of delivery — never through the node-collection
   fold `ContextResolver.resolve/2` feeds every other walk** (ORC-107,
-  closing the gap the ORC-10 entry below names). `ContextResolver`'s
+  closing the gap `generation.md` #31 below names). `ContextResolver`'s
   `{:ok, []}` answer for `:input` (`systems/engine.md`'s entry) is
   correct for readiness and staleness and useless for rendering: an
   empty node list has nothing for `render_node/2`'s `handle_fields`/
